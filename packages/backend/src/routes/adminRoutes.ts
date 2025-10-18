@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../services/databaseService';
+import { authenticate, authorize } from '../middleware/authMiddleware';
 
 export const adminRoutes = Router();
 
-// GET /api/admin/stats - Admin statistics
-adminRoutes.get('/stats', (req: Request, res: Response) => {
+// GET /api/admin/stats - Admin statistics (admin only)
+adminRoutes.get('/stats', authenticate, authorize('admin'), (req: Request, res: Response) => {
   try {
     const stats = db.getAdminStats();
 
@@ -27,8 +28,8 @@ adminRoutes.get('/stats', (req: Request, res: Response) => {
   }
 });
 
-// POST /api/admin/cleanup - Admin cleanup
-adminRoutes.post('/cleanup', (req: Request, res: Response) => {
+// POST /api/admin/cleanup - Admin cleanup (admin only)
+adminRoutes.post('/cleanup', authenticate, authorize('admin'), (req: Request, res: Response) => {
   try {
     const { days, clearAll } = req.body;
 

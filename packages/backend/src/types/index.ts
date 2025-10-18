@@ -2,6 +2,41 @@ export type DamageType = 'water' | 'fire' | 'storm' | 'flood' | 'mold';
 
 export type AustralianState = 'NSW' | 'VIC' | 'QLD' | 'WA' | 'SA' | 'TAS' | 'ACT' | 'NT';
 
+export type UserRole = 'admin' | 'user' | 'viewer';
+
+export interface User {
+  userId: string;
+  email: string;
+  password: string; // hashed
+  name: string;
+  role: UserRole;
+  company?: string;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+export interface UserPayload {
+  userId: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
 export interface GenerateReportRequest {
   propertyAddress: string;
   damageType: DamageType;

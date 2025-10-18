@@ -2,12 +2,13 @@ import { Router, Request, Response } from 'express';
 import { ClaudeService } from '../services/claudeService';
 import { db } from '../services/databaseService';
 import { GenerateReportRequest, GeneratedReport } from '../types';
+import { authenticate, authorize } from '../middleware/authMiddleware';
 
 export const reportRoutes = Router();
 const claudeService = new ClaudeService();
 
 // POST /api/reports - Create report (generate with AI)
-reportRoutes.post('/', async (req: Request, res: Response) => {
+reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const request: GenerateReportRequest = req.body;
 
@@ -32,7 +33,7 @@ reportRoutes.post('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/reports - List reports (paginated)
-reportRoutes.get('/', (req: Request, res: Response) => {
+reportRoutes.get('/', authenticate, (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -52,7 +53,7 @@ reportRoutes.get('/', (req: Request, res: Response) => {
 });
 
 // GET /api/reports/stats - Statistics
-reportRoutes.get('/stats', (req: Request, res: Response) => {
+reportRoutes.get('/stats', authenticate, (req: Request, res: Response) => {
   try {
     const stats = db.getStats();
     res.json(stats);
@@ -65,8 +66,8 @@ reportRoutes.get('/stats', (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/reports/cleanup/old - Cleanup old reports
-reportRoutes.delete('/cleanup/old', (req: Request, res: Response) => {
+// DELETE /api/reports/cleanup/old - Cleanup old reports (admin only)
+reportRoutes.delete('/cleanup/old', authenticate, authorize('admin'), (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || 30;
     const deletedCount = db.deleteOlderThan(days);
@@ -86,7 +87,7 @@ reportRoutes.delete('/cleanup/old', (req: Request, res: Response) => {
 });
 
 // GET /api/reports/:id - Get single report
-reportRoutes.get('/:id', (req: Request, res: Response) => {
+reportRoutes.get('/:id', authenticate, (req: Request, res: Response) => {
   try {
     const report = db.findById(req.params.id);
 
@@ -105,7 +106,7 @@ reportRoutes.get('/:id', (req: Request, res: Response) => {
 });
 
 // PATCH /api/reports/:id - Update report
-reportRoutes.patch('/:id', (req: Request, res: Response) => {
+reportRoutes.patch('/:id', authenticate, (req: Request, res: Response) => {
   try {
     const updates = req.body;
 
@@ -130,7 +131,7 @@ reportRoutes.patch('/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/reports/:id - Delete report
-reportRoutes.delete('/:id', (req: Request, res: Response) => {
+reportRoutes.delete('/:id', authenticate, (req: Request, res: Response) => {
   try {
     const deleted = db.delete(req.params.id);
 
