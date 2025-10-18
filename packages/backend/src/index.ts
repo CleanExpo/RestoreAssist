@@ -7,9 +7,11 @@ import { exportRoutes } from './routes/exportRoutes';
 import { authRoutes } from './routes/authRoutes';
 import { integrationsRoutes } from './routes/integrationsRoutes';
 import { googleDriveRoutes } from './routes/googleDriveRoutes';
+import { skillsRoutes } from './routes/skillsRoutes';
 import { authService } from './services/authService';
 import { servicem8Service } from './services/integrations/servicem8Service';
 import { googleDriveService } from './services/integrations/googleDriveService';
+import { skillsService } from './services/skillsService';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config({ path: '.env.local' });
@@ -39,6 +41,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/integrations/google-drive', googleDriveRoutes);
+app.use('/api/skills', skillsRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -63,6 +66,14 @@ app.listen(PORT, async () => {
     console.log(`✅ Google Drive integration enabled`);
   } else {
     console.log(`⚠️  Google Drive integration disabled (configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)`);
+  }
+
+  // Check Skills service status
+  if (skillsService.isReady()) {
+    const stats = skillsService.getSkillStats();
+    console.log(`✅ Anthropic Skills service ready (${stats.enabledSkills}/${stats.totalSkills} skills enabled)`);
+  } else {
+    console.log(`⚠️  Anthropic Skills service initializing...`);
   }
 
   console.log(`\n📋 API Endpoints:`);
@@ -103,4 +114,10 @@ app.listen(PORT, async () => {
   console.log(`   POST   /api/integrations/google-drive/reports/:id/save  # Save report to Drive`);
   console.log(`   GET    /api/integrations/google-drive/files   # List Drive files`);
   console.log(`   GET    /api/integrations/google-drive/stats   # Drive stats`);
+  console.log(`\n🎯 Skills:`);
+  console.log(`   GET    /api/skills                     # List all skills`);
+  console.log(`   GET    /api/skills/stats               # Skill statistics (admin)`);
+  console.log(`   GET    /api/skills/:skillName          # Get skill metadata`);
+  console.log(`   PATCH  /api/skills/:skillName/enable   # Enable/disable skill (admin)`);
+  console.log(`   GET    /api/skills/health/status       # Skills health check`);
 });

@@ -1,0 +1,19 @@
+{
+  "name": "@restoreassist/sdk-examples",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Examples for the RestoreAssist SDK",
+  "type": "module",
+  "scripts": {
+    "basic": "tsx basic-usage.ts",
+    "advanced": "tsx advanced-usage.ts",
+    "simple": "node simple-node.js"
+  },
+  "dependencies": {
+    "@restoreassist/sdk": "file:.."
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

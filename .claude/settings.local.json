@@ -26,7 +26,9 @@
       "Bash(curl http://localhost:3001/api/reports/stats -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTE3NjA3NDk2NjUwMzYtaTN2ejJhZ2l6IiwiZW1haWwiOiJhZG1pbkByZXN0b3JlYXNzaXN0LmNvbSIsIm5hbWUiOiJBZG1pbiBVc2VyIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzYwNzQ5NzIxLCJleHAiOjE3NjA3NTA2MjF9.qUiB8e3WXpF5u2Ba89fG6vIPQrMSJOuGXeV2rnmr3m8\")",
       "Bash(curl http://localhost:3001/api/admin/stats -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLTE3NjA3NDk2NjUwMzYtaTN2ejJhZ2l6IiwiZW1haWwiOiJhZG1pbkByZXN0b3JlYXNzaXN0LmNvbSIsIm5hbWUiOiJBZG1pbiBVc2VyIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzYwNzQ5NzIxLCJleHAiOjE3NjA3NTA2MjF9.qUiB8e3WXpF5u2Ba89fG6vIPQrMSJOuGXeV2rnmr3m8\")",
       "Bash(curl -X POST http://localhost:3001/api/auth/login -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"demo@restoreassist.com\"\",\"\"password\"\":\"\"demo123\"\"}\")",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(tasklist)",
+      "Bash(git check-ignore:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,257 @@
+{
+  "examples": [
+    {
+      "name": "Water Damage - Residential",
+      "input": {
+        "propertyAddress": "42 Collins Street, Melbourne VIC 3000",
+        "damageType": "water",
+        "damageDescription": "Burst pipe in second-floor bathroom. Water has penetrated through ceiling into living room below. Visible water staining on ceiling plaster, dampness in walls, carpet saturated. Leak occurred approximately 6 hours ago.",
+        "state": "VIC",
+        "clientName": "Sarah Mitchell",
+        "insuranceCompany": "NRMA Insurance",
+        "claimNumber": "NRMA-2024-W-1234"
+      },
+      "expectedOutputStructure": {
+        "summary": "Professional assessment with urgency level and key findings",
+        "scopeOfWork": [
+          "Emergency water extraction and mitigation",
+          "Ceiling and wall moisture testing",
+          "Removal of damaged ceiling plaster",
+          "Structural drying with commercial dehumidifiers",
+          "Carpet removal and disposal",
+          "Wall cavity drying and monitoring",
+          "Antimicrobial treatment",
+          "Ceiling plaster replacement",
+          "Painting and finishing",
+          "Final moisture verification"
+        ],
+        "itemizedEstimate": "Detailed line items with quantities, unit costs, and totals",
+        "totalCost": "Range: $4,500 - $8,500",
+        "complianceNotes": [
+          "Work complies with NCC 2022 Volume Two",
+          "Victorian Building Regulations 2018 requirements met",
+          "AS/NZS 3500 Plumbing and Drainage compliance"
+        ]
+      }
+    },
+    {
+      "name": "Fire Damage - Commercial",
+      "input": {
+        "propertyAddress": "Level 3, 88 George Street, Sydney NSW 2000",
+        "damageType": "fire",
+        "damageDescription": "Kitchen fire in commercial office space. Fire contained to kitchen area but smoke damage throughout entire floor (approximately 450 sqm). HVAC system contaminated with smoke particulates. Electrical panels and wiring exposed to heat and smoke.",
+        "state": "NSW",
+        "clientName": "TechCorp Pty Ltd",
+        "insuranceCompany": "QBE Insurance",
+        "claimNumber": "QBE-FIRE-2024-3456"
+      },
+      "expectedOutputStructure": {
+        "summary": "Comprehensive fire damage assessment with safety considerations",
+        "scopeOfWork": [
+          "Fire safety assessment and clearance",
+          "Emergency board-up and security",
+          "Electrical system safety inspection",
+          "Soot and smoke residue cleaning",
+          "HVAC system cleaning and duct sanitization",
+          "Kitchen demolition and disposal",
+          "Wall and ceiling cleaning/sealing",
+          "Odor neutralization treatment",
+          "Affected area reconstruction",
+          "Final air quality testing"
+        ],
+        "totalCost": "Range: $45,000 - $85,000",
+        "complianceNotes": [
+          "Work complies with NCC 2022 Volume One (Class 5 building)",
+          "NSW Building Code requirements",
+          "AS 3745 Emergency procedures compliance",
+          "Electrical work requires licensed contractor (NSW Fair Trading)"
+        ]
+      }
+    },
+    {
+      "name": "Storm Damage - Residential",
+      "input": {
+        "propertyAddress": "15 Beach Road, Surfers Paradise QLD 4217",
+        "damageType": "storm",
+        "damageDescription": "Severe storm damage to roof. Multiple tiles missing, sarking torn, water entering roof cavity. Ceiling water staining in three bedrooms and hallway. Gutter damaged and downpipe disconnected.",
+        "state": "QLD",
+        "clientName": "Robert Chen",
+        "insuranceCompany": "Suncorp",
+        "claimNumber": "SUN-STM-2024-7890"
+      },
+      "expectedOutputStructure": {
+        "summary": "Storm damage assessment with immediate actions required",
+        "scopeOfWork": [
+          "Emergency roof tarping/temporary protection",
+          "Roof structural assessment",
+          "Roof tile replacement",
+          "Sarking repair/replacement",
+          "Gutter and downpipe repairs",
+          "Roof cavity drying and ventilation",
+          "Ceiling inspection and moisture testing",
+          "Damaged ceiling plaster replacement",
+          "Interior painting",
+          "Final weatherproofing inspection"
+        ],
+        "totalCost": "Range: $12,000 - $22,000",
+        "complianceNotes": [
+          "Work complies with NCC 2022 Volume Two",
+          "Queensland Building and Construction Commission requirements",
+          "Roofing work requires licensed contractor (QBCC)",
+          "Cyclone-rated repairs per QLD regulations"
+        ]
+      }
+    },
+    {
+      "name": "Flood Damage - Residential",
+      "input": {
+        "propertyAddress": "78 River Drive, Perth WA 6000",
+        "damageType": "flood",
+        "damageDescription": "Ground floor flooded to 40cm depth following heavy rainfall and river overflow. Contaminated floodwater throughout ground floor (100 sqm). All flooring, lower wall sections, insulation affected. Electrical outlets submerged.",
+        "state": "WA",
+        "clientName": "Lisa Anderson",
+        "insuranceCompany": "Allianz",
+        "claimNumber": "ALZ-FLD-2024-5678"
+      },
+      "expectedOutputStructure": {
+        "summary": "Category 3 water damage requiring complete remediation",
+        "scopeOfWork": [
+          "Safety assessment and power isolation",
+          "Category 3 water extraction",
+          "Contaminated material removal (flooring, baseboards, insulation)",
+          "Lower wall section removal (minimum 50cm above water line)",
+          "Structural cleaning and sanitization",
+          "Commercial dehumidification",
+          "Antimicrobial treatment (entire affected area)",
+          "Wall and floor reconstruction",
+          "Electrical system inspection and repair",
+          "Post-remediation air quality testing"
+        ],
+        "totalCost": "Range: $35,000 - $65,000",
+        "complianceNotes": [
+          "Work complies with NCC 2022 Volume Two",
+          "WA Building Services Board requirements",
+          "IICRC S500 Water Damage Restoration standards",
+          "Category 3 water protocols mandatory",
+          "Licensed electrical contractor required"
+        ]
+      }
+    },
+    {
+      "name": "Mold Damage - Commercial",
+      "input": {
+        "propertyAddress": "Unit 12, 350 Kent Street, Adelaide SA 5000",
+        "damageType": "mold",
+        "damageDescription": "Extensive mold growth discovered behind wall paneling in commercial office. Approximately 25 sqm affected area. Mold present on drywall, insulation, and structural timber. Musty odor throughout office space (120 sqm total). No visible water source currently active.",
+        "state": "SA",
+        "clientName": "Adelaide Business Centre",
+        "insuranceCompany": "CGU Insurance",
+        "claimNumber": "CGU-MLD-2024-2468"
+      },
+      "expectedOutputStructure": {
+        "summary": "Mold remediation requiring containment and specialized protocols",
+        "scopeOfWork": [
+          "Initial air quality testing (mold spore count)",
+          "Moisture source investigation and repair",
+          "Containment barrier installation",
+          "HEPA filtration and negative air pressure setup",
+          "Affected material removal and bagging",
+          "HEPA vacuuming of all surfaces",
+          "Antimicrobial treatment of structural elements",
+          "Air scrubbing and decontamination",
+          "Reconstruction of removed materials",
+          "Post-remediation verification testing",
+          "Clearance certificate"
+        ],
+        "totalCost": "Range: $15,000 - $28,000",
+        "complianceNotes": [
+          "Work complies with NCC 2022 Volume One (Class 5 building)",
+          "SA Building Rules compliance",
+          "AS/NZS 3666.2 Air handling systems",
+          "IICRC S520 Mold Remediation standards",
+          "Licensed mold remediation specialist required",
+          "Occupational Health and Safety requirements"
+        ]
+      }
+    }
+  ],
+  "costGuidelines": {
+    "water": {
+      "minor": "2000-5000",
+      "moderate": "5000-15000",
+      "major": "15000-50000",
+      "severe": "50000+"
+    },
+    "fire": {
+      "minor": "10000-25000",
+      "moderate": "25000-75000",
+      "major": "75000-150000",
+      "severe": "150000+"
+    },
+    "storm": {
+      "minor": "3000-8000",
+      "moderate": "8000-25000",
+      "major": "25000-60000",
+      "severe": "60000+"
+    },
+    "flood": {
+      "minor": "15000-30000",
+      "moderate": "30000-80000",
+      "major": "80000-200000",
+      "severe": "200000+"
+    },
+    "mold": {
+      "minor": "3000-10000",
+      "moderate": "10000-30000",
+      "major": "30000-75000",
+      "severe": "75000+"
+    }
+  },
+  "requiredCompliance": {
+    "NSW": [
+      "NCC 2022",
+      "Environmental Planning and Assessment Act 1979",
+      "NSW Building Code",
+      "NSW Fair Trading requirements"
+    ],
+    "VIC": [
+      "NCC 2022",
+      "Building Act 1993",
+      "Building Regulations 2018",
+      "Victorian Building Authority"
+    ],
+    "QLD": [
+      "NCC 2022",
+      "Queensland Building and Construction Commission Act",
+      "Building Act 1975",
+      "QBCC licensing requirements"
+    ],
+    "WA": [
+      "NCC 2022",
+      "Building Act 2011",
+      "Building Regulations 2012",
+      "Building Services Board"
+    ],
+    "SA": [
+      "NCC 2022",
+      "Development Act 1993",
+      "SA Building Rules",
+      "Building Work Contractors Act 1995"
+    ],
+    "TAS": [
+      "NCC 2022",
+      "Building Act 2016",
+      "Building Regulations 2016"
+    ],
+    "ACT": [
+      "NCC 2022",
+      "Building Act 2004",
+      "Building (General) Regulation 2008"
+    ],
+    "NT": [
+      "NCC 2022",
+      "Building Act 1993",
+      "Building Regulations"
+    ]
+  }
+}

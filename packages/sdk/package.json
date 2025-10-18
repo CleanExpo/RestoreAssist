@@ -1,0 +1,65 @@
+{
+  "name": "@restoreassist/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript/JavaScript SDK for the RestoreAssist API - AI-powered disaster restoration damage assessment platform",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "restoreassist",
+    "damage-assessment",
+    "restoration",
+    "insurance",
+    "ai",
+    "claude",
+    "sdk",
+    "typescript",
+    "australia"
+  ],
+  "author": "RestoreAssist Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CleanExpo/RestoreAssist.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/CleanExpo/RestoreAssist/issues"
+  },
+  "homepage": "https://github.com/CleanExpo/RestoreAssist#readme",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

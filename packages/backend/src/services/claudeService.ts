@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { GenerateReportRequest, GeneratedReport, ReportItem } from '../types';
+import { skillsService } from './skillsService';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -20,7 +21,11 @@ export class ClaudeService {
   async generateReport(request: GenerateReportRequest): Promise<GeneratedReport> {
     const prompt = this.buildPrompt(request);
 
-    const message = await client.messages.create({
+    // Get the documentation generator skill ID
+    const skillId = skillsService.getDocumentationGeneratorSkillId();
+
+    // Build message configuration
+    const messageConfig: any = {
       model: 'claude-opus-4-20250514',
       max_tokens: 8000,
       temperature: 0.3,
@@ -28,7 +33,24 @@ export class ClaudeService {
         role: 'user',
         content: prompt
       }]
-    });
+    };
+
+    // Add skill attachment if available
+    if (skillId) {
+      console.log(`🎯 Using Documentation Generator Skill: ${skillId}`);
+      messageConfig.skill_attachment = {
+        type: 'skill',
+        skill_id: skillId
+      };
+      messageConfig.betas = ['skills-2025-10-02'];
+
+      // Increment usage counter
+      skillsService.incrementUsage('documentation-generator');
+    } else {
+      console.warn('⚠️  Documentation Generator Skill not available, using standard prompt');
+    }
+
+    const message = await client.messages.create(messageConfig);
 
     const responseText = message.content[0].type === 'text'
       ? message.content[0].text

@@ -5,7 +5,7 @@ import { GeneratedReport, ReportItem } from '../types';
 function rowToReport(row: any): GeneratedReport {
   return {
     reportId: row.report_id,
-    timestamp: row.created_at,
+    timestamp: row.timestamp || row.created_at, // Use timestamp field or fallback to created_at
     propertyAddress: row.property_address,
     damageType: row.damage_type,
     state: row.state,
@@ -29,12 +29,12 @@ function rowToReport(row: any): GeneratedReport {
 export async function createReport(report: GeneratedReport): Promise<GeneratedReport> {
   const query = `
     INSERT INTO reports (
-      report_id, created_at, property_address, damage_type, damage_description,
-      state, summary, scope_of_work, itemized_estimate, total_cost,
+      report_id, timestamp, property_address, damage_type, damage_description,
+      state, summary, recommendations, scope_of_work, itemized_estimate, total_cost,
       compliance_notes, authority_to_proceed, client_name, insurance_company,
-      claim_number, generated_by, model
+      claim_number, generated_by, model, severity, urgent, timeline
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
     )
     RETURNING *
   `;
@@ -44,9 +44,10 @@ export async function createReport(report: GeneratedReport): Promise<GeneratedRe
     report.timestamp,
     report.propertyAddress,
     report.damageType,
-    '', // damage_description (not in GeneratedReport, but required in DB)
+    '', // damage_description (will be derived from report)
     report.state,
     report.summary,
+    JSON.stringify([]), // recommendations (empty array for now)
     JSON.stringify(report.scopeOfWork),
     JSON.stringify(report.itemizedEstimate),
     report.totalCost,
@@ -57,6 +58,9 @@ export async function createReport(report: GeneratedReport): Promise<GeneratedRe
     report.metadata.claimNumber || null,
     report.metadata.generatedBy,
     report.metadata.model,
+    'Medium', // severity (default)
+    false, // urgent (default)
+    '2-4 weeks', // timeline (default)
   ];
 
   const row = await db.one(query, values);
