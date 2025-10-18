@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-  Droplets,
+  Droplet,
   Flame,
-  Cloud,
-  Wind,
-  Bug,
+  CloudRain,
+  Waves,
+  Biohazard,
   Shield,
   FileText,
   DollarSign,
@@ -19,6 +19,13 @@ import {
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { ThemeToggle } from '../components/ui/theme-toggle';
+import { Logo, LogoCompact } from '../components/ui/logo';
+import { WaterDamageIcon } from '../components/icons/WaterDamageIcon';
+import { FireDamageIcon } from '../components/icons/FireDamageIcon';
+import { StormDamageIcon } from '../components/icons/StormDamageIcon';
+import { FloodDamageIcon } from '../components/icons/FloodDamageIcon';
+import { MouldDamageIcon } from '../components/icons/MouldDamageIcon';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -30,14 +37,12 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* Navigation */}
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">RestoreAssist</span>
-          </div>
+          <LogoCompact />
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm">Features</Button>
             <Button variant="ghost" size="sm">Pricing</Button>
             <Button variant="ghost" size="sm">About</Button>
+            <ThemeToggle />
             <Button onClick={onGetStarted} size="sm">
               Get Started <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -149,26 +154,75 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
-          {[
-            { icon: Droplets, name: 'Water Damage', color: 'text-blue-500', cost: '$2K - $15K+' },
-            { icon: Flame, name: 'Fire Damage', color: 'text-orange-500', cost: '$10K - $100K+' },
-            { icon: Cloud, name: 'Storm Damage', color: 'text-purple-500', cost: '$5K - $50K+' },
-            { icon: Wind, name: 'Flood Damage', color: 'text-cyan-500', cost: '$15K - $150K+' },
-            { icon: Bug, name: 'Mould Damage', color: 'text-green-500', cost: '$3K - $30K+' },
-          ].map((damage) => (
-            <Card key={damage.name} className="text-center hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className={`mx-auto p-3 rounded-full bg-secondary w-fit ${damage.color}`}>
-                  <damage.icon className="h-8 w-8" />
-                </div>
-                <CardTitle className="text-lg">{damage.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Typical Range</p>
-                <p className="text-lg font-bold">{damage.cost}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {/* Water Damage - Custom Icon */}
+          <Card className="text-center hover:shadow-lg transition-shadow border-2">
+            <CardHeader>
+              <div className="mx-auto flex justify-center">
+                <WaterDamageIcon size={80} />
+              </div>
+              <CardTitle className="text-lg mt-3">Water Damage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Typical Range</p>
+              <p className="text-lg font-bold">$2K - $15K+</p>
+            </CardContent>
+          </Card>
+
+          {/* Fire Damage - Custom Icon */}
+          <Card className="text-center hover:shadow-lg transition-shadow border-2">
+            <CardHeader>
+              <div className="mx-auto flex justify-center">
+                <FireDamageIcon size={80} />
+              </div>
+              <CardTitle className="text-lg mt-3">Fire Damage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Typical Range</p>
+              <p className="text-lg font-bold">$10K - $100K+</p>
+            </CardContent>
+          </Card>
+
+          {/* Storm Damage - Custom Icon */}
+          <Card className="text-center hover:shadow-lg transition-shadow border-2">
+            <CardHeader>
+              <div className="mx-auto flex justify-center">
+                <StormDamageIcon size={80} />
+              </div>
+              <CardTitle className="text-lg mt-3">Storm Damage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Typical Range</p>
+              <p className="text-lg font-bold">$5K - $50K+</p>
+            </CardContent>
+          </Card>
+
+          {/* Flood Damage - Custom Icon */}
+          <Card className="text-center hover:shadow-lg transition-shadow border-2">
+            <CardHeader>
+              <div className="mx-auto flex justify-center">
+                <FloodDamageIcon size={80} />
+              </div>
+              <CardTitle className="text-lg mt-3">Flood Damage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Typical Range</p>
+              <p className="text-lg font-bold">$15K - $150K+</p>
+            </CardContent>
+          </Card>
+
+          {/* Mould Damage - Custom Icon */}
+          <Card className="text-center hover:shadow-lg transition-shadow border-2">
+            <CardHeader>
+              <div className="mx-auto flex justify-center">
+                <MouldDamageIcon size={80} />
+              </div>
+              <CardTitle className="text-lg mt-3">Mould Damage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Typical Range</p>
+              <p className="text-lg font-bold">$3K - $30K+</p>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
@@ -342,11 +396,10 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="container py-12">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Shield className="h-6 w-6 text-primary" />
-                <span className="text-xl font-bold">RestoreAssist</span>
+              <div className="mb-4">
+                <Logo size={60} variant="icon" />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mt-4">
                 AI-powered damage assessment platform for Australian restoration professionals.
               </p>
             </div>
@@ -361,7 +414,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
             <div>
               <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <ul className="space-y-2 text-muted-foreground">
                 <li><a href="#" className="hover:text-foreground">About</a></li>
                 <li><a href="#" className="hover:text-foreground">Blog</a></li>
                 <li><a href="#" className="hover:text-foreground">Careers</a></li>

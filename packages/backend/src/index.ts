@@ -1,6 +1,8 @@
+// Load environment variables first
+import './config/env';
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { reportRoutes } from './routes/reportRoutes';
 import { adminRoutes } from './routes/adminRoutes';
 import { exportRoutes } from './routes/exportRoutes';
@@ -13,9 +15,6 @@ import { servicem8Service } from './services/integrations/servicem8Service';
 import { googleDriveService } from './services/integrations/googleDriveService';
 import { skillsService } from './services/skillsService';
 import { errorHandler } from './middleware/errorHandler';
-
-dotenv.config({ path: '.env.local' });
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;

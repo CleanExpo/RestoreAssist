@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Shield, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { ThemeToggle } from '../components/ui/theme-toggle';
+import { LogoCompact } from '../components/ui/logo';
 import { ApiKeyManager } from '../components/ApiKeyManager';
 import { ReportForm } from '../components/ReportForm';
 import { GeneratedReports } from '../components/GeneratedReports';
@@ -21,18 +24,17 @@ export function Dashboard({ onBackToHome }: DashboardProps) {
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <Button variant="ghost" size="sm" onClick={onBackToHome}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
+              Back
             </Button>
-            <div className="flex items-center gap-2">
-              <Shield className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold">RestoreAssist</span>
-            </div>
+            <div className="h-8 w-px bg-border" />
+            <LogoCompact />
           </div>
-          <div className="text-sm text-muted-foreground">
-            Dashboard
+          <div className="flex items-center gap-4">
+            <Badge variant="secondary" className="text-xs">Dashboard</Badge>
+            <ThemeToggle />
           </div>
         </div>
       </header>

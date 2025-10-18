@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { saveReport } from '../services/api';
+import { generateReport } from '../services/api';
 import { ClaudeService } from '../services/claudeService';
 import { getStoredApiKey } from './ApiKeyManager';
 import { DamageType, AustralianState, GenerateReportRequest } from '../types';
@@ -34,12 +34,8 @@ export function ReportForm({ onReportGenerated }: Props) {
         throw new Error('Please set your Anthropic API key first');
       }
 
-      // Generate report using Claude API directly
-      const claudeService = new ClaudeService(apiKey);
-      const report = await claudeService.generateReport(formData);
-
-      // Save report to localStorage
-      saveReport(report);
+      // Generate report using backend API
+      const report = await generateReport(formData);
       onReportGenerated();
 
       // Reset form
