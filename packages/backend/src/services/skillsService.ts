@@ -67,8 +67,8 @@ export class SkillsService {
       console.log(`✅ Skills initialized: ${this.skills.size} skill(s) loaded`);
       this.listSkills();
     } catch (error) {
-      console.error('Error initializing skills:', error);
-      throw error;
+      console.warn('⚠️  Skills initialization failed - continuing without skills:', error.message);
+      // Don't throw - allow server to continue without skills
     }
   }
 
@@ -130,8 +130,8 @@ export class SkillsService {
         usageCount: 0
       });
     } catch (error) {
-      console.error('Failed to create Documentation Generator skill:', error);
-      throw error;
+      console.warn('⚠️  Failed to create Documentation Generator skill:', error.message);
+      // Don't throw - allow server to continue without skills
     }
   }
 

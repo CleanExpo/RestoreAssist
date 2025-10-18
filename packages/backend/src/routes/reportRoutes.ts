@@ -20,7 +20,7 @@ reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
     }
 
     const report = await claudeService.generateReport(request);
-    db.create(report);
+    await db.createAsync(report);
 
     res.status(201).json(report);
   } catch (error) {
@@ -33,14 +33,14 @@ reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
 });
 
 // GET /api/reports - List reports (paginated)
-reportRoutes.get('/', authenticate, (req: Request, res: Response) => {
+reportRoutes.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const sortBy = (req.query.sortBy as 'timestamp' | 'totalCost') || 'timestamp';
     const order = (req.query.order as 'asc' | 'desc') || 'desc';
 
-    const result = db.findAll({ page, limit, sortBy, order });
+    const result = await db.findAllAsync({ page, limit, sortBy, order });
 
     res.json(result);
   } catch (error) {
@@ -53,9 +53,9 @@ reportRoutes.get('/', authenticate, (req: Request, res: Response) => {
 });
 
 // GET /api/reports/stats - Statistics
-reportRoutes.get('/stats', authenticate, (req: Request, res: Response) => {
+reportRoutes.get('/stats', authenticate, async (req: Request, res: Response) => {
   try {
-    const stats = db.getStats();
+    const stats = await db.getStatsAsync();
     res.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);
@@ -67,10 +67,10 @@ reportRoutes.get('/stats', authenticate, (req: Request, res: Response) => {
 });
 
 // DELETE /api/reports/cleanup/old - Cleanup old reports (admin only)
-reportRoutes.delete('/cleanup/old', authenticate, authorize('admin'), (req: Request, res: Response) => {
+reportRoutes.delete('/cleanup/old', authenticate, authorize('admin'), async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || 30;
-    const deletedCount = db.deleteOlderThan(days);
+    const deletedCount = await db.deleteOlderThanAsync(days);
 
     res.json({
       message: `Deleted ${deletedCount} reports older than ${days} days`,
@@ -87,9 +87,9 @@ reportRoutes.delete('/cleanup/old', authenticate, authorize('admin'), (req: Requ
 });
 
 // GET /api/reports/:id - Get single report
-reportRoutes.get('/:id', authenticate, (req: Request, res: Response) => {
+reportRoutes.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const report = db.findById(req.params.id);
+    const report = await db.findByIdAsync(req.params.id);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -106,7 +106,7 @@ reportRoutes.get('/:id', authenticate, (req: Request, res: Response) => {
 });
 
 // PATCH /api/reports/:id - Update report
-reportRoutes.patch('/:id', authenticate, (req: Request, res: Response) => {
+reportRoutes.patch('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const updates = req.body;
 
@@ -114,7 +114,7 @@ reportRoutes.patch('/:id', authenticate, (req: Request, res: Response) => {
     delete updates.reportId;
     delete updates.timestamp;
 
-    const updated = db.update(req.params.id, updates);
+    const updated = await db.updateAsync(req.params.id, updates);
 
     if (!updated) {
       return res.status(404).json({ error: 'Report not found' });
@@ -131,9 +131,9 @@ reportRoutes.patch('/:id', authenticate, (req: Request, res: Response) => {
 });
 
 // DELETE /api/reports/:id - Delete report
-reportRoutes.delete('/:id', authenticate, (req: Request, res: Response) => {
+reportRoutes.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const deleted = db.delete(req.params.id);
+    const deleted = await db.deleteAsync(req.params.id);
 
     if (!deleted) {
       return res.status(404).json({ error: 'Report not found' });

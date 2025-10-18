@@ -5,9 +5,9 @@ import { authenticate, authorize } from '../middleware/authMiddleware';
 export const adminRoutes = Router();
 
 // GET /api/admin/stats - Admin statistics (admin only)
-adminRoutes.get('/stats', authenticate, authorize('admin'), (req: Request, res: Response) => {
+adminRoutes.get('/stats', authenticate, authorize('admin'), async (req: Request, res: Response) => {
   try {
-    const stats = db.getAdminStats();
+    const stats = await db.getAdminStatsAsync();
 
     res.json({
       ...stats,
@@ -29,13 +29,13 @@ adminRoutes.get('/stats', authenticate, authorize('admin'), (req: Request, res: 
 });
 
 // POST /api/admin/cleanup - Admin cleanup (admin only)
-adminRoutes.post('/cleanup', authenticate, authorize('admin'), (req: Request, res: Response) => {
+adminRoutes.post('/cleanup', authenticate, authorize('admin'), async (req: Request, res: Response) => {
   try {
     const { days, clearAll } = req.body;
 
     if (clearAll === true) {
-      const count = db.count();
-      db.clear();
+      const count = await db.countAsync();
+      await db.clearAsync();
       return res.json({
         message: 'All reports cleared',
         deletedCount: count
@@ -49,7 +49,7 @@ adminRoutes.post('/cleanup', authenticate, authorize('admin'), (req: Request, re
       });
     }
 
-    const deletedCount = db.deleteOlderThan(days);
+    const deletedCount = await db.deleteOlderThanAsync(days);
 
     res.json({
       message: `Deleted ${deletedCount} reports older than ${days} days`,
@@ -66,10 +66,10 @@ adminRoutes.post('/cleanup', authenticate, authorize('admin'), (req: Request, re
 });
 
 // GET /api/admin/health - Health check with details
-adminRoutes.get('/health', (req: Request, res: Response) => {
+adminRoutes.get('/health', async (req: Request, res: Response) => {
   try {
-    const adminStats = db.getAdminStats();
-    const reportStats = db.getStats();
+    const adminStats = await db.getAdminStatsAsync();
+    const reportStats = await db.getStatsAsync();
 
     const health = {
       status: 'healthy',

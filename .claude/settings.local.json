@@ -28,7 +28,13 @@
       "Bash(curl -X POST http://localhost:3001/api/auth/login -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"demo@restoreassist.com\"\",\"\"password\"\":\"\"demo123\"\"}\")",
       "Bash(curl:*)",
       "Bash(tasklist)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(dir:*)",
+      "Bash(awk:*)",
+      "Bash(chmod:*)",
+      "Bash(bash:*)",
+      "Bash(xargs:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
