@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir)",
+      "Read(//c/Users/Disaster Recovery 4/**)",
+      "Bash(npm install)",
+      "Bash(copy .env.example .env.local)",
+      "Bash(npm run dev)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(npm install:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)",
+      "Bash(curl http://localhost:3001/api/health)",
+      "Bash(curl http://localhost:3001/api/admin/health)",
+      "Bash(curl http://localhost:3001/api/admin/stats)",
+      "Bash(curl http://localhost:3001/api/reports/stats)",
+      "Bash(curl \"http://localhost:3001/api/reports?page=1&limit=10&sortBy=timestamp&order=desc\")",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "restore-assist",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered disaster restoration documentation platform",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/backend & npm run dev --workspace=packages/frontend",
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "keywords": ["disaster-recovery", "restoration", "AI", "Claude"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
