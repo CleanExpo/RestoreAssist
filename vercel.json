@@ -1,0 +1,17 @@
+{
+  "buildCommand": "cd packages/backend && npm install && npm run build",
+  "installCommand": "npm install --prefix packages/backend",
+  "outputDirectory": "packages/backend/dist",
+  "functions": {
+    "packages/backend/api/index.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/packages/backend/api"
+    }
+  ]
+}
