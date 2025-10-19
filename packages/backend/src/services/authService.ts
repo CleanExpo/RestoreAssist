@@ -9,10 +9,10 @@ const users: Map<string, User> = new Map();
 const refreshTokens: Set<string> = new Set();
 
 // JWT configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m'; // Access token expiry
-const JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d'; // Refresh token expiry
+const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
+const JWT_EXPIRY: string = process.env.JWT_EXPIRY || '15m'; // Access token expiry
+const JWT_REFRESH_EXPIRY: string = process.env.JWT_REFRESH_EXPIRY || '7d'; // Refresh token expiry
 
 export class AuthService {
   /**
