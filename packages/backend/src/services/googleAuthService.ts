@@ -161,23 +161,27 @@ class GoogleAuthService {
    * Generate JWT access and refresh tokens
    */
   generateTokens(user: User): AuthTokens {
+    const accessPayload: Record<string, string> = {
+      userId: user.userId,
+      email: user.email,
+      ...(user.name && { name: user.name }),
+    };
+
+    const refreshPayload: Record<string, string> = {
+      userId: user.userId,
+      email: user.email,
+    };
+
     const accessToken = jwt.sign(
-      {
-        userId: user.userId,
-        email: user.email,
-        name: user.name,
-      },
+      accessPayload,
       JWT_SECRET,
-      { expiresIn: JWT_ACCESS_TOKEN_EXPIRY }
+      { expiresIn: JWT_ACCESS_TOKEN_EXPIRY } as jwt.SignOptions
     );
 
     const refreshToken = jwt.sign(
-      {
-        userId: user.userId,
-        email: user.email,
-      },
+      refreshPayload,
       JWT_SECRET,
-      { expiresIn: JWT_REFRESH_TOKEN_EXPIRY }
+      { expiresIn: JWT_REFRESH_TOKEN_EXPIRY } as jwt.SignOptions
     );
 
     return {

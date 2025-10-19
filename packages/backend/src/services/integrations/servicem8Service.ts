@@ -81,7 +81,7 @@ class ServiceM8Service {
         );
       }
 
-      return await response.json();
+      return await response.json() as T;
     } catch (error) {
       console.error('ServiceM8 API request failed:', error);
       throw error;
@@ -371,7 +371,7 @@ class ServiceM8Service {
       report.summary,
       '',
       'Recommendations:',
-      ...report.recommendations.map((r, i) => `${i + 1}. ${r}`),
+      ...report.recommendations.map((r: string, i: number) => `${i + 1}. ${r}`),
       '',
       `Total Estimated Cost: $${report.totalCost.toLocaleString()}`,
       '',

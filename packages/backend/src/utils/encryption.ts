@@ -107,7 +107,8 @@ export function encryptToken(token: string): string {
     if (error instanceof EncryptionKeyError) {
       throw error;
     }
-    throw new EncryptionKeyError(`Encryption failed: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new EncryptionKeyError(`Encryption failed: ${errorMessage}`);
   }
 }
 
@@ -154,7 +155,8 @@ export function decryptToken(encrypted: string): string {
     if (error instanceof DecryptionError) {
       throw error;
     }
-    throw new DecryptionError(`Decryption failed: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new DecryptionError(`Decryption failed: ${errorMessage}`);
   }
 }
 

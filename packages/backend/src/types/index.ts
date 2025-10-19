@@ -62,6 +62,9 @@ export interface GeneratedReport {
   damageType: DamageType;
   state: AustralianState;
   summary: string;
+  severity: string;
+  urgent: boolean;
+  recommendations: string[];
   scopeOfWork: string[];
   itemizedEstimate: ReportItem[];
   totalCost: number;

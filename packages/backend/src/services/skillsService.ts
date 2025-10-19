@@ -1,11 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-// For ES modules, get __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 interface SkillConfig {
   id?: string;
@@ -40,7 +35,8 @@ export class SkillsService {
     }
 
     this.client = new Anthropic({ apiKey });
-    this.skillsBasePath = path.join(__dirname, '../skills');
+    // Use process.cwd() instead of __dirname for CommonJS compatibility
+    this.skillsBasePath = path.join(process.cwd(), 'packages/backend/src/skills');
 
     // Initialize skills on startup
     this.initializeSkills().catch(error => {
@@ -67,7 +63,8 @@ export class SkillsService {
       console.log(`✅ Skills initialized: ${this.skills.size} skill(s) loaded`);
       this.listSkills();
     } catch (error) {
-      console.warn('⚠️  Skills initialization failed - continuing without skills:', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('⚠️  Skills initialization failed - continuing without skills:', errorMessage);
       // Don't throw - allow server to continue without skills
     }
   }
@@ -130,7 +127,8 @@ export class SkillsService {
         usageCount: 0
       });
     } catch (error) {
-      console.warn('⚠️  Failed to create Documentation Generator skill:', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('⚠️  Failed to create Documentation Generator skill:', errorMessage);
       // Don't throw - allow server to continue without skills
     }
   }
@@ -170,7 +168,8 @@ export class SkillsService {
     files.forEach(([filename]) => console.log(`    - ${filename}`));
 
     // Create the skill using Anthropic API
-    const skill = await this.client.beta.skills.create({
+    // Note: Using type assertion as skills API may not be in current SDK types
+    const skill = await (this.client.beta as any).skills.create({
       display_title: config.displayTitle,
       files: files as any,
       betas: ['skills-2025-10-02']
