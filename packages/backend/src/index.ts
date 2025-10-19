@@ -10,6 +10,7 @@ import { authRoutes } from './routes/authRoutes';
 import { integrationsRoutes } from './routes/integrationsRoutes';
 import { googleDriveRoutes } from './routes/googleDriveRoutes';
 import { skillsRoutes } from './routes/skillsRoutes';
+// import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialization
 import { authService } from './services/authService';
 import { servicem8Service } from './services/integrations/servicem8Service';
 import { googleDriveService } from './services/integrations/googleDriveService';
@@ -41,6 +42,7 @@ app.use('/api/exports', exportRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/integrations/google-drive', googleDriveRoutes);
 app.use('/api/skills', skillsRoutes);
+// app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialization
 
 // Error handling
 app.use(errorHandler);
@@ -119,4 +121,6 @@ app.listen(PORT, async () => {
   console.log(`   GET    /api/skills/:skillName          # Get skill metadata`);
   console.log(`   PATCH  /api/skills/:skillName/enable   # Enable/disable skill (admin)`);
   console.log(`   GET    /api/skills/health/status       # Skills health check`);
+  // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialization)`);
+  // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
 });
