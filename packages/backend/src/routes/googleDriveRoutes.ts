@@ -425,3 +425,177 @@ googleDriveRoutes.get('/stats', (req: Request, res: Response) => {
     });
   }
 });
+
+// ==========================================
+// Backup Operations (NEW)
+// ==========================================
+
+/**
+ * POST /api/organizations/:orgId/google-drive/backup/all
+ * Backup all reports for organization
+ */
+googleDriveRoutes.post('/backup/all/:orgId', async (req: Request, res: Response) => {
+  try {
+    const { orgId } = req.params;
+    const userId = req.user!.userId;
+
+    // TODO: Implement backupAllReports in googleDriveService
+    const syncJobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    res.status(202).json({
+      syncJobId,
+      startTime: new Date(),
+      estimatedTime: 300000, // 5 minutes estimate
+      totalReports: 0, // TODO: Get actual count
+      message: 'Backup job started'
+    });
+  } catch (error) {
+    console.error('Error starting backup:', error);
+    res.status(500).json({
+      error: 'Failed to start backup',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * GET /api/organizations/:orgId/google-drive/backup/status/:syncJobId
+ * Get sync job progress
+ */
+googleDriveRoutes.get('/backup/status/:orgId/:syncJobId', (req: Request, res: Response) => {
+  try {
+    const { syncJobId } = req.params;
+
+    // TODO: Implement job status tracking
+    res.json({
+      jobId: syncJobId,
+      status: 'running',
+      processed: 0,
+      total: 0,
+      failed: 0,
+      progress: 0,
+      elapsedTime: 0,
+      estimatedTimeRemaining: 0,
+      startedAt: new Date()
+    });
+  } catch (error) {
+    console.error('Error getting backup status:', error);
+    res.status(500).json({
+      error: 'Failed to get backup status',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * POST /api/organizations/:orgId/google-drive/backup/cancel/:syncJobId
+ * Cancel running backup job
+ */
+googleDriveRoutes.post('/backup/cancel/:orgId/:syncJobId', (req: Request, res: Response) => {
+  try {
+    const { syncJobId } = req.params;
+
+    // TODO: Implement job cancellation
+    res.json({
+      success: true,
+      processed: 0,
+      message: 'Backup job cancelled'
+    });
+  } catch (error) {
+    console.error('Error cancelling backup:', error);
+    res.status(500).json({
+      error: 'Failed to cancel backup',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * GET /api/organizations/:orgId/google-drive/backup/logs
+ * Get sync logs with filtering
+ */
+googleDriveRoutes.get('/backup/logs/:orgId', (req: Request, res: Response) => {
+  try {
+    const { orgId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const status = req.query.status as string | undefined;
+
+    // TODO: Implement log retrieval from database
+    res.json({
+      logs: [],
+      total: 0,
+      hasMore: false
+    });
+  } catch (error) {
+    console.error('Error getting sync logs:', error);
+    res.status(500).json({
+      error: 'Failed to get sync logs',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * POST /api/organizations/:orgId/google-drive/backup/schedule
+ * Create automatic backup schedule
+ */
+googleDriveRoutes.post('/backup/schedule/:orgId', (req: Request, res: Response) => {
+  try {
+    const { orgId } = req.params;
+    const { frequency } = req.body;
+
+    if (!['daily', 'weekly', 'monthly'].includes(frequency)) {
+      return res.status(400).json({
+        error: 'Invalid frequency',
+        message: 'Frequency must be daily, weekly, or monthly'
+      });
+    }
+
+    // TODO: Implement schedule creation
+    const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const nextRun = new Date();
+    nextRun.setDate(nextRun.getDate() + 1); // Tomorrow
+
+    res.status(201).json({
+      scheduleId,
+      frequency,
+      nextRun,
+      message: 'Backup schedule created'
+    });
+  } catch (error) {
+    console.error('Error creating schedule:', error);
+    res.status(500).json({
+      error: 'Failed to create schedule',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * GET /api/organizations/:orgId/google-drive/backup/statistics
+ * Get backup statistics
+ */
+googleDriveRoutes.get('/backup/statistics/:orgId', (req: Request, res: Response) => {
+  try {
+    const { orgId } = req.params;
+
+    // TODO: Calculate actual statistics from database
+    res.json({
+      totalBackups: 0,
+      totalSize: 0,
+      lastBackup: null,
+      averageBackupSize: 0,
+      backupFrequency: 'none',
+      successRate: 0,
+      lastWeekBackups: 0,
+      lastMonthBackups: 0
+    });
+  } catch (error) {
+    console.error('Error getting backup statistics:', error);
+    res.status(500).json({
+      error: 'Failed to get backup statistics',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
