@@ -6,7 +6,7 @@
 
 import { Router, Request, Response } from 'express';
 import { googleDriveService } from '../services/integrations/googleDriveService';
-import { exportService } from '../services/exportService';
+import { ExportService } from '../services/exportService';
 import { db } from '../services/databaseService';
 import { authenticate } from '../middleware/authMiddleware';
 import {
@@ -14,6 +14,8 @@ import {
   GoogleDriveUploadRequest,
   DriveFileRecord
 } from '../types/integrations';
+
+const exportService = new ExportService();
 
 export const googleDriveRoutes = Router();
 

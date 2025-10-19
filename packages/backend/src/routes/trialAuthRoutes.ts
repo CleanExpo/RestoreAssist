@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { googleAuthService } from '../services/googleAuthService';
 import { freeTrialService } from '../services/freeTrialService';
 import { paymentVerificationService } from '../services/paymentVerification';
+import { UserPayload } from '../types';
 
 const router = express.Router();
 
@@ -10,11 +11,7 @@ const router = express.Router();
 // =====================================================
 
 interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    email: string;
-    name?: string;
-  };
+  user?: UserPayload;
 }
 
 const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -30,7 +27,12 @@ const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) =>
     return res.status(401).json({ error: 'Invalid or expired access token' });
   }
 
-  req.user = decoded;
+  req.user = {
+    userId: decoded.userId,
+    email: decoded.email,
+    name: decoded.name || '',
+    role: 'user' as any
+  };
   next();
 };
 
