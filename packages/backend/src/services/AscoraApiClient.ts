@@ -280,7 +280,7 @@ export class AscoraApiClient {
         throw new AuthenticationError(data?.message || 'Authentication failed');
 
       case 404:
-        throw new NotFoundError('Resource', data?.id || 'unknown');
+        throw new NotFoundError('Resource', (data as any)?.id || 'unknown');
 
       case 429:
         const retryAfter = parseInt(error.response.headers['retry-after'] || '60');
@@ -288,13 +288,13 @@ export class AscoraApiClient {
 
       case 400:
         throw new ValidationError(
-          data?.message || 'Validation failed',
-          data?.errors
+          (data as any)?.message || 'Validation failed',
+          (data as any)?.errors
         );
 
       default:
         throw new AscoraApiError(
-          data?.message || `Request failed with status ${status}`,
+          (data as any)?.message || `Request failed with status ${status}`,
           status,
           data
         );
@@ -320,7 +320,7 @@ export class AscoraApiClient {
     return (
       error instanceof TimeoutError ||
       error instanceof RateLimitError ||
-      (error instanceof AscoraApiError && error.statusCode && error.statusCode >= 500)
+      (error instanceof AscoraApiError && typeof error.statusCode === 'number' && error.statusCode >= 500)
     );
   }
 
