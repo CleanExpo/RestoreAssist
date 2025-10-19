@@ -1,8 +1,7 @@
 {
-  "version": 2,
-  "buildCommand": "cd packages/frontend && npm install && npm run build",
+  "buildCommand": "npm install --prefix packages/frontend && npm run build --prefix packages/frontend",
   "outputDirectory": "packages/frontend/dist",
-  "framework": "vite",
+  "installCommand": "echo 'Skipping root install'",
   "rewrites": [
     {
       "source": "/api/:path*",
