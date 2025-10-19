@@ -7,7 +7,6 @@
       "maxDuration": 10
     }
   },
-  "includeFiles": ["dist/**"],
   "rewrites": [
     {
       "source": "/(.*)",
