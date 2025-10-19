@@ -295,21 +295,24 @@ googleDriveRoutes.post('/reports/:reportId/save', async (req: Request, res: Resp
     // Export the report
     const exportResult = await exportService.exportReport(report, {
       format,
-      includePhotos: true,
+      includeCharts: true,
       email: undefined
     });
 
-    if (!exportResult.success || !exportResult.filePath) {
+    // Get the actual file path from exports directory
+    const filePath = exportService.getExportedFile(exportResult.fileName);
+    
+    if (!filePath) {
       return res.status(500).json({
         error: 'Export failed',
-        message: exportResult.message
+        message: 'Could not locate exported file'
       });
     }
 
     // Upload to Google Drive
     const uploadRequest: GoogleDriveUploadRequest = {
       fileName: exportResult.fileName,
-      filePath: exportResult.filePath,
+      filePath: filePath,
       folderId,
       mimeType: format === 'pdf'
         ? 'application/pdf'
@@ -350,7 +353,8 @@ googleDriveRoutes.post('/reports/:reportId/save', async (req: Request, res: Resp
       file: uploadResult.file,
       exportResult: {
         fileName: exportResult.fileName,
-        format: exportResult.format
+        downloadUrl: exportResult.downloadUrl,
+        fileSize: exportResult.fileSize
       },
       message: 'Report saved to Google Drive successfully'
     });

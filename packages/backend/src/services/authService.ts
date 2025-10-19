@@ -79,14 +79,14 @@ export class AuthService {
 
     // Generate access token
     const accessToken = jwt.sign(payload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRY as string | number,
+      expiresIn: this.parseExpiryToSeconds(JWT_EXPIRY),
     });
 
     // Generate refresh token
     const refreshToken = jwt.sign(
       { userId: user.userId },
       JWT_REFRESH_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRY as string | number }
+      { expiresIn: this.parseExpiryToSeconds(JWT_REFRESH_EXPIRY) }
     );
 
     // Store refresh token
