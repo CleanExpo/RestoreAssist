@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useAscoraSync } from '../../hooks/useAscoraSync';
-import { AscoraSync Log } from '../../types/ascora';
+import { AscoraSyncLog } from '../../types/ascora';
 
-export interface AscoraSync ManagerProps {
+export interface AscoraSyncManagerProps {
   organizationId: string;
   autoRefresh?: boolean;
   refreshInterval?: number;
@@ -13,7 +13,7 @@ type ResourceType = 'customer' | 'job' | 'invoice' | 'all';
 type SortField = 'timestamp' | 'resourceType' | 'status' | 'duration';
 type SortOrder = 'asc' | 'desc';
 
-export const AscoraSync Manager: React.FC<AscoraSync ManagerProps> = ({
+export const AscoraSyncManager: React.FC<AscoraSyncManagerProps> = ({
   organizationId,
   autoRefresh = true,
   refreshInterval = 30000
@@ -42,7 +42,7 @@ export const AscoraSync Manager: React.FC<AscoraSync ManagerProps> = ({
   const [sortField, setSortField] = useState<SortField>('timestamp');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedLog, setSelectedLog] = useState<AscoraSync Log | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AscoraSyncLog | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const itemsPerPage = 20;
@@ -191,7 +191,7 @@ export const AscoraSync Manager: React.FC<AscoraSync ManagerProps> = ({
   };
 
   // Show log details
-  const showLogDetails = (log: AscoraSync Log) => {
+  const showLogDetails = (log: AscoraSyncLog) => {
     setSelectedLog(log);
     setShowDetailsModal(true);
   };
