@@ -51,11 +51,11 @@ export interface GoogleAuthResult {
 // Configuration
 // =====================================================
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
-const JWT_REFRESH_TOKEN_EXPIRY = '7d'; // 7 days
+const GOOGLE_CLIENT_ID: string = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET: string = process.env.GOOGLE_CLIENT_SECRET || '';
+const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_ACCESS_TOKEN_EXPIRY: string = '15m'; // 15 minutes
+const JWT_REFRESH_TOKEN_EXPIRY: string = '7d'; // 7 days
 const SESSION_EXPIRY_DAYS = 7;
 
 // =====================================================
