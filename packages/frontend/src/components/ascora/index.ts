@@ -19,8 +19,8 @@ export type { AscoraCustomerSyncProps } from './AscoraCustomerSync';
 export { AscoraInvoiceManager } from './AscoraInvoiceManager';
 export type { AscoraInvoiceManagerProps } from './AscoraInvoiceManager';
 
-export { AscoraSync Manager as AscoraSync Manager } from './AscoraSync Manager';
-export type { AscoraSync ManagerProps } from './AscoraSync Manager';
+export { AscoraSyncManager } from './AscoraSyncManager';
+export type { AscoraSyncManagerProps } from './AscoraSyncManager';
 
 // Re-export types from hooks for convenience
 export type {
@@ -30,9 +30,9 @@ export type {
   AscoraCustomer,
   AscoraInvoice,
   AscoraPayment,
-  AscoraSync Log,
+  AscoraSyncLog,
   AscoraConnectionData,
   AscoraIntegrationResponse,
   SyncResult,
-  SyncStatus as AscoraSync Status
+  SyncStatus as AscoraSyncStatus
 } from '../../types/ascora';

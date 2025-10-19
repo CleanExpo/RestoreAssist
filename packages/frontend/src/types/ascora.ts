@@ -13,7 +13,7 @@ export interface AscoraIntegration {
   isActive: boolean;
   syncStatus: 'idle' | 'syncing' | 'success' | 'error';
   lastSyncAt?: string;
-  syncSettings: AscoraSync Settings;
+  syncSettings: AscoraSyncSettings;
   createdAt: string;
   updatedAt?: string;
 }
@@ -21,7 +21,7 @@ export interface AscoraIntegration {
 /**
  * Sync Settings Configuration
  */
-export interface AscoraSync Settings {
+export interface AscoraSyncSettings {
   syncCustomers: boolean;
   syncJobs: boolean;
   syncInvoices: boolean;
@@ -37,7 +37,7 @@ export interface AscoraConnectionData {
   apiUrl: string;
   apiToken: string;
   companyCode: string;
-  syncSettings?: Partial<AscoraSync Settings>;
+  syncSettings?: Partial<AscoraSyncSettings>;
 }
 
 /**
@@ -260,7 +260,7 @@ export interface AscoraPayment {
 /**
  * Sync Log Entry
  */
-export interface AscoraSync Log {
+export interface AscoraSyncLog {
   id: string;
   integrationId: string;
   resourceType: 'customer' | 'job' | 'invoice';
