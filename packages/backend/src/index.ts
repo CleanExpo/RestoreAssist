@@ -51,8 +51,15 @@ app.use('/api/skills', skillsRoutes);
 // Error handling
 app.use(errorHandler);
 
-app.listen(PORT, async () => {
-  console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
+// Initialize services (for serverless)
+(async () => {
+  await authService.initializeDefaultUsers();
+})();
+
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, async () => {
+    console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
 
@@ -148,6 +155,10 @@ app.listen(PORT, async () => {
   console.log(`   GET    /api/trial-auth/trial-status    # Get trial status`);
   console.log(`   POST   /api/trial-auth/verify-payment  # Verify payment method`);
   console.log(`   GET    /api/trial-auth/health          # Health check`);
-  // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialization)`);
-  // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
-});
+    // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialization)`);
+    // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
+  });
+}
+
+// Export for Vercel serverless
+export default app;
