@@ -36,7 +36,10 @@
       "Bash(xargs:*)",
       "Bash(python:*)",
       "Bash(npm uninstall:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(pkill:*)",
+      "Bash(git clone:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

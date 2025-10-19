@@ -23,8 +23,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
-    if (!credentialResponse.credential) {
+  const handleGoogleLogin = async (credential: string) => {
+    if (!credential) {
       console.error('No credential received from Google');
       return;
     }
@@ -36,7 +36,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
       const fingerprint = await generateDeviceFingerprint();
 
       // Call parent callback with credential
-      onLoginSuccess(credentialResponse.credential);
+      onLoginSuccess(credential);
     } catch (error) {
       console.error('Login error:', error);
     } finally {
@@ -76,7 +76,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
             <div className="space-y-8">
               <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium">
                 <Star className="w-4 h-4" />
-                <span>Free Trial - 5 Reports Included</span>
+                <span>Free Trial - 3 Reports Included</span>
               </div>
 
               <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
@@ -124,7 +124,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                  <span>5 free reports</span>
+                  <span>3 free reports</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="w-5 h-5 text-green-500" />
@@ -320,13 +320,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold mb-2">Free Trial</h3>
                 <div className="text-5xl font-bold mb-2">$0</div>
-                <p className="text-blue-100">7 days • 5 reports</p>
+                <p className="text-blue-100">7 days • 3 reports</p>
               </div>
 
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center space-x-3">
                   <CheckCircle className="w-5 h-5" />
-                  <span>5 professional reports</span>
+                  <span>3 professional reports</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <CheckCircle className="w-5 h-5" />

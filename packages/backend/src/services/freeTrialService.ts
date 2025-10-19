@@ -88,7 +88,7 @@ export interface FraudCheckResult {
 // =====================================================
 
 const TRIAL_DURATION_DAYS = 7;
-const MAX_REPORTS_PER_TRIAL = 5;
+const MAX_REPORTS_PER_TRIAL = 3;
 const MAX_TRIALS_PER_DEVICE = 1;
 const MAX_TRIALS_PER_EMAIL = 1;
 const MAX_TRIALS_PER_IP_PER_DAY = 3;
