@@ -13,6 +13,15 @@ import {
   ArrowRight,
   Star,
   Clock,
+  Sparkles,
+  Users,
+  BarChart3,
+  Award,
+  Flame,
+  Droplets,
+  Wind,
+  Home,
+  ChevronRight,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -23,8 +32,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleLogin = async (credential: string) => {
-    if (!credential) {
+  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
       console.error('No credential received from Google');
       return;
     }
@@ -36,7 +45,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
       const fingerprint = await generateDeviceFingerprint();
 
       // Call parent callback with credential
-      onLoginSuccess(credential);
+      onLoginSuccess(credentialResponse.credential);
     } catch (error) {
       console.error('Login error:', error);
     } finally {
@@ -45,24 +54,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <header className="relative overflow-hidden">
+      <header className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+        </div>
+
         {/* Navigation */}
-        <nav className="container mx-auto px-6 py-6">
+        <nav className="relative container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Shield className="w-8 h-8 text-blue-600" />
-              <span className="text-2xl font-bold text-gray-900">RestoreAssist</span>
+            <div className="flex items-center space-x-3">
+              <img src="/assets/logo.png" alt="RestoreAssist Logo" className="w-[60px] h-[60px] rounded-full object-cover" />
+              <span className="text-2xl font-bold text-white">RestoreAssist</span>
             </div>
-            <div className="hidden md:flex items-center space-x-6">
-              <a href="#features" className="text-gray-600 hover:text-gray-900 transition">
+            <div className="hidden md:flex items-center space-x-8">
+              <a href="#features" className="text-white hover:text-blue-100 transition font-medium">
                 Features
               </a>
-              <a href="#how-it-works" className="text-gray-600 hover:text-gray-900 transition">
+              <a href="#how-it-works" className="text-white hover:text-blue-100 transition font-medium">
                 How It Works
               </a>
-              <a href="#pricing" className="text-gray-600 hover:text-gray-900 transition">
+              <a href="#pricing" className="text-white hover:text-blue-100 transition font-medium">
                 Pricing
               </a>
             </div>
@@ -70,28 +86,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
         </nav>
 
         {/* Hero Content */}
-        <div className="container mx-auto px-6 py-20">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="relative container mx-auto px-6 py-24 pb-32">
+          <div className="grid md:grid-cols-2 gap-16 items-center">
             {/* Left Column */}
-            <div className="space-y-8">
-              <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium">
-                <Star className="w-4 h-4" />
-                <span>Free Trial - 3 Reports Included</span>
+            <div className="space-y-8 text-white">
+              <div className="inline-flex items-center space-x-2 bg-white bg-opacity-20 backdrop-blur-sm px-5 py-2.5 rounded-full text-sm font-semibold border border-white border-opacity-30">
+                <Sparkles className="w-4 h-4" />
+                <span>Free Trial - 3 Professional Reports Included</span>
               </div>
 
-              <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
-                Professional Disaster Recovery Reports in{' '}
-                <span className="text-blue-600">Minutes</span>
+              <h1 className="text-5xl md:text-7xl font-extrabold leading-tight">
+                Professional
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-purple-200">
+                  Disaster Recovery
+                </span>
+                <br />
+                Reports in Minutes
               </h1>
 
-              <p className="text-xl text-gray-600 leading-relaxed">
-                Generate detailed, professional restoration reports with AI-powered automation. Save hours of
-                paperwork and focus on what matters most - helping your clients recover.
+              <p className="text-xl text-blue-100 leading-relaxed max-w-xl">
+                Generate detailed, AI-powered restoration reports that save you hours of paperwork.
+                Trusted by restoration professionals to deliver accurate cost estimates and comprehensive documentation.
               </p>
 
               {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col items-center space-y-3">
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <div className="bg-white p-1.5 rounded-xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300">
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
                     onError={() => console.error('Google Login Failed')}
@@ -99,278 +120,536 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
                     theme="filled_blue"
                     size="large"
                     text="signup_with"
-                    shape="rectangular"
+                    shape="pill"
                   />
-                  <p className="text-sm text-gray-500">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    No credit card required
-                  </p>
                 </div>
 
                 <button
                   onClick={() => setIsVideoModalOpen(true)}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 hover:border-blue-600 hover:text-blue-600 transition"
+                  className="group flex items-center justify-center space-x-3 px-8 py-4 bg-white bg-opacity-10 backdrop-blur-sm border-2 border-white border-opacity-30 rounded-xl text-white hover:bg-opacity-20 transition-all duration-300"
                 >
-                  <Play className="w-5 h-5" />
-                  <span className="font-medium">Watch Demo</span>
+                  <div className="bg-white bg-opacity-20 p-2 rounded-full group-hover:bg-opacity-30 transition">
+                    <Play className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold">Watch Demo</span>
                 </button>
               </div>
 
               {/* Trust Indicators */}
-              <div className="flex items-center space-x-6 text-sm text-gray-500">
+              <div className="flex flex-wrap gap-6 text-sm text-blue-100 pt-6">
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <div className="bg-green-400 bg-opacity-20 p-1 rounded-full">
+                    <CheckCircle className="w-5 h-5 text-green-300" />
+                  </div>
                   <span>7-day free trial</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  <span>3 free reports</span>
+                  <div className="bg-green-400 bg-opacity-20 p-1 rounded-full">
+                    <CheckCircle className="w-5 h-5 text-green-300" />
+                  </div>
+                  <span>No credit card needed</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <div className="bg-green-400 bg-opacity-20 p-1 rounded-full">
+                    <CheckCircle className="w-5 h-5 text-green-300" />
+                  </div>
                   <span>Cancel anytime</span>
                 </div>
               </div>
             </div>
 
-            {/* Right Column - Screenshot/Image */}
-            <div className="relative">
-              <div className="relative bg-white rounded-2xl shadow-2xl p-8 transform hover:scale-105 transition duration-300">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Generated Report</span>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                      Complete
-                    </span>
+            {/* Right Column - Enhanced Visual */}
+            <div className="relative hidden md:block">
+              <div className="relative">
+                {/* Main Card */}
+                <div className="relative bg-white rounded-3xl shadow-2xl p-8 transform hover:scale-105 transition-all duration-500">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl">
+                          <FileText className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Water Damage Report</p>
+                          <p className="text-xs text-gray-500">Generated in 1.8 minutes</p>
+                        </div>
+                      </div>
+                      <span className="text-xs bg-green-100 text-green-700 font-semibold px-3 py-1.5 rounded-full flex items-center space-x-1">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Complete</span>
+                      </span>
+                    </div>
+
+                    {/* Preview Area */}
+                    <div className="relative h-64 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl overflow-hidden">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center space-y-4">
+                          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg">
+                            <FileText className="w-20 h-20 text-white mx-auto" />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-3 bg-blue-200 rounded-full w-48 mx-auto" />
+                            <div className="h-3 bg-purple-200 rounded-full w-32 mx-auto" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4 pt-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-gray-900">$8.5K</p>
+                        <p className="text-xs text-gray-500">Est. Cost</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-gray-900">12</p>
+                        <p className="text-xs text-gray-500">Items</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-gray-900">PDF</p>
+                        <p className="text-xs text-gray-500">Format</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-24 h-24 text-blue-600 opacity-50" />
+                </div>
+
+                {/* Floating Elements */}
+                <div className="absolute -top-6 -right-6 bg-white rounded-2xl shadow-xl p-4 transform rotate-6 hover:rotate-0 transition-all duration-300">
+                  <div className="flex items-center space-x-2">
+                    <Award className="w-5 h-5 text-yellow-500" />
+                    <span className="text-sm font-semibold text-gray-900">AI Verified</span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse" />
-                    <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse" />
+                </div>
+
+                <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-4 transform -rotate-6 hover:rotate-0 transition-all duration-300">
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-5 h-5 text-blue-500" />
+                    <span className="text-sm font-semibold text-gray-900">Lightning Fast</span>
                   </div>
                 </div>
               </div>
-              {/* Decorative Elements */}
-              <div className="absolute -z-10 -top-10 -right-10 w-72 h-72 bg-blue-200 rounded-full blur-3xl opacity-30" />
-              <div className="absolute -z-10 -bottom-10 -left-10 w-72 h-72 bg-indigo-200 rounded-full blur-3xl opacity-30" />
             </div>
           </div>
+        </div>
+
+        {/* Wave Divider */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg viewBox="0 0 1440 120" className="w-full h-auto">
+            <path
+              fill="#ffffff"
+              d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"
+            />
+          </svg>
         </div>
       </header>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-white">
+      <section id="features" className="py-24 bg-gradient-to-b from-white to-gray-50">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need to Streamline Your Workflow
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold mb-6">
+              <Sparkles className="w-4 h-4" />
+              <span>Powerful Features</span>
+            </div>
+            <h2 className="text-5xl font-bold text-gray-900 mb-6">
+              Everything You Need to
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+                Streamline Your Workflow
+              </span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              RestoreAssist combines AI-powered automation with professional templates to deliver accurate,
-              comprehensive reports in record time.
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              RestoreAssist combines cutting-edge AI technology with professional templates to deliver
+              accurate, comprehensive reports that meet industry standards.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="p-8 rounded-xl border border-gray-200 hover:border-blue-600 hover:shadow-lg transition">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <Zap className="w-6 h-6 text-blue-600" />
+            <div className="group relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-blue-500 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Zap className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Lightning Fast Generation</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Create comprehensive disaster recovery reports in under 2 minutes. Our AI analyses damage
+                  patterns and generates accurate cost estimates automatically.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Lightning Fast Generation</h3>
-              <p className="text-gray-600">
-                Create comprehensive disaster recovery reports in under 2 minutes. Our AI analyzes damage
-                patterns and generates accurate cost estimates automatically.
-              </p>
             </div>
 
             {/* Feature 2 */}
-            <div className="p-8 rounded-xl border border-gray-200 hover:border-blue-600 hover:shadow-lg transition">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <Shield className="w-6 h-6 text-blue-600" />
+            <div className="group relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-purple-500 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Shield className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Advanced Fraud Detection</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  7-layer fraud detection system ensures trial integrity. Device fingerprinting, IP analysis, and
+                  smart rate limiting protect against abuse.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Fraud Detection Built-In</h3>
-              <p className="text-gray-600">
-                7-layer fraud detection system ensures trial integrity. Device fingerprinting, IP analysis, and
-                smart rate limiting protect against abuse.
-              </p>
             </div>
 
             {/* Feature 3 */}
-            <div className="p-8 rounded-xl border border-gray-200 hover:border-blue-600 hover:shadow-lg transition">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <Download className="w-6 h-6 text-blue-600" />
+            <div className="group relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-green-500 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Download className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Multiple Export Formats</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Export your reports as PDF or DOCX with professional formatting. Ready to share with clients,
+                  insurance companies, and contractors.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Multiple Export Formats</h3>
-              <p className="text-gray-600">
-                Export your reports as PDF or DOCX with professional formatting. Ready to share with clients,
-                insurance companies, and contractors.
-              </p>
             </div>
 
             {/* Feature 4 */}
-            <div className="p-8 rounded-xl border border-gray-200 hover:border-blue-600 hover:shadow-lg transition">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
+            <div className="group relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-orange-500 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <TrendingUp className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Accurate Cost Estimates</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Our AI uses industry-standard pricing data and local market rates to provide accurate repair
+                  cost estimates you can trust.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Accurate Cost Estimates</h3>
-              <p className="text-gray-600">
-                Our AI uses industry-standard pricing data and local market rates to provide accurate repair
-                cost estimates you can trust.
-              </p>
             </div>
 
             {/* Feature 5 */}
-            <div className="p-8 rounded-xl border border-gray-200 hover:border-blue-600 hover:shadow-lg transition">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-blue-600" />
+            <div className="group relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-cyan-500 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <FileText className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Professional Templates</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Choose from industry-standard templates for water damage, fire damage, mold remediation, and
+                  more. All customizable to your needs.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Professional Templates</h3>
-              <p className="text-gray-600">
-                Choose from industry-standard templates for water damage, fire damage, mold remediation, and
-                more. All customizable to your needs.
-              </p>
             </div>
 
             {/* Feature 6 */}
-            <div className="p-8 rounded-xl border border-gray-200 hover:border-blue-600 hover:shadow-lg transition">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <CheckCircle className="w-6 h-6 text-blue-600" />
+            <div className="group relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-indigo-500 hover:shadow-2xl transition-all duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Award className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Compliance Ready</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  All reports meet industry standards and include required documentation for insurance claims and
+                  regulatory compliance.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Compliance Ready</h3>
-              <p className="text-gray-600">
-                All reports meet industry standards and include required documentation for insurance claims and
-                regulatory compliance.
-              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Damage Types Section */}
+      <section className="py-24 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Built for Every Type of Restoration
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Specialized templates for all common disaster scenarios
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-6">
+            <div className="group bg-gradient-to-br from-blue-500 to-cyan-600 p-8 rounded-2xl text-white hover:scale-105 transition-all duration-300 cursor-pointer">
+              <Droplets className="w-12 h-12 mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Water Damage</h3>
+              <p className="text-blue-100">Floods, leaks, and moisture issues</p>
+            </div>
+
+            <div className="group bg-gradient-to-br from-orange-500 to-red-600 p-8 rounded-2xl text-white hover:scale-105 transition-all duration-300 cursor-pointer">
+              <Flame className="w-12 h-12 mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Fire Damage</h3>
+              <p className="text-orange-100">Smoke, soot, and structural damage</p>
+            </div>
+
+            <div className="group bg-gradient-to-br from-gray-600 to-gray-800 p-8 rounded-2xl text-white hover:scale-105 transition-all duration-300 cursor-pointer">
+              <Wind className="w-12 h-12 mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Storm Damage</h3>
+              <p className="text-gray-100">Wind, hail, and weather-related</p>
+            </div>
+
+            <div className="group bg-gradient-to-br from-green-600 to-emerald-700 p-8 rounded-2xl text-white hover:scale-105 transition-all duration-300 cursor-pointer">
+              <Home className="w-12 h-12 mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Mold & Biohazard</h3>
+              <p className="text-green-100">Remediation and cleanup</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-gray-50">
+      <section id="how-it-works" className="py-24 bg-gradient-to-b from-gray-50 to-white">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center space-x-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold mb-6">
+              <BarChart3 className="w-4 h-4" />
+              <span>Simple Process</span>
+            </div>
+            <h2 className="text-5xl font-bold text-gray-900 mb-6">How It Works</h2>
             <p className="text-xl text-gray-600">Get started in 3 simple steps</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-12 relative">
+            {/* Connecting Lines */}
+            <div className="hidden md:block absolute top-1/4 left-1/3 right-1/3 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500" style={{top: '15%'}} />
+
             {/* Step 1 */}
             <div className="relative">
-              <div className="bg-white p-8 rounded-xl shadow-lg">
-                <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
+              <div className="bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-gray-100">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
                   1
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Sign Up with Google</h3>
-                <p className="text-gray-600">
-                  Click "Sign up with Google" and create your free account in seconds. No credit card required
-                  for the trial.
-                </p>
-              </div>
-              <div className="hidden md:block absolute top-1/2 -right-4 transform -translate-y-1/2">
-                <ArrowRight className="w-8 h-8 text-blue-600" />
+                <div className="pt-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                    <Shield className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Sign Up with Google</h3>
+                  <p className="text-gray-600 text-center leading-relaxed">
+                    Click "Sign up with Google" and create your free account in seconds. No credit card required for the trial.
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Step 2 */}
             <div className="relative">
-              <div className="bg-white p-8 rounded-xl shadow-lg">
-                <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
+              <div className="bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-gray-100">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
                   2
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Enter Damage Details</h3>
-                <p className="text-gray-600">
-                  Fill out a simple form with property information, damage type, affected areas, and any
-                  special notes.
-                </p>
-              </div>
-              <div className="hidden md:block absolute top-1/2 -right-4 transform -translate-y-1/2">
-                <ArrowRight className="w-8 h-8 text-blue-600" />
+                <div className="pt-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                    <FileText className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Enter Damage Details</h3>
+                  <p className="text-gray-600 text-center leading-relaxed">
+                    Fill out a simple form with property information, damage type, affected areas, and any special notes.
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Step 3 */}
-            <div className="bg-white p-8 rounded-xl shadow-lg">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold mb-4">
-                3
+            <div className="relative">
+              <div className="bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 border-2 border-gray-100">
+                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+                  3
+                </div>
+                <div className="pt-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                    <Download className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Download Your Report</h3>
+                  <p className="text-gray-600 text-center leading-relaxed">
+                    Get your professional report instantly. Export as PDF or DOCX and share with clients or insurance companies.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Download Your Report</h3>
-              <p className="text-gray-600">
-                Get your professional report instantly. Export as PDF or DOCX and share with clients or
-                insurance companies.
-              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-white">
-        <div className="container mx-auto px-6">
+      <section id="pricing" className="py-24 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 relative overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
+        </div>
+
+        <div className="container mx-auto px-6 relative">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-xl text-gray-600">Start free, upgrade when you're ready</p>
+            <div className="inline-flex items-center space-x-2 bg-white bg-opacity-20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold mb-6 text-white border border-white border-opacity-30">
+              <Star className="w-4 h-4" />
+              <span>Simple Pricing</span>
+            </div>
+            <h2 className="text-5xl font-bold text-white mb-6">Simple, Transparent Pricing</h2>
+            <p className="text-xl text-blue-100">Start free, upgrade when you're ready</p>
           </div>
 
-          <div className="max-w-md mx-auto">
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white p-8 rounded-2xl shadow-2xl transform hover:scale-105 transition">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold mb-2">Free Trial</h3>
-                <div className="text-5xl font-bold mb-2">$0</div>
-                <p className="text-blue-100">7 days • 3 reports</p>
+          <div className="max-w-xl mx-auto">
+            <div className="relative bg-white rounded-3xl shadow-2xl p-12 transform hover:scale-105 transition-all duration-300">
+              {/* Popular Badge */}
+              <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+                MOST POPULAR
               </div>
 
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>3 professional reports</span>
+              <div className="text-center mb-10 pt-6">
+                <h3 className="text-3xl font-bold text-gray-900 mb-4">Free Trial</h3>
+                <div className="flex items-baseline justify-center mb-2">
+                  <span className="text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">$0</span>
+                </div>
+                <p className="text-lg text-gray-600 font-medium">7 days • 3 professional reports</p>
+              </div>
+
+              <ul className="space-y-5 mb-10">
+                <li className="flex items-center space-x-4">
+                  <div className="bg-green-100 p-1.5 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-lg">3 professional reports included</span>
                 </li>
-                <li className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>PDF & DOCX export</span>
+                <li className="flex items-center space-x-4">
+                  <div className="bg-green-100 p-1.5 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-lg">PDF & DOCX export formats</span>
                 </li>
-                <li className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>AI-powered cost estimates</span>
+                <li className="flex items-center space-x-4">
+                  <div className="bg-green-100 p-1.5 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-lg">AI-powered cost estimates</span>
                 </li>
-                <li className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Professional templates</span>
+                <li className="flex items-center space-x-4">
+                  <div className="bg-green-100 p-1.5 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-lg">All professional templates</span>
                 </li>
-                <li className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>No credit card required</span>
+                <li className="flex items-center space-x-4">
+                  <div className="bg-green-100 p-1.5 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-lg">No credit card required</span>
+                </li>
+                <li className="flex items-center space-x-4">
+                  <div className="bg-green-100 p-1.5 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-lg">Cancel anytime, hassle-free</span>
                 </li>
               </ul>
 
-              <div className="bg-white text-blue-600 rounded-lg p-4">
+              <div className="space-y-4">
                 <GoogleLogin
                   onSuccess={handleGoogleLogin}
                   onError={() => console.error('Google Login Failed')}
-                  theme="outline"
+                  theme="filled_blue"
                   size="large"
                   text="signup_with"
                   width="100%"
                 />
+                <p className="text-center text-sm text-gray-500">
+                  Start your 7-day free trial today
+                </p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-12">
+      {/* CTA Section */}
+      <section className="py-24 bg-white">
         <div className="container mx-auto px-6">
-          <div className="text-center">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Shield className="w-6 h-6 text-blue-500" />
-              <span className="text-xl font-bold text-white">RestoreAssist</span>
+          <div className="bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 rounded-3xl p-16 text-center relative overflow-hidden">
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
+              <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
             </div>
-            <p className="mb-4">Professional disaster recovery reports powered by AI</p>
-            <p className="text-sm">© 2025 RestoreAssist. All rights reserved.</p>
+
+            <div className="relative">
+              <h2 className="text-5xl font-bold text-white mb-6">
+                Ready to Transform Your Workflow?
+              </h2>
+              <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
+                Join thousands of restoration professionals who are saving time and improving accuracy with RestoreAssist.
+              </p>
+
+              <div className="inline-block bg-white p-2 rounded-2xl shadow-2xl">
+                <GoogleLogin
+                  onSuccess={handleGoogleLogin}
+                  onError={() => console.error('Google Login Failed')}
+                  theme="filled_blue"
+                  size="large"
+                  text="signup_with"
+                />
+              </div>
+
+              <p className="text-white text-sm mt-6 flex items-center justify-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-green-300" />
+                <span>Free 7-day trial • No credit card required</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-gray-400 py-16">
+        <div className="container mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
+            <div className="md:col-span-2">
+              <div className="flex items-center space-x-3 mb-6">
+                <img src="/assets/logo.png" alt="RestoreAssist Logo" className="w-[60px] h-[60px] rounded-full object-cover" />
+                <span className="text-2xl font-bold text-white">RestoreAssist</span>
+              </div>
+              <p className="text-gray-400 mb-6 max-w-md leading-relaxed">
+                Professional disaster recovery reports powered by AI. Trusted by restoration professionals
+                to deliver accurate, comprehensive documentation in minutes.
+              </p>
+              <div className="flex space-x-4">
+                <a href="#" className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg transition">
+                  <Star className="w-5 h-5" />
+                </a>
+                <a href="#" className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg transition">
+                  <Shield className="w-5 h-5" />
+                </a>
+                <a href="#" className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg transition">
+                  <FileText className="w-5 h-5" />
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Product</h4>
+              <ul className="space-y-3">
+                <li><a href="#features" className="hover:text-white transition">Features</a></li>
+                <li><a href="#pricing" className="hover:text-white transition">Pricing</a></li>
+                <li><a href="#how-it-works" className="hover:text-white transition">How It Works</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Company</h4>
+              <ul className="space-y-3">
+                <li><a href="#" className="hover:text-white transition">About Us</a></li>
+                <li><a href="#" className="hover:text-white transition">Contact</a></li>
+                <li><a href="#" className="hover:text-white transition">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition">Terms of Service</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <p className="text-sm text-gray-500">© 2025 RestoreAssist. All rights reserved.</p>
+              <p className="text-sm text-gray-500 mt-4 md:mt-0">
+                Built with AI • Powered by Innovation
+              </p>
+            </div>
           </div>
         </div>
       </footer>
@@ -382,6 +661,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
         videoId="dQw4w9WgXcQ"
         title="RestoreAssist Demo - See How It Works"
       />
+
+      <style>{`
+        @keyframes blob {
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+        }
+
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   );
 };
