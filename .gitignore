@@ -36,3 +36,5 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+claude-code-agents-wizard-v2/
+nul

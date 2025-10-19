@@ -35,8 +35,11 @@ export class SkillsService {
     }
 
     this.client = new Anthropic({ apiKey });
-    // Use process.cwd() instead of __dirname for CommonJS compatibility
-    this.skillsBasePath = path.join(process.cwd(), 'packages/backend/src/skills');
+    // Use /tmp for serverless environments, local directory otherwise
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    this.skillsBasePath = isServerless
+      ? path.join('/tmp', 'skills')
+      : path.join(process.cwd(), 'packages/backend/src/skills');
 
     // Initialize skills on startup
     this.initializeSkills().catch(error => {

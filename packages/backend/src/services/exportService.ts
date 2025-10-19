@@ -30,7 +30,11 @@ export class ExportService {
   private baseUrl: string;
 
   constructor() {
-    this.exportsDir = path.join(process.cwd(), 'exports');
+    // Use /tmp for serverless environments (Vercel), local 'exports' directory otherwise
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    this.exportsDir = isServerless
+      ? path.join('/tmp', 'exports')
+      : path.join(process.cwd(), 'exports');
     this.baseUrl = process.env.BASE_URL || 'http://localhost:3001';
 
     // Create exports directory if it doesn't exist
