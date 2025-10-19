@@ -35,7 +35,8 @@
       "Bash(bash:*)",
       "Bash(xargs:*)",
       "Bash(python:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

@@ -10,8 +10,11 @@ import { authRoutes } from './routes/authRoutes';
 import { integrationsRoutes } from './routes/integrationsRoutes';
 import { googleDriveRoutes } from './routes/googleDriveRoutes';
 import { skillsRoutes } from './routes/skillsRoutes';
+import { trialAuthRoutes } from './routes/trialAuthRoutes';
 // import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialization
 import { authService } from './services/authService';
+import { googleAuthService } from './services/googleAuthService';
+import { paymentVerificationService } from './services/paymentVerification';
 import { servicem8Service } from './services/integrations/servicem8Service';
 import { googleDriveService } from './services/integrations/googleDriveService';
 import { skillsService } from './services/skillsService';
@@ -36,6 +39,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/trial-auth', trialAuthRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/exports', exportRoutes);
@@ -75,6 +79,20 @@ app.listen(PORT, async () => {
     console.log(`✅ Anthropic Skills service ready (${stats.enabledSkills}/${stats.totalSkills} skills enabled)`);
   } else {
     console.log(`⚠️  Anthropic Skills service initializing...`);
+  }
+
+  // Check Google Auth service status
+  if (googleAuthService.isConfigured()) {
+    console.log(`✅ Google OAuth integration enabled`);
+  } else {
+    console.log(`⚠️  Google OAuth integration disabled (configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)`);
+  }
+
+  // Check Payment Verification service status
+  if (paymentVerificationService.isConfigured()) {
+    console.log(`✅ Stripe payment verification enabled`);
+  } else {
+    console.log(`⚠️  Stripe payment verification disabled (configure STRIPE_SECRET_KEY)`);
   }
 
   console.log(`\n📋 API Endpoints:`);
@@ -121,6 +139,15 @@ app.listen(PORT, async () => {
   console.log(`   GET    /api/skills/:skillName          # Get skill metadata`);
   console.log(`   PATCH  /api/skills/:skillName/enable   # Enable/disable skill (admin)`);
   console.log(`   GET    /api/skills/health/status       # Skills health check`);
+  console.log(`\n🎟️  Free Trial Auth:`);
+  console.log(`   POST   /api/trial-auth/google-login    # Google OAuth login`);
+  console.log(`   POST   /api/trial-auth/refresh-token   # Refresh access token`);
+  console.log(`   POST   /api/trial-auth/logout          # Logout user`);
+  console.log(`   GET    /api/trial-auth/me              # Get current user`);
+  console.log(`   POST   /api/trial-auth/activate-trial  # Activate free trial`);
+  console.log(`   GET    /api/trial-auth/trial-status    # Get trial status`);
+  console.log(`   POST   /api/trial-auth/verify-payment  # Verify payment method`);
+  console.log(`   GET    /api/trial-auth/health          # Health check`);
   // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialization)`);
   // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
 });
