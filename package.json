@@ -11,7 +11,10 @@
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
     "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces"
+    "test": "npm run test --workspaces",
+    "agent:build": "AGENT_TYPE=build tsx agents/cli.ts",
+    "agent:deploy": "AGENT_TYPE=deploy tsx agents/cli.ts",
+    "agent:dev": "AGENT_TYPE=dev tsx agents/cli.ts"
   },
   "keywords": [
     "disaster-recovery",
@@ -22,6 +25,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "tsx": "^4.20.6",
     "typescript": "^5.3.3"
   },
   "dependencies": {
