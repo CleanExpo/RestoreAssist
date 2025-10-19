@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { ClaudeService } from '../services/claudeService';
+import { reportAgentService } from '../services/reportAgentService';
 import { db } from '../services/databaseService';
 import { GenerateReportRequest, GeneratedReport } from '../types';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 
 export const reportRoutes = Router();
-const claudeService = new ClaudeService();
+const claudeService = new ClaudeService(); // Legacy fallback
 
-// POST /api/reports - Create report (generate with AI)
+// POST /api/reports - Create report (generate with AI Agent)
 reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const request: GenerateReportRequest = req.body;
@@ -19,12 +20,21 @@ reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
       });
     }
 
-    const report = await claudeService.generateReport(request);
+    console.log('🤖 Generating report using SDK Agent for job:', request.claimNumber || 'NEW JOB');
+
+    // Use SDK Agent for report generation (production system)
+    const useAgent = req.query.useAgent !== 'false'; // Default to true
+
+    const report = useAgent
+      ? await reportAgentService.generateReport(request)
+      : await claudeService.generateReport(request); // Legacy fallback
+
     await db.createAsync(report);
 
+    console.log('✅ Report generated successfully:', report.reportId);
     res.status(201).json(report);
   } catch (error) {
-    console.error('Report generation error:', error);
+    console.error('❌ Report generation error:', error);
     res.status(500).json({
       error: 'Failed to generate report',
       message: error instanceof Error ? error.message : 'Unknown error'
