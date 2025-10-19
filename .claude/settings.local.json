@@ -39,7 +39,8 @@
       "Bash(psql:*)",
       "Bash(pkill:*)",
       "Bash(git clone:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []
