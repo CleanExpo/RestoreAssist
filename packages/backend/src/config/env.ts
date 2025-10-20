@@ -1,8 +1,17 @@
 import dotenv from 'dotenv';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 // Load environment variables before any other imports
-dotenv.config({ path: '.env.local' });
-dotenv.config();
+// In production (Vercel), environment variables are injected directly
+// In development, load from .env.local or .env files
+if (process.env.NODE_ENV !== 'production') {
+  const envLocalPath = join(process.cwd(), '.env.local');
+  if (existsSync(envLocalPath)) {
+    dotenv.config({ path: envLocalPath });
+  }
+  dotenv.config();
+}
 
 export const config = {
   port: process.env.PORT || 3001,
