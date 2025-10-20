@@ -1,5 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
-import { v4 as uuidv4 } from 'uuid';
+import { uuidv4 } from '../utils/uuid';
 import { db } from '../db/connection';
 import jwt from 'jsonwebtoken';
 import { User } from './freeTrialService';
