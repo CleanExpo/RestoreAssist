@@ -2,15 +2,19 @@
   "buildCommand": "cd packages/backend && npm install && npm run build",
   "installCommand": "cd packages/backend && npm install",
   "functions": {
-    "api/index.js": {
+    "packages/backend/api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
   },
   "rewrites": [
     {
+      "source": "/api/test",
+      "destination": "/packages/backend/api/test"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/api"
+      "destination": "/packages/backend/api/index"
     }
   ]
 }
