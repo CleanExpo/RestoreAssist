@@ -409,8 +409,8 @@ function mapStripeStatus(
   switch (stripeStatus) {
     case 'active':
       return 'active';
-    case 'cancelled':
-      return 'cancelled';
+    case 'canceled': // Stripe uses American spelling
+      return 'cancelled'; // We use British spelling internally
     case 'past_due':
       return 'past_due';
     case 'unpaid':

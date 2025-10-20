@@ -55,9 +55,15 @@ app.use('/api/subscription', subscriptionRoutes);
 // Error handling
 app.use(errorHandler);
 
-// Initialise services (for serverless)
+// Initialise services (for serverless) - with error handling
 (async () => {
-  await authService.initializeDefaultUsers();
+  try {
+    await authService.initializeDefaultUsers();
+    console.log('✅ Default users initialized successfully');
+  } catch (error) {
+    console.error('⚠️ Failed to initialize default users:', error);
+    // Continue anyway - don't crash the app
+  }
 })();
 
 // For local development
