@@ -1,6 +1,18 @@
 import { db } from '../db/connection';
-import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
+
+// Use crypto.randomUUID() instead of uuid package (Node 14.17+)
+const uuidv4 = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older Node versions
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 export interface Subscription {
   subscription_id: string;
