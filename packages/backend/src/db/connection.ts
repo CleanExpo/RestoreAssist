@@ -16,11 +16,28 @@ const dbConfig = {
   password: process.env.DB_PASSWORD || 'postgres',
   max: parseInt(process.env.DB_POOL_SIZE || '20'), // Connection pool size
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Increased to 10 seconds for serverless cold starts
 };
 
-// Create database instance
-export const db = pgp(dbConfig);
+// Lazy database connection - only create when actually used
+let _db: pgPromise.IDatabase<any> | null = null;
+
+export const db = new Proxy({} as pgPromise.IDatabase<any>, {
+  get(target, prop) {
+    // Only initialize database if USE_POSTGRES is enabled
+    if (process.env.USE_POSTGRES !== 'true') {
+      throw new Error('Database access attempted but USE_POSTGRES is not enabled');
+    }
+
+    // Lazy initialization
+    if (!_db) {
+      console.log('🔌 Initializing database connection pool...');
+      _db = pgp(dbConfig);
+    }
+
+    return (_db as any)[prop];
+  }
+});
 
 // Test database connection
 export async function testConnection(): Promise<boolean> {
