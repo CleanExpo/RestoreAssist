@@ -62,7 +62,7 @@ npm run dev
 2. Check the console output for:
 ```
 ✅ Database connection successful
-✅ Database initialized successfully
+✅ Database initialised successfully
 ```
 
 3. Test the health endpoint:
@@ -83,7 +83,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 2. Use the token to fetch reports:
 ```bash
 curl http://localhost:3001/api/reports \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Authorisation: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ## Connection Pooling

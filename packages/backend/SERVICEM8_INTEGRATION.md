@@ -2,7 +2,7 @@
 
 ## Overview
 
-RestoreAssist integrates with ServiceM8 field service management platform, enabling seamless synchronization of property damage assessment reports with ServiceM8 jobs. This integration allows restoration businesses to streamline their workflow by automatically updating job records with AI-generated assessment data.
+RestoreAssist integrates with ServiceM8 field service management platform, enabling seamless synchronisation of property damage assessment reports with ServiceM8 jobs. This integration allows restoration businesses to streamline their workflow by automatically updating job records with AI-generated assessment data.
 
 ## Features
 
@@ -19,7 +19,7 @@ RestoreAssist integrates with ServiceM8 field service management platform, enabl
 1. **servicem8Service.ts** - Core ServiceM8 API client and business logic
    - REST API communication with ServiceM8
    - Job CRUD operations
-   - Report synchronization logic
+   - Report synchronisation logic
    - Sync record tracking
 
 2. **integrationsRoutes.ts** - Integration API endpoints
@@ -62,10 +62,10 @@ SERVICEM8_DOMAIN=yourcompany
 
 ## API Endpoints
 
-All integration endpoints require authentication. Include the JWT access token in the Authorization header:
+All integration endpoints require authentication. Include the JWT access token in the Authorisation header:
 
 ```
-Authorization: Bearer <accessToken>
+Authorisation: Bearer <accessToken>
 ```
 
 ### List All Integrations
@@ -310,7 +310,7 @@ Update an existing ServiceM8 job.
 
 **POST /api/integrations/servicem8/jobs/:jobId/sync**
 
-Synchronize a RestoreAssist report to a ServiceM8 job. This updates the job with data from the assessment report.
+Synchronise a RestoreAssist report to a ServiceM8 job. This updates the job with data from the assessment report.
 
 **Request:**
 ```json
@@ -494,7 +494,7 @@ Clear all sync records. Useful for testing and development.
 **Status Codes:**
 - `200` - Success
 - `401` - Not authenticated
-- `403` - Not authorized (requires admin role)
+- `403` - Not authorised (requires admin role)
 - `500` - Server error
 
 ---
@@ -508,7 +508,7 @@ const accessToken = localStorage.getItem('accessToken');
 
 const statusResponse = await fetch('http://localhost:3001/api/integrations/servicem8/status', {
   headers: {
-    'Authorization': `Bearer ${accessToken}`
+    'Authorisation': `Bearer ${accessToken}`
   }
 });
 
@@ -530,7 +530,7 @@ const jobsResponse = await fetch(
   'http://localhost:3001/api/integrations/servicem8/jobs?status=In%20Progress&limit=20',
   {
     headers: {
-      'Authorization': `Bearer ${accessToken}`
+      'Authorisation': `Bearer ${accessToken}`
     }
   }
 );
@@ -551,7 +551,7 @@ const syncResponse = await fetch(
   {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorisation': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -594,7 +594,7 @@ const createResponse = await fetch(
   {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorisation': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -618,7 +618,7 @@ const syncResponse = await fetch(
   {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorisation': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -638,7 +638,7 @@ const historyResponse = await fetch(
   `http://localhost:3001/api/integrations/servicem8/sync/report/${reportId}`,
   {
     headers: {
-      'Authorization': `Bearer ${accessToken}`
+      'Authorisation': `Bearer ${accessToken}`
     }
   }
 );
@@ -661,19 +661,19 @@ syncRecords.forEach(record => {
 ### Check Status
 ```bash
 curl http://localhost:3001/api/integrations/servicem8/status \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Authorisation: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ### List Jobs
 ```bash
 curl "http://localhost:3001/api/integrations/servicem8/jobs?page=1&limit=10" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Authorisation: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ### Sync Report to Job
 ```bash
 curl -X POST http://localhost:3001/api/integrations/servicem8/jobs/JOB_ID/sync \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Authorisation: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "reportId": "report-1234567890",
@@ -689,7 +689,7 @@ curl -X POST http://localhost:3001/api/integrations/servicem8/jobs/JOB_ID/sync \
 ### Get Stats
 ```bash
 curl http://localhost:3001/api/integrations/servicem8/stats \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Authorisation: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ## Sync Field Mapping

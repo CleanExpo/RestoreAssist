@@ -6,9 +6,9 @@ RestoreAssist integrates with Google Drive for cloud storage of exported reports
 
 ## Features
 
-- **OAuth 2.0 Authentication** - Secure user authorization flow
+- **OAuth 2.0 Authentication** - Secure user authorisation flow
 - **File Upload** - Upload exported reports (DOCX/PDF) to Drive
-- **Folder Management** - Create and organize folders
+- **Folder Management** - Create and organise folders
 - **File Sharing** - Share files with users or make public
 - **Auto-Export** - Automatically save reports to Drive on export
 - **Integration Tracking** - Track upload history and statistics
@@ -64,7 +64,7 @@ GET /api/integrations/google-drive/status
 }
 ```
 
-### 2. Get Authorization URL
+### 2. Get Authorisation URL
 
 ```bash
 GET /api/integrations/google-drive/auth
@@ -74,7 +74,7 @@ GET /api/integrations/google-drive/auth
 ```json
 {
   "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?...",
-  "message": "Redirect user to this URL to authorize Google Drive access"
+  "message": "Redirect user to this URL to authorise Google Drive access"
 }
 ```
 
@@ -161,20 +161,20 @@ Save and upload report to Google Drive.
 ```javascript
 // 1. Get auth URL
 const authResponse = await fetch('/api/integrations/google-drive/auth', {
-  headers: { 'Authorization': `Bearer ${accessToken}` }
+  headers: { 'Authorisation': `Bearer ${accessToken}` }
 });
 const { authUrl } = await authResponse.json();
 
 // 2. Redirect user to Google
 window.location.href = authUrl;
 
-// 3. After authorization, save report
+// 3. After authorisation, save report
 const saveResponse = await fetch(
   `/api/integrations/google-drive/reports/${reportId}/save`,
   {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorisation': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -250,7 +250,7 @@ CREATE TABLE drive_file_records (
 
 **"Invalid grant" error**
 - Refresh token expired
-- Re-authorize user
+- Re-authorise user
 
 ## Future Enhancements
 

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { skillsService } from '../services/skillsService';
-import { authenticate, authorize } from '../middleware/authMiddleware';
+import { authenticate, authorise } from '../middleware/authMiddleware';
 
 export const skillsRoutes = Router();
 
@@ -22,7 +22,7 @@ skillsRoutes.get('/', authenticate, (req: Request, res: Response) => {
 });
 
 // GET /api/skills/stats - Get skill statistics (admin only)
-skillsRoutes.get('/stats', authenticate, authorize('admin'), (req: Request, res: Response) => {
+skillsRoutes.get('/stats', authenticate, authorise('admin'), (req: Request, res: Response) => {
   try {
     const stats = skillsService.getSkillStats();
     res.json(stats);
@@ -58,7 +58,7 @@ skillsRoutes.get('/:skillName', authenticate, (req: Request, res: Response) => {
 });
 
 // PATCH /api/skills/:skillName/enable - Enable/disable a skill (admin only)
-skillsRoutes.patch('/:skillName/enable', authenticate, authorize('admin'), (req: Request, res: Response) => {
+skillsRoutes.patch('/:skillName/enable', authenticate, authorise('admin'), (req: Request, res: Response) => {
   try {
     const { skillName } = req.params;
     const { enabled } = req.body;
@@ -99,7 +99,7 @@ skillsRoutes.get('/health/status', (req: Request, res: Response) => {
     const stats = skillsService.getSkillStats();
 
     res.json({
-      status: isReady ? 'healthy' : 'initializing',
+      status: isReady ? 'healthy' : 'initialising',
       timestamp: new Date().toISOString(),
       skillsLoaded: stats.totalSkills,
       skillsEnabled: stats.enabledSkills,

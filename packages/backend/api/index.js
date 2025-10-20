@@ -18,7 +18,7 @@ try {
   // Export an error handler
   module.exports = (req, res) => {
     res.status(500).json({
-      error: 'Server initialization failed',
+      error: 'Server initialisation failed',
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });

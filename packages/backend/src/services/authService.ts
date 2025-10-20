@@ -233,7 +233,7 @@ export class AuthService {
   }
 
   /**
-   * Initialize with default admin user (for development)
+   * Initialise with default admin user (for development)
    */
   async initializeDefaultUsers(): Promise<void> {
     // Check if admin exists

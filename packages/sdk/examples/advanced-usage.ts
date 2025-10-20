@@ -18,7 +18,7 @@ import {
 } from '@restoreassist/sdk';
 
 async function advancedExample() {
-  // Initialize client with auto-login
+  // Initialise client with auto-login
   const client = new RestoreAssistClient({
     baseUrl: 'http://localhost:3001/api',
     credentials: {

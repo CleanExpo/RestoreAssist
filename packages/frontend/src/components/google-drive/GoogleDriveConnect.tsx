@@ -27,7 +27,7 @@ export const GoogleDriveConnect: React.FC<GoogleDriveConnectProps> = ({
         // Redirect to Google OAuth
         window.location.href = response.data.authUrl;
       } else {
-        setError('Failed to get authorization URL');
+        setError('Failed to get authorisation URL');
         setLoading(false);
       }
     } catch (err: any) {

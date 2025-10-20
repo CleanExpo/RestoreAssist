@@ -183,7 +183,7 @@ export const GoogleDriveStatus: React.FC<GoogleDriveStatusProps> = ({
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                 <p className="text-sm text-yellow-800">
-                  Your authorization will expire in {expiresInDays} {expiresInDays === 1 ? 'day' : 'days'}
+                  Your authorisation will expire in {expiresInDays} {expiresInDays === 1 ? 'day' : 'days'}
                 </p>
               </div>
               <button
@@ -330,7 +330,7 @@ export const GoogleDriveStatus: React.FC<GoogleDriveStatusProps> = ({
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-600 mt-0.5">•</span>
-                  <span>Scheduled syncs will be canceled</span>
+                  <span>Scheduled syncs will be cancelled</span>
                 </li>
               </ul>
             </div>

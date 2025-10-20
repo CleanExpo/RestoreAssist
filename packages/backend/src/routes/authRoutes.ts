@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authService } from '../services/authService';
-import { authenticate, authorize } from '../middleware/authMiddleware';
+import { authenticate, authorise } from '../middleware/authMiddleware';
 import { LoginRequest, RefreshTokenRequest } from '../types';
 
 export const authRoutes = Router();
@@ -130,7 +130,7 @@ authRoutes.get('/me', authenticate, (req: Request, res: Response) => {
 });
 
 // POST /api/auth/register - Register new user (admin only)
-authRoutes.post('/register', authenticate, authorize('admin'), async (req: Request, res: Response) => {
+authRoutes.post('/register', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const { email, password, name, role, company } = req.body;
 
@@ -205,7 +205,7 @@ authRoutes.post('/change-password', authenticate, async (req: Request, res: Resp
 });
 
 // GET /api/auth/users - List all users (admin only)
-authRoutes.get('/users', authenticate, authorize('admin'), (req: Request, res: Response) => {
+authRoutes.get('/users', authenticate, authorise('admin'), (req: Request, res: Response) => {
   try {
     const users = authService.listUsers();
 
@@ -223,7 +223,7 @@ authRoutes.get('/users', authenticate, authorize('admin'), (req: Request, res: R
 });
 
 // DELETE /api/auth/users/:userId - Delete user (admin only)
-authRoutes.delete('/users/:userId', authenticate, authorize('admin'), (req: Request, res: Response) => {
+authRoutes.delete('/users/:userId', authenticate, authorise('admin'), (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 

@@ -33,7 +33,7 @@ const validateRequest = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// ===== Initialize Service =====
+// ===== Initialise Service =====
 
 let ascoraService: AscoraIntegrationService;
 
@@ -51,7 +51,7 @@ export const initializeAscoraRoutes = (db: Pool) => {
 router.post(
   '/:orgId/ascora/connect',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     body('userId').notEmpty().withMessage('User ID is required'),
     body('apiUrl').isURL().withMessage('Valid API URL is required'),
     body('apiToken').notEmpty().withMessage('API token is required'),
@@ -102,7 +102,7 @@ router.post(
 router.post(
   '/:orgId/ascora/disconnect',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     validateRequest
   ],
   async (req: Request, res: Response) => {
@@ -133,7 +133,7 @@ router.post(
 router.get(
   '/:orgId/ascora/status',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     validateRequest
   ],
   async (req: Request, res: Response) => {
@@ -188,7 +188,7 @@ router.get(
 router.post(
   '/:orgId/ascora/sync',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     body('intervalSeconds')
       .optional()
       .isInt({ min: 60, max: 3600 })
@@ -228,7 +228,7 @@ router.post(
 router.get(
   '/:orgId/ascora/sync/status',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     validateRequest
   ],
   async (req: Request, res: Response) => {
@@ -259,7 +259,7 @@ router.get(
 router.post(
   '/:orgId/ascora/sync/retry',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     validateRequest
   ],
   async (req: Request, res: Response) => {
@@ -291,7 +291,7 @@ router.post(
 router.post(
   '/:orgId/ascora/sync/manual',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     validateRequest
   ],
   async (req: Request, res: Response) => {
@@ -325,7 +325,7 @@ router.post(
 router.post(
   '/:orgId/ascora/jobs',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     body('reportId').isUUID().withMessage('Valid report ID is required'),
     validateRequest
   ],
@@ -359,7 +359,7 @@ router.post(
 router.get(
   '/:orgId/ascora/jobs',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
     query('status').optional().isString(),
@@ -429,7 +429,7 @@ router.get(
 router.get(
   '/:orgId/ascora/jobs/:jobId',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
     validateRequest
   ],
@@ -471,7 +471,7 @@ router.get(
 router.put(
   '/:orgId/ascora/jobs/:jobId/status',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
     body('status').notEmpty().withMessage('Status is required'),
     validateRequest
@@ -505,7 +505,7 @@ router.put(
 router.post(
   '/:orgId/ascora/jobs/:jobId/notes',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
     body('note').notEmpty().withMessage('Note is required'),
     validateRequest
@@ -544,7 +544,7 @@ router.post(
 router.post(
   '/:orgId/ascora/jobs/:jobId/attachments',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
     validateRequest
   ],
@@ -582,7 +582,7 @@ router.post(
 router.get(
   '/:orgId/ascora/customers',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
     query('search').optional().isString(),
@@ -638,7 +638,7 @@ router.get(
 router.get(
   '/:orgId/ascora/customers/:customerId',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('customerId').notEmpty().withMessage('Customer ID is required'),
     validateRequest
   ],
@@ -680,7 +680,7 @@ router.get(
 router.post(
   '/:orgId/ascora/customers',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     body('firstName').optional().isString(),
     body('lastName').optional().isString(),
     body('companyName').optional().isString(),
@@ -721,7 +721,7 @@ router.post(
 router.put(
   '/:orgId/ascora/customers/:customerId',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('customerId').notEmpty().withMessage('Customer ID is required'),
     validateRequest
   ],
@@ -760,7 +760,7 @@ router.put(
 router.get(
   '/:orgId/ascora/invoices',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
     query('status').optional().isString(),
@@ -816,7 +816,7 @@ router.get(
 router.post(
   '/:orgId/ascora/invoices/:invoiceId/payment',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('invoiceId').notEmpty().withMessage('Invoice ID is required'),
     body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
     body('paymentMethod').optional().isString(),
@@ -857,7 +857,7 @@ router.post(
 router.get(
   '/:orgId/ascora/invoices/:invoiceId',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('invoiceId').notEmpty().withMessage('Invoice ID is required'),
     validateRequest
   ],
@@ -901,7 +901,7 @@ router.get(
 router.get(
   '/:orgId/ascora/logs',
   [
-    param('orgId').isUUID().withMessage('Invalid organization ID'),
+    param('orgId').isUUID().withMessage('Invalid organisation ID'),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
     query('status').optional().isString(),

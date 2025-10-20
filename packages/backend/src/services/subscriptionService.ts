@@ -409,7 +409,7 @@ function mapStripeStatus(
   switch (stripeStatus) {
     case 'active':
       return 'active';
-    case 'canceled':
+    case 'cancelled':
       return 'cancelled';
     case 'past_due':
       return 'past_due';

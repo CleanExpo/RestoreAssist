@@ -17,7 +17,7 @@ pnpm add @restoreassist/sdk
 ```typescript
 import { RestoreAssistClient } from '@restoreassist/sdk';
 
-// Initialize the client
+// Initialise the client
 const client = new RestoreAssistClient({
   baseUrl: 'http://localhost:3001/api',
   // Optional: provide credentials for automatic login

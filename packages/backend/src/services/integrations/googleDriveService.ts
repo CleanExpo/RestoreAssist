@@ -66,7 +66,7 @@ class GoogleDriveService {
   }
 
   /**
-   * Generate OAuth 2.0 authorization URL
+   * Generate OAuth 2.0 authorisation URL
    */
   getAuthUrl(userId: string): string {
     if (!this.isEnabled()) {
@@ -84,7 +84,7 @@ class GoogleDriveService {
   }
 
   /**
-   * Exchange authorization code for tokens
+   * Exchange authorisation code for tokens
    */
   async handleAuthCallback(
     code: string,
@@ -112,7 +112,7 @@ class GoogleDriveService {
 
       this.userAuths.set(userId, userAuth);
 
-      console.log(`✅ Google Drive authorized for user ${userId} (${data.email})`);
+      console.log(`✅ Google Drive authorised for user ${userId} (${data.email})`);
 
       return userAuth;
     } catch (error) {
@@ -145,7 +145,7 @@ class GoogleDriveService {
   }
 
   /**
-   * Revoke user authorization
+   * Revoke user authorisation
    */
   async revokeUserAuth(userId: string): Promise<void> {
     const userAuth = this.userAuths.get(userId);
@@ -161,9 +161,9 @@ class GoogleDriveService {
       // Remove from storage
       this.userAuths.delete(userId);
 
-      console.log(`✅ Google Drive authorization revoked for user ${userId}`);
+      console.log(`✅ Google Drive authorisation revoked for user ${userId}`);
     } catch (error) {
-      console.error('Failed to revoke authorization:', error);
+      console.error('Failed to revoke authorisation:', error);
       throw error;
     }
   }

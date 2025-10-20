@@ -102,7 +102,7 @@ npm run dev
 You should see:
 ```
 ✅ Database connection successful
-✅ Database initialized successfully
+✅ Database initialised successfully
 🚀 RestoreAssist Backend running on http://localhost:3001
 ```
 
@@ -308,7 +308,7 @@ DB_SSL=true
 
 ## Performance Tips
 
-1. **Use indexes** - Already optimized for common queries
+1. **Use indexes** - Already optimised for common queries
 2. **Pagination** - Always use `page` and `limit` parameters
 3. **Connection pooling** - Increase `DB_POOL_SIZE` for high traffic
 4. **Monitoring** - Use `/api/admin/health` to monitor database performance

@@ -16,13 +16,13 @@ declare global {
  */
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
-    // Get token from Authorization header
-    const authHeader = req.headers.authorization;
+    // Get token from Authorisation header
+    const authHeader = req.headers.authorisation;
 
     if (!authHeader) {
       return res.status(401).json({
         error: 'Authentication required',
-        message: 'No authorization header provided',
+        message: 'No authorisation header provided',
       });
     }
 
@@ -30,7 +30,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
     if (!authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         error: 'Authentication required',
-        message: 'Invalid authorization format. Use: Bearer <token>',
+        message: 'Invalid authorisation format. Use: Bearer <token>',
       });
     }
 
@@ -58,7 +58,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
 /**
  * Middleware to check if user has required role
  */
-export function authorize(...allowedRoles: string[]) {
+export function authorise(...allowedRoles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({
@@ -83,7 +83,7 @@ export function authorize(...allowedRoles: string[]) {
  */
 export function optionalAuth(req: Request, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = req.headers.authorisation;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);

@@ -46,10 +46,10 @@ export class ReportAgentService {
       name: `RestoreAssist Job Agent - ${request.claimNumber || 'New Job'}`,
       model: 'claude-opus-4-20250514',
 
-      systemPrompt: `You are an expert Australian disaster restoration assessor specializing in ${request.damageType} damage in ${request.state}.
+      systemPrompt: `You are an expert Australian disaster restoration assessor specialising in ${request.damageType} damage in ${request.state}.
 
 **YOUR MISSION:**
-Generate a comprehensive, accurate damage assessment report based on REAL DATA from this specific job. Every job is unique - analyze the specific details provided and create a customized report.
+Generate a comprehensive, accurate damage assessment report based on REAL DATA from this specific job. Every job is unique - analyse the specific details provided and create a customised report.
 
 **COMPLIANCE STANDARDS:**
 You must comply with: ${standards}
@@ -71,7 +71,7 @@ Your report must include:
 - Authority to Proceed document
 
 **DATA-DRIVEN APPROACH:**
-- Analyze the property type and construction
+- Analyse the property type and construction
 - Assess the specific damage described
 - Consider environmental factors (water source, contamination, etc.)
 - Account for access and safety requirements
@@ -135,7 +135,7 @@ ${request.previousWork ? `- Previous Work: ${request.previousWork}` : ''}
 ${request.specialRequirements ? `- Special Requirements: ${request.specialRequirements}` : ''}
 
 **INSTRUCTIONS:**
-1. Analyze this SPECIFIC situation - not a generic template
+1. Analyse this SPECIFIC situation - not a generic template
 2. Create a detailed restoration protocol for THIS damage type
 3. Build a comprehensive scope of work based on REAL needs
 4. Generate accurate cost estimates using current ${request.state} rates

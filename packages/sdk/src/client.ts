@@ -89,7 +89,7 @@ class HttpClient {
 
     // Add auth token if available
     if (this.accessToken && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
-      headers['Authorization'] = `Bearer ${this.accessToken}`;
+      headers['Authorisation'] = `Bearer ${this.accessToken}`;
     }
 
     const controller = new AbortController();
@@ -400,7 +400,7 @@ export class RestoreAssistClient {
   constructor(config: ClientConfig = {}) {
     this.httpClient = new HttpClient(config);
 
-    // Initialize API modules
+    // Initialise API modules
     this.auth = new AuthAPI(this.httpClient);
     this.reports = new ReportsAPI(this.httpClient);
     this.exports = new ExportsAPI(this.httpClient);

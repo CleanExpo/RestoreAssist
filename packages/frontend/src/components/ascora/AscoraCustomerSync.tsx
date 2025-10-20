@@ -291,7 +291,7 @@ export const AscoraCustomerSync: React.FC<AscoraCustomerSyncProps> = ({
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Customer Sync</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Synchronize customers between RestoreAssist and Ascora CRM
+            Synchronise customers between RestoreAssist and Ascora CRM
           </p>
         </div>
         <button

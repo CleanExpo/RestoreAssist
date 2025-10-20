@@ -63,7 +63,7 @@ class ServiceM8Service {
 
     const url = `${this.baseUrl}${endpoint}`;
     const headers = {
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorisation': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
       ...options.headers,
     };

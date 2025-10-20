@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../services/databaseService';
-import { authenticate, authorize } from '../middleware/authMiddleware';
+import { authenticate, authorise } from '../middleware/authMiddleware';
 
 export const adminRoutes = Router();
 
 // GET /api/admin/stats - Admin statistics (admin only)
-adminRoutes.get('/stats', authenticate, authorize('admin'), async (req: Request, res: Response) => {
+adminRoutes.get('/stats', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const stats = await db.getAdminStatsAsync();
 
@@ -29,7 +29,7 @@ adminRoutes.get('/stats', authenticate, authorize('admin'), async (req: Request,
 });
 
 // POST /api/admin/cleanup - Admin cleanup (admin only)
-adminRoutes.post('/cleanup', authenticate, authorize('admin'), async (req: Request, res: Response) => {
+adminRoutes.post('/cleanup', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const { days, clearAll } = req.body;
 

@@ -67,7 +67,7 @@ When generating damage assessment reports, follow these principles:
 > "- AS/NZS 3500 Plumbing and Drainage Standards compliance"
 
 ### 5. Authority to Proceed
-- Professional authorization document
+- Professional authorisation document
 - Clear scope definition
 - Liability disclaimers
 - Cost breakdown summary
@@ -182,7 +182,7 @@ When generating damage assessment reports, follow these principles:
 
 ## Quality Checks
 
-Before finalizing any report, verify:
+Before finalising any report, verify:
 
 ✓ All costs are in AUD and exclude GST (unless stated)
 ✓ NCC 2022 referenced where applicable

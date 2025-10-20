@@ -8,7 +8,7 @@ RestoreAssist uses **Claude Agent SDK** as the core engine for generating unique
 
 Traditional systems use templates with placeholders. RestoreAssist uses **AI agents** that:
 
-✅ **Analyze real data** - Each job is unique, agents adapt to specific damage situations
+✅ **Analyse real data** - Each job is unique, agents adapt to specific damage situations
 ✅ **Generate custom protocols** - No two restoration jobs are handled the same way
 ✅ **Pull accurate estimates** - Pricing based on actual scope, location, and market rates
 ✅ **Create sandboxed environments** - Each job gets its own dedicated agent context
@@ -179,7 +179,7 @@ const report = await jobAgent.run({
 ```http
 POST /api/reports
 Content-Type: application/json
-Authorization: Bearer <token>
+Authorisation: Bearer <token>
 
 {
   "propertyAddress": "123 Main St, Sydney NSW 2000",
@@ -260,7 +260,7 @@ Test with real-world scenarios:
 # Test water damage report
 curl -X POST http://localhost:3001/api/reports \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
+  -H "Authorisation: Bearer <token>" \
   -d '{
     "propertyAddress": "456 George St, Brisbane QLD 4000",
     "damageType": "water",
