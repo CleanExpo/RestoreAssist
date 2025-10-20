@@ -1,0 +1,36 @@
+{
+  "name": "browser",
+  "description": "Browser MCP server for safe web browsing and content extraction (optional)",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+  "env": {},
+  "settings": {
+    "browserType": "chromium",
+    "headless": true,
+    "userAgent": "Mozilla/5.0 (compatible; ClaudeBot/1.0)",
+    "timeout": 30000,
+    "navigationTimeout": 60000
+  },
+  "capabilities": {
+    "web_browsing": true,
+    "screenshot_capture": true,
+    "pdf_generation": true,
+    "form_submission": false,
+    "cookie_management": true
+  },
+  "safety": {
+    "readOnly": true,
+    "requiresApproval": true,
+    "blockedDomains": [],
+    "allowedDomains": [],
+    "maxPagesPerSession": 10,
+    "respectRobotsTxt": true
+  },
+  "notes": [
+    "Optional: Enables web browsing for research and documentation",
+    "Requires Puppeteer to be installed",
+    "Use for fetching documentation, examples, and reference materials",
+    "Form submissions disabled by default for security",
+    "Consider rate limiting to respect target websites"
+  ]
+}

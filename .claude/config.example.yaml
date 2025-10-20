@@ -1,0 +1,235 @@
+# Claude Orchestrator Configuration
+# Copy this file to config.yaml and customize for your project
+
+# Project Type & Autonomy
+project_type: nextjs_fullstack   # or: api_only, wordpress, python_api, etc.
+
+# Autonomy Mode (DEFAULT: trusted)
+# - trusted: Agents write within write_scope without approval; only Stuck prompts for decisions
+# - review_each_step: Integrator produces diff; you approve/decline each change
+autonomy: trusted
+
+# Feature Toggles
+features:
+  research: true                 # Enable research agent (web search, docs)
+  tests: true                    # Enable testing workflows
+  docs: true                     # Enable documentation generation
+  devops: true                   # Enable CI/CD workflows
+  data: false                    # Enable data operations (seeds, fixtures)
+
+# MCP Server Configuration
+# Auto-discovery: Detects JSON configs in ./.claude/mcp/ and common locations
+# Merges discovered servers into in-memory registry (never persists without approval)
+mcp:
+  playwright: auto               # auto | force_on | force_off
+  fs: true                       # Filesystem access
+  git: read                      # read | staged_write (read-only by default)
+  browser: false                 # Web browsing (disabled by default)
+  jina: auto                     # auto uses key if present; else off
+  auto_discover: true            # Scan for MCP servers in standard locations
+  status_endpoint: "/mcp"        # View MCP server status summary
+
+# Playwright Policy
+playwright:
+  if_found:
+    alter_config: false          # Do not modify existing playwright.config.*
+    alter_tests: false           # Do not modify existing test files
+    new_test_dir: "tests/e2e-claude"  # Add new tests here (namespaced)
+  if_not_found:
+    offer_install: true          # Prompt user to install Playwright
+    fallback_mode: "smoke"       # If declined: lighter smoke tests (build + route check)
+
+# Project Paths
+paths:
+  app: ./src/app
+  api: ./src/app/api
+  components: ./src/components
+  lib: ./src/lib
+  e2e: ./tests/e2e-claude        # Namespaced E2E directory
+  workdir: ./                    # Current working directory (for monorepos)
+
+# Guardrails
+guardrails:
+  write_scope: 
+    - "src/**"
+    - "app/**"
+    - "components/**"
+    - "lib/**"
+    - "docs/**"
+    - ".github/**"
+    - "tests/e2e-claude/**"      # Namespaced test directory
+  protected_files:
+    - ".env*"
+    - "infra/**"
+    - "Dockerfile"
+    - "docker-compose.yml"
+    - "compose.yml"
+    - "package-lock.json"        # Lockfiles managed by package manager
+    - "yarn.lock"
+    - "pnpm-lock.yaml"
+  require_tests_to_pass: true    # Phase gate: tests must pass before Integrator
+  strict_mode: false             # Enable for production environments
+
+# Telemetry & Logs
+logging:
+  enabled: true
+  level: "info"                  # debug | info | warn | error
+  run_logs: ".claude/logs/{YYYY-MM-DD}/"  # Daily logs
+  summaries: ".claude/reports/"  # Summary reports for context
+  rotation: true
+  max_size: "10MB"
+  max_files: 10
+
+# CI Configuration
+ci:
+  installed: true                # CI files present in repo
+  enabled: false                 # User must enable (or tell orchestrator to enable)
+  file: "ci/quality.yml"
+  auto_enable: false             # Never auto-enable CI
+
+# Project Information
+project:
+  name: "My Project"
+  version: "1.0.0"
+  description: "Project description"
+  repository: "https://github.com/username/project"
+
+# Agent Configuration (Master SDK agents enabled by default)
+agents:
+  # Core agents
+  coder:
+    enabled: true
+    definition: ".claude/agents/coder.md"
+    
+  tester:
+    enabled: true
+    definition: ".claude/agents/tester.md"
+    
+  research:
+    enabled: true
+    definition: ".claude/agents/research.md"
+    fallback_mode: "local"       # If no internet/Jina: use project's own data/APIs
+    
+  integrator:
+    enabled: true
+    definition: ".claude/agents/integrator.md"
+    
+  stuck:
+    enabled: true
+    definition: ".claude/agents/stuck.md"
+    
+  # Master SDK agents (enabled by default)
+  master-fullstack:
+    enabled: true                # Verifies FE+BE+landing+APIs+webhooks+packages
+    definition: ".claude/agents/master-fullstack.md"
+    auto_create_missing: true    # Creates missing pieces
+    
+  master-devops:
+    enabled: true                # Prepares ci/quality.yml, env matrix, cache strategies
+    definition: ".claude/agents/master-devops.md"
+    ci_auto_enable: false        # Only enables CI when user requests
+    
+  master-docs:
+    enabled: true                # Generates/upgrades README/ADR/CHANGELOG after each phase
+    definition: ".claude/agents/master-docs.md"
+    auto_generate: true          # Auto-generate docs after phases
+    
+  master-data:
+    enabled: false               # Seeds/fixtures + schema sanity checks
+    definition: ".claude/agents/master-data.md"
+
+# Stack Configuration
+stack:
+  preset: "nextjs_fullstack"
+  framework: "Next.js 14"
+  language: "TypeScript"
+  styling: "Tailwind CSS"
+  database: "PostgreSQL"
+  testing: "Playwright + Vitest"
+  deployment: "Vercel"
+  package_manager: "auto"        # auto-detect: npm | pnpm | yarn | bun
+
+# Edge Cases & Safeguards
+edge_cases:
+  monorepos:
+    enabled: false               # Set true if monorepo
+    scope_by_workdir: true       # Scope operations to current workdir
+    per_package_detection: true  # Detect config per package
+    
+  lockfile_variants:
+    respect_existing: true       # Coder respects existing toolchain
+    auto_detect: true            # npm/pnpm/yarn/bun
+    
+  no_internet:
+    research_fallback: true      # Research agent uses local data/APIs
+    jina_fallback: true          # Falls back gracefully if no Jina key
+    
+  missing_playwright:
+    offer_install: true          # Prompt to install
+    fallback_tests: "smoke"      # Use lighter smoke tests if declined
+
+# Workflow Templates
+workflows:
+  feature:
+    steps:
+      - agent: research
+        description: "Gather context and patterns"
+      - agent: master-fullstack
+        description: "Verify requirements complete"
+      - agent: coder
+        description: "Implement feature"
+      - agent: tester
+        description: "Validate (PHASE GATE)"
+      - agent: integrator
+        description: "Wire everything together"
+      - agent: master-docs
+        description: "Update documentation"
+        
+  bugfix:
+    steps:
+      - agent: research
+        description: "Investigate issue"
+      - agent: stuck
+        description: "Check known patterns"
+      - agent: coder
+        description: "Implement fix"
+      - agent: tester
+        description: "Add regression test (PHASE GATE)"
+      - agent: integrator
+        description: "Verify no side effects"
+        
+  deploy:
+    steps:
+      - agent: tester
+        description: "Run full test suite (PHASE GATE)"
+      - agent: master-devops
+        description: "Deploy with guardrails"
+      - agent: tester
+        description: "Verify deployed environment"
+      - agent: master-docs
+        description: "Update CHANGELOG"
+
+# Environment Settings
+environments:
+  development:
+    debug: true
+    autonomy: trusted
+    require_tests: false
+    
+  staging:
+    debug: false
+    autonomy: trusted
+    require_tests: true
+    
+  production:
+    debug: false
+    autonomy: review_each_step   # Extra caution in production
+    require_tests: true
+    require_approval: true
+    strict_mode: true
+
+# Phase Gates
+phase_gates:
+  tester_to_integrator: true     # Tester MUST pass before Integrator
+  integrator_to_devops: false    # Optional gate before deployment
+  manual_approval_production: true  # Require manual approval for production

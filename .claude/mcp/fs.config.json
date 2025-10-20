@@ -1,0 +1,44 @@
+{
+  "name": "filesystem",
+  "description": "Filesystem MCP server for reading and writing project files",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+  "env": {},
+  "settings": {
+    "allowedPaths": ["."],
+    "excludePatterns": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.next/**",
+      "**/.cache/**"
+    ]
+  },
+  "capabilities": {
+    "read_files": true,
+    "write_files": true,
+    "list_directories": true,
+    "create_directories": true,
+    "delete_files": false,
+    "move_files": false
+  },
+  "safety": {
+    "readOnly": false,
+    "requiresApproval": true,
+    "protectedPaths": [
+      ".env",
+      ".env.local",
+      ".env.production",
+      "config/secrets.json",
+      "**/*.key",
+      "**/*.pem"
+    ]
+  },
+  "notes": [
+    "Provides filesystem access within project boundaries",
+    "Excludes build artifacts and dependencies",
+    "Protects sensitive files like environment variables",
+    "Write operations require approval for safety"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "playwright",
+  "description": "Playwright MCP server for UI testing and browser automation",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-playwright"],
+  "env": {},
+  "settings": {
+    "browserType": "chromium",
+    "headless": true,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "timeout": 30000
+  },
+  "capabilities": {
+    "browser_automation": true,
+    "screenshot_capture": true,
+    "network_interception": true,
+    "mobile_emulation": true
+  },
+  "safety": {
+    "readOnly": false,
+    "requiresApproval": false,
+    "allowedDomains": ["localhost", "127.0.0.1"]
+  },
+  "notes": [
+    "Used for end-to-end testing and UI verification",
+    "Can capture screenshots and videos of test runs",
+    "Supports mobile viewport emulation",
+    "Network request interception for mocking APIs"
+  ]
+}
