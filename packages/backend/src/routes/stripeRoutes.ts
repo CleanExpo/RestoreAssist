@@ -9,6 +9,7 @@ import {
   recordSubscriptionHistory,
   getSubscriptionByStripeId,
 } from '../services/subscriptionService';
+import { emailService } from '../services/emailService';
 
 const router = Router();
 
@@ -138,8 +139,20 @@ router.post('/webhook', async (req: Request, res: Response) => {
           await processCheckoutSession(session);
           console.log('✅ Subscription created successfully');
 
-          // TODO: Send confirmation email
-          // TODO: Trigger welcome workflow
+          // Send checkout confirmation email
+          if (session.customer_email) {
+            await emailService.sendCheckoutConfirmation({
+              email: session.customer_email,
+              customerName: session.customer_details?.name || 'Customer',
+              planName: session.metadata?.planName || 'Professional',
+              subscriptionId: session.subscription as string || 'N/A',
+              amount: session.amount_total ? session.amount_total / 100 : 0,
+              currency: session.currency?.toUpperCase() || 'AUD',
+            }).catch(emailError => {
+              console.error('Failed to send checkout confirmation email:', emailError);
+              // Don't fail the webhook if email fails
+            });
+          }
         } catch (error) {
           console.error('Failed to process checkout session:', error);
 
@@ -207,9 +220,44 @@ router.post('/webhook', async (req: Request, res: Response) => {
               reason: 'subscription_deleted',
             });
             console.log('✅ Subscription cancelled successfully');
-          }
 
-          // TODO: Send cancellation email
+            // Send subscription cancellation email
+            if (sub.user_id) {
+              // Fetch customer email from Stripe
+              const customer = await stripe.customers.retrieve(
+                typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
+              );
+
+              if (!customer.deleted && customer.email) {
+                const cancelledAt = new Date().toLocaleDateString('en-AU', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                });
+
+                const accessUntil = sub.current_period_end
+                  ? new Date(sub.current_period_end).toLocaleDateString('en-AU', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : cancelledAt;
+
+                await emailService.sendSubscriptionCancelled({
+                  email: customer.email,
+                  customerName: customer.name || 'Customer',
+                  planName: sub.plan_type === 'freeTrial' ? 'Free Trial' :
+                           sub.plan_type === 'monthly' ? 'Professional Monthly' :
+                           'Professional Yearly',
+                  cancelledAt,
+                  accessUntil,
+                }).catch(emailError => {
+                  console.error('Failed to send cancellation email:', emailError);
+                  // Don't fail the webhook if email fails
+                });
+              }
+            }
+          }
         } catch (error) {
           console.error('Failed to process subscription deletion:', error);
         }
@@ -243,10 +291,30 @@ router.post('/webhook', async (req: Request, res: Response) => {
                 },
               });
               console.log('✅ Payment recorded successfully');
+
+              // Send payment receipt email
+              if (invoice.customer_email) {
+                await emailService.sendPaymentReceipt({
+                  email: invoice.customer_email,
+                  customerName: invoice.customer_name || 'Customer',
+                  planName: sub.plan_type === 'freeTrial' ? 'Free Trial' :
+                           sub.plan_type === 'monthly' ? 'Professional Monthly' :
+                           'Professional Yearly',
+                  amount: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
+                  currency: invoice.currency?.toUpperCase() || 'AUD',
+                  invoiceNumber: invoice.number || invoice.id,
+                  invoiceDate: new Date(invoice.created * 1000).toLocaleDateString('en-AU', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  }),
+                }).catch(emailError => {
+                  console.error('Failed to send payment receipt email:', emailError);
+                  // Don't fail the webhook if email fails
+                });
+              }
             }
           }
-
-          // TODO: Send receipt email
         } catch (error) {
           console.error('Failed to process payment success:', error);
         }
@@ -286,10 +354,31 @@ router.post('/webhook', async (req: Request, res: Response) => {
                 },
               });
               console.log('✅ Subscription marked as past_due');
+
+              // Send payment failure notification
+              if (invoice.customer_email) {
+                const retryDate = invoice.next_payment_attempt
+                  ? new Date(invoice.next_payment_attempt * 1000).toLocaleDateString('en-AU', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : 'within the next few days';
+
+                await emailService.sendPaymentFailed({
+                  email: invoice.customer_email,
+                  customerName: invoice.customer_name || 'Customer',
+                  amount: invoice.amount_due ? invoice.amount_due / 100 : 0,
+                  currency: invoice.currency?.toUpperCase() || 'AUD',
+                  retryDate,
+                  updatePaymentUrl: `${process.env.BASE_URL}/account/billing`,
+                }).catch(emailError => {
+                  console.error('Failed to send payment failure email:', emailError);
+                  // Don't fail the webhook if email fails
+                });
+              }
             }
           }
-
-          // TODO: Send payment failure notification
         } catch (error) {
           console.error('Failed to process payment failure:', error);
         }
