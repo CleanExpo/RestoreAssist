@@ -29,6 +29,7 @@ import { FireDamageIcon } from '../components/icons/FireDamageIcon';
 import { StormDamageIcon } from '../components/icons/StormDamageIcon';
 import { FloodDamageIcon } from '../components/icons/FloodDamageIcon';
 import { MouldDamageIcon } from '../components/icons/MouldDamageIcon';
+import { ProductShowcase } from '../components/ProductShowcase';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -306,6 +307,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           ))}
         </div>
       </section>
+
+      {/* Product Showcase - Animated Workflow */}
+      <ProductShowcase />
 
       {/* States Coverage - Modern Grid */}
       <section className="container py-20 border-t bg-secondary/10">

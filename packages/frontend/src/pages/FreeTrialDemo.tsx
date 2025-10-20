@@ -31,7 +31,7 @@ export function FreeTrialDemo() {
     <div>
       {/* Trial Status Banner */}
       {userData?.trial && (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6">
+        <div className="sticky top-0 z-60 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-6">
               <div>

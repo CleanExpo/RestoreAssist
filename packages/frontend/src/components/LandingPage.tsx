@@ -26,9 +26,10 @@ import {
 
 interface LandingPageProps {
   onLoginSuccess: (credential: string) => void;
+  onDevLogin?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevLogin }) => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -134,6 +135,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess }) => {
                   <span className="font-semibold">Watch Demo</span>
                 </button>
               </div>
+
+              {/* Dev Login Button - Development Only */}
+              {!import.meta.env.PROD && onDevLogin && (
+                <div className="pt-4">
+                  <button
+                    onClick={onDevLogin}
+                    className="flex items-center space-x-2 text-sm text-blue-200 hover:text-white transition-colors underline"
+                  >
+                    <span>🔧</span>
+                    <span>Dev Login (Skip OAuth - Screenshots Only)</span>
+                  </button>
+                  <p className="text-xs text-blue-200 opacity-75 mt-1">
+                    Development mode only - bypasses Google OAuth for testing
+                  </p>
+                </div>
+              )}
 
               {/* Trust Indicators */}
               <div className="flex flex-wrap gap-6 text-sm text-blue-100 pt-6">

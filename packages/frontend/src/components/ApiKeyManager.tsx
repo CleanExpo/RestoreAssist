@@ -33,7 +33,7 @@ export function ApiKeyManager() {
   const maskedKey = apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : 'Not set';
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+    <div className="bg-card text-card-foreground p-4 rounded-lg shadow-md mb-6 border border-border">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold">Anthropic API Key</h3>
         {apiKey && !isEditing && (
@@ -62,7 +62,7 @@ export function ApiKeyManager() {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-ant-api03-..."
-              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:ring-2 focus:ring-ring"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export function ApiKeyManager() {
               onChange={(e) => setShowKey(e.target.checked)}
               className="rounded"
             />
-            <label htmlFor="showKey" className="text-sm text-gray-600">
+            <label htmlFor="showKey" className="text-sm text-muted-foreground">
               Show API key
             </label>
           </div>
@@ -91,19 +91,19 @@ export function ApiKeyManager() {
                   setApiKey(localStorage.getItem(API_KEY_STORAGE) || '');
                   setIsEditing(false);
                 }}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/80"
               >
                 Cancel
               </button>
             )}
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Get your API key from{' '}
             <a
               href="https://console.anthropic.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-primary hover:underline"
             >
               console.anthropic.com
             </a>
@@ -111,8 +111,8 @@ export function ApiKeyManager() {
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600 font-mono">{maskedKey}</span>
-          <span className="text-green-600 text-sm">✓ Configured</span>
+          <span className="text-sm text-muted-foreground font-mono">{maskedKey}</span>
+          <span className="text-green-600 dark:text-green-400 text-sm">✓ Configured</span>
         </div>
       )}
     </div>

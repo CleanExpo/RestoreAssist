@@ -16,7 +16,19 @@ export interface ReportItem {
   quantity: number;
   unitCost: number;
   totalCost: number;
-  category: string;
+  category?: string;
+}
+
+export interface PaymentMilestone {
+  milestone: string;
+  percentage: number;
+  amount: number;
+}
+
+export interface PaymentTerms {
+  depositRequired: number;
+  paymentSchedule: PaymentMilestone[];
+  terms: string[];
 }
 
 export interface GeneratedReport {
@@ -26,15 +38,18 @@ export interface GeneratedReport {
   damageType: DamageType;
   state: AustralianState;
   summary: string;
-  severity: string;
-  urgent: boolean;
-  recommendations: string[];
+  severity?: string;
+  urgent?: boolean;
+  recommendations?: string[];
   scopeOfWork: string[];
   itemizedEstimate: ReportItem[];
+  subtotal?: number;
+  gst?: number;
   totalCost: number;
   complianceNotes: string[];
+  paymentTerms?: PaymentTerms;
   authorityToProceed: string;
-  metadata: {
+  metadata?: {
     clientName?: string;
     insuranceCompany?: string;
     claimNumber?: string;
