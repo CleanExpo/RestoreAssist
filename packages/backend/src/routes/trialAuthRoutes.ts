@@ -15,7 +15,7 @@ interface AuthRequest extends Request {
 }
 
 const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorisation;
   const token = authHeader?.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {

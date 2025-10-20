@@ -13,7 +13,7 @@ import { skillsRoutes } from './routes/skillsRoutes';
 import { trialAuthRoutes } from './routes/trialAuthRoutes';
 import stripeRoutes from './routes/stripeRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
-// import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialization
+// import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialisation
 import { authService } from './services/authService';
 import { googleAuthService } from './services/googleAuthService';
 import { paymentVerificationService } from './services/paymentVerification';
@@ -50,12 +50,12 @@ app.use('/api/integrations/google-drive', googleDriveRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-// app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialization
+// app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialisation
 
 // Error handling
 app.use(errorHandler);
 
-// Initialize services (for serverless)
+// Initialise services (for serverless)
 (async () => {
   await authService.initializeDefaultUsers();
 })();
@@ -67,7 +67,7 @@ if (process.env.NODE_ENV !== 'production') {
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
 
-  // Initialize default users
+  // Initialise default users
   await authService.initializeDefaultUsers();
 
   // Check ServiceM8 integration status
@@ -89,7 +89,7 @@ if (process.env.NODE_ENV !== 'production') {
     const stats = skillsService.getSkillStats();
     console.log(`✅ Anthropic Skills service ready (${stats.enabledSkills}/${stats.totalSkills} skills enabled)`);
   } else {
-    console.log(`⚠️  Anthropic Skills service initializing...`);
+    console.log(`⚠️  Anthropic Skills service initialising...`);
   }
 
   // Check Google Auth service status
@@ -159,7 +159,7 @@ if (process.env.NODE_ENV !== 'production') {
   console.log(`   GET    /api/trial-auth/trial-status    # Get trial status`);
   console.log(`   POST   /api/trial-auth/verify-payment  # Verify payment method`);
   console.log(`   GET    /api/trial-auth/health          # Health check`);
-    // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialization)`);
+    // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialisation)`);
     // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
   });
 }

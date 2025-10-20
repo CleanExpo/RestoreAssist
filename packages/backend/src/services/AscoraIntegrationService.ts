@@ -6,7 +6,7 @@
  * - Connection management
  * - Bi-directional customer sync
  * - Job creation from reports
- * - Real-time status synchronization
+ * - Real-time status synchronisation
  * - Invoice and payment tracking
  * - Webhook event handling
  * - Conflict resolution

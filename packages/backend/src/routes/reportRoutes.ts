@@ -3,7 +3,7 @@ import { ClaudeService } from '../services/claudeService';
 import { reportAgentService } from '../services/reportAgentService';
 import { db } from '../services/databaseService';
 import { GenerateReportRequest, GeneratedReport } from '../types';
-import { authenticate, authorize } from '../middleware/authMiddleware';
+import { authenticate, authorise } from '../middleware/authMiddleware';
 import { checkReportLimit, incrementReportUsage } from '../services/subscriptionService';
 
 export const reportRoutes = Router();
@@ -102,7 +102,7 @@ reportRoutes.get('/stats', authenticate, async (req: Request, res: Response) => 
 });
 
 // DELETE /api/reports/cleanup/old - Cleanup old reports (admin only)
-reportRoutes.delete('/cleanup/old', authenticate, authorize('admin'), async (req: Request, res: Response) => {
+reportRoutes.delete('/cleanup/old', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || 30;
     const deletedCount = await db.deleteOlderThanAsync(days);

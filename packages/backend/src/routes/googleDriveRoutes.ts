@@ -54,7 +54,7 @@ googleDriveRoutes.get('/status', (req: Request, res: Response) => {
 
 /**
  * GET /api/integrations/google-drive/auth
- * Get OAuth 2.0 authorization URL
+ * Get OAuth 2.0 authorisation URL
  */
 googleDriveRoutes.get('/auth', (req: Request, res: Response) => {
   try {
@@ -63,12 +63,12 @@ googleDriveRoutes.get('/auth', (req: Request, res: Response) => {
 
     res.json({
       authUrl,
-      message: 'Redirect user to this URL to authorize Google Drive access'
+      message: 'Redirect user to this URL to authorise Google Drive access'
     });
   } catch (error) {
     console.error('Error generating auth URL:', error);
     res.status(500).json({
-      error: 'Failed to generate authorization URL',
+      error: 'Failed to generate authorisation URL',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -84,7 +84,7 @@ googleDriveRoutes.get('/callback', async (req: Request, res: Response) => {
 
     if (!code || !state) {
       return res.status(400).json({
-        error: 'Missing authorization code or state'
+        error: 'Missing authorisation code or state'
       });
     }
 
@@ -104,7 +104,7 @@ googleDriveRoutes.get('/callback', async (req: Request, res: Response) => {
 
 /**
  * POST /api/integrations/google-drive/revoke
- * Revoke Google Drive authorization
+ * Revoke Google Drive authorisation
  */
 googleDriveRoutes.post('/revoke', async (req: Request, res: Response) => {
   try {
@@ -113,12 +113,12 @@ googleDriveRoutes.post('/revoke', async (req: Request, res: Response) => {
     await googleDriveService.revokeUserAuth(userId);
 
     res.json({
-      message: 'Google Drive authorization revoked successfully'
+      message: 'Google Drive authorisation revoked successfully'
     });
   } catch (error) {
-    console.error('Error revoking authorization:', error);
+    console.error('Error revoking authorisation:', error);
     res.status(500).json({
-      error: 'Failed to revoke authorization',
+      error: 'Failed to revoke authorisation',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -438,7 +438,7 @@ googleDriveRoutes.get('/stats', (req: Request, res: Response) => {
 
 /**
  * POST /api/organizations/:orgId/google-drive/backup/all
- * Backup all reports for organization
+ * Backup all reports for organisation
  */
 googleDriveRoutes.post('/backup/all/:orgId', async (req: Request, res: Response) => {
   try {

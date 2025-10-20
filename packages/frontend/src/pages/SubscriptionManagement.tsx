@@ -44,7 +44,7 @@ export function SubscriptionManagement() {
       // TODO: Add authentication token
       const response = await fetch(`${apiUrl}/api/subscription/me`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorisation': `Bearer ${localStorage.getItem('token')}`,
         },
       });
 
@@ -73,7 +73,7 @@ export function SubscriptionManagement() {
       const response = await fetch(`${apiUrl}/api/subscription/cancel`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorisation': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ cancelAtPeriodEnd: true }),

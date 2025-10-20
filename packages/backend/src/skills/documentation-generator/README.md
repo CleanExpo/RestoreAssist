@@ -105,7 +105,7 @@ The skill enhances Claude's knowledge with:
 ```bash
 POST /api/reports
 Content-Type: application/json
-Authorization: Bearer <token>
+Authorisation: Bearer <token>
 
 {
   "propertyAddress": "123 Main St, Sydney NSW 2000",
@@ -148,21 +148,21 @@ GET /api/skills/health/status
 
 ```bash
 GET /api/skills
-Authorization: Bearer <token>
+Authorisation: Bearer <token>
 ```
 
 ### Get Skill Statistics
 
 ```bash
 GET /api/skills/stats
-Authorization: Bearer <admin-token>
+Authorisation: Bearer <admin-token>
 ```
 
 ### Enable/Disable Skill
 
 ```bash
 PATCH /api/skills/documentation-generator/enable
-Authorization: Bearer <admin-token>
+Authorisation: Bearer <admin-token>
 Content-Type: application/json
 
 {
@@ -228,7 +228,7 @@ console.log('Last used:', skill.lastUsed);
 
 1. Check `ANTHROPIC_API_KEY` is configured
 2. Verify skill files exist in `src/skills/documentation-generator/`
-3. Check server logs for skill initialization errors
+3. Check server logs for skill initialisation errors
 4. Ensure `skills-2025-10-02` beta is available
 
 ### Reports Not Using Skill

@@ -569,7 +569,7 @@ All components follow accessibility best practices:
 
 ## Performance
 
-### Optimization Techniques
+### Optimisation Techniques
 - `useCallback` for event handlers
 - `useMemo` for expensive computations (filtering, sorting)
 - Pagination to limit DOM nodes

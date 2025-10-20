@@ -51,7 +51,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${loginData.tokens.accessToken}`,
+          'Authorisation': `Bearer ${loginData.tokens.accessToken}`,
         },
         body: JSON.stringify({
           fingerprintHash: fingerprint.fingerprintHash,

@@ -109,7 +109,7 @@ export function useGoogleDrive(organizationId: string) {
         // Redirect to Google OAuth
         window.location.href = response.data.authUrl;
       } else {
-        throw new Error('No authorization URL received');
+        throw new Error('No authorisation URL received');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to initiate connection');

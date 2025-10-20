@@ -165,7 +165,7 @@ export const AscoraConnect: React.FC<AscoraConnectProps> = ({
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-              <span className="text-sm text-gray-700">Bi-directional customer synchronization</span>
+              <span className="text-sm text-gray-700">Bi-directional customer synchronisation</span>
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />

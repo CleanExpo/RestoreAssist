@@ -2,7 +2,7 @@
 
 ## Overview
 
-RestoreAssist backend uses JWT (JSON Web Tokens) for stateless authentication and authorization. The system implements both access tokens (short-lived) and refresh tokens (long-lived) for secure session management.
+RestoreAssist backend uses JWT (JSON Web Tokens) for stateless authentication and authorisation. The system implements both access tokens (short-lived) and refresh tokens (long-lived) for secure session management.
 
 ## Features
 
@@ -23,9 +23,9 @@ RestoreAssist backend uses JWT (JSON Web Tokens) for stateless authentication an
    - JWT token generation and verification
    - Token refresh mechanism
 
-2. **authMiddleware.ts** - Request authentication and authorization
+2. **authMiddleware.ts** - Request authentication and authorisation
    - `authenticate()` - Validates JWT tokens
-   - `authorize(...roles)` - Role-based access control
+   - `authorise(...roles)` - Role-based access control
    - `optionalAuth()` - Non-failing authentication for public endpoints
 
 3. **authRoutes.ts** - Authentication API endpoints
@@ -105,9 +105,9 @@ Refresh access token using refresh token.
 
 ### Protected Endpoints (Require Authentication)
 
-All protected endpoints require the `Authorization` header:
+All protected endpoints require the `Authorisation` header:
 ```
-Authorization: Bearer <accessToken>
+Authorisation: Bearer <accessToken>
 ```
 
 #### GET /api/auth/me
@@ -216,7 +216,7 @@ Register new user (admin only).
 - `201` - User created
 - `400` - Missing fields or user already exists
 - `401` - Not authenticated
-- `403` - Not authorized (requires admin role)
+- `403` - Not authorised (requires admin role)
 
 ---
 
@@ -243,7 +243,7 @@ List all users (admin only).
 **Status Codes:**
 - `200` - Users listed
 - `401` - Not authenticated
-- `403` - Not authorized (requires admin role)
+- `403` - Not authorised (requires admin role)
 - `500` - Failed to list users
 
 ---
@@ -262,7 +262,7 @@ Delete user by ID (admin only). Cannot delete your own account.
 - `200` - User deleted
 - `400` - Cannot delete own account
 - `401` - Not authenticated
-- `403` - Not authorized (requires admin role)
+- `403` - Not authorised (requires admin role)
 - `404` - User not found
 
 ---
@@ -363,7 +363,7 @@ const accessToken = localStorage.getItem('accessToken');
 
 const userResponse = await fetch('http://localhost:3001/api/auth/me', {
   headers: {
-    'Authorization': `Bearer ${accessToken}`
+    'Authorisation': `Bearer ${accessToken}`
   }
 });
 
@@ -398,7 +398,7 @@ const accessToken = localStorage.getItem('accessToken');
 await fetch('http://localhost:3001/api/auth/logout', {
   method: 'POST',
   headers: {
-    'Authorization': `Bearer ${accessToken}`,
+    'Authorisation': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({ refreshToken })
@@ -417,7 +417,7 @@ const accessToken = localStorage.getItem('accessToken');
 const registerResponse = await fetch('http://localhost:3001/api/auth/register', {
   method: 'POST',
   headers: {
-    'Authorization': `Bearer ${accessToken}`,
+    'Authorisation': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -444,7 +444,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 ### Get Current User
 ```bash
 curl http://localhost:3001/api/auth/me \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Authorisation: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ### Refresh Token
@@ -457,7 +457,7 @@ curl -X POST http://localhost:3001/api/auth/refresh \
 ### List Users (Admin)
 ```bash
 curl http://localhost:3001/api/auth/users \
-  -H "Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN"
+  -H "Authorisation: Bearer YOUR_ADMIN_ACCESS_TOKEN"
 ```
 
 ## Error Handling
@@ -468,7 +468,7 @@ curl http://localhost:3001/api/auth/users \
 ```json
 {
   "error": "Authentication required",
-  "message": "No authorization header provided"
+  "message": "No authorisation header provided"
 }
 ```
 
@@ -583,8 +583,8 @@ Admin routes require both authentication and admin role:
 - Use refresh token to get new access token
 - Verify JWT_SECRET matches between token generation and verification
 
-### "No authorization header provided" error
-- Ensure Authorization header is included: `Authorization: Bearer <token>`
+### "No authorisation header provided" error
+- Ensure Authorisation header is included: `Authorisation: Bearer <token>`
 - Check for typos in header name
 
 ### "Access denied. Required role: admin" error

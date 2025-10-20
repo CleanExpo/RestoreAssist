@@ -41,14 +41,14 @@ export class SkillsService {
       ? path.join('/tmp', 'skills')
       : path.join(process.cwd(), 'packages/backend/src/skills');
 
-    // Initialize skills on startup
+    // Initialise skills on startup
     this.initializeSkills().catch(error => {
-      console.error('Failed to initialize skills:', error);
+      console.error('Failed to initialise skills:', error);
     });
   }
 
   /**
-   * Initialize all skills from the skills directory
+   * Initialise all skills from the skills directory
    */
   private async initializeSkills(): Promise<void> {
     console.log('🎯 Initializing Anthropic Skills...');
@@ -63,11 +63,11 @@ export class SkillsService {
       // Load or create documentation generator skill
       await this.ensureDocumentationGeneratorSkill();
 
-      console.log(`✅ Skills initialized: ${this.skills.size} skill(s) loaded`);
+      console.log(`✅ Skills initialised: ${this.skills.size} skill(s) loaded`);
       this.listSkills();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.warn('⚠️  Skills initialization failed - continuing without skills:', errorMessage);
+      console.warn('⚠️  Skills initialisation failed - continuing without skills:', errorMessage);
       // Don't throw - allow server to continue without skills
     }
   }

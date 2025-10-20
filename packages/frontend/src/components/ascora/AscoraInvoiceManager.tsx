@@ -64,7 +64,7 @@ export const AscoraInvoiceManager: React.FC<AscoraInvoiceManagerProps> = ({
     try {
       const response = await fetch(`/api/organizations/${organizationId}/ascora/invoices`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorisation': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
@@ -280,7 +280,7 @@ export const AscoraInvoiceManager: React.FC<AscoraInvoiceManagerProps> = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorisation': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify(payment)
         }

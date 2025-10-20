@@ -8,7 +8,7 @@ import { Router, Request, Response } from 'express';
 import { servicem8Service } from '../services/integrations/servicem8Service';
 import { googleDriveService } from '../services/integrations/googleDriveService';
 import { db } from '../services/databaseService';
-import { authenticate, authorize } from '../middleware/authMiddleware';
+import { authenticate, authorise } from '../middleware/authMiddleware';
 import { SyncReportToJobRequest } from '../types/integrations';
 
 export const integrationsRoutes = Router();
@@ -280,7 +280,7 @@ integrationsRoutes.get('/servicem8/stats', (req: Request, res: Response) => {
  * DELETE /api/integrations/servicem8/sync (admin only)
  * Clear all sync records (for testing/development)
  */
-integrationsRoutes.delete('/servicem8/sync', authorize('admin'), (req: Request, res: Response) => {
+integrationsRoutes.delete('/servicem8/sync', authorise('admin'), (req: Request, res: Response) => {
   try {
     servicem8Service.clearSyncRecords();
 

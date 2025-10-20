@@ -1,9 +1,9 @@
 import pgPromise from 'pg-promise';
 import { GeneratedReport } from '../types';
 
-// Initialize pg-promise
+// Initialise pg-promise
 const pgp = pgPromise({
-  // Initialization options
+  // Initialisation options
   capSQL: true, // Generate capitalized SQL
 });
 
@@ -24,12 +24,12 @@ let _db: pgPromise.IDatabase<any> | null = null;
 
 export const db = new Proxy({} as pgPromise.IDatabase<any>, {
   get(target, prop) {
-    // Only initialize database if USE_POSTGRES is enabled
+    // Only initialise database if USE_POSTGRES is enabled
     if (process.env.USE_POSTGRES !== 'true') {
       throw new Error('Database access attempted but USE_POSTGRES is not enabled');
     }
 
-    // Lazy initialization
+    // Lazy initialisation
     if (!_db) {
       console.log('🔌 Initializing database connection pool...');
       _db = pgp(dbConfig);
@@ -51,7 +51,7 @@ export async function testConnection(): Promise<boolean> {
   }
 }
 
-// Initialize database (run migrations)
+// Initialise database (run migrations)
 export async function initializeDatabase(): Promise<void> {
   try {
     console.log('📋 Initializing database...');
@@ -69,10 +69,10 @@ export async function initializeDatabase(): Promise<void> {
       console.log('⚠️  Reports table does not exist');
       console.log('💡 Run migrations manually or set USE_POSTGRES=false to use in-memory storage');
     } else {
-      console.log('✅ Database initialized successfully');
+      console.log('✅ Database initialised successfully');
     }
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
+    console.error('❌ Database initialisation failed:', error);
     throw error;
   }
 }

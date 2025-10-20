@@ -11,7 +11,7 @@ import {
 
 const router = Router();
 
-// Initialize Stripe
+// Initialise Stripe
 const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
   apiVersion: '2025-09-30.clover',
 });

@@ -222,7 +222,7 @@ export class AscoraApiClient {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': `Bearer ${this.config.apiToken}`,
+        'Authorisation': `Bearer ${this.config.apiToken}`,
         'X-Company-Code': this.config.companyCode
       }
     });
@@ -702,7 +702,7 @@ export class AscoraApiClient {
 
   public updateApiToken(newToken: string): void {
     this.config.apiToken = newToken;
-    this.client.defaults.headers['Authorization'] = `Bearer ${newToken}`;
+    this.client.defaults.headers['Authorisation'] = `Bearer ${newToken}`;
     this.isAuthenticated = false;
   }
 
