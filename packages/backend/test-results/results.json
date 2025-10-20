@@ -1,0 +1,2990 @@
+{
+  "config": {
+    "configFile": "D:\\RestoreAssist\\packages\\backend\\playwright.config.ts",
+    "rootDir": "D:/RestoreAssist/packages/backend/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 10
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        null
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "D:/RestoreAssist/packages/backend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "D:/RestoreAssist/packages/backend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/RestoreAssist/packages/backend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "D:/RestoreAssist/packages/backend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/RestoreAssist/packages/backend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "D:/RestoreAssist/packages/backend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/RestoreAssist/packages/backend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "D:/RestoreAssist/packages/backend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "D:/RestoreAssist/packages/backend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "D:/RestoreAssist/packages/backend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 10,
+    "webServer": {
+      "command": "npm run dev:test",
+      "url": "http://localhost:3001/api/health",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "api.spec.ts",
+      "file": "api.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "RestoreAssist API E2E Tests",
+          "file": "api.spec.ts",
+          "line": 38,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Health Endpoints",
+              "file": "api.spec.ts",
+              "line": 39,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "GET /api/health should return healthy status",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 92,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.693Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-18db611106579ee4d5c9",
+                  "file": "api.spec.ts",
+                  "line": 40,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/health should return system info",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 234,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.725Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-b8ecfd2989fe0fd69c0a",
+                  "file": "api.spec.ts",
+                  "line": 52,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/health should return healthy status",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 63,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.805Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-9b02890fe0adae9efdbd",
+                  "file": "api.spec.ts",
+                  "line": 40,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/health should return system info",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 11,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 79,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.839Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-94dae3106f8cceeaf915",
+                  "file": "api.spec.ts",
+                  "line": 52,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/health should return healthy status",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 20,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 54,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.119Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-240481f6d07cfdfd2a2f",
+                  "file": "api.spec.ts",
+                  "line": 40,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/health should return system info",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 21,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 110,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.154Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-089137411bfb3a06586f",
+                  "file": "api.spec.ts",
+                  "line": 52,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/health should return healthy status",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 30,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 53,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.306Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-fc8f88c0cffaebe7c1f2",
+                  "file": "api.spec.ts",
+                  "line": 40,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/health should return system info",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 31,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 55,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.342Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-10efe73eb1aee41a8eed",
+                  "file": "api.spec.ts",
+                  "line": 52,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/health should return healthy status",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 40,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 107,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.433Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-231e5f85c8360680a00b",
+                  "file": "api.spec.ts",
+                  "line": 40,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/health should return system info",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 43,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 92,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.458Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-4d88c5283d240f481fb3",
+                  "file": "api.spec.ts",
+                  "line": 52,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Authentication Flow",
+              "file": "api.spec.ts",
+              "line": 65,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "POST /api/auth/login with valid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 124,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.657Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-02492ce2d2f24dd145fc",
+                  "file": "api.spec.ts",
+                  "line": 66,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with invalid credentials should fail",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 3,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 63,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.730Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-a0fecffd15808b9a1740",
+                  "file": "api.spec.ts",
+                  "line": 87,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with valid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 12,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 140,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.869Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-b92d0b0c6961e3321cba",
+                  "file": "api.spec.ts",
+                  "line": 66,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with invalid credentials should fail",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 13,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 60,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.976Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-315a51c67844182fbd04",
+                  "file": "api.spec.ts",
+                  "line": 87,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with valid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 22,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 124,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.135Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-9b80bd400c50c7e834cf",
+                  "file": "api.spec.ts",
+                  "line": 66,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with invalid credentials should fail",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 23,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 76,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.180Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-9e8ef771570fdbff3463",
+                  "file": "api.spec.ts",
+                  "line": 87,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with valid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 32,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 117,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.360Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-b4c36c29d8b068d33d02",
+                  "file": "api.spec.ts",
+                  "line": 66,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with invalid credentials should fail",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 33,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 62,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.407Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-e8e35145146c7e1cd15a",
+                  "file": "api.spec.ts",
+                  "line": 87,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with valid credentials",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 41,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 111,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.435Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-103d95dcd0885da2c22b",
+                  "file": "api.spec.ts",
+                  "line": 66,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/auth/login with invalid credentials should fail",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 42,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 73,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.471Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-a2fc8972cb46a041df41",
+                  "file": "api.spec.ts",
+                  "line": 87,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Reports API",
+              "file": "api.spec.ts",
+              "line": 99,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "GET /api/reports should require authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 4,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 68,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.712Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-0a184ce9a9438953d35d",
+                  "file": "api.spec.ts",
+                  "line": 100,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports with auth token should return reports",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 5,
+                          "status": "failed",
+                          "duration": 213,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 123
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 121 |\u001b[39m       }\n \u001b[90m 122 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 123 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 124 |\u001b[39m\n \u001b[90m 125 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'reports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 123
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  121 |       }\n  122 |\n> 123 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  124 |\n  125 |       const data = await response.json();\n  126 |       expect(data).toHaveProperty('reports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Response body: {\"error\":\"Failed to fetch reports\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.742Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 123
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-b7d6a1249525017f71d0",
+                  "file": "api.spec.ts",
+                  "line": 107,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports/stats with auth token",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 6,
+                          "parallelIndex": 6,
+                          "status": "failed",
+                          "duration": 229,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 147
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 145 |\u001b[39m       }\n \u001b[90m 146 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 147 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 148 |\u001b[39m\n \u001b[90m 149 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 150 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'totalReports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 147
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  145 |       }\n  146 |\n> 147 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  148 |\n  149 |       const data = await response.json();\n  150 |       expect(data).toHaveProperty('totalReports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Stats response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Stats response body: {\"error\":\"Failed to fetch statistics\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.769Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 147
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-2efed2fffef5974d2372",
+                  "file": "api.spec.ts",
+                  "line": 131,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports should require authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 14,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 52,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.012Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-367a54c299f203307d8a",
+                  "file": "api.spec.ts",
+                  "line": 100,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports with auth token should return reports",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 15,
+                          "parallelIndex": 9,
+                          "status": "failed",
+                          "duration": 209,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 123
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 121 |\u001b[39m       }\n \u001b[90m 122 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 123 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 124 |\u001b[39m\n \u001b[90m 125 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'reports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 123
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  121 |       }\n  122 |\n> 123 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  124 |\n  125 |       const data = await response.json();\n  126 |       expect(data).toHaveProperty('reports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Response body: {\"error\":\"Failed to fetch reports\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.033Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 123
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-e5441431743399a6f267",
+                  "file": "api.spec.ts",
+                  "line": 107,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports/stats with auth token",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 16,
+                          "parallelIndex": 1,
+                          "status": "failed",
+                          "duration": 195,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 147
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 145 |\u001b[39m       }\n \u001b[90m 146 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 147 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 148 |\u001b[39m\n \u001b[90m 149 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 150 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'totalReports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 147
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  145 |       }\n  146 |\n> 147 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  148 |\n  149 |       const data = await response.json();\n  150 |       expect(data).toHaveProperty('totalReports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Stats response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Stats response body: {\"error\":\"Failed to fetch statistics\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.058Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 147
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-7c70cf1845cb1c1c3adf",
+                  "file": "api.spec.ts",
+                  "line": 131,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports should require authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 24,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 47,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.211Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-973c98768bda76d458a1",
+                  "file": "api.spec.ts",
+                  "line": 100,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports with auth token should return reports",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 25,
+                          "parallelIndex": 6,
+                          "status": "failed",
+                          "duration": 195,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 123
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 121 |\u001b[39m       }\n \u001b[90m 122 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 123 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 124 |\u001b[39m\n \u001b[90m 125 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'reports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 123
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  121 |       }\n  122 |\n> 123 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  124 |\n  125 |       const data = await response.json();\n  126 |       expect(data).toHaveProperty('reports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Response body: {\"error\":\"Failed to fetch reports\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.308Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 123
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-425434618b924f451823",
+                  "file": "api.spec.ts",
+                  "line": 107,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports/stats with auth token",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 27,
+                          "parallelIndex": 9,
+                          "status": "failed",
+                          "duration": 164,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 147
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 145 |\u001b[39m       }\n \u001b[90m 146 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 147 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 148 |\u001b[39m\n \u001b[90m 149 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 150 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'totalReports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 147
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  145 |       }\n  146 |\n> 147 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  148 |\n  149 |       const data = await response.json();\n  150 |       expect(data).toHaveProperty('totalReports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Stats response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Stats response body: {\"error\":\"Failed to fetch statistics\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.349Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 147
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-ed3913a8d14cd02f0344",
+                  "file": "api.spec.ts",
+                  "line": 131,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports should require authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 34,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 91,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.382Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-500984a7cca95de98173",
+                  "file": "api.spec.ts",
+                  "line": 100,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports with auth token should return reports",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 35,
+                          "parallelIndex": 5,
+                          "status": "failed",
+                          "duration": 166,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 123
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 121 |\u001b[39m       }\n \u001b[90m 122 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 123 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 124 |\u001b[39m\n \u001b[90m 125 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'reports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 123
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  121 |       }\n  122 |\n> 123 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  124 |\n  125 |       const data = await response.json();\n  126 |       expect(data).toHaveProperty('reports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Response body: {\"error\":\"Failed to fetch reports\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.567Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 123
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-1f732b2a0694a4a72025",
+                  "file": "api.spec.ts",
+                  "line": 107,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports/stats with auth token",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 36,
+                          "parallelIndex": 6,
+                          "status": "failed",
+                          "duration": 153,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 147
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 145 |\u001b[39m       }\n \u001b[90m 146 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 147 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 148 |\u001b[39m\n \u001b[90m 149 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 150 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'totalReports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 147
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  145 |       }\n  146 |\n> 147 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  148 |\n  149 |       const data = await response.json();\n  150 |       expect(data).toHaveProperty('totalReports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Stats response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Stats response body: {\"error\":\"Failed to fetch statistics\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.582Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 147
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-e86c30eb328d185c0e83",
+                  "file": "api.spec.ts",
+                  "line": 131,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports should require authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 44,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 66,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.479Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-0f12098a1ddf79605e04",
+                  "file": "api.spec.ts",
+                  "line": 100,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports with auth token should return reports",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 45,
+                          "parallelIndex": 5,
+                          "status": "failed",
+                          "duration": 167,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 123
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 121 |\u001b[39m       }\n \u001b[90m 122 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 123 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 124 |\u001b[39m\n \u001b[90m 125 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'reports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 123
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  121 |       }\n  122 |\n> 123 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  124 |\n  125 |       const data = await response.json();\n  126 |       expect(data).toHaveProperty('reports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:123:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Response body: {\"error\":\"Failed to fetch reports\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.685Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 123
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-0a52155d304a4d833cca",
+                  "file": "api.spec.ts",
+                  "line": 107,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/reports/stats with auth token",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 46,
+                          "parallelIndex": 7,
+                          "status": "failed",
+                          "duration": 159,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29",
+                            "location": {
+                              "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                              "column": 29,
+                              "line": 147
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 145 |\u001b[39m       }\n \u001b[90m 146 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 147 |\u001b[39m       expect(response\u001b[33m.\u001b[39mok())\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 148 |\u001b[39m\n \u001b[90m 149 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m 150 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'totalReports'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                                "column": 29,
+                                "line": 147
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  145 |       }\n  146 |\n> 147 |       expect(response.ok()).toBeTruthy();\n      |                             ^\n  148 |\n  149 |       const data = await response.json();\n  150 |       expect(data).toHaveProperty('totalReports');\n    at D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts:147:29"
+                            }
+                          ],
+                          "stdout": [
+                            {
+                              "text": "✓ Authentication successful, token acquired\n"
+                            },
+                            {
+                              "text": "Stats response status: \u001b[33m500\u001b[39m\n"
+                            },
+                            {
+                              "text": "Stats response body: {\"error\":\"Failed to fetch statistics\",\"message\":\"getaddrinfo ENOTFOUND db.oxeiaavuspvpvanzcrjc.supabase.co\"}\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.693Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "column": 29,
+                            "line": 147
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-be0ef12ed23548824005",
+                  "file": "api.spec.ts",
+                  "line": 131,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Stripe Endpoints",
+              "file": "api.spec.ts",
+              "line": 155,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "POST /api/stripe/create-checkout-session",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 7,
+                          "parallelIndex": 7,
+                          "status": "passed",
+                          "duration": 557,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.764Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-2c8284b57579f01c488f",
+                  "file": "api.spec.ts",
+                  "line": 156,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/webhook requires signature",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 8,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 154,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.785Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-64ae0427015705991fa3",
+                  "file": "api.spec.ts",
+                  "line": 169,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/create-checkout-session",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 17,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 300,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.030Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-ce30bbd91292f3d87cb1",
+                  "file": "api.spec.ts",
+                  "line": 156,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/webhook requires signature",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 18,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 152,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.088Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-35cd30cd2d1e1062c9b1",
+                  "file": "api.spec.ts",
+                  "line": 169,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/create-checkout-session",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 26,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 345,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.339Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-255943beb6741d851f82",
+                  "file": "api.spec.ts",
+                  "line": 156,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/webhook requires signature",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 28,
+                          "parallelIndex": 5,
+                          "status": "passed",
+                          "duration": 87,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.418Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-055cebc16009d7472c7d",
+                  "file": "api.spec.ts",
+                  "line": 169,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/create-checkout-session",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 37,
+                          "parallelIndex": 9,
+                          "status": "passed",
+                          "duration": 344,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.579Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-5e33997d515b15269e38",
+                  "file": "api.spec.ts",
+                  "line": 156,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/webhook requires signature",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 38,
+                          "parallelIndex": 7,
+                          "status": "passed",
+                          "duration": 47,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.689Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-a0c35ae460f080158219",
+                  "file": "api.spec.ts",
+                  "line": 169,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/create-checkout-session",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 47,
+                          "parallelIndex": 6,
+                          "status": "passed",
+                          "duration": 350,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.719Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-96d1bd1c3ac58c09f407",
+                  "file": "api.spec.ts",
+                  "line": 156,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/stripe/webhook requires signature",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 48,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 96,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.735Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-148fbeda226725391218",
+                  "file": "api.spec.ts",
+                  "line": 169,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Admin Endpoints",
+              "file": "api.spec.ts",
+              "line": 182,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "GET /api/admin/stats should require admin authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 9,
+                          "parallelIndex": 9,
+                          "status": "passed",
+                          "duration": 141,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.797Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-0ebe686c781a9b7ff3a7",
+                  "file": "api.spec.ts",
+                  "line": 183,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/stats should require admin authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 19,
+                          "parallelIndex": 7,
+                          "status": "passed",
+                          "duration": 43,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.466Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-c86a8daade71915a587a",
+                  "file": "api.spec.ts",
+                  "line": 183,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/stats should require admin authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 29,
+                          "parallelIndex": 7,
+                          "status": "passed",
+                          "duration": 42,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.581Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-ad9890bfd851b9f71428",
+                  "file": "api.spec.ts",
+                  "line": 183,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/stats should require admin authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 39,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 47,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.735Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-22ee4060d1fe29fb6f12",
+                  "file": "api.spec.ts",
+                  "line": 183,
+                  "column": 5
+                },
+                {
+                  "title": "GET /api/admin/stats should require admin authentication",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 49,
+                          "parallelIndex": 9,
+                          "status": "passed",
+                          "duration": 31,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.819Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-f18426af57ecd9cfdcad",
+                  "file": "api.spec.ts",
+                  "line": 183,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Error Handling",
+              "file": "api.spec.ts",
+              "line": 191,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "GET /nonexistent-route should return 404",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 140,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.804Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-dc6eb330fd2e248b3fcd",
+                  "file": "api.spec.ts",
+                  "line": 192,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/reports without auth should return 401",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 4,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 52,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.804Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-9ec1fad685b618fca910",
+                  "file": "api.spec.ts",
+                  "line": 198,
+                  "column": 5
+                },
+                {
+                  "title": "GET /nonexistent-route should return 404",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 14,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.897Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-d5b571cd2ceba5e02e7a",
+                  "file": "api.spec.ts",
+                  "line": 192,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/reports without auth should return 401",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 10,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 76,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.932Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-6f68b22a0818cdd99310",
+                  "file": "api.spec.ts",
+                  "line": 198,
+                  "column": 5
+                },
+                {
+                  "title": "GET /nonexistent-route should return 404",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 20,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 55,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.202Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-38a3795b4ba306650f16",
+                  "file": "api.spec.ts",
+                  "line": 192,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/reports without auth should return 401",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 20,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 12,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.276Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-d4025c071feb959bda12",
+                  "file": "api.spec.ts",
+                  "line": 198,
+                  "column": 5
+                },
+                {
+                  "title": "GET /nonexistent-route should return 404",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 30,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 13,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.391Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-9c17f934c41d4d9b53c7",
+                  "file": "api.spec.ts",
+                  "line": 192,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/reports without auth should return 401",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 30,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 53,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.424Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-4df0cbd777183d95d188",
+                  "file": "api.spec.ts",
+                  "line": 198,
+                  "column": 5
+                },
+                {
+                  "title": "GET /nonexistent-route should return 404",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 40,
+                          "parallelIndex": 8,
+                          "status": "passed",
+                          "duration": 9,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.566Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-8dd741aa8bd38300bd2c",
+                  "file": "api.spec.ts",
+                  "line": 192,
+                  "column": 5
+                },
+                {
+                  "title": "POST /api/reports without auth should return 401",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 44,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 10,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.567Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-308361eb50da1f705825",
+                  "file": "api.spec.ts",
+                  "line": 198,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "CORS Headers",
+              "file": "api.spec.ts",
+              "line": 210,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "OPTIONS request should return CORS headers",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 51,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.806Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-4635bb1c4cce659cbbcb",
+                  "file": "api.spec.ts",
+                  "line": 211,
+                  "column": 5
+                },
+                {
+                  "title": "OPTIONS request should return CORS headers",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": 11,
+                          "parallelIndex": 4,
+                          "status": "passed",
+                          "duration": 65,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:59.945Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-ad8d71bea03e809472f0",
+                  "file": "api.spec.ts",
+                  "line": 211,
+                  "column": 5
+                },
+                {
+                  "title": "OPTIONS request should return CORS headers",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": 23,
+                          "parallelIndex": 2,
+                          "status": "passed",
+                          "duration": 13,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.282Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-8aedf267e6df7b1b507e",
+                  "file": "api.spec.ts",
+                  "line": 211,
+                  "column": 5
+                },
+                {
+                  "title": "OPTIONS request should return CORS headers",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": 31,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 51,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.425Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-8ef6981557153b4438a2",
+                  "file": "api.spec.ts",
+                  "line": 211,
+                  "column": 5
+                },
+                {
+                  "title": "OPTIONS request should return CORS headers",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": 42,
+                          "parallelIndex": 3,
+                          "status": "passed",
+                          "duration": 10,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.567Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-fbe599be3c89ba0a137d",
+                  "file": "api.spec.ts",
+                  "line": 211,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Rate Limiting",
+              "file": "api.spec.ts",
+              "line": 224,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "Multiple rapid requests should be rate limited",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "line": 225,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "expectedStatus": "skipped",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
+                          "status": "skipped",
+                          "duration": 0,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:08:58.815Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-f5189348008cd5b72ee5",
+                  "file": "api.spec.ts",
+                  "line": 225,
+                  "column": 10
+                },
+                {
+                  "title": "Multiple rapid requests should be rate limited",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "line": 225,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "expectedStatus": "skipped",
+                      "projectId": "firefox",
+                      "projectName": "firefox",
+                      "results": [
+                        {
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
+                          "status": "skipped",
+                          "duration": 0,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:00.021Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-ed88e4359cc0f13edbf1",
+                  "file": "api.spec.ts",
+                  "line": 225,
+                  "column": 10
+                },
+                {
+                  "title": "Multiple rapid requests should be rate limited",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "line": 225,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "expectedStatus": "skipped",
+                      "projectId": "webkit",
+                      "projectName": "webkit",
+                      "results": [
+                        {
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
+                          "status": "skipped",
+                          "duration": 0,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:01.282Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-ca906e29ff7cab2714b6",
+                  "file": "api.spec.ts",
+                  "line": 225,
+                  "column": 10
+                },
+                {
+                  "title": "Multiple rapid requests should be rate limited",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "line": 225,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "expectedStatus": "skipped",
+                      "projectId": "Mobile Chrome",
+                      "projectName": "Mobile Chrome",
+                      "results": [
+                        {
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
+                          "status": "skipped",
+                          "duration": 0,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:02.489Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-61ff6a61e100f5d8ecb4",
+                  "file": "api.spec.ts",
+                  "line": 225,
+                  "column": 10
+                },
+                {
+                  "title": "Multiple rapid requests should be rate limited",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "D:\\RestoreAssist\\packages\\backend\\tests\\e2e\\api.spec.ts",
+                            "line": 225,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "expectedStatus": "skipped",
+                      "projectId": "Mobile Safari",
+                      "projectName": "Mobile Safari",
+                      "results": [
+                        {
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
+                          "status": "skipped",
+                          "duration": 0,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-10-20T17:09:03.570Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "skipped"
+                    }
+                  ],
+                  "id": "1ea1b1599cbc08f16936-85d7234c06edb2693afe",
+                  "file": "api.spec.ts",
+                  "line": 225,
+                  "column": 10
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-10-20T17:08:52.965Z",
+    "duration": 11560.782,
+    "expected": 55,
+    "skipped": 5,
+    "unexpected": 10,
+    "flaky": 0
+  }
+}

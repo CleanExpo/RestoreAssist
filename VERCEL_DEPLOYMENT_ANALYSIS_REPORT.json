@@ -1,0 +1,630 @@
+{
+  "analysis_date": "2025-10-21",
+  "project": "RestoreAssist",
+  "repository_type": "monorepo",
+  "status": "DEPLOYMENT_COMPLETE_WITH_KNOWN_ISSUES",
+  "deployment_configs": [
+    {
+      "location": "packages/backend/vercel.json",
+      "type": "Backend Vercel Configuration",
+      "content": {
+        "buildCommand": "npm run build && npm run vercel:prepare",
+        "functions": {
+          "api/*.js": {
+            "memory": 1024,
+            "maxDuration": 10
+          }
+        }
+      },
+      "notes": "Build command combines TypeScript compilation with verification script"
+    },
+    {
+      "location": "packages/frontend/vercel.json",
+      "type": "Frontend Vercel Configuration",
+      "content": {
+        "buildCommand": "npm run build",
+        "outputDirectory": "dist",
+        "installCommand": "npm install",
+        "framework": "vite",
+        "rewrites": [
+          {
+            "source": "/(.*)",
+            "destination": "/index.html"
+          }
+        ]
+      },
+      "notes": "Standard Vite frontend configuration with SPA routing"
+    },
+    {
+      "location": "packages/backend/.vercel/project.json",
+      "type": "Vercel Project Link",
+      "content": {
+        "projectId": "prj_kUEaAIULM3sLSE3S58mq52fOKkEf",
+        "orgId": "team_KMZACI5rIltoCRhAtGCXlxUf",
+        "projectName": "backend"
+      },
+      "notes": "Links local project to Vercel cloud project for backend"
+    },
+    {
+      "location": "packages/frontend/.vercel/project.json",
+      "type": "Vercel Project Link",
+      "content": {
+        "projectId": "prj_GioWtJcohvQgp0JuRsn1cFs1lpZD",
+        "orgId": "team_KMZACI5rIltoCRhAtGCXlxUf",
+        "projectName": "frontend"
+      },
+      "notes": "Links local project to Vercel cloud project for frontend"
+    },
+    {
+      "location": "packages/backend/.vercelignore",
+      "type": "Vercel Ignore Rules",
+      "content": [
+        "node_modules",
+        ".env.local",
+        ".env",
+        "*.md",
+        ".git",
+        ".vscode",
+        "claude-code-agents-wizard-v2"
+      ],
+      "notes": "Excludes markdown docs and environment files from deployment"
+    }
+  ],
+  "api_files": [
+    {
+      "path": "packages/backend/api/index.js",
+      "type": "Main Express Entry Point",
+      "purpose": "Serverless function handler that loads compiled Express app from dist/",
+      "key_features": [
+        "Loads Express app from ../dist/index.js",
+        "Comprehensive error handling and diagnostics",
+        "CORS header configuration",
+        "Environment variable checks",
+        "File system diagnostics for debugging"
+      ],
+      "critical_lines": [
+        "const appModule = require(distPath);",
+        "app = appModule.default || appModule;",
+        "if (!app) { throw new Error('Express app not found in module exports'); }"
+      ]
+    },
+    {
+      "path": "packages/backend/api/test.js",
+      "type": "Diagnostic Test Endpoint",
+      "purpose": "Minimal endpoint for verifying Vercel runtime is functional"
+    },
+    {
+      "path": "packages/backend/api/hello.js",
+      "type": "Ultra-Minimal Health Check",
+      "purpose": "Simplest possible serverless function for deployment verification"
+    }
+  ],
+  "potential_issues": [
+    {
+      "severity": "CRITICAL",
+      "category": "Monorepo Path Resolution",
+      "description": "INTERNAL_FUNCTION_INVOCATION_FAILED errors indicate Vercel cannot locate functions in packages/backend/api subdirectory",
+      "root_cause": "Vercel default Root Directory setting is '.' (repository root), but serverless functions are nested in packages/backend/api/",
+      "impact": "All API endpoints fail to execute, backend is completely non-functional",
+      "status": "IDENTIFIED BUT REQUIRES DASHBOARD CONFIG",
+      "solution_required": "Must set Vercel Root Directory to 'packages/backend' in dashboard (cannot be done via code)"
+    },
+    {
+      "severity": "HIGH",
+      "category": "Build Output Path",
+      "description": "TypeScript compilation outputs to dist/ folder which must exist when api/index.js runs",
+      "root_cause": "Vercel build system must execute 'npm run build' which compiles TypeScript to packages/backend/dist/",
+      "impact": "If build fails or dist/ is not created, api/index.js cannot load the app",
+      "status": "DEPENDENT ON ROOT DIRECTORY FIX",
+      "verification": "Check Vercel build logs show 'tsc' completing successfully"
+    },
+    {
+      "severity": "HIGH",
+      "category": "Package Dependencies - Deprecated",
+      "description": "uuid package v13 is deprecated and not recommended for Node.js",
+      "root_cause": "packages/backend/package.json specifies uuid@^13.0.0",
+      "impact": "Can cause issues with serverless function builds and runtime",
+      "status": "PARTIALLY MITIGATED",
+      "notes": "Code already updated to use native crypto.randomUUID() instead of uuid package",
+      "recommendation": "Remove uuid from package.json dependencies, keep code using crypto module"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Environment Variables - Incomplete",
+      "description": "Agent SDK package (@anthropic-ai/claude-agent-sdk) listed in dependencies but not available",
+      "root_cause": "packages/backend/package.json specifies @anthropic-ai/claude-agent-sdk@^0.1.22",
+      "impact": "Requires workaround: reportAgentService.ts disabled, falls back to ClaudeService",
+      "status": "MITIGATED WITH FALLBACK",
+      "notes": "Report generation still works via ClaudeService, just without Agent SDK features"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Cold Start Performance",
+      "description": "Database connection initialization may timeout during cold starts",
+      "root_cause": "Supabase connection establishes on first request in serverless environment",
+      "impact": "First request after deployment or idle period may timeout",
+      "status": "PARTIALLY MITIGATED",
+      "mitigation": "Lazy database loading implemented with Proxy pattern, connection timeout increased"
+    },
+    {
+      "severity": "LOW",
+      "category": "Documentation Files",
+      "description": ".vercelignore excludes all *.md files from deployment",
+      "root_cause": "Pattern '*.md' in .vercelignore",
+      "impact": "Minor - docs not needed in serverless deployment, reduces package size",
+      "status": "BY DESIGN",
+      "notes": "This is correct configuration"
+    },
+    {
+      "severity": "LOW",
+      "category": "Framework Detection",
+      "description": "Frontend uses Vite but Vercel might auto-detect as different framework",
+      "root_cause": "vercel.json explicitly sets framework: 'vite' which is correct",
+      "impact": "None if dashboard setting matches",
+      "status": "MITIGATED",
+      "notes": "Configuration file properly specifies framework"
+    }
+  ],
+  "missing_requirements": [
+    {
+      "type": "DASHBOARD_CONFIGURATION",
+      "requirement": "Vercel Project Root Directory",
+      "current_value": "Not set (defaults to '.')",
+      "required_value": "packages/backend",
+      "why_required": "For Vercel to discover serverless functions in packages/backend/api subdirectory",
+      "how_to_set": "Vercel Dashboard → Project Settings → General → Root Directory",
+      "cannot_be_set_via": "Code or environment variables - dashboard only",
+      "priority": "CRITICAL - BLOCKS DEPLOYMENT"
+    },
+    {
+      "type": "DASHBOARD_CONFIGURATION",
+      "requirement": "Framework Preset",
+      "current_value": "Not set (may auto-detect as Next.js)",
+      "required_value": "Other",
+      "why_required": "Backend is Express, not Next.js. Next.js preset expects pages/api/ structure",
+      "how_to_set": "Vercel Dashboard → Project Settings → General → Framework Preset",
+      "cannot_be_set_via": "Code or environment variables - dashboard only",
+      "priority": "CRITICAL - BLOCKS DEPLOYMENT"
+    },
+    {
+      "type": "ENVIRONMENT_VARIABLES",
+      "requirement": "Core Configuration",
+      "variables": [
+        {
+          "name": "NODE_ENV",
+          "value": "production",
+          "required": true,
+          "set": true
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "value": "[your key]",
+          "required": true,
+          "set": true,
+          "scope": "Report generation"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "[secure random string]",
+          "required": true,
+          "set": true,
+          "scope": "Authentication token signing"
+        },
+        {
+          "name": "JWT_REFRESH_SECRET",
+          "value": "[secure random string]",
+          "required": true,
+          "set": true,
+          "scope": "Refresh token signing"
+        }
+      ]
+    },
+    {
+      "type": "ENVIRONMENT_VARIABLES",
+      "requirement": "Stripe Integration",
+      "variables": [
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "value": "sk_live_...",
+          "required": true,
+          "set": true,
+          "scope": "Payment processing"
+        },
+        {
+          "name": "STRIPE_WEBHOOK_SECRET",
+          "value": "whsec_Jqc8nVBJCUl1KgVVrgmcpmr0oLqHkfVa",
+          "required": true,
+          "set": true,
+          "scope": "Webhook verification"
+        },
+        {
+          "name": "STRIPE_PRODUCT_FREE_TRIAL",
+          "value": "prod_TGdTtgqCXY34na",
+          "required": true,
+          "set": true
+        },
+        {
+          "name": "STRIPE_PRODUCT_MONTHLY",
+          "value": "prod_TGdXM0eZiBxmfW",
+          "required": true,
+          "set": true
+        },
+        {
+          "name": "STRIPE_PRODUCT_YEARLY",
+          "value": "prod_TGdZP6UNZ8ONMh",
+          "required": true,
+          "set": true
+        },
+        {
+          "name": "STRIPE_PRICE_FREE_TRIAL",
+          "value": "price_1SK6CHBY5KEPMwxdjZxT8CKH",
+          "required": true,
+          "set": true
+        },
+        {
+          "name": "STRIPE_PRICE_MONTHLY",
+          "value": "price_1SK6GPBY5KEPMwxd43EBhwXx",
+          "required": true,
+          "set": true
+        },
+        {
+          "name": "STRIPE_PRICE_YEARLY",
+          "value": "price_1SK6I7BY5KEPMwxdC451vfBk",
+          "required": true,
+          "set": true
+        }
+      ]
+    },
+    {
+      "type": "ENVIRONMENT_VARIABLES",
+      "requirement": "Database Configuration",
+      "variables": [
+        {
+          "name": "USE_POSTGRES",
+          "value": "true or false",
+          "required": false,
+          "set": true,
+          "scope": "Enable/disable PostgreSQL (Supabase)"
+        },
+        {
+          "name": "SUPABASE_URL",
+          "value": "[your Supabase project URL]",
+          "required": false,
+          "set": true,
+          "note": "Only needed if USE_POSTGRES=true"
+        },
+        {
+          "name": "SUPABASE_ANON_KEY",
+          "value": "[your Supabase anon key]",
+          "required": false,
+          "set": true,
+          "note": "Only needed if USE_POSTGRES=true"
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "value": "[your Supabase service role key]",
+          "required": false,
+          "set": true,
+          "note": "Only needed if USE_POSTGRES=true"
+        }
+      ]
+    },
+    {
+      "type": "ENVIRONMENT_VARIABLES",
+      "requirement": "Google OAuth",
+      "variables": [
+        {
+          "name": "GOOGLE_CLIENT_ID",
+          "value": "[your Google OAuth client ID]",
+          "required": false,
+          "set": true,
+          "scope": "Google authentication"
+        },
+        {
+          "name": "GOOGLE_CLIENT_SECRET",
+          "value": "[your Google OAuth client secret]",
+          "required": false,
+          "set": true,
+          "scope": "Google authentication"
+        }
+      ]
+    },
+    {
+      "type": "ENVIRONMENT_VARIABLES",
+      "requirement": "CORS",
+      "variables": [
+        {
+          "name": "ALLOWED_ORIGINS",
+          "value": "https://restoreassist.app,https://www.restoreassist.app,https://restore-assist-frontend.vercel.app",
+          "required": true,
+          "set": true,
+          "scope": "Cross-origin request permissions"
+        }
+      ]
+    },
+    {
+      "type": "BUILD_SCRIPT",
+      "requirement": "TypeScript Compilation",
+      "command": "tsc",
+      "script_name": "build",
+      "file": "packages/backend/package.json",
+      "purpose": "Compiles TypeScript source to JavaScript in dist/ folder",
+      "currently_working": true,
+      "notes": "All TypeScript errors already fixed in recent commits"
+    },
+    {
+      "type": "BUILD_SCRIPT",
+      "requirement": "Vercel Preparation",
+      "command": "npm run vercel:prepare",
+      "script_name": "vercel:prepare",
+      "file": "packages/backend/package.json",
+      "purpose": "Post-build verification script",
+      "currently_working": true,
+      "notes": "Currently just logs 'Build complete' message"
+    }
+  ],
+  "documentation_found": [
+    {
+      "filename": "VERCEL_DEPLOYMENT_ANALYSIS.md",
+      "path": "D:\\RestoreAssist\\VERCEL_DEPLOYMENT_ANALYSIS.md",
+      "last_updated": "October 20, 2025",
+      "status": "In Progress - Root Cause Identified",
+      "key_findings": [
+        "Root cause is monorepo path configuration issue",
+        "Vercel deploys from repository root but functions in packages/backend/api/",
+        "TypeScript compilation working correctly locally",
+        "Express app initializes correctly locally",
+        "Even standalone api/test.js fails on Vercel"
+      ],
+      "recommended_solutions": [
+        {
+          "option": "A",
+          "name": "Configure Vercel Root Directory",
+          "status": "RECOMMENDED",
+          "effort": "5 minutes",
+          "pros": "Cleanest solution, no code changes, standard monorepo pattern",
+          "cons": "Requires Vercel dashboard access, not version controlled"
+        },
+        {
+          "option": "B",
+          "name": "Restructure to Root-Level API",
+          "status": "NOT_RECOMMENDED",
+          "effort": "15 minutes",
+          "pros": "Works with existing vercel.json",
+          "cons": "Breaks monorepo conventions, hard to maintain"
+        },
+        {
+          "option": "C",
+          "name": "Use Vercel Build Output API",
+          "status": "ADVANCED",
+          "effort": "2-3 hours",
+          "pros": "Most flexible and powerful",
+          "cons": "More complex setup, more moving parts"
+        },
+        {
+          "option": "D",
+          "name": "Deploy Backend as Separate Project",
+          "status": "ALTERNATIVE",
+          "effort": "30 minutes",
+          "pros": "Clean separation, independent deployment",
+          "cons": "Two projects to manage, CORS configuration needed"
+        }
+      ]
+    },
+    {
+      "filename": "VERCEL_CONFIGURATION_CHECKLIST.md",
+      "path": "D:\\RestoreAssist\\VERCEL_CONFIGURATION_CHECKLIST.md",
+      "last_updated": "October 20, 2025",
+      "status": "CRITICAL - Functions not executing",
+      "key_content": [
+        "Required Vercel Dashboard Settings checklist",
+        "Root Directory must be set to packages/backend",
+        "Framework Preset must be set to Other (not Next.js)",
+        "Build & Development Settings should be empty or match vercel.json",
+        "26+ environment variables required",
+        "Verification tests provided for debugging"
+      ],
+      "critical_sections": [
+        "Common Mistakes (wrong Root Directory, wrong Framework Preset)",
+        "How to Fix Configuration (step-by-step instructions)",
+        "Expected File Structure after build",
+        "What's Already Fixed vs What Needs Dashboard Config"
+      ]
+    },
+    {
+      "filename": "DEPLOYMENT_COMPLETE.md",
+      "path": "D:\\RestoreAssist\\DEPLOYMENT_COMPLETE.md",
+      "last_updated": "October 20, 2025",
+      "status": "SUCCESS - Marked as complete",
+      "contradictions": "Marked as 'Production Ready' but multiple docs indicate deployment still has critical issues",
+      "what_was_accomplished": [
+        "Stripe integration configured",
+        "Vercel deployment fixes applied",
+        "Environment variables configured",
+        "Database configuration completed",
+        "Security measures implemented",
+        "uuid package replaced with native crypto"
+      ],
+      "known_limitations": [
+        "Agent SDK disabled (package unavailable)",
+        "Database migrations created but not executed",
+        "Backend still returning 500 FUNCTION_INVOCATION_FAILED"
+      ]
+    },
+    {
+      "filename": "DEPLOYMENT_STATUS.md",
+      "path": "D:\\RestoreAssist\\DEPLOYMENT_STATUS.md",
+      "last_updated": "October 20, 2025",
+      "status": "In Progress - Debugging serverless crash",
+      "current_issue": "Backend still returning 500 FUNCTION_INVOCATION_FAILED",
+      "next_steps": [
+        "Check Vercel Runtime Logs",
+        "Test simpler endpoints",
+        "Disable PostgreSQL temporarily",
+        "Verify environment variables",
+        "Check build logs"
+      ]
+    },
+    {
+      "filename": "VERCEL_ENV_VARIABLES.md",
+      "path": "D:\\RestoreAssist\\packages\\backend\\VERCEL_ENV_VARIABLES.md",
+      "content_type": "Environment Variable Setup Guide",
+      "completion_status": "26+ variables documented",
+      "key_sections": [
+        "Core Configuration (6 variables)",
+        "Stripe Integration (9 variables)",
+        "Database Configuration (4 variables)",
+        "Optional Integrations (Google OAuth, ServiceM8, Google Drive)",
+        "How to Add Variables in Vercel (step-by-step)",
+        "Minimum required variables for basic operation"
+      ]
+    },
+    {
+      "filename": "STRIPE_SENDGRID_SETUP.md",
+      "path": "D:\\RestoreAssist\\STRIPE_SENDGRID_SETUP.md",
+      "content_type": "Integration setup documentation",
+      "describes": "Setup for both Stripe and SendGrid integrations"
+    },
+    {
+      "filename": "SENDGRID_MCP_SETUP.md",
+      "path": "D:\\RestoreAssist\\SENDGRID_MCP_SETUP.md",
+      "content_type": "SendGrid MCP Server setup",
+      "describes": "Configuration for SendGrid MCP server in Claude Code"
+    }
+  ],
+  "build_scripts": {
+    "backend": {
+      "dev": "tsx watch src/index.ts",
+      "build": "tsc",
+      "vercel:prepare": "node -e \"console.log('Build complete. Dist folder ready.')\"",
+      "start": "node dist/index.js",
+      "test": "jest",
+      "test:e2e": "playwright test"
+    },
+    "frontend": {
+      "dev": "vite",
+      "build": "vite build",
+      "preview": "vite preview"
+    }
+  },
+  "git_commits_related_to_deployment": [
+    {
+      "sha": "2bed699",
+      "message": "Fix all uuid ES Module imports - replace with native crypto.randomUUID()",
+      "date": "recent"
+    },
+    {
+      "sha": "bd9b4ce",
+      "message": "Fix Vercel deployment - replace uuid package with crypto.randomUUID()",
+      "date": "recent"
+    },
+    {
+      "sha": "49adf82",
+      "message": "Add error handling to Vercel serverless entry point",
+      "date": "recent"
+    },
+    {
+      "sha": "0f70f79",
+      "message": "Add Vercel helper scripts to .gitignore",
+      "date": "recent"
+    },
+    {
+      "sha": "897c098",
+      "message": "Fix serverless crash - implement lazy database connection loading",
+      "date": "recent"
+    },
+    {
+      "sha": "2359257",
+      "message": "Fix serverless function crash - handle missing .env files gracefully",
+      "date": "recent"
+    },
+    {
+      "sha": "b4e546d",
+      "message": "Fix Vercel deployment - configure output directory",
+      "date": "recent"
+    },
+    {
+      "sha": "421806d",
+      "message": "Fix TypeScript build errors for production deployment",
+      "date": "recent"
+    }
+  ],
+  "deployment_urls": [
+    {
+      "service": "Backend",
+      "url": "https://restore-assist-backend.vercel.app",
+      "status": "Currently failing with FUNCTION_INVOCATION_FAILED"
+    },
+    {
+      "service": "Frontend",
+      "url": "https://restore-assist-frontend.vercel.app",
+      "status": "Status unknown - frontend configuration appears correct"
+    }
+  ],
+  "test_endpoints": [
+    {
+      "endpoint": "GET /api/health",
+      "purpose": "Health check",
+      "expected_response": "{\"status\":\"healthy\",\"timestamp\":\"...\",\"environment\":\"production\"}",
+      "status": "Should work after Root Directory fix"
+    },
+    {
+      "endpoint": "GET /api/test",
+      "purpose": "Runtime diagnostics",
+      "expected_response": "Detailed diagnostics including file system and environment status",
+      "status": "Should work after Root Directory fix"
+    },
+    {
+      "endpoint": "GET /api/hello",
+      "purpose": "Ultra-minimal test",
+      "expected_response": "{\"message\":\"Hello from Vercel!\"}",
+      "status": "Should work to verify configuration"
+    },
+    {
+      "endpoint": "POST /api/auth/login",
+      "purpose": "Authentication test",
+      "expected_response": "JWT tokens and user data",
+      "status": "After basic endpoints working"
+    }
+  ],
+  "summary": {
+    "overall_status": "DEPLOYMENT_BLOCKED_ON_CONFIGURATION",
+    "blocking_issue": "Vercel Root Directory must be set to 'packages/backend' in dashboard",
+    "why_blocked": "Vercel cannot discover serverless functions in packages/backend/api/ when deploying from repository root",
+    "code_readiness": "ALL CODE READY - TypeScript compilation passes, Express app loads correctly locally",
+    "configuration_readiness": "PARTIALLY READY - Most settings correct, but critical dashboard settings not yet applied",
+    "environment_readiness": "COMPLETE - All 26+ environment variables configured in Vercel",
+    "immediate_action_required": "Set Vercel Dashboard → Project Settings → General → Root Directory to 'packages/backend'",
+    "estimated_time_to_deployment": "5-10 minutes once dashboard settings are applied",
+    "success_criteria": [
+      "GET /api/hello returns 200 with JSON response",
+      "GET /api/health returns healthy status",
+      "POST /api/auth/login successfully authenticates",
+      "Stripe webhooks process correctly",
+      "No INTERNAL_FUNCTION_INVOCATION_FAILED errors"
+    ]
+  },
+  "recommendations": {
+    "immediate": [
+      "Apply Option A: Configure Vercel Root Directory to 'packages/backend' (CRITICAL)",
+      "Verify Framework Preset is set to 'Other' not 'Next.js'",
+      "Redeploy after settings change"
+    ],
+    "short_term": [
+      "Test all three endpoints (hello, test, health) to verify deployment",
+      "Monitor Vercel function logs during first requests",
+      "Test Stripe webhook with test event from dashboard"
+    ],
+    "medium_term": [
+      "Remove uuid from dependencies since code now uses crypto module",
+      "Enable Agent SDK once package becomes available",
+      "Run database migrations when Supabase connection is confirmed"
+    ],
+    "long_term": [
+      "Set up monitoring with Sentry (mentioned but not implemented)",
+      "Implement rate limiting on Stripe webhooks",
+      "Add health check dashboard",
+      "Complete email notification system (15 TODOs in stripeRoutes.ts)"
+    ]
+  }
+}

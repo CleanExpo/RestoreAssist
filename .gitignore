@@ -42,3 +42,6 @@ nul
 # Spec Kit - track specifications but ignore drafts
 features/**/draft*.md
 features/**/.wip/
+
+# MCP servers (embedded git repos)
+sendgrid-mcp/
