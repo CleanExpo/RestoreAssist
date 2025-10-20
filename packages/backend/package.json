@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "vercel:prepare": "node -e \"console.log('Build complete. Dist folder ready.')\"",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "stripe:setup": "tsx src/scripts/setup-stripe-products.ts",
@@ -46,5 +47,8 @@
     "@types/node": "^20.19.22",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.x"
   }
 }

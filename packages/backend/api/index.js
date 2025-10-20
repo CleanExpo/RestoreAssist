@@ -5,18 +5,50 @@
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 const path = require('path');
+const fs = require('fs');
+
+// Diagnostic function to check file system
+function getDiagnostics() {
+  const distPath = path.join(__dirname, '..', 'dist');
+  const distIndexPath = path.join(distPath, 'index.js');
+
+  let distContents = 'N/A';
+  if (fs.existsSync(distPath)) {
+    try {
+      distContents = fs.readdirSync(distPath).join(', ');
+    } catch (e) {
+      distContents = `Error reading: ${e.message}`;
+    }
+  }
+
+  return {
+    nodeVersion: process.version,
+    platform: process.platform,
+    cwd: process.cwd(),
+    dirname: __dirname,
+    distPath,
+    distIndexPath,
+    hasDistFolder: fs.existsSync(distPath),
+    hasIndexFile: fs.existsSync(distIndexPath),
+    distContents,
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+      hasJwtSecret: !!process.env.JWT_SECRET
+    }
+  };
+}
 
 let app;
 let loadError;
 
 try {
   console.log('🚀 Loading Express app for Vercel serverless...');
-  console.log('📁 Current directory:', __dirname);
-  console.log('📦 Node version:', process.version);
-  console.log('🌍 Environment:', process.env.NODE_ENV);
+  const diagnostics = getDiagnostics();
+  console.log('📊 Diagnostics:', JSON.stringify(diagnostics, null, 2));
 
   const distPath = path.join(__dirname, '..', 'dist', 'index');
-  console.log('📂 Looking for app at:', distPath);
+  console.log('📂 Attempting to load from:', distPath);
 
   // Load the compiled Express app from dist
   const appModule = require(distPath);
@@ -27,44 +59,38 @@ try {
   }
 
   console.log('✅ Express app loaded successfully');
-
-  // Export the Express app for Vercel serverless
-  module.exports = app;
 } catch (error) {
   console.error('❌ FATAL: Failed to load Express app:', error.message);
   console.error('Stack trace:', error.stack);
-
   loadError = error;
-
-  // Export an error handler that provides diagnostic information
-  module.exports = (req, res) => {
-    // Set CORS headers for error responses
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    // Handle OPTIONS requests
-    if (req.method === 'OPTIONS') {
-      res.status(200).end();
-      return;
-    }
-
-    const isDevelopment = process.env.NODE_ENV === 'development';
-
-    res.status(500).json({
-      error: 'Server initialization failed',
-      message: loadError.message,
-      timestamp: new Date().toISOString(),
-      path: req.url,
-      diagnostics: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        cwd: process.cwd(),
-        hasDistFolder: require('fs').existsSync(path.join(__dirname, '..', 'dist')),
-        hasIndexFile: require('fs').existsSync(path.join(__dirname, '..', 'dist', 'index.js')),
-      },
-      stack: isDevelopment ? loadError.stack : undefined,
-      hint: 'Check build logs to ensure TypeScript compiled successfully'
-    });
-  };
 }
+
+// Always export a valid handler function
+module.exports = (req, res) => {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // If app loaded successfully, use it
+  if (app) {
+    return app(req, res);
+  }
+
+  // Otherwise, return diagnostic error
+  res.status(500).json({
+    error: 'Server initialization failed',
+    message: loadError ? loadError.message : 'Unknown error',
+    timestamp: new Date().toISOString(),
+    path: req.url,
+    diagnostics: getDiagnostics(),
+    stack: process.env.NODE_ENV !== 'production' ? (loadError ? loadError.stack : undefined) : undefined,
+    hint: 'Check build logs and ensure TypeScript compiled to dist/ folder'
+  });
+};
