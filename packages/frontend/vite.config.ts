@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import mcp from 'vite-plugin-mcp'
+// import mcp from 'vite-plugin-mcp'  // Temporarily disabled - causing import errors
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react(), mcp()],
+  plugins: [react()],  // mcp() temporarily removed
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
