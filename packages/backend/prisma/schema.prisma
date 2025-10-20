@@ -1,0 +1,55 @@
+// Prisma Schema for RestoreAssist
+// Database: PostgreSQL with Prisma Accelerate
+// Generated: 2025-10-20
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// =====================================================
+// Reports Table
+// =====================================================
+model Report {
+  reportId           String    @id @default(uuid()) @map("report_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Property information
+  propertyAddress    String    @map("property_address")
+  damageType         DamageType @map("damage_type")
+  damageDescription  String    @map("damage_description")
+  state              AustralianState
+
+  // Report content
+  summary            String
+  scopeOfWork        Json      @map("scope_of_work") @db.JsonB
+  itemizedEstimate   Json      @map("itemized_estimate") @db.JsonB
+  totalCost          Decimal   @map("total_cost") @db.Decimal(12, 2)
+  complianceNotes    Json      @map("compliance_notes") @db.JsonB
+  authorityToProceed String    @map("authority_to_proceed")
+
+  // Metadata
+  clientName         String?   @map("client_name") @db.VarChar(255)
+  insuranceCompany   String?   @map("insurance_company") @db.VarChar(255)
+  claimNumber        String?   @map("claim_number") @db.VarChar(100)
+  generatedBy        String    @default("RestoreAssist AI") @map("generated_by") @db.VarChar(100)
+  model              String    @db.VarChar(100)
+
+  // Soft delete
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)], name: "idx_reports_created_at")
+  @@index([state], name: "idx_reports_state")
+  @@index([damageType], name: "idx_reports_damage_type")
+  @@index([totalCost(sort: Desc)], name: "idx_reports_total_cost")
+  @@index([clientName], name: "idx_reports_client_name")
+  @@index([claimNumber], name: "idx_reports_claim_number")
+  @@index([createdAt(sort: Desc), reportId], name: "idx_reports_pagination")
+  @@map("reports")
+}
