@@ -1,6 +1,9 @@
 // Load environment variables first
 import './config/env';
 
+// Initialize Sentry BEFORE any other imports for proper instrumentation
+import { Sentry } from './instrument';
+
 import express from 'express';
 import cors from 'cors';
 import { reportRoutes } from './routes/reportRoutes';
@@ -52,7 +55,10 @@ app.use('/api/stripe', stripeRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 // app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialisation
 
-// Error handling
+// Sentry error handling - MUST be before custom error handler
+Sentry.setupExpressErrorHandler(app);
+
+// Custom error handling
 app.use(errorHandler);
 
 // Initialise services (for serverless) - with error handling

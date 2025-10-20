@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/node';
 import { STRIPE_CONFIG } from '../config/stripe';
 import {
   processCheckoutSession,
@@ -120,6 +121,18 @@ router.post('/webhook', async (req: Request, res: Response) => {
         const session = event.data.object as Stripe.Checkout.Session;
         console.log('Checkout session completed:', session.id);
 
+        // Add Sentry breadcrumb
+        Sentry.addBreadcrumb({
+          category: 'stripe.webhook',
+          message: 'Processing checkout session',
+          level: 'info',
+          data: {
+            sessionId: session.id,
+            customerId: session.customer,
+            subscriptionId: session.subscription,
+          },
+        });
+
         try {
           // Process checkout and create subscription
           await processCheckoutSession(session);
@@ -129,6 +142,23 @@ router.post('/webhook', async (req: Request, res: Response) => {
           // TODO: Trigger welcome workflow
         } catch (error) {
           console.error('Failed to process checkout session:', error);
+
+          // Track critical error in Sentry
+          Sentry.captureException(error, {
+            tags: {
+              'stripe.event': 'checkout.session.completed',
+              'stripe.session_id': session.id,
+            },
+            contexts: {
+              stripe: {
+                sessionId: session.id,
+                customerId: session.customer,
+                subscriptionId: session.subscription,
+                paymentStatus: session.payment_status,
+              },
+            },
+            level: 'error',
+          });
         }
 
         break;

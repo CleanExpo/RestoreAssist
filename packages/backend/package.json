@@ -16,6 +16,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.22",
     "@anthropic-ai/sdk": "^0.32.1",
+    "@sentry/node": "^10.20.0",
+    "@sentry/profiling-node": "^10.20.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.2",
