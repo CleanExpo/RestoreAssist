@@ -40,14 +40,14 @@ reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
       }
     }
 
-    console.log('🤖 Generating report using SDK Agent for job:', request.claimNumber || 'NEW JOB');
+    console.log('🤖 Generating report for job:', request.claimNumber || 'NEW JOB');
 
-    // Use SDK Agent for report generation (production system)
-    const useAgent = req.query.useAgent !== 'false'; // Default to true
+    // TEMPORARY: Agent service disabled until SDK is available
+    const useAgent = req.query.useAgent === 'true'; // Default to false for now
 
     const report = useAgent
       ? await reportAgentService.generateReport(request)
-      : await claudeService.generateReport(request); // Legacy fallback
+      : await claudeService.generateReport(request); // Primary service (agent disabled)
 
     await db.createAsync(report);
 

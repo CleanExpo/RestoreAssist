@@ -389,9 +389,12 @@ export async function processSubscriptionUpdate(
 
   const newStatus = mapStripeStatus(stripeSubscription.status);
 
+  // Type assertion to access current_period_end (exists in API but may not be in types)
+  const periodEnd = (stripeSubscription as any).current_period_end;
+
   await updateSubscriptionStatus(subscription.subscription_id, newStatus, {
     stripe_status: stripeSubscription.status,
-    current_period_end: new Date(stripeSubscription.current_period_end * 1000),
+    current_period_end: periodEnd ? new Date(periodEnd * 1000) : undefined,
   });
 
   console.log(`✅ Subscription ${subscription.subscription_id} updated to ${newStatus}`);

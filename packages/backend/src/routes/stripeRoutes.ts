@@ -188,13 +188,19 @@ router.post('/webhook', async (req: Request, res: Response) => {
       }
 
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription;
+        };
         console.log('Invoice payment succeeded:', invoice.id);
 
         try {
           // Get subscription and record payment success
-          if (invoice.subscription) {
-            const sub = await getSubscriptionByStripeId(invoice.subscription as string);
+          const subscriptionId = typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription?.id;
+
+          if (subscriptionId) {
+            const sub = await getSubscriptionByStripeId(subscriptionId);
             if (sub) {
               await recordSubscriptionHistory({
                 subscription_id: sub.subscription_id,
@@ -219,13 +225,19 @@ router.post('/webhook', async (req: Request, res: Response) => {
       }
 
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription;
+        };
         console.log('Invoice payment failed:', invoice.id);
 
         try {
           // Get subscription and mark as past_due
-          if (invoice.subscription) {
-            const sub = await getSubscriptionByStripeId(invoice.subscription as string);
+          const subscriptionId = typeof invoice.subscription === 'string'
+            ? invoice.subscription
+            : invoice.subscription?.id;
+
+          if (subscriptionId) {
+            const sub = await getSubscriptionByStripeId(subscriptionId);
             if (sub) {
               await updateSubscriptionStatus(sub.subscription_id, 'past_due', {
                 invoice_id: invoice.id,

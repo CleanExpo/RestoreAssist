@@ -1,10 +1,12 @@
-import { Agent } from '@anthropic-ai/claude-agent-sdk';
+// TEMPORARY: Disabled until @anthropic-ai/claude-agent-sdk is available
+// import { Agent } from '@anthropic-ai/claude-agent-sdk';
 import { GenerateReportRequest, GeneratedReport, ReportItem } from '../types';
 
 /**
  * Report Agent Service - Production AI Agents for Damage Assessment
  *
- * This service uses Claude Agent SDK to generate unique, data-driven reports
+ * CURRENTLY DISABLED: Awaiting @anthropic-ai/claude-agent-sdk package
+ * This service will use Claude Agent SDK to generate unique, data-driven reports
  * for each restoration job. Each job creates a sandboxed agent environment
  * that pulls real data to generate:
  * - Initial damage assessment reports
@@ -14,6 +16,9 @@ import { GenerateReportRequest, GeneratedReport, ReportItem } from '../types';
  *
  * NO TWO JOBS ARE ALIKE - agents adapt to each unique situation.
  */
+
+// Placeholder type until SDK is available
+type Agent = any;
 
 const AUSTRALIAN_STANDARDS = {
   NSW: 'NSW Building Code + NCC 2022',
@@ -30,10 +35,13 @@ export class ReportAgentService {
   /**
    * Create a dedicated agent for a specific job/claim
    * This creates a sandboxed environment with the job's unique context
+   * CURRENTLY DISABLED - Returns null until SDK is available
    */
   private createJobAgent(request: GenerateReportRequest): Agent {
     const standards = AUSTRALIAN_STANDARDS[request.state];
 
+    // DISABLED: Uncomment when @anthropic-ai/claude-agent-sdk is available
+    /*
     return new Agent({
       name: `RestoreAssist Job Agent - ${request.claimNumber || 'New Job'}`,
       model: 'claude-opus-4-20250514',
@@ -80,30 +88,20 @@ Your report must include:
         }
       }
     });
+    */
+
+    return null as any; // Placeholder until SDK is available
   }
 
   /**
    * Generate complete damage assessment report using AI agent
+   * CURRENTLY DISABLED - Returns error until SDK is available
    */
   async generateReport(request: GenerateReportRequest): Promise<GeneratedReport> {
-    console.log(`🤖 Creating dedicated agent for job: ${request.claimNumber || 'NEW'}`);
-    console.log(`   Property: ${request.propertyAddress}`);
-    console.log(`   Damage: ${request.damageType}`);
+    console.warn('⚠️ Agent service not available - @anthropic-ai/claude-agent-sdk not installed');
+    console.warn('   Falling back to legacy ClaudeService');
 
-    // Create job-specific agent
-    const jobAgent = this.createJobAgent(request);
-
-    // Build the job-specific prompt with REAL DATA
-    const jobPrompt = this.buildJobPrompt(request);
-
-    // Run the agent to generate the report
-    const result = await jobAgent.run({
-      input: jobPrompt,
-      maxTurns: 10
-    });
-
-    // Parse and validate the agent's output
-    return this.parseAgentOutput(result, request);
+    throw new Error('Agent service temporarily unavailable - use ClaudeService instead (set useAgent=false)');
   }
 
   /**

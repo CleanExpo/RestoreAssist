@@ -4,6 +4,20 @@
  * Centralized Stripe product and pricing configuration for RestoreAssist
  */
 
+// Type definitions
+export type StripePlan = 'freeTrial' | 'monthly' | 'yearly';
+
+export interface StripePlanDetails {
+  name: string;
+  amount: number;
+  currency: string;
+  interval?: string;
+  reportLimit: number | 'unlimited';
+  features: string[];
+  discount?: string;
+  monthlyEquivalent?: number;
+}
+
 export const STRIPE_CONFIG = {
   // API Keys
   secretKey: process.env.STRIPE_SECRET_KEY || '',
@@ -29,32 +43,32 @@ export const STRIPE_CONFIG = {
       name: 'Free Trial',
       amount: 0,
       currency: 'AUD',
-      reportLimit: 3,
+      reportLimit: 3 as number | 'unlimited',
       features: [
         '3 free reports',
         'PDF export',
         'Basic support',
-      ],
-    },
+      ] as string[],
+    } as StripePlanDetails,
     monthly: {
       name: 'Monthly Plan',
       amount: 49.50,
       currency: 'AUD',
       interval: 'month',
-      reportLimit: 'unlimited',
+      reportLimit: 'unlimited' as number | 'unlimited',
       features: [
         'Unlimited reports',
         'PDF & Excel export',
         'Email support',
         'All integrations',
-      ],
-    },
+      ] as string[],
+    } as StripePlanDetails,
     yearly: {
       name: 'Yearly Plan',
       amount: 528,
       currency: 'AUD',
       interval: 'year',
-      reportLimit: 'unlimited',
+      reportLimit: 'unlimited' as number | 'unlimited',
       discount: '10%',
       monthlyEquivalent: 44,
       features: [
@@ -63,24 +77,10 @@ export const STRIPE_CONFIG = {
         'Priority support',
         'All integrations',
         '10% discount (save $66/year)',
-      ],
-    },
+      ] as string[],
+    } as StripePlanDetails,
   },
-} as const;
-
-// Type exports
-export type StripePlan = 'freeTrial' | 'monthly' | 'yearly';
-
-export interface StripePlanDetails {
-  name: string;
-  amount: number;
-  currency: string;
-  interval?: string;
-  reportLimit: number | 'unlimited';
-  features: string[];
-  discount?: string;
-  monthlyEquivalent?: number;
-}
+};
 
 /**
  * Get plan details by plan type
