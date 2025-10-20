@@ -1,18 +1,20 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "outputDirectory": "dist",
   "functions": {
-    "api/index.js": {
+    "api/**/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
   },
   "routes": [
     {
+      "src": "/api/test",
+      "dest": "/api/test.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/api"
+      "dest": "/api/index.js"
     }
   ]
 }
