@@ -89,7 +89,7 @@ class HttpClient {
 
     // Add auth token if available
     if (this.accessToken && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
-      headers['Authorisation'] = `Bearer ${this.accessToken}`;
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
     const controller = new AbortController();

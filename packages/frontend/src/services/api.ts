@@ -52,7 +52,7 @@ export async function logout(): Promise<void> {
     await fetch(`${API_BASE_URL}/auth/logout`, {
       method: 'POST',
       headers: {
-        'Authorisation': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
   } finally {
@@ -68,7 +68,7 @@ export async function generateReport(request: GenerateReportRequest): Promise<Ge
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorisation': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
     },
     body: JSON.stringify(request),
   });
@@ -97,7 +97,7 @@ export async function getReports(options?: {
 
   const response = await fetch(`${API_BASE_URL}/reports?${params}`, {
     headers: {
-      'Authorisation': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
     },
   });
 
@@ -113,7 +113,7 @@ export async function getReport(reportId: string): Promise<GeneratedReport> {
 
   const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
     headers: {
-      'Authorisation': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
     },
   });
 
@@ -130,7 +130,7 @@ export async function deleteReport(reportId: string): Promise<boolean> {
   const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
     method: 'DELETE',
     headers: {
-      'Authorisation': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
     },
   });
 
@@ -148,7 +148,7 @@ export async function exportReport(reportId: string, format: 'pdf' | 'docx'): Pr
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorisation': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ format }),
   });
@@ -173,7 +173,7 @@ export async function getStats(): Promise<{
 
   const response = await fetch(`${API_BASE_URL}/reports/stats`, {
     headers: {
-      'Authorisation': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
     },
   });
 
