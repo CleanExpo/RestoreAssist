@@ -400,7 +400,7 @@ export class RestoreAssistClient {
   constructor(config: ClientConfig = {}) {
     this.httpClient = new HttpClient(config);
 
-    // Initialize API modules
+    // Initialise API modules
     this.auth = new AuthAPI(this.httpClient);
     this.reports = new ReportsAPI(this.httpClient);
     this.exports = new ExportsAPI(this.httpClient);

@@ -11,7 +11,7 @@
 import { RestoreAssistClient, RestoreAssistError } from '@restoreassist/sdk';
 
 async function basicExample() {
-  // Initialize the client
+  // Initialise the client
   const client = new RestoreAssistClient({
     baseUrl: 'http://localhost:3001/api',
     onError: (error) => {
