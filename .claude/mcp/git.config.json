@@ -1,0 +1,45 @@
+{
+  "name": "git",
+  "description": "Git MCP server for repository operations (read-only by default)",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-git"],
+  "env": {},
+  "settings": {
+    "repositoryPath": ".",
+    "readOnly": true,
+    "allowedOperations": [
+      "status",
+      "log",
+      "diff",
+      "show",
+      "branch",
+      "remote"
+    ],
+    "blockedOperations": [
+      "commit",
+      "push",
+      "pull",
+      "merge",
+      "rebase",
+      "reset"
+    ]
+  },
+  "capabilities": {
+    "read_history": true,
+    "view_diffs": true,
+    "check_status": true,
+    "list_branches": true,
+    "write_operations": false
+  },
+  "safety": {
+    "readOnly": true,
+    "requiresApproval": false,
+    "allowWrites": false
+  },
+  "notes": [
+    "Provides read-only access to Git repository information",
+    "Useful for understanding project history and changes",
+    "Write operations disabled by default for safety",
+    "To enable commits/pushes, set readOnly to false and update allowedOperations"
+  ]
+}

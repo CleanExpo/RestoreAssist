@@ -1,0 +1,35 @@
+{
+  "name": "jina",
+  "description": "Jina Reader API for extracting clean content from web pages (optional)",
+  "command": "npx",
+  "args": ["-y", "@jina-ai/reader-mcp"],
+  "env": {
+    "JINA_API_KEY": ""
+  },
+  "settings": {
+    "baseURL": "https://r.jina.ai",
+    "timeout": 30000,
+    "maxRetries": 3,
+    "outputFormat": "markdown"
+  },
+  "capabilities": {
+    "url_extraction": true,
+    "clean_content": true,
+    "markdown_conversion": true,
+    "metadata_extraction": true,
+    "pdf_support": true
+  },
+  "safety": {
+    "readOnly": true,
+    "requiresApproval": false,
+    "respectRateLimit": true
+  },
+  "notes": [
+    "Optional: Requires Jina AI API key (free tier available)",
+    "Extracts clean, readable content from web pages",
+    "Converts HTML to markdown automatically",
+    "Useful for research agent to fetch documentation",
+    "Get API key at: https://jina.ai",
+    "Set JINA_API_KEY environment variable"
+  ]
+}

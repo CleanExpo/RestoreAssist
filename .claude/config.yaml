@@ -1,0 +1,322 @@
+# RestoreAssist Claude Orchestrator Configuration
+# Customized for RestoreAssist - Disaster Recovery Reporting System
+
+# Project Type & Autonomy
+project_type: nextjs_fullstack
+
+# Autonomy Mode
+# trusted: Fast iteration, agents work within guardrails
+autonomy: trusted
+
+# Feature Toggles
+features:
+  research: true                 # Enable research agent
+  tests: true                    # Enable testing workflows
+  docs: true                     # Enable documentation
+  devops: true                   # Enable CI/CD
+  data: true                     # Enable data operations (Supabase seeds)
+
+# MCP Server Configuration
+mcp:
+  playwright: true               # E2E testing
+  fs: true                       # Filesystem access
+  git: read                      # Read-only git access
+  browser: false                 # Web browsing disabled
+  jina: auto                     # Auto-detect Jina API key
+  stripe: true                   # Stripe MCP for payment integration
+  github: true                   # GitHub MCP for repo operations
+  context7: true                 # Context7 MCP for docs
+  memory: true                   # Memory MCP for knowledge graph
+  sequential-thinking: true      # Sequential thinking MCP
+  ide: true                      # IDE MCP for diagnostics
+  auto_discover: true
+  status_endpoint: "/mcp"
+
+# Playwright Policy
+playwright:
+  if_found:
+    alter_config: false          # Don't modify existing playwright config
+    alter_tests: false           # Don't modify existing tests
+    new_test_dir: "tests/e2e-claude"
+  if_not_found:
+    offer_install: true
+    fallback_mode: "smoke"
+
+# Project Paths - RestoreAssist Monorepo
+paths:
+  frontend:
+    app: ./packages/frontend/src
+    components: ./packages/frontend/src/components
+    pages: ./packages/frontend/src/pages
+    lib: ./packages/frontend/src/lib
+  backend:
+    app: ./packages/backend/src
+    api: ./packages/backend/src/routes
+    services: ./packages/backend/src/services
+    db: ./packages/backend/src/db
+  e2e: ./tests/e2e-claude
+  workdir: ./
+
+# Guardrails
+guardrails:
+  write_scope:
+    - "packages/frontend/src/**"
+    - "packages/backend/src/**"
+    - "docs/**"
+    - ".github/**"
+    - "tests/e2e-claude/**"
+  protected_files:
+    - ".env*"
+    - "**/.env.local"
+    - "vercel.json"
+    - "**/package-lock.json"
+    - "**/.vercel/**"
+    - "packages/backend/api/**"  # Vercel serverless entry points
+  require_tests_to_pass: true
+  strict_mode: false
+
+# Telemetry & Logs
+logging:
+  enabled: true
+  level: "info"
+  run_logs: ".claude/logs/{YYYY-MM-DD}/"
+  summaries: ".claude/reports/"
+  rotation: true
+  max_size: "10MB"
+  max_files: 10
+
+# CI Configuration
+ci:
+  installed: false               # No CI yet
+  enabled: false
+  file: ".github/workflows/quality.yml"
+  auto_enable: false
+
+# Project Information
+project:
+  name: "RestoreAssist"
+  version: "1.0.0"
+  description: "AI-powered disaster recovery reporting and restoration management system"
+  repository: "https://github.com/CleanExpo/RestoreAssist"
+
+# Agent Configuration
+agents:
+  # Core agents
+  coder:
+    enabled: true
+    definition: ".claude/agents/coder.md"
+
+  tester:
+    enabled: true
+    definition: ".claude/agents/tester.md"
+
+  research:
+    enabled: true
+    definition: ".claude/agents/research.md"
+    fallback_mode: "local"
+
+  integrator:
+    enabled: true
+    definition: ".claude/agents/integrator.md"
+
+  stuck:
+    enabled: true
+    definition: ".claude/agents/stuck.md"
+
+  # Master SDK agents
+  master-fullstack:
+    enabled: true
+    definition: ".claude/agents/master-fullstack.md"
+    auto_create_missing: true
+
+  master-devops:
+    enabled: true
+    definition: ".claude/agents/master-devops.md"
+    ci_auto_enable: false
+
+  master-docs:
+    enabled: true
+    definition: ".claude/agents/master-docs.md"
+    auto_generate: true
+
+  master-data:
+    enabled: true                # For Supabase seeds/fixtures
+    definition: ".claude/agents/master-data.md"
+
+  # Additional agents
+  data:
+    enabled: true
+    definition: ".claude/agents/data.md"
+
+  deployer:
+    enabled: true
+    definition: ".claude/agents/deployer.md"
+
+  docs:
+    enabled: true
+    definition: ".claude/agents/docs.md"
+
+# Stack Configuration - RestoreAssist Tech Stack
+stack:
+  preset: "nextjs_fullstack"
+  framework: "Next.js 14"
+  language: "TypeScript"
+  styling: "Tailwind CSS"
+  database: "Supabase (PostgreSQL)"
+  auth: "JWT + Google OAuth"
+  payments: "Stripe"
+  testing: "Playwright + Vitest"
+  deployment: "Vercel"
+  package_manager: "npm"
+
+  # RestoreAssist-specific
+  ai: "Anthropic Claude"
+  apis:
+    - "Stripe Payment Processing"
+    - "Supabase Database"
+    - "Google Drive Integration"
+    - "ServiceM8 CRM (optional)"
+
+  # Frontend
+  frontend_framework: "React 18"
+  frontend_router: "React Router v6"
+  frontend_state: "Context API"
+
+  # Backend
+  backend_framework: "Express.js"
+  backend_runtime: "Node.js 18+"
+  database_orm: "pg-promise"
+
+# Edge Cases & Safeguards
+edge_cases:
+  monorepos:
+    enabled: true                # RestoreAssist IS a monorepo
+    scope_by_workdir: true
+    per_package_detection: true
+    packages:
+      - "packages/frontend"
+      - "packages/backend"
+
+  lockfile_variants:
+    respect_existing: true
+    auto_detect: true
+
+  no_internet:
+    research_fallback: true
+    jina_fallback: true
+
+  missing_playwright:
+    offer_install: true
+    fallback_tests: "smoke"
+
+# Workflow Templates
+workflows:
+  feature:
+    steps:
+      - agent: research
+        description: "Research best practices and patterns"
+      - agent: master-fullstack
+        description: "Verify requirements complete (FE+BE+API)"
+      - agent: coder
+        description: "Implement feature in frontend and backend"
+      - agent: data
+        description: "Handle database migrations/seeds if needed"
+      - agent: tester
+        description: "Create E2E tests (PHASE GATE)"
+      - agent: integrator
+        description: "Wire everything together"
+      - agent: master-docs
+        description: "Update documentation"
+
+  bugfix:
+    steps:
+      - agent: research
+        description: "Investigate issue in codebase"
+      - agent: stuck
+        description: "Check for known patterns"
+      - agent: coder
+        description: "Implement fix"
+      - agent: tester
+        description: "Add regression test (PHASE GATE)"
+      - agent: integrator
+        description: "Verify no side effects"
+
+  deploy:
+    steps:
+      - agent: tester
+        description: "Run full test suite (PHASE GATE)"
+      - agent: master-devops
+        description: "Deploy to Vercel with guardrails"
+      - agent: tester
+        description: "Verify deployed environment"
+      - agent: master-docs
+        description: "Update CHANGELOG and deployment docs"
+
+  database:
+    steps:
+      - agent: data
+        description: "Create migration files"
+      - agent: master-data
+        description: "Verify schema integrity"
+      - agent: tester
+        description: "Test data operations"
+      - agent: integrator
+        description: "Apply migrations and update services"
+
+  subscription:
+    steps:
+      - agent: research
+        description: "Review Stripe best practices"
+      - agent: coder
+        description: "Implement subscription logic"
+      - agent: data
+        description: "Create subscription tables"
+      - agent: tester
+        description: "Test payment flows (PHASE GATE)"
+      - agent: integrator
+        description: "Integrate with frontend"
+
+# Environment Settings
+environments:
+  development:
+    debug: true
+    autonomy: trusted
+    require_tests: false
+
+  staging:
+    debug: false
+    autonomy: trusted
+    require_tests: true
+
+  production:
+    debug: false
+    autonomy: review_each_step
+    require_tests: true
+    require_approval: true
+    strict_mode: true
+
+# Phase Gates
+phase_gates:
+  tester_to_integrator: true
+  integrator_to_devops: false
+  manual_approval_production: true
+
+# RestoreAssist-Specific Settings
+restoreassist:
+  ai_features:
+    report_generation: true
+    claude_skills: true
+    agent_sdk: false              # Disabled until package available
+
+  integrations:
+    stripe_webhooks: true
+    google_drive: true
+    servicem8: false               # Optional
+
+  deployment:
+    frontend_url: "https://restoreassist.app"
+    backend_url: "https://restore-assist-backend.vercel.app"
+
+  data_safety:
+    backup_before_migrations: true
+    require_rollback_plan: true

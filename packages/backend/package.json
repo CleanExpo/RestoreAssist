@@ -6,15 +6,25 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:test": "tsx src/index.ts",
     "build": "tsc",
+    "vercel:prepare": "node -e \"console.log('Build complete. Dist folder ready.')\"",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:all": "npm run test && npm run test:e2e",
     "stripe:setup": "tsx src/scripts/setup-stripe-products.ts",
     "stripe:fetch": "tsx src/scripts/fetch-stripe-prices.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.22",
     "@anthropic-ai/sdk": "^0.32.1",
+    "@prisma/client": "^6.17.1",
+    "@sentry/node": "^10.20.0",
+    "@sentry/profiling-node": "^10.20.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.2",
@@ -36,15 +46,25 @@
     "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "pg-promise": "^12.2.0",
+    "prisma": "^6.17.1",
     "stripe": "^19.1.0",
     "uuid": "^13.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.22",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.x"
   }
 }

@@ -236,19 +236,29 @@ export class AuthService {
    * Initialise with default admin user (for development)
    */
   async initializeDefaultUsers(): Promise<void> {
+    console.log('🔍 [AUTH] initializeDefaultUsers() called');
+    console.log(`🔍 [AUTH] Current user count before init: ${users.size}`);
+
     // Check if admin exists
     const adminExists = Array.from(users.values()).some(u => u.role === 'admin');
+    console.log(`🔍 [AUTH] Admin exists: ${adminExists}`);
     if (!adminExists) {
+      console.log('🔍 [AUTH] Creating admin user...');
       await this.registerUser('admin@restoreassist.com', 'admin123', 'Admin User', 'admin');
       console.log('✅ Default admin user created: admin@restoreassist.com / admin123');
     }
 
     // Create demo user
     const demoUserExists = this.getUserByEmail('demo@restoreassist.com');
+    console.log(`🔍 [AUTH] Demo user exists: ${demoUserExists !== undefined}`);
     if (!demoUserExists) {
+      console.log('🔍 [AUTH] Creating demo user...');
       await this.registerUser('demo@restoreassist.com', 'demo123', 'Demo User', 'user');
       console.log('✅ Demo user created: demo@restoreassist.com / demo123');
     }
+
+    console.log(`🔍 [AUTH] Final user count after init: ${users.size}`);
+    console.log(`🔍 [AUTH] Users: ${Array.from(users.values()).map(u => u.email).join(', ')}`);
   }
 
   /**

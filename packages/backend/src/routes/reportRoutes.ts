@@ -75,6 +75,21 @@ reportRoutes.get('/', authenticate, async (req: Request, res: Response) => {
     const sortBy = (req.query.sortBy as 'timestamp' | 'totalCost') || 'timestamp';
     const order = (req.query.order as 'asc' | 'desc') || 'desc';
 
+    // Check if PostgreSQL is enabled
+    const usePostgres = process.env.USE_POSTGRES === 'true';
+    if (!usePostgres) {
+      // Return empty reports when database is not configured
+      return res.json({
+        reports: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          pages: 0
+        }
+      });
+    }
+
     const result = await db.findAllAsync({ page, limit, sortBy, order });
 
     res.json(result);
@@ -90,6 +105,16 @@ reportRoutes.get('/', authenticate, async (req: Request, res: Response) => {
 // GET /api/reports/stats - Statistics
 reportRoutes.get('/stats', authenticate, async (req: Request, res: Response) => {
   try {
+    // Check if PostgreSQL is enabled
+    const usePostgres = process.env.USE_POSTGRES === 'true';
+    if (!usePostgres) {
+      // Return empty stats when database is not configured
+      return res.json({
+        totalReports: 0,
+        totalCost: 0
+      });
+    }
+
     const stats = await db.getStatsAsync();
     res.json(stats);
   } catch (error) {

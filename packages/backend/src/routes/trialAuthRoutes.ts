@@ -16,7 +16,9 @@ interface AuthRequest extends Request {
 
 const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorisation;
-  const token = authHeader?.split(' ')[1]; // Bearer TOKEN
+  // Normalize header to string (Express can return string[])
+  const headerValue = authHeader ? (Array.isArray(authHeader) ? authHeader[0] : authHeader) : undefined;
+  const token = headerValue?.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });

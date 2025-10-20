@@ -244,12 +244,12 @@ After successful login, console should show:
 ### Frontend Environment (`.env`)
 ```bash
 VITE_API_URL=http://localhost:3001
-VITE_GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+VITE_GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com
 ```
 
 ### Backend Environment (`.env.local`)
 ```bash
-GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:3000
 ```

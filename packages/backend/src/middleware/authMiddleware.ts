@@ -26,8 +26,11 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
       });
     }
 
+    // Normalize header to string (Express can return string[])
+    const headerValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+
     // Check if Bearer token
-    if (!authHeader.startsWith('Bearer ')) {
+    if (!headerValue.startsWith('Bearer ')) {
       return res.status(401).json({
         error: 'Authentication required',
         message: 'Invalid authorisation format. Use: Bearer <token>',
@@ -35,7 +38,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
     }
 
     // Extract token
-    const token = authHeader.substring(7);
+    const token = headerValue.substring(7);
 
     // Verify token
     const userPayload = authService.verifyAccessToken(token);
@@ -85,10 +88,15 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorisation;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      const userPayload = authService.verifyAccessToken(token);
-      req.user = userPayload;
+    if (authHeader) {
+      // Normalize header to string (Express can return string[])
+      const headerValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+
+      if (headerValue.startsWith('Bearer ')) {
+        const token = headerValue.substring(7);
+        const userPayload = authService.verifyAccessToken(token);
+        req.user = userPayload;
+      }
     }
   } catch (error) {
     // Ignore errors for optional auth

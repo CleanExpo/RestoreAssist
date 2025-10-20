@@ -1,0 +1,297 @@
+// Prisma Schema for RestoreAssist
+// Database: PostgreSQL with Prisma Accelerate
+// Generated: 2025-10-20
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// =====================================================
+// Enums
+// =====================================================
+enum DamageType {
+  Water
+  Fire
+  Storm
+  Flood
+  Mould
+  Biohazard
+  Impact
+  Other
+}
+
+enum AustralianState {
+  NSW
+  VIC
+  QLD
+  WA
+  SA
+  TAS
+  ACT
+  NT
+}
+
+// =====================================================
+// Reports Table
+// =====================================================
+model Report {
+  reportId           String    @id @default(uuid()) @map("report_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Property information
+  propertyAddress    String    @map("property_address")
+  damageType         DamageType @map("damage_type")
+  damageDescription  String    @map("damage_description")
+  state              AustralianState
+
+  // Report content
+  summary            String
+  scopeOfWork        Json      @map("scope_of_work") @db.JsonB
+  itemizedEstimate   Json      @map("itemized_estimate") @db.JsonB
+  totalCost          Decimal   @map("total_cost") @db.Decimal(12, 2)
+  complianceNotes    Json      @map("compliance_notes") @db.JsonB
+  authorityToProceed String    @map("authority_to_proceed")
+
+  // Metadata
+  clientName         String?   @map("client_name") @db.VarChar(255)
+  insuranceCompany   String?   @map("insurance_company") @db.VarChar(255)
+  claimNumber        String?   @map("claim_number") @db.VarChar(100)
+  generatedBy        String    @default("RestoreAssist AI") @map("generated_by") @db.VarChar(100)
+  model              String    @db.VarChar(100)
+
+  // Soft delete
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)], name: "idx_reports_created_at")
+  @@index([state], name: "idx_reports_state")
+  @@index([damageType], name: "idx_reports_damage_type")
+  @@index([totalCost(sort: Desc)], name: "idx_reports_total_cost")
+  @@index([clientName], name: "idx_reports_client_name")
+  @@index([claimNumber], name: "idx_reports_claim_number")
+  @@index([createdAt(sort: Desc), reportId], name: "idx_reports_pagination")
+  @@map("reports")
+}
+
+// =====================================================
+// Organizations Table
+// =====================================================
+model Organization {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slug               String   @unique @db.VarChar(100)
+  name               String   @db.VarChar(255)
+  description        String?
+  logoUrl            String?  @map("logo_url") @db.VarChar(500)
+  ownerId            String   @map("owner_id")
+  subscriptionTier   String   @default("free") @map("subscription_tier") @db.VarChar(50)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  members            OrganizationMember[]
+  ascoraIntegrations AscoraIntegration[]
+  ascoraJobs         AscoraJob[]
+  ascoraCustomers    AscoraCustomer[]
+  ascoraInvoices     AscoraInvoice[]
+  ascoraLogs         AscoraLog[]
+  ascoraSchedules    AscoraSchedule[]
+
+  @@index([slug], name: "idx_organizations_slug")
+  @@index([ownerId], name: "idx_organizations_owner_id")
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id")
+  role           String       @default("member") @db.VarChar(50)
+  joinedAt       DateTime     @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId], name: "idx_org_members_org")
+  @@index([userId], name: "idx_org_members_user")
+  @@map("organization_members")
+}
+
+// =====================================================
+// Ascora CRM Integration Tables
+// =====================================================
+model AscoraIntegration {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id")
+  apiUrl         String    @unique @map("api_url") @db.VarChar(500)
+  apiToken       String    @map("api_token")
+  companyCode    String    @map("company_code") @db.VarChar(50)
+  isActive       Boolean   @default(true) @map("is_active")
+  lastSyncAt     DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  syncStatus     String    @default("idle") @map("sync_status") @db.VarChar(50)
+  webhookToken   String?   @map("webhook_token") @db.VarChar(255)
+  syncSettings   Json      @default("{\"sync_customers\": true, \"sync_jobs\": true, \"sync_invoices\": true}") @map("sync_settings") @db.JsonB
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logs           AscoraLog[]
+  schedules      AscoraSchedule[]
+
+  @@index([organizationId], name: "idx_ascora_org")
+  @@index([isActive], name: "idx_ascora_active")
+  @@index([userId], name: "idx_ascora_user")
+  @@map("ascora_integrations")
+}
+
+model AscoraJob {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String?   @map("organization_id") @db.Uuid
+  reportId         String?   @map("report_id") @db.Uuid
+  ascoraJobId      String    @unique @map("ascora_job_id") @db.VarChar(255)
+  jobTitle         String?   @map("job_title") @db.VarChar(500)
+  customerId       String?   @map("customer_id") @db.VarChar(255)
+  customerName     String?   @map("customer_name") @db.VarChar(255)
+  customerEmail    String?   @map("customer_email") @db.VarChar(255)
+  customerPhone    String?   @map("customer_phone") @db.VarChar(20)
+  jobStatus        String?   @map("job_status") @db.VarChar(50)
+  description      String?
+  jobAddress       String?   @map("job_address")
+  jobType          String?   @map("job_type") @db.VarChar(50)
+  priority         String?   @db.VarChar(20)
+  estimatedCost    Decimal?  @map("estimated_cost") @db.Decimal(12, 2)
+  actualCost       Decimal?  @map("actual_cost") @db.Decimal(12, 2)
+  scheduledDate    DateTime? @map("scheduled_date") @db.Timestamptz(6)
+  completedDate    DateTime? @map("completed_date") @db.Timestamptz(6)
+  assignedTo       String?   @map("assigned_to") @db.VarChar(255)
+  assignedToName   String?   @map("assigned_to_name") @db.VarChar(255)
+  invoiceStatus    String?   @map("invoice_status") @db.VarChar(50)
+  invoiceAmount    Decimal?  @map("invoice_amount") @db.Decimal(12, 2)
+  paymentStatus    String?   @map("payment_status") @db.VarChar(50)
+  customFields     Json?     @map("custom_fields") @db.JsonB
+  lastSyncedAt     DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  syncDirection    String?   @map("sync_direction") @db.VarChar(50)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], name: "idx_ascora_jobs_org")
+  @@index([reportId], name: "idx_ascora_jobs_report")
+  @@index([ascoraJobId], name: "idx_ascora_jobs_ascora_id")
+  @@index([customerId], name: "idx_ascora_jobs_customer")
+  @@index([jobStatus], name: "idx_ascora_jobs_status")
+  @@map("ascora_jobs")
+}
+
+model AscoraCustomer {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String?   @map("organization_id") @db.Uuid
+  ascoraCustomerId String    @unique @map("ascora_customer_id") @db.VarChar(255)
+  firstName        String?   @map("first_name") @db.VarChar(255)
+  lastName         String?   @map("last_name") @db.VarChar(255)
+  companyName      String?   @map("company_name") @db.VarChar(500)
+  email            String?   @db.VarChar(255)
+  phone            String?   @db.VarChar(20)
+  mobile           String?   @db.VarChar(20)
+  streetAddress    String?   @map("street_address")
+  suburb           String?   @db.VarChar(255)
+  state            String?   @db.VarChar(10)
+  postcode         String?   @db.VarChar(10)
+  country          String?   @db.VarChar(100)
+  customerType     String?   @map("customer_type") @db.VarChar(50)
+  billingAddress   String?   @map("billing_address")
+  taxId            String?   @map("tax_id") @db.VarChar(50)
+  notes            String?
+  customFields     Json?     @map("custom_fields") @db.JsonB
+  syncedAt         DateTime? @map("synced_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], name: "idx_ascora_customers_org")
+  @@index([ascoraCustomerId], name: "idx_ascora_customers_ascora_id")
+  @@index([email], name: "idx_ascora_customers_email")
+  @@index([phone], name: "idx_ascora_customers_phone")
+  @@map("ascora_customers")
+}
+
+model AscoraInvoice {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String?   @map("organization_id") @db.Uuid
+  ascoraInvoiceId String    @unique @map("ascora_invoice_id") @db.VarChar(255)
+  ascoraJobId     String?   @map("ascora_job_id") @db.VarChar(255)
+  reportId        String?   @map("report_id") @db.Uuid
+  customerId      String?   @map("customer_id") @db.VarChar(255)
+  invoiceNumber   String?   @map("invoice_number") @db.VarChar(50)
+  invoiceDate     DateTime? @map("invoice_date") @db.Date
+  dueDate         DateTime? @map("due_date") @db.Date
+  totalAmount     Decimal?  @map("total_amount") @db.Decimal(12, 2)
+  paidAmount      Decimal?  @map("paid_amount") @db.Decimal(12, 2)
+  status          String?   @db.VarChar(50)
+  paymentMethod   String?   @map("payment_method") @db.VarChar(50)
+  paymentDate     DateTime? @map("payment_date") @db.Date
+  syncedAt        DateTime? @map("synced_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], name: "idx_ascora_invoices_org")
+  @@index([ascoraInvoiceId], name: "idx_ascora_invoices_ascora_id")
+  @@index([reportId], name: "idx_ascora_invoices_report")
+  @@index([status], name: "idx_ascora_invoices_status")
+  @@map("ascora_invoices")
+}
+
+model AscoraLog {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String?   @map("organization_id") @db.Uuid
+  integrationId     String?   @map("integration_id") @db.Uuid
+  syncType          String    @map("sync_type") @db.VarChar(50)
+  source            String?   @db.VarChar(50)
+  target            String?   @db.VarChar(50)
+  resourceType      String?   @map("resource_type") @db.VarChar(50)
+  resourceId        String?   @map("resource_id") @db.Uuid
+  ascoraResourceId  String?   @map("ascora_resource_id") @db.VarChar(255)
+  status            String?   @db.VarChar(50)
+  errorMessage      String?   @map("error_message")
+  retryCount        Int       @default(0) @map("retry_count")
+  responseData      Json?     @map("response_data") @db.JsonB
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integration       AscoraIntegration? @relation(fields: [integrationId], references: [id])
+
+  @@index([organizationId], name: "idx_ascora_logs_org")
+  @@index([status], name: "idx_ascora_logs_status")
+  @@index([syncType], name: "idx_ascora_logs_type")
+  @@index([createdAt(sort: Desc)], name: "idx_ascora_logs_created")
+  @@map("ascora_sync_logs")
+}
+
+model AscoraSchedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String?   @map("organization_id") @db.Uuid
+  integrationId  String    @map("integration_id") @db.Uuid
+  syncInterval   Int       @default(300) @map("sync_interval")
+  isActive       Boolean   @default(true) @map("is_active")
+  lastRunAt      DateTime? @map("last_run_at") @db.Timestamptz(6)
+  nextRunAt      DateTime  @map("next_run_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integration    AscoraIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], name: "idx_ascora_schedules_org")
+  @@index([nextRunAt], name: "idx_ascora_schedules_next")
+  @@map("ascora_sync_schedules")
+}

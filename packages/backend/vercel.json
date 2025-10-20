@@ -1,18 +1,9 @@
 {
-  "version": 2,
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "outputDirectory": "dist",
+  "buildCommand": "npm run build && npm run vercel:prepare",
   "functions": {
-    "api/index.js": {
+    "api/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
-  },
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/api"
-    }
-  ]
+  }
 }

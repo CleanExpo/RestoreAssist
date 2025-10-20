@@ -7,6 +7,16 @@ export const adminRoutes = Router();
 // GET /api/admin/stats - Admin statistics (admin only)
 adminRoutes.get('/stats', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
+    // Check if PostgreSQL is enabled before accessing db
+    const usePostgres = process.env.USE_POSTGRES === 'true';
+
+    if (!usePostgres) {
+      return res.status(503).json({
+        error: 'Database not configured',
+        message: 'PostgreSQL is not enabled. Set USE_POSTGRES=true to enable database features.'
+      });
+    }
+
     const stats = await db.getAdminStatsAsync();
 
     res.json({
@@ -31,6 +41,16 @@ adminRoutes.get('/stats', authenticate, authorise('admin'), async (req: Request,
 // POST /api/admin/cleanup - Admin cleanup (admin only)
 adminRoutes.post('/cleanup', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
+    // Check if PostgreSQL is enabled before accessing db
+    const usePostgres = process.env.USE_POSTGRES === 'true';
+
+    if (!usePostgres) {
+      return res.status(503).json({
+        error: 'Database not configured',
+        message: 'PostgreSQL is not enabled. Set USE_POSTGRES=true to enable database features.'
+      });
+    }
+
     const { days, clearAll } = req.body;
 
     if (clearAll === true) {
@@ -68,34 +88,52 @@ adminRoutes.post('/cleanup', authenticate, authorise('admin'), async (req: Reque
 // GET /api/admin/health - Health check with details
 adminRoutes.get('/health', async (req: Request, res: Response) => {
   try {
-    const adminStats = await db.getAdminStatsAsync();
-    const reportStats = await db.getStatsAsync();
+    let adminStats;
+    let reportStats;
+    let databaseConnected = true;
+
+    // Check if PostgreSQL is enabled before accessing db
+    const usePostgres = process.env.USE_POSTGRES === 'true';
+
+    if (usePostgres) {
+      try {
+        adminStats = await db.getAdminStatsAsync();
+        reportStats = await db.getStatsAsync();
+      } catch (dbError) {
+        // Database unavailable, return degraded health
+        databaseConnected = false;
+        console.warn('Database connection failed in health check:', dbError);
+      }
+    } else {
+      // PostgreSQL disabled, return degraded health
+      databaseConnected = false;
+    }
 
     const health = {
-      status: 'healthy',
+      status: databaseConnected ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
       database: {
-        connected: true,
-        totalReports: adminStats.totalReports,
-        size: adminStats.databaseSize
+        connected: databaseConnected,
+        totalReports: adminStats?.totalReports || 0,
+        size: adminStats?.databaseSize || 'unavailable'
       },
       system: {
-        uptime: adminStats.uptime,
+        uptime: adminStats?.uptime || process.uptime(),
         memory: {
-          heapUsed: adminStats.memoryUsage.heapUsed,
-          heapTotal: adminStats.memoryUsage.heapTotal,
-          rss: adminStats.memoryUsage.rss
+          heapUsed: adminStats?.memoryUsage?.heapUsed || process.memoryUsage().heapUsed,
+          heapTotal: adminStats?.memoryUsage?.heapTotal || process.memoryUsage().heapTotal,
+          rss: adminStats?.memoryUsage?.rss || process.memoryUsage().rss
         },
         nodeVersion: process.version,
         platform: process.platform
       },
-      reports: {
+      reports: reportStats ? {
         total: reportStats.totalReports,
         recent24h: reportStats.recentReports,
         totalValue: reportStats.totalValue,
         averageValue: reportStats.averageValue
-      }
+      } : null
     };
 
     res.json(health);

@@ -1,4 +1,4 @@
-export type DamageType = 'water' | 'fire' | 'storm' | 'flood' | 'mold';
+export type DamageType = 'water' | 'fire' | 'storm' | 'flood' | 'mold' | 'biohazard' | 'impact' | 'other';
 export type AustralianState = 'NSW' | 'VIC' | 'QLD' | 'WA' | 'SA' | 'TAS' | 'ACT' | 'NT';
 
 export interface GenerateReportRequest {

@@ -1,6 +1,9 @@
 // Load environment variables first
 import './config/env';
 
+// Initialize Sentry BEFORE any other imports for proper instrumentation
+import { Sentry } from './instrument';
+
 import express from 'express';
 import cors from 'cors';
 import { reportRoutes } from './routes/reportRoutes';
@@ -27,8 +30,13 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173']
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorisation'],
+  optionsSuccessStatus: 204
 }));
+app.options('*', cors()); // Enable pre-flight for all routes
 app.use(express.json());
 
 // Routes
@@ -36,7 +44,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
   });
 });
 
@@ -52,23 +61,32 @@ app.use('/api/stripe', stripeRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 // app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialisation
 
-// Error handling
+// Sentry error handling - MUST be before custom error handler
+Sentry.setupExpressErrorHandler(app);
+
+// Custom error handling
 app.use(errorHandler);
 
-// Initialise services (for serverless)
+// Initialise services (for both serverless and local) - with error handling
 (async () => {
-  await authService.initializeDefaultUsers();
-})();
+  console.log('🔍 [INIT] Starting server initialization...');
+  try {
+    console.log('🔍 [INIT] Calling initializeDefaultUsers()...');
+    await authService.initializeDefaultUsers();
+    console.log('✅ Default users initialized successfully');
+    const userCount = authService.getUserCount();
+    console.log(`🔍 [INIT] Total users in system: ${userCount}`);
+  } catch (error) {
+    console.error('⚠️ Failed to initialize default users:', error);
+    // Continue anyway - don't crash the app
+  }
 
-// For local development
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, async () => {
-    console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
-
-  // Initialise default users
-  await authService.initializeDefaultUsers();
+  // For local development - start server AFTER user initialization
+  if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+      console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
 
   // Check ServiceM8 integration status
   if (servicem8Service.isEnabled()) {
@@ -161,8 +179,9 @@ if (process.env.NODE_ENV !== 'production') {
   console.log(`   GET    /api/trial-auth/health          # Health check`);
     // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialisation)`);
     // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
-  });
-}
+    });
+  }
+})();
 
 // Export for Vercel serverless
 export default app;

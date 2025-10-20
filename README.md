@@ -25,7 +25,10 @@ Generate professional damage assessment reports with AI-powered analysis, compli
 - 🔥 Fire Damage
 - 🌪️ Storm Damage
 - 🌊 Flood Damage
-- 🦠 Mold Damage
+- 🦠 Mould Damage
+- ☣️ Biohazard
+- 💥 Impact Damage
+- 📋 Other
 
 ### 📊 Complete Platform
 - Client-side or server-side AI processing

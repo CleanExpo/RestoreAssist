@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS reports (
 
     -- Property information
     property_address TEXT NOT NULL,
-    damage_type TEXT NOT NULL CHECK (damage_type IN ('Water', 'Fire', 'Storm', 'Flood', 'Mold', 'Impact', 'Other')),
+    damage_type TEXT NOT NULL CHECK (damage_type IN ('Water', 'Fire', 'Storm', 'Flood', 'Mould', 'Biohazard', 'Impact', 'Other')),
     damage_description TEXT NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT')),
 
@@ -99,7 +99,7 @@ COMMENT ON COLUMN reports.report_id IS 'Unique identifier for the report (UUID)'
 COMMENT ON COLUMN reports.created_at IS 'Database timestamp when report was created';
 COMMENT ON COLUMN reports.timestamp IS 'ISO string timestamp from report generation';
 COMMENT ON COLUMN reports.property_address IS 'Full address of the damaged property';
-COMMENT ON COLUMN reports.damage_type IS 'Type of damage (Water, Fire, Storm, Flood, Mold, Impact, Other)';
+COMMENT ON COLUMN reports.damage_type IS 'Type of damage (Water, Fire, Storm, Flood, Mould, Biohazard, Impact, Other)';
 COMMENT ON COLUMN reports.severity IS 'Severity rating (Low, Medium, High, Critical)';
 COMMENT ON COLUMN reports.urgent IS 'Whether immediate action is required';
 COMMENT ON COLUMN reports.scope_of_work IS 'JSONB array of work items to be completed';
