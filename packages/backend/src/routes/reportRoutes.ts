@@ -4,6 +4,7 @@ import { reportAgentService } from '../services/reportAgentService';
 import { db } from '../services/databaseService';
 import { GenerateReportRequest, GeneratedReport } from '../types';
 import { authenticate, authorize } from '../middleware/authMiddleware';
+import { checkReportLimit, incrementReportUsage } from '../services/subscriptionService';
 
 export const reportRoutes = Router();
 const claudeService = new ClaudeService(); // Legacy fallback
@@ -20,6 +21,25 @@ reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    // Check subscription limits (if PostgreSQL is enabled)
+    const userId = (req as any).user?.userId;
+    if (userId && process.env.USE_POSTGRES === 'true') {
+      const limitCheck = await checkReportLimit(userId);
+
+      if (!limitCheck.allowed) {
+        return res.status(403).json({
+          error: 'Report limit reached',
+          message: limitCheck.reason,
+          subscription: {
+            plan_type: limitCheck.subscription?.plan_type,
+            reports_used: limitCheck.subscription?.reports_used,
+            reports_limit: limitCheck.subscription?.reports_limit,
+          },
+          upgradeUrl: '/pricing',
+        });
+      }
+    }
+
     console.log('🤖 Generating report using SDK Agent for job:', request.claimNumber || 'NEW JOB');
 
     // Use SDK Agent for report generation (production system)
@@ -30,6 +50,11 @@ reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
       : await claudeService.generateReport(request); // Legacy fallback
 
     await db.createAsync(report);
+
+    // Increment usage counter after successful generation
+    if (userId && process.env.USE_POSTGRES === 'true') {
+      await incrementReportUsage(userId);
+    }
 
     console.log('✅ Report generated successfully:', report.reportId);
     res.status(201).json(report);

@@ -11,6 +11,8 @@ import { integrationsRoutes } from './routes/integrationsRoutes';
 import { googleDriveRoutes } from './routes/googleDriveRoutes';
 import { skillsRoutes } from './routes/skillsRoutes';
 import { trialAuthRoutes } from './routes/trialAuthRoutes';
+import stripeRoutes from './routes/stripeRoutes';
+import subscriptionRoutes from './routes/subscriptionRoutes';
 // import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialization
 import { authService } from './services/authService';
 import { googleAuthService } from './services/googleAuthService';
@@ -46,6 +48,8 @@ app.use('/api/exports', exportRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/integrations/google-drive', googleDriveRoutes);
 app.use('/api/skills', skillsRoutes);
+app.use('/api/stripe', stripeRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 // app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialization
 
 // Error handling

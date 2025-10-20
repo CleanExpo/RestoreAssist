@@ -1,36 +1,28 @@
-import React, { useState } from 'react';
-import { LandingPage } from './pages/LandingPage';
-import { Dashboard } from './pages/Dashboard';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { FreeTrialDemo } from './pages/FreeTrialDemo';
+import { PricingPage } from './pages/PricingPage';
+import { CheckoutSuccess } from './pages/CheckoutSuccess';
+import { Dashboard } from './pages/Dashboard';
+import { SubscriptionManagement } from './pages/SubscriptionManagement';
 
 function App() {
-  // Set to 'demo' to use Free Trial flow with Google OAuth
-  // Set to 'classic' to use original flow
-  const [mode] = useState<'demo' | 'classic'>('demo');
-  const [currentPage, setCurrentPage] = useState<'landing' | 'dashboard'>('landing');
-
-  const handleGetStarted = () => {
-    setCurrentPage('dashboard');
-  };
-
-  const handleBackToHome = () => {
-    setCurrentPage('landing');
-  };
-
-  // Free Trial Demo Mode (with Google OAuth)
-  if (mode === 'demo') {
-    return <FreeTrialDemo />;
-  }
-
-  // Classic Mode (original landing page)
   return (
-    <>
-      {currentPage === 'landing' ? (
-        <LandingPage onGetStarted={handleGetStarted} />
-      ) : (
-        <Dashboard onBackToHome={handleBackToHome} />
-      )}
-    </>
+    <Router>
+      <Routes>
+        {/* Main Routes */}
+        <Route path="/" element={<FreeTrialDemo />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/dashboard" element={<Dashboard onBackToHome={() => window.location.href = '/'} />} />
+        <Route path="/subscription" element={<SubscriptionManagement />} />
+
+        {/* Checkout Routes */}
+        <Route path="/checkout/success" element={<CheckoutSuccess />} />
+
+        {/* Catch all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 }
 
