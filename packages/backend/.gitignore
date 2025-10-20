@@ -6,6 +6,13 @@
 .env.production
 .env.development
 
+# Vercel helper scripts (contain secrets)
+VERCEL_ENV_VALUES.txt
+set-vercel-env*.js
+set-vercel-env*.sh
+get-runtime-logs.js
+trigger-redeploy.js
+
 # Dependencies
 node_modules/
 
