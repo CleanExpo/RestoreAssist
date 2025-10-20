@@ -26,7 +26,46 @@ interface EmailConfig {
   apiKey?: string;
 }
 
-class EmailService {
+/**
+ * Interface for email service operations
+ * Used for dependency injection and mocking in tests
+ */
+export interface IEmailService {
+  sendCheckoutConfirmation(data: {
+    email: string;
+    customerName: string;
+    planName: string;
+    amount: number;
+    currency: string;
+    subscriptionId: string;
+  }): Promise<boolean>;
+  sendPaymentReceipt(data: {
+    email: string;
+    customerName: string;
+    amount: number;
+    currency: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    planName: string;
+  }): Promise<boolean>;
+  sendSubscriptionCancelled(data: {
+    email: string;
+    customerName: string;
+    planName: string;
+    cancelledAt: string;
+    accessUntil: string;
+  }): Promise<boolean>;
+  sendPaymentFailed(data: {
+    email: string;
+    customerName: string;
+    amount: number;
+    currency: string;
+    retryDate: string;
+    updatePaymentUrl: string;
+  }): Promise<boolean>;
+}
+
+class EmailService implements IEmailService {
   private transporter: Transporter | null = null;
   private config: EmailConfig;
   private enabled: boolean = false;

@@ -38,3 +38,7 @@ yarn-error.log*
 Thumbs.db
 claude-code-agents-wizard-v2/
 nul
+
+# Spec Kit - track specifications but ignore drafts
+features/**/draft*.md
+features/**/.wip/

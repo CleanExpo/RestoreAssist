@@ -31,6 +31,22 @@ export interface SubscriptionHistory {
 }
 
 /**
+ * Interface for subscription service operations
+ * Used for dependency injection and mocking in tests
+ */
+export interface ISubscriptionService {
+  processCheckoutSession(session: Stripe.Checkout.Session): Promise<void>;
+  processSubscriptionUpdate(stripeSubscription: Stripe.Subscription): Promise<void>;
+  updateSubscriptionStatus(
+    subscriptionId: string,
+    status: 'active' | 'cancelled' | 'expired' | 'past_due',
+    metadata?: Record<string, any>
+  ): Promise<void>;
+  recordSubscriptionHistory(history: SubscriptionHistory): Promise<void>;
+  getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | null>;
+}
+
+/**
  * Create a new subscription record
  */
 export async function createSubscription(params: {
@@ -41,6 +57,14 @@ export async function createSubscription(params: {
   currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
 }): Promise<Subscription> {
+  // Validate plan type
+  const validPlanTypes = ['freeTrial', 'monthly', 'yearly'];
+  if (!validPlanTypes.includes(params.planType)) {
+    throw new Error(
+      `Invalid plan type: "${params.planType}". Must be one of: ${validPlanTypes.join(', ')}`
+    );
+  }
+
   const subscriptionId = `sub-${Date.now()}-${uuidv4().substring(0, 8)}`;
 
   const reportsLimit = params.planType === 'freeTrial' ? 3 : null;
@@ -421,3 +445,15 @@ function mapStripeStatus(
       return 'expired';
   }
 }
+
+/**
+ * Default subscription service implementation
+ * Exported as object implementing ISubscriptionService interface
+ */
+export const subscriptionService: ISubscriptionService = {
+  processCheckoutSession,
+  processSubscriptionUpdate,
+  updateSubscriptionStatus,
+  recordSubscriptionHistory,
+  getSubscriptionByStripeId,
+};

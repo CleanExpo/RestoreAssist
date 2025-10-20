@@ -85,7 +85,10 @@ export function ReportForm({ onReportGenerated }: Props) {
               <option value="fire">Fire Damage</option>
               <option value="storm">Storm Damage</option>
               <option value="flood">Flood Damage</option>
-              <option value="mold">Mold Damage</option>
+              <option value="mold">Mould Damage</option>
+              <option value="biohazard">Biohazard</option>
+              <option value="impact">Impact Damage</option>
+              <option value="other">Other</option>
             </select>
           </div>
 
