@@ -7,6 +7,7 @@ import { LogoCompact } from '../components/ui/logo';
 import { ApiKeyManager } from '../components/ApiKeyManager';
 import { ReportForm } from '../components/ReportForm';
 import { GeneratedReports } from '../components/GeneratedReports';
+import { UserMenu } from '../components/UserMenu';
 
 interface DashboardProps {
   onBackToHome: () => void;
@@ -35,6 +36,7 @@ export function Dashboard({ onBackToHome }: DashboardProps) {
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-xs">Dashboard</Badge>
             <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
       </header>
