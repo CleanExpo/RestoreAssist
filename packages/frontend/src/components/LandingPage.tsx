@@ -41,6 +41,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     setIsAuthenticated(!!token);
+
+    // CRITICAL: Disable Google One Tap completely
+    // This prevents "Sign in as [Name]" from appearing
+    const disableOneTap = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.cancel();
+      }
+    };
+
+    // Disable immediately and on any script load
+    disableOneTap();
+    const interval = setInterval(disableOneTap, 100);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
@@ -153,8 +167,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                     size="large"
                     text="signup_with"
                     shape="pill"
-                    auto_select={false}
-                    use_fedcm_for_prompt={false}
                   />
                 </div>
 
