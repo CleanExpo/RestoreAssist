@@ -9,6 +9,8 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 import { RefundPolicy } from './pages/RefundPolicy';
 import { ContactSupport } from './pages/ContactSupport';
+import { AccountSettings } from './pages/AccountSettings';
+import { CookieConsent } from './components/CookieConsent';
 
 function App() {
   return (
@@ -31,9 +33,15 @@ function App() {
         {/* Support */}
         <Route path="/contact" element={<ContactSupport />} />
 
+        {/* Account Settings */}
+        <Route path="/settings" element={<AccountSettings />} />
+
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* Cookie Consent Banner - Shows on all pages */}
+      <CookieConsent />
     </Router>
   );
 }

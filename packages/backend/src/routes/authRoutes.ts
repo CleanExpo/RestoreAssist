@@ -258,3 +258,41 @@ authRoutes.delete('/users/:userId', authenticate, authorise('admin'), (req: Requ
     });
   }
 });
+
+// DELETE /api/auth/delete-account - Delete own account
+authRoutes.delete('/delete-account', authenticate, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'User not authenticated',
+      });
+    }
+
+    const userId = req.user.userId;
+
+    // Log account deletion
+    console.log(`⚠️  Account deletion requested for user: ${userId}`);
+
+    // Delete the user account
+    const deleted = authService.deleteUser(userId);
+
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'User not found',
+      });
+    }
+
+    console.log(`✅ Account deleted successfully: ${userId}`);
+
+    res.json({
+      message: 'Account deleted successfully',
+      success: true,
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({
+      error: 'Failed to delete account',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
