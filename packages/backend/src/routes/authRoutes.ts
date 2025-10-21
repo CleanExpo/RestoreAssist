@@ -134,8 +134,72 @@ authRoutes.get('/me', authenticate, (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/register - Register new user (admin only)
-authRoutes.post('/register', authRateLimiter, authenticate, authorise('admin'), async (req: Request, res: Response) => {
+// POST /api/auth/register - Register new user (public endpoint)
+authRoutes.post('/register', authRateLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email, password, name, company } = req.body;
+
+    // Validation
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Email, password, and name are required',
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        error: 'Invalid email format',
+        message: 'Please provide a valid email address',
+      });
+    }
+
+    // Validate password strength (minimum 8 characters)
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: 'Weak password',
+        message: 'Password must be at least 8 characters long',
+      });
+    }
+
+    // Register user with 'user' role (not admin)
+    const user = await authService.registerUser(email, password, name, 'user');
+
+    // Update company if provided
+    if (company) {
+      const fullUser = authService.getUserById(user.userId);
+      if (fullUser) {
+        fullUser.company = company;
+      }
+    }
+
+    // Generate tokens for automatic login after registration
+    const tokens = await authService.login(email, password);
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        userId: user.userId,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        company,
+      },
+      tokens,
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(400).json({
+      error: 'Registration failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// POST /api/auth/admin-register - Register new user (admin only)
+authRoutes.post('/admin-register', authRateLimiter, authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const { email, password, name, role, company } = req.body;
 
@@ -147,7 +211,7 @@ authRoutes.post('/register', authRateLimiter, authenticate, authorise('admin'), 
       });
     }
 
-    // Register user
+    // Register user with specified role
     const user = await authService.registerUser(email, password, name, role || 'user');
 
     // Update company if provided

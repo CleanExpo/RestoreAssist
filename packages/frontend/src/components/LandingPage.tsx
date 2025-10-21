@@ -126,13 +126,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                 ) : (
                   <>
                     <Link
-                      to="/trial"
+                      to="/signin"
                       className="text-white hover:text-blue-100 transition font-medium"
                     >
                       Sign In
                     </Link>
                     <Link
-                      to="/trial"
+                      to="/signup"
                       className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
                     >
                       Sign Up

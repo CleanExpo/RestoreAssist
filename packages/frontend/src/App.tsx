@@ -10,6 +10,8 @@ import { TermsOfService } from './pages/TermsOfService';
 import { RefundPolicy } from './pages/RefundPolicy';
 import { ContactSupport } from './pages/ContactSupport';
 import { AccountSettings } from './pages/AccountSettings';
+import { SignIn } from './pages/SignIn';
+import { SignUp } from './pages/SignUp';
 import { CookieConsent } from './components/CookieConsent';
 
 function App() {
@@ -21,6 +23,10 @@ function App() {
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/dashboard" element={<Dashboard onBackToHome={() => window.location.href = '/'} />} />
         <Route path="/subscription" element={<SubscriptionManagement />} />
+
+        {/* Auth Routes */}
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
 
         {/* Checkout Routes */}
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
