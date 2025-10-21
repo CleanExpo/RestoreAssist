@@ -92,7 +92,7 @@ export interface StripePlanDetails {
   interval?: string;
   reportLimit: number | 'unlimited';
   popular: boolean;
-  features: string[];
+  features: readonly string[];
   discount?: string;
   monthlyEquivalent?: number;
   savings?: number;

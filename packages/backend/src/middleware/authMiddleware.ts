@@ -16,13 +16,13 @@ declare global {
  */
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
-    // Get token from Authorisation header
-    const authHeader = req.headers.authorisation;
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
 
     if (!authHeader) {
       return res.status(401).json({
         error: 'Authentication required',
-        message: 'No authorisation header provided',
+        message: 'No authorization header provided',
       });
     }
 
@@ -33,7 +33,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
     if (!headerValue.startsWith('Bearer ')) {
       return res.status(401).json({
         error: 'Authentication required',
-        message: 'Invalid authorisation format. Use: Bearer <token>',
+        message: 'Invalid authorization format. Use: Bearer <token>',
       });
     }
 
@@ -86,7 +86,7 @@ export function authorise(...allowedRoles: string[]) {
  */
 export function optionalAuth(req: Request, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorisation;
+    const authHeader = req.headers.authorization;
 
     if (authHeader) {
       // Normalize header to string (Express can return string[])
