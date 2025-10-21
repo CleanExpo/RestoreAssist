@@ -45,3 +45,4 @@ features/**/.wip/
 
 # MCP servers (embedded git repos)
 sendgrid-mcp/
+packages/frontend/tsc_output.txt
