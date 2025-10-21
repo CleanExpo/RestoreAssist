@@ -153,6 +153,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                     size="large"
                     text="signup_with"
                     shape="pill"
+                    auto_select={false}
+                    use_fedcm_for_prompt={false}
                   />
                 </div>
 
