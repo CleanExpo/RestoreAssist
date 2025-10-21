@@ -20,7 +20,7 @@ interface AuthRequest extends Request {
 }
 
 const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorisation;
+  const authHeader = req.headers.authorization;
   // Normalize header to string (Express can return string[])
   const headerValue = authHeader ? (Array.isArray(authHeader) ? authHeader[0] : authHeader) : undefined;
   const token = headerValue?.split(' ')[1]; // Bearer TOKEN
