@@ -109,16 +109,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                 Pricing
               </a>
 
-              {/* Auth Buttons or UserMenu + ALWAYS VISIBLE SIGN OUT */}
+              {/* Auth Buttons or UserMenu */}
               <div className="flex items-center space-x-4 ml-4">
-                {/* EMERGENCY SIGN OUT BUTTON - ALWAYS VISIBLE */}
-                <button
-                  onClick={signOutCompletely}
-                  className="bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  🔓 Sign Out
-                </button>
-
                 {isAuthenticated ? (
                   <div>
                     <UserMenu />
