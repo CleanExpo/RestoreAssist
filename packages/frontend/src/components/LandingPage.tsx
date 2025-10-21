@@ -4,6 +4,7 @@ import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { VideoModal } from './VideoModal';
 import { UserMenu } from './UserMenu';
 import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
+import { signOutCompletely } from '../utils/signOut';
 import {
   CheckCircle,
   Shield,
@@ -111,20 +112,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
               <div className="flex items-center space-x-4 ml-4">
                 {/* EMERGENCY SIGN OUT BUTTON - ALWAYS VISIBLE */}
                 <button
-                  onClick={() => {
-                    // Clear everything
-                    localStorage.clear();
-                    sessionStorage.clear();
-
-                    // Clear Google One Tap
-                    if (window.google?.accounts?.id) {
-                      window.google.accounts.id.disableAutoSelect();
-                      window.google.accounts.id.cancel();
-                    }
-
-                    // Reload page
-                    window.location.href = '/';
-                  }}
+                  onClick={signOutCompletely}
                   className="bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   🔓 Sign Out

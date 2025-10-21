@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import { setUser as setSentryUser } from '../sentry';
+import { signOutCompletely } from '../utils/signOut';
 
 export const UserMenu: React.FC = () => {
   const navigate = useNavigate();
@@ -25,20 +26,14 @@ export const UserMenu: React.FC = () => {
   }, []);
 
   const handleSignOut = () => {
-    // Clear all tokens and user data
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('sessionToken');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userId');
-
-    // Clear Sentry user context
+    // Clear Sentry user context first
     setSentryUser(null);
 
-    // Close menu and redirect to home
+    // Close menu
     setIsOpen(false);
-    navigate('/');
+
+    // Use the PROPER sign-out function that ACTUALLY works
+    signOutCompletely();
   };
 
   return (
