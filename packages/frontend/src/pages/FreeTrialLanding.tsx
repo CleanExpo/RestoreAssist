@@ -13,6 +13,7 @@ interface FreeTrialLandingProps {
 export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
 
   const handleLoginSuccess = async (googleCredential: string) => {
     setIsLoading(true);
@@ -155,6 +156,20 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
     );
   }
 
+  // If Google OAuth not loaded yet, show landing page without OAuth provider
+  if (!showGoogleOAuth) {
+    return (
+      <div className="relative">
+        <LandingPage
+          onLoginSuccess={handleLoginSuccess}
+          onDevLogin={handleDevLogin}
+          onShowGoogleOAuth={() => setShowGoogleOAuth(true)}
+        />
+      </div>
+    );
+  }
+
+  // Once user clicks sign up, load GoogleOAuthProvider
   return (
     <GoogleOAuthProvider
       clientId={GOOGLE_CLIENT_ID}
@@ -168,7 +183,11 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       }}
     >
       <div className="relative">
-        <LandingPage onLoginSuccess={handleLoginSuccess} onDevLogin={handleDevLogin} />
+        <LandingPage
+          onLoginSuccess={handleLoginSuccess}
+          onDevLogin={handleDevLogin}
+          onShowGoogleOAuth={() => setShowGoogleOAuth(true)}
+        />
 
         {/* Loading Overlay */}
         {isLoading && (
