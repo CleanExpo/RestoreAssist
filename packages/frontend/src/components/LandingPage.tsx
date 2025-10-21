@@ -291,7 +291,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">Lightning Fast Generation</h3>
                 <p className="text-gray-600 leading-relaxed">
-                  Create comprehensive disaster recovery reports in under 2 minutes. Our AI analyses damage
+                  Create comprehensive disaster recovery reports in under 2 minutes. Our AI analyzes damage
                   patterns and generates accurate cost estimates automatically.
                 </p>
               </div>
