@@ -117,7 +117,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                   <GoogleLogin
                     onSuccess={handleGoogleLogin}
                     onError={() => console.error('Google Login Failed')}
-                    useOneTap
                     theme="filled_blue"
                     size="large"
                     text="signup_with"
@@ -561,14 +560,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
               </ul>
 
               <div className="space-y-4">
-                <GoogleLogin
-                  onSuccess={handleGoogleLogin}
-                  onError={() => console.error('Google Login Failed')}
-                  theme="filled_blue"
-                  size="large"
-                  text="signup_with"
-                  width="100%"
-                />
+                <a
+                  href="#hero"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="block w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-xl text-center transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  Start Free Trial
+                </a>
                 <p className="text-center text-sm text-gray-500">
                   Start your 7-day free trial today
                 </p>
@@ -595,15 +596,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                 Join thousands of restoration professionals who are saving time and improving accuracy with RestoreAssist.
               </p>
 
-              <div className="inline-block bg-white p-2 rounded-2xl shadow-2xl">
-                <GoogleLogin
-                  onSuccess={handleGoogleLogin}
-                  onError={() => console.error('Google Login Failed')}
-                  theme="filled_blue"
-                  size="large"
-                  text="signup_with"
-                />
-              </div>
+              <a
+                href="#hero"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="inline-block bg-white hover:bg-gray-50 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-bold py-5 px-12 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 text-xl"
+              >
+                Start Your Free Trial
+              </a>
 
               <p className="text-white text-sm mt-6 flex items-center justify-center space-x-2">
                 <CheckCircle className="w-5 h-5 text-green-300" />
