@@ -3,6 +3,11 @@ import { googleAuthService } from '../services/googleAuthService';
 import { freeTrialService } from '../services/freeTrialService';
 import { paymentVerificationService } from '../services/paymentVerification';
 import { UserPayload } from '../types';
+import {
+  trialAuthRateLimiter,
+  refreshRateLimiter,
+  apiRateLimiter
+} from '../middleware/rateLimitMiddleware';
 
 const router = express.Router();
 
@@ -43,7 +48,7 @@ const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) =>
 // Complete Google OAuth login flow
 // =====================================================
 
-router.post('/google-login', async (req: Request, res: Response) => {
+router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Response) => {
   try {
     const { idToken, ipAddress, userAgent } = req.body;
 
@@ -85,7 +90,7 @@ router.post('/google-login', async (req: Request, res: Response) => {
 // Refresh access token using refresh token
 // =====================================================
 
-router.post('/refresh-token', async (req: Request, res: Response) => {
+router.post('/refresh-token', refreshRateLimiter, async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
 
@@ -160,7 +165,7 @@ router.get('/me', authenticateJWT, async (req: AuthRequest, res: Response) => {
 // Activate free trial (requires JWT)
 // =====================================================
 
-router.post('/activate-trial', authenticateJWT, async (req: AuthRequest, res: Response) => {
+router.post('/activate-trial', apiRateLimiter, authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const { fingerprintHash, deviceData, ipAddress, userAgent } = req.body;
 

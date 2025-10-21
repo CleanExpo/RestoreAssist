@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { VideoModal } from './VideoModal';
 import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
@@ -655,9 +656,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
               <h4 className="text-white font-semibold mb-4">Company</h4>
               <ul className="space-y-3">
                 <li><a href="#" className="hover:text-white transition">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition">Terms of Service</a></li>
+                <li><Link to="/contact" className="hover:text-white transition">Contact Support</Link></li>
+                <li><Link to="/privacy" className="hover:text-white transition">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-white transition">Terms of Service</Link></li>
+                <li><Link to="/refunds" className="hover:text-white transition">Refund Policy</Link></li>
               </ul>
             </div>
           </div>

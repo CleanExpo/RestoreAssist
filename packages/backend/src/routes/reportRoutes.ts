@@ -5,12 +5,13 @@ import { db } from '../services/databaseService';
 import { GenerateReportRequest, GeneratedReport } from '../types';
 import { authenticate, authorise } from '../middleware/authMiddleware';
 import { checkReportLimit, incrementReportUsage } from '../services/subscriptionService';
+import { reportGenerationRateLimiter, apiRateLimiter } from '../middleware/rateLimitMiddleware';
 
 export const reportRoutes = Router();
 const claudeService = new ClaudeService(); // Legacy fallback
 
 // POST /api/reports - Create report (generate with AI Agent)
-reportRoutes.post('/', authenticate, async (req: Request, res: Response) => {
+reportRoutes.post('/', reportGenerationRateLimiter, authenticate, async (req: Request, res: Response) => {
   try {
     const request: GenerateReportRequest = req.body;
 

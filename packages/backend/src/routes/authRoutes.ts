@@ -1,12 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { authService } from '../services/authService';
 import { authenticate, authorise } from '../middleware/authMiddleware';
+import {
+  authRateLimiter,
+  passwordRateLimiter,
+  refreshRateLimiter
+} from '../middleware/rateLimitMiddleware';
 import { LoginRequest, RefreshTokenRequest } from '../types';
 
 export const authRoutes = Router();
 
 // POST /api/auth/login - Login user
-authRoutes.post('/login', async (req: Request, res: Response) => {
+authRoutes.post('/login', authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password }: LoginRequest = req.body;
 
@@ -45,7 +50,7 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/refresh - Refresh access token
-authRoutes.post('/refresh', async (req: Request, res: Response) => {
+authRoutes.post('/refresh', refreshRateLimiter, async (req: Request, res: Response) => {
   try {
     const { refreshToken }: RefreshTokenRequest = req.body;
 
@@ -130,7 +135,7 @@ authRoutes.get('/me', authenticate, (req: Request, res: Response) => {
 });
 
 // POST /api/auth/register - Register new user (admin only)
-authRoutes.post('/register', authenticate, authorise('admin'), async (req: Request, res: Response) => {
+authRoutes.post('/register', authRateLimiter, authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const { email, password, name, role, company } = req.body;
 
@@ -173,7 +178,7 @@ authRoutes.post('/register', authenticate, authorise('admin'), async (req: Reque
 });
 
 // POST /api/auth/change-password - Change user password
-authRoutes.post('/change-password', authenticate, async (req: Request, res: Response) => {
+authRoutes.post('/change-password', passwordRateLimiter, authenticate, async (req: Request, res: Response) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
