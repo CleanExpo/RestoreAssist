@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Your Session - RestoreAssist</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { color: #e53e3e; margin-bottom: 20px; }
+        button {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover { background: #c53030; }
+        .success {
+            background: #48bb78;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .instructions {
+            background: #fff5f5;
+            padding: 20px;
+            border-left: 4px solid #e53e3e;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Clear Your RestoreAssist Session</h1>
+
+        <div class="instructions">
+            <h3>Follow these steps:</h3>
+            <ol>
+                <li>Click the button below to clear all sessions</li>
+                <li>Close this browser completely</li>
+                <li>Open a new private/incognito window</li>
+                <li>Go to <a href="https://restoreassist.app">https://restoreassist.app</a></li>
+            </ol>
+        </div>
+
+        <button onclick="clearEverything()">
+            🗑️ CLEAR ALL SESSIONS NOW
+        </button>
+
+        <button onclick="clearGoogleSessions()">
+            🔓 SIGN OUT OF GOOGLE
+        </button>
+
+        <div id="success" class="success">
+            ✅ <strong>Success!</strong> All sessions cleared.<br>
+            Now close this browser and open a private/incognito window.
+        </div>
+    </div>
+
+    <script>
+        function clearEverything() {
+            // Clear all localStorage
+            localStorage.clear();
+
+            // Clear all sessionStorage
+            sessionStorage.clear();
+
+            // Clear all cookies
+            document.cookie.split(";").forEach(function(c) {
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+
+            // Try to clear Google's session
+            if (window.google?.accounts?.id) {
+                window.google.accounts.id.disableAutoSelect();
+                window.google.accounts.id.cancel();
+            }
+
+            // Show success message
+            document.getElementById('success').style.display = 'block';
+
+            console.log('✅ All sessions cleared');
+        }
+
+        function clearGoogleSessions() {
+            // Open Google sign-out page in new tab
+            window.open('https://accounts.google.com/Logout', '_blank');
+
+            // Clear local Google sessions
+            if (window.google?.accounts?.id) {
+                window.google.accounts.id.disableAutoSelect();
+                window.google.accounts.id.cancel();
+                window.google.accounts.id.revoke(localStorage.getItem('userEmail') || '', done => {
+                    console.log('Google session revoked');
+                });
+            }
+
+            alert('Google sign-out page opened. Sign out from Google, then close that tab and click "CLEAR ALL SESSIONS NOW".');
+        }
+    </script>
+</body>
+</html>

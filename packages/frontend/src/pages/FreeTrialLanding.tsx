@@ -156,7 +156,17 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
   }
 
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    <GoogleOAuthProvider
+      clientId={GOOGLE_CLIENT_ID}
+      onScriptLoadError={() => console.error('Google OAuth script failed to load')}
+      onScriptLoadSuccess={() => {
+        // CRITICAL: Disable Google One Tap immediately when script loads
+        if (window.google?.accounts?.id) {
+          window.google.accounts.id.disableAutoSelect();
+          window.google.accounts.id.cancel();
+        }
+      }}
+    >
       <div className="relative">
         <LandingPage onLoginSuccess={handleLoginSuccess} onDevLogin={handleDevLogin} />
 

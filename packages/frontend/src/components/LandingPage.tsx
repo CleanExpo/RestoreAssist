@@ -107,27 +107,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                 Pricing
               </a>
 
-              {/* Auth Buttons or UserMenu */}
-              {isAuthenticated ? (
-                <div className="ml-4">
-                  <UserMenu />
-                </div>
-              ) : (
-                <div className="flex items-center space-x-4 ml-4">
-                  <Link
-                    to="/trial"
-                    className="text-white hover:text-blue-100 transition font-medium"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/trial"
-                    className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              )}
+              {/* Auth Buttons or UserMenu + ALWAYS VISIBLE SIGN OUT */}
+              <div className="flex items-center space-x-4 ml-4">
+                {/* EMERGENCY SIGN OUT BUTTON - ALWAYS VISIBLE */}
+                <button
+                  onClick={() => {
+                    // Clear everything
+                    localStorage.clear();
+                    sessionStorage.clear();
+
+                    // Clear Google One Tap
+                    if (window.google?.accounts?.id) {
+                      window.google.accounts.id.disableAutoSelect();
+                      window.google.accounts.id.cancel();
+                    }
+
+                    // Reload page
+                    window.location.href = '/';
+                  }}
+                  className="bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  🔓 Sign Out
+                </button>
+
+                {isAuthenticated ? (
+                  <div>
+                    <UserMenu />
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      to="/trial"
+                      className="text-white hover:text-blue-100 transition font-medium"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      to="/trial"
+                      className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </nav>
