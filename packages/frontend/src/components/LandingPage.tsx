@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { VideoModal } from './VideoModal';
+import { UserMenu } from './UserMenu';
 import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
 import {
   CheckCircle,
@@ -31,8 +32,16 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevLogin }) => {
+  const navigate = useNavigate();
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    setIsAuthenticated(!!token);
+  }, []);
 
   const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
     if (!credentialResponse.credential) {
@@ -83,6 +92,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
               <a href="#pricing" className="text-white hover:text-blue-100 transition font-medium">
                 Pricing
               </a>
+
+              {/* Auth Buttons or UserMenu */}
+              {isAuthenticated ? (
+                <div className="ml-4">
+                  <UserMenu />
+                </div>
+              ) : (
+                <div className="flex items-center space-x-4 ml-4">
+                  <Link
+                    to="/trial"
+                    className="text-white hover:text-blue-100 transition font-medium"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/trial"
+                    className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </nav>
