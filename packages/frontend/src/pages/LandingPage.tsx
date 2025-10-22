@@ -467,13 +467,13 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
           </div>
 
           {/* YouTube Video Embed */}
-          {/* TODO: Replace with actual RestoreAssist demo video ID */}
+          {/* RestoreAssist Official Demo Video */}
           <Card className="border-2 shadow-2xl overflow-hidden">
             <CardContent className="p-0">
               <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                 <iframe
                   className="absolute top-0 left-0 w-full h-full"
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  src="https://www.youtube.com/embed/SOr_k8D2C0I"
                   title="RestoreAssist Demo - See how to generate professional damage reports with AI"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
