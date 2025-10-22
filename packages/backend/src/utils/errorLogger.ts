@@ -86,76 +86,82 @@ function sanitizeUserAgent(userAgent: string): string {
  * Records all OAuth attempts for observability and debugging.
  * Failed attempts are sent to Sentry with sanitized context.
  *
+ * @param attemptId - UUID for this attempt
  * @param email - User email (nullable before OAuth completes)
  * @param ipAddress - User IP address
  * @param userAgent - User agent string from browser
  * @param success - Whether authentication succeeded
  * @param error - OAuth error details (if failed)
  * @param retryCount - Number of retries before this attempt
+ * @param fraudScore - Fraud detection score (if applicable)
+ * @param deviceFingerprint - Device fingerprint hash (if applicable)
  * @returns Promise resolving when attempt is logged
  */
 export async function logAuthAttempt(
+  attemptId: string,
   email: string | null,
   ipAddress: string,
   userAgent: string,
   success: boolean,
   error?: OAuthError,
-  retryCount: number = 0
+  retryCount: number = 0,
+  fraudScore?: number,
+  deviceFingerprint?: string
 ): Promise<void> {
   try {
-    // Save to database for analytics
-    const attempt = await db.authAttempt.create({
-      data: {
-        userEmail: email,
-        ipAddress,
-        userAgent,
-        success,
-        oauthErrorCode: error?.code,
-        oauthErrorMessage: error?.message,
-        retryCount,
-        attemptedAt: new Date(),
-      },
-    });
+    // Note: Auth attempt is already logged to database in trialAuthRoutes
+    // This function focuses on Sentry reporting and console logging
 
     // Log to console for immediate visibility
     if (success) {
       console.log(
-        `✅ [AUTH] Successful login: ${sanitizeEmail(email)} from ${sanitizeIpAddress(ipAddress)}`
+        `✅ [AUTH] Successful login: ${sanitizeEmail(email)} from ${sanitizeIpAddress(ipAddress)} (attempt: ${attemptId})`
       );
     } else {
       console.error(
-        `❌ [AUTH] Failed login: ${sanitizeEmail(email)} from ${sanitizeIpAddress(ipAddress)} - ${error?.code}: ${error?.message}`
+        `❌ [AUTH] Failed login: ${sanitizeEmail(email)} from ${sanitizeIpAddress(ipAddress)} - ${error?.code}: ${error?.message} (attempt: ${attemptId})`
       );
+
+      // Determine error type for tagging
+      let errorType = 'oauth';
+      if (error?.code === 'server_error') errorType = 'server';
+      else if (error?.code?.includes('config') || error?.code?.includes('client')) errorType = 'config';
+      else if (error?.code?.includes('fraud') || error?.code?.includes('trial')) errorType = 'fraud';
 
       // Send failed attempts to Sentry for alerting
       Sentry.captureException(new Error(`OAuth Authentication Failed: ${error?.code}`), {
         level: 'warning',
         tags: {
-          oauth_error_code: error?.code,
-          retry_count: retryCount,
+          auth_failure: 'true',
+          oauth_error_code: error?.code || 'unknown',
+          retry_count: retryCount.toString(),
+          error_type: errorType,
         },
         extra: {
           user_email: sanitizeEmail(email),
           ip_address: sanitizeIpAddress(ipAddress),
           user_agent: sanitizeUserAgent(userAgent),
           error_message: error?.message,
-          attempt_id: attempt.attemptId,
+          attempt_id: attemptId,
+          ...(fraudScore !== undefined && { fraud_score: fraudScore }),
+          ...(deviceFingerprint && { device_fingerprint_hash: deviceFingerprint }),
         },
       });
     }
-  } catch (dbError) {
-    // If database logging fails, still log to console and Sentry
-    console.error('Failed to log auth attempt to database:', dbError);
+  } catch (loggingError) {
+    // If logging fails, still report to console
+    console.error('Failed to log auth attempt:', loggingError);
 
-    Sentry.captureException(dbError, {
+    Sentry.captureException(loggingError, {
       level: 'error',
       tags: {
-        error_type: 'database_logging_failure',
+        error_type: 'auth_logging_failure',
       },
       extra: {
         original_error: error,
         user_email: sanitizeEmail(email),
         ip_address: sanitizeIpAddress(ipAddress),
+        attempt_id: attemptId,
       },
     });
   }
@@ -170,23 +176,22 @@ export async function logAuthAttempt(
  */
 export async function getAuthMetrics(): Promise<AuthAttemptMetrics> {
   try {
-    const twentyFourHoursAgo = new Date();
-    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+    const result = await db.one<{
+      total_attempts: string;
+      successful_attempts: string;
+      failed_attempts: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS total_attempts,
+         COUNT(CASE WHEN success = true THEN 1 END)::text AS successful_attempts,
+         COUNT(CASE WHEN success = false THEN 1 END)::text AS failed_attempts
+       FROM auth_attempts
+       WHERE attempted_at >= NOW() - INTERVAL '24 hours'`
+    );
 
-    const attempts = await db.authAttempt.findMany({
-      where: {
-        attemptedAt: {
-          gte: twentyFourHoursAgo,
-        },
-      },
-      select: {
-        success: true,
-      },
-    });
-
-    const totalAttempts = attempts.length;
-    const successfulAttempts = attempts.filter((a) => a.success).length;
-    const failedAttempts = totalAttempts - successfulAttempts;
+    const totalAttempts = parseInt(result.total_attempts) || 0;
+    const successfulAttempts = parseInt(result.successful_attempts) || 0;
+    const failedAttempts = parseInt(result.failed_attempts) || 0;
     const successRate = totalAttempts > 0 ? (successfulAttempts / totalAttempts) * 100 : 0;
 
     return {
@@ -216,34 +221,23 @@ export async function getAuthMetrics(): Promise<AuthAttemptMetrics> {
  */
 export async function getTopOAuthErrors(limit: number = 10): Promise<Array<{ code: string; count: number }>> {
   try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const errors = await db.authAttempt.groupBy({
-      by: ['oauthErrorCode'],
-      where: {
-        success: false,
-        attemptedAt: {
-          gte: sevenDaysAgo,
-        },
-        oauthErrorCode: {
-          not: null,
-        },
-      },
-      _count: {
-        oauthErrorCode: true,
-      },
-      orderBy: {
-        _count: {
-          oauthErrorCode: 'desc',
-        },
-      },
-      take: limit,
-    });
+    const errors = await db.manyOrNone<{ code: string; count: string }>(
+      `SELECT
+         oauth_error_code AS code,
+         COUNT(*)::text AS count
+       FROM auth_attempts
+       WHERE success = false
+         AND attempted_at >= NOW() - INTERVAL '7 days'
+         AND oauth_error_code IS NOT NULL
+       GROUP BY oauth_error_code
+       ORDER BY COUNT(*) DESC
+       LIMIT $1`,
+      [limit]
+    );
 
     return errors.map((error) => ({
-      code: error.oauthErrorCode!,
-      count: error._count.oauthErrorCode,
+      code: error.code,
+      count: parseInt(error.count) || 0,
     }));
   } catch (error) {
     console.error('Failed to fetch top OAuth errors:', error);
@@ -261,37 +255,22 @@ export async function getTopOAuthErrors(limit: number = 10): Promise<Array<{ cod
  */
 export async function getSuspiciousIPs(threshold: number = 10): Promise<Array<{ ip: string; failures: number }>> {
   try {
-    const oneHourAgo = new Date();
-    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-
-    const suspiciousIPs = await db.authAttempt.groupBy({
-      by: ['ipAddress'],
-      where: {
-        success: false,
-        attemptedAt: {
-          gte: oneHourAgo,
-        },
-      },
-      _count: {
-        ipAddress: true,
-      },
-      having: {
-        ipAddress: {
-          _count: {
-            gte: threshold,
-          },
-        },
-      },
-      orderBy: {
-        _count: {
-          ipAddress: 'desc',
-        },
-      },
-    });
+    const suspiciousIPs = await db.manyOrNone<{ ip: string; failures: string }>(
+      `SELECT
+         ip_address AS ip,
+         COUNT(*)::text AS failures
+       FROM auth_attempts
+       WHERE success = false
+         AND attempted_at >= NOW() - INTERVAL '1 hour'
+       GROUP BY ip_address
+       HAVING COUNT(*) >= $1
+       ORDER BY COUNT(*) DESC`,
+      [threshold]
+    );
 
     return suspiciousIPs.map((ip) => ({
-      ip: ip.ipAddress,
-      failures: ip._count.ipAddress,
+      ip: ip.ip,
+      failures: parseInt(ip.failures) || 0,
     }));
   } catch (error) {
     console.error('Failed to detect suspicious IPs:', error);

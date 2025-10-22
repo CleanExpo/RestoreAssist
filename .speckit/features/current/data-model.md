@@ -225,33 +225,67 @@ blocked = (score >= FRAUD_SCORE_THRESHOLD) // Currently 70
 - Cron job: DELETE FROM auth_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'
 
 **Analytics Queries:**
+
 ```sql
--- Authentication success rate (last 24 hours)
+-- 1. Authentication success rate (last 24 hours)
 SELECT
-  (COUNT(*) FILTER (WHERE success = TRUE))::DECIMAL / COUNT(*) * 100 AS success_rate
+  COUNT(*) AS total_attempts,
+  COUNT(CASE WHEN success = TRUE THEN 1 END) AS successful_attempts,
+  COUNT(CASE WHEN success = FALSE THEN 1 END) AS failed_attempts,
+  (COUNT(CASE WHEN success = TRUE THEN 1 END)::DECIMAL / COUNT(*) * 100) AS success_rate
 FROM auth_attempts
 WHERE attempted_at >= NOW() - INTERVAL '24 hours';
 
--- Top OAuth error codes (last 7 days)
+-- 2. Top OAuth error codes (last 7 days)
 SELECT
-  oauth_error_code,
+  oauth_error_code AS code,
   COUNT(*) AS occurrences
 FROM auth_attempts
 WHERE success = FALSE
   AND attempted_at >= NOW() - INTERVAL '7 days'
+  AND oauth_error_code IS NOT NULL
 GROUP BY oauth_error_code
-ORDER BY occurrences DESC;
+ORDER BY occurrences DESC
+LIMIT 10;
 
--- Suspicious IP addresses (>10 failures, 0 successes)
+-- 3. Suspicious IP addresses (>10 failures in 1 hour)
 SELECT
-  ip_address,
+  ip_address AS ip,
   COUNT(*) AS failed_attempts
 FROM auth_attempts
 WHERE success = FALSE
   AND attempted_at >= NOW() - INTERVAL '1 hour'
 GROUP BY ip_address
-HAVING COUNT(*) >= 10;
+HAVING COUNT(*) >= 10
+ORDER BY COUNT(*) DESC;
+
+-- 4. Average time to successful auth (requires completed_at column)
+-- NOTE: OAuth flows are typically instantaneous (<1s from start to completion).
+-- This query would require adding a 'completed_at' timestamp to track processing time.
+-- Example implementation if schema is extended:
+SELECT
+  AVG(EXTRACT(EPOCH FROM (completed_at - attempted_at))) AS avg_auth_time_seconds
+FROM auth_attempts
+WHERE success = TRUE
+  AND attempted_at >= NOW() - INTERVAL '24 hours';
+
+-- Alternative: Track retry attempts per user/IP
+SELECT
+  user_email,
+  AVG(retry_count) AS avg_retries_before_success
+FROM auth_attempts
+WHERE success = TRUE
+  AND attempted_at >= NOW() - INTERVAL '7 days'
+  AND user_email IS NOT NULL
+GROUP BY user_email
+HAVING AVG(retry_count) > 0
+ORDER BY avg_retries_before_success DESC;
 ```
+
+**Implemented Analytics Functions** (in `packages/backend/src/utils/errorLogger.ts`):
+- `getAuthMetrics()` - Returns success rate, total/successful/failed attempts for last 24 hours
+- `getTopOAuthErrors(limit)` - Returns top OAuth error codes with occurrence count for last 7 days
+- `getSuspiciousIPs(threshold)` - Returns IPs with high failure rates (default >10 failures in 1 hour)
 
 ## Prisma Schema (NEW TABLE ONLY)
 

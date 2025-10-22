@@ -1,7 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { googleAuthService } from '../services/googleAuthService';
 import { freeTrialService } from '../services/freeTrialService';
 import { paymentVerificationService } from '../services/paymentVerification';
+import { db } from '../db/connection';
 import { UserPayload } from '../types';
 import {
   trialAuthRateLimiter,
@@ -49,12 +51,26 @@ const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) =>
 // =====================================================
 
 router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Response) => {
+  const attemptId = uuidv4();
+  const attemptIpAddress = req.body.ipAddress || req.ip || 'unknown';
+  const attemptUserAgent = req.body.userAgent || req.headers['user-agent'] || 'unknown';
+
   try {
     const { idToken, ipAddress, userAgent } = req.body;
 
     if (!idToken) {
       return res.status(400).json({ error: 'Google ID token required' });
     }
+
+    // Create initial auth attempt record
+    await db.none(
+      `INSERT INTO auth_attempts
+       (attempt_id, ip_address, user_agent, success, retry_count, attempted_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [attemptId, attemptIpAddress, attemptUserAgent, false, 0]
+    );
+
+    console.log(`🔐 Auth attempt started: ${attemptId} from IP ${attemptIpAddress}`);
 
     // Handle Google login
     const result = await googleAuthService.handleGoogleLogin(
@@ -64,8 +80,28 @@ router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Res
     );
 
     if (!result.success) {
+      // Update auth attempt with error
+      await db.none(
+        `UPDATE auth_attempts
+         SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+         WHERE attempt_id = $4`,
+        [result.error || 'unknown_error', result.error || 'Login failed', false, attemptId]
+      );
+
+      console.log(`❌ Auth failed: ${attemptId} - ${result.error}`);
+
       return res.status(401).json({ error: result.error });
     }
+
+    // Update auth attempt with success
+    await db.none(
+      `UPDATE auth_attempts
+       SET user_email = $1, success = $2
+       WHERE attempt_id = $3`,
+      [result.user!.email, true, attemptId]
+    );
+
+    console.log(`✅ Auth successful: ${attemptId} - ${result.user!.email}`);
 
     res.json({
       success: true,
@@ -81,6 +117,24 @@ router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Res
     });
   } catch (error) {
     console.error('Google login error:', error);
+
+    // Update auth attempt with exception error
+    try {
+      await db.none(
+        `UPDATE auth_attempts
+         SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+         WHERE attempt_id = $4`,
+        [
+          'server_error',
+          error instanceof Error ? error.message : 'Internal server error',
+          false,
+          attemptId
+        ]
+      );
+    } catch (dbError) {
+      console.error('Failed to update auth attempt:', dbError);
+    }
+
     res.status(500).json({ error: 'Login failed' });
   }
 });

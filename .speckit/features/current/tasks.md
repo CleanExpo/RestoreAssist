@@ -509,32 +509,32 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T040 [US8] Implement auth attempt logging in POST /api/auth/google
+- [x] T040 [US8] Implement auth attempt logging in POST /api/auth/google
   - Before OAuth processing, create auth_attempt record with: user_email (null initially), ip_address, user_agent, success=false
   - After OAuth success, update attempt with: user_email, success=true
   - After OAuth error, update attempt with: oauth_error_code, oauth_error_message, success=false
   - Track retry_count if user retrying
-  - File: `packages/backend/src/routes/authRoutes.ts` (enhance)
+  - File: `packages/backend/src/routes/trialAuthRoutes.ts` (enhanced)
 
-- [ ] T041 [US8] Add Sentry error reporting for auth failures
+- [x] T041 [US8] Add Sentry error reporting for auth failures
   - Send to Sentry: error code, user agent, anonymized email (first 3 chars + hash)
   - Include context: retry count, fraud score (if applicable), device fingerprint hash
   - Tag with: "auth_failure", error type (config, oauth, fraud, etc.)
   - Do NOT send secrets (client secret, JWT tokens)
-  - File: `packages/backend/src/utils/errorLogger.ts` (enhance)
+  - File: `packages/backend/src/utils/errorLogger.ts` (enhanced)
 
-- [ ] T042 [P] [US8] Create analytics queries for auth success rate
+- [x] T042 [P] [US8] Create analytics queries for auth success rate
   - Query: Success rate last 24h = (COUNT success=true / COUNT *) * 100
   - Query: Top 5 OAuth error codes by occurrence
   - Query: Suspicious IPs (>10 failures, 0 successes in 1 hour)
   - Query: Average time to successful auth (attempted_at to success)
-  - File: `.speckit/features/current/data-model.md` (add to Analytics section)
+  - File: `.speckit/features/current/data-model.md` (analytics queries documented)
 
-- [ ] T043 [US8] Add success rate logging to backend startup
+- [x] T043 [US8] Add success rate logging to backend startup
   - On server start, query last 24h success rate
   - Log: "Auth Success Rate (24h): 95.3%"
   - If rate < 90%, log warning: "⚠️ Auth success rate below target"
-  - File: `packages/backend/src/index.ts`
+  - File: `packages/backend/src/index.ts` (startup logging added)
 
 **Independent Test Criteria for US8:**
 - ✅ auth_attempts table populated on every auth attempt

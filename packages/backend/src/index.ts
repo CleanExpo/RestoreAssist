@@ -28,6 +28,7 @@ import { servicem8Service } from './services/integrations/servicem8Service';
 import { googleDriveService } from './services/integrations/googleDriveService';
 import { skillsService } from './services/skillsService';
 import { errorHandler } from './middleware/errorHandler';
+import { getAuthMetrics } from './utils/errorLogger';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -131,6 +132,18 @@ app.use(errorHandler);
     console.log(`✅ Stripe payment verification enabled`);
   } else {
     console.log(`⚠️  Stripe payment verification disabled (configure STRIPE_SECRET_KEY)`);
+  }
+
+  // Log authentication success rate (last 24 hours)
+  try {
+    const authMetrics = await getAuthMetrics();
+    if (authMetrics.totalAttempts > 0) {
+      console.log(`🔐 Auth success rate (24h): ${authMetrics.successRate.toFixed(1)}% (${authMetrics.successfulAttempts}/${authMetrics.totalAttempts} attempts)`);
+    } else {
+      console.log(`🔐 Auth success rate (24h): No attempts recorded in last 24 hours`);
+    }
+  } catch (error) {
+    console.error('⚠️  Failed to fetch auth metrics:', error);
   }
 
   console.log(`\n📋 API Endpoints:`);
