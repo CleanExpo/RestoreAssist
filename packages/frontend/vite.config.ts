@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 // import mcp from 'vite-plugin-mcp'  // Temporarily disabled - causing import errors
@@ -11,6 +12,18 @@ export default defineConfig({
     // Add Sentry plugin for production builds
     process.env.NODE_ENV === 'production' && sentryPlugin,
   ].filter(Boolean),
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './tests/setup.ts',
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/e2e-claude/**', // Exclude Playwright E2E tests
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,playwright}.config.*'
+    ],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
