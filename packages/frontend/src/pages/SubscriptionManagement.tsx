@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Settings
 } from 'lucide-react';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 interface Subscription {
   subscription_id: string;
@@ -39,7 +40,7 @@ export function SubscriptionManagement() {
   const fetchSubscription = async () => {
     try {
       setIsLoading(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = getApiBaseUrl();
 
       // TODO: Add authentication token
       const response = await fetch(`${apiUrl}/subscription/me`, {
@@ -68,7 +69,7 @@ export function SubscriptionManagement() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = getApiBaseUrl();
 
       const response = await fetch(`${apiUrl}/subscription/cancel`, {
         method: 'POST',

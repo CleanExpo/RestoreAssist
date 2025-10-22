@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { PricingCard } from '../components/pricing/PricingCard';
 import { STRIPE_CONFIG, getAllPlans, getPriceId } from '../config/stripe';
 import { useToast } from '../hooks/use-toast';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export function PricingPage() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export function PricingPage() {
 
     try {
       // Get the API URL from environment
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = getApiBaseUrl();
 
       // Call backend to create Stripe checkout session
       const response = await fetch(`${apiUrl}/stripe/create-checkout-session`, {

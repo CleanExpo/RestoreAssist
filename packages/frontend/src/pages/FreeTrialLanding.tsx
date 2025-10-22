@@ -4,10 +4,11 @@ import { LandingPage } from './LandingPage';
 import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { mapOAuthError, type OAuthError, type MappedOAuthError } from '../utils/oauthErrorMapper';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 import type { UserData, GoogleLoginResponse, TrialActivationResponse } from '../types/auth';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = getApiBaseUrl();
 
 interface FreeTrialLandingProps {
   onTrialActivated: (userData: UserData) => void;
@@ -50,7 +51,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
 
     try {
       // Step 1: Google OAuth Login
-      const loginResponse = await fetch(`${API_URL}/trial-auth/google-login`, {
+      const loginResponse = await fetch(`${API_BASE_URL}/trial-auth/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +95,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       const fingerprint = await generateDeviceFingerprint();
 
       // Step 3: Activate free trial
-      const trialResponse = await fetch(`${API_URL}/trial-auth/activate-trial`, {
+      const trialResponse = await fetch(`${API_BASE_URL}/trial-auth/activate-trial`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

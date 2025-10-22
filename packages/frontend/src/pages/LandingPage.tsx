@@ -34,6 +34,7 @@ import { MouldDamageIcon } from '../components/icons/MouldDamageIcon';
 import { MainNavigation } from '../components/navigation/MainNavigation';
 import { PricingCard } from '../components/pricing/PricingCard';
 import { getAllPlans, getPriceId } from '../config/stripe';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 interface LandingPageProps {
   onGetStarted?: () => void;
@@ -81,7 +82,7 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
     setCheckoutError(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = getApiBaseUrl();
 
       const response = await fetch(`${apiUrl}/stripe/create-checkout-session`, {
         method: 'POST',

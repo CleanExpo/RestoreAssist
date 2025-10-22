@@ -12,6 +12,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { setUser as setSentryUser } from '../sentry';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export const AccountSettings: React.FC = () => {
   const navigate = useNavigate();
@@ -33,8 +34,8 @@ export const AccountSettings: React.FC = () => {
     setIsDeleting(true);
     setDeleteError(null);
 
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      try {
+        const apiUrl = getApiBaseUrl();
       const accessToken = localStorage.getItem('accessToken');
 
       const response = await fetch(`${apiUrl}/auth/delete-account`, {

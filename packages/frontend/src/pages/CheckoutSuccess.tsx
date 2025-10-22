@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export function CheckoutSuccess() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export function CheckoutSuccess() {
       }
 
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const apiUrl = getApiBaseUrl();
         const response = await fetch(`${apiUrl}/stripe/checkout-session/${sessionId}`);
 
         if (!response.ok) {

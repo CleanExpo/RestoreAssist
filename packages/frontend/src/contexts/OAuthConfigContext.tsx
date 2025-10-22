@@ -19,6 +19,7 @@ import {
   formatValidationErrors,
   ConfigValidationResult,
 } from '../utils/configValidator';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 /**
  * Backend config response structure
@@ -88,7 +89,7 @@ export const OAuthConfigProvider: React.FC<{ children: ReactNode }> = ({ childre
       // 2. Fetch Backend Configuration Validation
       let backendValidation: BackendConfigResponse | null = null;
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const apiUrl = getApiBaseUrl();
         const response = await fetch(`${apiUrl}/auth/config`, {
           method: 'GET',
           headers: {

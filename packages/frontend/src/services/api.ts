@@ -1,6 +1,7 @@
 import { GeneratedReport, GenerateReportRequest } from '../types';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // Helper function to ensure all fetch calls include CORS credentials
 async function fetchWithCredentials(url: string, options: RequestInit = {}): Promise<Response> {
