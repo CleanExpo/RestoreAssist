@@ -296,7 +296,7 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
               </CardContent>
               <CardFooter>
                 <Button
-                  onClick={onGetStarted}
+                  onClick={handleGetStarted}
                   className="w-full shadow-md hover:shadow-lg transition-all hover:scale-105"
                   size="lg"
                 >
