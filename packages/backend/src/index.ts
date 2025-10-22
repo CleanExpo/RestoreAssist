@@ -14,6 +14,7 @@ import { integrationsRoutes } from './routes/integrationsRoutes';
 import { googleDriveRoutes } from './routes/googleDriveRoutes';
 import { skillsRoutes } from './routes/skillsRoutes';
 import { trialAuthRoutes } from './routes/trialAuthRoutes';
+import adminTrialRoutes from './routes/adminTrialRoutes';
 import stripeRoutes from './routes/stripeRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
 // import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialisation
@@ -51,6 +52,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/trial-auth', trialAuthRoutes);
+app.use('/api/admin-trial', adminTrialRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/exports', exportRoutes);
