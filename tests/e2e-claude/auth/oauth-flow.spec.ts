@@ -104,7 +104,7 @@ test.describe('Full OAuth Authentication Flow', () => {
     await expect(page).toHaveTitle(/RestoreAssist|Free Trial/);
 
     // Locate Google OAuth button
-    const googleButton = page.locator('button:has-text("Continue with Google"), button:has-text("Sign in with Google")').first();
+    const googleButton = page.locator('button:has-text("Sign up with Google")').first();
     await expect(googleButton).toBeVisible({ timeout: 5000 });
 
     console.log('✅ Google OAuth button found on landing page');
@@ -432,7 +432,7 @@ test.describe('OAuth Flow with Mock Backend', () => {
     await dismissCookieConsentIfPresent(page);
 
     // Click Google OAuth button
-    const googleButton = page.locator('button:has-text("Continue with Google")').first();
+    const googleButton = page.locator('button:has-text("Sign up with Google")').first();
     await googleButton.click();
 
     // Should be redirected to dashboard

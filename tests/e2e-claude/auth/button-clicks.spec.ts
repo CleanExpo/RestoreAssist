@@ -76,8 +76,8 @@ test.describe('Single-Click Button Activation', () => {
     const backdropNonBlocking = await checkCookieConsentBackdrop(page);
     expect(backdropNonBlocking).toBe(true);
 
-    // Locate "Sign in with Google" button
-    const signInButton = page.locator('button:has-text("Sign in with Google")').first();
+    // Locate "Sign up with Google" button
+    const signInButton = page.locator('button:has-text("Sign up with Google")').first();
     await expect(signInButton).toBeVisible();
 
     // CRITICAL TEST: Click button once and verify it responds
@@ -105,8 +105,8 @@ test.describe('Single-Click Button Activation', () => {
     const consentBanner = page.locator('text=We Value Your Privacy');
     await expect(consentBanner).not.toBeVisible();
 
-    // Locate "Sign in with Google" button
-    const signInButton = page.locator('button:has-text("Sign in with Google")').first();
+    // Locate "Sign up with Google" button
+    const signInButton = page.locator('button:has-text("Sign up with Google")').first();
     await expect(signInButton).toBeVisible();
 
     // Click button once
@@ -140,7 +140,7 @@ test.describe('Single-Click Button Activation', () => {
     console.log('Focused element:', focusedElement);
 
     // If we landed on the sign-in button, press Enter
-    if (focusedElement.text?.includes('Sign in with Google')) {
+    if (focusedElement.text?.includes('Sign up with Google')) {
       // Press Enter once
       await page.keyboard.press('Enter');
 
@@ -209,8 +209,8 @@ test.describe('Mobile Touch Events', () => {
     // Wait for cookie consent
     await page.waitForTimeout(1500);
 
-    // Locate "Sign in with Google" button
-    const signInButton = page.locator('button:has-text("Sign in with Google")').first();
+    // Locate "Sign up with Google" button
+    const signInButton = page.locator('button:has-text("Sign up with Google")').first();
     await expect(signInButton).toBeVisible();
 
     // CRITICAL TEST: Tap button once (simulates mobile tap)
@@ -234,7 +234,7 @@ test.describe('Mobile Touch Events', () => {
     expect(backdropNonBlocking).toBe(true);
 
     // Locate button
-    const signInButton = page.locator('button:has-text("Sign in with Google")').first();
+    const signInButton = page.locator('button:has-text("Sign up with Google")').first();
     await expect(signInButton).toBeVisible();
 
     // Tap button with backdrop visible

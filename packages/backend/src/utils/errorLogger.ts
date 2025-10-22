@@ -175,6 +175,16 @@ export async function logAuthAttempt(
  * @returns Promise resolving to auth attempt metrics
  */
 export async function getAuthMetrics(): Promise<AuthAttemptMetrics> {
+  // Return zeros if database is not enabled
+  if (process.env.USE_POSTGRES !== 'true') {
+    return {
+      totalAttempts: 0,
+      successfulAttempts: 0,
+      failedAttempts: 0,
+      successRate: 0,
+    };
+  }
+
   try {
     const result = await db.one<{
       total_attempts: string;
@@ -220,6 +230,11 @@ export async function getAuthMetrics(): Promise<AuthAttemptMetrics> {
  * @returns Promise resolving to array of {code, count} objects
  */
 export async function getTopOAuthErrors(limit: number = 10): Promise<Array<{ code: string; count: number }>> {
+  // Return empty array if database is not enabled
+  if (process.env.USE_POSTGRES !== 'true') {
+    return [];
+  }
+
   try {
     const errors = await db.manyOrNone<{ code: string; count: string }>(
       `SELECT
@@ -254,6 +269,11 @@ export async function getTopOAuthErrors(limit: number = 10): Promise<Array<{ cod
  * @returns Promise resolving to array of suspicious IPs
  */
 export async function getSuspiciousIPs(threshold: number = 10): Promise<Array<{ ip: string; failures: number }>> {
+  // Return empty array if database is not enabled
+  if (process.env.USE_POSTGRES !== 'true') {
+    return [];
+  }
+
   try {
     const suspiciousIPs = await db.manyOrNone<{ ip: string; failures: string }>(
       `SELECT

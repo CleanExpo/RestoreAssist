@@ -34,7 +34,7 @@ export default defineConfig({
   // Shared settings for all tests
   use: {
     // Base URL for the application
-    baseURL: process.env.VITE_APP_URL || 'http://localhost:5177',
+    baseURL: process.env.VITE_APP_URL || 'http://localhost:5173',
 
     // Browser settings
     headless: process.env.CI ? true : false,
@@ -71,7 +71,7 @@ export default defineConfig({
   // Run local dev server before starting tests
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5177',
+    url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
     stdout: 'ignore',
