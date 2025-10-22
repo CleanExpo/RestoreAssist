@@ -157,26 +157,26 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T011 [US1] Review CookieConsent component for pointer-events fix
+- [x] T011 [US1] Review CookieConsent component for pointer-events fix
   - Verify packages/frontend/src/components/CookieConsent.tsx line 57-62
   - Confirm backdrop div has `pointer-events-auto` when visible, `pointer-events-none` when invisible
   - Check z-index is 40 (below OAuth popup which is 50+)
   - File: `packages/frontend/src/components/CookieConsent.tsx` (review only)
 
-- [ ] T012 [P] [US1] Create E2E test for single-click button activation
+- [x] T012 [P] [US1] Create E2E test for single-click button activation
   - Create Playwright test that clicks "Sign in with Google" button once
   - Verify OAuth popup appears (or mock OAuth flow)
   - Test with cookie consent visible and hidden
   - Test keyboard navigation (Tab to button, Enter to activate)
   - File: `tests/e2e-claude/auth/button-clicks.spec.ts` (new)
 
-- [ ] T013 [P] [US1] Create E2E test for mobile touch events
+- [x] T013 [P] [US1] Create E2E test for mobile touch events
   - Simulate touch event on auth button
   - Verify activation on first tap
   - Test with cookie consent backdrop visible
   - File: `tests/e2e-claude/auth/button-clicks.spec.ts` (add test case)
 
-- [ ] T014 [US1] Run E2E tests and validate single-click behavior
+- [x] T014 [US1] Run E2E tests and validate single-click behavior
   - Execute: `npx playwright test tests/e2e-claude/auth/button-clicks.spec.ts`
   - Verify all tests pass (single-click, keyboard, touch)
   - Document test results in PR description

@@ -56,9 +56,8 @@ export const CookieConsent: React.FC = () => {
       {/* Backdrop */}
       <div
         className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
-          isVisible ? 'opacity-20 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          isVisible ? 'opacity-20 pointer-events-none' : 'opacity-0 pointer-events-none'
         }`}
-        onClick={handleDecline}
       />
 
       {/* Cookie Banner */}
