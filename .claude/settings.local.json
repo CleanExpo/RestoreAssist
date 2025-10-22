@@ -56,7 +56,8 @@
       "Bash(vercel env pull:*)",
       "Bash(vercel:*)",
       "Read(//d//**)",
-      "Read(//d/tmp/**)"
+      "Read(//d/tmp/**)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
