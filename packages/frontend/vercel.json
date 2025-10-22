@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://backend-e03gm60ws-unite-group.vercel.app/api/:path*"
+      "destination": "https://restore-assist-backend-9imajn91a-unite-group.vercel.app/:path*"
     },
     {
       "source": "/(.*)",
