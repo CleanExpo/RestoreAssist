@@ -114,6 +114,67 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
       {/* Navigation */}
       <MainNavigation onGetStarted={handleGetStarted} />
 
+      {/* Critical Value Propositions Banner */}
+      <section className="border-b bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 backdrop-blur-sm">
+        <div className="container py-12">
+          <div className="grid md:grid-cols-3 gap-8 items-center">
+            {/* 3 Free Trial Reports */}
+            <div className="flex flex-col items-center text-center space-y-3 p-6 rounded-xl bg-background/50 border-2 border-primary/30 hover:border-primary/50 transition-all hover:scale-105 shadow-lg hover:shadow-xl">
+              <div className="p-4 rounded-full bg-gradient-to-br from-primary to-primary/70 shadow-lg">
+                <FileText className="h-10 w-10 text-primary-foreground" />
+              </div>
+              <div>
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  3 FREE Reports
+                </h3>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
+                  No credit card required
+                </p>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed">
+                Experience the power of AI-driven damage assessment with your complimentary trial reports
+              </p>
+            </div>
+
+            {/* Australian First Uniformed System */}
+            <div className="flex flex-col items-center text-center space-y-3 p-6 rounded-xl bg-background/50 border-2 border-green-500/30 hover:border-green-500/50 transition-all hover:scale-105 shadow-lg hover:shadow-xl">
+              <div className="p-4 rounded-full bg-gradient-to-br from-green-600 to-green-500 shadow-lg">
+                <Award className="h-10 w-10 text-white" />
+              </div>
+              <div>
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
+                  Australian First
+                </h3>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
+                  Uniformed Reporting System
+                </p>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed">
+                Standardised, compliant reports across all Australian states and damage types
+              </p>
+            </div>
+
+            {/* Massive Cost Savings */}
+            <div className="flex flex-col items-center text-center space-y-3 p-6 rounded-xl bg-background/50 border-2 border-blue-500/30 hover:border-blue-500/50 transition-all hover:scale-105 shadow-lg hover:shadow-xl">
+              <div className="p-4 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 shadow-lg">
+                <DollarSign className="h-10 w-10 text-white" />
+              </div>
+              <div>
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                  Massive Savings
+                </h3>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
+                  Up to 95% time reduction
+                </p>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed">
+                Slash report writing time from hours to seconds while maintaining professional quality
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Hero Section - Enhanced */}
       <section className="relative container py-24 lg:py-32 overflow-hidden">
         {/* Animated Background Gradient */}
