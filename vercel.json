@@ -1,6 +1,37 @@
 {
-  "buildCommand": "cd packages/frontend && npm install && npm run build",
-  "installCommand": "cd packages/backend && npm install",
-  "framework": null,
-  "outputDirectory": "packages/frontend/dist"
+  "version": 2,
+  "builds": [
+    {
+      "src": "packages/backend/api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "packages/frontend/dist/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/packages/backend/api/index.js"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/packages/frontend/dist/assets/$1"
+    },
+    {
+      "src": "/screenshots/(.*)",
+      "dest": "/packages/frontend/dist/screenshots/$1"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "dest": "/packages/frontend/dist/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/packages/frontend/dist/index.html"
+    }
+  ],
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install"
 }
