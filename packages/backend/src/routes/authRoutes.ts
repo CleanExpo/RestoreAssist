@@ -349,3 +349,58 @@ authRoutes.delete('/delete-account', authenticate, async (req: Request, res: Res
     });
   }
 });
+
+// POST /api/auth/test-mode-access-attempt - Log test mode access attempt (public endpoint)
+authRoutes.post('/test-mode-access-attempt', (req: Request, res: Response) => {
+  try {
+    const { email, errorCode } = req.body;
+
+    if (!email || !errorCode) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Email and errorCode are required',
+      });
+    }
+
+    // Get IP address and user agent from request
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    // Log the attempt
+    authService.logTestModeAccessAttempt(email, errorCode, ipAddress, userAgent);
+
+    res.json({
+      message: 'Access attempt logged successfully',
+      logged: true,
+    });
+  } catch (error) {
+    console.error('Test mode access attempt logging error:', error);
+    res.status(500).json({
+      error: 'Failed to log access attempt',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// GET /api/auth/test-mode-attempts - Get test mode access attempts (admin only)
+authRoutes.get('/test-mode-attempts', authenticate, authorise('admin'), (req: Request, res: Response) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const email = req.query.email as string;
+
+    const attempts = email
+      ? authService.getTestModeAccessAttemptsByEmail(email)
+      : authService.getTestModeAccessAttempts(limit);
+
+    res.json({
+      attempts,
+      count: attempts.length,
+    });
+  } catch (error) {
+    console.error('Get test mode attempts error:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve access attempts',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});

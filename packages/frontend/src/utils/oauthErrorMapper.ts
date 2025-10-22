@@ -174,6 +174,17 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
         retryAfterSeconds: 0,
       };
 
+    case 'access_blocked':
+    case 'org_internal':
+      return {
+        userMessage:
+          'Access Restricted: This application is currently in testing mode and only available to whitelisted users.\n\n' +
+          'If you need access, please contact support@restoreassist.com.au with your Google email address and we\'ll add you to the test user list.',
+        technicalMessage: `OAuth app in Testing mode - user not whitelisted (${errorCode})`,
+        retryable: false, // Cannot retry until user is whitelisted
+        retryAfterSeconds: 0,
+      };
+
     case 'invalid_client':
     case 'invalid_request':
       return {
