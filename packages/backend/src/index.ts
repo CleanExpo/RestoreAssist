@@ -4,6 +4,9 @@ import './config/env';
 // Initialize Sentry BEFORE any other imports for proper instrumentation
 import { Sentry } from './instrument';
 
+// Validate environment configuration (fail-fast if critical vars missing)
+import { validateEnvironmentOrExit } from './middleware/validateEnv';
+
 import express from 'express';
 import cors from 'cors';
 import { reportRoutes } from './routes/reportRoutes';
@@ -72,6 +75,10 @@ app.use(errorHandler);
 // Initialise services (for both serverless and local) - with error handling
 (async () => {
   console.log('🔍 [INIT] Starting server initialization...');
+
+  // Validate environment before initializing any services
+  validateEnvironmentOrExit();
+
   try {
     console.log('🔍 [INIT] Calling initializeDefaultUsers()...');
     await authService.initializeDefaultUsers();

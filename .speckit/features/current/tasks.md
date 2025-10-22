@@ -55,34 +55,34 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T001 Verify Google Cloud Console OAuth configuration is complete
+- [x] T001 Verify Google Cloud Console OAuth configuration is complete
   - Check authorized JavaScript origins include http://localhost:5173, https://restoreassist.app
   - Verify test users whitelisted: airestoreassist@gmail.com, phill.mcgurk@gmail.com, zenithfresh25@gmail.com
   - Confirm publishing status is "Testing"
   - Document propagation timestamp (must wait 10-15 min before testing)
   - File: `.speckit/features/current/research.md` (update with config status)
 
-- [ ] T002 [P] Audit environment variable files across frontend and backend
+- [x] T002 [P] Audit environment variable files across frontend and backend
   - Compare packages/frontend/.env vs packages/frontend/.env.example
   - Compare packages/backend/.env vs packages/backend/.env.local
   - Identify inconsistencies and missing values
   - Document which file takes precedence
   - File: `.speckit/features/current/research.md` (environment audit section)
 
-- [ ] T003 [P] Create .env.example templates for frontend and backend
+- [x] T003 [P] Create .env.example templates for frontend and backend
   - Copy packages/frontend/.env to packages/frontend/.env.example
   - Copy packages/backend/.env to packages/backend/.env.example
   - Remove all secret values (replace with placeholders)
   - Add comments explaining each variable
   - Files: `packages/frontend/.env.example`, `packages/backend/.env.example`
 
-- [ ] T004 Update .gitignore to prevent secret commits
+- [x] T004 Update .gitignore to prevent secret commits
   - Add `.env` to .gitignore (if not already present)
   - Ensure `.env.local` is in .gitignore
   - Verify `.env.example` is NOT in .gitignore (should be committed)
   - File: `.gitignore`
 
-- [ ] T005 [P] Generate JWT secrets for local development
+- [x] T005 [P] Generate JWT secrets for local development
   - Run: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`  twice
   - Update packages/backend/.env.local with JWT_SECRET and JWT_REFRESH_SECRET
   - Verify secrets are different and sufficiently random (32+ chars)
@@ -102,38 +102,38 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T006 Create environment validation middleware for backend
+- [x] T006 Create environment validation middleware for backend
   - Check required env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, JWT_REFRESH_SECRET
   - Validate format (Client ID ends with .apps.googleusercontent.com)
   - Fail fast at server startup if critical vars missing
   - Sanitize secrets in logs (show first 8 chars only)
   - File: `packages/backend/src/middleware/validateEnv.ts` (new)
 
-- [ ] T007 Integrate environment validation into backend startup
+- [x] T007 Integrate environment validation into backend startup
   - Import validateEnv middleware in packages/backend/src/index.ts
   - Call validation before server.listen()
   - Exit with code 1 and error message if validation fails
   - Log success message if all vars valid
   - File: `packages/backend/src/index.ts`
 
-- [ ] T008 Create Prisma schema for auth_attempts table
+- [x] T008 Create Prisma schema for auth_attempts table
   - Define AuthAttempt model with fields: attempt_id, user_email, ip_address, user_agent, oauth_error_code, success, retry_count, attempted_at
   - Add indexes on user_email, ip_address, attempted_at, success
   - Map to `auth_attempts` table name
   - File: `packages/backend/prisma/schema.prisma`
 
-- [ ] T009 Generate and run Prisma migration for auth_attempts
+- [x] T009 Generate and run Prisma migration for auth_attempts
   - Run: `npx prisma migrate dev --name add-auth-attempts-table`
   - Verify migration file created in packages/backend/prisma/migrations/
   - Test migration on development database (or in-memory mode)
-  - File: `packages/backend/prisma/migrations/YYYYMMDDHHMMSS_add-auth-attempts-table/migration.sql`
+  - File: `packages/backend/prisma/migrations/20250122120000_add-auth-attempts-table/migration.sql`
 
-- [ ] T010 [P] Create error logger utility with Sentry integration
+- [x] T010 [P] Create error logger utility with Sentry integration
   - Implement logAuthAttempt(email, ipAddress, userAgent, success, error, retryCount) function
   - Save auth attempt to auth_attempts table
   - Send errors to Sentry with context (sanitize secrets)
   - Track success rate metrics
-  - File: `packages/backend/src/utils/errorLogger.ts` (enhance existing)
+  - File: `packages/backend/src/utils/errorLogger.ts` (new)
 
 **Independent Test Criteria for Foundation:**
 - ✅ Backend fails to start if GOOGLE_CLIENT_ID missing

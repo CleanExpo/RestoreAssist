@@ -15,7 +15,10 @@ Research confirmed that Google OAuth configuration propagation delay and browser
 **OAuth Client Configuration:**
 - Client ID: `292141944467-h0cbhuq8bulddpkruu12pqj938g2md68.apps.googleusercontent.com`
 - Publishing Status: "Testing"
-- Test Users Whitelisted: phil.mcgurk@gmail.com, zedhfrash25@gmail.com
+- Test Users Whitelisted: airestoreassist@gmail.com, phill.mcgurk@gmail.com, zenithfresh25@gmail.com
+- **Last Verified:** 2025-01-22
+- **Configuration Status:** ✅ Complete (verified during setup phase)
+- **Propagation Timestamp:** User should wait 10-15 minutes after any Google Cloud Console changes before testing
 
 **Authorized JavaScript Origins:**
 - http://localhost:5173 (development)
@@ -196,6 +199,52 @@ if (vpn_detected): score += 10
 - Update support documentation with override process
 
 ## 5. Environment Configuration Audit
+
+### Audit Results (T002 - Completed 2025-01-22)
+
+**Frontend Environment Files:**
+- ✅ `packages/frontend/.env` - Contains actual values (Client ID, Stripe publishable keys)
+- ✅ `packages/frontend/.env.example` - Well-documented placeholders with instructions
+- ✅ File precedence: `.env` is used (no `.env.local` in frontend)
+
+**Backend Environment Files:**
+- ✅ `packages/backend/.env` - Contains Prisma Accelerate URLs and some placeholders
+- ✅ `packages/backend/.env.local` - Contains ALL REAL SECRETS (takes precedence)
+- ⚠️ File precedence: `.env.local` > `.env` (Node.js standard)
+
+**Key Inconsistencies Identified:**
+1. **Database Configuration Conflict:**
+   - `.env`: `USE_POSTGRES=true` with Prisma Accelerate
+   - `.env.local`: `USE_POSTGRES=false` (in-memory mode) ← **ACTIVE**
+   - **Resolution:** .env.local takes precedence, using in-memory storage
+
+2. **JWT Secrets:**
+   - `.env`: Weak placeholder secrets ("restoreassist-super-secret...")
+   - `.env.local`: Base64-encoded secrets (but same for JWT_SECRET and JWT_REFRESH_SECRET - ISSUE!)
+   - **Issue:** JWT_SECRET and JWT_REFRESH_SECRET are IDENTICAL (security risk)
+   - **Action Required:** Generate different secrets for T005
+
+3. **Google OAuth:**
+   - Frontend `.env`: Has Client ID ✅
+   - Backend `.env`: Has Client ID, needs Client Secret
+   - Backend `.env.local`: Has Client ID and Client Secret ✅
+   - **Status:** Correctly configured
+
+4. **Secrets in .env.local (HIGH PRIORITY - Must not be committed):**
+   - ANTHROPIC_API_KEY (actual key visible)
+   - STRIPE_SECRET_KEY (live key!)
+   - STRIPE_WEBHOOK_SECRET
+   - GITHUB_TOKEN
+   - CONTEXT7_API_KEY
+   - GOOGLE_CLIENT_SECRET
+   - SUPABASE credentials
+   - VERCEL_TOKEN
+   - **Action Required:** Ensure .gitignore blocks .env.local
+
+**Precedence Rules Confirmed:**
+- Frontend: Vite reads `.env` (no .env.local found)
+- Backend: Node.js reads `.env.local` first, then falls back to `.env`
+- Recommendation: Use `.env.local` for all secrets, `.env` as fallback defaults
 
 ### Current State
 
