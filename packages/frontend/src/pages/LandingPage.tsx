@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import {
   Droplet,
   Flame,
@@ -18,7 +19,8 @@ import {
   Star,
   Zap,
   Award,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -41,20 +43,38 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGoogleOAuth }: LandingPageProps) {
+  const navigate = useNavigate();
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const plans = getAllPlans();
+
   // Use the appropriate handler - onShowGoogleOAuth if provided, otherwise onGetStarted
   const handleGetStarted = (): void => {
     if (onShowGoogleOAuth) {
       onShowGoogleOAuth();
+      // Show the auth modal when OAuth provider is loaded
+      setShowAuthModal(true);
     } else if (onGetStarted) {
       onGetStarted();
     }
     // If neither is provided, this is a no-op (intentional for pages that don't need auth)
   };
 
-  const navigate = useNavigate();
-  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const plans = getAllPlans();
+  const handleGoogleLogin = (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      console.error('No credential received from Google');
+      return;
+    }
+
+    // Close the modal
+    setShowAuthModal(false);
+
+    // Call parent callback with credential
+    if (onLoginSuccess) {
+      onLoginSuccess(credentialResponse.credential);
+    }
+  };
 
   const handleSelectPlan = async (priceId: string, planName: string) => {
     setIsLoadingPricing(true);
@@ -812,6 +832,81 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
           </div>
         </div>
       </footer>
+
+      {/* Google OAuth Modal */}
+      {showAuthModal && onLoginSuccess && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-2xl shadow-2xl max-w-md w-full p-8 relative animate-in fade-in zoom-in duration-300">
+            {/* Close button */}
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-accent transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Modal Content */}
+            <div className="text-center space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold">Welcome to RestoreAssist</h2>
+                <p className="text-muted-foreground">
+                  Sign in with your Google account to start your free trial
+                </p>
+              </div>
+
+              {/* Benefits */}
+              <div className="space-y-3 text-left bg-secondary/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-sm">3 free trial reports - no credit card required</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-sm">Generate professional reports in 10-15 seconds</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-sm">NCC 2022 compliant reports for all Australian states</span>
+                </div>
+              </div>
+
+              {/* Google Login Button */}
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleLogin}
+                  onError={() => console.error('Google Login Failed')}
+                  theme="filled_blue"
+                  size="large"
+                  text="signup_with"
+                  shape="pill"
+                />
+              </div>
+
+              {/* Dev Login (Development Only) */}
+              {!import.meta.env.PROD && onDevLogin && (
+                <button
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    onDevLogin();
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+                >
+                  🔧 Dev Login (Skip OAuth - Development Only)
+                </button>
+              )}
+
+              {/* Privacy Notice */}
+              <p className="text-xs text-muted-foreground">
+                By signing in, you agree to our{' '}
+                <Link to="/terms" className="underline hover:text-foreground">Terms of Service</Link>
+                {' '}and{' '}
+                <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
