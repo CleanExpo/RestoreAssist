@@ -204,39 +204,39 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T015 [US2] Create OAuth configuration validator utility
+- [x] T015 [US2] Create OAuth configuration validator utility
   - Validate GOOGLE_CLIENT_ID format (regex: /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/)
   - Check client ID is not empty or default placeholder
   - Return { isValid: boolean, errors: string[] }
   - File: `packages/frontend/src/utils/configValidator.ts` (new)
 
-- [ ] T016 [US2] Create backend endpoint GET /api/auth/config
+- [x] T016 [US2] Create backend endpoint GET /api/auth/config
   - Return { client_id, is_valid, allowed_origins, errors }
   - Validate env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
   - Check client secret is set (don't expose value)
   - File: `packages/backend/src/routes/authRoutes.ts` (add endpoint)
 
-- [ ] T017 [US2] Implement frontend config check on app initialization
+- [x] T017 [US2] Implement frontend config check on app initialization
   - Call GET /api/auth/config when app loads
   - Log configuration status to console (isValid, errors)
   - Store config state in React context or global state
   - Disable "Sign in with Google" button if isValid = false
   - File: `packages/frontend/src/App.tsx` or main entry point
 
-- [ ] T018 [P] [US2] Create unit tests for configValidator
+- [x] T018 [P] [US2] Create unit tests for configValidator
   - Test valid Client ID format
   - Test invalid formats (missing domain, wrong format, empty)
   - Test placeholder detection ("YOUR_CLIENT_ID_HERE")
   - File: `packages/frontend/src/utils/configValidator.test.ts` (new)
 
-- [ ] T019 [P] [US2] Create integration test for /api/auth/config endpoint
+- [x] T019 [P] [US2] Create integration test for /api/auth/config endpoint
   - Test response with valid env vars
   - Test response with missing GOOGLE_CLIENT_ID
   - Test response with invalid GOOGLE_CLIENT_SECRET
   - Verify errors array contains actionable messages
   - File: `packages/backend/src/routes/authRoutes.test.ts` (new or existing)
 
-- [ ] T020 [US2] Add configuration status display in developer console
+- [x] T020 [US2] Add configuration status display in developer console
   - Log "OAuth Configuration: Valid ✅" or "OAuth Configuration: Invalid ❌ [errors]"
   - Include Client ID (first 20 chars) for debugging
   - Link to troubleshooting docs in console message
@@ -264,13 +264,13 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T021 [US3] Create OAuth error mapper utility
+- [x] T021 [US3] Create OAuth error mapper utility
   - Map error codes: idpiframe_initialization_failed, popup_closed_by_user, access_denied, invalid_client, redirect_uri_mismatch, invalid_grant, temporarily_unavailable
   - Return { userMessage, technicalMessage, retryable, retryAfterSeconds }
   - Include browser-specific cache clearing instructions for cache-related errors
   - File: `packages/frontend/src/utils/oauthErrorMapper.ts` (new)
 
-- [ ] T022 [US3] Create ErrorMessage component for displaying OAuth errors
+- [x] T022 [US3] Create ErrorMessage component for displaying OAuth errors
   - Props: error (OAuth error object), onRetry (callback), onDismiss (callback)
   - Display user-friendly message from error mapper
   - Show retry button if error.retryable = true
@@ -278,18 +278,18 @@ This task breakdown addresses critical authentication failures by implementing G
   - Link to support docs for fatal errors
   - File: `packages/frontend/src/components/ErrorMessage.tsx` (new)
 
-- [ ] T023 [P] [US3] Create unit tests for OAuth error mapper
+- [x] T023 [P] [US3] Create unit tests for OAuth error mapper
   - Test all 7 error codes mapped to user-friendly messages
   - Verify retryable flag set correctly (transient vs fatal errors)
   - Test retry delay calculation for different error types
   - File: `packages/frontend/src/utils/oauthErrorMapper.test.ts` (new)
 
-- [ ] T024 [US3] Integrate ErrorMessage component into landing page
+- [x] T024 [US3] Integrate ErrorMessage component into landing page
   - Add error state to LandingPage.tsx (useState for current error)
   - Display ErrorMessage below "Sign in with Google" button when error exists
   - Pass onRetry callback that triggers OAuth re-init
   - Pass onDismiss callback that clears error state
-  - File: `packages/frontend/src/pages/LandingPage.tsx`
+  - File: `packages/frontend/src/pages/FreeTrialLanding.tsx`
 
 **Independent Test Criteria for US3:**
 - ✅ Error mapper converts all 7 OAuth error codes to user messages
@@ -313,14 +313,14 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T025 [US4] Create useRetry custom hook for retry logic
+- [x] T025 [US4] Create useRetry custom hook for retry logic
   - Implement exponential backoff: delays = [2000, 4000, 8000] ms
   - Track retry count (max 3 attempts)
   - Return { retry, isRetrying, retryCount, nextRetryIn }
   - Stop retrying if error.retryable = false
   - File: `packages/frontend/src/hooks/useRetry.ts` (new)
 
-- [ ] T026 [US4] Create useGoogleAuth custom hook wrapping @react-oauth/google
+- [x] T026 [US4] Create useGoogleAuth custom hook wrapping @react-oauth/google
   - Initialize GoogleOAuthProvider with client ID from config
   - Handle OAuth success callback → exchange code for JWT
   - Handle OAuth error callback → map to user-friendly error via oauthErrorMapper
@@ -328,19 +328,19 @@ This task breakdown addresses critical authentication failures by implementing G
   - Return { login, isLoading, error, retryCount }
   - File: `packages/frontend/src/hooks/useGoogleAuth.ts` (new)
 
-- [ ] T027 [US4] Add loading indicator to AuthButton component
+- [x] T027 [US4] Add loading indicator to AuthButton component
   - Show spinner icon during OAuth initialization
   - Display "Retrying... (attempt X/3)" during automatic retries
   - Show countdown timer "Next retry in 4s..."
   - Disable button during loading
   - File: `packages/frontend/src/components/AuthButton.tsx` (new)
 
-- [ ] T028 [P] [US4] Create E2E test for retry mechanism
+- [x] T028 [P] [US4] Create E2E test for retry mechanism
   - Mock OAuth API to fail first 2 attempts, succeed on 3rd
   - Verify automatic retry with exponential backoff
   - Verify loading indicator shows "Retrying... (attempt 1/3)"
   - Verify success after 3rd attempt
-  - File: `tests/e2e-claude/auth/error-handling.spec.ts` (new)
+  - File: `tests/e2e-claude/auth/retry-mechanism.spec.ts` (new)
 
 **Independent Test Criteria for US4:**
 - ✅ useRetry hook implements exponential backoff (2s, 4s, 8s)

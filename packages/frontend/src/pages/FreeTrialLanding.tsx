@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { LandingPage } from './LandingPage';
 import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
+import { ErrorMessage } from '../components/ErrorMessage';
+import { mapOAuthError, type OAuthError, type MappedOAuthError } from '../utils/oauthErrorMapper';
 import type { UserData, GoogleLoginResponse, TrialActivationResponse } from '../types/auth';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -13,12 +15,38 @@ interface FreeTrialLandingProps {
 
 export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OAuthError | string | null>(null);
+  const [mappedError, setMappedError] = useState<MappedOAuthError | null>(null);
   const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
+
+  /**
+   * Handle error with automatic OAuth error mapping
+   */
+  const handleError = (errorInput: OAuthError | string) => {
+    setError(errorInput);
+    const mapped = mapOAuthError(errorInput);
+    setMappedError(mapped);
+  };
+
+  /**
+   * Clear error state
+   */
+  const clearError = () => {
+    setError(null);
+    setMappedError(null);
+  };
+
+  /**
+   * Retry authentication flow
+   */
+  const retryAuth = () => {
+    clearError();
+    // The user will need to click the Google OAuth button again
+  };
 
   const handleLoginSuccess = async (googleCredential: string) => {
     setIsLoading(true);
-    setError(null);
+    clearError();
 
     try {
       // Step 1: Google OAuth Login
@@ -35,7 +63,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       const loginData = await loginResponse.json() as GoogleLoginResponse;
 
       if (!loginData.success) {
-        setError(loginData.error || 'Login failed');
+        handleError(loginData.error || 'Login failed');
         setIsLoading(false);
         return;
       }
@@ -69,12 +97,12 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       const trialData = await trialResponse.json() as TrialActivationResponse;
 
       if (!trialData.success) {
-        setError(trialData.error || 'Failed to activate trial');
-
         // Show fraud flags if any
         if (trialData.fraudFlags && trialData.fraudFlags.length > 0) {
           console.error('Fraud detection flags:', trialData.fraudFlags);
-          setError(`Trial activation denied: ${trialData.error}. Please contact support.`);
+          handleError(`Trial activation denied: ${trialData.error}. Please contact support.`);
+        } else {
+          handleError(trialData.error || 'Failed to activate trial');
         }
 
         setIsLoading(false);
@@ -95,7 +123,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
 
     } catch (error) {
       console.error('Trial activation error:', error);
-      setError('An unexpected error occurred. Please try again.');
+      handleError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
   };
@@ -209,18 +237,18 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
           </div>
         )}
 
-        {/* Error Modal */}
-        {error && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-8 max-w-md">
-              <h3 className="text-lg font-semibold text-red-600 mb-4">Trial Activation Failed</h3>
-              <p className="text-gray-700 mb-6">{error}</p>
-              <button
-                onClick={() => setError(null)}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-              >
-                Try Again
-              </button>
+        {/* Error Modal with OAuth Error Mapping */}
+        {mappedError && error && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <ErrorMessage
+                error={mappedError}
+                originalError={error}
+                onRetry={retryAuth}
+                onDismiss={clearError}
+                showCacheGuidance={true}
+                className="shadow-none border-0"
+              />
             </div>
           </div>
         )}
