@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd packages/backend && npm install && npm run build && cd ../frontend && npm install && npm run build",
-  "installCommand": "npm install --workspaces",
+  "buildCommand": "cd packages/frontend && npm install && npm run build",
+  "installCommand": "cd packages/backend && npm install",
   "framework": null,
   "outputDirectory": "packages/frontend/dist"
 }
