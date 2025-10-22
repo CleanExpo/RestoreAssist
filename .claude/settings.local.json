@@ -41,7 +41,20 @@
       "Bash(git clone:*)",
       "Bash(cat:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run test:e2e:*)"
+      "Bash(npm run test:e2e:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel env add:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel --prod --yes:*)",
+      "Bash(git rm:*)",
+      "Bash(npm run build:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel env ls:*)",
+      "Bash(vercel env pull:*)",
+      "Bash(vercel:*)"
     ],
     "deny": [],
     "ask": []

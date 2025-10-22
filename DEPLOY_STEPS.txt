@@ -1,0 +1,19 @@
+=================================================
+DEPLOY BACKEND TO VERCEL - 5 STEPS
+=================================================
+
+1. Open: https://vercel.com/unite-group/restore-assist-backend
+
+2. Settings → General → Root Directory: packages/backend → SAVE
+
+3. Settings → Environment Variables → Add all from .env
+
+4. Deployments → Click "Redeploy" → Wait 2-5 minutes
+
+5. Test: curl https://backend-e03gm60ws-unite-group.vercel.app/api/health
+
+=================================================
+DONE! Backend deployed to production.
+=================================================
+
+Full docs: DEPLOY_BACKEND_NOW.md
