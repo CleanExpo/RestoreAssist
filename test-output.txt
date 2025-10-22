@@ -1,0 +1,554 @@
+ WARN  The "workspaces" field in package.json is not supported by pnpm. Create a "pnpm-workspace.yaml" file instead.
+Error: Do not import `@jest/globals` outside of the Jest test environment
+
+   at packages\backend\tests\integration\authConfig.test.ts:16
+
+  14 |  */
+  15 |
+> 16 | import { describe, it, expect, beforeAll, afterEach, jest } from '@jest/globals';
+     | ^
+  17 | import request from 'supertest';
+  18 | import express, { Application } from 'express';
+  19 | import { authRoutes } from '../../src/routes/authRoutes';
+    at D:\RestoreAssist\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\RestoreAssist\node_modules\@jest\globals\build\index.js:25:12)
+    at Object.<anonymous> (D:\RestoreAssist\packages\backend\tests\integration\authConfig.test.ts:16:1)
+Error: Do not import `@jest/globals` outside of the Jest test environment
+
+   at packages\backend\tests\integration\stripeWebhooks.test.ts:2
+
+  1 | // @ts-nocheck - Disable type checking for test mocks
+> 2 | import { describe, it, expect, beforeAll, afterAll, jest, beforeEach } from '@jest/globals';
+    | ^
+  3 | import request from 'supertest';
+  4 | import express from 'express';
+  5 |
+    at D:\RestoreAssist\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\RestoreAssist\node_modules\@jest\globals\build\index.js:25:12)
+    at Object.<anonymous> (D:\RestoreAssist\packages\backend\tests\integration\stripeWebhooks.test.ts:2:1)
+Error: Do not import `@jest/globals` outside of the Jest test environment
+
+   at packages\backend\tests\performance\api-benchmarks.test.ts:13
+
+  11 |  */
+  12 |
+> 13 | import { describe, it, expect } from '@jest/globals';
+     | ^
+  14 | import { benchmark, compareBenchmarks, loadTest, benchmarkEndpoint } from './benchmark';
+  15 |
+  16 | // Skip performance tests in CI by default
+    at D:\RestoreAssist\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\RestoreAssist\node_modules\@jest\globals\build\index.js:25:12)
+    at Object.<anonymous> (D:\RestoreAssist\packages\backend\tests\performance\api-benchmarks.test.ts:13:1)
+Error: Do not import `@jest/globals` outside of the Jest test environment
+
+   at packages\backend\tests\unit\subscriptionService.test.ts:1
+
+> 1 | import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+    | ^
+  2 | import {
+  3 |   createSubscription,
+  4 |   getActiveSubscription,
+    at D:\RestoreAssist\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\RestoreAssist\node_modules\@jest\globals\build\index.js:25:12)
+    at Object.<anonymous> (D:\RestoreAssist\packages\backend\tests\unit\subscriptionService.test.ts:1:1)
+TypeError: Cannot redefine property: Symbol($$jest-matchers-object)
+    at D:\RestoreAssist\node_modules\@vitest\expect\dist\index.js:667:9
+TypeError: Cannot redefine property: Symbol($$jest-matchers-object)
+    at D:\RestoreAssist\node_modules\@vitest\expect\dist\index.js:667:9
+Error: Cannot find module 'D:\RestoreAssist\ui\apps\www\node_modules\shadcn\dist\schema\index.js' imported from D:\RestoreAssist\ui\apps\www\lib\registry.ts
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Cannot find module '@remix-run/react'
+Require stack:
+- D:\RestoreAssist\ui\packages\shadcn\test\fixtures\frameworks\remix-indie-stack\app\utils.ts
+- D:\RestoreAssist\ui\packages\shadcn\test\fixtures\frameworks\remix-indie-stack\app\utils.test.ts
+- D:\RestoreAssist\node_modules\playwright\lib\transform\transform.js
+- D:\RestoreAssist\node_modules\playwright\lib\common\configLoader.js
+- D:\RestoreAssist\node_modules\playwright\lib\program.js
+- D:\RestoreAssist\node_modules\@playwright\test\cli.js
+
+   at ui\packages\shadcn\test\fixtures\frameworks\remix-indie-stack\app\utils.ts:1
+
+> 1 | import { useMatches } from "@remix-run/react";
+    | ^
+  2 | import { useMemo } from "react";
+  3 |
+  4 | import type { User } from "~/models/user.server";
+    at Object.<anonymous> (D:\RestoreAssist\ui\packages\shadcn\test\fixtures\frameworks\remix-indie-stack\app\utils.ts:1:1)
+    at Object.<anonymous> (D:\RestoreAssist\ui\packages\shadcn\test\fixtures\frameworks\remix-indie-stack\app\utils.test.ts:1:1)
+TypeError: Module "file:///D:/RestoreAssist/ui/packages/shadcn/test/fixtures/colors/slate.json" needs an import attribute of type "json"
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+TypeError: Module "file:///D:/RestoreAssist/ui/packages/shadcn/test/fixtures/colors/stone.json" needs an import attribute of type "json"
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+TypeError: Module "file:///D:/RestoreAssist/ui/packages/shadcn/test/fixtures/colors/stone.json" needs an import attribute of type "json"
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+Error: Vitest failed to access its internal state.
+
+One of the following is possible:
+- "vitest" is imported directly without running "vitest" command
+- "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, because "globalSetup" runs in a different context)
+- Otherwise, it might be a Vitest bug. Please report it to https://github.com/vitest-dev/vitest/issues
+
+    at getWorkerState (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:8:11)
+    at getCurrentEnvironment (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\utils.C8RiOc4B.js:22:17)
+    at createExpect (D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:521:20)
+    at D:\RestoreAssist\ui\node_modules\.pnpm\vitest@2.1.9_@types+node@20.19.10_lightningcss@1.30.1_msw@2.10.4_@types+node@20.19.10_typescript@5.9.2_\node_modules\vitest\dist\chunks\vi.DgezovHB.js:566:22
+

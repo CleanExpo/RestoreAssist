@@ -1,0 +1,107 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link "Back to Home" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img [ref=e7]
+      - generic [ref=e9]: Back to Home
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - img [ref=e15]
+        - generic [ref=e18]:
+          - heading "Contact Support" [level=1] [ref=e19]
+          - paragraph [ref=e20]: We're here to help
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic [ref=e23]: Full Name *
+          - textbox "Full Name *" [active] [ref=e24]:
+            - /placeholder: John Doe
+            - text: <script>alert("xss")</script>
+        - generic [ref=e25]:
+          - generic [ref=e26]: Email Address *
+          - textbox "Email Address *" [ref=e27]:
+            - /placeholder: john@example.com
+        - generic [ref=e28]:
+          - generic [ref=e29]: Category *
+          - combobox "Category *" [ref=e30]:
+            - option "General Inquiry" [selected]
+            - option "Technical Support"
+            - option "Billing & Subscriptions"
+            - option "Report Issue"
+            - option "Privacy & Security"
+        - generic [ref=e31]:
+          - generic [ref=e32]: Subject *
+          - textbox "Subject *" [ref=e33]:
+            - /placeholder: Brief description of your inquiry
+        - generic [ref=e34]:
+          - generic [ref=e35]: Message *
+          - textbox "Message *" [ref=e36]:
+            - /placeholder: Please provide as much detail as possible...
+        - button "Send Message" [ref=e37] [cursor=pointer]:
+          - img [ref=e38]
+          - generic [ref=e41]: Send Message
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - heading "Other Ways to Reach Us" [level=2] [ref=e44]
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - img [ref=e48]
+            - generic [ref=e51]:
+              - heading "Email Support" [level=3] [ref=e52]
+              - link "airestoreassist@gmail.com" [ref=e53] [cursor=pointer]:
+                - /url: mailto:airestoreassist@gmail.com
+              - paragraph [ref=e54]: Get a response within 24 hours
+          - generic [ref=e55]:
+            - img [ref=e57]
+            - generic [ref=e60]:
+              - heading "Response Time" [level=3] [ref=e61]
+              - paragraph [ref=e62]: "Monday - Friday: 9 AM - 5 PM AEST"
+              - paragraph [ref=e63]: We respond within 24 hours on business days
+      - generic [ref=e64]:
+        - heading "Frequently Asked Questions" [level=2] [ref=e65]
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - heading "How quickly do you respond?" [level=3] [ref=e68]:
+              - img [ref=e69]
+              - text: How quickly do you respond?
+            - paragraph [ref=e72]: We aim to respond to all inquiries within 24 hours during business days.
+          - generic [ref=e73]:
+            - heading "What information should I include?" [level=3] [ref=e74]:
+              - img [ref=e75]
+              - text: What information should I include?
+            - paragraph [ref=e78]: Please provide as much detail as possible, including any error messages, screenshots, and steps to reproduce the issue.
+          - generic [ref=e79]:
+            - heading "Can I get a refund?" [level=3] [ref=e80]:
+              - img [ref=e81]
+              - text: Can I get a refund?
+            - paragraph [ref=e84]: Yes! We offer a 7-day money-back guarantee for new subscriptions. See our Refund Policy for details.
+        - paragraph [ref=e86]:
+          - text: Need more help? Check out our
+          - link "Privacy Policy" [ref=e87] [cursor=pointer]:
+            - /url: /privacy
+          - text: or
+          - link "Terms of Service" [ref=e88] [cursor=pointer]:
+            - /url: /terms
+          - text: .
+      - generic [ref=e89]:
+        - heading "What can we help with?" [level=2] [ref=e90]
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - img [ref=e93]
+            - paragraph [ref=e95]: General Inquiry
+          - generic [ref=e96]:
+            - img [ref=e97]
+            - paragraph [ref=e100]: Technical Support
+          - generic [ref=e101]:
+            - img [ref=e102]
+            - paragraph [ref=e104]: Billing & Subscriptions
+          - generic [ref=e105]:
+            - img [ref=e106]
+            - paragraph [ref=e109]: Report Issue
+          - generic [ref=e110]:
+            - img [ref=e111]
+            - paragraph [ref=e113]: Privacy & Security
+```

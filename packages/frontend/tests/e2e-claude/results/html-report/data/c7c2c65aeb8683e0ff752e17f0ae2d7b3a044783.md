@@ -1,0 +1,110 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - link "Back to Home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - generic [ref=e9]: Back to Home
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - img [ref=e15]
+          - generic [ref=e18]:
+            - heading "Contact Support" [level=1] [ref=e19]
+            - paragraph [ref=e20]: We're here to help
+        - generic [ref=e21]:
+          - img [ref=e22]
+          - heading "Message Sent!" [level=3] [ref=e25]
+          - paragraph [ref=e26]: Thank you for contacting us. We'll get back to you within 24 hours.
+          - button "Send Another Message" [ref=e27] [cursor=pointer]
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - heading "Other Ways to Reach Us" [level=2] [ref=e30]
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - img [ref=e34]
+              - generic [ref=e37]:
+                - heading "Email Support" [level=3] [ref=e38]
+                - link "airestoreassist@gmail.com" [ref=e39] [cursor=pointer]:
+                  - /url: mailto:airestoreassist@gmail.com
+                - paragraph [ref=e40]: Get a response within 24 hours
+            - generic [ref=e41]:
+              - img [ref=e43]
+              - generic [ref=e46]:
+                - heading "Response Time" [level=3] [ref=e47]
+                - paragraph [ref=e48]: "Monday - Friday: 9 AM - 5 PM AEST"
+                - paragraph [ref=e49]: We respond within 24 hours on business days
+        - generic [ref=e50]:
+          - heading "Frequently Asked Questions" [level=2] [ref=e51]
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - heading "How quickly do you respond?" [level=3] [ref=e54]:
+                - img [ref=e55]
+                - text: How quickly do you respond?
+              - paragraph [ref=e58]: We aim to respond to all inquiries within 24 hours during business days.
+            - generic [ref=e59]:
+              - heading "What information should I include?" [level=3] [ref=e60]:
+                - img [ref=e61]
+                - text: What information should I include?
+              - paragraph [ref=e64]: Please provide as much detail as possible, including any error messages, screenshots, and steps to reproduce the issue.
+            - generic [ref=e65]:
+              - heading "Can I get a refund?" [level=3] [ref=e66]:
+                - img [ref=e67]
+                - text: Can I get a refund?
+              - paragraph [ref=e70]: Yes! We offer a 7-day money-back guarantee for new subscriptions. See our Refund Policy for details.
+          - paragraph [ref=e72]:
+            - text: Need more help? Check out our
+            - link "Privacy Policy" [ref=e73] [cursor=pointer]:
+              - /url: /privacy
+            - text: or
+            - link "Terms of Service" [ref=e74] [cursor=pointer]:
+              - /url: /terms
+            - text: .
+        - generic [ref=e75]:
+          - heading "What can we help with?" [level=2] [ref=e76]
+          - generic [ref=e77]:
+            - generic [ref=e78]:
+              - img [ref=e79]
+              - paragraph [ref=e81]: General Inquiry
+            - generic [ref=e82]:
+              - img [ref=e83]
+              - paragraph [ref=e86]: Technical Support
+            - generic [ref=e87]:
+              - img [ref=e88]
+              - paragraph [ref=e90]: Billing & Subscriptions
+            - generic [ref=e91]:
+              - img [ref=e92]
+              - paragraph [ref=e95]: Report Issue
+            - generic [ref=e96]:
+              - img [ref=e97]
+              - paragraph [ref=e99]: Privacy & Security
+  - generic [ref=e101]:
+    - generic [ref=e102]:
+      - generic [ref=e103]:
+        - img [ref=e105]
+        - generic [ref=e107]:
+          - heading "We Value Your Privacy" [level=3] [ref=e108]:
+            - img [ref=e109]
+            - text: We Value Your Privacy
+          - paragraph [ref=e111]: We use cookies and similar technologies to enhance your experience, analyze site usage, and assist with our marketing efforts. This includes essential cookies for site functionality, analytics cookies to understand how you use our service, and cookies from third-party services like Google, Stripe, and Sentry.
+          - generic [ref=e112]:
+            - link "Privacy Policy" [ref=e113] [cursor=pointer]:
+              - /url: /privacy
+            - generic [ref=e114]: •
+            - link "Terms of Service" [ref=e115] [cursor=pointer]:
+              - /url: /terms
+      - generic [ref=e116]:
+        - button "Decline" [ref=e117] [cursor=pointer]:
+          - img [ref=e118]
+          - generic [ref=e121]: Decline
+        - button "Accept All Cookies" [ref=e122] [cursor=pointer]:
+          - img [ref=e123]
+          - generic [ref=e126]: Accept All Cookies
+    - group [ref=e128]:
+      - generic "View Cookie Details" [ref=e129] [cursor=pointer]:
+        - generic [ref=e130]: View Cookie Details
+        - img [ref=e131]
+```
