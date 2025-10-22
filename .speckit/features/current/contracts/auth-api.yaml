@@ -1,0 +1,411 @@
+openapi: 3.1.0
+info:
+  title: RestoreAssist Authentication API
+  description: OAuth 2.0 authentication endpoints for Google sign-in with trial activation
+  version: 1.0.0
+  contact:
+    name: RestoreAssist Support
+    email: support@restoreassist.com.au
+    url: https://restoreassist.app/support
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+  - url: https://restore-assist-backend.vercel.app/api
+    description: Production
+
+tags:
+  - name: Authentication
+    description: OAuth and session management endpoints
+  - name: Configuration
+    description: OAuth configuration validation
+
+paths:
+  /auth/google:
+    post:
+      summary: Exchange Google OAuth code for JWT session
+      description: |
+        After user approves Google OAuth consent, exchange the authorization code
+        for a JWT access token and refresh token. Also activates free trial if eligible.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - redirect_uri
+              properties:
+                code:
+                  type: string
+                  description: Authorization code from Google OAuth callback
+                  example: "4/0AY0e-g7xKq..."
+                redirect_uri:
+                  type: string
+                  format: uri
+                  description: Redirect URI used in OAuth flow (must match Google Cloud Console)
+                  example: "http://localhost:5173"
+      responses:
+        '200':
+          description: Authentication successful, session created
+          headers:
+            Set-Cookie:
+              description: JWT access token (httpOnly, secure in production)
+              schema:
+                type: string
+                example: "access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=900"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                  trial:
+                    $ref: '#/components/schemas/TrialStatus'
+                  token:
+                    type: string
+                    description: JWT access token (also in httpOnly cookie)
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refresh_token:
+                    type: string
+                    description: Refresh token for obtaining new access tokens
+                    example: "rt_abc123..."
+        '400':
+          description: Invalid request (missing code, invalid redirect_uri)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_code:
+                  summary: Missing authorization code
+                  value:
+                    error: "invalid_request"
+                    message: "Authorization code is required"
+                    user_message: "Sign-in failed. Please try again."
+                invalid_code:
+                  summary: Invalid or expired code
+                  value:
+                    error: "invalid_grant"
+                    message: "Authorization code is invalid or expired"
+                    user_message: "Session expired. Please sign in again."
+                    retryable: true
+        '403':
+          description: Trial activation denied due to fraud detection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                trial_limit_reached:
+                  summary: User exceeded trial limit
+                  value:
+                    error: "trial_limit_exceeded"
+                    message: "User has already activated a trial"
+                    user_message: "You have already used your free trial. Please sign in to continue."
+                    retryable: false
+                fraud_detected:
+                  summary: Fraud detection blocked trial
+                  value:
+                    error: "fraud_detected"
+                    message: "Trial blocked due to suspicious activity"
+                    user_message: "Unable to activate trial. Please contact support."
+                    fraud_score: 85
+                    retryable: false
+        '500':
+          description: Internal server error (database failure, external API error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                database_error:
+                  summary: Database connection failed
+                  value:
+                    error: "internal_error"
+                    message: "Database connection failed"
+                    user_message: "An unexpected error occurred. Please try again in a few moments."
+                    retryable: true
+
+  /auth/config:
+    get:
+      summary: Validate OAuth configuration
+      description: |
+        Check if Google OAuth is properly configured. Returns client ID and
+        validation status. Used by frontend to display helpful error messages.
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: Configuration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_id:
+                    type: string
+                    description: Google OAuth Client ID
+                    example: "292141944467-h0cbhuq8bulddpkruu12pqj938g2md68.apps.googleusercontent.com"
+                  is_valid:
+                    type: boolean
+                    description: Whether configuration is complete and valid
+                    example: true
+                  allowed_origins:
+                    type: array
+                    description: Authorized JavaScript origins from env
+                    items:
+                      type: string
+                    example:
+                      - "http://localhost:5173"
+                      - "https://restoreassist.app"
+                  errors:
+                    type: array
+                    description: Configuration errors (if is_valid = false)
+                    items:
+                      type: string
+                    example:
+                      - "GOOGLE_CLIENT_SECRET not set"
+        '500':
+          description: Server misconfiguration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/retry:
+    post:
+      summary: Manual retry for failed authentication
+      description: |
+        Retry authentication after a failure. Tracks retry count and implements
+        rate limiting. Returns when next retry is allowed.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - attempt_id
+              properties:
+                attempt_id:
+                  type: string
+                  description: ID of failed authentication attempt
+                  example: "attempt-1234567890-abc"
+      responses:
+        '200':
+          description: Retry allowed, proceed with OAuth flow
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  retry_allowed:
+                    type: boolean
+                    example: true
+                  retry_count:
+                    type: integer
+                    description: Number of retries for this attempt
+                    example: 2
+                  next_retry_at:
+                    type: string
+                    format: date-time
+                    description: Timestamp when next retry is allowed (NULL if immediate)
+                    nullable: true
+                    example: "2025-01-22T10:30:00Z"
+        '429':
+          description: Too many retry attempts, rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                rate_limited:
+                  value:
+                    error: "rate_limit_exceeded"
+                    message: "Too many authentication attempts"
+                    user_message: "Too many sign-in attempts. Please wait 15 minutes and try again."
+                    retry_after: 900
+
+  /auth/status:
+    get:
+      summary: Check authentication session status
+      description: |
+        Verify if user has a valid session. Returns user info and trial status.
+        Used by frontend to determine dashboard access.
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Session status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                    description: Whether user has valid session
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                    nullable: true
+                  trial_status:
+                    $ref: '#/components/schemas/TrialStatus'
+                    nullable: true
+        '401':
+          description: Not authenticated (no valid session)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                    example: false
+                  user:
+                    type: object
+                    nullable: true
+                    example: null
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token using refresh token
+      description: |
+        Exchange refresh token for new access token. Implements refresh token rotation
+        for security (old refresh token invalidated, new one issued).
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: Current refresh token
+                  example: "rt_xyz789..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          headers:
+            Set-Cookie:
+              description: New JWT access token
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: New JWT access token
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refresh_token:
+                    type: string
+                    description: New refresh token (old one invalidated)
+                    example: "rt_newtoken123..."
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          example: "user-1760749665036-i3vz2agiz"
+        email:
+          type: string
+          format: email
+          example: "phil.mcgurk@gmail.com"
+        name:
+          type: string
+          example: "Phil McGurk"
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://lh3.googleusercontent.com/a/..."
+        role:
+          type: string
+          enum: [user, admin]
+          example: "user"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-22T10:00:00Z"
+
+    TrialStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+          description: Whether user has an active trial
+          example: true
+        token:
+          type: string
+          description: Trial activation token
+          example: "trial-abc123..."
+        expires_at:
+          type: string
+          format: date-time
+          description: When trial expires (14 days from activation)
+          example: "2025-02-05T10:00:00Z"
+        used:
+          type: boolean
+          description: Whether trial has been activated
+          example: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          example: "invalid_grant"
+        message:
+          type: string
+          description: Technical error message (for logging)
+          example: "Authorization code is invalid or expired"
+        user_message:
+          type: string
+          description: User-friendly error message
+          example: "Session expired. Please sign in again."
+        retryable:
+          type: boolean
+          description: Whether operation can be retried
+          example: true
+        retry_after:
+          type: integer
+          description: Seconds to wait before retrying (if rate limited)
+          nullable: true
+          example: 900
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: JWT access token stored in httpOnly cookie
