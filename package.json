@@ -11,6 +11,7 @@
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
     "build": "npm run build --workspaces",
+    "vercel-build": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
     "test": "npm run test --workspaces",
     "verify:oauth": "node scripts/verify-oauth.js",
     "agent:build": "AGENT_TYPE=build tsx agents/cli.ts",
