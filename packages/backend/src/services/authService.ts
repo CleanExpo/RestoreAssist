@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User, UserPayload, AuthTokens } from '../types';
+import { freeTrialService } from './freeTrialService';
 
 // In-memory user storage (replace with database in production)
 const users: Map<string, User> = new Map();
@@ -348,6 +349,80 @@ export class AuthService {
   clearTestModeAccessAttempts(): void {
     testModeAccessAttempts.length = 0;
     console.log('✅ Test mode access attempt logs cleared');
+  }
+
+  /**
+   * Check trial eligibility for a user
+   *
+   * @param userId - User ID to check
+   * @param email - User's email address
+   * @param fingerprintHash - Device fingerprint hash
+   * @param deviceData - Device fingerprinting data
+   * @param ipAddress - Optional IP address
+   * @param userAgent - Optional user agent string
+   * @returns Trial activation result with fraud check details
+   */
+  async checkTrialEligibility(
+    userId: string,
+    email: string,
+    fingerprintHash: string,
+    deviceData: Record<string, any>,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<{
+    eligible: boolean;
+    tokenId?: string;
+    reportsRemaining?: number;
+    expiresAt?: Date;
+    fraudFlags?: any[];
+    denialReason?: string;
+  }> {
+    try {
+      // Call freeTrialService to activate trial with fraud detection
+      const result = await freeTrialService.activateTrial({
+        userId,
+        fingerprintHash,
+        deviceData,
+        ipAddress,
+        userAgent,
+      });
+
+      if (result.success) {
+        console.log(`✅ Trial activated for user ${userId} (${email})`);
+        return {
+          eligible: true,
+          tokenId: result.tokenId,
+          reportsRemaining: result.reportsRemaining,
+          expiresAt: result.expiresAt,
+        };
+      } else {
+        console.log(`⚠️ Trial denied for user ${userId} (${email}): ${result.denialReason}`);
+        return {
+          eligible: false,
+          fraudFlags: result.fraudFlags,
+          denialReason: result.denialReason,
+        };
+      }
+    } catch (error) {
+      console.error('Error checking trial eligibility:', error);
+      throw new Error('Failed to check trial eligibility');
+    }
+  }
+
+  /**
+   * Check if user has an active trial
+   *
+   * @param userId - User ID to check
+   * @returns Whether user has an active trial
+   */
+  async hasActiveTrial(userId: string): Promise<boolean> {
+    try {
+      const trial = await freeTrialService.getActiveTrialByUserId(userId);
+      return trial !== null;
+    } catch (error) {
+      console.error('Error checking active trial:', error);
+      return false;
+    }
   }
 }
 

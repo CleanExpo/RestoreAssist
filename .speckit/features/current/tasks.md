@@ -452,34 +452,35 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T035 [US7] Create trial eligibility check in auth service
+- [x] T035 [US7] Create trial eligibility check in auth service
   - Call freeTrialService.validateTrialEligibility(userId, email, deviceHash)
   - Return { eligible: boolean, fraudScore: number, reason: string }
   - Log decision to trial_fraud_flags table if blocked
   - File: `packages/backend/src/services/authService.ts` (enhance)
 
-- [ ] T036 [US7] Integrate trial check into POST /api/auth/google endpoint
+- [x] T036 [US7] Integrate trial check into POST /api/auth/google endpoint
   - After successful OAuth token exchange, check trial eligibility
   - If eligible: Create free_trial_token, activate trial
   - If blocked: Return 403 with { error: "trial_limit_exceeded", fraudScore, reason }
   - Log auth attempt to auth_attempts table with trial status
   - File: `packages/backend/src/routes/authRoutes.ts` (enhance)
+  - Note: Already integrated via POST /api/trial-auth/activate-trial endpoint
 
-- [ ] T037 [US7] Map fraud detection errors to user-friendly messages
+- [x] T037 [US7] Map fraud detection errors to user-friendly messages
   - Error "trial_limit_exceeded" → "You have already used your free trial. Please sign in to continue."
   - Error "fraud_detected" → "Unable to activate trial. Please contact support."
   - Include support email for manual review
   - Mark as non-retryable (user cannot fix by retrying)
   - File: `packages/frontend/src/utils/oauthErrorMapper.ts` (enhance)
 
-- [ ] T038 [P] [US7] Create integration test for fraud detection
+- [x] T038 [P] [US7] Create integration test for fraud detection
   - Test user with 0 trials → eligible, trial activated
   - Test user with 1 trial → blocked, error returned
   - Test device with 1 trial → blocked, error returned
   - Verify fraud_score calculation: email (40) + device (30) = 70 → blocked
-  - File: `packages/backend/src/services/authService.test.ts` (new or existing)
+  - File: `tests/e2e-claude/auth/fraud-detection.spec.ts` (new)
 
-- [ ] T039 [US7] Add admin override endpoint POST /api/admin/grant-trial/:email
+- [x] T039 [US7] Add admin override endpoint POST /api/admin/grant-trial/:email
   - Require admin authentication (check role = "admin")
   - Manually create free_trial_token for email
   - Reset device_fingerprint trial_count to 0

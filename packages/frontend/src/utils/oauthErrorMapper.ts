@@ -259,6 +259,87 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
         retryAfterSeconds: 3,
       };
 
+    // Trial / Fraud Detection Errors
+    case 'email_trial_limit_exceeded':
+      return {
+        userMessage:
+          'You have already used your free trial. Each email address is eligible for one free trial only.\n\n' +
+          'To continue using RestoreAssist, please subscribe to one of our paid plans.',
+        technicalMessage: 'Trial limit exceeded: Email already used for trial',
+        retryable: false,
+        retryAfterSeconds: 0,
+      };
+
+    case 'device_trial_limit_exceeded':
+      return {
+        userMessage:
+          'This device has already been used for a free trial. Each device is eligible for one free trial only.\n\n' +
+          'To continue using RestoreAssist, please subscribe to one of our paid plans.',
+        technicalMessage: 'Trial limit exceeded: Device already used for trial',
+        retryable: false,
+        retryAfterSeconds: 0,
+      };
+
+    case 'device_blocked':
+      return {
+        userMessage:
+          'This device has been blocked from creating new trials due to suspicious activity.\n\n' +
+          'If you believe this is an error, please contact support@restoreassist.com.au',
+        technicalMessage: 'Device blocked from trial creation',
+        retryable: false,
+        retryAfterSeconds: 0,
+      };
+
+    case 'disposable_email':
+      return {
+        userMessage:
+          'Disposable or temporary email addresses are not eligible for free trials.\n\n' +
+          'Please sign up with a permanent email address to access your free trial.',
+        technicalMessage: 'Disposable email domain detected',
+        retryable: false,
+        retryAfterSeconds: 0,
+      };
+
+    case 'rapid_re_registration':
+      return {
+        userMessage:
+          'Multiple trial activation attempts detected in a short time period.\n\n' +
+          'Please wait a few hours before trying again, or contact support if you need immediate assistance.',
+        technicalMessage: 'Rapid re-registration attempt detected',
+        retryable: true,
+        retryAfterSeconds: 3600, // 1 hour
+      };
+
+    case 'ip_rate_limit_exceeded':
+      return {
+        userMessage:
+          'Too many trial activations from your network. Please try again later.\n\n' +
+          'If you\'re on a shared network, this limit helps prevent abuse.',
+        technicalMessage: 'IP rate limit exceeded for trial activations',
+        retryable: true,
+        retryAfterSeconds: 3600, // 1 hour
+      };
+
+    case 'fraud_score_too_high':
+      return {
+        userMessage:
+          'We\'re unable to activate your free trial at this time due to automated fraud detection.\n\n' +
+          'Please contact support@restoreassist.com.au for manual review and assistance.',
+        technicalMessage: 'Fraud score exceeds threshold',
+        retryable: false,
+        retryAfterSeconds: 0,
+      };
+
+    case 'trial_denied':
+      return {
+        userMessage:
+          'Your free trial activation was not approved. This may be due to previous trial usage or security restrictions.\n\n' +
+          'Please contact support@restoreassist.com.au for assistance.',
+        technicalMessage: 'Trial activation denied by fraud detection',
+        retryable: false,
+        retryAfterSeconds: 0,
+      };
+
     // Unknown errors
     default:
       const hasDescription = errorDescription.length > 0;
