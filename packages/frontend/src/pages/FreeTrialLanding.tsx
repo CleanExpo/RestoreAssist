@@ -60,6 +60,20 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
         }),
       });
 
+      if (!loginResponse.ok) {
+        const errorText = await loginResponse.text();
+        let errorMessage = 'Login failed';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorJson.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        handleError(errorMessage);
+        setIsLoading(false);
+        return;
+      }
+
       const loginData = await loginResponse.json() as GoogleLoginResponse;
 
       if (!loginData.success) {
@@ -123,7 +137,16 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
 
     } catch (error) {
       console.error('Trial activation error:', error);
-      handleError('An unexpected error occurred. Please try again.');
+
+      // Extract error message if available
+      let errorMessage = 'An unexpected error occurred during sign-in. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      handleError(errorMessage);
       setIsLoading(false);
     }
   };

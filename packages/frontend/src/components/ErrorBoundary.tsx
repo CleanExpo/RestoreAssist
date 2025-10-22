@@ -123,10 +123,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <p className="text-sm text-gray-600 text-center">
                 If this problem persists, please contact our support team at{' '}
                 <a
-                  href="mailto:support@restoreassist.com"
+                  href="mailto:airestoreassist@gmail.com"
                   className="text-blue-600 hover:text-blue-800 underline font-medium"
                 >
-                  support@restoreassist.com
+                  airestoreassist@gmail.com
                 </a>
               </p>
             </div>

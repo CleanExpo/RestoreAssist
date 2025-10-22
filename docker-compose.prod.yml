@@ -1,0 +1,210 @@
+# ============================================
+# Docker Compose - Production Environment
+# RestoreAssist Full Stack Application
+# ============================================
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+# ============================================
+
+services:
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: restoreassist-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restoreassist}
+      POSTGRES_USER: ${POSTGRES_USER:-restoreassist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-restoreassist} -d ${POSTGRES_DB:-restoreassist}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - restoreassist-network
+    # Only expose to host if needed for external access
+    # ports:
+    #   - "5432:5432"
+
+  # ==========================================
+  # Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        NODE_ENV: production
+    container_name: restoreassist-backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-restoreassist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restoreassist}?schema=public&connection_limit=10&pool_timeout=20
+      DIRECT_DATABASE_URL: postgresql://${POSTGRES_USER:-restoreassist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restoreassist}?schema=public
+
+      # JWT & Security
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY:-15m}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY:-7d}
+
+      # CORS
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+
+      # Stripe
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID_MONTHLY: ${STRIPE_PRICE_ID_MONTHLY}
+      STRIPE_PRICE_ID_YEARLY: ${STRIPE_PRICE_ID_YEARLY}
+
+      # AI Services
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # Email
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+
+      # Sentry
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
+
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+
+      # Production
+      DEBUG: false
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - restoreassist-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ==========================================
+  # Frontend Application
+  # ==========================================
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_APP_URL: ${VITE_APP_URL}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
+    container_name: restoreassist-frontend
+    restart: always
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - restoreassist-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # ==========================================
+  # Nginx Reverse Proxy
+  # ==========================================
+  nginx:
+    image: nginx:alpine
+    container_name: restoreassist-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - restoreassist-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  postgres_data:
+    driver: local
+    name: restoreassist_postgres_data_prod
+  nginx_cache:
+    driver: local
+    name: restoreassist_nginx_cache
+  nginx_logs:
+    driver: local
+    name: restoreassist_nginx_logs
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  restoreassist-network:
+    driver: bridge
+    name: restoreassist_network_prod

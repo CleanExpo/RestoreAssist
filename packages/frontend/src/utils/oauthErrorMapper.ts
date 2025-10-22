@@ -179,7 +179,7 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
       return {
         userMessage:
           'Access Restricted: This application is currently in testing mode and only available to whitelisted users.\n\n' +
-          'If you need access, please contact support@restoreassist.com.au with your Google email address and we\'ll add you to the test user list.',
+          'If you need access, please contact airestoreassist@gmail.com with your Google email address and we\'ll add you to the test user list.',
         technicalMessage: `OAuth app in Testing mode - user not whitelisted (${errorCode})`,
         retryable: false, // Cannot retry until user is whitelisted
         retryAfterSeconds: 0,
@@ -200,7 +200,7 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
       return {
         userMessage:
           'Authentication configuration error (redirect URI mismatch). Our development team has been notified.\n\n' +
-          'Please contact support@restoreassist.com.au if you continue to see this message.',
+          'Please contact airestoreassist@gmail.com if you continue to see this message.',
         technicalMessage: 'OAuth redirect URI not whitelisted in Google Cloud Console',
         retryable: false,
         retryAfterSeconds: 0,
@@ -284,7 +284,7 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
       return {
         userMessage:
           'This device has been blocked from creating new trials due to suspicious activity.\n\n' +
-          'If you believe this is an error, please contact support@restoreassist.com.au',
+          'If you believe this is an error, please contact airestoreassist@gmail.com',
         technicalMessage: 'Device blocked from trial creation',
         retryable: false,
         retryAfterSeconds: 0,
@@ -324,7 +324,7 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
       return {
         userMessage:
           'We\'re unable to activate your free trial at this time due to automated fraud detection.\n\n' +
-          'Please contact support@restoreassist.com.au for manual review and assistance.',
+          'Please contact airestoreassist@gmail.com for manual review and assistance.',
         technicalMessage: 'Fraud score exceeds threshold',
         retryable: false,
         retryAfterSeconds: 0,
@@ -334,7 +334,7 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
       return {
         userMessage:
           'Your free trial activation was not approved. This may be due to previous trial usage or security restrictions.\n\n' +
-          'Please contact support@restoreassist.com.au for assistance.',
+          'Please contact airestoreassist@gmail.com for assistance.',
         technicalMessage: 'Trial activation denied by fraud detection',
         retryable: false,
         retryAfterSeconds: 0,
@@ -347,7 +347,7 @@ export function mapOAuthError(error: OAuthError | string): MappedOAuthError {
         userMessage:
           'An unexpected error occurred during sign-in. Please try again.\n\n' +
           (hasDescription ? `Details: ${errorDescription}\n\n` : '') +
-          'If the problem persists, please contact support@restoreassist.com.au',
+          'If the problem persists, please contact airestoreassist@gmail.com',
         technicalMessage: `Unknown OAuth error: ${errorCode}${hasDescription ? ` - ${errorDescription}` : ''}`,
         retryable: true,
         retryAfterSeconds: 5,

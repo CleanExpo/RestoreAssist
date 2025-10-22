@@ -1,0 +1,290 @@
+name: Test Suite
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+# Ensure only one test run per PR/branch at a time
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Backend Unit & Integration Tests
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: packages/backend
+        run: npm ci
+
+      - name: Run backend linting
+        working-directory: packages/backend
+        run: npm run lint || echo "Lint not configured"
+        continue-on-error: true
+
+      - name: Type check backend
+        working-directory: packages/backend
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        working-directory: packages/backend
+        run: npm test -- --coverage --maxWorkers=2
+        env:
+          NODE_ENV: test
+          USE_POSTGRES: false
+
+      - name: Upload backend coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./packages/backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+
+      - name: Comment Test Results on PR
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: github.event_name == 'pull_request' && always()
+        with:
+          files: packages/backend/coverage/junit.xml
+          check_name: Backend Test Results
+        continue-on-error: true
+
+  # Job 2: Frontend Unit Tests
+  frontend-tests:
+    name: Frontend Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: packages/frontend
+        run: npm ci
+
+      - name: Run frontend linting
+        working-directory: packages/frontend
+        run: npm run lint || echo "Lint not configured"
+        continue-on-error: true
+
+      - name: Type check frontend
+        working-directory: packages/frontend
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        working-directory: packages/frontend
+        run: npm test -- --run --coverage
+        env:
+          NODE_ENV: test
+
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./packages/frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+
+  # Job 3: E2E Tests (Playwright)
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+        # Add shard support for parallelization
+        shard: [1/2, 2/2]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: packages/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: packages/frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Run E2E tests (shard ${{ matrix.shard }})
+        working-directory: packages/frontend
+        run: npx playwright test --shard=${{ matrix.shard }}
+        env:
+          CI: true
+          VITE_APP_URL: http://localhost:5173
+          VITE_API_URL: http://localhost:3000
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results-${{ matrix.shard }}
+          path: packages/frontend/tests/e2e-claude/results/
+          retention-days: 7
+
+      - name: Upload Playwright traces
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces-${{ matrix.shard }}
+          path: packages/frontend/test-results/
+          retention-days: 7
+
+  # Job 4: Build Verification
+  build-check:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Verify build artifacts
+        run: |
+          echo "Checking backend build..."
+          ls -la packages/backend/dist/
+
+          echo "Checking frontend build..."
+          ls -la packages/frontend/dist/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            packages/backend/dist/
+            packages/frontend/dist/
+          retention-days: 7
+
+  # Job 5: Dependency Security Audit
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check for known vulnerabilities
+        run: |
+          npm audit --json > audit-results.json || true
+          cat audit-results.json
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit
+          path: audit-results.json
+          retention-days: 30
+
+  # Job 6: Test Summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, e2e-tests, build-check]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "Backend Tests: ${{ needs.backend-tests.result }}"
+          echo "Frontend Tests: ${{ needs.frontend-tests.result }}"
+          echo "E2E Tests: ${{ needs.e2e-tests.result }}"
+          echo "Build Check: ${{ needs.build-check.result }}"
+
+      - name: Report final status
+        run: |
+          if [[ "${{ needs.backend-tests.result }}" != "success" ||
+                "${{ needs.frontend-tests.result }}" != "success" ||
+                "${{ needs.e2e-tests.result }}" != "success" ||
+                "${{ needs.build-check.result }}" != "success" ]]; then
+            echo "❌ Some tests failed!"
+            exit 1
+          else
+            echo "✅ All tests passed!"
+          fi

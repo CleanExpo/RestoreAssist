@@ -1,0 +1,107 @@
+# Root level .dockerignore
+# Applies to full application context
+
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist
+build
+.next
+.vite
+*.local
+
+# Testing
+coverage
+.nyc_output
+test-results
+tests/e2e-claude/results
+playwright-report
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backups
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+.circleci
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+!README.md
+docs
+screenshots
+
+# Logs
+logs
+*.log
+
+# OS
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# Agent files
+agents
+.claude
+.speckit
+
+# Memory and templates
+memory
+templates
+
+# UI workspace
+ui
+
+# Scripts
+scripts
+
+# Feature files
+features
+
+# Supabase
+supabase
+
+# Sendgrid
+sendgrid-mcp
+
+# Misc
+.trigger-deploy
+nul
+landing_page_investigation.png

@@ -159,7 +159,7 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
         {/* Contact support button (for non-retryable errors) */}
         {!error.retryable && (
           <a
-            href="mailto:support@restoreassist.com.au?subject=Authentication%20Error"
+            href="mailto:airestoreassist@gmail.com?subject=Authentication%20Error"
             className="
               flex items-center gap-2 px-4 py-2 rounded-md font-medium
               bg-blue-600 hover:bg-blue-700 text-white

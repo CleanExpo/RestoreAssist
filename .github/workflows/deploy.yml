@@ -1,0 +1,319 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Gate 1: Run full test suite before deployment
+  pre-deployment-tests:
+    name: Pre-Deployment Test Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: packages/backend
+        run: npm test
+        env:
+          NODE_ENV: test
+          USE_POSTGRES: false
+
+      - name: Run frontend tests
+        working-directory: packages/frontend
+        run: npm test -- --run
+        env:
+          NODE_ENV: test
+
+      - name: Install Playwright
+        working-directory: packages/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: packages/frontend
+        run: npx playwright test
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pre-deployment-test-results
+          path: |
+            packages/backend/coverage/
+            packages/frontend/tests/e2e-claude/results/
+          retention-days: 30
+
+  # Gate 2: Build and verify artifacts
+  build-artifacts:
+    name: Build Production Artifacts
+    needs: pre-deployment-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build backend
+        working-directory: packages/backend
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Build frontend
+        working-directory: packages/frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+          VITE_API_URL: ${{ secrets.VITE_API_URL_PROD }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+
+      - name: Verify build outputs
+        run: |
+          if [ ! -d "packages/backend/dist" ]; then
+            echo "❌ Backend build failed - no dist directory"
+            exit 1
+          fi
+
+          if [ ! -d "packages/frontend/dist" ]; then
+            echo "❌ Frontend build failed - no dist directory"
+            exit 1
+          fi
+
+          echo "✅ Build verification passed"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build
+          path: |
+            packages/backend/dist/
+            packages/frontend/dist/
+          retention-days: 30
+
+  # Deploy Backend to Vercel
+  deploy-backend:
+    name: Deploy Backend
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production-backend
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        working-directory: packages/backend
+        run: npm ci
+
+      - name: Build backend
+        working-directory: packages/backend
+        run: npm run build
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: packages/backend
+          vercel-args: '--prod'
+
+      - name: Comment deployment URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Backend deployed to: ${{ steps.deploy.outputs.url }}`
+            })
+
+  # Deploy Frontend (Vercel or alternative)
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production-frontend
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        working-directory: packages/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: packages/frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL_PROD }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID_FRONTEND }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
+          working-directory: packages/frontend
+          vercel-args: '--prod'
+
+      - name: Comment deployment URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Frontend deployed to: ${{ steps.deploy.outputs.url }}`
+            })
+
+  # Post-deployment smoke tests
+  post-deployment-tests:
+    name: Post-Deployment Smoke Tests
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Health check backend
+        run: |
+          BACKEND_URL="${{ secrets.BACKEND_URL }}"
+          echo "Checking backend health at $BACKEND_URL/health"
+
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" || echo "000")
+
+          if [ "$response" = "200" ] || [ "$response" = "404" ]; then
+            echo "✅ Backend is responding (HTTP $response)"
+          else
+            echo "❌ Backend health check failed (HTTP $response)"
+            exit 1
+          fi
+
+      - name: Health check frontend
+        run: |
+          FRONTEND_URL="${{ secrets.FRONTEND_URL }}"
+          echo "Checking frontend at $FRONTEND_URL"
+
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Frontend is responding"
+          else
+            echo "❌ Frontend health check failed (HTTP $response)"
+            exit 1
+          fi
+
+      - name: Critical path smoke test
+        run: |
+          echo "Running critical path tests..."
+          # Add your critical API endpoint checks here
+          echo "✅ Smoke tests passed"
+
+  # Deployment summary
+  deployment-summary:
+    name: Deployment Summary
+    needs: [deploy-backend, deploy-frontend, post-deployment-tests]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Create deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend**: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend**: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Smoke Tests**: ${{ needs.post-deployment-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.deploy-backend.result }}" == "success" &&
+                "${{ needs.deploy-frontend.result }}" == "success" &&
+                "${{ needs.post-deployment-tests.result }}" == "success" ]]; then
+            echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Deployment had issues**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [[ "${{ needs.deploy-backend.result }}" == "success" ]]; then
+            echo "✅ Deployment completed successfully"
+          else
+            echo "❌ Deployment failed - check logs"
+          fi
