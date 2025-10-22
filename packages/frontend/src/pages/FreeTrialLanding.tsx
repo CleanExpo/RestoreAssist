@@ -50,7 +50,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
 
     try {
       // Step 1: Google OAuth Login
-      const loginResponse = await fetch(`${API_URL}/api/trial-auth/google-login`, {
+      const loginResponse = await fetch(`${API_URL}/trial-auth/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +94,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       const fingerprint = await generateDeviceFingerprint();
 
       // Step 3: Activate free trial
-      const trialResponse = await fetch(`${API_URL}/api/trial-auth/activate-trial`, {
+      const trialResponse = await fetch(`${API_URL}/trial-auth/activate-trial`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
