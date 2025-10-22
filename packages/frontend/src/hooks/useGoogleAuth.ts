@@ -17,6 +17,11 @@
 import { useState, useCallback } from 'react';
 import { useRetry } from './useRetry';
 import { mapOAuthError, type OAuthError, type MappedOAuthError } from '../utils/oauthErrorMapper';
+import {
+  recordAuthFailure,
+  resetAuthFailures,
+  shouldShowCacheGuidance,
+} from '../utils/authFailureTracker';
 
 /**
  * Google OAuth success response
@@ -48,6 +53,8 @@ export interface GoogleAuthState {
   nextRetryIn: number;
   /** Whether max retries have been exhausted */
   retriesExhausted: boolean;
+  /** Whether to show cache clearing guidance */
+  showCacheGuidance: boolean;
 }
 
 /**
@@ -128,6 +135,7 @@ export function useGoogleAuth(config: GoogleAuthConfig): GoogleAuthHook {
   const [error, setError] = useState<OAuthError | string | null>(null);
   const [mappedError, setMappedError] = useState<MappedOAuthError | null>(null);
   const [lastCredential, setLastCredential] = useState<string | null>(null);
+  const [showCacheGuidance, setShowCacheGuidance] = useState(false);
 
   /**
    * Handle authentication error
@@ -138,6 +146,14 @@ export function useGoogleAuth(config: GoogleAuthConfig): GoogleAuthHook {
       const mapped = mapOAuthError(errorInput);
       setMappedError(mapped);
       setIsLoading(false);
+
+      // Record failure in localStorage
+      const errorCode = typeof errorInput === 'string' ? errorInput : (errorInput.error || errorInput.type || 'unknown_error');
+      recordAuthFailure(errorCode);
+
+      // Check if cache guidance should be shown
+      const shouldShowCache = shouldShowCacheGuidance();
+      setShowCacheGuidance(shouldShowCache);
 
       // Call error callback
       if (onError) {
@@ -221,6 +237,10 @@ export function useGoogleAuth(config: GoogleAuthConfig): GoogleAuthHook {
         }
         setIsLoading(false);
         resetRetry();
+
+        // Reset failure tracking on successful auth
+        resetAuthFailures();
+        setShowCacheGuidance(false);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
         handleAuthError(errorMessage);
@@ -243,6 +263,7 @@ export function useGoogleAuth(config: GoogleAuthConfig): GoogleAuthHook {
   const clearError = useCallback(() => {
     setError(null);
     setMappedError(null);
+    setShowCacheGuidance(false);
     resetRetry();
   }, [resetRetry]);
 
@@ -254,6 +275,7 @@ export function useGoogleAuth(config: GoogleAuthConfig): GoogleAuthHook {
     setError(null);
     setMappedError(null);
     setLastCredential(null);
+    setShowCacheGuidance(false);
     resetRetry();
   }, [resetRetry]);
 
@@ -273,6 +295,7 @@ export function useGoogleAuth(config: GoogleAuthConfig): GoogleAuthHook {
     isRetrying,
     nextRetryIn,
     retriesExhausted,
+    showCacheGuidance,
 
     // Actions
     login,

@@ -364,27 +364,27 @@ This task breakdown addresses critical authentication failures by implementing G
 
 **Tasks:**
 
-- [ ] T029 [US5] Add browser detection and cache guidance to error mapper
+- [x] T029 [US5] Add browser detection and cache guidance to error mapper
   - Detect user agent: Chrome, Firefox, Safari, Edge
   - Generate browser-specific cache clearing instructions
   - For Chrome: "Settings → Privacy → Clear browsing data → Cookies (All time)"
   - For Firefox: "Ctrl+Shift+Delete → Cookies → Clear"
   - For Safari: "Safari → Preferences → Privacy → Manage Website Data"
   - For Edge: Similar to Chrome (Chromium-based)
-  - File: `packages/frontend/src/utils/oauthErrorMapper.ts` (enhance)
+  - File: `packages/frontend/src/utils/oauthErrorMapper.ts` (already implemented in Phase 5)
 
-- [ ] T030 [US5] Track failure count in localStorage for cache detection
+- [x] T030 [US5] Track failure count in localStorage for cache detection
   - Store failure count with timestamp: `{ count: 2, firstFailure: "2025-01-22T10:00:00Z" }`
   - Reset count to 0 on successful authentication
   - If count >= 2 within 5 minutes, trigger cache guidance
-  - File: `packages/frontend/src/hooks/useGoogleAuth.ts` (enhance)
+  - Files: `packages/frontend/src/utils/authFailureTracker.ts` (new), `packages/frontend/src/hooks/useGoogleAuth.ts` (enhanced)
 
-- [ ] T031 [US5] Display cache clearing instructions in ErrorMessage component
+- [x] T031 [US5] Display cache clearing instructions in ErrorMessage component
   - Add "cacheGuidance" prop to ErrorMessage
   - Show expandable section "Troubleshooting: Clear Browser Cache"
   - Display browser-specific instructions with keyboard shortcuts
   - Include "Did this help?" feedback button
-  - File: `packages/frontend/src/components/ErrorMessage.tsx` (enhance)
+  - File: `packages/frontend/src/components/ErrorMessage.tsx` (already implemented in Phase 5)
 
 **Independent Test Criteria for US5:**
 - ✅ Error mapper generates browser-specific cache instructions
