@@ -96,8 +96,15 @@ export default defineConfig({
       'react-dom',
       'react-router-dom',
       '@react-oauth/google',
+      'hoist-non-react-statics', // Force pre-bundling of CommonJS dependency
       'lucide-react'
     ],
-    exclude: ['@sentry/react', '@anthropic-ai/sdk']
+    exclude: ['@sentry/react', '@anthropic-ai/sdk'],
+    // Force Vite to handle CommonJS modules properly
+    esbuildOptions: {
+      // Ensure CommonJS modules are transformed to ESM
+      mainFields: ['module', 'main'],
+      platform: 'browser'
+    }
   }
 })
