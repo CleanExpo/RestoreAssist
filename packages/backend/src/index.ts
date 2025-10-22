@@ -4,8 +4,8 @@ import './config/env';
 // Initialize Sentry BEFORE any other imports for proper instrumentation
 import { Sentry } from './instrument';
 
-// Validate environment configuration (fail-fast if critical vars missing)
-import { validateEnvironmentOrExit } from './middleware/validateEnv';
+// Validate environment configuration (log warnings in serverless, fail-fast locally)
+import { validateEnvironment, logValidationResult } from './middleware/validateEnv';
 
 import express from 'express';
 import cors from 'cors';
@@ -128,7 +128,15 @@ app.use(errorHandler);
   console.log('🔍 [INIT] Starting server initialization...');
 
   // Validate environment before initializing any services
-  validateEnvironmentOrExit();
+  const envValidation = validateEnvironment();
+  logValidationResult(envValidation);
+  // In serverless (Vercel), log warnings but don't exit - let the app try to run
+  if (!envValidation.valid && process.env.VERCEL !== '1') {
+    console.error('\n💥 Server cannot start with invalid configuration (local mode)');
+    process.exit(1);
+  } else if (!envValidation.valid) {
+    console.warn('\n⚠️  Running with invalid configuration (serverless mode - some features may not work)');
+  }
 
   try {
     console.log('🔍 [INIT] Calling initializeDefaultUsers()...');
