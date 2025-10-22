@@ -62,11 +62,11 @@ export const CookieConsent: React.FC = () => {
 
       {/* Cookie Banner */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 transform transition-transform duration-300 ${
+        className={`fixed bottom-0 left-0 right-0 z-50 transform transition-transform duration-300 pointer-events-none ${
           isVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
-        <div className="bg-white border-t-4 border-blue-600 shadow-2xl">
+        <div className="bg-white border-t-4 border-blue-600 shadow-2xl pointer-events-auto">
           <div className="container mx-auto px-6 py-6">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               {/* Left Side - Icon & Content */}

@@ -40,10 +40,18 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
    */
   router.post('/create-checkout-session', async (req: Request, res: Response) => {
     try {
-      const { priceId, planName, successUrl, cancelUrl } = req.body;
+      const { priceId, planName, successUrl, cancelUrl, userId } = req.body;
 
       if (!priceId) {
         return res.status(400).json({ error: 'Price ID is required' });
+      }
+
+      // Determine plan type based on priceId
+      let planType = 'monthly'; // default
+      if (priceId === STRIPE_CONFIG.prices.freeTrial) {
+        planType = 'freeTrial';
+      } else if (priceId === STRIPE_CONFIG.prices.yearly) {
+        planType = 'yearly';
       }
 
       // Create Stripe Checkout Session
@@ -60,7 +68,11 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
         cancel_url: cancelUrl || `${process.env.BASE_URL}/pricing`,
         metadata: {
           planName: planName || 'Unknown',
+          planType: planType,
+          userId: userId || '', // Critical: Pass userId for subscription creation
         },
+        // Set client_reference_id as fallback for userId
+        client_reference_id: userId || undefined,
         // Allow promotion codes
         allow_promotion_codes: true,
         // Billing address collection
@@ -238,13 +250,16 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
               console.log('✅ Subscription cancelled successfully');
 
               // Send subscription cancellation email
-              if (sub.user_id) {
-                // Fetch customer email from Stripe
-                const customer = await stripe.customers.retrieve(
-                  typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
-                );
+              if (sub.user_id && subscription.customer) {
+                // Safely fetch customer email from Stripe
+                try {
+                  const customerId = typeof subscription.customer === 'string'
+                    ? subscription.customer
+                    : subscription.customer.id;
 
-                if (!customer.deleted && customer.email) {
+                  const customer = await stripe.customers.retrieve(customerId);
+
+                  if (!customer.deleted && customer.email) {
                   const cancelledAt = new Date().toLocaleDateString('en-AU', {
                     year: 'numeric',
                     month: 'long',
@@ -271,6 +286,10 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
                     console.error('Failed to send cancellation email:', emailError);
                     // Don't fail the webhook if email fails
                   });
+                  }
+                } catch (customerError) {
+                  console.error('Failed to retrieve customer for email notification:', customerError);
+                  // Don't fail the webhook if customer retrieval fails
                 }
               }
             }

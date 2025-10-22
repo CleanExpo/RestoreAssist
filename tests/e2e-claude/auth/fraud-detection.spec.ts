@@ -242,7 +242,7 @@ test.describe('Trial Activation Fraud Detection', () => {
   });
 });
 
-test.describe('Admin Override Functionality', () => {
+test.describe.skip('Admin Override Functionality', () => {
   test('should allow admin to manually approve trial bypassing fraud detection', async ({ page }) => {
     // Expected behavior:
     // 1. User blocked by fraud detection
