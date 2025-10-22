@@ -54,7 +54,9 @@
       "Bash(vercel ls:*)",
       "Bash(vercel env ls:*)",
       "Bash(vercel env pull:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Read(//d//**)",
+      "Read(//d/tmp/**)"
     ],
     "deny": [],
     "ask": []
