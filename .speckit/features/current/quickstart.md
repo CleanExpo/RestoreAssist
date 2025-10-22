@@ -82,8 +82,8 @@ cd ../..
    - Add your Google email addresses:
      ```
      airestoreassist@gmail.com
-     phil.mcgurk@gmail.com
-     zedhfrash25@gmail.com
+     phill.mcgurk@gmail.com
+     zenithfresh25@gmail.com
      [your email here]
      ```
    - Save
