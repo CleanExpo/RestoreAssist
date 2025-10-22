@@ -1,12 +1,24 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User, UserPayload, AuthTokens } from '../types';
+import { freeTrialService } from './freeTrialService';
 
 // In-memory user storage (replace with database in production)
 const users: Map<string, User> = new Map();
 
 // In-memory refresh token storage (use Redis in production)
 const refreshTokens: Set<string> = new Set();
+
+// In-memory test mode access attempt logging (use database in production)
+interface TestModeAccessAttempt {
+  email: string;
+  timestamp: string;
+  ipAddress?: string;
+  userAgent?: string;
+  errorCode: string;
+}
+
+const testModeAccessAttempts: TestModeAccessAttempt[] = [];
 
 // JWT configuration
 const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -273,6 +285,144 @@ export class AuthService {
    */
   getActiveTokenCount(): number {
     return refreshTokens.size;
+  }
+
+  /**
+   * Log test mode access attempt (for non-whitelisted users)
+   *
+   * @param email - Email address that attempted access
+   * @param errorCode - OAuth error code ('access_blocked' or 'org_internal')
+   * @param ipAddress - Optional IP address of the request
+   * @param userAgent - Optional user agent string
+   */
+  logTestModeAccessAttempt(
+    email: string,
+    errorCode: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): void {
+    const attempt: TestModeAccessAttempt = {
+      email,
+      timestamp: new Date().toISOString(),
+      ipAddress,
+      userAgent,
+      errorCode,
+    };
+
+    testModeAccessAttempts.push(attempt);
+
+    // Keep only last 100 attempts (prevent memory overflow)
+    if (testModeAccessAttempts.length > 100) {
+      testModeAccessAttempts.shift();
+    }
+
+    // Log to console for admin visibility
+    console.log(
+      `⚠️ [TEST MODE ACCESS ATTEMPT] ${email} (${errorCode}) - ${ipAddress || 'unknown IP'}`
+    );
+  }
+
+  /**
+   * Get all test mode access attempts
+   *
+   * @param limit - Optional limit on number of results (default: 50)
+   * @returns Array of test mode access attempts
+   */
+  getTestModeAccessAttempts(limit: number = 50): TestModeAccessAttempt[] {
+    return testModeAccessAttempts.slice(-limit).reverse(); // Most recent first
+  }
+
+  /**
+   * Get test mode access attempts for a specific email
+   *
+   * @param email - Email address to filter by
+   * @returns Array of test mode access attempts for the email
+   */
+  getTestModeAccessAttemptsByEmail(email: string): TestModeAccessAttempt[] {
+    return testModeAccessAttempts.filter(a => a.email === email).reverse();
+  }
+
+  /**
+   * Clear test mode access attempt logs
+   * (Admin utility function)
+   */
+  clearTestModeAccessAttempts(): void {
+    testModeAccessAttempts.length = 0;
+    console.log('✅ Test mode access attempt logs cleared');
+  }
+
+  /**
+   * Check trial eligibility for a user
+   *
+   * @param userId - User ID to check
+   * @param email - User's email address
+   * @param fingerprintHash - Device fingerprint hash
+   * @param deviceData - Device fingerprinting data
+   * @param ipAddress - Optional IP address
+   * @param userAgent - Optional user agent string
+   * @returns Trial activation result with fraud check details
+   */
+  async checkTrialEligibility(
+    userId: string,
+    email: string,
+    fingerprintHash: string,
+    deviceData: Record<string, any>,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<{
+    eligible: boolean;
+    tokenId?: string;
+    reportsRemaining?: number;
+    expiresAt?: Date;
+    fraudFlags?: any[];
+    denialReason?: string;
+  }> {
+    try {
+      // Call freeTrialService to activate trial with fraud detection
+      const result = await freeTrialService.activateTrial({
+        userId,
+        fingerprintHash,
+        deviceData,
+        ipAddress,
+        userAgent,
+      });
+
+      if (result.success) {
+        console.log(`✅ Trial activated for user ${userId} (${email})`);
+        return {
+          eligible: true,
+          tokenId: result.tokenId,
+          reportsRemaining: result.reportsRemaining,
+          expiresAt: result.expiresAt,
+        };
+      } else {
+        console.log(`⚠️ Trial denied for user ${userId} (${email}): ${result.denialReason}`);
+        return {
+          eligible: false,
+          fraudFlags: result.fraudFlags,
+          denialReason: result.denialReason,
+        };
+      }
+    } catch (error) {
+      console.error('Error checking trial eligibility:', error);
+      throw new Error('Failed to check trial eligibility');
+    }
+  }
+
+  /**
+   * Check if user has an active trial
+   *
+   * @param userId - User ID to check
+   * @returns Whether user has an active trial
+   */
+  async hasActiveTrial(userId: string): Promise<boolean> {
+    try {
+      const trial = await freeTrialService.getTrialStatus(userId);
+      return trial !== null;
+    } catch (error) {
+      console.error('Error checking active trial:', error);
+      return false;
+    }
   }
 }
 

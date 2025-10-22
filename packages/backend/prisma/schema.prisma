@@ -295,3 +295,24 @@ model AscoraSchedule {
   @@index([nextRunAt], name: "idx_ascora_schedules_next")
   @@map("ascora_sync_schedules")
 }
+
+// =====================================================
+// Authentication Attempts Table
+// =====================================================
+model AuthAttempt {
+  attemptId         String    @id @default(uuid()) @map("attempt_id") @db.Uuid
+  userEmail         String?   @map("user_email") @db.VarChar(255)
+  ipAddress         String    @map("ip_address") @db.VarChar(45)
+  userAgent         String    @map("user_agent") @db.Text
+  oauthErrorCode    String?   @map("oauth_error_code") @db.VarChar(100)
+  oauthErrorMessage String?   @map("oauth_error_message") @db.Text
+  success           Boolean   @default(false)
+  retryCount        Int       @default(0) @map("retry_count")
+  attemptedAt       DateTime  @default(now()) @map("attempted_at") @db.Timestamptz(6)
+
+  @@index([userEmail], name: "idx_auth_attempts_email")
+  @@index([ipAddress], name: "idx_auth_attempts_ip")
+  @@index([attemptedAt(sort: Desc)], name: "idx_auth_attempts_attempted_at")
+  @@index([success], name: "idx_auth_attempts_success")
+  @@map("auth_attempts")
+}

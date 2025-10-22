@@ -4,6 +4,9 @@ import './config/env';
 // Initialize Sentry BEFORE any other imports for proper instrumentation
 import { Sentry } from './instrument';
 
+// Validate environment configuration (fail-fast if critical vars missing)
+import { validateEnvironmentOrExit } from './middleware/validateEnv';
+
 import express from 'express';
 import cors from 'cors';
 import { reportRoutes } from './routes/reportRoutes';
@@ -25,6 +28,7 @@ import { servicem8Service } from './services/integrations/servicem8Service';
 import { googleDriveService } from './services/integrations/googleDriveService';
 import { skillsService } from './services/skillsService';
 import { errorHandler } from './middleware/errorHandler';
+import { getAuthMetrics } from './utils/errorLogger';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -72,6 +76,10 @@ app.use(errorHandler);
 // Initialise services (for both serverless and local) - with error handling
 (async () => {
   console.log('🔍 [INIT] Starting server initialization...');
+
+  // Validate environment before initializing any services
+  validateEnvironmentOrExit();
+
   try {
     console.log('🔍 [INIT] Calling initializeDefaultUsers()...');
     await authService.initializeDefaultUsers();
@@ -85,7 +93,7 @@ app.use(errorHandler);
 
   // For local development - start server AFTER user initialization
   if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
@@ -124,6 +132,18 @@ app.use(errorHandler);
     console.log(`✅ Stripe payment verification enabled`);
   } else {
     console.log(`⚠️  Stripe payment verification disabled (configure STRIPE_SECRET_KEY)`);
+  }
+
+  // Log authentication success rate (last 24 hours)
+  try {
+    const authMetrics = await getAuthMetrics();
+    if (authMetrics.totalAttempts > 0) {
+      console.log(`🔐 Auth success rate (24h): ${authMetrics.successRate.toFixed(1)}% (${authMetrics.successfulAttempts}/${authMetrics.totalAttempts} attempts)`);
+    } else {
+      console.log(`🔐 Auth success rate (24h): No attempts recorded in last 24 hours`);
+    }
+  } catch (error) {
+    console.error('⚠️  Failed to fetch auth metrics:', error);
   }
 
   console.log(`\n📋 API Endpoints:`);

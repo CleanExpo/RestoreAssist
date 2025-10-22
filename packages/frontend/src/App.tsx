@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LoadingFallback, PageLoadingFallback } from './components/LoadingFallback';
 import { CookieConsent } from './components/CookieConsent';
+import { OAuthConfigProvider } from './contexts/OAuthConfigContext';
 
 // Lazy load all route components for code splitting
 const FreeTrialDemo = lazy(() => import('./pages/FreeTrialDemo').then(m => ({ default: m.FreeTrialDemo })));
@@ -43,9 +44,10 @@ const CompliancePage = lazy(() => import('./pages/resources/CompliancePage').the
 
 function App() {
   return (
-    <Router>
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
+    <OAuthConfigProvider>
+      <Router>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
           {/* Preview Routes - For Testing New Designs */}
           <Route path="/preview/landing" element={
             <Suspense fallback={<PageLoadingFallback pageName="Preview" />}>
@@ -213,9 +215,10 @@ function App() {
         </Routes>
       </Suspense>
 
-      {/* Cookie Consent Banner - Shows on all pages */}
-      <CookieConsent />
-    </Router>
+        {/* Cookie Consent Banner - Shows on all pages */}
+        <CookieConsent />
+      </Router>
+    </OAuthConfigProvider>
   );
 }
 

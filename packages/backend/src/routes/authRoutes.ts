@@ -10,6 +10,59 @@ import { LoginRequest, RefreshTokenRequest } from '../types';
 
 export const authRoutes = Router();
 
+// GET /api/auth/config - Validate OAuth configuration (public endpoint)
+authRoutes.get('/config', (req: Request, res: Response) => {
+  try {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Check GOOGLE_CLIENT_ID
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      errors.push('GOOGLE_CLIENT_ID is not set. Set this environment variable to enable Google OAuth.');
+    } else if (!clientId.endsWith('.apps.googleusercontent.com')) {
+      errors.push('GOOGLE_CLIENT_ID has invalid format. Must end with .apps.googleusercontent.com');
+    } else if (clientId.includes('YOUR_') || clientId.includes('placeholder')) {
+      errors.push('GOOGLE_CLIENT_ID appears to be a placeholder. Replace with actual Client ID from Google Cloud Console.');
+    }
+
+    // Check GOOGLE_CLIENT_SECRET (don't expose value)
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientSecret) {
+      errors.push('GOOGLE_CLIENT_SECRET is not set. Set this environment variable to enable OAuth token exchange.');
+    } else if (clientSecret.length < 20) {
+      errors.push('GOOGLE_CLIENT_SECRET appears invalid (too short). Verify in Google Cloud Console.');
+    }
+
+    // Check GOOGLE_REDIRECT_URI
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    if (!redirectUri) {
+      warnings.push('GOOGLE_REDIRECT_URI is not set. Using default: http://localhost:3001/api/integrations/google-drive/callback');
+    }
+
+    // Get allowed origins
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+
+    // Determine validity
+    const isValid = errors.length === 0;
+
+    res.json({
+      client_id: clientId ? clientId.substring(0, 20) + '...' : undefined, // Partial ID for debugging
+      is_valid: isValid,
+      allowed_origins: allowedOrigins,
+      errors,
+      warnings,
+      config_status: isValid ? 'ready' : 'misconfigured',
+    });
+  } catch (error) {
+    console.error('Config validation error:', error);
+    res.status(500).json({
+      error: 'Configuration check failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 // POST /api/auth/login - Login user
 authRoutes.post('/login', authRateLimiter, async (req: Request, res: Response) => {
   try {
@@ -292,6 +345,61 @@ authRoutes.delete('/delete-account', authenticate, async (req: Request, res: Res
     console.error('Delete account error:', error);
     res.status(500).json({
       error: 'Failed to delete account',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// POST /api/auth/test-mode-access-attempt - Log test mode access attempt (public endpoint)
+authRoutes.post('/test-mode-access-attempt', (req: Request, res: Response) => {
+  try {
+    const { email, errorCode } = req.body;
+
+    if (!email || !errorCode) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Email and errorCode are required',
+      });
+    }
+
+    // Get IP address and user agent from request
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    // Log the attempt
+    authService.logTestModeAccessAttempt(email, errorCode, ipAddress, userAgent);
+
+    res.json({
+      message: 'Access attempt logged successfully',
+      logged: true,
+    });
+  } catch (error) {
+    console.error('Test mode access attempt logging error:', error);
+    res.status(500).json({
+      error: 'Failed to log access attempt',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// GET /api/auth/test-mode-attempts - Get test mode access attempts (admin only)
+authRoutes.get('/test-mode-attempts', authenticate, authorise('admin'), (req: Request, res: Response) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const email = req.query.email as string;
+
+    const attempts = email
+      ? authService.getTestModeAccessAttemptsByEmail(email)
+      : authService.getTestModeAccessAttempts(limit);
+
+    res.json({
+      attempts,
+      count: attempts.length,
+    });
+  } catch (error) {
+    console.error('Get test mode attempts error:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve access attempts',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
