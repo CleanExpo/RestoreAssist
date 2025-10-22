@@ -94,6 +94,7 @@ export const OAuthConfigProvider: React.FC<{ children: ReactNode }> = ({ childre
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include', // Include credentials for CORS
         });
 
         if (response.ok) {

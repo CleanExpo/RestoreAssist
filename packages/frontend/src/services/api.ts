@@ -2,6 +2,14 @@ import { GeneratedReport, GenerateReportRequest } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+// Helper function to ensure all fetch calls include CORS credentials
+async function fetchWithCredentials(url: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(url, {
+    ...options,
+    credentials: 'include', // Always include credentials for CORS
+  });
+}
+
 // Auth token storage
 // SECURITY NOTE: These tokens are temporarily stored in localStorage
 // TODO: Migrate to httpOnly cookies for secure token storage (prevents XSS attacks)
@@ -36,7 +44,7 @@ export async function login(email: string, password: string): Promise<{
   user: { userId: string; email: string; name: string; role: string };
   tokens: { accessToken: string; refreshToken: string; expiresIn: number };
 }> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -55,7 +63,7 @@ export async function logout(): Promise<void> {
   if (!accessToken) return;
 
   try {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
+    await fetchWithCredentials(`${API_BASE_URL}/auth/logout`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -70,7 +78,7 @@ export async function logout(): Promise<void> {
 export async function generateReport(request: GenerateReportRequest): Promise<GeneratedReport> {
   if (!accessToken) throw new Error('Not authenticated');
 
-  const response = await fetch(`${API_BASE_URL}/reports`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/reports`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -101,7 +109,7 @@ export async function getReports(options?: {
   if (options?.sortBy) params.set('sortBy', options.sortBy);
   if (options?.order) params.set('order', options.order);
 
-  const response = await fetch(`${API_BASE_URL}/reports?${params}`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/reports?${params}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
     },
@@ -117,7 +125,7 @@ export async function getReports(options?: {
 export async function getReport(reportId: string): Promise<GeneratedReport> {
   if (!accessToken) throw new Error('Not authenticated');
 
-  const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/reports/${reportId}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
     },
@@ -133,7 +141,7 @@ export async function getReport(reportId: string): Promise<GeneratedReport> {
 export async function deleteReport(reportId: string): Promise<boolean> {
   if (!accessToken) throw new Error('Not authenticated');
 
-  const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/reports/${reportId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -150,7 +158,7 @@ export async function deleteReport(reportId: string): Promise<boolean> {
 export async function exportReport(reportId: string, format: 'pdf' | 'docx'): Promise<Blob> {
   if (!accessToken) throw new Error('Not authenticated');
 
-  const response = await fetch(`${API_BASE_URL}/reports/${reportId}/export`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/reports/${reportId}/export`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -177,7 +185,7 @@ export async function getStats(): Promise<{
 }> {
   if (!accessToken) throw new Error('Not authenticated');
 
-  const response = await fetch(`${API_BASE_URL}/reports/stats`, {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/reports/stats`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
     },

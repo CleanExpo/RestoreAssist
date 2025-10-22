@@ -33,15 +33,55 @@ import { getAuthMetrics } from './utils/errorLogger';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
+// Parse allowed origins from environment variable
+const getAllowedOrigins = () => {
+  const defaultOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
+  const envOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [];
+  return [...new Set([...defaultOrigins, ...envOrigins])]; // Remove duplicates
+};
+
+const allowedOrigins = getAllowedOrigins();
+
+// CORS configuration with dynamic origin validation
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., mobile apps, Postman, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Check for Vercel preview deployments (*.vercel.app)
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+
+    // Check for production domain
+    if (origin === 'https://restoreassist.app' || origin === 'https://www.restoreassist.app') {
+      return callback(null, true);
+    }
+
+    // Log rejected origin for debugging
+    console.warn(`⚠️ CORS: Rejected origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  maxAge: 86400, // 24 hours
   optionsSuccessStatus: 204
-}));
-app.options('*', cors()); // Enable pre-flight for all routes
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Enable pre-flight for all routes
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Routes
@@ -51,6 +91,16 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     uptime: process.uptime()
+  });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    status: 'ok',
+    origin: req.headers.origin || 'no-origin',
+    timestamp: new Date().toISOString(),
+    message: 'CORS is configured correctly'
   });
 });
 
@@ -97,6 +147,11 @@ app.use(errorHandler);
       console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
+
+      // Log CORS configuration
+      console.log(`\n🌐 CORS Configuration:`);
+      console.log(`   Allowed origins from env: ${allowedOrigins.join(', ')}`);
+      console.log(`   Auto-allowed: https://restoreassist.app, https://*.vercel.app`);
 
   // Check ServiceM8 integration status
   if (servicem8Service.isEnabled()) {

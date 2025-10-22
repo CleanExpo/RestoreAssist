@@ -43,6 +43,7 @@ export const AccountSettings: React.FC = () => {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include credentials for CORS
       });
 
       if (!response.ok) {
