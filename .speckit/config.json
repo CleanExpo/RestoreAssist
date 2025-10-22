@@ -1,0 +1,20 @@
+{
+  "featureDir": ".speckit/features/current",
+  "templateDir": ".speckit/templates",
+  "availableDocs": [
+    "README.md",
+    "packages/frontend/README.md",
+    "packages/backend/README.md",
+    ".claude/CLAUDE.md"
+  ],
+  "constitutionPath": ".speckit/constitution.md",
+  "projectName": "RestoreAssist",
+  "projectDescription": "AI-powered damage assessment report generator for Australian restoration industry",
+  "defaultPrinciples": [
+    "User-Centric Design",
+    "NCC 2022 Compliance",
+    "Performance First",
+    "Security by Default",
+    "Test-Driven Development"
+  ]
+}
