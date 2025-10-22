@@ -1,0 +1,53 @@
+VERCEL BACKEND DEPLOYMENT - EXACT BUTTON CLICKS
+================================================
+
+STEP 1: OPEN PROJECT
+--------------------
+1. Go to: https://vercel.com/new
+2. Click: "Import" button next to "CleanExpo/RestoreAssist"
+
+STEP 2: CONFIGURE BUILD SETTINGS
+---------------------------------
+3. Find: "Root Directory" input field
+4. Click: "Edit" button next to Root Directory
+5. Type: packages/backend
+6. Click: "Continue" button
+
+STEP 3: SET ENVIRONMENT VARIABLES
+----------------------------------
+7. Click: "Environment Variables" section (it expands)
+8. For EACH variable below, do:
+   - Type variable name in "KEY" field
+   - Type variable value in "VALUE" field
+   - Click "Add" button
+
+   DATABASE_URL=postgresql://user:pass@host:5432/db
+   JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters
+   STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+   STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+   FRONTEND_URL=https://restore-assist.vercel.app
+   NODE_ENV=production
+   PORT=3001
+
+9. After adding ALL variables, click: "Deploy" button (bottom right)
+
+STEP 4: WAIT FOR DEPLOYMENT
+---------------------------
+10. Wait 2-3 minutes for build to complete
+11. When you see "Congratulations" message, click: "Continue to Dashboard"
+
+STEP 5: GET YOUR BACKEND URL
+-----------------------------
+12. You will see deployment URL like: https://restore-assist-backend-xxx.vercel.app
+13. Copy this URL
+14. Open frontend Vercel project
+15. Go to: Settings > Environment Variables
+16. Find: NEXT_PUBLIC_API_URL
+17. Update value to: https://restore-assist-backend-xxx.vercel.app
+18. Click: "Save"
+19. Go to: Deployments tab
+20. Click: "Redeploy" on latest deployment
+21. Check: "Use existing Build Cache"
+22. Click: "Deploy"
+
+DONE. Backend is live at your .vercel.app URL
