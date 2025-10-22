@@ -417,7 +417,7 @@ export class AuthService {
    */
   async hasActiveTrial(userId: string): Promise<boolean> {
     try {
-      const trial = await freeTrialService.getActiveTrialByUserId(userId);
+      const trial = await freeTrialService.getTrialStatus(userId);
       return trial !== null;
     } catch (error) {
       console.error('Error checking active trial:', error);

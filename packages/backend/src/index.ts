@@ -93,7 +93,7 @@ app.use(errorHandler);
 
   // For local development - start server AFTER user initialization
   if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log(`🚀 RestoreAssist Backend running on http://localhost:${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔧 Admin stats: http://localhost:${PORT}/api/admin/stats`);
