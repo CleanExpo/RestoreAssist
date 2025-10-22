@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { LogoCompact } from '../ui/logo';
@@ -121,6 +121,7 @@ export function MainNavigation({ onGetStarted }: MainNavigationProps) {
   const navigate = useNavigate();
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleGetStarted = () => {
     if (onGetStarted) {
@@ -128,6 +129,22 @@ export function MainNavigation({ onGetStarted }: MainNavigationProps) {
     } else {
       navigate('/');
     }
+  };
+
+  // Handle mouse enter - cancel any pending close and open immediately
+  const handleFeaturesMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsFeaturesOpen(true);
+  };
+
+  // Handle mouse leave - delay closing by 300ms to allow moving to dropdown
+  const handleFeaturesMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsFeaturesOpen(false);
+    }, 300);
   };
 
   return (
@@ -144,8 +161,8 @@ export function MainNavigation({ onGetStarted }: MainNavigationProps) {
             {/* Features Mega Dropdown */}
             <div
               className="relative"
-              onMouseEnter={() => setIsFeaturesOpen(true)}
-              onMouseLeave={() => setIsFeaturesOpen(false)}
+              onMouseEnter={handleFeaturesMouseEnter}
+              onMouseLeave={handleFeaturesMouseLeave}
             >
               <button
                 className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
@@ -158,7 +175,7 @@ export function MainNavigation({ onGetStarted }: MainNavigationProps) {
 
               {/* Mega Dropdown Panel */}
               {isFeaturesOpen && (
-                <div className="absolute left-0 top-full mt-2 w-screen max-w-4xl -translate-x-1/4 bg-background border rounded-lg shadow-2xl p-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute left-0 top-full mt-1 w-screen max-w-4xl -translate-x-1/4 bg-background border rounded-lg shadow-2xl p-6 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-6">
                     {Object.entries(featuresDropdown).map(([category, items]) => (
                       <div key={category}>
