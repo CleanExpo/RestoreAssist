@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install",
+  "buildCommand": "cd packages/backend && npm install && npm run build && cd ../frontend && npm install && npm run build",
+  "installCommand": "npm install --workspaces",
   "framework": null,
   "outputDirectory": "packages/frontend/dist"
 }
