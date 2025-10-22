@@ -73,7 +73,7 @@ class EmailService implements IEmailService {
   constructor() {
     this.config = {
       provider: (process.env.EMAIL_PROVIDER as any) || 'smtp',
-      from: process.env.EMAIL_FROM || 'noreply@restoreassist.com',
+      from: process.env.EMAIL_FROM || 'airestoreassist@gmail.com',
       fromName: process.env.EMAIL_FROM_NAME || 'RestoreAssist',
       smtpHost: process.env.SMTP_HOST,
       smtpPort: parseInt(process.env.SMTP_PORT || '587'),
@@ -358,7 +358,7 @@ class EmailService implements IEmailService {
   </div>
   <div class="footer">
     <p>RestoreAssist - Professional Building Inspection Reports</p>
-    <p>Questions? Contact us at support@restoreassist.com</p>
+    <p>Questions? Contact us at airestoreassist@gmail.com</p>
   </div>
 </body>
 </html>
@@ -416,7 +416,7 @@ class EmailService implements IEmailService {
   </div>
   <div class="footer">
     <p>RestoreAssist - Professional Building Inspection Reports</p>
-    <p>Questions? Contact us at support@restoreassist.com</p>
+    <p>Questions? Contact us at airestoreassist@gmail.com</p>
   </div>
 </body>
 </html>
@@ -472,7 +472,7 @@ class EmailService implements IEmailService {
   </div>
   <div class="footer">
     <p>RestoreAssist - Professional Building Inspection Reports</p>
-    <p>Questions? Contact us at support@restoreassist.com</p>
+    <p>Questions? Contact us at airestoreassist@gmail.com</p>
   </div>
 </body>
 </html>
@@ -534,7 +534,7 @@ class EmailService implements IEmailService {
   </div>
   <div class="footer">
     <p>RestoreAssist - Professional Building Inspection Reports</p>
-    <p>Questions? Contact us at support@restoreassist.com</p>
+    <p>Questions? Contact us at airestoreassist@gmail.com</p>
   </div>
 </body>
 </html>

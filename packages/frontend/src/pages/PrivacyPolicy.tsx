@@ -209,8 +209,8 @@ export const PrivacyPolicy: React.FC = () => {
                 <p className="text-gray-900 font-semibold">Exercise Your Rights</p>
                 <p className="text-gray-700 mt-2">
                   To exercise any of these rights, please contact us at{' '}
-                  <a href="mailto:privacy@restoreassist.app" className="text-blue-600 hover:underline">
-                    privacy@restoreassist.app
+                  <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                    airestoreassist@gmail.com
                   </a>
                 </p>
               </div>
@@ -263,8 +263,8 @@ export const PrivacyPolicy: React.FC = () => {
                 Our Service is not intended for children under the age of 16. We do not knowingly collect personal
                 information from children under 16. If you believe we have collected information from a child under 16,
                 please contact us immediately at{' '}
-                <a href="mailto:privacy@restoreassist.app" className="text-blue-600 hover:underline">
-                  privacy@restoreassist.app
+                <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                  airestoreassist@gmail.com
                 </a>
                 {' '}and we will delete such information.
               </p>
@@ -307,13 +307,13 @@ export const PrivacyPolicy: React.FC = () => {
               <div className="bg-gray-50 p-6 rounded-lg mt-4">
                 <p className="text-gray-900 font-semibold">RestoreAssist Privacy Team</p>
                 <p className="text-gray-700 mt-2">
-                  Email: <a href="mailto:privacy@restoreassist.app" className="text-blue-600 hover:underline">
-                    privacy@restoreassist.app
+                  Email: <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                    airestoreassist@gmail.com
                   </a>
                 </p>
                 <p className="text-gray-700 mt-1">
-                  Support: <a href="mailto:support@restoreassist.app" className="text-blue-600 hover:underline">
-                    support@restoreassist.app
+                  Support: <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                    airestoreassist@gmail.com
                   </a>
                 </p>
                 <p className="text-gray-700 mt-1">

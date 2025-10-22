@@ -1,0 +1,30 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Flame } from 'lucide-react';
+import { MainNavigation } from '../../components/navigation/MainNavigation';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { FireDamageIcon } from '../../components/icons/FireDamageIcon';
+
+export function FireDamageFeature() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
+      <MainNavigation />
+      <section className="relative overflow-hidden bg-gradient-to-br from-orange-600 via-red-700 to-pink-800 text-white">
+        <div className="relative container py-24">
+          <div className="max-w-4xl mx-auto text-center space-y-6">
+            <div className="flex justify-center mb-6"><FireDamageIcon size={80} /></div>
+            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+              <Flame className="mr-2 h-4 w-4" />IICRC S800 Fire & Smoke Damage
+            </Badge>
+            <h1 className="text-5xl md:text-7xl font-bold">Fire & Smoke Damage<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-200 to-pink-200">Complete Documentation</span></h1>
+            <p className="text-xl text-orange-100 max-w-3xl mx-auto">One uniformed method for fire damage restoration—from smoke residue to structural fire damage. Consistent IICRC S800 compliant reporting every time.</p>
+            <Button asChild size="lg"><Link to="/">Start Free Trial <ArrowRight className="ml-2 h-5 w-5" /></Link></Button>
+          </div>
+        </div>
+      </section>
+      <section className="container py-20"><Card className="border-2 shadow-2xl"><CardContent className="relative p-12 text-center"><h2 className="text-3xl font-bold mb-8">Fire Damage Reports Include</h2><div className="text-left max-w-2xl mx-auto space-y-2 text-muted-foreground">• Structural fire damage assessment<br/>• Smoke and soot residue classification<br/>• Deodorisation protocols and equipment<br/>• Thermal degradation documentation<br/>• Content pack-out and cleaning requirements<br/>• IICRC S800 compliance notes<br/>• Itemised reconstruction costs</div></CardContent></Card></section>
+    </div>
+  );
+}

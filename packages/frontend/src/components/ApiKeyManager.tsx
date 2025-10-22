@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+// SECURITY WARNING: localStorage key for temporary backward compatibility only
+// TODO: Remove this entirely once backend secure storage is implemented
 const API_KEY_STORAGE = 'anthropic_api_key';
 
 export function ApiKeyManager() {
@@ -8,17 +10,28 @@ export function ApiKeyManager() {
   const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
+    // SECURITY: Reading API keys from localStorage is temporarily maintained
+    // for backward compatibility, but this will be removed soon
+    // TODO: Migrate to secure backend retrieval of encrypted API keys
     const stored = localStorage.getItem(API_KEY_STORAGE);
     if (stored) {
+      console.warn('⚠️ Found API key in localStorage - this is insecure and will be migrated');
       setApiKey(stored);
     }
   }, []);
 
   const handleSave = () => {
     if (apiKey.trim()) {
-      localStorage.setItem(API_KEY_STORAGE, apiKey.trim());
+      // SECURITY: API keys must NOT be stored in localStorage (vulnerable to XSS)
+      // TODO: Implement secure backend storage with httpOnly cookies
+      // For now, we'll keep the key in memory only (will be lost on refresh)
+      // localStorage.setItem(API_KEY_STORAGE, apiKey.trim()); // REMOVED FOR SECURITY
+
+      console.warn('⚠️ SECURITY: API key storage in localStorage is disabled');
+      console.warn('📝 TODO: Implement secure backend API key storage with encryption');
+
       setIsEditing(false);
-      alert('API Key saved successfully!');
+      alert('⚠️ API Key is stored in memory only (will be lost on refresh). Secure storage coming soon.');
     }
   };
 

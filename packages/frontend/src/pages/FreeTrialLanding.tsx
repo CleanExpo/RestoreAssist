@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { LandingPage } from '../components/LandingPage';
+import { LandingPage } from './LandingPage';
 import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
+import type { UserData, GoogleLoginResponse, TrialActivationResponse } from '../types/auth';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface FreeTrialLandingProps {
-  onTrialActivated: (userData: any) => void;
+  onTrialActivated: (userData: UserData) => void;
 }
 
 export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
@@ -31,7 +32,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
         }),
       });
 
-      const loginData = await loginResponse.json();
+      const loginData = await loginResponse.json() as GoogleLoginResponse;
 
       if (!loginData.success) {
         setError(loginData.error || 'Login failed');
@@ -40,9 +41,12 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       }
 
       // Store tokens
+      // SECURITY TODO: Migrate these to httpOnly cookies to prevent XSS attacks
+      // Currently keeping in localStorage to avoid breaking the auth flow
+      // Phase 2 will implement secure cookie-based authentication
       localStorage.setItem('accessToken', loginData.tokens.accessToken);
       localStorage.setItem('refreshToken', loginData.tokens.refreshToken);
-      localStorage.setItem('sessionToken', loginData.sessionToken);
+      localStorage.setItem('sessionToken', loginData.sessionToken); // Session tracking - less sensitive
 
       // Step 2: Generate device fingerprint
       const fingerprint = await generateDeviceFingerprint();
@@ -62,7 +66,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
         }),
       });
 
-      const trialData = await trialResponse.json();
+      const trialData = await trialResponse.json() as TrialActivationResponse;
 
       if (!trialData.success) {
         setError(trialData.error || 'Failed to activate trial');
@@ -78,14 +82,16 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       }
 
       // Success! Pass user data to parent component
-      onTrialActivated({
+      const userData: UserData = {
         user: loginData.user,
         trial: {
           tokenId: trialData.tokenId,
           reportsRemaining: trialData.reportsRemaining,
           expiresAt: trialData.expiresAt,
         },
-      });
+      };
+
+      onTrialActivated(userData);
 
     } catch (error) {
       console.error('Trial activation error:', error);
@@ -95,53 +101,56 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
   };
 
   // Development-only bypass for screenshot capture
-  // This function ONLY works on localhost and will not be included in production builds
-  const handleDevLogin = () => {
-    // Only allow in development environment
-    if (import.meta.env.PROD || !window.location.hostname.includes('localhost')) {
-      console.error('Dev login is only available in development mode on localhost');
-      return;
-    }
+  // This code is tree-shaken out in production builds via import.meta.env.DEV check
+  const handleDevLogin = import.meta.env.DEV
+    ? () => {
+        // Only allow on localhost for security
+        if (!window.location.hostname.includes('localhost')) {
+          console.error('Dev login only works on localhost');
+          return;
+        }
 
-    console.log('🚀 DEV MODE: Bypassing Google OAuth for screenshot capture');
+        console.log('🚀 DEV MODE: Bypassing Google OAuth for screenshot capture');
 
-    // Create mock tokens
-    const mockAccessToken = `dev-access-token-${Date.now()}`;
-    const mockRefreshToken = `dev-refresh-token-${Date.now()}`;
-    const mockSessionToken = `dev-session-${Date.now()}`;
+        // Create mock tokens
+        const mockAccessToken = `dev-access-token-${Date.now()}`;
+        const mockRefreshToken = `dev-refresh-token-${Date.now()}`;
+        const mockSessionToken = `dev-session-${Date.now()}`;
 
-    // Store mock tokens in localStorage
-    localStorage.setItem('accessToken', mockAccessToken);
-    localStorage.setItem('refreshToken', mockRefreshToken);
-    localStorage.setItem('sessionToken', mockSessionToken);
+        // Store mock tokens in localStorage
+        localStorage.setItem('accessToken', mockAccessToken);
+        localStorage.setItem('refreshToken', mockRefreshToken);
+        localStorage.setItem('sessionToken', mockSessionToken);
 
-    // Also set a mock Anthropic API key for screenshot mode
-    // This is a fake key that won't work with real API calls, but allows UI testing
-    const mockAnthropicKey = 'sk-ant-dev-mock-key-for-screenshot-testing-only-' + Date.now();
-    localStorage.setItem('anthropic_api_key', mockAnthropicKey);
-    console.log('🔑 DEV MODE: Mock Anthropic API key set for UI testing');
+        // SECURITY: API keys should NEVER be stored in localStorage
+        // This was previously storing a mock API key for screenshot testing
+        // TODO: Implement secure httpOnly cookie-based authentication for API keys
+        // For now, the UI will show "not set" for API keys during dev mode testing
+        console.log('🔒 SECURITY: API key storage in localStorage has been removed');
+        console.log('📝 TODO: Implement httpOnly cookie authentication for sensitive credentials');
 
-    // Create mock user data with trial
-    const mockUserData = {
-      user: {
-        userId: 'dev-user-001',
-        email: 'dev@restoreassist.com',
-        name: 'Dev User (Screenshot Mode)',
-        role: 'user',
-        emailVerified: true,
-      },
-      trial: {
-        tokenId: 'dev-trial-token-001',
-        reportsRemaining: 100, // Plenty for screenshots
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-      },
-    };
+        // Create mock user data with trial
+        const mockUserData: UserData = {
+          user: {
+            userId: 'dev-user-001',
+            email: 'dev@restoreassist.com',
+            name: 'Dev User (Screenshot Mode)',
+            role: 'user',
+            emailVerified: true,
+          },
+          trial: {
+            tokenId: 'dev-trial-token-001',
+            reportsRemaining: 100, // Plenty for screenshots
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          },
+        };
 
-    console.log('✅ DEV MODE: Mock authentication successful', mockUserData);
+        console.log('✅ DEV MODE: Mock authentication successful', mockUserData);
 
-    // Activate the mock trial
-    onTrialActivated(mockUserData);
-  };
+        // Activate the mock trial
+        onTrialActivated(mockUserData);
+      }
+    : undefined;
 
   if (!GOOGLE_CLIENT_ID) {
     return (

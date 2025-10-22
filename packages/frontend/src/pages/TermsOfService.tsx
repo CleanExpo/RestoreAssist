@@ -191,8 +191,8 @@ export const TermsOfService: React.FC = () => {
               <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-6">6.1 Cancellation Policy</h3>
               <p className="text-gray-700 leading-relaxed">
                 You may cancel your subscription at any time through your account settings or by contacting support at{' '}
-                <a href="mailto:support@restoreassist.app" className="text-blue-600 hover:underline">
-                  support@restoreassist.app
+                <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                  airestoreassist@gmail.com
                 </a>
               </p>
               <ul className="list-disc pl-6 mt-3 space-y-2 text-gray-700">
@@ -233,7 +233,7 @@ export const TermsOfService: React.FC = () => {
                 <li>Share your account credentials with unauthorized users</li>
                 <li>Scrape, copy, or reverse engineer any part of the Service</li>
                 <li>Use automated systems (bots) to access the Service</li>
-                <li>Resell or redistribute the Service without authorization</li>
+                <li>Resell or redistribute the Service without authorisation</li>
               </ul>
             </section>
 
@@ -353,8 +353,8 @@ export const TermsOfService: React.FC = () => {
               <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-6">12.1 Informal Resolution</h3>
               <p className="text-gray-700 leading-relaxed">
                 Before filing a claim, you agree to contact us at{' '}
-                <a href="mailto:legal@restoreassist.app" className="text-blue-600 hover:underline">
-                  legal@restoreassist.app
+                <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                  airestoreassist@gmail.com
                 </a>
                 {' '}and attempt to resolve the dispute informally for at least 30 days.
               </p>
@@ -434,13 +434,13 @@ export const TermsOfService: React.FC = () => {
               <div className="bg-gray-50 p-6 rounded-lg mt-4">
                 <p className="text-gray-900 font-semibold">RestoreAssist Legal Team</p>
                 <p className="text-gray-700 mt-2">
-                  Email: <a href="mailto:legal@restoreassist.app" className="text-blue-600 hover:underline">
-                    legal@restoreassist.app
+                  Email: <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                    airestoreassist@gmail.com
                   </a>
                 </p>
                 <p className="text-gray-700 mt-1">
-                  Support: <a href="mailto:support@restoreassist.app" className="text-blue-600 hover:underline">
-                    support@restoreassist.app
+                  Support: <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:underline">
+                    airestoreassist@gmail.com
                   </a>
                 </p>
                 <p className="text-gray-700 mt-1">

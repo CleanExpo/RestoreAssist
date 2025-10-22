@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report tests/e2e-claude/results/html-report"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
@@ -18,8 +22,10 @@
     "@react-oauth/google": "^0.12.2",
     "@sentry/react": "^10.20.0",
     "@sentry/vite-plugin": "^4.5.0",
+    "@types/dompurify": "^3.0.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "^3.3.0",
     "js-sha256": "^0.11.1",
     "lucide-react": "^0.546.0",
     "react": "^18.2.0",
@@ -31,7 +37,8 @@
     "@rollup/rollup-win32-x64-msvc": "^4.52.4"
   },
   "devDependencies": {
-    "@types/node": "^24.8.1",
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.9.1",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
@@ -40,6 +47,7 @@
     "shadcn": "^3.4.2",
     "tailwindcss": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "terser": "^5.44.0",
     "typescript": "^5.3.3",
     "vite": "^7.1.10",
     "vite-plugin-mcp": "^0.2.4"

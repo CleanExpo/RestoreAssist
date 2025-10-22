@@ -79,7 +79,7 @@ Generate a detailed report in the following JSON format:
 **Requirements:**
 1. Use Australian dollars (AUD) with realistic market rates
 2. Include all safety/compliance requirements for ${request.state}
-3. Itemize labor, materials, equipment, disposal
+3. Itemise labour, materials, equipment, disposal
 4. Provide step-by-step scope of work
 5. Generate professional Authority to Proceed text
 6. Be specific and detailed

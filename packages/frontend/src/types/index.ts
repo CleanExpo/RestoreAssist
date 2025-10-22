@@ -1,3 +1,7 @@
+// Authentication types
+export type { UserData, AuthUser, TrialData, AuthTokens, GoogleLoginResponse, TrialActivationResponse, DeviceFingerprint } from './auth';
+
+// Report and domain types
 export type DamageType = 'water' | 'fire' | 'storm' | 'flood' | 'mold' | 'biohazard' | 'impact' | 'other';
 export type AustralianState = 'NSW' | 'VIC' | 'QLD' | 'WA' | 'SA' | 'TAS' | 'ACT' | 'NT';
 

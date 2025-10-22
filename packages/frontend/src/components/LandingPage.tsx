@@ -210,8 +210,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLoginSuccess, onDevL
                 </button>
               </div>
 
-              {/* Dev Login Button - Development Only */}
-              {!import.meta.env.PROD && onDevLogin && (
+              {/* Dev Login Button - Development Only - Tree-shaken in production builds */}
+              {import.meta.env.DEV && onDevLogin && (
                 <div className="pt-4">
                   <button
                     onClick={onDevLogin}

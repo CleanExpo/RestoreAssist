@@ -26,7 +26,7 @@ export function ReportForm({ onReportGenerated }: Props) {
   const generateMockReport = (formData: GenerateReportRequest) => {
     const mockReportId = `report-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Generate realistic itemized estimate based on damage type
+    // Generate realistic itemised estimate based on damage type
     // Focused on property restoration services (not rebuilding/construction)
     const baseItems = {
       water: [

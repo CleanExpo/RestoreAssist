@@ -160,8 +160,8 @@ export const RefundPolicy: React.FC = () => {
                     <ol className="list-decimal list-inside space-y-3 text-gray-700">
                       <li>
                         <strong>Email our support team</strong> at{' '}
-                        <a href="mailto:support@restoreassist.com" className="text-blue-600 hover:text-blue-800 underline">
-                          support@restoreassist.com
+                        <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:text-blue-800 underline">
+                          airestoreassist@gmail.com
                         </a>
                       </li>
                       <li>
@@ -207,8 +207,8 @@ export const RefundPolicy: React.FC = () => {
 
                   <p className="text-gray-700 mt-4">
                     If you do not receive your refund within the expected timeframe, please check with your financial institution first, then contact us at{' '}
-                    <a href="mailto:support@restoreassist.com" className="text-blue-600 hover:text-blue-800 underline">
-                      support@restoreassist.com
+                    <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:text-blue-800 underline">
+                      airestoreassist@gmail.com
                     </a>.
                   </p>
                 </div>
@@ -312,8 +312,8 @@ export const RefundPolicy: React.FC = () => {
                     <div className="space-y-2 text-gray-700">
                       <p>
                         <strong>Email:</strong>{' '}
-                        <a href="mailto:support@restoreassist.com" className="text-blue-600 hover:text-blue-800 underline">
-                          support@restoreassist.com
+                        <a href="mailto:airestoreassist@gmail.com" className="text-blue-600 hover:text-blue-800 underline">
+                          airestoreassist@gmail.com
                         </a>
                       </p>
                       <p>

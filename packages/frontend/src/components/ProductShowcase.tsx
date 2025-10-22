@@ -22,19 +22,19 @@ const showcaseSteps: ShowcaseStep[] = [
   },
   {
     title: 'Step 3: Professional Water Damage Report',
-    description: 'Comprehensive water damage reports with itemized estimates, GST calculations, payment schedules, and IICRC compliance notes.',
+    description: 'Comprehensive water damage reports with itemised estimates, GST calculations, payment schedules, and IICRC compliance notes.',
     image: '/screenshots/07-water-damage-report-expanded.png',
     highlight: '$5,236 Total Cost'
   },
   {
     title: 'Step 4: Fire Damage Documentation',
-    description: 'Detailed fire damage assessments including smoke remediation, structural repairs, and professional authorization sections.',
+    description: 'Detailed fire damage assessments including smoke remediation, structural repairs, and professional authorisation sections.',
     image: '/screenshots/08-fire-damage-report-expanded.png',
     highlight: '$6,853 Total Cost'
   },
   {
     title: 'Step 5: Flood Damage Analysis',
-    description: 'Category 3 water damage reports with specialized protocols, comprehensive scope of work, and compliant documentation.',
+    description: 'Category 3 water damage reports with specialised protocols, comprehensive scope of work, and compliant documentation.',
     image: '/screenshots/09-flood-damage-report-expanded.png',
     highlight: '$9,064 Total Cost'
   },

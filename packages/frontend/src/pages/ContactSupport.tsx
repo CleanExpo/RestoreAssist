@@ -13,6 +13,7 @@ import {
   Shield,
   DollarSign,
 } from 'lucide-react';
+import { sanitizeInput } from '../utils/sanitize';
 
 export const ContactSupport: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -38,6 +39,15 @@ export const ContactSupport: React.FC = () => {
     setSubmitError(null);
 
     try {
+      // Sanitize all form inputs to prevent XSS attacks
+      const sanitizedData = {
+        name: sanitizeInput(formData.name),
+        email: sanitizeInput(formData.email),
+        subject: sanitizeInput(formData.subject),
+        category: sanitizeInput(formData.category),
+        message: sanitizeInput(formData.message),
+      };
+
       // TODO: Replace with actual API endpoint when backend support is added
       // For now, this would send an email via a contact form service
       await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API call
@@ -46,7 +56,7 @@ export const ContactSupport: React.FC = () => {
       // const response = await fetch('/api/contact', {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData),
+      //   body: JSON.stringify(sanitizedData),
       // });
 
       setSubmitSuccess(true);
@@ -266,10 +276,10 @@ export const ContactSupport: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-1">Email Support</h3>
                     <a
-                      href="mailto:support@restoreassist.com"
+                      href="mailto:airestoreassist@gmail.com"
                       className="text-blue-600 hover:text-blue-800 underline"
                     >
-                      support@restoreassist.com
+                      airestoreassist@gmail.com
                     </a>
                     <p className="text-sm text-gray-600 mt-1">
                       Get a response within 24 hours

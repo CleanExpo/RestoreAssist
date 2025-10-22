@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Droplet,
   Flame,
@@ -22,37 +23,96 @@ import {
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { ThemeToggle } from '../components/ui/theme-toggle';
 import { Logo, LogoCompact } from '../components/ui/logo';
 import { WaterDamageIcon } from '../components/icons/WaterDamageIcon';
 import { FireDamageIcon } from '../components/icons/FireDamageIcon';
 import { StormDamageIcon } from '../components/icons/StormDamageIcon';
 import { FloodDamageIcon } from '../components/icons/FloodDamageIcon';
 import { MouldDamageIcon } from '../components/icons/MouldDamageIcon';
-import { ProductShowcase } from '../components/ProductShowcase';
+import { MainNavigation } from '../components/navigation/MainNavigation';
+import { PricingCard } from '../components/pricing/PricingCard';
+import { getAllPlans, getPriceId } from '../config/stripe';
 
 interface LandingPageProps {
-  onGetStarted: () => void;
+  onGetStarted?: () => void;
+  onLoginSuccess?: (googleCredential: string) => void;
+  onDevLogin?: () => void;
+  onShowGoogleOAuth?: () => void;
 }
 
-export function LandingPage({ onGetStarted }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGoogleOAuth }: LandingPageProps) {
+  // Use the appropriate handler - onShowGoogleOAuth if provided, otherwise onGetStarted
+  const handleGetStarted = (): void => {
+    if (onShowGoogleOAuth) {
+      onShowGoogleOAuth();
+    } else if (onGetStarted) {
+      onGetStarted();
+    }
+    // If neither is provided, this is a no-op (intentional for pages that don't need auth)
+  };
+
+  const navigate = useNavigate();
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const plans = getAllPlans();
+
+  const handleSelectPlan = async (priceId: string, planName: string) => {
+    setIsLoadingPricing(true);
+    setCheckoutError(null);
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+      const response = await fetch(`${apiUrl}/api/stripe/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId,
+          planName,
+          successUrl: `${window.location.origin}/checkout/success`,
+          cancelUrl: `${window.location.origin}`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to start checkout. Please try again or contact support.'
+      );
+      setIsLoadingPricing(false);
+    }
+  };
+
+  const handleWatchDemo = () => {
+    // Scroll to the YouTube video section
+    const videoSection = document.querySelector('#video-demo-section');
+    if (videoSection) {
+      videoSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleScheduleDemo = () => {
+    // Navigate to contact page
+    navigate('/contact');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
       {/* Navigation */}
-      <nav className="border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 shadow-sm">
-        <div className="container flex h-16 items-center justify-between">
-          <LogoCompact />
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Features</Button>
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Pricing</Button>
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex">About</Button>
-            <ThemeToggle />
-            <Button onClick={onGetStarted} size="sm" className="shadow-md hover:shadow-lg transition-shadow">
-              Get Started <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <MainNavigation onGetStarted={handleGetStarted} />
 
       {/* Hero Section - Enhanced */}
       <section className="relative container py-24 lg:py-32 overflow-hidden">
@@ -79,13 +139,14 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
-                onClick={onGetStarted}
+                onClick={handleGetStarted}
                 size="lg"
                 className="text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80"
               >
                 Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button
+                onClick={handleWatchDemo}
                 variant="outline"
                 size="lg"
                 className="text-lg shadow-md hover:shadow-lg transition-all hover:scale-105"
@@ -206,16 +267,20 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {[
-            { icon: WaterDamageIcon, title: 'Water Damage', range: '$2K - $15K+', color: 'from-blue-500/20 to-blue-600/20' },
-            { icon: FireDamageIcon, title: 'Fire Damage', range: '$10K - $100K+', color: 'from-orange-500/20 to-red-600/20' },
-            { icon: StormDamageIcon, title: 'Storm Damage', range: '$5K - $50K+', color: 'from-gray-500/20 to-slate-600/20' },
-            { icon: FloodDamageIcon, title: 'Flood Damage', range: '$15K - $150K+', color: 'from-cyan-500/20 to-blue-700/20' },
-            { icon: MouldDamageIcon, title: 'Mould Damage', range: '$3K - $30K+', color: 'from-green-500/20 to-emerald-600/20' },
+            { icon: WaterDamageIcon, title: 'Water Damage', range: '$2K - $15K+', color: 'from-blue-500/20 to-blue-600/20', link: '/features/water-damage' },
+            { icon: FireDamageIcon, title: 'Fire Damage', range: '$10K - $100K+', color: 'from-orange-500/20 to-red-600/20', link: '/features/fire-damage' },
+            { icon: StormDamageIcon, title: 'Storm Damage', range: '$5K - $50K+', color: 'from-gray-500/20 to-slate-600/20', link: '/features/storm-damage' },
+            { icon: FloodDamageIcon, title: 'Flood Damage', range: '$15K - $150K+', color: 'from-cyan-500/20 to-blue-700/20', link: '/features/flood-mould' },
+            { icon: MouldDamageIcon, title: 'Mould Damage', range: '$3K - $30K+', color: 'from-green-500/20 to-emerald-600/20', link: '/features/flood-mould' },
           ].map((damage) => (
-            <Card
+            <Link
               key={damage.title}
-              className="text-center hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border-2 backdrop-blur-sm group"
+              to={damage.link}
+              className="block"
             >
+              <Card
+                className="text-center hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border-2 backdrop-blur-sm group cursor-pointer"
+              >
               <CardHeader className="space-y-4">
                 <div className={`mx-auto flex justify-center p-4 rounded-2xl bg-gradient-to-br ${damage.color} group-hover:scale-110 transition-transform duration-300`}>
                   <damage.icon size={64} />
@@ -229,6 +294,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 </p>
               </CardContent>
             </Card>
+            </Link>
           ))}
         </div>
       </section>
@@ -257,43 +323,53 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               icon: Sparkles,
               title: 'AI-Powered Reports',
               description: 'Claude Opus 4 generates professional reports with detailed scope of work and cost estimates in 10-15 seconds.',
-              gradient: 'from-purple-500/10 to-pink-500/10'
+              gradient: 'from-purple-500/10 to-pink-500/10',
+              link: '/features/ai-reports'
             },
             {
               icon: Shield,
               title: 'NCC 2022 Compliant',
               description: 'Every report automatically includes relevant NCC 2022 compliance notes and state-specific building regulations.',
-              gradient: 'from-green-500/10 to-emerald-500/10'
+              gradient: 'from-green-500/10 to-emerald-500/10',
+              link: '/features/building-codes'
             },
             {
               icon: DollarSign,
               title: 'Accurate Pricing',
               description: 'Market-accurate 2024 Australian pricing database with realistic labour rates and material costs.',
-              gradient: 'from-yellow-500/10 to-orange-500/10'
+              gradient: 'from-yellow-500/10 to-orange-500/10',
+              link: '/features/cost-estimation'
             },
             {
               icon: FileText,
               title: 'Professional Output',
               description: 'Industry-standard documentation with itemised estimates, scope of work, and Authority to Proceed.',
-              gradient: 'from-blue-500/10 to-cyan-500/10'
+              gradient: 'from-blue-500/10 to-cyan-500/10',
+              link: '/features/templates'
             },
             {
               icon: Clock,
               title: 'Lightning Fast',
               description: 'Generate comprehensive damage assessments in seconds instead of hours of manual work.',
-              gradient: 'from-red-500/10 to-pink-500/10'
+              gradient: 'from-red-500/10 to-pink-500/10',
+              link: '/features/batch-processing'
             },
             {
               icon: BarChart3,
               title: 'Analytics & Tracking',
               description: 'Track all your reports, monitor statistics, and export data for insurance claims.',
-              gradient: 'from-indigo-500/10 to-purple-500/10'
+              gradient: 'from-indigo-500/10 to-purple-500/10',
+              link: '/features/analytics'
             },
           ].map((feature) => (
-            <Card
+            <Link
               key={feature.title}
-              className="hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border backdrop-blur-sm group"
+              to={feature.link}
+              className="block"
             >
+              <Card
+                className="hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border backdrop-blur-sm group cursor-pointer h-full"
+              >
               <CardHeader className="space-y-4">
                 <div className={`p-3 rounded-xl bg-gradient-to-br ${feature.gradient} w-fit group-hover:scale-110 transition-transform duration-300`}>
                   <feature.icon className="h-6 w-6 text-primary" />
@@ -304,12 +380,57 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
               </CardContent>
             </Card>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* Product Showcase - Animated Workflow */}
-      <ProductShowcase />
+      {/* YouTube Video Demo */}
+      <section id="video-demo-section" className="container py-20 border-t">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12 space-y-4">
+            <Badge variant="secondary" className="text-sm shadow-sm">
+              <Zap className="mr-2 h-3 w-3" />
+              Watch RestoreAssist in Action
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              See How It Works
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">
+                In Under 60 Seconds
+              </span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Watch a complete demonstration of generating professional damage reports with AI
+            </p>
+          </div>
+
+          {/* YouTube Video Embed */}
+          {/* TODO: Replace with actual RestoreAssist demo video ID */}
+          <Card className="border-2 shadow-2xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  title="RestoreAssist Demo - See how to generate professional damage reports with AI"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  aria-label="RestoreAssist demonstration video showing the complete workflow"
+                ></iframe>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Optional: Video Description */}
+          <div className="mt-8 text-center">
+            <p className="text-muted-foreground">
+              Learn how RestoreAssist generates IICRC-compliant reports with accurate cost estimates in seconds
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* States Coverage - Modern Grid */}
       <section className="container py-20 border-t bg-secondary/10">
@@ -351,6 +472,115 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="container py-20 border-t">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <Badge variant="secondary" className="text-sm shadow-sm">
+              <DollarSign className="mr-2 h-3 w-3" />
+              Simple, Transparent Pricing
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold">
+              Choose Your Plan
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">
+                Start Free, Scale As You Grow
+              </span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              No hidden fees. Cancel anytime. All plans include NCC 2022 compliance.
+            </p>
+          </div>
+
+          {/* Pricing Cards Grid */}
+          <div className="grid md:grid-cols-3 gap-8 mt-16">
+            {plans.map((plan, index) => (
+              <PricingCard
+                key={index}
+                plan={plan}
+                priceId={
+                  index === 0
+                    ? getPriceId('freeTrial')
+                    : index === 1
+                    ? getPriceId('monthly')
+                    : getPriceId('yearly')
+                }
+                onSelectPlan={handleSelectPlan}
+                isLoading={isLoadingPricing}
+              />
+            ))}
+          </div>
+
+          {/* Checkout Error Message */}
+          {checkoutError && (
+            <div
+              className="mt-8 p-4 rounded-lg border-2 border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300"
+              role="alert"
+              aria-live="assertive"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-1">Checkout Error</h3>
+                  <p className="text-sm">{checkoutError}</p>
+                </div>
+                <button
+                  onClick={() => setCheckoutError(null)}
+                  className="flex-shrink-0 ml-auto hover:opacity-70 transition-opacity"
+                  aria-label="Dismiss error message"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Money-Back Guarantee */}
+          <div className="mt-16 text-center">
+            <Card className="max-w-2xl mx-auto border-2 border-green-500/20 bg-green-500/5">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <Shield className="h-8 w-8 text-green-600" />
+                  <h3 className="text-2xl font-bold">30-Day Money-Back Guarantee</h3>
+                </div>
+                <p className="text-muted-foreground">
+                  Try RestoreAssist risk-free. If you're not completely satisfied within 30 days,
+                  we'll refund your payment—no questions asked.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
@@ -446,13 +676,14 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
-                onClick={onGetStarted}
+                onClick={handleGetStarted}
                 size="lg"
                 className="text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80"
               >
                 Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button
+                onClick={handleScheduleDemo}
                 variant="outline"
                 size="lg"
                 className="text-lg shadow-md hover:shadow-lg transition-all hover:scale-105"
@@ -491,27 +722,27 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             <div>
               <h3 className="font-bold mb-4 text-lg">Product</h3>
               <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">API</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Documentation</a></li>
+                <li><Link to="/features/ai-reports" className="hover:text-primary transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
+                <li><Link to="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link></li>
+                <li><Link to="/features/analytics" className="hover:text-primary transition-colors">Analytics</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="font-bold mb-4 text-lg">Company</h3>
               <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
+                <li><Link to="/about" className="hover:text-primary transition-colors">About</Link></li>
+                <li><Link to="/features/ai-reports" className="hover:text-primary transition-colors">How It Works</Link></li>
+                <li><Link to="/features/iicrc-compliance" className="hover:text-primary transition-colors">Compliance</Link></li>
+                <li><Link to="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="font-bold mb-4 text-lg">Legal</h3>
               <ul className="space-y-3 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Terms</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Security</a></li>
+                <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link></li>
+                <li><Link to="/terms" className="hover:text-primary transition-colors">Terms</Link></li>
+                <li><Link to="/refunds" className="hover:text-primary transition-colors">Refunds</Link></li>
               </ul>
             </div>
           </div>

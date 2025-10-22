@@ -3,10 +3,16 @@ import { GeneratedReport, GenerateReportRequest } from '../types';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // Auth token storage
+// SECURITY NOTE: These tokens are temporarily stored in localStorage
+// TODO: Migrate to httpOnly cookies for secure token storage (prevents XSS attacks)
+// Phase 2 will implement secure cookie-based authentication
 let accessToken: string | null = localStorage.getItem('access_token');
 
 export function setAuthTokens(access: string, refresh: string) {
   accessToken = access;
+  // SECURITY: These should be httpOnly cookies, not localStorage
+  // Keeping for now to avoid breaking authentication flow
+  // TODO: Implement cookie-based token storage in backend
   localStorage.setItem('access_token', access);
   localStorage.setItem('refresh_token', refresh);
 }

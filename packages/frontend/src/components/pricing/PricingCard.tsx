@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Sparkles, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -105,7 +105,14 @@ export function PricingCard({ plan, priceId, onSelectPlan, isLoading = false }: 
           onClick={() => onSelectPlan(priceId, plan.displayName)}
           disabled={isLoading}
         >
-          {plan.amount === 0 ? 'Start Free Trial' : 'Get Started'}
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading checkout session" />
+              <span>Processing...</span>
+            </span>
+          ) : (
+            plan.amount === 0 ? 'Start Free Trial' : 'Get Started'
+          )}
         </Button>
       </CardFooter>
     </Card>
