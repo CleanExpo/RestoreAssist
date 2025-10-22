@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": "dist",
+  "framework": null,
   "builds": [
     {
       "src": "api/index.js",
@@ -9,7 +13,10 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/index.js"
+      "dest": "/api/index.js"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
