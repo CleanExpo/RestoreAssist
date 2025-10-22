@@ -22,8 +22,8 @@ export function CheckoutSuccess() {
       }
 
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/stripe/checkout-session/${sessionId}`);
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const response = await fetch(`${apiUrl}/stripe/checkout-session/${sessionId}`);
 
         if (!response.ok) {
           throw new Error('Failed to fetch session data');

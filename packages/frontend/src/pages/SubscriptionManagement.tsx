@@ -39,10 +39,10 @@ export function SubscriptionManagement() {
   const fetchSubscription = async () => {
     try {
       setIsLoading(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       // TODO: Add authentication token
-      const response = await fetch(`${apiUrl}/api/subscription/me`, {
+      const response = await fetch(`${apiUrl}/subscription/me`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -68,9 +68,9 @@ export function SubscriptionManagement() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-      const response = await fetch(`${apiUrl}/api/subscription/cancel`, {
+      const response = await fetch(`${apiUrl}/subscription/cancel`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

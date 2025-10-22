@@ -81,9 +81,9 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
     setCheckoutError(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-      const response = await fetch(`${apiUrl}/api/stripe/create-checkout-session`, {
+      const response = await fetch(`${apiUrl}/stripe/create-checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

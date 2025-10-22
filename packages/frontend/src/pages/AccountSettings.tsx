@@ -34,10 +34,10 @@ export const AccountSettings: React.FC = () => {
     setDeleteError(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       const accessToken = localStorage.getItem('accessToken');
 
-      const response = await fetch(`${apiUrl}/api/auth/delete-account`, {
+      const response = await fetch(`${apiUrl}/auth/delete-account`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
