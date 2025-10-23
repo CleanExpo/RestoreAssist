@@ -243,7 +243,26 @@ class GoogleAuthService {
     userAgent?: string
   ): Promise<LoginSession> {
     const sessionToken = uuidv4();
+    const sessionId = uuidv4();
     const expiresAt = new Date(Date.now() + SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+    // Check if database is enabled
+    const useDatabase = process.env.USE_POSTGRES === 'true';
+
+    if (!useDatabase) {
+      // In-memory session (return mock session for testing)
+      return {
+        sessionId,
+        userId,
+        ipAddress,
+        userAgent,
+        sessionToken,
+        createdAt: new Date(),
+        expiresAt,
+        lastActivityAt: new Date(),
+        isActive: true,
+      };
+    }
 
     // TODO: Integrate with IP geolocation service for country/region/city/timezone
     // For now, we'll leave those fields null
@@ -253,7 +272,7 @@ class GoogleAuthService {
        (session_id, user_id, ip_address, user_agent, session_token, created_at, expires_at, last_activity_at, is_active)
        VALUES ($1, $2, $3, $4, $5, NOW(), $6, NOW(), true)
        RETURNING *`,
-      [uuidv4(), userId, ipAddress || null, userAgent || null, sessionToken, expiresAt]
+      [sessionId, userId, ipAddress || null, userAgent || null, sessionToken, expiresAt]
     );
 
     return session;

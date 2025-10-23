@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { googleAuthService } from '../services/googleAuthService';
+import { emailAuthService } from '../services/emailAuthService';
 import { freeTrialService } from '../services/freeTrialService';
 import { paymentVerificationService } from '../services/paymentVerification';
 import { db } from '../db/connection';
@@ -46,6 +47,237 @@ const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) =>
 };
 
 // =====================================================
+// POST /api/trial-auth/email-signup
+// Sign up with email/password + activate trial
+// =====================================================
+
+router.post('/email-signup', trialAuthRateLimiter, async (req: Request, res: Response) => {
+  const attemptId = uuidv4();
+  const attemptIpAddress = req.body.ipAddress || req.ip || 'unknown';
+  const attemptUserAgent = req.body.userAgent || req.headers['user-agent'] || 'unknown';
+
+  try {
+    const { email, password, name, fingerprintHash, deviceData, ipAddress, userAgent } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Create initial auth attempt record (skip if database is not available)
+    if (process.env.USE_POSTGRES === 'true') {
+      await db.none(
+        `INSERT INTO auth_attempts
+         (attempt_id, ip_address, user_agent, success, retry_count, attempted_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [attemptId, attemptIpAddress, attemptUserAgent, false, 0]
+      );
+    }
+
+    console.log(`🔐 Email signup attempt started: ${attemptId} from IP ${attemptIpAddress}`);
+
+    // Handle email signup
+    const result = await emailAuthService.signupWithEmail(
+      email,
+      password,
+      name,
+      ipAddress || req.ip,
+      userAgent || req.headers['user-agent']
+    );
+
+    if (!result.success) {
+      // Update auth attempt with error (skip if database is not available)
+      if (process.env.USE_POSTGRES === 'true') {
+        await db.none(
+          `UPDATE auth_attempts
+           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+           WHERE attempt_id = $4`,
+          ['signup_failed', result.error || 'Signup failed', false, attemptId]
+        );
+      }
+
+      console.log(`❌ Email signup failed: ${attemptId} - ${result.error}`);
+
+      return res.status(400).json({ error: result.error });
+    }
+
+    // Update auth attempt with success (skip if database is not available)
+    if (process.env.USE_POSTGRES === 'true') {
+      await db.none(
+        `UPDATE auth_attempts
+         SET user_email = $1, success = $2
+         WHERE attempt_id = $3`,
+        [result.user!.email, true, attemptId]
+      );
+    }
+
+    console.log(`✅ Email signup successful: ${attemptId} - ${result.user!.email}`);
+
+    // Activate trial if fingerprint data provided
+    let trialActivation = null;
+    if (fingerprintHash && deviceData) {
+      try {
+        trialActivation = await freeTrialService.activateTrial({
+          userId: result.user!.userId,
+          fingerprintHash,
+          deviceData,
+          ipAddress: ipAddress || req.ip,
+          userAgent: userAgent || req.headers['user-agent'],
+        });
+
+        if (!trialActivation.success) {
+          console.warn(`⚠️  Trial denied for user ${result.user!.userId}: ${trialActivation.denialReason}`);
+        }
+      } catch (trialError) {
+        console.error('Trial activation error during signup:', trialError);
+        console.warn('⚠️  Trial activation failed but signup succeeded');
+      }
+    }
+
+    res.json({
+      success: true,
+      user: {
+        userId: result.user!.userId,
+        email: result.user!.email,
+        name: result.user!.name,
+        emailVerified: result.user!.emailVerified,
+      },
+      tokens: result.tokens,
+      sessionToken: result.session!.sessionToken,
+      trial: trialActivation?.success ? {
+        tokenId: trialActivation.tokenId,
+        reportsRemaining: trialActivation.reportsRemaining,
+        expiresAt: trialActivation.expiresAt,
+      } : null,
+    });
+  } catch (error) {
+    console.error('Email signup error:', error);
+
+    // Update auth attempt with exception error
+    try {
+      if (process.env.USE_POSTGRES === 'true') {
+        await db.none(
+          `UPDATE auth_attempts
+           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+           WHERE attempt_id = $4`,
+          [
+            'server_error',
+            error instanceof Error ? error.message : 'Internal server error',
+            false,
+            attemptId
+          ]
+        );
+      }
+    } catch (dbError) {
+      console.error('Failed to update auth attempt:', dbError);
+    }
+
+    res.status(500).json({ error: 'Signup failed. Please try again.' });
+  }
+});
+
+// =====================================================
+// POST /api/trial-auth/email-login
+// Login with email/password
+// =====================================================
+
+router.post('/email-login', trialAuthRateLimiter, async (req: Request, res: Response) => {
+  const attemptId = uuidv4();
+  const attemptIpAddress = req.body.ipAddress || req.ip || 'unknown';
+  const attemptUserAgent = req.body.userAgent || req.headers['user-agent'] || 'unknown';
+
+  try {
+    const { email, password, ipAddress, userAgent } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Create initial auth attempt record (skip if database is not available)
+    if (process.env.USE_POSTGRES === 'true') {
+      await db.none(
+        `INSERT INTO auth_attempts
+         (attempt_id, ip_address, user_agent, success, retry_count, attempted_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [attemptId, attemptIpAddress, attemptUserAgent, false, 0]
+      );
+    }
+
+    console.log(`🔐 Email login attempt started: ${attemptId} from IP ${attemptIpAddress}`);
+
+    // Handle email login
+    const result = await emailAuthService.loginWithEmail(
+      email,
+      password,
+      ipAddress || req.ip,
+      userAgent || req.headers['user-agent']
+    );
+
+    if (!result.success) {
+      // Update auth attempt with error (skip if database is not available)
+      if (process.env.USE_POSTGRES === 'true') {
+        await db.none(
+          `UPDATE auth_attempts
+           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+           WHERE attempt_id = $4`,
+          ['login_failed', result.error || 'Login failed', false, attemptId]
+        );
+      }
+
+      console.log(`❌ Email login failed: ${attemptId} - ${result.error}`);
+
+      return res.status(401).json({ error: result.error });
+    }
+
+    // Update auth attempt with success (skip if database is not available)
+    if (process.env.USE_POSTGRES === 'true') {
+      await db.none(
+        `UPDATE auth_attempts
+         SET user_email = $1, success = $2
+         WHERE attempt_id = $3`,
+        [result.user!.email, true, attemptId]
+      );
+    }
+
+    console.log(`✅ Email login successful: ${attemptId} - ${result.user!.email}`);
+
+    res.json({
+      success: true,
+      user: {
+        userId: result.user!.userId,
+        email: result.user!.email,
+        name: result.user!.name,
+        emailVerified: result.user!.emailVerified,
+      },
+      tokens: result.tokens,
+      sessionToken: result.session!.sessionToken,
+    });
+  } catch (error) {
+    console.error('Email login error:', error);
+
+    // Update auth attempt with exception error
+    try {
+      if (process.env.USE_POSTGRES === 'true') {
+        await db.none(
+          `UPDATE auth_attempts
+           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+           WHERE attempt_id = $4`,
+          [
+            'server_error',
+            error instanceof Error ? error.message : 'Internal server error',
+            false,
+            attemptId
+          ]
+        );
+      }
+    } catch (dbError) {
+      console.error('Failed to update auth attempt:', dbError);
+    }
+
+    res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+});
+
+// =====================================================
 // POST /api/trial-auth/google-login
 // Complete Google OAuth login flow
 // =====================================================
@@ -62,13 +294,15 @@ router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Res
       return res.status(400).json({ error: 'Google ID token required' });
     }
 
-    // Create initial auth attempt record
-    await db.none(
-      `INSERT INTO auth_attempts
-       (attempt_id, ip_address, user_agent, success, retry_count, attempted_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [attemptId, attemptIpAddress, attemptUserAgent, false, 0]
-    );
+    // Create initial auth attempt record (skip if database is not available)
+    if (process.env.USE_POSTGRES === 'true') {
+      await db.none(
+        `INSERT INTO auth_attempts
+         (attempt_id, ip_address, user_agent, success, retry_count, attempted_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [attemptId, attemptIpAddress, attemptUserAgent, false, 0]
+      );
+    }
 
     console.log(`🔐 Auth attempt started: ${attemptId} from IP ${attemptIpAddress}`);
 
@@ -80,26 +314,30 @@ router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Res
     );
 
     if (!result.success) {
-      // Update auth attempt with error
-      await db.none(
-        `UPDATE auth_attempts
-         SET oauth_error_code = $1, oauth_error_message = $2, success = $3
-         WHERE attempt_id = $4`,
-        [result.error || 'unknown_error', result.error || 'Login failed', false, attemptId]
-      );
+      // Update auth attempt with error (skip if database is not available)
+      if (process.env.USE_POSTGRES === 'true') {
+        await db.none(
+          `UPDATE auth_attempts
+           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+           WHERE attempt_id = $4`,
+          [result.error || 'unknown_error', result.error || 'Login failed', false, attemptId]
+        );
+      }
 
       console.log(`❌ Auth failed: ${attemptId} - ${result.error}`);
 
       return res.status(401).json({ error: result.error });
     }
 
-    // Update auth attempt with success
-    await db.none(
-      `UPDATE auth_attempts
-       SET user_email = $1, success = $2
-       WHERE attempt_id = $3`,
-      [result.user!.email, true, attemptId]
-    );
+    // Update auth attempt with success (skip if database is not available)
+    if (process.env.USE_POSTGRES === 'true') {
+      await db.none(
+        `UPDATE auth_attempts
+         SET user_email = $1, success = $2
+         WHERE attempt_id = $3`,
+        [result.user!.email, true, attemptId]
+      );
+    }
 
     console.log(`✅ Auth successful: ${attemptId} - ${result.user!.email}`);
 
@@ -120,17 +358,19 @@ router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Res
 
     // Update auth attempt with exception error
     try {
-      await db.none(
-        `UPDATE auth_attempts
-         SET oauth_error_code = $1, oauth_error_message = $2, success = $3
-         WHERE attempt_id = $4`,
-        [
-          'server_error',
-          error instanceof Error ? error.message : 'Internal server error',
-          false,
-          attemptId
-        ]
-      );
+      if (process.env.USE_POSTGRES === 'true') {
+        await db.none(
+          `UPDATE auth_attempts
+           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
+           WHERE attempt_id = $4`,
+          [
+            'server_error',
+            error instanceof Error ? error.message : 'Internal server error',
+            false,
+            attemptId
+          ]
+        );
+      }
     } catch (dbError) {
       console.error('Failed to update auth attempt:', dbError);
     }

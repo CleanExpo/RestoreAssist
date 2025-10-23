@@ -8,12 +8,13 @@ import crypto from 'crypto';
 
 export interface User {
   userId: string;
-  googleId: string;
+  googleId?: string; // Optional for email/password users
   email: string;
   name?: string;
   pictureUrl?: string;
   emailVerified: boolean;
   locale?: string;
+  passwordHash?: string; // For email/password authentication
   createdAt: Date;
   lastLoginAt?: Date;
   updatedAt: Date;
@@ -587,7 +588,24 @@ class FreeTrialService {
     const { userId, fingerprintHash, deviceData, ipAddress, userAgent } = request;
 
     try {
-      // Get user details
+      // Check if database is enabled
+      const useDatabase = process.env.USE_POSTGRES === 'true';
+
+      if (!useDatabase) {
+        // In-memory mode: always grant trial (for testing)
+        console.log(`✅ Trial activated in memory mode for user ${userId}`);
+        const tokenId = uuidv4();
+        const expiresAt = new Date(Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
+
+        return {
+          success: true,
+          tokenId,
+          reportsRemaining: MAX_REPORTS_PER_TRIAL,
+          expiresAt,
+        };
+      }
+
+      // Get user details from database
       const user = await db.oneOrNone<User>(
         `SELECT * FROM users WHERE user_id = $1`,
         [userId]

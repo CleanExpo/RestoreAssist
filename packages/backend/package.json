@@ -18,7 +18,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:all": "npm run test && npm run test:e2e",
     "stripe:setup": "tsx src/scripts/setup-stripe-products.ts",
-    "stripe:fetch": "tsx src/scripts/fetch-stripe-prices.ts"
+    "stripe:fetch": "tsx src/scripts/fetch-stripe-prices.ts",
+    "migrate:email-auth": "tsx src/scripts/run-email-auth-migration.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.22",

@@ -54,6 +54,10 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isEmailSignup, setIsEmailSignup] = useState(true);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const plans = getAllPlans();
   const { config } = useOAuthConfig();
 
@@ -937,6 +941,13 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
                   )}
 
                   <div className="space-y-3">
+                    {/* Form-level error */}
+                    {formError && (
+                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-sm">
+                        {formError}
+                      </div>
+                    )}
+
                     <div>
                       <label htmlFor="email" className="block text-sm font-medium mb-1">
                         Email Address
@@ -945,10 +956,18 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
                         id="email"
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setEmailError('');
+                        }}
                         placeholder="you@example.com"
-                        className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                          emailError ? 'border-red-500' : 'border-border'
+                        }`}
                       />
+                      {emailError && (
+                        <p className="text-xs text-red-500 mt-1">{emailError}</p>
+                      )}
                     </div>
 
                     <div>
@@ -959,22 +978,119 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
                         id="password"
                         type="password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          setPasswordError('');
+                        }}
                         placeholder="••••••••"
-                        className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                          passwordError ? 'border-red-500' : 'border-border'
+                        }`}
                       />
+                      {passwordError && (
+                        <p className="text-xs text-red-500 mt-1">{passwordError}</p>
+                      )}
+                      {isEmailSignup && !passwordError && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Min 8 characters, one uppercase, one lowercase, one number
+                        </p>
+                      )}
                     </div>
 
                     <Button
-                      onClick={() => {
-                        // TODO: Implement email/password auth
-                        console.log('Email/password auth not yet implemented');
-                        alert('Email/password authentication is coming soon! Please use Google Sign In for now.');
+                      onClick={async () => {
+                        // Clear previous errors
+                        setEmailError('');
+                        setPasswordError('');
+                        setFormError('');
+
+                        // Validate email
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!email || !emailRegex.test(email)) {
+                          setEmailError('Please enter a valid email address');
+                          return;
+                        }
+
+                        // Validate password
+                        const passwordErrors: string[] = [];
+                        if (!password || password.length < 8) {
+                          passwordErrors.push('at least 8 characters');
+                        }
+                        if (!/[A-Z]/.test(password)) {
+                          passwordErrors.push('one uppercase letter');
+                        }
+                        if (!/[a-z]/.test(password)) {
+                          passwordErrors.push('one lowercase letter');
+                        }
+                        if (!/[0-9]/.test(password)) {
+                          passwordErrors.push('one number');
+                        }
+
+                        if (passwordErrors.length > 0) {
+                          setPasswordError(`Password must contain ${passwordErrors.join(', ')}`);
+                          return;
+                        }
+
+                        // Submit form
+                        setIsSubmitting(true);
+
+                        try {
+                          const apiUrl = getApiBaseUrl();
+                          const endpoint = isEmailSignup ? '/trial-auth/email-signup' : '/trial-auth/email-login';
+
+                          const response = await fetch(`${apiUrl}${endpoint}`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              email,
+                              password,
+                              ipAddress: undefined, // Let backend detect
+                              userAgent: navigator.userAgent,
+                            }),
+                          });
+
+                          const data = await response.json();
+
+                          if (!response.ok) {
+                            setFormError(data.error || 'Authentication failed. Please try again.');
+                            setIsSubmitting(false);
+                            return;
+                          }
+
+                          // Store tokens in localStorage
+                          if (data.tokens?.accessToken) {
+                            localStorage.setItem('accessToken', data.tokens.accessToken);
+                          }
+                          if (data.tokens?.refreshToken) {
+                            localStorage.setItem('refreshToken', data.tokens.refreshToken);
+                          }
+                          if (data.sessionToken) {
+                            localStorage.setItem('sessionToken', data.sessionToken);
+                          }
+
+                          // Store user info
+                          if (data.user) {
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                          }
+
+                          // Close modal
+                          setShowAuthModal(false);
+
+                          // Redirect to dashboard
+                          navigate('/dashboard');
+                        } catch (error) {
+                          console.error('Email auth error:', error);
+                          setFormError('An error occurred. Please try again.');
+                          setIsSubmitting(false);
+                        }
                       }}
                       className="w-full"
                       size="lg"
+                      disabled={isSubmitting}
                     >
-                      {isEmailSignup ? 'Sign Up with Email' : 'Sign In with Email'}
+                      {isSubmitting ? 'Please wait...' : (isEmailSignup ? 'Sign Up with Email' : 'Sign In with Email')}
                     </Button>
 
                     <button
