@@ -104,6 +104,38 @@ app.get('/api/cors-test', (req, res) => {
   });
 });
 
+// Debug endpoint to inspect registered routes
+app.get('/api/debug/routes', (req, res) => {
+  if (app._router && app._router.stack) {
+    const routes = app._router.stack
+      .filter((r: any) => r.route || r.name === 'router')
+      .map((r: any) => {
+        if (r.route) {
+          return {
+            path: r.route.path,
+            methods: Object.keys(r.route.methods)
+          };
+        } else if (r.name === 'router' && r.handle && r.handle.stack) {
+          // This is a mounted router (like our route modules)
+          return {
+            type: 'router',
+            regexp: r.regexp.toString(),
+            routeCount: r.handle.stack.length
+          };
+        }
+        return { name: r.name };
+      });
+
+    return res.json({
+      totalLayers: app._router.stack.length,
+      routes,
+      environment: process.env.NODE_ENV,
+      vercel: process.env.VERCEL === '1'
+    });
+  }
+  res.json({ error: 'Router not available' });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/trial-auth', trialAuthRoutes);
 app.use('/api/admin-trial', adminTrialRoutes);
@@ -123,8 +155,8 @@ Sentry.setupExpressErrorHandler(app);
 // Custom error handling
 app.use(errorHandler);
 
-// Initialise services (for both serverless and local) - with error handling
-(async () => {
+// Initialize services function (called async, doesn't block app export)
+const initializeServices = async () => {
   console.log('🔍 [INIT] Starting server initialization...');
 
   // Validate environment before initializing any services
@@ -266,7 +298,13 @@ app.use(errorHandler);
     // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
     });
   }
-})();
+};
 
-// Export for Vercel serverless
+// Start initialization (non-blocking for serverless)
+initializeServices().catch(err => {
+  console.error('Failed to initialize services:', err);
+  // Don't crash - let the app serve requests anyway
+});
+
+// Export for Vercel serverless (app is ready immediately with routes registered)
 export default app;
