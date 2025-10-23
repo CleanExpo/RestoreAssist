@@ -10,9 +10,7 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "reporter": [
       [
@@ -43,9 +41,7 @@
         "outputDir": "D:/RestoreAssist/packages/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "chromium",
         "name": "chromium",
         "testDir": "D:/RestoreAssist/packages/frontend/tests/e2e-claude",
@@ -86,7 +82,7 @@
           "specs": [
             {
               "title": "should display pricing page with all plans",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -95,62 +91,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1159,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: >= \u001b[32m2\u001b[39m\nReceived:    \u001b[31m0\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: >= \u001b[32m2\u001b[39m\nReceived:    \u001b[31m0\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts:38:23",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts",
-                          "column": 23,
-                          "line": 38
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 36 |\u001b[39m\n \u001b[90m 37 |\u001b[39m     \u001b[36mconst\u001b[39m cardCount \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m pricingCards\u001b[33m.\u001b[39mcount()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 38 |\u001b[39m     expect(cardCount)\u001b[33m.\u001b[39mtoBeGreaterThanOrEqual(\u001b[35m2\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 39 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 40 |\u001b[39m\n \u001b[90m 41 |\u001b[39m   test(\u001b[32m'should show monthly plan details correctly'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts",
-                            "column": 23,
-                            "line": 38
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: >= \u001b[32m2\u001b[39m\nReceived:    \u001b[31m0\u001b[39m\n\n  36 |\n  37 |     const cardCount = await pricingCards.count();\n> 38 |     expect(cardCount).toBeGreaterThanOrEqual(2);\n     |                       ^\n  39 |   });\n  40 |\n  41 |   test('should show monthly plan details correctly', async ({ page }) => {\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts:38:23"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:57:56.116Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Stripe-Checkout-F-6d7b2-pricing-page-with-all-plans-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Stripe-Checkout-F-6d7b2-pricing-page-with-all-plans-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Stripe-Checkout-F-6d7b2-pricing-page-with-all-plans-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts",
-                        "column": 23,
-                        "line": 38
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-96ad59d939cac5e8e01f",
@@ -169,22 +111,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1072,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:57:58.838Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-6304b4d0f2844bde81d2",
@@ -203,26 +131,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 647,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Yearly plan discount badge shown: true\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:00.190Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-bb661a00acc4b89ef468",
@@ -241,26 +151,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2734,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Loading indicator shown: false\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:00.853Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-e66b94f6d1c3c9136214",
@@ -279,22 +171,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 658,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:03.599Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-5e967c18f8251f466428",
@@ -313,22 +191,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 612,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:04.266Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-d0222d28547151ce10f1",
@@ -347,22 +211,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 492,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:04.891Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-fe826612408de4cf7667",
@@ -381,22 +231,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 600,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:05.393Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-65fe962713502756e637",
@@ -415,22 +251,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 530,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:06.001Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-a3d7611a48108cccfc9a",
@@ -457,22 +279,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 484,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:06.542Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-f1a9f1b620370424385e",
@@ -482,7 +290,7 @@
             },
             {
               "title": "should show plan features list",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -491,62 +299,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 473,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts:223:25",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts",
-                          "column": 25,
-                          "line": 223
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 221 |\u001b[39m\n \u001b[90m 222 |\u001b[39m     \u001b[36mconst\u001b[39m hasFeatures \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m featureList\u001b[33m.\u001b[39mcount() \u001b[33m>\u001b[39m \u001b[35m0\u001b[39m\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 223 |\u001b[39m     expect(hasFeatures)\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 224 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 225 |\u001b[39m\n \u001b[90m 226 |\u001b[39m   test(\u001b[32m'should prevent double-clicking plan selection'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts",
-                            "column": 25,
-                            "line": 223
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  221 |\n  222 |     const hasFeatures = await featureList.count() > 0;\n> 223 |     expect(hasFeatures).toBeTruthy();\n      |                         ^\n  224 |   });\n  225 |\n  226 |   test('should prevent double-clicking plan selection', async ({ page }) => {\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts:223:25"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:07.034Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Pricing-Page-Inte-5ac7d-uld-show-plan-features-list-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Pricing-Page-Inte-5ac7d-uld-show-plan-features-list-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Pricing-Page-Inte-5ac7d-uld-show-plan-features-list-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts",
-                        "column": 25,
-                        "line": 223
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-933f0b4e23debf1317d6",
@@ -565,22 +319,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 839,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:08.417Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-36a5b15ed97c2ff252ed",
@@ -607,22 +347,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 467,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:09.649Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-7f59b2a3da9b32d21613",
@@ -632,7 +358,7 @@
             },
             {
               "title": "should display current subscription status",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -641,56 +367,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 220,
-                      "error": {
-                        "message": "Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
-                        "stack": "Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts:266:16",
-                        "location": {
-                          "file": "<anonymous>",
-                          "column": 16,
-                          "line": 292
-                        }
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "<anonymous>",
-                            "column": 16,
-                            "line": 292
-                          },
-                          "message": "Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\checkout.spec.ts:266:16"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:10.128Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Subscription-Mana-da989-current-subscription-status-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\checkout-Subscription-Mana-da989-current-subscription-status-chromium\\video.webm"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "<anonymous>",
-                        "column": 16,
-                        "line": 292
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "25ab1bfc84c57e3e3a45-adafe81e1d3a1c321d89",
@@ -726,22 +404,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1017,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:11.311Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-58e091ad004833d44ebc",
@@ -760,22 +424,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1137,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:12.618Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-9171fd5b34318054b97e",
@@ -794,22 +444,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1141,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:13.767Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-5173db47732459ca2eef",
@@ -828,22 +464,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 531,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:14.921Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-9bd6bfaf26debf652ac1",
@@ -853,7 +475,7 @@
             },
             {
               "title": "should submit form with valid data",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -862,62 +484,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 2652,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/success|sent|thank you/i)\nExpected: visible\nError: strict mode violation: getByText(/success|sent|thank you/i) resolved to 5 elements:\n    1) <h3 class=\"text-xl font-bold text-gray-900 mb-2\">Message Sent!</h3> aka getByRole('heading', { name: 'Message Sent!' })\n    2) <p class=\"text-gray-700 mb-4\">Thank you for contacting us. We'll get back to yo…</p> aka getByText('Thank you for contacting us.')\n    3) <p class=\"text-gray-700 leading-relaxed mb-3\">We use cookies and similar technologies to enhanc…</p> aka getByText('We use cookies and similar')\n    4) <strong class=\"text-gray-900\">Essential Cookies:</strong> aka getByText('Essential Cookies:')\n    5) <p>Help us understand how visitors interact with our…</p> aka getByText('Help us understand how')\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/success|sent|thank you/i)\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/success|sent|thank you/i)\nExpected: visible\nError: strict mode violation: getByText(/success|sent|thank you/i) resolved to 5 elements:\n    1) <h3 class=\"text-xl font-bold text-gray-900 mb-2\">Message Sent!</h3> aka getByRole('heading', { name: 'Message Sent!' })\n    2) <p class=\"text-gray-700 mb-4\">Thank you for contacting us. We'll get back to yo…</p> aka getByText('Thank you for contacting us.')\n    3) <p class=\"text-gray-700 leading-relaxed mb-3\">We use cookies and similar technologies to enhanc…</p> aka getByText('We use cookies and similar')\n    4) <strong class=\"text-gray-900\">Essential Cookies:</strong> aka getByText('Essential Cookies:')\n    5) <p>Help us understand how visitors interact with our…</p> aka getByText('Help us understand how')\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/success|sent|thank you/i)\u001b[22m\n\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:118:34",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 34,
-                          "line": 118
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 116 |\u001b[39m     \u001b[90m// Check for success indicator\u001b[39m\n \u001b[90m 117 |\u001b[39m     \u001b[36mconst\u001b[39m successMessage \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mgetByText(\u001b[35m/success|sent|thank you/i\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 118 |\u001b[39m     \u001b[36mawait\u001b[39m expect(successMessage)\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m5000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 119 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 120 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 121 |\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 34,
-                            "line": 118
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/success|sent|thank you/i)\nExpected: visible\nError: strict mode violation: getByText(/success|sent|thank you/i) resolved to 5 elements:\n    1) <h3 class=\"text-xl font-bold text-gray-900 mb-2\">Message Sent!</h3> aka getByRole('heading', { name: 'Message Sent!' })\n    2) <p class=\"text-gray-700 mb-4\">Thank you for contacting us. We'll get back to yo…</p> aka getByText('Thank you for contacting us.')\n    3) <p class=\"text-gray-700 leading-relaxed mb-3\">We use cookies and similar technologies to enhanc…</p> aka getByText('We use cookies and similar')\n    4) <strong class=\"text-gray-900\">Essential Cookies:</strong> aka getByText('Essential Cookies:')\n    5) <p>Help us understand how visitors interact with our…</p> aka getByText('Help us understand how')\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/success|sent|thank you/i)\u001b[22m\n\n\n  116 |     // Check for success indicator\n  117 |     const successMessage = page.getByText(/success|sent|thank you/i);\n> 118 |     await expect(successMessage).toBeVisible({ timeout: 5000 });\n      |                                  ^\n  119 |   });\n  120 | });\n  121 |\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:118:34"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:15.461Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Contact-Form-Validat-e8789-submit-form-with-valid-data-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Contact-Form-Validat-e8789-submit-form-with-valid-data-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Contact-Form-Validat-e8789-submit-form-with-valid-data-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 34,
-                        "line": 118
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-728a713d4ba2fba64d1b",
@@ -935,7 +503,7 @@
           "specs": [
             {
               "title": "should sanitize XSS attempt 1: <script>alert(\"xss\")</script>...",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -944,62 +512,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 4,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1031,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"<script\"\u001b[39m\nReceived string:        \u001b[31m\"\u001b[7m<script\u001b[27m>alert(\\\"xss\\\")</script>\"\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"<script\"\u001b[39m\nReceived string:        \u001b[31m\"\u001b[7m<script\u001b[27m>alert(\\\"xss\\\")</script>\"\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:140:43",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 43,
-                          "line": 140
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[90m// Check if dangerous script tags are present\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'<script'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                           \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onerror'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'javascript:'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onload'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 43,
-                            "line": 140
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"<script\"\u001b[39m\nReceived string:        \u001b[31m\"\u001b[7m<script\u001b[27m>alert(\\\"xss\\\")</script>\"\u001b[39m\n\n  138 |\n  139 |       // Check if dangerous script tags are present\n> 140 |       expect(nameValue.toLowerCase()).not.toContain('<script');\n      |                                           ^\n  141 |       expect(nameValue.toLowerCase()).not.toContain('onerror');\n  142 |       expect(nameValue.toLowerCase()).not.toContain('javascript:');\n  143 |       expect(nameValue.toLowerCase()).not.toContain('onload');\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:140:43"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:19.096Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-b6ee5--1-script-alert-xss-script--chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-b6ee5--1-script-alert-xss-script--chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-b6ee5--1-script-alert-xss-script--chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 43,
-                        "line": 140
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-22ade873fc94be224095",
@@ -1009,7 +523,7 @@
             },
             {
               "title": "should sanitize XSS attempt 2: <img src=x onerror=alert(\"xss\"...",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -1018,62 +532,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 5,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1041,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"onerror\"\u001b[39m\nReceived string:        \u001b[31m\"<img src=x \u001b[7monerror\u001b[27m=alert(\\\"xss\\\")>\"\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"onerror\"\u001b[39m\nReceived string:        \u001b[31m\"<img src=x \u001b[7monerror\u001b[27m=alert(\\\"xss\\\")>\"\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:141:43",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 43,
-                          "line": 141
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 139 |\u001b[39m       \u001b[90m// Check if dangerous script tags are present\u001b[39m\n \u001b[90m 140 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'<script'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 141 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onerror'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                           \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 142 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'javascript:'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onload'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 144 |\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 43,
-                            "line": 141
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"onerror\"\u001b[39m\nReceived string:        \u001b[31m\"<img src=x \u001b[7monerror\u001b[27m=alert(\\\"xss\\\")>\"\u001b[39m\n\n  139 |       // Check if dangerous script tags are present\n  140 |       expect(nameValue.toLowerCase()).not.toContain('<script');\n> 141 |       expect(nameValue.toLowerCase()).not.toContain('onerror');\n      |                                           ^\n  142 |       expect(nameValue.toLowerCase()).not.toContain('javascript:');\n  143 |       expect(nameValue.toLowerCase()).not.toContain('onload');\n  144 |\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:141:43"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:21.314Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-07566-mg-src-x-onerror-alert-xss--chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-07566-mg-src-x-onerror-alert-xss--chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-07566-mg-src-x-onerror-alert-xss--chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 43,
-                        "line": 141
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-eae2427b28fd99683deb",
@@ -1083,7 +543,7 @@
             },
             {
               "title": "should sanitize XSS attempt 3: javascript:alert(\"xss\")...",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -1092,62 +552,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 6,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1246,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"javascript:\"\u001b[39m\nReceived string:        \u001b[31m\"\u001b[7mjavascript:\u001b[27malert(\\\"xss\\\")\"\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"javascript:\"\u001b[39m\nReceived string:        \u001b[31m\"\u001b[7mjavascript:\u001b[27malert(\\\"xss\\\")\"\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:142:43",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 43,
-                          "line": 142
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 140 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'<script'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 141 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onerror'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 142 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'javascript:'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                           \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 143 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onload'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 144 |\u001b[39m\n \u001b[90m 145 |\u001b[39m       \u001b[90m// Try in message field as well\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 43,
-                            "line": 142
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"javascript:\"\u001b[39m\nReceived string:        \u001b[31m\"\u001b[7mjavascript:\u001b[27malert(\\\"xss\\\")\"\u001b[39m\n\n  140 |       expect(nameValue.toLowerCase()).not.toContain('<script');\n  141 |       expect(nameValue.toLowerCase()).not.toContain('onerror');\n> 142 |       expect(nameValue.toLowerCase()).not.toContain('javascript:');\n      |                                           ^\n  143 |       expect(nameValue.toLowerCase()).not.toContain('onload');\n  144 |\n  145 |       // Try in message field as well\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:142:43"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:23.608Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-7626a-mpt-3-javascript-alert-xss--chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-7626a-mpt-3-javascript-alert-xss--chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-7626a-mpt-3-javascript-alert-xss--chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 43,
-                        "line": 142
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-80a476c9efa2eab4b11b",
@@ -1157,7 +563,7 @@
             },
             {
               "title": "should sanitize XSS attempt 4: <svg onload=alert(\"xss\")>...",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -1166,62 +572,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 7,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1146,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"onload\"\u001b[39m\nReceived string:        \u001b[31m\"<svg \u001b[7monload\u001b[27m=alert(\\\"xss\\\")>\"\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"onload\"\u001b[39m\nReceived string:        \u001b[31m\"<svg \u001b[7monload\u001b[27m=alert(\\\"xss\\\")>\"\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:143:43",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 43,
-                          "line": 143
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 141 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onerror'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'javascript:'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 143 |\u001b[39m       expect(nameValue\u001b[33m.\u001b[39mtoLowerCase())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'onload'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                           \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 144 |\u001b[39m\n \u001b[90m 145 |\u001b[39m       \u001b[90m// Try in message field as well\u001b[39m\n \u001b[90m 146 |\u001b[39m       \u001b[36mawait\u001b[39m messageInput\u001b[33m.\u001b[39mfill(xssInput)\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 43,
-                            "line": 143
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"onload\"\u001b[39m\nReceived string:        \u001b[31m\"<svg \u001b[7monload\u001b[27m=alert(\\\"xss\\\")>\"\u001b[39m\n\n  141 |       expect(nameValue.toLowerCase()).not.toContain('onerror');\n  142 |       expect(nameValue.toLowerCase()).not.toContain('javascript:');\n> 143 |       expect(nameValue.toLowerCase()).not.toContain('onload');\n      |                                           ^\n  144 |\n  145 |       // Try in message field as well\n  146 |       await messageInput.fill(xssInput);\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:143:43"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:26.123Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-a3780-mpt-4-svg-onload-alert-xss--chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-a3780-mpt-4-svg-onload-alert-xss--chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-XSS-Prevention-shoul-a3780-mpt-4-svg-onload-alert-xss--chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 43,
-                        "line": 143
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-ca33abd7505297f2120f",
@@ -1240,22 +592,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 3172,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:28.496Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-91cc3c2b1124c65a47a5",
@@ -1274,22 +612,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 687,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:32.012Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-9d62e892a35722c4b9e0",
@@ -1316,22 +640,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2663,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:32.709Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-95c35c3295b31f5909c0",
@@ -1350,22 +660,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2680,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:35.380Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-205a5084f4e9f41ea15a",
@@ -1384,22 +680,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2658,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:38.072Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-a2fcd1d8109a6ab29641",
@@ -1417,7 +699,7 @@
           "specs": [
             {
               "title": "should have proper labels for all fields",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -1426,62 +708,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 517,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:249:23",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 23,
-                          "line": 249
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 247 |\u001b[39m                       \u001b[36mawait\u001b[39m messageLabel\u001b[33m.\u001b[39mcount() \u001b[33m>\u001b[39m \u001b[35m0\u001b[39m\u001b[33m;\u001b[39m\n \u001b[90m 248 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 249 |\u001b[39m     expect(hasLabels)\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 250 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 251 |\u001b[39m\n \u001b[90m 252 |\u001b[39m   test(\u001b[32m'should show loading state during submission'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 23,
-                            "line": 249
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  247 |                       await messageLabel.count() > 0;\n  248 |\n> 249 |     expect(hasLabels).toBeTruthy();\n      |                       ^\n  250 |   });\n  251 |\n  252 |   test('should show loading state during submission', async ({ page }) => {\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:249:23"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:40.738Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Form-UX-and-Accessib-eaa0a-roper-labels-for-all-fields-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Form-UX-and-Accessib-eaa0a-roper-labels-for-all-fields-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Form-UX-and-Accessib-eaa0a-roper-labels-for-all-fields-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 23,
-                        "line": 249
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-045b93e61b716adf15f6",
@@ -1500,26 +728,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 9,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1500,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Loading indicator shown: true\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:42.174Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-8d92d4d46fa5dbb6ad9d",
@@ -1538,26 +748,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 9,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 727,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Submit button disabled during submission: true\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:43.930Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-68d4f6d7952a2f31e8fe",
@@ -1567,7 +759,7 @@
             },
             {
               "title": "should clear form after successful submission",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -1576,62 +768,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 9,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 12922,
-                      "error": {
-                        "message": "TimeoutError: locator.inputValue: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"name\"], input[id=\"name\"]')\u001b[22m\n",
-                        "stack": "TimeoutError: locator.inputValue: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"name\"], input[id=\"name\"]')\u001b[22m\n\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:325:39",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                          "column": 39,
-                          "line": 325
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 323 |\u001b[39m\n \u001b[90m 324 |\u001b[39m     \u001b[90m// Check if form was cleared\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 325 |\u001b[39m     \u001b[36mconst\u001b[39m nameValue \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m nameInput\u001b[33m.\u001b[39minputValue()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 326 |\u001b[39m     \u001b[36mconst\u001b[39m emailValue \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m emailInput\u001b[33m.\u001b[39minputValue()\u001b[33m;\u001b[39m\n \u001b[90m 327 |\u001b[39m     \u001b[36mconst\u001b[39m messageValue \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m messageInput\u001b[33m.\u001b[39minputValue()\u001b[33m;\u001b[39m\n \u001b[90m 328 |\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                            "column": 39,
-                            "line": 325
-                          },
-                          "message": "TimeoutError: locator.inputValue: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"name\"], input[id=\"name\"]')\u001b[22m\n\n\n  323 |\n  324 |     // Check if form was cleared\n> 325 |     const nameValue = await nameInput.inputValue();\n      |                                       ^\n  326 |     const emailValue = await emailInput.inputValue();\n  327 |     const messageValue = await messageInput.inputValue();\n  328 |\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts:325:39"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:44.672Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Form-UX-and-Accessib-39ac6-after-successful-submission-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Form-UX-and-Accessib-39ac6-after-successful-submission-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\forms-Form-UX-and-Accessib-39ac6-after-successful-submission-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\forms.spec.ts",
-                        "column": 39,
-                        "line": 325
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-44319973c33a56a5dd63",
@@ -1658,22 +796,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1249,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:58:58.523Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-b5cb3791c7b7fcbe3c6c",
@@ -1692,22 +816,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 543,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:00.018Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-cbc8f885401f0eb0f636",
@@ -1734,22 +844,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2683,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:00.575Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "3d495e9d89fc3701f213-209aa53772c472a6115c",
@@ -1785,22 +881,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 606,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:03.291Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-0c553a358c85f506557e",
@@ -1819,22 +901,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 928,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:03.907Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-e938a621f7f181668a1f",
@@ -1853,22 +921,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 555,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:04.842Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-94e12aac7c8c0a574f4a",
@@ -1887,22 +941,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 558,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:05.404Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-df07892ed525fffc5c5b",
@@ -1921,22 +961,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 651,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:05.969Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-e5c29bd71bf7149113dd",
@@ -1955,22 +981,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 626,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:06.628Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-9069cd44b7c6b77b016e",
@@ -1989,22 +1001,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 643,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:07.261Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-3dbc836726117344b886",
@@ -2023,22 +1021,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 596,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:07.917Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-145fc09e82bb3b80d488",
@@ -2057,22 +1041,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 700,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:08.520Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-19dd8cdb5161c6242f8e",
@@ -2091,22 +1061,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 624,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:09.227Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-9259e868c0f99100e2e6",
@@ -2125,22 +1081,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 635,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:09.857Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-f86dee5a99c69c45dd19",
@@ -2159,22 +1101,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 637,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:10.498Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-e7cb431211dc5a6b9fb4",
@@ -2193,22 +1121,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 558,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:11.142Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-020e2eda424ccdcc1af4",
@@ -2227,22 +1141,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 595,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:11.708Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-887bb085a301270140b5",
@@ -2261,22 +1161,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 589,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:12.311Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-2a41ee0d89d317408752",
@@ -2295,22 +1181,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 591,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:12.906Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-af32ab6c9538b6274d53",
@@ -2329,22 +1201,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 636,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:13.503Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-2598040b65adabb5696d",
@@ -2363,22 +1221,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 664,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:14.146Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-dd7a64cdd3d09a1a2741",
@@ -2397,22 +1241,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 614,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:14.817Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-990ee24c1858db9e2e09",
@@ -2431,22 +1261,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 634,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:15.437Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-698c0753b0b11318d713",
@@ -2465,22 +1281,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 601,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:16.078Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-e1bdad68ee1d56c47b7e",
@@ -2499,22 +1301,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 537,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:16.686Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-d818784d4e08c5adc2bc",
@@ -2533,22 +1321,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 481,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:17.229Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-1d26da90701aa0606ca4",
@@ -2567,26 +1341,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 523,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Possible error on /privacy: For error tracking and performance monitoring\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:17.717Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-b19c43adc112e4af8038",
@@ -2605,26 +1361,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 545,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Possible error on /terms: Warranties that the Service will be uninterrupted, secure, or error-free\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:18.247Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-3ade2273e21dedea8f5a",
@@ -2643,26 +1381,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 511,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Possible error on /refunds: Reports could not be generated due to system errors on our end\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:18.799Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-71d75a658e20d9de0c0b",
@@ -2681,22 +1401,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 515,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:19.316Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-32dd6a09f80982a593ee",
@@ -2715,22 +1421,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 482,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:19.839Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-c53f0a9d032eb6679e4f",
@@ -2757,22 +1449,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 746,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:20.328Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-c691133790591db4d0b4",
@@ -2782,7 +1460,7 @@
             },
             {
               "title": "should navigate to Pricing page from header",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -2791,62 +1469,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1988,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('link', { name: /pricing/i })\nExpected: visible\nError: strict mode violation: getByRole('link', { name: /pricing/i }) resolved to 3 elements:\n    1) <a href=\"/pricing\" data-discover=\"true\" class=\"px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors\">Pricing</a> aka getByRole('navigation').getByRole('link', { name: 'Pricing' })\n    2) <a class=\"block\" data-discover=\"true\" href=\"/features/cost-estimation\">…</a> aka getByRole('link', { name: 'Accurate Pricing Market-' })\n    3) <a href=\"/pricing\" data-discover=\"true\" class=\"hover:text-primary transition-colors\">Pricing</a> aka getByRole('contentinfo').getByRole('link', { name: 'Pricing' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('link', { name: /pricing/i })\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('link', { name: /pricing/i })\nExpected: visible\nError: strict mode violation: getByRole('link', { name: /pricing/i }) resolved to 3 elements:\n    1) <a href=\"/pricing\" data-discover=\"true\" class=\"px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors\">Pricing</a> aka getByRole('navigation').getByRole('link', { name: 'Pricing' })\n    2) <a class=\"block\" data-discover=\"true\" href=\"/features/cost-estimation\">…</a> aka getByRole('link', { name: 'Accurate Pricing Market-' })\n    3) <a href=\"/pricing\" data-discover=\"true\" class=\"hover:text-primary transition-colors\">Pricing</a> aka getByRole('contentinfo').getByRole('link', { name: 'Pricing' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('link', { name: /pricing/i })\u001b[22m\n\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts:63:31",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts",
-                          "column": 31,
-                          "line": 63
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 61 |\u001b[39m     \u001b[90m// Find pricing link in navigation\u001b[39m\n \u001b[90m 62 |\u001b[39m     \u001b[36mconst\u001b[39m pricingLink \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'link'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/pricing/i\u001b[39m })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 63 |\u001b[39m     \u001b[36mawait\u001b[39m expect(pricingLink)\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 64 |\u001b[39m\n \u001b[90m 65 |\u001b[39m     \u001b[90m// Click pricing link\u001b[39m\n \u001b[90m 66 |\u001b[39m     \u001b[36mawait\u001b[39m pricingLink\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts",
-                            "column": 31,
-                            "line": 63
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('link', { name: /pricing/i })\nExpected: visible\nError: strict mode violation: getByRole('link', { name: /pricing/i }) resolved to 3 elements:\n    1) <a href=\"/pricing\" data-discover=\"true\" class=\"px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground transition-colors\">Pricing</a> aka getByRole('navigation').getByRole('link', { name: 'Pricing' })\n    2) <a class=\"block\" data-discover=\"true\" href=\"/features/cost-estimation\">…</a> aka getByRole('link', { name: 'Accurate Pricing Market-' })\n    3) <a href=\"/pricing\" data-discover=\"true\" class=\"hover:text-primary transition-colors\">Pricing</a> aka getByRole('contentinfo').getByRole('link', { name: 'Pricing' })\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('link', { name: /pricing/i })\u001b[22m\n\n\n  61 |     // Find pricing link in navigation\n  62 |     const pricingLink = page.getByRole('link', { name: /pricing/i });\n> 63 |     await expect(pricingLink).toBeVisible();\n     |                               ^\n  64 |\n  65 |     // Click pricing link\n  66 |     await pricingLink.click();\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts:63:31"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:21.081Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\navigation-Main-Navigation-03718-to-Pricing-page-from-header-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\navigation-Main-Navigation-03718-to-Pricing-page-from-header-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\navigation-Main-Navigation-03718-to-Pricing-page-from-header-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts",
-                        "column": 31,
-                        "line": 63
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-b507d905a19502e2b708",
@@ -2865,22 +1489,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 898,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:24.033Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-d6f07e90b0087e159407",
@@ -2899,22 +1509,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 568,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:25.190Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-c88ffd104398ee884055",
@@ -2941,22 +1537,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 503,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:25.768Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-ccc6cd2638024b09ab10",
@@ -2975,22 +1557,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 489,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:26.281Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-fe454567125bd873b2ad",
@@ -3009,22 +1577,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 542,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:26.777Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-20e36eb58b6b902f8610",
@@ -3043,22 +1597,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 564,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:27.327Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-113d5bf6066b2327eccb",
@@ -3085,22 +1625,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 518,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:27.899Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-8f28636667daa62a0ba4",
@@ -3119,22 +1645,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 552,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:28.426Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-e5ee349cfb2c21c2262e",
@@ -3153,22 +1665,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 561,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:28.985Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-b983a91107ae17ed5a91",
@@ -3195,22 +1693,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1118,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:29.557Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-20ba426114ce4818d831",
@@ -3229,22 +1713,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1117,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:30.683Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-81ad81dbb5f3af8c2ab3",
@@ -3263,22 +1733,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1081,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:31.808Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-2c231b7bab28b2d9b752",
@@ -3297,22 +1753,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1092,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:32.897Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-65f51e9649ddcda300ba",
@@ -3339,22 +1781,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 550,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:33.997Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-d226a3fe1005e17c0627",
@@ -3364,7 +1792,7 @@
             },
             {
               "title": "should handle invalid feature routes gracefully",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -3373,62 +1801,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1574,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts:312:69",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts",
-                          "column": 69,
-                          "line": 312
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 310 |\u001b[39m\n \u001b[90m 311 |\u001b[39m     \u001b[36mconst\u001b[39m currentUrl \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39murl()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 312 |\u001b[39m     expect(currentUrl \u001b[33m===\u001b[39m \u001b[32m'/'\u001b[39m \u001b[33m||\u001b[39m currentUrl\u001b[33m.\u001b[39mincludes(\u001b[32m'/features/'\u001b[39m))\u001b[33m.\u001b[39mtoBeTruthy()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                     \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 313 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 314 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 315 |\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts",
-                            "column": 69,
-                            "line": 312
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n  310 |\n  311 |     const currentUrl = page.url();\n> 312 |     expect(currentUrl === '/' || currentUrl.includes('/features/')).toBeTruthy();\n      |                                                                     ^\n  313 |   });\n  314 | });\n  315 |\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts:312:69"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:34.554Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\navigation-404-and-Error-H-6863e-d-feature-routes-gracefully-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\navigation-404-and-Error-H-6863e-d-feature-routes-gracefully-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\navigation-404-and-Error-H-6863e-d-feature-routes-gracefully-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\navigation.spec.ts",
-                        "column": 69,
-                        "line": 312
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-42f8b9601d0a9c862ccd",
@@ -3455,26 +1829,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 12,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 808,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "Mobile menu button found: false\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:37.058Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-18628d09f66abc74a19d",
@@ -3493,22 +1849,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 12,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 585,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:38.133Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "5d2868f7d23420c27cca-fbd0374040372a1444db",
@@ -3535,7 +1877,7 @@
           "specs": [
             {
               "title": "should display landing page with \"Start Free Trial\" button",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -3544,62 +1886,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 12,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 2065,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: /start.*free.*trial/i })\nExpected: visible\nError: strict mode violation: getByRole('button', { name: /start.*free.*trial/i }) resolved to 3 elements:\n    1) <button class=\"inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80\">…</button> aka getByRole('button', { name: 'Start Free Trial' }).first()\n    2) <button class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md px-8 w-full\">Start Free Trial</button> aka locator('button').filter({ hasText: /^Start Free Trial$/ })\n    3) <button class=\"inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80\">…</button> aka getByRole('button', { name: 'Start Free Trial' }).nth(2)\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /start.*free.*trial/i })\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: /start.*free.*trial/i })\nExpected: visible\nError: strict mode violation: getByRole('button', { name: /start.*free.*trial/i }) resolved to 3 elements:\n    1) <button class=\"inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80\">…</button> aka getByRole('button', { name: 'Start Free Trial' }).first()\n    2) <button class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md px-8 w-full\">Start Free Trial</button> aka locator('button').filter({ hasText: /^Start Free Trial$/ })\n    3) <button class=\"inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80\">…</button> aka getByRole('button', { name: 'Start Free Trial' }).nth(2)\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /start.*free.*trial/i })\u001b[22m\n\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts:35:36",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts",
-                          "column": 36,
-                          "line": 35
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 33 |\u001b[39m     \u001b[90m// Verify \"Start Free Trial\" button exists\u001b[39m\n \u001b[90m 34 |\u001b[39m     \u001b[36mconst\u001b[39m startTrialButton \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/start.*free.*trial/i\u001b[39m })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 35 |\u001b[39m     \u001b[36mawait\u001b[39m expect(startTrialButton)\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 36 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 37 |\u001b[39m\n \u001b[90m 38 |\u001b[39m   test(\u001b[32m'should complete Google OAuth mock flow successfully'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts",
-                            "column": 36,
-                            "line": 35
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('button', { name: /start.*free.*trial/i })\nExpected: visible\nError: strict mode violation: getByRole('button', { name: /start.*free.*trial/i }) resolved to 3 elements:\n    1) <button class=\"inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80\">…</button> aka getByRole('button', { name: 'Start Free Trial' }).first()\n    2) <button class=\"inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md px-8 w-full\">Start Free Trial</button> aka locator('button').filter({ hasText: /^Start Free Trial$/ })\n    3) <button class=\"inline-flex items-center justify-center whitespace-nowrap font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-11 rounded-md px-8 text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-r from-primary to-primary/80\">…</button> aka getByRole('button', { name: 'Start Free Trial' }).nth(2)\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /start.*free.*trial/i })\u001b[22m\n\n\n  33 |     // Verify \"Start Free Trial\" button exists\n  34 |     const startTrialButton = page.getByRole('button', { name: /start.*free.*trial/i });\n> 35 |     await expect(startTrialButton).toBeVisible();\n     |                                    ^\n  36 |   });\n  37 |\n  38 |   test('should complete Google OAuth mock flow successfully', async ({ page }) => {\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts:35:36"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:38.739Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Si-d6062-ith-Start-Free-Trial-button-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Si-d6062-ith-Start-Free-Trial-button-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Si-d6062-ith-Start-Free-Trial-button-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts",
-                        "column": 36,
-                        "line": 35
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-a2d747ef3253b12ec74c",
@@ -3618,22 +1906,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 13,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1645,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:41.738Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-243563dcaa0c33071299",
@@ -3652,22 +1926,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 13,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 893,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:43.686Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-585e3222f83441e60a2b",
@@ -3677,7 +1937,7 @@
             },
             {
               "title": "should display trial status banner with reports remaining",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -3686,62 +1946,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 13,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 10967,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/trial|free|reports remaining/i).first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/trial|free|reports remaining/i).first()\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/trial|free|reports remaining/i).first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/trial|free|reports remaining/i).first()\u001b[22m\n\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts:94:29",
-                        "location": {
-                          "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts",
-                          "column": 29,
-                          "line": 94
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 92 |\u001b[39m     \u001b[90m// Look for trial-related text (may appear in banner or elsewhere)\u001b[39m\n \u001b[90m 93 |\u001b[39m     \u001b[36mconst\u001b[39m trialText \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mgetByText(\u001b[35m/trial|free|reports remaining/i\u001b[39m)\u001b[33m.\u001b[39mfirst()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 94 |\u001b[39m     \u001b[36mawait\u001b[39m expect(trialText)\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 95 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 96 |\u001b[39m\n \u001b[90m 97 |\u001b[39m   test(\u001b[32m'should show error message when OAuth fails'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts",
-                            "column": 29,
-                            "line": 94
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/trial|free|reports remaining/i).first()\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/trial|free|reports remaining/i).first()\u001b[22m\n\n\n  92 |     // Look for trial-related text (may appear in banner or elsewhere)\n  93 |     const trialText = page.getByText(/trial|free|reports remaining/i).first();\n> 94 |     await expect(trialText).toBeVisible({ timeout: 10000 });\n     |                             ^\n  95 |   });\n  96 |\n  97 |   test('should show error message when OAuth fails', async ({ page }) => {\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts:94:29"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:44.591Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Si-b1c97-nner-with-reports-remaining-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Si-b1c97-nner-with-reports-remaining-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Si-b1c97-nner-with-reports-remaining-chromium\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts",
-                        "column": 29,
-                        "line": 94
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-37dab1598a03f65fa201",
@@ -3760,22 +1966,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 14,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1989,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:56.484Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-da8d4938f4c1a329628e",
@@ -3794,26 +1986,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 14,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 994,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "No logout button found in dashboard\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:58.724Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-998a0a00beb28cd4e028",
@@ -3832,22 +2006,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 14,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1920,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T14:59:59.730Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-5349d1f5facfcf305f11",
@@ -3874,22 +2034,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 14,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 727,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T15:00:01.658Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-cf9d3211234b12f6f37e",
@@ -3899,7 +2045,7 @@
             },
             {
               "title": "should validate trial expiration date format",
-              "ok": false,
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -3908,56 +2054,8 @@
                   "expectedStatus": "passed",
                   "projectId": "chromium",
                   "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 14,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 235,
-                      "error": {
-                        "message": "Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
-                        "stack": "Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts:195:16",
-                        "location": {
-                          "file": "<anonymous>",
-                          "column": 16,
-                          "line": 292
-                        }
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "<anonymous>",
-                            "column": 16,
-                            "line": 292
-                          },
-                          "message": "Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at UtilityScript.evaluate (<anonymous>:292:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at D:\\RestoreAssist\\packages\\frontend\\tests\\e2e-claude\\trial-signup.spec.ts:195:16"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-10-22T15:00:02.393Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Ed-d0c54-rial-expiration-date-format-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "D:\\RestoreAssist\\packages\\frontend\\test-results\\trial-signup-Free-Trial-Ed-d0c54-rial-expiration-date-format-chromium\\video.webm"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "<anonymous>",
-                        "column": 16,
-                        "line": 292
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
+                  "results": [],
+                  "status": "skipped"
                 }
               ],
               "id": "ef2b2dbfbcebe2cc0f2e-0c3079e6d201ae4364d7",
@@ -3972,11 +2070,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-10-22T14:57:53.106Z",
-    "duration": 130342.098,
-    "expected": 76,
-    "skipped": 0,
-    "unexpected": 15,
+    "startTime": "2025-10-23T08:53:17.974Z",
+    "duration": 95.82500000000005,
+    "expected": 0,
+    "skipped": 91,
+    "unexpected": 0,
     "flaky": 0
   }
 }

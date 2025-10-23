@@ -14,6 +14,7 @@
     "vercel-build": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
     "test": "npm run test --workspaces",
     "verify:oauth": "node scripts/verify-oauth.js",
+    "validate:deployment": "node scripts/validate-deployment.js",
     "agent:build": "AGENT_TYPE=build tsx agents/cli.ts",
     "agent:deploy": "AGENT_TYPE=deploy tsx agents/cli.ts",
     "agent:dev": "AGENT_TYPE=dev tsx agents/cli.ts"
