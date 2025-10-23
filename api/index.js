@@ -1,9 +1,32 @@
-// Vercel serverless function entry point (root-level)
-// This delegates to the backend package's serverless function
-const path = require('path');
+// Vercel serverless function entry point for all API routes
+// This file handles all /api/* requests and forwards them to the Express backend
 
-// Load the compiled Express app from backend package
-const app = require(path.join(__dirname, '..', 'packages', 'backend', 'dist', 'index'));
+module.exports = async (req, res) => {
+  const path = require('path');
 
-// Export the Express app for Vercel serverless
-module.exports = app.default || app;
+  try {
+    // Import the compiled Express app from backend dist
+    const appPath = path.join(__dirname, '..', 'packages', 'backend', 'dist', 'index.js');
+
+    // Dynamically import the Express app
+    const appModule = require(appPath);
+
+    // Handle both default and named exports
+    const app = appModule.default || appModule;
+
+    // Pass the request to Express
+    return app(req, res);
+  } catch (error) {
+    console.error('Failed to load Express app:', error);
+    console.error('Attempted path:', path.join(__dirname, '..', 'packages', 'backend', 'dist', 'index.js'));
+    console.error('__dirname:', __dirname);
+
+    return res.status(500).json({
+      error: 'Server initialization failed',
+      message: error.message,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
+      cwd: process.cwd(),
+      dirname: __dirname
+    });
+  }
+};
