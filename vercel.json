@@ -32,6 +32,6 @@
       "dest": "/packages/frontend/dist/index.html"
     }
   ],
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
   "installCommand": "npm install"
 }
