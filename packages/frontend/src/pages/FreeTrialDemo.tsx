@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FreeTrialLanding } from './FreeTrialLanding';
 import { Dashboard } from './Dashboard';
 
@@ -6,10 +6,17 @@ export function FreeTrialDemo() {
   const [userData, setUserData] = useState<any>(null);
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard'>('landing');
 
+  // Debug log on every render to track state changes
+  useEffect(() => {
+    console.log('🔄 FreeTrialDemo: Rendered with currentView =', currentView, 'userData =', userData ? 'present' : 'null');
+  }, [currentView, userData]);
+
   const handleTrialActivated = (data: any) => {
-    console.log('Trial activated successfully:', data);
+    console.log('🎯 FreeTrialDemo: Trial activated successfully:', data);
+    console.log('🎯 FreeTrialDemo: Setting user data and switching to dashboard view...');
     setUserData(data);
     setCurrentView('dashboard');
+    console.log('🎯 FreeTrialDemo: State updated - currentView should now be "dashboard"');
   };
 
   const handleBackToHome = () => {
@@ -23,10 +30,14 @@ export function FreeTrialDemo() {
     localStorage.removeItem('sessionToken');
   };
 
+  console.log('🔍 FreeTrialDemo: Current view =', currentView);
+
   if (currentView === 'landing') {
+    console.log('🔍 FreeTrialDemo: Rendering landing page');
     return <FreeTrialLanding onTrialActivated={handleTrialActivated} />;
   }
 
+  console.log('🔍 FreeTrialDemo: Rendering dashboard');
   return (
     <div>
       {/* Trial Status Banner */}

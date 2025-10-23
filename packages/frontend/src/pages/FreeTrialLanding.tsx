@@ -157,7 +157,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
   // Development-only bypass for screenshot capture
   // This code is tree-shaken out in production builds via import.meta.env.DEV check
   const handleDevLogin = import.meta.env.DEV
-    ? () => {
+    ? async () => {
         // Only allow on localhost for security
         if (!window.location.hostname.includes('localhost')) {
           console.error('Dev login only works on localhost');
@@ -200,9 +200,15 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
         };
 
         console.log('✅ DEV MODE: Mock authentication successful', mockUserData);
+        console.log('🔄 DEV MODE: Calling onTrialActivated to trigger dashboard redirect...');
+
+        // Small delay to ensure state updates properly
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Activate the mock trial
         onTrialActivated(mockUserData);
+
+        console.log('✅ DEV MODE: onTrialActivated called successfully');
       }
     : undefined;
 

@@ -996,9 +996,16 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
               {/* Dev Login (Development Only) */}
               {!import.meta.env.PROD && onDevLogin && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    console.log('🔵 Dev Login button clicked - closing modal and triggering authentication');
                     setShowAuthModal(false);
-                    onDevLogin();
+
+                    // Small delay to ensure modal closes before navigation
+                    await new Promise(resolve => setTimeout(resolve, 50));
+
+                    console.log('🔵 Calling onDevLogin...');
+                    await onDevLogin();
+                    console.log('🔵 onDevLogin completed');
                   }}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
                 >
