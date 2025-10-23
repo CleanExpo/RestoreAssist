@@ -5,6 +5,7 @@ import { generateDeviceFingerprint } from '../utils/deviceFingerprint';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { mapOAuthError, type OAuthError, type MappedOAuthError } from '../utils/oauthErrorMapper';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { useOAuthConfig } from '../contexts/OAuthConfigContext';
 import type { UserData, GoogleLoginResponse, TrialActivationResponse } from '../types/auth';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -19,6 +20,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
   const [error, setError] = useState<OAuthError | string | null>(null);
   const [mappedError, setMappedError] = useState<MappedOAuthError | null>(null);
   const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
+  const { config: oauthConfig } = useOAuthConfig();
 
   /**
    * Handle error with automatic OAuth error mapping
@@ -204,21 +206,12 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       }
     : undefined;
 
-  if (!GOOGLE_CLIENT_ID) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50">
-        <div className="text-center p-8">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Configuration Error</h1>
-          <p className="text-gray-700">
-            Google OAuth Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your .env file.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // If Google OAuth is not configured on backend, show landing page without OAuth provider
+  // This allows email/password flow to work independently
+  const shouldUseGoogleOAuth = GOOGLE_CLIENT_ID && oauthConfig.isFullyValid && showGoogleOAuth;
 
-  // If Google OAuth not loaded yet, show landing page without OAuth provider
-  if (!showGoogleOAuth) {
+  // If Google OAuth not loaded yet or not configured, show landing page without OAuth provider
+  if (!shouldUseGoogleOAuth) {
     return (
       <div className="relative">
         <LandingPage
@@ -230,10 +223,10 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
     );
   }
 
-  // Once user clicks sign up, load GoogleOAuthProvider
+  // Once user clicks sign up AND OAuth is configured, load GoogleOAuthProvider
   return (
     <GoogleOAuthProvider
-      clientId={GOOGLE_CLIENT_ID}
+      clientId={GOOGLE_CLIENT_ID!}
       onScriptLoadError={() => console.error('Google OAuth script failed to load')}
       onScriptLoadSuccess={() => {
         // CRITICAL: Disable Google One Tap immediately when script loads

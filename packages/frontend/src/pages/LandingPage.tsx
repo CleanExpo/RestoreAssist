@@ -20,7 +20,8 @@ import {
   Zap,
   Award,
   TrendingUp,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -35,6 +36,7 @@ import { MainNavigation } from '../components/navigation/MainNavigation';
 import { PricingCard } from '../components/pricing/PricingCard';
 import { getAllPlans, getPriceId } from '../config/stripe';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { useOAuthConfig } from '../contexts/OAuthConfigContext';
 
 interface LandingPageProps {
   onGetStarted?: () => void;
@@ -48,7 +50,12 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isEmailSignup, setIsEmailSignup] = useState(true);
   const plans = getAllPlans();
+  const { config } = useOAuthConfig();
 
   // Use the appropriate handler - onShowGoogleOAuth if provided, otherwise onGetStarted
   const handleGetStarted = (): void => {
@@ -880,17 +887,111 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
                 </div>
               </div>
 
-              {/* Google Login Button */}
-              <div className="flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleLogin}
-                  onError={() => console.error('Google Login Failed')}
-                  theme="filled_blue"
-                  size="large"
-                  text="signup_with"
-                  shape="pill"
-                />
-              </div>
+              {/* Google Login Button - Only show if OAuth is fully configured */}
+              {config.isFullyValid && !showEmailForm && (
+                <>
+                  <div className="flex justify-center">
+                    <GoogleLogin
+                      onSuccess={handleGoogleLogin}
+                      onError={() => console.error('Google Login Failed')}
+                      theme="filled_blue"
+                      size="large"
+                      text="signup_with"
+                      shape="pill"
+                    />
+                  </div>
+
+                  {/* Divider */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-border"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+
+                  {/* Email/Password Option */}
+                  <Button
+                    onClick={() => setShowEmailForm(true)}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Continue with Email
+                  </Button>
+                </>
+              )}
+
+              {/* Email/Password Form - Show by default if Google OAuth not configured */}
+              {(!config.isFullyValid || showEmailForm) && (
+                <div className="space-y-4">
+                  {showEmailForm && (
+                    <button
+                      onClick={() => setShowEmailForm(false)}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Back to Google Sign In
+                    </button>
+                  )}
+
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium mb-1">
+                        Password
+                      </label>
+                      <input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={() => {
+                        // TODO: Implement email/password auth
+                        console.log('Email/password auth not yet implemented');
+                        alert('Email/password authentication is coming soon! Please use Google Sign In for now.');
+                      }}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {isEmailSignup ? 'Sign Up with Email' : 'Sign In with Email'}
+                    </Button>
+
+                    <button
+                      onClick={() => setIsEmailSignup(!isEmailSignup)}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-center"
+                    >
+                      {isEmailSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+                    </button>
+                  </div>
+
+                  {!config.isFullyValid && (
+                    <div className="text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                      <strong>Note:</strong> Google Sign In is currently unavailable. Email/password authentication is coming soon.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Dev Login (Development Only) */}
               {!import.meta.env.PROD && onDevLogin && (
