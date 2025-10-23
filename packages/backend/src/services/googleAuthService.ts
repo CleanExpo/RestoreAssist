@@ -377,7 +377,7 @@ class GoogleAuthService {
 
     if (!useDatabase) {
       // Use in-memory storage via authService
-      const inMemoryUser = authService.getUserById(userId);
+      const inMemoryUser = await authService.getUserById(userId);
 
       if (!inMemoryUser) {
         return null;

@@ -50,7 +50,7 @@ authRoutes.post('/login', authRateLimiter, async (req: Request, res: Response) =
     const tokens = await authService.login(email, password);
 
     // Get user details
-    const user = authService.getUserByEmail(email);
+    const user = await authService.getUserByEmail(email);
 
     res.json({
       message: 'Login successful',
@@ -122,7 +122,7 @@ authRoutes.post('/logout', authenticate, (req: Request, res: Response) => {
 });
 
 // GET /api/auth/me - Get current user
-authRoutes.get('/me', authenticate, (req: Request, res: Response) => {
+authRoutes.get('/me', authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -131,7 +131,7 @@ authRoutes.get('/me', authenticate, (req: Request, res: Response) => {
     }
 
     // Get full user details
-    const user = authService.getUserById(req.user.userId);
+    const user = await authService.getUserById(req.user.userId);
 
     if (!user) {
       return res.status(404).json({
@@ -175,7 +175,7 @@ authRoutes.post('/register', authRateLimiter, authenticate, authorise('admin'), 
 
     // Update company if provided
     if (company) {
-      const fullUser = authService.getUserById(user.userId);
+      const fullUser = await authService.getUserById(user.userId);
       if (fullUser) {
         fullUser.company = company;
       }
@@ -233,9 +233,9 @@ authRoutes.post('/change-password', passwordRateLimiter, authenticate, async (re
 });
 
 // GET /api/auth/users - List all users (admin only)
-authRoutes.get('/users', authenticate, authorise('admin'), (req: Request, res: Response) => {
+authRoutes.get('/users', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
-    const users = authService.listUsers();
+    const users = await authService.listUsers();
 
     res.json({
       users,
@@ -353,14 +353,14 @@ authRoutes.post('/test-mode-access-attempt', (req: Request, res: Response) => {
 });
 
 // GET /api/auth/test-mode-attempts - Get test mode access attempts (admin only)
-authRoutes.get('/test-mode-attempts', authenticate, authorise('admin'), (req: Request, res: Response) => {
+authRoutes.get('/test-mode-attempts', authenticate, authorise('admin'), async (req: Request, res: Response) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const email = req.query.email as string;
 
     const attempts = email
-      ? authService.getTestModeAccessAttemptsByEmail(email)
-      : authService.getTestModeAccessAttempts(limit);
+      ? await authService.getTestModeAccessAttemptsByEmail(email)
+      : await authService.getTestModeAccessAttempts(limit);
 
     res.json({
       attempts,

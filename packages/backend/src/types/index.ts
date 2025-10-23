@@ -2,7 +2,7 @@ export type DamageType = 'water' | 'fire' | 'storm' | 'flood' | 'mold';
 
 export type AustralianState = 'NSW' | 'VIC' | 'QLD' | 'WA' | 'SA' | 'TAS' | 'ACT' | 'NT';
 
-export type UserRole = 'admin' | 'user' | 'viewer';
+export type UserRole = 'admin' | 'user' | 'viewer' | 'premium';
 
 export interface User {
   userId: string;

@@ -29,8 +29,9 @@ export class TransactionManager {
     } = options;
 
     // Create transaction mode
+    const isolationLevelKey = isolationLevel.replace(' ', '_') as keyof typeof pgp.txMode.isolationLevel;
     const mode = new pgp.txMode.TransactionMode({
-      isolationLevel: pgp.txMode.isolationLevel[isolationLevel.replace(' ', '_')],
+      tiLevel: pgp.txMode.isolationLevel[isolationLevelKey],
       deferrable,
       readOnly
     });

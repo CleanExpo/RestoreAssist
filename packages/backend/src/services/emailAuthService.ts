@@ -170,7 +170,7 @@ class EmailAuthService {
 
       if (!useDatabase) {
         // Use in-memory storage via authService
-        const existingUser = authService.getUserByEmail(email.toLowerCase());
+        const existingUser = await authService.getUserByEmail(email.toLowerCase());
         if (existingUser) {
           return {
             success: false,
@@ -278,7 +278,7 @@ class EmailAuthService {
         // Use in-memory authentication via authService
         try {
           const tokens = await authService.login(email.toLowerCase(), password);
-          const inMemoryUser = authService.getUserByEmail(email.toLowerCase());
+          const inMemoryUser = await authService.getUserByEmail(email.toLowerCase());
 
           if (!inMemoryUser) {
             return {
