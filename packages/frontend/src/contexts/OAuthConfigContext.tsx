@@ -1,49 +1,38 @@
 /**
- * OAuth Configuration Context
+ * Authentication Configuration Context
  *
- * Validates Google OAuth configuration at app startup and provides
- * config state to all components via React Context.
+ * Validates authentication configuration at app startup and provides
+ * auth state to all components via React Context.
  *
  * Features:
- * - Fetches backend config validation on mount
- * - Validates frontend VITE_GOOGLE_CLIENT_ID
- * - Logs validation results to console
- * - Provides config state to disable OAuth buttons if misconfigured
+ * - Fetches backend auth config validation on mount
+ * - Provides config state to components
+ * - Email/password authentication only (Google OAuth removed)
  *
- * @module contexts/OAuthConfigContext
+ * @module contexts/AuthConfigContext
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import {
-  validateCurrentOAuthConfig,
-  formatValidationErrors,
-  ConfigValidationResult,
-} from '../utils/configValidator';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 /**
- * Backend config response structure
+ * Backend auth config response structure
  */
 interface BackendConfigResponse {
-  client_id?: string;
+  auth_method: string;
   is_valid: boolean;
   allowed_origins: string[];
-  errors: string[];
-  warnings: string[];
   config_status: 'ready' | 'misconfigured';
+  message?: string;
 }
 
 /**
- * Combined OAuth configuration state
+ * Authentication configuration state
  */
-export interface OAuthConfigState {
-  frontendValid: boolean;
-  backendValid: boolean;
-  isFullyValid: boolean;
-  frontendErrors: string[];
-  backendErrors: string[];
-  frontendWarnings: string[];
-  backendWarnings: string[];
+export interface AuthConfigState {
+  isValid: boolean;
+  authMethod: string;
+  allowedOrigins: string[];
   isLoading: boolean;
   lastChecked: Date | null;
 }
@@ -51,42 +40,35 @@ export interface OAuthConfigState {
 /**
  * Context value provided to consumers
  */
-interface OAuthConfigContextValue {
-  config: OAuthConfigState;
+interface AuthConfigContextValue {
+  config: AuthConfigState;
   recheckConfig: () => Promise<void>;
 }
 
-const OAuthConfigContext = createContext<OAuthConfigContextValue | undefined>(undefined);
+const AuthConfigContext = createContext<AuthConfigContextValue | undefined>(undefined);
 
 /**
- * OAuth Configuration Provider
+ * Authentication Configuration Provider
  *
- * Validates OAuth config on mount and provides state to child components.
+ * Validates auth config on mount and provides state to child components.
  */
-export const OAuthConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [config, setConfig] = useState<OAuthConfigState>({
-    frontendValid: false,
-    backendValid: false,
-    isFullyValid: false,
-    frontendErrors: [],
-    backendErrors: [],
-    frontendWarnings: [],
-    backendWarnings: [],
+export const AuthConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [config, setConfig] = useState<AuthConfigState>({
+    isValid: false,
+    authMethod: 'email_password',
+    allowedOrigins: [],
     isLoading: true,
     lastChecked: null,
   });
 
   /**
-   * Validates OAuth configuration from both frontend and backend
+   * Validates authentication configuration from backend
    */
   const validateConfig = async (): Promise<void> => {
     setConfig((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      // 1. Validate Frontend Configuration
-      const frontendValidation: ConfigValidationResult = validateCurrentOAuthConfig();
-
-      // 2. Fetch Backend Configuration Validation
+      // Fetch Backend Configuration Validation
       let backendValidation: BackendConfigResponse | null = null;
       try {
         const apiUrl = getApiBaseUrl();
@@ -107,107 +89,42 @@ export const OAuthConfigProvider: React.FC<{ children: ReactNode }> = ({ childre
         console.error('❌ Failed to fetch backend config:', fetchError);
       }
 
-      // 3. Combine Results
-      const frontendValid = frontendValidation.isValid;
-      const backendValid = backendValidation?.is_valid ?? false;
-      const isFullyValid = frontendValid && backendValid;
-
-      const newConfig: OAuthConfigState = {
-        frontendValid,
-        backendValid,
-        isFullyValid,
-        frontendErrors: frontendValidation.errors,
-        backendErrors: backendValidation?.errors ?? [],
-        frontendWarnings: frontendValidation.warnings,
-        backendWarnings: backendValidation?.warnings ?? [],
+      // Update config state
+      const newConfig: AuthConfigState = {
+        isValid: backendValidation?.is_valid ?? false,
+        authMethod: backendValidation?.auth_method ?? 'email_password',
+        allowedOrigins: backendValidation?.allowed_origins ?? [],
         isLoading: false,
         lastChecked: new Date(),
       };
 
       setConfig(newConfig);
 
-      // 4. Log Configuration Status to Console
-      console.group('🔐 OAuth Configuration Validation');
+      // Log Configuration Status to Console
+      console.group('🔐 Authentication Configuration');
       console.log('Timestamp:', new Date().toISOString());
       console.log('');
 
-      // Frontend Validation
-      console.log('📱 Frontend Configuration:');
-      if (frontendValid) {
-        console.log('  ✅ Valid - VITE_GOOGLE_CLIENT_ID is properly configured');
-      } else {
-        console.log('  ❌ Invalid - Frontend configuration errors detected');
-        frontendValidation.errors.forEach((error, idx) => {
-          console.log(`    ${idx + 1}. ${error}`);
-        });
-      }
-
-      if (frontendValidation.warnings.length > 0) {
-        console.log('  ⚠️  Warnings:');
-        frontendValidation.warnings.forEach((warning, idx) => {
-          console.log(`    ${idx + 1}. ${warning}`);
-        });
-      }
-      console.log('');
-
-      // Backend Validation
-      console.log('🖥️  Backend Configuration:');
       if (backendValidation) {
-        if (backendValid) {
-          console.log('  ✅ Valid - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are properly configured');
-          console.log(`  Client ID Preview: ${backendValidation.client_id || 'N/A'}`);
-        } else {
-          console.log('  ❌ Invalid - Backend configuration errors detected');
-          backendValidation.errors.forEach((error, idx) => {
-            console.log(`    ${idx + 1}. ${error}`);
-          });
+        console.log('📊 Status:', backendValidation.config_status);
+        console.log('🔑 Auth Method:', backendValidation.auth_method);
+        if (backendValidation.message) {
+          console.log('💬 Message:', backendValidation.message);
         }
-
-        if (backendValidation.warnings.length > 0) {
-          console.log('  ⚠️  Warnings:');
-          backendValidation.warnings.forEach((warning, idx) => {
-            console.log(`    ${idx + 1}. ${warning}`);
-          });
-        }
-
         if (backendValidation.allowed_origins.length > 0) {
-          console.log('  Allowed Origins:', backendValidation.allowed_origins);
+          console.log('🌐 Allowed Origins:', backendValidation.allowed_origins);
         }
       } else {
-        console.log('  ⚠️  Could not reach backend - server may be offline');
-      }
-      console.log('');
-
-      // Overall Status
-      console.log('📊 Overall Status:');
-      if (isFullyValid) {
-        console.log('  ✅ OAuth Authentication: Ready');
-        console.log('  "Sign in with Google" buttons are enabled and functional');
-      } else {
-        console.log('  ❌ OAuth Authentication: Misconfigured');
-        console.log('  "Sign in with Google" buttons may not work correctly');
-        console.log('');
-        console.log('  🔧 Troubleshooting Steps:');
-        console.log('    1. Verify VITE_GOOGLE_CLIENT_ID in packages/frontend/.env.local');
-        console.log('    2. Verify GOOGLE_CLIENT_ID in packages/backend/.env.local');
-        console.log('    3. Verify GOOGLE_CLIENT_SECRET in packages/backend/.env.local');
-        console.log('    4. Check Client ID format: [numbers]-[random].apps.googleusercontent.com');
-        console.log('    5. Ensure credentials are from Google Cloud Console: https://console.cloud.google.com/apis/credentials');
-        console.log('');
-        console.log('  📚 Documentation: https://docs.restoreassist.com/troubleshooting/oauth-setup');
+        console.log('⚠️  Could not reach backend - server may be offline');
       }
 
       console.groupEnd();
     } catch (error) {
-      console.error('❌ OAuth config validation failed:', error);
+      console.error('❌ Auth config validation failed:', error);
       setConfig({
-        frontendValid: false,
-        backendValid: false,
-        isFullyValid: false,
-        frontendErrors: ['Unexpected error during validation'],
-        backendErrors: [],
-        frontendWarnings: [],
-        backendWarnings: [],
+        isValid: false,
+        authMethod: 'email_password',
+        allowedOrigins: [],
         isLoading: false,
         lastChecked: new Date(),
       });
@@ -219,39 +136,44 @@ export const OAuthConfigProvider: React.FC<{ children: ReactNode }> = ({ childre
     validateConfig();
   }, []);
 
-  const contextValue: OAuthConfigContextValue = {
+  const contextValue: AuthConfigContextValue = {
     config,
     recheckConfig: validateConfig,
   };
 
   return (
-    <OAuthConfigContext.Provider value={contextValue}>
+    <AuthConfigContext.Provider value={contextValue}>
       {children}
-    </OAuthConfigContext.Provider>
+    </AuthConfigContext.Provider>
   );
 };
 
 /**
- * Hook to access OAuth configuration state
+ * Hook to access authentication configuration state
  *
- * @returns OAuth config state and recheck function
- * @throws Error if used outside OAuthConfigProvider
+ * @returns Auth config state and recheck function
+ * @throws Error if used outside AuthConfigProvider
  *
  * @example
- * const { config, recheckConfig } = useOAuthConfig();
+ * const { config, recheckConfig } = useAuthConfig();
  *
- * if (!config.isFullyValid) {
- *   return <div>OAuth is misconfigured. Cannot sign in.</div>;
+ * if (!config.isValid) {
+ *   return <div>Authentication is misconfigured.</div>;
  * }
  */
-export const useOAuthConfig = (): OAuthConfigContextValue => {
-  const context = useContext(OAuthConfigContext);
+export const useAuthConfig = (): AuthConfigContextValue => {
+  const context = useContext(AuthConfigContext);
 
   if (!context) {
-    throw new Error('useOAuthConfig must be used within OAuthConfigProvider');
+    throw new Error('useAuthConfig must be used within AuthConfigProvider');
   }
 
   return context;
 };
 
-export default OAuthConfigContext;
+// Keep old names for backward compatibility during transition
+export const OAuthConfigProvider = AuthConfigProvider;
+export const useOAuthConfig = useAuthConfig;
+export type OAuthConfigState = AuthConfigState;
+
+export default AuthConfigContext;

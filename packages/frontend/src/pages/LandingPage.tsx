@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import {
   Droplet,
   Flame,
@@ -42,12 +41,11 @@ import { useOAuthConfig } from '../contexts/OAuthConfigContext';
 
 interface LandingPageProps {
   onGetStarted?: () => void;
-  onLoginSuccess?: (googleCredential: string) => void;
+  onLoginSuccess?: (email: string) => void;
   onDevLogin?: () => void;
-  onShowGoogleOAuth?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGoogleOAuth }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin }: LandingPageProps) {
   const navigate = useNavigate();
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -64,30 +62,12 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
   const plans = getAllPlans();
   const { config } = useOAuthConfig();
 
-  // Use the appropriate handler - onShowGoogleOAuth if provided, otherwise onGetStarted
+  // Handle get started - show email auth modal
   const handleGetStarted = (): void => {
-    if (onShowGoogleOAuth) {
-      onShowGoogleOAuth();
-      // Show the auth modal after a brief delay to prevent double-click issues
-      setTimeout(() => setShowAuthModal(true), 0);
-    } else if (onGetStarted) {
+    setShowAuthModal(true);
+    setShowEmailForm(true); // Always show email form now
+    if (onGetStarted) {
       onGetStarted();
-    }
-    // If neither is provided, this is a no-op (intentional for pages that don't need auth)
-  };
-
-  const handleGoogleLogin = (credentialResponse: CredentialResponse) => {
-    if (!credentialResponse.credential) {
-      console.error('No credential received from Google');
-      return;
-    }
-
-    // Close the modal
-    setShowAuthModal(false);
-
-    // Call parent callback with credential
-    if (onLoginSuccess) {
-      onLoginSuccess(credentialResponse.credential);
     }
   };
 
