@@ -4,15 +4,9 @@
   "buildCommand": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
   "outputDirectory": "packages/frontend/dist",
   "functions": {
-    "packages/backend/api/*.js": {
+    "api/[...path].js": {
       "memory": 1024,
       "maxDuration": 10
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/packages/backend/api/index.js"
-    }
-  ]
+  }
 }
