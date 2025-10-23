@@ -42,6 +42,25 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const VERIFICATION_AMOUNT = 100; // $1.00 test charge (in cents)
 const MAX_CARD_REUSE = 3; // Maximum times a card can be used across accounts
 
+// Validate Stripe configuration when required
+function validateStripeKey(): void {
+  if (!STRIPE_SECRET_KEY) {
+    console.warn('⚠️ STRIPE_SECRET_KEY not configured - payment verification disabled');
+    return;
+  }
+
+  // Check for unsafe example values
+  const UNSAFE_PATTERNS = ['EXAMPLE', 'test_KEY', 'NEVER_USE', 'your_stripe'];
+  if (UNSAFE_PATTERNS.some(pattern => STRIPE_SECRET_KEY.toLowerCase().includes(pattern.toLowerCase()))) {
+    throw new Error('CRITICAL: STRIPE_SECRET_KEY is using an unsafe example value!');
+  }
+
+  // Validate format
+  if (!STRIPE_SECRET_KEY.startsWith('sk_test_') && !STRIPE_SECRET_KEY.startsWith('sk_live_')) {
+    throw new Error('STRIPE_SECRET_KEY has invalid format. Must start with sk_test_ or sk_live_');
+  }
+}
+
 // =====================================================
 // Payment Verification Service
 // =====================================================
@@ -51,6 +70,7 @@ class PaymentVerificationService {
 
   constructor() {
     if (STRIPE_SECRET_KEY) {
+      validateStripeKey();
       this.stripe = new Stripe(STRIPE_SECRET_KEY, {
         apiVersion: '2025-09-30.clover',
       });

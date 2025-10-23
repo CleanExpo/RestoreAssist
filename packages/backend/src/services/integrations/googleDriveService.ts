@@ -44,6 +44,14 @@ class GoogleDriveService {
     this.clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
     this.redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/integrations/google-drive/callback';
 
+    // Validate Google credentials if provided
+    if (this.clientSecret) {
+      const UNSAFE_PATTERNS = ['EXAMPLE', 'GOCSPX-EXAMPLE', 'NEVER_USE', 'your_google'];
+      if (UNSAFE_PATTERNS.some(pattern => this.clientSecret.toLowerCase().includes(pattern.toLowerCase()))) {
+        throw new Error('CRITICAL: GOOGLE_CLIENT_SECRET is using an unsafe example value!');
+      }
+    }
+
     this.oauth2Client = new google.auth.OAuth2(
       this.clientId,
       this.clientSecret,

@@ -55,10 +55,20 @@ npm install
 Copy and configure environment variables:
 
 ```bash
-cp packages/backend/.env.example packages/backend/.env
-cp packages/frontend/.env.example packages/frontend/.env
-# Edit the .env files with your configuration
+# Copy example files to create local environment configuration
+cp packages/backend/.env.example packages/backend/.env.local
+cp packages/frontend/.env.example packages/frontend/.env.local
+
+# CRITICAL SECURITY STEPS:
+# 1. Generate secure JWT secrets (run this command TWICE for different secrets):
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# 2. Edit .env.local files with your REAL credentials
+# 3. NEVER commit .env.local files to version control
+# 4. NEVER use example/default values in production
 ```
+
+⚠️ **SECURITY WARNING**: See [SECURITY_INCIDENT.md](SECURITY_INCIDENT.md) for critical security requirements.
 
 Start development servers:
 
@@ -379,6 +389,57 @@ If you're still experiencing issues:
    - [E2E Tests](tests/e2e-claude/auth/)
 
 ---
+
+## Security
+
+### Critical Security Requirements
+
+⚠️ **IMPORTANT**: This application requires proper secret configuration for secure operation.
+
+#### Required Secrets
+
+1. **JWT Secrets** (MUST be unique and random):
+   ```bash
+   # Generate two DIFFERENT secrets:
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   ```
+   - `JWT_SECRET`: For access token signing
+   - `JWT_REFRESH_SECRET`: For refresh token signing (MUST be different from JWT_SECRET)
+
+2. **Stripe API Keys**:
+   - Use `sk_test_...` for development
+   - Use `sk_live_...` for production only
+   - NEVER expose secret keys to frontend
+
+3. **OAuth Secrets**:
+   - `GOOGLE_CLIENT_SECRET`: Keep strictly confidential
+   - Configure correct redirect URIs in Google Cloud Console
+
+4. **Database Credentials**:
+   - Use strong passwords
+   - Rotate regularly
+   - Use connection pooling with SSL
+
+#### Security Best Practices
+
+- **Never commit** `.env.local` files to version control
+- **Never use** example/default values in production
+- **Always rotate** secrets if exposed
+- **Use environment-specific** credentials (dev/staging/prod)
+- **Enable monitoring** for failed authentication attempts
+- **Implement rate limiting** on authentication endpoints
+- **Use HTTPS** in production
+- **Enable CORS** with specific allowed origins
+
+#### Security Validation
+
+The application includes runtime security checks that will:
+- Fail to start if secrets are missing
+- Reject default/example secret values
+- Validate API key formats
+- Log security warnings
+
+See [SECURITY_INCIDENT.md](SECURITY_INCIDENT.md) for detailed security requirements and incident response procedures.
 
 ## Support
 

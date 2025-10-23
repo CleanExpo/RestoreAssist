@@ -113,6 +113,22 @@ export function validateStripeConfig(): { valid: boolean; errors: string[] } {
     errors.push('STRIPE_SECRET_KEY is not configured');
   }
 
+  // CRITICAL SECURITY CHECK: Ensure Stripe secret key is not an example/default value
+  const UNSAFE_STRIPE_PATTERNS = ['EXAMPLE', 'test_KEY', 'NEVER_USE', 'your_stripe'];
+  if (STRIPE_CONFIG.secretKey &&
+      UNSAFE_STRIPE_PATTERNS.some(pattern =>
+        STRIPE_CONFIG.secretKey.toLowerCase().includes(pattern.toLowerCase())
+      )) {
+    errors.push('CRITICAL SECURITY ERROR: STRIPE_SECRET_KEY is using an unsafe example/default value!');
+  }
+
+  // Validate that secret key format is correct (starts with sk_test_ or sk_live_)
+  if (STRIPE_CONFIG.secretKey &&
+      !STRIPE_CONFIG.secretKey.startsWith('sk_test_') &&
+      !STRIPE_CONFIG.secretKey.startsWith('sk_live_')) {
+    errors.push('STRIPE_SECRET_KEY has invalid format. Must start with sk_test_ or sk_live_');
+  }
+
   if (!STRIPE_CONFIG.products.freeTrial) {
     errors.push('STRIPE_PRODUCT_FREE_TRIAL is not configured');
   }

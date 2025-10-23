@@ -2,14 +2,23 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User, UserPayload, AuthTokens } from '../types';
 import { freeTrialService } from './freeTrialService';
+import { authServiceDb } from './authServiceDb';
 
-// In-memory user storage (replace with database in production)
+// Check if database is available
+const USE_DATABASE = process.env.USE_POSTGRES === 'true';
+
+// In production, database MUST be enabled
+if (process.env.NODE_ENV === 'production' && !USE_DATABASE) {
+  throw new Error('CRITICAL: Database must be enabled in production (USE_POSTGRES=true)');
+}
+
+// In-memory user storage (fallback when database not available)
 const users: Map<string, User> = new Map();
 
-// In-memory refresh token storage (use Redis in production)
+// In-memory refresh token storage (fallback when database not available)
 const refreshTokens: Set<string> = new Set();
 
-// In-memory test mode access attempt logging (use database in production)
+// In-memory test mode access attempt logging (fallback when database not available)
 interface TestModeAccessAttempt {
   email: string;
   timestamp: string;
@@ -20,18 +29,44 @@ interface TestModeAccessAttempt {
 
 const testModeAccessAttempts: TestModeAccessAttempt[] = [];
 
-// JWT configuration
-const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key';
+// JWT configuration - CRITICAL: These MUST be set via environment variables
+const JWT_SECRET: string = process.env.JWT_SECRET!;
+const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET!;
 const JWT_EXPIRY: string = process.env.JWT_EXPIRY || '15m'; // Access token expiry
 const JWT_REFRESH_EXPIRY: string = process.env.JWT_REFRESH_EXPIRY || '7d'; // Refresh token expiry
+
+// Validate that JWT secrets are configured
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables');
+}
+
+// Validate that secrets are not using default/example values
+const UNSAFE_SECRET_PATTERNS = [
+  'your-secret-key',
+  'change-in-production',
+  'EXAMPLE',
+  'CHANGE_THIS',
+  'your-refresh-secret'
+];
+
+if (UNSAFE_SECRET_PATTERNS.some(pattern =>
+  JWT_SECRET.toLowerCase().includes(pattern.toLowerCase()) ||
+  JWT_REFRESH_SECRET.toLowerCase().includes(pattern.toLowerCase())
+)) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT secrets are using unsafe default/example values. Generate proper secrets!');
+}
 
 export class AuthService {
   /**
    * Register a new user (for initial setup/testing)
    */
   async registerUser(email: string, password: string, name: string, role: 'admin' | 'user' | 'viewer' = 'user'): Promise<User> {
-    // Check if user exists
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.registerUser(email, password, name, role as any);
+    }
+
+    // Fallback to in-memory storage
     const existing = Array.from(users.values()).find(u => u.email === email);
     if (existing) {
       throw new Error('User already exists');
@@ -58,7 +93,12 @@ export class AuthService {
    * Authenticate user and generate tokens
    */
   async login(email: string, password: string): Promise<AuthTokens> {
-    // Find user by email
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.login(email, password);
+    }
+
+    // Fallback to in-memory storage
     const user = Array.from(users.values()).find(u => u.email === email);
     if (!user) {
       throw new Error('Invalid credentials');
@@ -118,7 +158,12 @@ export class AuthService {
    * Refresh access token using refresh token
    */
   async refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
-    // Check if refresh token exists in storage
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.refreshAccessToken(refreshToken);
+    }
+
+    // Fallback to in-memory storage
     if (!refreshTokens.has(refreshToken)) {
       throw new Error('Invalid refresh token');
     }
@@ -149,6 +194,7 @@ export class AuthService {
    * Verify and decode access token
    */
   verifyAccessToken(token: string): UserPayload {
+    // This doesn't need database, same for both
     try {
       return jwt.verify(token, JWT_SECRET) as UserPayload;
     } catch (error) {
@@ -159,28 +205,52 @@ export class AuthService {
   /**
    * Logout user (invalidate refresh token)
    */
-  logout(refreshToken: string): void {
+  async logout(refreshToken: string): Promise<void> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.logout(refreshToken);
+    }
+
+    // Fallback to in-memory storage
     refreshTokens.delete(refreshToken);
   }
 
   /**
    * Get user by ID
    */
-  getUserById(userId: string): User | undefined {
+  async getUserById(userId: string): Promise<User | undefined | null> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.getUserById(userId);
+    }
+
+    // Fallback to in-memory storage
     return users.get(userId);
   }
 
   /**
    * Get user by email
    */
-  getUserByEmail(email: string): User | undefined {
+  async getUserByEmail(email: string): Promise<User | undefined | null> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.getUserByEmail(email);
+    }
+
+    // Fallback to in-memory storage
     return Array.from(users.values()).find(u => u.email === email);
   }
 
   /**
    * Update user last login
    */
-  updateLastLogin(userId: string): void {
+  async updateLastLogin(userId: string): Promise<void> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.updateLastLogin(userId);
+    }
+
+    // Fallback to in-memory storage
     const user = users.get(userId);
     if (user) {
       user.lastLogin = new Date().toISOString();
@@ -192,6 +262,12 @@ export class AuthService {
    * Change user password
    */
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.changePassword(userId, oldPassword, newPassword);
+    }
+
+    // Fallback to in-memory storage
     const user = users.get(userId);
     if (!user) {
       throw new Error('User not found');
@@ -211,14 +287,26 @@ export class AuthService {
   /**
    * Delete user
    */
-  deleteUser(userId: string): boolean {
+  async deleteUser(userId: string): Promise<boolean> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.deleteUser(userId);
+    }
+
+    // Fallback to in-memory storage
     return users.delete(userId);
   }
 
   /**
    * List all users (admin only)
    */
-  listUsers(): User[] {
+  async listUsers(): Promise<User[]> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.listUsers();
+    }
+
+    // Fallback to in-memory storage
     return Array.from(users.values()).map(user => ({
       ...user,
       password: '[REDACTED]', // Don't expose passwords
@@ -245,10 +333,17 @@ export class AuthService {
   }
 
   /**
-   * Initialise with default admin user (for development)
+   * Initialize with default admin user (for development)
    */
   async initializeDefaultUsers(): Promise<void> {
     console.log('🔍 [AUTH] initializeDefaultUsers() called');
+
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.initializeDefaultUsers();
+    }
+
+    // Fallback to in-memory storage
     console.log(`🔍 [AUTH] Current user count before init: ${users.size}`);
 
     // Check if admin exists
@@ -261,7 +356,7 @@ export class AuthService {
     }
 
     // Create demo user
-    const demoUserExists = this.getUserByEmail('demo@restoreassist.com');
+    const demoUserExists = await this.getUserByEmail('demo@restoreassist.com');
     console.log(`🔍 [AUTH] Demo user exists: ${demoUserExists !== undefined}`);
     if (!demoUserExists) {
       console.log('🔍 [AUTH] Creating demo user...');
@@ -276,31 +371,44 @@ export class AuthService {
   /**
    * Get total user count
    */
-  getUserCount(): number {
+  async getUserCount(): Promise<number> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.getUserCount();
+    }
+
+    // Fallback to in-memory storage
     return users.size;
   }
 
   /**
    * Get active refresh tokens count
    */
-  getActiveTokenCount(): number {
+  async getActiveTokenCount(): Promise<number> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.getActiveTokenCount();
+    }
+
+    // Fallback to in-memory storage
     return refreshTokens.size;
   }
 
   /**
    * Log test mode access attempt (for non-whitelisted users)
-   *
-   * @param email - Email address that attempted access
-   * @param errorCode - OAuth error code ('access_blocked' or 'org_internal')
-   * @param ipAddress - Optional IP address of the request
-   * @param userAgent - Optional user agent string
    */
-  logTestModeAccessAttempt(
+  async logTestModeAccessAttempt(
     email: string,
     errorCode: string,
     ipAddress?: string,
     userAgent?: string
-  ): void {
+  ): Promise<void> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.logTestModeAccessAttempt(email, errorCode, ipAddress, userAgent);
+    }
+
+    // Fallback to in-memory storage
     const attempt: TestModeAccessAttempt = {
       email,
       timestamp: new Date().toISOString(),
@@ -324,43 +432,46 @@ export class AuthService {
 
   /**
    * Get all test mode access attempts
-   *
-   * @param limit - Optional limit on number of results (default: 50)
-   * @returns Array of test mode access attempts
    */
-  getTestModeAccessAttempts(limit: number = 50): TestModeAccessAttempt[] {
+  async getTestModeAccessAttempts(limit: number = 50): Promise<TestModeAccessAttempt[]> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.getTestModeAccessAttempts(limit);
+    }
+
+    // Fallback to in-memory storage
     return testModeAccessAttempts.slice(-limit).reverse(); // Most recent first
   }
 
   /**
    * Get test mode access attempts for a specific email
-   *
-   * @param email - Email address to filter by
-   * @returns Array of test mode access attempts for the email
    */
-  getTestModeAccessAttemptsByEmail(email: string): TestModeAccessAttempt[] {
+  async getTestModeAccessAttemptsByEmail(email: string): Promise<TestModeAccessAttempt[]> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.getTestModeAccessAttemptsByEmail(email);
+    }
+
+    // Fallback to in-memory storage
     return testModeAccessAttempts.filter(a => a.email === email).reverse();
   }
 
   /**
    * Clear test mode access attempt logs
-   * (Admin utility function)
    */
-  clearTestModeAccessAttempts(): void {
+  async clearTestModeAccessAttempts(): Promise<void> {
+    // Use database if available
+    if (USE_DATABASE) {
+      return authServiceDb.clearTestModeAccessAttempts();
+    }
+
+    // Fallback to in-memory storage
     testModeAccessAttempts.length = 0;
     console.log('✅ Test mode access attempt logs cleared');
   }
 
   /**
    * Check trial eligibility for a user
-   *
-   * @param userId - User ID to check
-   * @param email - User's email address
-   * @param fingerprintHash - Device fingerprint hash
-   * @param deviceData - Device fingerprinting data
-   * @param ipAddress - Optional IP address
-   * @param userAgent - Optional user agent string
-   * @returns Trial activation result with fraud check details
    */
   async checkTrialEligibility(
     userId: string,
@@ -377,6 +488,7 @@ export class AuthService {
     fraudFlags?: any[];
     denialReason?: string;
   }> {
+    // This always uses freeTrialService which handles its own database logic
     try {
       // Call freeTrialService to activate trial with fraud detection
       const result = await freeTrialService.activateTrial({
@@ -411,11 +523,9 @@ export class AuthService {
 
   /**
    * Check if user has an active trial
-   *
-   * @param userId - User ID to check
-   * @returns Whether user has an active trial
    */
   async hasActiveTrial(userId: string): Promise<boolean> {
+    // This always uses freeTrialService which handles its own database logic
     try {
       const trial = await freeTrialService.getTrialStatus(userId);
       return trial !== null;
@@ -428,3 +538,6 @@ export class AuthService {
 
 // Singleton instance
 export const authService = new AuthService();
+
+// Export helper to check if running in database mode
+export const isDatabaseMode = (): boolean => USE_DATABASE;

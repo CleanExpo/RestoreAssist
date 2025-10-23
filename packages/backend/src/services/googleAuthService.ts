@@ -54,10 +54,21 @@ export interface GoogleAuthResult {
 
 const GOOGLE_CLIENT_ID: string = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET: string = process.env.GOOGLE_CLIENT_SECRET || '';
-const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET: string = process.env.JWT_SECRET!;
 const JWT_ACCESS_TOKEN_EXPIRY: string = '15m'; // 15 minutes
 const JWT_REFRESH_TOKEN_EXPIRY: string = '7d'; // 7 days
 const SESSION_EXPIRY_DAYS = 7;
+
+// Validate JWT secret is configured
+if (!JWT_SECRET) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET must be set in environment variables');
+}
+
+// Validate secret is not using default/example value
+const UNSAFE_PATTERNS = ['your-secret-key', 'EXAMPLE', 'CHANGE_THIS', 'change-in-production'];
+if (UNSAFE_PATTERNS.some(pattern => JWT_SECRET.toLowerCase().includes(pattern.toLowerCase()))) {
+  throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET is using unsafe default/example value. Generate a proper secret!');
+}
 
 // =====================================================
 // Google Auth Service

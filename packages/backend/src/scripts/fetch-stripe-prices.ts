@@ -12,6 +12,18 @@ if (!STRIPE_SECRET_KEY) {
   process.exit(1);
 }
 
+// Validate Stripe key format and safety
+const UNSAFE_PATTERNS = ['EXAMPLE', 'test_KEY', 'NEVER_USE', 'your_stripe'];
+if (UNSAFE_PATTERNS.some(pattern => STRIPE_SECRET_KEY.toLowerCase().includes(pattern.toLowerCase()))) {
+  console.error('❌ STRIPE_SECRET_KEY is using an unsafe example value! Generate a real key from Stripe Dashboard.');
+  process.exit(1);
+}
+
+if (!STRIPE_SECRET_KEY.startsWith('sk_test_') && !STRIPE_SECRET_KEY.startsWith('sk_live_')) {
+  console.error('❌ STRIPE_SECRET_KEY has invalid format. Must start with sk_test_ or sk_live_');
+  process.exit(1);
+}
+
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: '2025-09-30.clover',
 });
