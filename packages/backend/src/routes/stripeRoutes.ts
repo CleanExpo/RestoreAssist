@@ -29,21 +29,41 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
   const subscriptionService = deps?.subscriptionService || defaultSubscriptionService;
   const emailService = deps?.emailService || defaultEmailService;
 
+  // Validate Stripe configuration before initializing
+  if (!STRIPE_CONFIG.secretKey) {
+    console.error('❌ [STRIPE] STRIPE_SECRET_KEY is not configured - Stripe routes will return errors');
+  }
+
   // Initialise Stripe
   const stripe = new Stripe(STRIPE_CONFIG.secretKey, {
     apiVersion: '2025-09-30.clover',
   });
+
+  console.log('✅ [STRIPE] Stripe routes initialized with secret key:',
+    STRIPE_CONFIG.secretKey ? `${STRIPE_CONFIG.secretKey.substring(0, 7)}...` : 'MISSING');
 
   /**
    * Create Stripe Checkout Session
    * POST /api/stripe/create-checkout-session
    */
   router.post('/create-checkout-session', async (req: Request, res: Response) => {
+    console.log('📝 [STRIPE] Create checkout session request received');
+    console.log('📝 [STRIPE] Request body:', JSON.stringify(req.body, null, 2));
+
     try {
       const { priceId, planName, successUrl, cancelUrl, userId } = req.body;
 
       if (!priceId) {
+        console.error('❌ [STRIPE] Price ID is missing from request');
         return res.status(400).json({ error: 'Price ID is required' });
+      }
+
+      if (!STRIPE_CONFIG.secretKey) {
+        console.error('❌ [STRIPE] STRIPE_SECRET_KEY environment variable not set');
+        return res.status(500).json({
+          error: 'Stripe is not configured',
+          message: 'STRIPE_SECRET_KEY environment variable is missing',
+        });
       }
 
       // Determine plan type based on priceId
@@ -81,12 +101,22 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
         customer_email: req.body.email || undefined,
       });
 
+      console.log('✅ [STRIPE] Checkout session created successfully:', {
+        sessionId: session.id,
+        url: session.url ? 'URL_PRESENT' : 'URL_MISSING',
+      });
+
       res.json({
         url: session.url,
         sessionId: session.id,
       });
     } catch (error) {
-      console.error('Error creating checkout session:', error);
+      console.error('❌ [STRIPE] Error creating checkout session:', error);
+      console.error('❌ [STRIPE] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
       res.status(500).json({
         error: 'Failed to create checkout session',
         message: error instanceof Error ? error.message : 'Unknown error',

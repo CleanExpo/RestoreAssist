@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { db } from '../db/connection';
 import { uuidv4 } from '../utils/uuid';
 import { User } from './freeTrialService';
-import { googleAuthService, AuthTokens, LoginSession } from './googleAuthService';
 import { authService } from './authService';
 
 // =====================================================
@@ -10,6 +10,10 @@ import { authService } from './authService';
 // =====================================================
 
 const BCRYPT_SALT_ROUNDS = 10;
+const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_ACCESS_TOKEN_EXPIRY: string = '15m'; // 15 minutes
+const JWT_REFRESH_TOKEN_EXPIRY: string = '7d'; // 7 days
+const SESSION_EXPIRY_DAYS = 7;
 
 // =====================================================
 // Password Requirements
@@ -25,6 +29,24 @@ const PASSWORD_REGEX = {
 // =====================================================
 // Types
 // =====================================================
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface LoginSession {
+  sessionId: string;
+  userId: string;
+  ipAddress?: string;
+  userAgent?: string;
+  sessionToken: string;
+  createdAt: Date;
+  expiresAt: Date;
+  lastActivityAt: Date;
+  isActive: boolean;
+}
 
 export interface PasswordValidationResult {
   isValid: boolean;
@@ -206,11 +228,11 @@ class EmailAuthService {
         );
       }
 
-      // Generate tokens using Google Auth Service (reuse existing token generation)
-      const tokens = googleAuthService.generateTokens(newUser);
+      // Generate tokens
+      const tokens = this.generateTokens(newUser);
 
-      // Create session using Google Auth Service (reuse existing session management)
-      const session = await googleAuthService.createSession(newUser.userId, ipAddress, userAgent);
+      // Create session
+      const session = await this.createSession(newUser.userId, ipAddress, userAgent);
 
       return {
         success: true,
@@ -339,11 +361,11 @@ class EmailAuthService {
         user = dbUser;
       }
 
-      // Generate tokens using Google Auth Service (reuse existing token generation)
-      const tokens = googleAuthService.generateTokens(user);
+      // Generate tokens
+      const tokens = this.generateTokens(user);
 
-      // Create session using Google Auth Service (reuse existing session management)
-      const session = await googleAuthService.createSession(user.userId, ipAddress, userAgent);
+      // Create session
+      const session = await this.createSession(user.userId, ipAddress, userAgent);
 
       return {
         success: true,
@@ -382,6 +404,141 @@ class EmailAuthService {
     );
 
     return user;
+  }
+
+  /**
+   * Generate JWT access and refresh tokens
+   */
+  generateTokens(user: User): AuthTokens {
+    const accessPayload: Record<string, string> = {
+      userId: user.userId,
+      email: user.email,
+      ...(user.name && { name: user.name }),
+    };
+
+    const refreshPayload: Record<string, string> = {
+      userId: user.userId,
+      email: user.email,
+    };
+
+    const accessToken = jwt.sign(
+      accessPayload,
+      JWT_SECRET,
+      { expiresIn: JWT_ACCESS_TOKEN_EXPIRY } as jwt.SignOptions
+    );
+
+    const refreshToken = jwt.sign(
+      refreshPayload,
+      JWT_SECRET,
+      { expiresIn: JWT_REFRESH_TOKEN_EXPIRY } as jwt.SignOptions
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 15 * 60, // 15 minutes in seconds
+    };
+  }
+
+  /**
+   * Verify JWT access token
+   */
+  verifyAccessToken(token: string): { userId: string; email: string; name?: string } | null {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        userId: string;
+        email: string;
+        name?: string;
+      };
+      return decoded;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshAccessToken(refreshToken: string): Promise<AuthTokens | null> {
+    try {
+      const decoded = jwt.verify(refreshToken, JWT_SECRET) as {
+        userId: string;
+        email: string;
+      };
+
+      // Get user from database
+      const user = await this.getUserById(decoded.userId);
+
+      if (!user) {
+        return null;
+      }
+
+      // Generate new tokens
+      return this.generateTokens(user);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Create login session
+   */
+  async createSession(
+    userId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<LoginSession> {
+    const sessionToken = uuidv4();
+    const sessionId = uuidv4();
+    const expiresAt = new Date(Date.now() + SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+    // Check if database is enabled
+    const useDatabase = process.env.USE_POSTGRES === 'true';
+
+    if (!useDatabase) {
+      // In-memory session (return mock session for testing)
+      return {
+        sessionId,
+        userId,
+        ipAddress,
+        userAgent,
+        sessionToken,
+        createdAt: new Date(),
+        expiresAt,
+        lastActivityAt: new Date(),
+        isActive: true,
+      };
+    }
+
+    const session = await db.one<LoginSession>(
+      `INSERT INTO login_sessions
+       (session_id, user_id, ip_address, user_agent, session_token, created_at, expires_at, last_activity_at, is_active)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6, NOW(), true)
+       RETURNING *`,
+      [sessionId, userId, ipAddress || null, userAgent || null, sessionToken, expiresAt]
+    );
+
+    return session;
+  }
+
+  /**
+   * Invalidate session (logout)
+   */
+  async invalidateSession(sessionToken: string): Promise<boolean> {
+    // For now, we're using in-memory sessions managed by authService
+    // In production, this would update the database
+    const useDatabase = process.env.USE_POSTGRES === 'true';
+
+    if (useDatabase) {
+      const result = await db.result(
+        `UPDATE login_sessions SET is_active = false WHERE session_token = $1`,
+        [sessionToken]
+      );
+      return result.rowCount > 0;
+    }
+
+    // In-memory session invalidation - always return true for simplicity
+    return true;
   }
 }
 

@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { googleAuthService } from '../services/googleAuthService';
 import { emailAuthService } from '../services/emailAuthService';
+import { authService } from '../services/authService';
 import { freeTrialService } from '../services/freeTrialService';
 import { paymentVerificationService } from '../services/paymentVerification';
 import { db } from '../db/connection';
@@ -32,7 +32,7 @@ const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) =>
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  const decoded = googleAuthService.verifyAccessToken(token);
+  const decoded = authService.verifyAccessToken(token);
   if (!decoded) {
     return res.status(401).json({ error: 'Invalid or expired access token' });
   }
@@ -277,107 +277,8 @@ router.post('/email-login', trialAuthRateLimiter, async (req: Request, res: Resp
   }
 });
 
-// =====================================================
-// POST /api/trial-auth/google-login
-// Complete Google OAuth login flow
-// =====================================================
-
-router.post('/google-login', trialAuthRateLimiter, async (req: Request, res: Response) => {
-  const attemptId = uuidv4();
-  const attemptIpAddress = req.body.ipAddress || req.ip || 'unknown';
-  const attemptUserAgent = req.body.userAgent || req.headers['user-agent'] || 'unknown';
-
-  try {
-    const { idToken, ipAddress, userAgent } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({ error: 'Google ID token required' });
-    }
-
-    // Create initial auth attempt record (skip if database is not available)
-    if (process.env.USE_POSTGRES === 'true') {
-      await db.none(
-        `INSERT INTO auth_attempts
-         (attempt_id, ip_address, user_agent, success, retry_count, attempted_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [attemptId, attemptIpAddress, attemptUserAgent, false, 0]
-      );
-    }
-
-    console.log(`🔐 Auth attempt started: ${attemptId} from IP ${attemptIpAddress}`);
-
-    // Handle Google login
-    const result = await googleAuthService.handleGoogleLogin(
-      idToken,
-      ipAddress || req.ip,
-      userAgent || req.headers['user-agent']
-    );
-
-    if (!result.success) {
-      // Update auth attempt with error (skip if database is not available)
-      if (process.env.USE_POSTGRES === 'true') {
-        await db.none(
-          `UPDATE auth_attempts
-           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
-           WHERE attempt_id = $4`,
-          [result.error || 'unknown_error', result.error || 'Login failed', false, attemptId]
-        );
-      }
-
-      console.log(`❌ Auth failed: ${attemptId} - ${result.error}`);
-
-      return res.status(401).json({ error: result.error });
-    }
-
-    // Update auth attempt with success (skip if database is not available)
-    if (process.env.USE_POSTGRES === 'true') {
-      await db.none(
-        `UPDATE auth_attempts
-         SET user_email = $1, success = $2
-         WHERE attempt_id = $3`,
-        [result.user!.email, true, attemptId]
-      );
-    }
-
-    console.log(`✅ Auth successful: ${attemptId} - ${result.user!.email}`);
-
-    res.json({
-      success: true,
-      user: {
-        userId: result.user!.userId,
-        email: result.user!.email,
-        name: result.user!.name,
-        pictureUrl: result.user!.pictureUrl,
-        emailVerified: result.user!.emailVerified,
-      },
-      tokens: result.tokens,
-      sessionToken: result.session!.sessionToken,
-    });
-  } catch (error) {
-    console.error('Google login error:', error);
-
-    // Update auth attempt with exception error
-    try {
-      if (process.env.USE_POSTGRES === 'true') {
-        await db.none(
-          `UPDATE auth_attempts
-           SET oauth_error_code = $1, oauth_error_message = $2, success = $3
-           WHERE attempt_id = $4`,
-          [
-            'server_error',
-            error instanceof Error ? error.message : 'Internal server error',
-            false,
-            attemptId
-          ]
-        );
-      }
-    } catch (dbError) {
-      console.error('Failed to update auth attempt:', dbError);
-    }
-
-    res.status(500).json({ error: 'Login failed' });
-  }
-});
+// Google OAuth login route has been removed
+// Only email/password authentication is supported
 
 // =====================================================
 // POST /api/trial-auth/refresh-token
@@ -392,7 +293,7 @@ router.post('/refresh-token', refreshRateLimiter, async (req: Request, res: Resp
       return res.status(400).json({ error: 'Refresh token required' });
     }
 
-    const tokens = await googleAuthService.refreshAccessToken(refreshToken);
+    const tokens = await authService.refreshAccessToken(refreshToken);
     if (!tokens) {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
@@ -417,7 +318,7 @@ router.post('/logout', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Session token required' });
     }
 
-    const success = await googleAuthService.invalidateSession(sessionToken);
+    const success = await emailAuthService.invalidateSession(sessionToken);
 
     res.json({ success });
   } catch (error) {
@@ -433,7 +334,7 @@ router.post('/logout', async (req: Request, res: Response) => {
 
 router.get('/me', authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
-    const user = await googleAuthService.getUserById(req.user!.userId);
+    const user = await emailAuthService.getUserById(req.user!.userId);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -625,7 +526,7 @@ router.get('/health', (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
-      googleAuth: googleAuthService.isConfigured(),
+      emailAuth: true, // Email authentication is always available
       paymentVerification: paymentVerificationService.isConfigured(),
     },
   });

@@ -10,52 +10,22 @@ import { LoginRequest, RefreshTokenRequest } from '../types';
 
 export const authRoutes = Router();
 
-// GET /api/auth/config - Validate OAuth configuration (public endpoint)
+// GET /api/auth/config - Return simplified auth config (public endpoint)
+// Google OAuth has been removed - only email/password authentication is supported
 authRoutes.get('/config', (req: Request, res: Response) => {
   try {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    // Check GOOGLE_CLIENT_ID
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      errors.push('GOOGLE_CLIENT_ID is not set. Set this environment variable to enable Google OAuth.');
-    } else if (!clientId.endsWith('.apps.googleusercontent.com')) {
-      errors.push('GOOGLE_CLIENT_ID has invalid format. Must end with .apps.googleusercontent.com');
-    } else if (clientId.includes('YOUR_') || clientId.includes('placeholder')) {
-      errors.push('GOOGLE_CLIENT_ID appears to be a placeholder. Replace with actual Client ID from Google Cloud Console.');
-    }
-
-    // Check GOOGLE_CLIENT_SECRET (don't expose value)
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientSecret) {
-      errors.push('GOOGLE_CLIENT_SECRET is not set. Set this environment variable to enable OAuth token exchange.');
-    } else if (clientSecret.length < 20) {
-      errors.push('GOOGLE_CLIENT_SECRET appears invalid (too short). Verify in Google Cloud Console.');
-    }
-
-    // Check GOOGLE_REDIRECT_URI
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-    if (!redirectUri) {
-      warnings.push('GOOGLE_REDIRECT_URI is not set. Using default: http://localhost:3001/api/integrations/google-drive/callback');
-    }
-
     // Get allowed origins
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
 
-    // Determine validity
-    const isValid = errors.length === 0;
-
     res.json({
-      client_id: clientId ? clientId.substring(0, 20) + '...' : undefined, // Partial ID for debugging
-      is_valid: isValid,
+      auth_method: 'email_password',
+      is_valid: true,
       allowed_origins: allowedOrigins,
-      errors,
-      warnings,
-      config_status: isValid ? 'ready' : 'misconfigured',
+      config_status: 'ready',
+      message: 'Email/password authentication is enabled',
     });
   } catch (error) {
-    console.error('Config validation error:', error);
+    console.error('Config error:', error);
     res.status(500).json({
       error: 'Configuration check failed',
       message: error instanceof Error ? error.message : 'Unknown error',
