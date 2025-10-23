@@ -3,6 +3,7 @@ import { uuidv4 } from '../utils/uuid';
 import { db } from '../db/connection';
 import jwt from 'jsonwebtoken';
 import { User } from './freeTrialService';
+import { authService } from './authService';
 
 // =====================================================
 // Types & Interfaces
@@ -365,7 +366,6 @@ class GoogleAuthService {
 
     if (!useDatabase) {
       // Use in-memory storage via authService
-      const { authService } = await import('./authService');
       const inMemoryUser = authService.getUserById(userId);
 
       if (!inMemoryUser) {
