@@ -6,8 +6,11 @@
       "use": "@vercel/node"
     },
     {
-      "src": "packages/frontend/dist/**",
-      "use": "@vercel/static"
+      "src": "packages/frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
@@ -16,22 +19,10 @@
       "dest": "/packages/backend/api/index.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/packages/frontend/dist/assets/$1"
-    },
-    {
-      "src": "/screenshots/(.*)",
-      "dest": "/packages/frontend/dist/screenshots/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
-      "dest": "/packages/frontend/dist/$1"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/packages/frontend/dist/index.html"
+      "dest": "/packages/frontend/$1"
     }
   ],
-  "buildCommand": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "buildCommand": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend"
 }
