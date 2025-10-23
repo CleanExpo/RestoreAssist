@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "installCommand": "npm install",
   "buildCommand": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
+  "installCommand": "npm install",
   "outputDirectory": "packages/frontend/dist",
   "functions": {
     "api/index.js": {
@@ -13,6 +13,21 @@
     {
       "source": "/api/:path*",
       "destination": "/api/index.js"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "all"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ]
 }
