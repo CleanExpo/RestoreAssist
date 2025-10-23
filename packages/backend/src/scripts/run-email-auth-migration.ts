@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db } from '../db/connection';
 import * as fs from 'fs';
 import * as path from 'path';

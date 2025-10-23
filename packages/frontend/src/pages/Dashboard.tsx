@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -8,13 +8,57 @@ import { ApiKeyManager } from '../components/ApiKeyManager';
 import { ReportForm } from '../components/ReportForm';
 import { GeneratedReports } from '../components/GeneratedReports';
 import { UserMenu } from '../components/UserMenu';
+import { TrialUpgradeBanner } from '../components/TrialUpgradeBanner';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 interface DashboardProps {
   onBackToHome: () => void;
 }
 
+interface UserSubscription {
+  subscription_id: string;
+  plan_type: 'freeTrial' | 'monthly' | 'yearly';
+  status: string;
+  reports_used: number;
+  reports_limit: number | null;
+  current_period_end?: string;
+}
+
 export function Dashboard({ onBackToHome }: DashboardProps) {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+
+  // Get user info from localStorage
+  const userId = localStorage.getItem('userId') || '';
+  const userEmail = localStorage.getItem('userEmail') || '';
+
+  // Fetch user subscription on mount
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const apiUrl = getApiBaseUrl();
+        const accessToken = localStorage.getItem('accessToken');
+
+        const response = await fetch(`${apiUrl}/subscription/me`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSubscription(data.subscription);
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
+      } finally {
+        setLoadingSubscription(false);
+      }
+    };
+
+    fetchSubscription();
+  }, []);
 
   const handleReportGenerated = () => {
     setRefreshKey(prev => prev + 1);
@@ -43,6 +87,23 @@ export function Dashboard({ onBackToHome }: DashboardProps) {
 
       {/* Main Content */}
       <main className="container py-8">
+        {/* Trial Upgrade Banner - Show only for free trial users */}
+        {!loadingSubscription && subscription?.plan_type === 'freeTrial' && subscription.current_period_end && (
+          <div className="mb-8">
+            <TrialUpgradeBanner
+              userId={userId}
+              userEmail={userEmail}
+              reportsRemaining={
+                subscription.reports_limit !== null
+                  ? subscription.reports_limit - subscription.reports_used
+                  : 0
+              }
+              reportsLimit={subscription.reports_limit || 3}
+              expiresAt={subscription.current_period_end}
+            />
+          </div>
+        )}
+
         {/* API Key Manager */}
         <div className="mb-8">
           <ApiKeyManager />

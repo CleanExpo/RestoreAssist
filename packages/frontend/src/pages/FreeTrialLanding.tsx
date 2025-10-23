@@ -85,13 +85,18 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
         return;
       }
 
-      // Store tokens
+      // Store tokens and user data
       // SECURITY TODO: Migrate these to httpOnly cookies to prevent XSS attacks
       // Currently keeping in localStorage to avoid breaking the auth flow
       // Phase 2 will implement secure cookie-based authentication
       localStorage.setItem('accessToken', loginData.tokens.accessToken);
       localStorage.setItem('refreshToken', loginData.tokens.refreshToken);
       localStorage.setItem('sessionToken', loginData.sessionToken); // Session tracking - less sensitive
+
+      // Store user info for Stripe checkout
+      localStorage.setItem('userId', loginData.user.userId);
+      localStorage.setItem('userEmail', loginData.user.email);
+      localStorage.setItem('userName', loginData.user.name || '');
 
       // Step 2: Generate device fingerprint
       const fingerprint = await generateDeviceFingerprint();

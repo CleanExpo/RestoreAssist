@@ -361,6 +361,30 @@ class GoogleAuthService {
    * Get user by ID
    */
   async getUserById(userId: string): Promise<User | null> {
+    const useDatabase = process.env.USE_POSTGRES === 'true';
+
+    if (!useDatabase) {
+      // Use in-memory storage via authService
+      const { authService } = await import('./authService');
+      const inMemoryUser = authService.getUserById(userId);
+
+      if (!inMemoryUser) {
+        return null;
+      }
+
+      // Convert to User type for compatibility
+      return {
+        userId: inMemoryUser.userId,
+        googleId: '',
+        email: inMemoryUser.email,
+        name: inMemoryUser.name,
+        emailVerified: false,
+        createdAt: new Date(inMemoryUser.createdAt),
+        lastLoginAt: inMemoryUser.lastLogin ? new Date(inMemoryUser.lastLogin) : undefined,
+        updatedAt: new Date(),
+      } as User;
+    }
+
     const user = await db.oneOrNone<User>(
       `SELECT * FROM users WHERE user_id = $1`,
       [userId]

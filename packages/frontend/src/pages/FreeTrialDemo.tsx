@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FreeTrialLanding } from './FreeTrialLanding';
 import { Dashboard } from './Dashboard';
+import { UpgradeToPaidButton } from '../components/UpgradeToPaidButton';
 
 export function FreeTrialDemo() {
   const [userData, setUserData] = useState<any>(null);
@@ -42,12 +43,12 @@ export function FreeTrialDemo() {
     <div>
       {/* Trial Status Banner */}
       {userData?.trial && (
-        <div className="sticky top-0 z-60 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6">
+        <div className="sticky top-0 z-60 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-6 shadow-lg">
           <div className="container mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-8">
               <div>
-                <span className="font-semibold">Free Trial Active</span>
-                <span className="ml-2 text-blue-100">
+                <span className="font-semibold text-lg">Free Trial Active</span>
+                <span className="ml-3 text-blue-100">
                   {userData.trial.reportsRemaining} reports remaining
                 </span>
               </div>
@@ -55,12 +56,27 @@ export function FreeTrialDemo() {
                 Expires: {new Date(userData.trial.expiresAt).toLocaleDateString()}
               </div>
             </div>
-            <button
-              onClick={handleBackToHome}
-              className="text-sm bg-white/20 hover:bg-white/30 px-4 py-1 rounded transition"
-            >
-              Logout
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Upgrade Button */}
+              {userData.user?.userId && userData.user?.email && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                  <UpgradeToPaidButton
+                    userId={userData.user.userId}
+                    userEmail={userData.user.email}
+                    planType="monthly"
+                    variant="secondary"
+                    size="sm"
+                    className="bg-white text-blue-600 hover:bg-blue-50"
+                  />
+                </div>
+              )}
+              <button
+                onClick={handleBackToHome}
+                className="text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded transition"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       )}
