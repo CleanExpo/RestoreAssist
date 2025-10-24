@@ -55,3 +55,4 @@ packages/frontend/tsc_output.txt
 # Vercel
 .vercel
 .env.production
+.env.vercel
