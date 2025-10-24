@@ -2,6 +2,7 @@
   "version": 2,
   "buildCommand": "npm install && npm run build",
   "installCommand": "npm install",
+  "outputDirectory": "dist",
   "framework": null,
   "functions": {
     "api/index.js": {
