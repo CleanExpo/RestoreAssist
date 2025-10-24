@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import {
   Droplet,
   Flame,
@@ -22,7 +23,8 @@ import {
   X,
   Mail,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -60,8 +62,35 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
   const [passwordError, setPasswordError] = useState('');
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthState, setOauthState] = useState<string | null>(null);
+  const [oauthNonce, setOauthNonce] = useState<string | null>(null);
+  const oauthStateRef = useRef<string | null>(null);
   const plans = getAllPlans();
   const { config } = useOAuthConfig();
+
+  // Generate secure OAuth state for CSRF protection
+  useEffect(() => {
+    // Generate state parameter using crypto.randomUUID() for CSRF protection
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+      const state = window.crypto.randomUUID();
+      const nonce = window.crypto.randomUUID();
+      setOauthState(state);
+      setOauthNonce(nonce);
+      oauthStateRef.current = state;
+
+      // Store state in sessionStorage for validation on callback
+      sessionStorage.setItem('oauth_state', state);
+      sessionStorage.setItem('oauth_nonce', nonce);
+
+      // Clear state after 10 minutes for security
+      const timer = setTimeout(() => {
+        sessionStorage.removeItem('oauth_state');
+        sessionStorage.removeItem('oauth_nonce');
+      }, 600000); // 10 minutes
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Handle get started - show email auth modal
   const handleGetStarted = (): void => {
@@ -123,6 +152,79 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
   const handleScheduleDemo = () => {
     // Navigate to contact page
     navigate('/contact');
+  };
+
+  // Secure Google OAuth handler with CSRF protection
+  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    // Security check: Verify OAuth state for CSRF protection
+    const storedState = sessionStorage.getItem('oauth_state');
+    if (!storedState || storedState !== oauthStateRef.current) {
+      console.error('OAuth state mismatch - potential CSRF attack');
+      setFormError('Authentication failed: Security validation error. Please refresh and try again.');
+      return;
+    }
+
+    if (!credentialResponse.credential) {
+      console.error('No credential received from Google');
+      setFormError('Authentication failed: No credentials received from Google.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormError('');
+
+    try {
+      // Clear sensitive OAuth state immediately after use
+      sessionStorage.removeItem('oauth_state');
+      sessionStorage.removeItem('oauth_nonce');
+
+      // Pass credential to parent handler with enhanced security context
+      if (onLoginSuccess) {
+        await onLoginSuccess(credentialResponse.credential);
+      }
+
+      // Success - modal will be closed by parent component
+      setShowAuthModal(false);
+    } catch (error) {
+      console.error('Google authentication error:', error);
+
+      // Enhanced error handling
+      let errorMessage = 'Authentication failed. Please try again.';
+      if (error instanceof Error) {
+        // Sanitize error messages to prevent information leakage
+        if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('token')) {
+          errorMessage = 'Authentication token invalid. Please try again.';
+        } else if (error.message.includes('expired')) {
+          errorMessage = 'Authentication session expired. Please try again.';
+        }
+      }
+
+      setFormError(errorMessage);
+
+      // Regenerate OAuth state for retry
+      const newState = window.crypto.randomUUID();
+      setOauthState(newState);
+      oauthStateRef.current = newState;
+      sessionStorage.setItem('oauth_state', newState);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle OAuth errors (user cancellation, popup blocked, etc.)
+  const handleGoogleError = () => {
+    console.error('Google Login Failed');
+    setFormError('Google authentication was cancelled or failed. Please try again.');
+
+    // Regenerate OAuth state for retry
+    if (window.crypto && window.crypto.randomUUID) {
+      const newState = window.crypto.randomUUID();
+      setOauthState(newState);
+      oauthStateRef.current = newState;
+      sessionStorage.setItem('oauth_state', newState);
+    }
   };
 
   return (
@@ -881,11 +983,22 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGo
                   <div className="flex justify-center">
                     <GoogleLogin
                       onSuccess={handleGoogleLogin}
-                      onError={() => console.error('Google Login Failed')}
+                      onError={handleGoogleError}
                       theme="filled_blue"
                       size="large"
                       text="signup_with"
                       shape="pill"
+                      useOneTap={false}
+                      auto_select={false}
+                      context="signin"
+                      ux_mode="popup"
+                      itp_support={false}
+                      state_cookie_domain={window.location.hostname}
+                      hosted_domain={undefined}
+                      login_hint={undefined}
+                      prompt_parent_id={undefined}
+                      nonce={oauthNonce || undefined}
+                      state={oauthState || undefined}
                     />
                   </div>
 

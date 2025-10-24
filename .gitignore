@@ -56,3 +56,5 @@ packages/frontend/tsc_output.txt
 .vercel
 .env.production
 .env.vercel
+
+.vercel

@@ -20,6 +20,7 @@ import { skillsRoutes } from './routes/skillsRoutes';
 import { trialAuthRoutes } from './routes/trialAuthRoutes';
 import adminTrialRoutes from './routes/adminTrialRoutes';
 import stripeRoutes from './routes/stripeRoutes';
+import { googleOAuthRoutes } from './routes/googleOAuthRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
 import { contactRoutes } from './routes/contactRoutes';
 import ascoraRoutes from './routes/ascoraRoutes';
@@ -164,6 +165,7 @@ app.get('/api/debug/routes', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/trial-auth', trialAuthRoutes);
+app.use('/api/google-oauth', googleOAuthRoutes);
 app.use('/api/admin-trial', adminTrialRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
@@ -314,7 +316,8 @@ const initializeServices = async () => {
   console.log(`   PATCH  /api/skills/:skillName/enable   # Enable/disable skill (admin)`);
   console.log(`   GET    /api/skills/health/status       # Skills health check`);
   console.log(`\n🎟️  Free Trial Auth:`);
-  console.log(`   POST   /api/trial-auth/google-login    # Google OAuth login`);
+  console.log(`   POST   /api/trial-auth/email-signup    # Email/password signup`);
+  console.log(`   POST   /api/trial-auth/email-login     # Email/password login`);
   console.log(`   POST   /api/trial-auth/refresh-token   # Refresh access token`);
   console.log(`   POST   /api/trial-auth/logout          # Logout user`);
   console.log(`   GET    /api/trial-auth/me              # Get current user`);
@@ -322,6 +325,12 @@ const initializeServices = async () => {
   console.log(`   GET    /api/trial-auth/trial-status    # Get trial status`);
   console.log(`   POST   /api/trial-auth/verify-payment  # Verify payment method`);
   console.log(`   GET    /api/trial-auth/health          # Health check`);
+  console.log(`\n🔐 Google OAuth:`);
+  console.log(`   POST   /api/google-oauth/login          # Google OAuth login with CSRF protection`);
+  console.log(`   GET    /api/google-oauth/state          # Generate secure state parameter`);
+  console.log(`   GET    /api/google-oauth/config         # Get OAuth configuration`);
+  console.log(`   POST   /api/google-oauth/validate-redirect # Validate redirect URI`);
+  console.log(`   GET    /api/google-oauth/health         # OAuth health check`);
     });
   }
 };

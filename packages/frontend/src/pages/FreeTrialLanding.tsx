@@ -11,6 +11,11 @@ import type { UserData, GoogleLoginResponse, TrialActivationResponse } from '../
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_BASE_URL = getApiBaseUrl();
 
+// Security: Ensure redirect URI matches production domain
+const REDIRECT_URI = import.meta.env.PROD
+  ? 'https://restoreassist.app'
+  : window.location.origin;
+
 interface FreeTrialLandingProps {
   onTrialActivated: (userData: UserData) => void;
 }
@@ -86,17 +91,54 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
       }
 
       // Store tokens and user data
-      // SECURITY TODO: Migrate these to httpOnly cookies to prevent XSS attacks
-      // Currently keeping in localStorage to avoid breaking the auth flow
-      // Phase 2 will implement secure cookie-based authentication
-      localStorage.setItem('accessToken', loginData.tokens.accessToken);
-      localStorage.setItem('refreshToken', loginData.tokens.refreshToken);
-      localStorage.setItem('sessionToken', loginData.sessionToken); // Session tracking - less sensitive
+      // CRITICAL SECURITY WARNING: Tokens should be stored in httpOnly cookies
+      // localStorage is vulnerable to XSS attacks. This is a temporary implementation.
+      // TODO: Implement secure httpOnly cookie storage in backend with:
+      // - SameSite=Strict for CSRF protection
+      // - Secure flag for HTTPS-only transmission
+      // - Short expiration times with refresh token rotation
 
-      // Store user info for Stripe checkout
-      localStorage.setItem('userId', loginData.user.userId);
-      localStorage.setItem('userEmail', loginData.user.email);
-      localStorage.setItem('userName', loginData.user.name || '');
+      // Log security warning in development
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ SECURITY: Storing tokens in localStorage is vulnerable to XSS attacks');
+        console.warn('📝 TODO: Migrate to httpOnly cookies for production deployment');
+      }
+
+      // Temporary token storage with XSS mitigation attempts
+      try {
+        // Add token expiration metadata
+        const tokenExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes
+        const secureTokenData = {
+          accessToken: loginData.tokens.accessToken,
+          refreshToken: loginData.tokens.refreshToken,
+          sessionToken: loginData.sessionToken,
+          expiresAt: tokenExpiry,
+          fingerprint: (await generateDeviceFingerprint()).fingerprintHash
+        };
+
+        // Store with expiration check
+        localStorage.setItem('auth_tokens', JSON.stringify(secureTokenData));
+
+        // Set up automatic token cleanup
+        setTimeout(() => {
+          localStorage.removeItem('auth_tokens');
+          console.log('Tokens expired and removed from storage');
+        }, 15 * 60 * 1000);
+
+        // Store non-sensitive user info separately
+        const publicUserInfo = {
+          userId: loginData.user.userId,
+          email: loginData.user.email,
+          name: loginData.user.name || '',
+          role: loginData.user.role
+        };
+        localStorage.setItem('user_public', JSON.stringify(publicUserInfo));
+
+      } catch (storageError) {
+        console.error('Failed to store authentication data:', storageError);
+        handleError('Failed to save authentication data. Please try again.');
+        return;
+      }
 
       // Step 2: Generate device fingerprint
       const fingerprint = await generateDeviceFingerprint();
