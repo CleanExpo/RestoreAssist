@@ -52,6 +52,6 @@ features/**/.wip/
 sendgrid-mcp/
 packages/frontend/tsc_output.txt
 
+# Vercel
 .vercel
-
-.vercel
+.env.production
