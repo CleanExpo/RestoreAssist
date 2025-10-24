@@ -4,6 +4,7 @@ import { LoadingFallback, PageLoadingFallback } from './components/LoadingFallba
 import { CookieConsent } from './components/CookieConsent';
 import { OAuthConfigProvider } from './contexts/OAuthConfigContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { SecurityStatusBadge } from './components/SecurityWarning';
 
 // Lazy load all route components for code splitting
 const FreeTrialDemo = lazy(() => import('./pages/FreeTrialDemo').then(m => ({ default: m.FreeTrialDemo })));
@@ -219,6 +220,9 @@ function App() {
 
           {/* Cookie Consent Banner - Shows on all pages */}
           <CookieConsent />
+
+          {/* Security Status Badge - Only shows in development */}
+          <SecurityStatusBadge />
         </Router>
       </OAuthConfigProvider>
     </ErrorBoundary>
