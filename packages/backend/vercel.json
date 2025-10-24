@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "cd ../.. && npm install && npm run build --workspace=packages/backend",
-  "installCommand": "cd ../.. && npm install",
+  "buildCommand": "npm install && npm run build",
+  "installCommand": "npm install",
   "framework": null,
   "functions": {
     "api/index.js": {
