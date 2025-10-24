@@ -79,7 +79,7 @@ describe('OAuth Error Mapper', () => {
       const result = mapOAuthError({ error: 'redirect_uri_mismatch' });
 
       expect(result.userMessage).toContain('redirect URI mismatch');
-      expect(result.userMessage).toContain('contact support');
+      expect(result.userMessage).toContain('airestoreassist@gmail.com');
       expect(result.technicalMessage).toContain('redirect URI not whitelisted');
       expect(result.retryable).toBe(false);
     });

@@ -219,7 +219,7 @@ export function FreeTrialLanding({ onTrialActivated }: FreeTrialLandingProps) {
 
   // If Google OAuth is not configured on backend, show landing page without OAuth provider
   // This allows email/password flow to work independently
-  const shouldUseGoogleOAuth = GOOGLE_CLIENT_ID && oauthConfig.isFullyValid && showGoogleOAuth;
+  const shouldUseGoogleOAuth = GOOGLE_CLIENT_ID && oauthConfig.isValid && showGoogleOAuth;
 
   // If Google OAuth not loaded yet or not configured, show landing page without OAuth provider
   if (!shouldUseGoogleOAuth) {

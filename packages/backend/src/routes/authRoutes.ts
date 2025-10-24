@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authService } from '../services/authService';
 import { authenticate, authorise } from '../middleware/authMiddleware';
+import { setTokenCookies, clearTokenCookies } from '../middleware/auth';
 import {
   authRateLimiter,
   passwordRateLimiter,
@@ -52,9 +53,12 @@ authRoutes.post('/login', authRateLimiter, async (req: Request, res: Response) =
     // Get user details
     const user = await authService.getUserByEmail(email);
 
+    // Set httpOnly cookies (Phase 1: also return tokens for backward compatibility)
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+
     res.json({
       message: 'Login successful',
-      tokens,
+      tokens, // Still return tokens for localStorage fallback
       user: {
         userId: user?.userId,
         email: user?.email,
@@ -62,6 +66,7 @@ authRoutes.post('/login', authRateLimiter, async (req: Request, res: Response) =
         role: user?.role,
         company: user?.company,
       },
+      cookiesSet: true, // Inform frontend that cookies are available
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -75,7 +80,14 @@ authRoutes.post('/login', authRateLimiter, async (req: Request, res: Response) =
 // POST /api/auth/refresh - Refresh access token
 authRoutes.post('/refresh', refreshRateLimiter, async (req: Request, res: Response) => {
   try {
-    const { refreshToken }: RefreshTokenRequest = req.body;
+    // Phase 1: Check both cookie and body for refresh token
+    let refreshToken: string | undefined = req.cookies?.refresh_token;
+
+    // Fallback to body if not in cookie
+    if (!refreshToken) {
+      const body: RefreshTokenRequest = req.body;
+      refreshToken = body.refreshToken;
+    }
 
     if (!refreshToken) {
       return res.status(400).json({
@@ -87,9 +99,13 @@ authRoutes.post('/refresh', refreshRateLimiter, async (req: Request, res: Respon
     // Refresh tokens
     const tokens = await authService.refreshAccessToken(refreshToken);
 
+    // Set new cookies
+    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+
     res.json({
       message: 'Token refreshed successfully',
-      tokens,
+      tokens, // Still return for backward compatibility
+      cookiesSet: true,
     });
   } catch (error) {
     console.error('Token refresh error:', error);
@@ -103,14 +119,24 @@ authRoutes.post('/refresh', refreshRateLimiter, async (req: Request, res: Respon
 // POST /api/auth/logout - Logout user
 authRoutes.post('/logout', authenticate, (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
+    // Phase 1: Check both cookie and body for refresh token
+    let refreshToken: string | undefined = req.cookies?.refresh_token;
+
+    // Fallback to body if not in cookie
+    if (!refreshToken) {
+      refreshToken = req.body.refreshToken;
+    }
 
     if (refreshToken) {
       authService.logout(refreshToken);
     }
 
+    // Clear httpOnly cookies
+    clearTokenCookies(res);
+
     res.json({
       message: 'Logout successful',
+      cookiesCleared: true,
     });
   } catch (error) {
     console.error('Logout error:', error);

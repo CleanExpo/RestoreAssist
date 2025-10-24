@@ -41,11 +41,12 @@ import { useOAuthConfig } from '../contexts/OAuthConfigContext';
 
 interface LandingPageProps {
   onGetStarted?: () => void;
-  onLoginSuccess?: (email: string) => void;
-  onDevLogin?: () => void;
+  onLoginSuccess?: (googleCredential: string) => Promise<void>;
+  onDevLogin?: () => Promise<void>;
+  onShowGoogleOAuth?: () => void;
 }
 
-export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGoogleOAuth }: LandingPageProps) {
   const navigate = useNavigate();
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -875,7 +876,7 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin }: Landin
               </div>
 
               {/* Google Login Button - Only show if OAuth is fully configured */}
-              {config.isFullyValid && !showEmailForm && (
+              {config.isValid && !showEmailForm && (
                 <>
                   <div className="flex justify-center">
                     <GoogleLogin
@@ -912,7 +913,7 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin }: Landin
               )}
 
               {/* Email/Password Form - Show by default if Google OAuth not configured */}
-              {(!config.isFullyValid || showEmailForm) && (
+              {(!config.isValid || showEmailForm) && (
                 <div className="space-y-4">
                   {showEmailForm && (
                     <button
@@ -1098,7 +1099,7 @@ export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin }: Landin
                     </button>
                   </div>
 
-                  {!config.isFullyValid && (
+                  {!config.isValid && (
                     <div className="text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
                       <strong>Note:</strong> Google Sign In is currently unavailable. Email/password authentication is coming soon.
                     </div>

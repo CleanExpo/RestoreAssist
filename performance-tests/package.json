@@ -1,0 +1,33 @@
+{
+  "name": "restoreassist-performance-tests",
+  "version": "1.0.0",
+  "description": "Performance testing suite for RestoreAssist",
+  "type": "module",
+  "scripts": {
+    "test:all": "npm run test:db && npm run test:api && npm run test:frontend && npm run test:cache",
+    "test:db": "k6 run database/query-performance.test.js",
+    "test:api": "k6 run api/endpoint-load.test.js",
+    "test:frontend": "node frontend/lighthouse-audit.js",
+    "test:cache": "k6 run cache/cache-effectiveness.test.js",
+    "test:smoke": "k6 run --vus 1 --duration 30s api/endpoint-load.test.js",
+    "test:load": "k6 run --vus 100 --duration 5m api/endpoint-load.test.js",
+    "test:stress": "k6 run --vus 200 --duration 10m api/endpoint-load.test.js",
+    "test:spike": "k6 run --vus 1000 --duration 2m api/endpoint-load.test.js",
+    "test:soak": "k6 run --vus 50 --duration 2h api/endpoint-load.test.js",
+    "report:generate": "node scripts/generate-report.js",
+    "monitor:start": "docker-compose -f monitoring/docker-compose.yml up -d",
+    "monitor:stop": "docker-compose -f monitoring/docker-compose.yml down"
+  },
+  "dependencies": {
+    "k6": "^0.47.0",
+    "lighthouse": "^11.0.0",
+    "chrome-launcher": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/k6": "^0.47.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

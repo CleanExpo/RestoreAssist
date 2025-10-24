@@ -6,12 +6,14 @@ export function GeneratedReports() {
   const [reports, setReports] = useState<GeneratedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<GeneratedReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadReports();
   }, []);
 
   const loadReports = async () => {
+    setError(null);
     try {
       // Development mode: Check if we should use mock data
       const isDevelopment = !import.meta.env.PROD && window.location.hostname.includes('localhost');
@@ -19,10 +21,14 @@ export function GeneratedReports() {
 
       if (useMockMode) {
         // Load mock reports from localStorage
-        console.log('🎭 DEV MODE: Loading mock reports from localStorage');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🎭 DEV MODE: Loading mock reports from localStorage');
+        }
         const mockReports = JSON.parse(localStorage.getItem('mock_reports') || '[]');
         setReports(mockReports);
-        console.log(`✅ DEV MODE: Loaded ${mockReports.length} mock reports`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ DEV MODE: Loaded ${mockReports.length} mock reports`);
+        }
       } else {
         // Production mode: Load from backend API
         const data = await getReports();
@@ -30,31 +36,37 @@ export function GeneratedReports() {
       }
     } catch (error) {
       console.error('Failed to load reports:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load reports');
       setReports([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (reportId: string) => {
+  const handleDelete = async (reportId: string) => {
     if (!confirm('Are you sure you want to delete this report?')) return;
 
     try {
+      setError(null);
       // Development mode: Check if we should use mock data
       const isDevelopment = !import.meta.env.PROD && window.location.hostname.includes('localhost');
       const useMockMode = isDevelopment && localStorage.getItem('accessToken')?.startsWith('dev-access-token');
 
       if (useMockMode) {
         // Delete from localStorage
-        console.log('🎭 DEV MODE: Deleting mock report from localStorage');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🎭 DEV MODE: Deleting mock report from localStorage');
+        }
         const mockReports = JSON.parse(localStorage.getItem('mock_reports') || '[]');
-        const updatedReports = mockReports.filter((r: any) => r.reportId !== reportId);
+        const updatedReports = mockReports.filter((r: GeneratedReport) => r.reportId !== reportId);
         localStorage.setItem('mock_reports', JSON.stringify(updatedReports));
         setReports(updatedReports);
-        console.log('✅ DEV MODE: Mock report deleted successfully');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ DEV MODE: Mock report deleted successfully');
+        }
       } else {
         // Production mode: Delete via backend API
-        deleteReport(reportId);
+        await deleteReport(reportId);
         setReports(reports.filter(r => r.reportId !== reportId));
       }
 
@@ -63,18 +75,53 @@ export function GeneratedReports() {
       }
     } catch (error) {
       console.error('Failed to delete report:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete report');
     }
   };
 
   if (loading) {
-    return <div className="bg-card text-card-foreground p-6 rounded-lg shadow-md border border-border">Loading reports...</div>;
+    return (
+      <div className="bg-card text-card-foreground p-6 rounded-lg shadow-md border border-border">
+        <div className="flex items-center justify-center gap-3">
+          <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Loading reports...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="bg-card text-card-foreground p-6 rounded-lg shadow-md border border-border">
-      <h2 className="text-2xl font-bold mb-4">Generated Reports ({reports.length})</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Generated Reports ({reports.length})</h2>
+        {error && (
+          <button
+            onClick={loadReports}
+            className="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Retry
+          </button>
+        )}
+      </div>
 
-      {reports.length === 0 ? (
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-4">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <p className="font-medium">Error loading reports</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reports.length === 0 && !error ? (
         <p className="text-muted-foreground">No reports generated yet.</p>
       ) : (
         <div className="space-y-4">

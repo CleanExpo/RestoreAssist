@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import express from 'express';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/node';
 import { STRIPE_CONFIG } from '../config/stripe';
@@ -156,26 +157,77 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
   /**
    * Stripe Webhook Handler
    * POST /api/stripe/webhook
+   *
+   * SECURITY: This endpoint uses raw body parser for signature verification
+   * The raw middleware is applied in index.ts BEFORE json parser for this route only
    */
-  router.post('/webhook', async (req: Request, res: Response) => {
-    const sig = req.headers['stripe-signature'] as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+  router.post('/webhook',
+    express.raw({ type: 'application/json' }),
+    async (req: Request, res: Response) => {
+      // Strict validation: webhook secret must exist and be properly configured
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    if (!webhookSecret) {
-      console.warn('Stripe webhook secret not configured');
-      return res.status(400).json({ error: 'Webhook secret not configured' });
-    }
+      if (!webhookSecret || webhookSecret.trim() === '' || webhookSecret.includes('REPLACE_WITH')) {
+        console.error('❌ [STRIPE] STRIPE_WEBHOOK_SECRET not configured properly');
+        console.error('❌ [STRIPE] Webhook secret must be set to a valid Stripe webhook signing secret');
+        return res.status(500).json({
+          error: 'Webhook not configured',
+          message: 'STRIPE_WEBHOOK_SECRET environment variable is missing or invalid',
+          docs: 'See STRIPE_WEBHOOK_TESTING.md for setup instructions'
+        });
+      }
 
-    try {
-      // Verify webhook signature
-      const event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        webhookSecret
-      );
+      // Validate signature header exists
+      const signature = req.headers['stripe-signature'];
+      if (!signature || typeof signature !== 'string') {
+        console.error('❌ [STRIPE] Missing or invalid stripe-signature header');
+        return res.status(400).json({
+          error: 'Missing signature',
+          message: 'stripe-signature header is required for webhook verification'
+        });
+      }
 
-      // Handle the event
-      switch (event.type) {
+      let event: Stripe.Event;
+
+      try {
+        // Verify webhook signature - this will throw if signature is invalid
+        // req.body must be raw Buffer for signature verification
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          signature,
+          webhookSecret
+        );
+
+        console.log(`✅ [STRIPE] Webhook signature verified for event: ${event.type}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('❌ [STRIPE] Webhook signature verification failed:', errorMessage);
+
+        // Track signature verification failures
+        Sentry.captureException(err, {
+          tags: {
+            'stripe.webhook': 'signature_verification_failed',
+          },
+          contexts: {
+            webhook: {
+              signature: signature.substring(0, 20) + '...',
+              error: errorMessage,
+            },
+          },
+          level: 'warning',
+        });
+
+        return res.status(400).json({
+          error: 'Invalid signature',
+          message: 'Webhook signature verification failed',
+          details: errorMessage
+        });
+      }
+
+      // Process the verified webhook event
+      try {
+        // Handle the event
+        switch (event.type) {
         case 'checkout.session.completed': {
           const session = event.data.object as Stripe.Checkout.Session;
           console.log('Checkout session completed:', session.id);
@@ -451,19 +503,33 @@ export const createStripeRoutes = (deps?: StripeRouteDependencies): Router => {
           break;
         }
 
-        default:
-          console.log(`Unhandled event type: ${event.type}`);
-      }
+          default:
+            console.log(`Unhandled event type: ${event.type}`);
+        }
 
-      res.json({ received: true });
-    } catch (error) {
-      console.error('Webhook error:', error);
-      res.status(400).json({
-        error: 'Webhook error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  });
+        // Acknowledge webhook receipt
+        res.json({ received: true, eventType: event.type });
+      } catch (error) {
+        // Error handling for event processing (not signature verification)
+        console.error('❌ [STRIPE] Error processing webhook event:', error);
+
+        // Track event processing failures
+        Sentry.captureException(error, {
+          tags: {
+            'stripe.webhook': 'event_processing_failed',
+          },
+          level: 'error',
+        });
+
+        // Still return 200 to Stripe to prevent retries for unrecoverable errors
+        // Stripe will retry 500 errors, but these are application logic errors
+        res.status(200).json({
+          received: true,
+          error: 'Event processing failed',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    });
 
   return router;
 };

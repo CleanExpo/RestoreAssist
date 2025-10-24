@@ -9,6 +9,7 @@ import { validateEnvironment, logValidationResult } from './middleware/validateE
 
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { reportRoutes } from './routes/reportRoutes';
 import { adminRoutes } from './routes/adminRoutes';
 import { exportRoutes } from './routes/exportRoutes';
@@ -20,7 +21,9 @@ import { trialAuthRoutes } from './routes/trialAuthRoutes';
 import adminTrialRoutes from './routes/adminTrialRoutes';
 import stripeRoutes from './routes/stripeRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
-// import { ascoraRoutes } from './routes/ascoraRoutes'; // TODO: Fix initialisation
+import { contactRoutes } from './routes/contactRoutes';
+import ascoraRoutes from './routes/ascoraRoutes';
+import { apiKeyRoutes } from './routes/apiKeyRoutes';
 import { authService } from './services/authService';
 import { googleAuthService } from './services/googleAuthService';
 import { paymentVerificationService } from './services/paymentVerification';
@@ -82,6 +85,11 @@ app.use(cors(corsOptions));
 
 // Enable pre-flight for all routes
 app.options('*', cors(corsOptions));
+
+// Parse cookies for httpOnly token support
+app.use(cookieParser(process.env.COOKIE_SECRET || 'dev-cookie-secret'));
+
+// Parse JSON bodies
 app.use(express.json());
 
 // Routes
@@ -104,12 +112,30 @@ app.get('/api/cors-test', (req, res) => {
   });
 });
 
-// Debug endpoint to inspect registered routes
+// Debug endpoint to inspect registered routes (development only)
 app.get('/api/debug/routes', (req, res) => {
-  if (app._router && app._router.stack) {
-    const routes = app._router.stack
-      .filter((r: any) => r.route || r.name === 'router')
-      .map((r: any) => {
+  // Only allow in development
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+
+  const router = (app as any)._router;
+  if (router && router.stack) {
+    interface RouteLayer {
+      route?: {
+        path: string;
+        methods: Record<string, boolean>;
+      };
+      name: string;
+      handle?: {
+        stack: unknown[];
+      };
+      regexp?: RegExp;
+    }
+
+    const routes = router.stack
+      .filter((r: RouteLayer) => r.route || r.name === 'router')
+      .map((r: RouteLayer) => {
         if (r.route) {
           return {
             path: r.route.path,
@@ -119,7 +145,7 @@ app.get('/api/debug/routes', (req, res) => {
           // This is a mounted router (like our route modules)
           return {
             type: 'router',
-            regexp: r.regexp.toString(),
+            regexp: r.regexp?.toString(),
             routeCount: r.handle.stack.length
           };
         }
@@ -127,7 +153,7 @@ app.get('/api/debug/routes', (req, res) => {
       });
 
     return res.json({
-      totalLayers: app._router.stack.length,
+      totalLayers: router.stack.length,
       routes,
       environment: process.env.NODE_ENV,
       vercel: process.env.VERCEL === '1'
@@ -147,7 +173,9 @@ app.use('/api/integrations/google-drive', googleDriveRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-// app.use('/api/organizations/:orgId/ascora', ascoraRoutes); // TODO: Fix initialisation
+app.use('/api/contact', contactRoutes);
+app.use('/api/organizations', ascoraRoutes); // Ascora CRM integration
+app.use('/api/keys', apiKeyRoutes); // Secure API key management
 
 // Sentry error handling - MUST be before custom error handler
 Sentry.setupExpressErrorHandler(app);
@@ -294,8 +322,6 @@ const initializeServices = async () => {
   console.log(`   GET    /api/trial-auth/trial-status    # Get trial status`);
   console.log(`   POST   /api/trial-auth/verify-payment  # Verify payment method`);
   console.log(`   GET    /api/trial-auth/health          # Health check`);
-    // console.log(`\n🔗 Ascora CRM: (TODO: Fix initialisation)`);
-    // console.log(`   POST   /api/organizations/:orgId/ascora/connect         # Connect to Ascora`);
     });
   }
 };

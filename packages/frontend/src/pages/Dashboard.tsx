@@ -10,6 +10,7 @@ import { GeneratedReports } from '../components/GeneratedReports';
 import { UserMenu } from '../components/UserMenu';
 import { TrialUpgradeBanner } from '../components/TrialUpgradeBanner';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 interface DashboardProps {
   onBackToHome: () => void;
@@ -105,18 +106,24 @@ export function Dashboard({ onBackToHome }: DashboardProps) {
         )}
 
         {/* API Key Manager */}
-        <div className="mb-8">
-          <ApiKeyManager />
-        </div>
+        <ErrorBoundary context="API Key Manager">
+          <div className="mb-8">
+            <ApiKeyManager />
+          </div>
+        </ErrorBoundary>
 
         {/* Report Generation and List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div>
-            <ReportForm onReportGenerated={handleReportGenerated} />
-          </div>
-          <div>
-            <GeneratedReports key={refreshKey} />
-          </div>
+          <ErrorBoundary context="Report Generation Form">
+            <div>
+              <ReportForm onReportGenerated={handleReportGenerated} />
+            </div>
+          </ErrorBoundary>
+          <ErrorBoundary context="Generated Reports List">
+            <div>
+              <GeneratedReports key={refreshKey} />
+            </div>
+          </ErrorBoundary>
         </div>
       </main>
 

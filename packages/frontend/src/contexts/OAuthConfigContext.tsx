@@ -61,11 +61,14 @@ export const AuthConfigProvider: React.FC<{ children: ReactNode }> = ({ children
     lastChecked: null,
   });
 
+  const [error, setError] = useState<Error | null>(null);
+
   /**
    * Validates authentication configuration from backend
    */
   const validateConfig = async (): Promise<void> => {
     setConfig((prev) => ({ ...prev, isLoading: true }));
+    setError(null);
 
     try {
       // Fetch Backend Configuration Validation
@@ -100,27 +103,31 @@ export const AuthConfigProvider: React.FC<{ children: ReactNode }> = ({ children
 
       setConfig(newConfig);
 
-      // Log Configuration Status to Console
-      console.group('🔐 Authentication Configuration');
-      console.log('Timestamp:', new Date().toISOString());
-      console.log('');
+      // Log Configuration Status to Console (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.group('🔐 Authentication Configuration');
+        console.log('Timestamp:', new Date().toISOString());
+        console.log('');
 
-      if (backendValidation) {
-        console.log('📊 Status:', backendValidation.config_status);
-        console.log('🔑 Auth Method:', backendValidation.auth_method);
-        if (backendValidation.message) {
-          console.log('💬 Message:', backendValidation.message);
+        if (backendValidation) {
+          console.log('📊 Status:', backendValidation.config_status);
+          console.log('🔑 Auth Method:', backendValidation.auth_method);
+          if (backendValidation.message) {
+            console.log('💬 Message:', backendValidation.message);
+          }
+          if (backendValidation.allowed_origins.length > 0) {
+            console.log('🌐 Allowed Origins:', backendValidation.allowed_origins);
+          }
+        } else {
+          console.log('⚠️  Could not reach backend - server may be offline');
         }
-        if (backendValidation.allowed_origins.length > 0) {
-          console.log('🌐 Allowed Origins:', backendValidation.allowed_origins);
-        }
-      } else {
-        console.log('⚠️  Could not reach backend - server may be offline');
+
+        console.groupEnd();
       }
-
-      console.groupEnd();
     } catch (error) {
       console.error('❌ Auth config validation failed:', error);
+      const errorObj = error instanceof Error ? error : new Error('Auth config validation failed');
+      setError(errorObj);
       setConfig({
         isValid: false,
         authMethod: 'email_password',
@@ -140,6 +147,38 @@ export const AuthConfigProvider: React.FC<{ children: ReactNode }> = ({ children
     config,
     recheckConfig: validateConfig,
   };
+
+  // Show error state if auth config fails to load
+  if (error && !config.isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
+          <div className="flex justify-center mb-6">
+            <div className="bg-red-100 p-4 rounded-full">
+              <svg className="w-12 h-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 text-center mb-4">
+            Configuration Error
+          </h1>
+          <p className="text-gray-600 text-center mb-6">
+            Unable to load authentication configuration. Please check your connection and try again.
+          </p>
+          <button
+            onClick={validateConfig}
+            className="w-full inline-flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Retry</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthConfigContext.Provider value={contextValue}>

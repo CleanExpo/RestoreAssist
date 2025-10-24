@@ -1,0 +1,17 @@
+--- src/pages/LandingPage.tsx
++++ src/pages/LandingPage.tsx
+@@ -40,10 +40,11 @@
+ import { useOAuthConfig } from '../contexts/OAuthConfigContext';
+ 
+ interface LandingPageProps {
+   onGetStarted?: () => void;
+-  onLoginSuccess?: (email: string) => void;
+-  onDevLogin?: () => void;
++  onLoginSuccess?: (googleCredential: string) => Promise<void>;
++  onDevLogin?: () => Promise<void>;
++  onShowGoogleOAuth?: () => void;
+ }
+ 
+-export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin }: LandingPageProps) {
++export function LandingPage({ onGetStarted, onLoginSuccess, onDevLogin, onShowGoogleOAuth }: LandingPageProps) {
+   const navigate = useNavigate();

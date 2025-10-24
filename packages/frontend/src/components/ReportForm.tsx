@@ -11,6 +11,7 @@ interface Props {
 export function ReportForm({ onReportGenerated }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [formData, setFormData] = useState<GenerateReportRequest>({
     propertyAddress: '',
@@ -256,40 +257,64 @@ export function ReportForm({ onReportGenerated }: Props) {
     setLoading(true);
     setError(null);
 
-    try {
-      // Development mode: Check if we should use mock data
-      const isDevelopment = !import.meta.env.PROD && window.location.hostname.includes('localhost');
-      const useMockMode = isDevelopment && localStorage.getItem('accessToken')?.startsWith('dev-access-token');
+    const maxRetries = 3;
+    let currentRetry = 0;
 
-      if (useMockMode) {
-        // Generate mock report for screenshots/development
-        console.log('🎭 DEV MODE: Generating mock report for screenshot capture');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
-        generateMockReport(formData);
-        onReportGenerated();
-        console.log('✅ DEV MODE: Mock report generated successfully');
-      } else {
-        // Production mode: Use real backend API
-        const apiKey = getStoredApiKey();
-        if (!apiKey) {
-          throw new Error('Please set your Anthropic API key first');
+    const attemptGeneration = async (): Promise<void> => {
+      try {
+        // Development mode: Check if we should use mock data
+        const isDevelopment = !import.meta.env.PROD && window.location.hostname.includes('localhost');
+        const useMockMode = isDevelopment && localStorage.getItem('accessToken')?.startsWith('dev-access-token');
+
+        if (useMockMode) {
+          // Generate mock report for screenshots/development
+          console.log('🎭 DEV MODE: Generating mock report for screenshot capture');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
+          generateMockReport(formData);
+          onReportGenerated();
+          console.log('✅ DEV MODE: Mock report generated successfully');
+        } else {
+          // Production mode: Use real backend API
+          const apiKey = getStoredApiKey();
+          if (!apiKey) {
+            throw new Error('Please set your Anthropic API key first');
+          }
+          const report = await generateReport(formData);
+          onReportGenerated();
         }
-        const report = await generateReport(formData);
-        onReportGenerated();
-      }
 
-      // Reset form
-      setFormData({
-        propertyAddress: '',
-        damageType: 'water',
-        damageDescription: '',
-        state: 'NSW',
-        clientName: '',
-        insuranceCompany: '',
-        claimNumber: ''
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate report');
+        // Reset form and retry counter on success
+        setFormData({
+          propertyAddress: '',
+          damageType: 'water',
+          damageDescription: '',
+          state: 'NSW',
+          clientName: '',
+          insuranceCompany: '',
+          claimNumber: ''
+        });
+        setRetryCount(0);
+      } catch (err) {
+        currentRetry++;
+        setRetryCount(currentRetry);
+
+        if (currentRetry < maxRetries) {
+          // Exponential backoff: wait 1s, 2s, 4s
+          const waitTime = Math.pow(2, currentRetry - 1) * 1000;
+          console.log(`Retry attempt ${currentRetry}/${maxRetries} after ${waitTime}ms`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return attemptGeneration();
+        } else {
+          // Max retries reached
+          const errorMessage = err instanceof Error ? err.message : 'Failed to generate report';
+          setError(`${errorMessage} (Failed after ${maxRetries} attempts)`);
+          setRetryCount(0);
+        }
+      }
+    };
+
+    try {
+      await attemptGeneration();
     } finally {
       setLoading(false);
     }
@@ -398,16 +423,36 @@ export function ReportForm({ onReportGenerated }: Props) {
 
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded">
-            {error}
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="font-medium">Error generating report</p>
+                <p className="text-sm mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loading && retryCount > 0 && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
+            <p className="text-sm">Retry attempt {retryCount}/3...</p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
-          {loading ? 'Generating Report...' : 'Generate Report'}
+          {loading && (
+            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
+          {loading ? (retryCount > 0 ? `Retrying (${retryCount}/3)...` : 'Generating Report...') : 'Generate Report'}
         </button>
       </form>
     </div>

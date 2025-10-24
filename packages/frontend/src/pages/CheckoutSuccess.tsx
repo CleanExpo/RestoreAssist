@@ -4,6 +4,7 @@ import { CheckCircle, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 export function CheckoutSuccess() {
   const navigate = useNavigate();
@@ -73,8 +74,9 @@ export function CheckoutSuccess() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-secondary p-4">
-      <Card className="max-w-2xl w-full">
+    <ErrorBoundary context="Checkout Success Page">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-secondary p-4">
+        <Card className="max-w-2xl w-full">
         <CardHeader className="text-center">
           <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
             <CheckCircle className="w-10 h-10 text-green-600 dark:text-green-400" />
@@ -145,7 +147,8 @@ export function CheckoutSuccess() {
             </Button>
           </div>
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </ErrorBoundary>
   );
 }

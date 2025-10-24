@@ -11,9 +11,14 @@ import { defineConfig, devices } from '@playwright/test';
  * - Stripe Checkout Flow (payment processing)
  * - Navigation & Routes (all 30 routes)
  * - Form Validation (XSS prevention, sanitization)
+ * - Complete User Journeys (Trial & Paid Users)
+ * - Authentication Lifecycle (Signup, Login, Logout, Token Refresh)
+ * - Error Recovery & Retry Mechanisms
+ * - Payment Flow & Webhook Processing
  */
 export default defineConfig({
-  testDir: './tests/e2e-claude',
+  testDir: './tests',
+  testMatch: ['**/*.spec.ts'],
 
   // Maximum time one test can run for
   timeout: 30 * 1000,

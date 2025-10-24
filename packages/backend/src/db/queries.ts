@@ -91,16 +91,17 @@ export async function findAllReports(options: {
   const { page, limit, sortBy, order } = options;
   const offset = (page - 1) * limit;
 
-  // Map sortBy to database columns
+  // Map sortBy to database columns (SECURE: whitelist-based validation)
   const sortColumn = sortBy === 'timestamp' ? 'created_at' : 'total_cost';
-  const sortOrder = order.toUpperCase();
+  const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
   // Get total count
   const countQuery = `SELECT COUNT(*) as count FROM reports WHERE deleted_at IS NULL`;
   const { count } = await db.one(countQuery);
   const total = parseInt(count);
 
-  // Get paginated results
+  // Get paginated results (SECURE: Using parameterized query with whitelist validation)
+  // Sort column and order are now safe as they're from a whitelist, not user input
   const dataQuery = `
     SELECT * FROM reports
     WHERE deleted_at IS NULL
@@ -214,15 +215,18 @@ export async function hardDeleteReport(reportId: string): Promise<boolean> {
 
 // DELETE - Delete reports older than X days
 export async function deleteOlderThan(days: number): Promise<number> {
+  // SECURE: Using parameterized query to prevent SQL injection
   const query = `
     UPDATE reports
     SET deleted_at = NOW()
-    WHERE created_at < NOW() - INTERVAL '${days} days'
+    WHERE created_at < NOW() - INTERVAL $1
       AND deleted_at IS NULL
     RETURNING report_id
   `;
 
-  const results = await db.manyOrNone(query);
+  // Pass the interval as a parameterized value (e.g., '7 days')
+  const interval = `${days} days`;
+  const results = await db.manyOrNone(query, [interval]);
   return results.length;
 }
 

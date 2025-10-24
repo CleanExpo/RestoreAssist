@@ -63,7 +63,7 @@ export class AuthService {
   async registerUser(email: string, password: string, name: string, role: 'admin' | 'user' | 'viewer' = 'user'): Promise<User> {
     // Use database if available
     if (USE_DATABASE) {
-      return authServiceDb.registerUser(email, password, name, role as any);
+      return authServiceDb.registerUser(email, password, name, role);
     }
 
     // Fallback to in-memory storage

@@ -1,0 +1,492 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - navigation [ref=e5]:
+    - generic [ref=e7]:
+      - link "RestoreAssist - Restoration Intelligence RestoreAssist RESTORATION INTELLIGENCE" [ref=e8] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]:
+          - img "RestoreAssist - Restoration Intelligence" [ref=e10]
+          - generic [ref=e11]:
+            - generic [ref=e12]: RestoreAssist
+            - generic [ref=e13]: RESTORATION INTELLIGENCE
+      - generic [ref=e14]:
+        - button "Features" [ref=e16] [cursor=pointer]:
+          - text: Features
+          - img [ref=e17]
+        - link "Pricing" [ref=e19] [cursor=pointer]:
+          - /url: /pricing
+        - link "About" [ref=e20] [cursor=pointer]:
+          - /url: /about
+        - link "Contact" [ref=e21] [cursor=pointer]:
+          - /url: /contact
+        - button "Toggle theme" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+          - generic [ref=e29]: Toggle theme
+        - button "Get Started" [ref=e30] [cursor=pointer]
+  - generic [ref=e33]:
+    - generic [ref=e34]:
+      - img [ref=e36]
+      - generic [ref=e39]:
+        - heading "3 FREE Reports" [level=3] [ref=e40]
+        - paragraph [ref=e41]: No credit card required
+      - paragraph [ref=e42]: Experience the power of AI-driven damage assessment with your complimentary trial reports
+    - generic [ref=e43]:
+      - img [ref=e45]
+      - generic [ref=e48]:
+        - heading "Australian First" [level=3] [ref=e49]
+        - paragraph [ref=e50]: Uniformed Reporting System
+      - paragraph [ref=e51]: Standardised, compliant reports across all Australian states and damage types
+    - generic [ref=e52]:
+      - img [ref=e54]
+      - generic [ref=e56]:
+        - heading "Massive Savings" [level=3] [ref=e57]
+        - paragraph [ref=e58]: Up to 95% time reduction
+      - paragraph [ref=e59]: Slash report writing time from hours to seconds while maintaining professional quality
+  - generic [ref=e64]:
+    - generic [ref=e65]:
+      - generic [ref=e66]:
+        - img [ref=e67]
+        - text: Powered by Claude Opus 4
+      - heading "AI-Powered Damage Assessment for Australian Properties" [level=1] [ref=e70]
+      - paragraph [ref=e71]: Generate professional, compliant damage reports in 10-15 seconds. Built specifically for the Australian restoration industry with NCC 2022 compliance.
+      - generic [ref=e72]:
+        - button "Start Free Trial" [ref=e73] [cursor=pointer]:
+          - text: Start Free Trial
+          - img [ref=e74]
+        - button "Watch Demo" [ref=e76] [cursor=pointer]:
+          - text: Watch Demo
+          - img [ref=e77]
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]: 10-15s
+          - generic [ref=e82]: Report Generation
+        - generic [ref=e83]:
+          - generic [ref=e84]: 100%
+          - generic [ref=e85]: NCC Compliant
+        - generic [ref=e86]:
+          - generic [ref=e87]: "8"
+          - generic [ref=e88]: States Covered
+    - generic [ref=e91]:
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - heading "Sample Report Preview" [level=3] [ref=e94]:
+            - img [ref=e96]
+            - text: Sample Report Preview
+          - generic [ref=e99]:
+            - img [ref=e100]
+            - text: Live Demo
+        - generic [ref=e103]: Professional damage assessment in seconds
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]: Property
+            - generic [ref=e108]: 123 Main St, Sydney NSW
+          - generic [ref=e109]:
+            - generic [ref=e110]: Damage Type
+            - generic [ref=e111]:
+              - img [ref=e112]
+              - text: Water Damage
+          - generic [ref=e114]:
+            - generic [ref=e115]: Estimated Cost
+            - generic [ref=e116]: $8,750 AUD
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - img [ref=e119]
+            - generic [ref=e122]: Compliance & Standards
+          - generic [ref=e123]:
+            - generic [ref=e124]:
+              - img [ref=e125]
+              - generic [ref=e128]: NCC 2022 Compliant
+            - generic [ref=e129]:
+              - img [ref=e130]
+              - generic [ref=e133]: NSW Building Code Verified
+            - generic [ref=e134]:
+              - img [ref=e135]
+              - generic [ref=e138]: Insurance Ready Format
+      - button "Generate Your Report" [ref=e140] [cursor=pointer]:
+        - text: Generate Your Report
+        - img [ref=e141]
+  - generic [ref=e143]:
+    - generic [ref=e144]:
+      - generic [ref=e145]:
+        - img [ref=e146]
+        - text: Damage Types Coverage
+      - heading "Comprehensive Coverage for All Damage Types" [level=2] [ref=e148]
+      - paragraph [ref=e149]: Expert AI-powered assessment for water, fire, storm, flood, and mould damage across Australia
+    - generic [ref=e150]:
+      - link "Water Damage Typical Range $2K - $15K+" [ref=e151] [cursor=pointer]:
+        - /url: /features/water-damage
+        - generic [ref=e152]:
+          - generic [ref=e153]:
+            - img [ref=e155]:
+              - generic [ref=e159]: WATER DAMAGE
+              - generic [ref=e171]: REPORTING SYSTEM
+            - heading "Water Damage" [level=3] [ref=e172]
+          - generic [ref=e173]:
+            - paragraph [ref=e174]: Typical Range
+            - paragraph [ref=e175]: $2K - $15K+
+      - link "Fire Damage Typical Range $10K - $100K+" [ref=e176] [cursor=pointer]:
+        - /url: /features/fire-damage
+        - generic [ref=e177]:
+          - generic [ref=e178]:
+            - img [ref=e180]:
+              - generic [ref=e184]: FIRE DAMAGE
+              - generic [ref=e208]: REPORTING SYSTEM
+            - heading "Fire Damage" [level=3] [ref=e209]
+          - generic [ref=e210]:
+            - paragraph [ref=e211]: Typical Range
+            - paragraph [ref=e212]: $10K - $100K+
+      - link "Storm Damage Typical Range $5K - $50K+" [ref=e213] [cursor=pointer]:
+        - /url: /features/storm-damage
+        - generic [ref=e214]:
+          - generic [ref=e215]:
+            - img [ref=e217]:
+              - generic [ref=e220]: STORM DAMAGE
+              - generic [ref=e237]: REPORTING SYSTEM
+            - heading "Storm Damage" [level=3] [ref=e238]
+          - generic [ref=e239]:
+            - paragraph [ref=e240]: Typical Range
+            - paragraph [ref=e241]: $5K - $50K+
+      - link "Flood Damage Typical Range $15K - $150K+" [ref=e242] [cursor=pointer]:
+        - /url: /features/flood-mould
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - img [ref=e246]:
+              - generic [ref=e249]: FLOOD DAMAGE
+              - generic [ref=e263]: REPORTING SYSTEM
+            - heading "Flood Damage" [level=3] [ref=e264]
+          - generic [ref=e265]:
+            - paragraph [ref=e266]: Typical Range
+            - paragraph [ref=e267]: $15K - $150K+
+      - link "Mould Damage Typical Range $3K - $30K+" [ref=e268] [cursor=pointer]:
+        - /url: /features/flood-mould
+        - generic [ref=e269]:
+          - generic [ref=e270]:
+            - img [ref=e272]:
+              - generic [ref=e275]: MOULD DAMAGE
+              - generic [ref=e301]: REPORTING SYSTEM
+            - heading "Mould Damage" [level=3] [ref=e302]
+          - generic [ref=e303]:
+            - paragraph [ref=e304]: Typical Range
+            - paragraph [ref=e305]: $3K - $30K+
+  - generic [ref=e306]:
+    - generic [ref=e307]:
+      - generic [ref=e308]:
+        - img [ref=e309]
+        - text: Platform Features
+      - heading "Everything You Need in One Platform" [level=2] [ref=e312]
+      - paragraph [ref=e313]: Powerful features designed for restoration professionals
+    - generic [ref=e314]:
+      - link "AI-Powered Reports Claude Opus 4 generates professional reports with detailed scope of work and cost estimates in 10-15 seconds." [ref=e315] [cursor=pointer]:
+        - /url: /features/ai-reports
+        - generic [ref=e316]:
+          - generic [ref=e317]:
+            - img [ref=e319]
+            - heading "AI-Powered Reports" [level=3] [ref=e322]
+          - paragraph [ref=e324]: Claude Opus 4 generates professional reports with detailed scope of work and cost estimates in 10-15 seconds.
+      - link "NCC 2022 Compliant Every report automatically includes relevant NCC 2022 compliance notes and state-specific building regulations." [ref=e325] [cursor=pointer]:
+        - /url: /features/building-codes
+        - generic [ref=e326]:
+          - generic [ref=e327]:
+            - img [ref=e329]
+            - heading "NCC 2022 Compliant" [level=3] [ref=e331]
+          - paragraph [ref=e333]: Every report automatically includes relevant NCC 2022 compliance notes and state-specific building regulations.
+      - link "Accurate Pricing Market-accurate 2024 Australian pricing database with realistic labour rates and material costs." [ref=e334] [cursor=pointer]:
+        - /url: /features/cost-estimation
+        - generic [ref=e335]:
+          - generic [ref=e336]:
+            - img [ref=e338]
+            - heading "Accurate Pricing" [level=3] [ref=e340]
+          - paragraph [ref=e342]: Market-accurate 2024 Australian pricing database with realistic labour rates and material costs.
+      - link "Professional Output Industry-standard documentation with itemised estimates, scope of work, and Authority to Proceed." [ref=e343] [cursor=pointer]:
+        - /url: /features/templates
+        - generic [ref=e344]:
+          - generic [ref=e345]:
+            - img [ref=e347]
+            - heading "Professional Output" [level=3] [ref=e350]
+          - paragraph [ref=e352]: Industry-standard documentation with itemised estimates, scope of work, and Authority to Proceed.
+      - link "Lightning Fast Generate comprehensive damage assessments in seconds instead of hours of manual work." [ref=e353] [cursor=pointer]:
+        - /url: /features/batch-processing
+        - generic [ref=e354]:
+          - generic [ref=e355]:
+            - img [ref=e357]
+            - heading "Lightning Fast" [level=3] [ref=e360]
+          - paragraph [ref=e362]: Generate comprehensive damage assessments in seconds instead of hours of manual work.
+      - link "Analytics & Tracking Track all your reports, monitor statistics, and export data for insurance claims." [ref=e363] [cursor=pointer]:
+        - /url: /features/analytics
+        - generic [ref=e364]:
+          - generic [ref=e365]:
+            - img [ref=e367]
+            - heading "Analytics & Tracking" [level=3] [ref=e369]
+          - paragraph [ref=e371]: Track all your reports, monitor statistics, and export data for insurance claims.
+  - generic [ref=e373]:
+    - generic [ref=e374]:
+      - generic [ref=e375]:
+        - img [ref=e376]
+        - text: Watch RestoreAssist in Action
+      - heading "See How It Works In Under 60 Seconds" [level=2] [ref=e378]:
+        - text: See How It Works
+        - text: In Under 60 Seconds
+      - paragraph [ref=e379]: Watch a complete demonstration of generating professional damage reports with AI
+    - iframe [ref=e383]:
+      
+    - paragraph [ref=e385]: Learn how RestoreAssist generates IICRC-compliant reports with accurate cost estimates in seconds
+  - generic [ref=e386]:
+    - generic [ref=e387]:
+      - generic [ref=e388]: Australia-Wide
+      - heading "Complete Coverage Across Australia" [level=2] [ref=e389]
+      - paragraph [ref=e390]: State-specific compliance and regulations for all Australian territories
+    - generic [ref=e391]:
+      - generic [ref=e392] [cursor=pointer]:
+        - generic [ref=e393]: NSW
+        - generic [ref=e394]: New South Wales
+      - generic [ref=e395] [cursor=pointer]:
+        - generic [ref=e396]: VIC
+        - generic [ref=e397]: Victoria
+      - generic [ref=e398] [cursor=pointer]:
+        - generic [ref=e399]: QLD
+        - generic [ref=e400]: Queensland
+      - generic [ref=e401] [cursor=pointer]:
+        - generic [ref=e402]: WA
+        - generic [ref=e403]: Western Australia
+      - generic [ref=e404] [cursor=pointer]:
+        - generic [ref=e405]: SA
+        - generic [ref=e406]: South Australia
+      - generic [ref=e407] [cursor=pointer]:
+        - generic [ref=e408]: TAS
+        - generic [ref=e409]: Tasmania
+      - generic [ref=e410] [cursor=pointer]:
+        - generic [ref=e411]: ACT
+        - generic [ref=e412]: Australian Capital Territory
+      - generic [ref=e413] [cursor=pointer]:
+        - generic [ref=e414]: NT
+        - generic [ref=e415]: Northern Territory
+  - generic [ref=e417]:
+    - generic [ref=e418]:
+      - generic [ref=e419]:
+        - img [ref=e420]
+        - text: Simple, Transparent Pricing
+      - heading "Choose Your Plan Start Free, Scale As You Grow" [level=2] [ref=e422]:
+        - text: Choose Your Plan
+        - text: Start Free, Scale As You Grow
+      - paragraph [ref=e423]: No hidden fees. Cancel anytime. All plans include NCC 2022 compliance.
+    - generic [ref=e424]:
+      - generic [ref=e425]:
+        - generic [ref=e426]:
+          - heading "Free Trial" [level=3] [ref=e427]
+          - generic [ref=e430]: Free
+        - generic [ref=e432]:
+          - generic [ref=e433]:
+            - img [ref=e434]
+            - generic [ref=e436]: 3 reports
+          - generic [ref=e437]:
+            - img [ref=e438]
+            - generic [ref=e440]: 3 free reports
+          - generic [ref=e441]:
+            - img [ref=e442]
+            - generic [ref=e444]: PDF export
+          - generic [ref=e445]:
+            - img [ref=e446]
+            - generic [ref=e448]: Basic support
+          - generic [ref=e449]:
+            - img [ref=e450]
+            - generic [ref=e452]: NCC 2022 compliant
+        - button "Start Free Trial" [ref=e454] [cursor=pointer]
+      - generic [ref=e455]:
+        - generic [ref=e457]:
+          - img [ref=e458]
+          - text: Most Popular
+        - generic [ref=e461]:
+          - heading "Monthly" [level=3] [ref=e462]
+          - generic [ref=e464]:
+            - generic [ref=e465]: $49.50
+            - generic [ref=e466]: /month
+        - generic [ref=e468]:
+          - generic [ref=e469]:
+            - img [ref=e470]
+            - generic [ref=e472]: Unlimited reports
+          - generic [ref=e473]:
+            - img [ref=e474]
+            - generic [ref=e476]: Unlimited reports
+          - generic [ref=e477]:
+            - img [ref=e478]
+            - generic [ref=e480]: PDF & Excel export
+          - generic [ref=e481]:
+            - img [ref=e482]
+            - generic [ref=e484]: Email support
+          - generic [ref=e485]:
+            - img [ref=e486]
+            - generic [ref=e488]: All integrations
+          - generic [ref=e489]:
+            - img [ref=e490]
+            - generic [ref=e492]: NCC 2022 compliant
+          - generic [ref=e493]:
+            - img [ref=e494]
+            - generic [ref=e496]: Priority processing
+        - button "Get Started" [ref=e498] [cursor=pointer]
+      - generic [ref=e499]:
+        - generic [ref=e501]: Best Value
+        - generic [ref=e502]:
+          - heading "Yearly" [level=3] [ref=e503]
+          - generic [ref=e504]:
+            - generic [ref=e505]:
+              - generic [ref=e506]: $528.00
+              - generic [ref=e507]: /year
+            - paragraph [ref=e508]: $44/month billed annually
+            - paragraph [ref=e509]: Save $66/year
+        - generic [ref=e511]:
+          - generic [ref=e512]:
+            - img [ref=e513]
+            - generic [ref=e515]: Unlimited reports
+          - generic [ref=e516]:
+            - img [ref=e517]
+            - generic [ref=e519]: Unlimited reports
+          - generic [ref=e520]:
+            - img [ref=e521]
+            - generic [ref=e523]: PDF & Excel export
+          - generic [ref=e524]:
+            - img [ref=e525]
+            - generic [ref=e527]: Priority support
+          - generic [ref=e528]:
+            - img [ref=e529]
+            - generic [ref=e531]: All integrations
+          - generic [ref=e532]:
+            - img [ref=e533]
+            - generic [ref=e535]: NCC 2022 compliant
+          - generic [ref=e536]:
+            - img [ref=e537]
+            - generic [ref=e539]: Priority processing
+          - generic [ref=e540]:
+            - img [ref=e541]
+            - generic [ref=e543]: 10% discount - Save $66/year
+        - button "Get Started" [ref=e545] [cursor=pointer]
+    - generic [ref=e548]:
+      - generic [ref=e549]:
+        - img [ref=e550]
+        - heading "30-Day Money-Back Guarantee" [level=3] [ref=e552]
+      - paragraph [ref=e553]: Try RestoreAssist risk-free. If you're not completely satisfied within 30 days, we'll refund your payment—no questions asked.
+  - generic [ref=e554]:
+    - generic [ref=e555]:
+      - generic [ref=e556]:
+        - img [ref=e557]
+        - text: Testimonials
+      - heading "Trusted by Restoration Professionals" [level=2] [ref=e562]
+    - generic [ref=e563]:
+      - generic [ref=e564]:
+        - generic [ref=e565]:
+          - generic [ref=e566]:
+            - img [ref=e567]
+            - img [ref=e569]
+            - img [ref=e571]
+            - img [ref=e573]
+            - img [ref=e575]
+          - generic [ref=e577]: "\"RestoreAssist has cut our report generation time from hours to minutes. The NCC compliance checks are invaluable.\""
+        - generic [ref=e579]:
+          - img [ref=e581]
+          - generic [ref=e586]:
+            - generic [ref=e587]: Sarah Mitchell
+            - generic [ref=e588]: Restoration Manager, Sydney
+      - generic [ref=e589]:
+        - generic [ref=e590]:
+          - generic [ref=e591]:
+            - img [ref=e592]
+            - img [ref=e594]
+            - img [ref=e596]
+            - img [ref=e598]
+            - img [ref=e600]
+          - generic [ref=e602]: "\"The accuracy of cost estimates is impressive. Reports are professional and always accepted by insurers.\""
+        - generic [ref=e604]:
+          - img [ref=e606]
+          - generic [ref=e611]:
+            - generic [ref=e612]: James Chen
+            - generic [ref=e613]: Insurance Assessor, Melbourne
+      - generic [ref=e614]:
+        - generic [ref=e615]:
+          - generic [ref=e616]:
+            - img [ref=e617]
+            - img [ref=e619]
+            - img [ref=e621]
+            - img [ref=e623]
+            - img [ref=e625]
+          - generic [ref=e627]: "\"Finally, a tool that understands Australian building standards. The state-specific compliance notes save us so much time.\""
+        - generic [ref=e629]:
+          - img [ref=e631]
+          - generic [ref=e636]:
+            - generic [ref=e637]: Lisa Anderson
+            - generic [ref=e638]: Property Manager, Brisbane
+  - generic [ref=e643]:
+    - generic [ref=e644]:
+      - generic [ref=e645]:
+        - img [ref=e646]
+        - text: Start Your Free Trial Today
+      - heading "Ready to Transform Your Damage Assessments?" [level=2] [ref=e649]
+      - paragraph [ref=e650]: Join Australian restoration professionals using AI to generate professional, compliant reports in seconds.
+    - generic [ref=e651]:
+      - button "Start Free Trial" [ref=e652] [cursor=pointer]:
+        - text: Start Free Trial
+        - img [ref=e653]
+      - button "Schedule Demo" [ref=e655] [cursor=pointer]:
+        - text: Schedule Demo
+        - img [ref=e656]
+    - generic [ref=e658]:
+      - generic [ref=e659]:
+        - generic [ref=e660]: 3 Free
+        - generic [ref=e661]: Trial Reports
+      - generic [ref=e662]:
+        - generic [ref=e663]: No Card
+        - generic [ref=e664]: Required
+      - generic [ref=e665]:
+        - generic [ref=e666]: 24/7
+        - generic [ref=e667]: Support
+  - contentinfo [ref=e668]:
+    - generic [ref=e669]:
+      - generic [ref=e670]:
+        - generic [ref=e671]:
+          - img "RestoreAssist - Restoration Intelligence" [ref=e672]
+          - paragraph [ref=e673]: AI-powered damage assessment platform for Australian restoration professionals. Built with Claude Opus 4.
+        - generic [ref=e674]:
+          - heading "Product" [level=3] [ref=e675]
+          - list [ref=e676]:
+            - listitem [ref=e677]:
+              - link "Features" [ref=e678] [cursor=pointer]:
+                - /url: /features/ai-reports
+            - listitem [ref=e679]:
+              - link "Pricing" [ref=e680] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e681]:
+              - link "Dashboard" [ref=e682] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=e683]:
+              - link "Analytics" [ref=e684] [cursor=pointer]:
+                - /url: /features/analytics
+        - generic [ref=e685]:
+          - heading "Company" [level=3] [ref=e686]
+          - list [ref=e687]:
+            - listitem [ref=e688]:
+              - link "About" [ref=e689] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e690]:
+              - link "How It Works" [ref=e691] [cursor=pointer]:
+                - /url: /features/ai-reports
+            - listitem [ref=e692]:
+              - link "Compliance" [ref=e693] [cursor=pointer]:
+                - /url: /features/iicrc-compliance
+            - listitem [ref=e694]:
+              - link "Contact" [ref=e695] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e696]:
+          - heading "Legal" [level=3] [ref=e697]
+          - list [ref=e698]:
+            - listitem [ref=e699]:
+              - link "Privacy" [ref=e700] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=e701]:
+              - link "Terms" [ref=e702] [cursor=pointer]:
+                - /url: /terms
+            - listitem [ref=e703]:
+              - link "Refunds" [ref=e704] [cursor=pointer]:
+                - /url: /refunds
+      - paragraph [ref=e706]: © 2025 RestoreAssist. All rights reserved. Powered by Claude Opus 4.
+```

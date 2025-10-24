@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_me}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./packages/backend/prisma/migrations:/docker-entrypoint-initdb.d
@@ -43,15 +43,17 @@ services:
     container_name: restoreassist-backend-dev
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3011:3001"
     environment:
       NODE_ENV: development
       PORT: 3001
       DATABASE_URL: postgresql://restoreassist:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/restoreassist?schema=public
       DIRECT_DATABASE_URL: postgresql://restoreassist:${POSTGRES_PASSWORD:-dev_password_change_me}@postgres:5432/restoreassist?schema=public
+      # Note: Internal container communication still uses 5432, external host access via 5433
 
       # JWT & Security
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-change-in-production}
       JWT_EXPIRY: ${JWT_EXPIRY:-15m}
       REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY:-7d}
 

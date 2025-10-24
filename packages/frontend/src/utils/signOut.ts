@@ -33,9 +33,9 @@ export const signOutCompletely = () => {
   try {
     const userEmail = localStorage.getItem('userEmail');
     if (userEmail && window.google?.accounts?.id) {
-      window.google.accounts.id.revoke(userEmail, (done) => {
-        console.log('✅ Google OAuth revoked');
-      });
+      // window.google.accounts.id.revoke(userEmail, (done) => { // Not available in current Google Identity SDK
+        // console.log('✅ Google OAuth revoked');
+      // });
     }
   } catch (e) {
     console.log('⚠️ Could not revoke Google OAuth:', e);

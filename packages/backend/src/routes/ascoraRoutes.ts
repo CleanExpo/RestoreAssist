@@ -35,11 +35,46 @@ const validateRequest = (req: Request, res: Response, next: NextFunction) => {
 
 // ===== Initialise Service =====
 
-let ascoraService: AscoraIntegrationService;
+let ascoraService: AscoraIntegrationService | null = null;
+let dbPool: Pool | null = null;
 
-export const initializeAscoraRoutes = (db: Pool) => {
-  ascoraService = new AscoraIntegrationService(db);
-  return router;
+// Lazy initialization of database pool
+const getDbPool = (): Pool => {
+  if (!dbPool) {
+    dbPool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5433'),
+      database: process.env.DB_NAME || 'restoreassist',
+      user: process.env.DB_USER || 'restoreassist',
+      password: process.env.DB_PASSWORD || 'dev_password_change_me',
+      max: 10, // Connection pool size for Ascora
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
+  }
+  return dbPool;
+};
+
+// Lazy initialization of service
+const getAscoraService = (): AscoraIntegrationService => {
+  if (!ascoraService) {
+    ascoraService = new AscoraIntegrationService(getDbPool());
+  }
+  return ascoraService;
+};
+
+// Middleware to ensure service is initialized
+const ensureServiceInitialized = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    getAscoraService();
+    next();
+  } catch (error) {
+    console.error('[Ascora] Service initialization failed:', error);
+    res.status(503).json({
+      success: false,
+      message: 'Ascora service is not available. Please check configuration.',
+    });
+  }
 };
 
 // ===== AUTHENTICATION ENDPOINTS (3) =====
@@ -56,14 +91,15 @@ router.post(
     body('apiUrl').isURL().withMessage('Valid API URL is required'),
     body('apiToken').notEmpty().withMessage('API token is required'),
     body('companyCode').notEmpty().withMessage('Company code is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
       const { userId, apiUrl, apiToken, companyCode } = req.body;
 
-      const integration = await ascoraService.connectIntegration(
+      const integration = await getAscoraService().connectIntegration(
         orgId,
         userId,
         apiUrl,
@@ -103,13 +139,14 @@ router.post(
   '/:orgId/ascora/disconnect',
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
 
-      await ascoraService.disconnectIntegration(orgId);
+      await getAscoraService().disconnectIntegration(orgId);
 
       res.json({
         success: true,
@@ -134,13 +171,14 @@ router.get(
   '/:orgId/ascora/status',
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
 
-      const integration = await ascoraService.getIntegration(orgId);
+      const integration = await getAscoraService().getIntegration(orgId);
 
       if (!integration) {
         return res.status(404).json({
@@ -150,7 +188,7 @@ router.get(
         });
       }
 
-      const syncStatus = await ascoraService.getSyncStatus(orgId);
+      const syncStatus = await getAscoraService().getSyncStatus(orgId);
 
       res.json({
         success: true,
@@ -193,14 +231,15 @@ router.post(
       .optional()
       .isInt({ min: 60, max: 3600 })
       .withMessage('Interval must be between 60 and 3600 seconds'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
       const { intervalSeconds = 300 } = req.body;
 
-      await ascoraService.startSyncSchedule(orgId, intervalSeconds);
+      await getAscoraService().startSyncSchedule(orgId, intervalSeconds);
 
       res.json({
         success: true,
@@ -229,13 +268,14 @@ router.get(
   '/:orgId/ascora/sync/status',
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
 
-      const status = await ascoraService.getSyncStatus(orgId);
+      const status = await getAscoraService().getSyncStatus(orgId);
 
       res.json({
         success: true,
@@ -260,13 +300,14 @@ router.post(
   '/:orgId/ascora/sync/retry',
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
 
-      const result = await ascoraService.resyncFailedItems(orgId);
+      const result = await getAscoraService().resyncFailedItems(orgId);
 
       res.json({
         success: true,
@@ -292,13 +333,14 @@ router.post(
   '/:orgId/ascora/sync/manual',
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
 
-      const results = await ascoraService.manualSync(orgId);
+      const results = await getAscoraService().manualSync(orgId);
 
       res.json({
         success: true,
@@ -327,14 +369,15 @@ router.post(
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     body('reportId').isUUID().withMessage('Valid report ID is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
       const { reportId } = req.body;
 
-      const result = await ascoraService.createJobFromReport(orgId, reportId);
+      const result = await getAscoraService().createJobFromReport(orgId, reportId);
 
       res.status(201).json({
         success: true,
@@ -364,7 +407,8 @@ router.get(
     query('offset').optional().isInt({ min: 0 }),
     query('status').optional().isString(),
     query('customerId').optional().isString(),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -394,10 +438,10 @@ router.get(
       query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
-      const result = await ascoraService['db'].query(query, params);
+      const result = await getDbPool().query(query, params);
 
       // Get total count
-      const countResult = await ascoraService['db'].query(
+      const countResult = await getDbPool().query(
         `SELECT COUNT(*) FROM ascora_jobs WHERE organization_id = $1`,
         [orgId]
       );
@@ -431,13 +475,14 @@ router.get(
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId, jobId } = req.params;
 
-      const result = await ascoraService['db'].query(
+      const result = await getDbPool().query(
         `SELECT * FROM ascora_jobs WHERE organization_id = $1 AND ascora_job_id = $2`,
         [orgId, jobId]
       );
@@ -474,14 +519,15 @@ router.put(
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
     body('status').notEmpty().withMessage('Status is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId, jobId } = req.params;
       const { status } = req.body;
 
-      await ascoraService.syncJobStatus(orgId, jobId);
+      await getAscoraService().syncJobStatus(orgId, jobId);
 
       res.json({
         success: true,
@@ -508,7 +554,8 @@ router.post(
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
     body('note').notEmpty().withMessage('Note is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -546,7 +593,8 @@ router.post(
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('jobId').notEmpty().withMessage('Job ID is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -586,7 +634,8 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
     query('search').optional().isString(),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -604,9 +653,9 @@ router.get(
       query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, offset);
 
-      const result = await ascoraService['db'].query(query, params);
+      const result = await getDbPool().query(query, params);
 
-      const countResult = await ascoraService['db'].query(
+      const countResult = await getDbPool().query(
         `SELECT COUNT(*) FROM ascora_customers WHERE organization_id = $1`,
         [orgId]
       );
@@ -640,13 +689,14 @@ router.get(
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('customerId').notEmpty().withMessage('Customer ID is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId, customerId } = req.params;
 
-      const result = await ascoraService['db'].query(
+      const result = await getDbPool().query(
         `SELECT * FROM ascora_customers WHERE organization_id = $1 AND ascora_customer_id = $2`,
         [orgId, customerId]
       );
@@ -686,7 +736,8 @@ router.post(
     body('companyName').optional().isString(),
     body('email').optional().isEmail(),
     body('phone').optional().isString(),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -723,7 +774,8 @@ router.put(
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('customerId').notEmpty().withMessage('Customer ID is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -764,7 +816,8 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('offset').optional().isInt({ min: 0 }),
     query('status').optional().isString(),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -782,9 +835,9 @@ router.get(
       query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, offset);
 
-      const result = await ascoraService['db'].query(query, params);
+      const result = await getDbPool().query(query, params);
 
-      const countResult = await ascoraService['db'].query(
+      const countResult = await getDbPool().query(
         `SELECT COUNT(*) FROM ascora_invoices WHERE organization_id = $1`,
         [orgId]
       );
@@ -820,14 +873,15 @@ router.post(
     param('invoiceId').notEmpty().withMessage('Invoice ID is required'),
     body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
     body('paymentMethod').optional().isString(),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId, invoiceId } = req.params;
       const { amount, paymentMethod = 'cash' } = req.body;
 
-      await ascoraService.recordPayment(orgId, invoiceId, amount, paymentMethod);
+      await getAscoraService().recordPayment(orgId, invoiceId, amount, paymentMethod);
 
       res.json({
         success: true,
@@ -859,13 +913,14 @@ router.get(
   [
     param('orgId').isUUID().withMessage('Invalid organisation ID'),
     param('invoiceId').notEmpty().withMessage('Invoice ID is required'),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
       const { orgId, invoiceId } = req.params;
 
-      const result = await ascoraService['db'].query(
+      const result = await getDbPool().query(
         `SELECT * FROM ascora_invoices WHERE organization_id = $1 AND ascora_invoice_id = $2`,
         [orgId, invoiceId]
       );
@@ -906,7 +961,8 @@ router.get(
     query('offset').optional().isInt({ min: 0 }),
     query('status').optional().isString(),
     query('syncType').optional().isString(),
-    validateRequest
+    validateRequest,
+    ensureServiceInitialized
   ],
   async (req: Request, res: Response) => {
     try {
@@ -932,9 +988,9 @@ router.get(
       query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
-      const result = await ascoraService['db'].query(query, params);
+      const result = await getDbPool().query(query, params);
 
-      const countResult = await ascoraService['db'].query(
+      const countResult = await getDbPool().query(
         `SELECT COUNT(*) FROM ascora_sync_logs WHERE organization_id = $1`,
         [orgId]
       );

@@ -73,12 +73,12 @@ jobs:
             packages/frontend/tests/e2e-claude/results/
           retention-days: 30
 
-  # Gate 2: Build and verify artifacts
-  build-artifacts:
-    name: Build Production Artifacts
+  # Gate 2: Pre-deployment validation script
+  pre-deployment-validation:
+    name: Pre-Deployment Validation Gate
     needs: pre-deployment-tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -93,41 +93,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build backend
-        working-directory: packages/backend
-        run: npm run build
-        env:
-          NODE_ENV: production
+      - name: Make validation script executable
+        run: chmod +x scripts/pre-deploy-validation.sh
 
-      - name: Build frontend
-        working-directory: packages/frontend
-        run: npm run build
-        env:
-          NODE_ENV: production
-          VITE_API_URL: ${{ secrets.VITE_API_URL_PROD || '/api' }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
-          VITE_STRIPE_PRICE_FREE_TRIAL: ${{ secrets.VITE_STRIPE_PRICE_FREE_TRIAL }}
-          VITE_STRIPE_PRICE_MONTHLY: ${{ secrets.VITE_STRIPE_PRICE_MONTHLY }}
-          VITE_STRIPE_PRICE_YEARLY: ${{ secrets.VITE_STRIPE_PRICE_YEARLY }}
-
-      - name: Verify build outputs
-        run: |
-          if [ ! -d "packages/backend/dist" ]; then
-            echo "❌ Backend build failed - no dist directory"
-            exit 1
-          fi
-
-          if [ ! -d "packages/frontend/dist" ]; then
-            echo "❌ Frontend build failed - no dist directory"
-            exit 1
-          fi
-
-          echo "✅ Build verification passed"
-
-      - name: Run deployment validation
-        run: npm run validate:deployment
+      - name: Run comprehensive pre-deployment validation
+        run: bash scripts/pre-deploy-validation.sh
         env:
           NODE_ENV: production
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -152,10 +122,18 @@ jobs:
             packages/frontend/dist/
           retention-days: 30
 
+      - name: Upload validation logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pre-deployment-validation-logs
+          path: /tmp/*-*.log
+          retention-days: 7
+
   # Deploy Backend to Vercel
   deploy-backend:
     name: Deploy Backend
-    needs: build-artifacts
+    needs: pre-deployment-validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -204,7 +182,7 @@ jobs:
   # Deploy Frontend (Vercel or alternative)
   deploy-frontend:
     name: Deploy Frontend
-    needs: build-artifacts
+    needs: pre-deployment-validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -255,12 +233,12 @@ jobs:
               body: `🚀 Frontend deployed to: ${{ steps.deploy.outputs.url }}`
             })
 
-  # Post-deployment smoke tests
-  post-deployment-tests:
-    name: Post-Deployment Smoke Tests
+  # Post-deployment verification
+  post-deployment-verification:
+    name: Post-Deployment Verification
     needs: [deploy-backend, deploy-frontend]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -271,71 +249,74 @@ jobs:
         with:
           node-version: 20.x
 
-      - name: Health check backend
-        run: |
-          BACKEND_URL="${{ secrets.BACKEND_URL }}"
-          echo "Checking backend health at $BACKEND_URL/health"
+      - name: Install jq for JSON parsing
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-          response=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health" || echo "000")
+      - name: Make verification script executable
+        run: chmod +x scripts/post-deploy-verification.sh
 
-          if [ "$response" = "200" ] || [ "$response" = "404" ]; then
-            echo "✅ Backend is responding (HTTP $response)"
-          else
-            echo "❌ Backend health check failed (HTTP $response)"
-            exit 1
-          fi
+      - name: Run comprehensive post-deployment verification
+        run: bash scripts/post-deploy-verification.sh
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
 
-      - name: Health check frontend
-        run: |
-          FRONTEND_URL="${{ secrets.FRONTEND_URL }}"
-          echo "Checking frontend at $FRONTEND_URL"
-
-          response=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
-
-          if [ "$response" = "200" ]; then
-            echo "✅ Frontend is responding"
-          else
-            echo "❌ Frontend health check failed (HTTP $response)"
-            exit 1
-          fi
-
-      - name: Critical path smoke test
-        run: |
-          echo "Running critical path tests..."
-          # Add your critical API endpoint checks here
-          echo "✅ Smoke tests passed"
+      - name: Upload verification results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-deployment-verification
+          path: /tmp/deployment-verification-*.log
+          retention-days: 30
 
   # Deployment summary
   deployment-summary:
     name: Deployment Summary
-    needs: [deploy-backend, deploy-frontend, post-deployment-tests]
+    needs: [deploy-backend, deploy-frontend, post-deployment-verification]
     runs-on: ubuntu-latest
     if: always()
 
     steps:
       - name: Create deployment summary
         run: |
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend**: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend**: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Smoke Tests**: ${{ needs.post-deployment-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Deployment**: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Deployment**: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Post-Deployment Verification**: ${{ needs.post-deployment-verification.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ "${{ needs.deploy-backend.result }}" == "success" &&
                 "${{ needs.deploy-frontend.result }}" == "success" &&
-                "${{ needs.post-deployment-tests.result }}" == "success" ]]; then
-            echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
+                "${{ needs.post-deployment-verification.result }}" == "success" ]]; then
+            echo "✅ **Deployment SUCCESSFUL!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+            echo "- Monitor Sentry for errors" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify Stripe webhooks are being received" >> $GITHUB_STEP_SUMMARY
+            echo "- Check user analytics for traffic" >> $GITHUB_STEP_SUMMARY
+            echo "- Review application logs in Vercel dashboard" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Deployment had issues**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Deployment FAILED or has issues**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Required Actions" >> $GITHUB_STEP_SUMMARY
+            echo "- Review failed job logs above" >> $GITHUB_STEP_SUMMARY
+            echo "- Check Vercel deployment logs" >> $GITHUB_STEP_SUMMARY
+            echo "- Consider rollback if production is impacted" >> $GITHUB_STEP_SUMMARY
+            echo "- Run: \`bash scripts/rollback.sh\`" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-      - name: Notify deployment status
-        if: always()
+      - name: Notify deployment success
+        if: needs.deploy-backend.result == 'success' && needs.deploy-frontend.result == 'success' && needs.post-deployment-verification.result == 'success'
         run: |
-          if [[ "${{ needs.deploy-backend.result }}" == "success" ]]; then
-            echo "✅ Deployment completed successfully"
-          else
-            echo "❌ Deployment failed - check logs"
-          fi
+          echo "✅ Deployment completed successfully and verified"
+          echo "Production is healthy and ready for traffic"
+
+      - name: Notify deployment failure
+        if: needs.deploy-backend.result != 'success' || needs.deploy-frontend.result != 'success' || needs.post-deployment-verification.result != 'success'
+        run: |
+          echo "❌ Deployment failed or verification unsuccessful"
+          echo "Review logs and consider rollback"
+          echo "Rollback command: bash scripts/rollback.sh"

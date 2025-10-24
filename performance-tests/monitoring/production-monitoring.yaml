@@ -1,0 +1,295 @@
+# Production Performance Monitoring Configuration
+
+# DataDog APM Configuration
+datadog:
+  api_key: ${DD_API_KEY}
+  site: datadoghq.com
+  env: production
+  service_name: restoreassist
+
+  apm:
+    enabled: true
+    trace_sample_rate: 0.1  # 10% sampling in production
+
+    # Service mapping
+    services:
+      - name: restoreassist-api
+        type: web
+        tags:
+          - team:backend
+          - tier:api
+
+      - name: restoreassist-frontend
+        type: web
+        tags:
+          - team:frontend
+          - tier:web
+
+      - name: restoreassist-db
+        type: db
+        tags:
+          - team:platform
+          - tier:database
+
+      - name: restoreassist-redis
+        type: cache
+        tags:
+          - team:platform
+          - tier:cache
+
+  # Custom metrics
+  custom_metrics:
+    - name: trial.activation.count
+      type: count
+      tags: [plan_type, source]
+
+    - name: report.generation.duration
+      type: histogram
+      unit: millisecond
+      tags: [report_type, format]
+
+    - name: stripe.checkout.success_rate
+      type: rate
+      tags: [product_id]
+
+    - name: cache.hit_ratio
+      type: gauge
+      tags: [cache_type, cache_key_prefix]
+
+# Prometheus Configuration
+prometheus:
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+
+  scrape_configs:
+    - job_name: 'restoreassist-api'
+      static_configs:
+        - targets: ['api:3001']
+      metrics_path: '/metrics'
+
+    - job_name: 'postgres-exporter'
+      static_configs:
+        - targets: ['postgres-exporter:9187']
+
+    - job_name: 'redis-exporter'
+      static_configs:
+        - targets: ['redis-exporter:9121']
+
+    - job_name: 'node-exporter'
+      static_configs:
+        - targets: ['node-exporter:9100']
+
+# Grafana Dashboard Configuration
+grafana:
+  dashboards:
+    - name: "RestoreAssist Overview"
+      uid: "restoreassist-overview"
+      panels:
+        - title: "API Request Rate"
+          type: graph
+          targets:
+            - expr: 'rate(http_requests_total[5m])'
+
+        - title: "API Response Time (P95)"
+          type: graph
+          targets:
+            - expr: 'histogram_quantile(0.95, http_request_duration_seconds_bucket)'
+
+        - title: "Database Query Time"
+          type: graph
+          targets:
+            - expr: 'pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read)'
+
+        - title: "Cache Hit Rate"
+          type: gauge
+          targets:
+            - expr: 'redis_hits_total / (redis_hits_total + redis_misses_total)'
+
+        - title: "Error Rate"
+          type: graph
+          targets:
+            - expr: 'rate(http_requests_total{status=~"5.."}[5m])'
+
+# Alert Rules
+alerts:
+  # API Performance Alerts
+  - name: HighResponseTime
+    expr: 'histogram_quantile(0.95, http_request_duration_seconds_bucket) > 1'
+    for: 5m
+    severity: warning
+    annotations:
+      summary: "High API response time"
+      description: "P95 response time is above 1 second"
+
+  - name: HighErrorRate
+    expr: 'rate(http_requests_total{status=~"5.."}[5m]) > 0.05'
+    for: 5m
+    severity: critical
+    annotations:
+      summary: "High error rate detected"
+      description: "Error rate is above 5%"
+
+  # Database Alerts
+  - name: DatabaseConnectionPoolExhausted
+    expr: 'pg_stat_database_numbackends / pg_settings_max_connections > 0.8'
+    for: 5m
+    severity: warning
+    annotations:
+      summary: "Database connection pool nearly exhausted"
+      description: "Using more than 80% of available connections"
+
+  - name: SlowDatabaseQueries
+    expr: 'pg_stat_statements_mean_time_seconds > 0.1'
+    for: 10m
+    severity: warning
+    annotations:
+      summary: "Slow database queries detected"
+      description: "Average query time exceeds 100ms"
+
+  # Cache Alerts
+  - name: LowCacheHitRate
+    expr: 'redis_hits_total / (redis_hits_total + redis_misses_total) < 0.7'
+    for: 10m
+    severity: warning
+    annotations:
+      summary: "Low cache hit rate"
+      description: "Cache hit rate below 70%"
+
+  - name: RedisMemoryHigh
+    expr: 'redis_memory_used_bytes / redis_memory_max_bytes > 0.9'
+    for: 5m
+    severity: critical
+    annotations:
+      summary: "Redis memory usage high"
+      description: "Redis using more than 90% of available memory"
+
+  # Business Metric Alerts
+  - name: LowTrialActivationRate
+    expr: 'rate(trial_activation_count[1h]) < 0.5'
+    for: 2h
+    severity: warning
+    annotations:
+      summary: "Low trial activation rate"
+      description: "Less than 0.5 trial activations per hour"
+
+  - name: ReportGenerationSlow
+    expr: 'histogram_quantile(0.95, report_generation_duration_bucket) > 15000'
+    for: 10m
+    severity: warning
+    annotations:
+      summary: "Report generation slow"
+      description: "P95 report generation time exceeds 15 seconds"
+
+# OpenTelemetry Configuration
+opentelemetry:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    batch:
+      timeout: 10s
+      send_batch_size: 1024
+
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 512
+
+    resource:
+      attributes:
+        - key: service.name
+          value: restoreassist
+        - key: deployment.environment
+          value: production
+
+  exporters:
+    datadog:
+      api:
+        key: ${DD_API_KEY}
+        site: datadoghq.com
+
+    prometheus:
+      endpoint: 0.0.0.0:8889
+
+    jaeger:
+      endpoint: jaeger-collector:14250
+      tls:
+        insecure: false
+
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, resource]
+        exporters: [datadog, jaeger]
+
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, resource]
+        exporters: [prometheus, datadog]
+
+# Log Aggregation
+logging:
+  drivers:
+    - name: datadog
+      config:
+        api_key: ${DD_API_KEY}
+        service: restoreassist
+        source: nodejs
+        tags: env:production
+
+    - name: elasticsearch
+      config:
+        hosts:
+          - elasticsearch:9200
+        index: restoreassist-logs
+        type: _doc
+
+# Performance Testing Schedule
+performance_tests:
+  schedule:
+    - name: "Smoke Test"
+      cron: "0 */4 * * *"  # Every 4 hours
+      test: "test:smoke"
+      alert_on_failure: false
+
+    - name: "Load Test"
+      cron: "0 2 * * *"  # Daily at 2 AM
+      test: "test:load"
+      alert_on_failure: true
+
+    - name: "Lighthouse Audit"
+      cron: "0 0 * * 0"  # Weekly on Sunday
+      test: "test:frontend"
+      alert_on_failure: true
+
+# SLO Definitions
+slos:
+  - name: "API Availability"
+    target: 99.9
+    window: 30d
+    indicator:
+      type: availability
+      good_requests: 'http_requests_total{status!~"5.."}'
+      total_requests: 'http_requests_total'
+
+  - name: "API Latency"
+    target: 95
+    window: 30d
+    indicator:
+      type: latency
+      threshold: 1000  # 1 second
+      metric: 'http_request_duration_seconds'
+
+  - name: "Report Generation Success"
+    target: 99
+    window: 7d
+    indicator:
+      type: success_rate
+      success_metric: 'report_generation_success_total'
+      total_metric: 'report_generation_total'

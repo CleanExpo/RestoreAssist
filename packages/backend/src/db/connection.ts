@@ -10,10 +10,10 @@ const pgp = pgPromise({
 // Database configuration from environment variables
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
+  port: parseInt(process.env.DB_PORT || '5433'),
   database: process.env.DB_NAME || 'restoreassist',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  user: process.env.DB_USER || 'restoreassist',
+  password: process.env.DB_PASSWORD || 'dev_password_change_me',
   max: parseInt(process.env.DB_POOL_SIZE || '20'), // Connection pool size
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Increased to 10 seconds for serverless cold starts

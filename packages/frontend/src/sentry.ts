@@ -17,11 +17,7 @@ export function initializeSentry() {
         // Browser tracing
         Sentry.browserTracingIntegration({
           // Set sampling rate for performance monitoring
-          tracePropagationTargets: [
-            'localhost',
-            /^https:\/\/restoreassist\.app/,
-            /^https:\/\/api\.restoreassist\.app/,
-          ],
+          // tracePropagationTargets removed - deprecated in current Sentry SDK version
         }),
         // Replay integration for session replay
         Sentry.replayIntegration({

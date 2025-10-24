@@ -1,9 +1,13 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import * as Sentry from '@sentry/react';
-import { AlertCircle, RefreshCw, Home } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home, Mail } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
+  fallbackRender?: (error: Error, errorInfo: ErrorInfo, resetError: () => void) => ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  resetKeys?: Array<string | number>;
+  context?: string;
 }
 
 interface ErrorBoundaryState {
@@ -43,6 +47,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       Sentry.captureException(error, {
         extra: {
           componentStack: errorInfo.componentStack,
+          context: this.props.context || 'Unknown',
+          timestamp: new Date().toISOString(),
         },
       });
     }
@@ -52,18 +58,54 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       error,
       errorInfo,
     });
+
+    // Call custom error handler if provided
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   handleReload = (): void => {
+    this.resetError();
     window.location.reload();
   };
 
   handleGoHome = (): void => {
+    this.resetError();
     window.location.href = '/';
   };
 
+  resetError = (): void => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+    });
+  };
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    // Reset error state if resetKeys change
+    if (this.props.resetKeys && prevProps.resetKeys) {
+      const hasChanged = this.props.resetKeys.some(
+        (key, index) => key !== prevProps.resetKeys?.[index]
+      );
+      if (hasChanged) {
+        this.resetError();
+      }
+    }
+  }
+
   render(): ReactNode {
     if (this.state.hasError) {
+      // Use custom fallback if provided
+      if (this.props.fallbackRender && this.state.error && this.state.errorInfo) {
+        return this.props.fallbackRender(
+          this.state.error,
+          this.state.errorInfo,
+          this.resetError
+        );
+      }
+
       return (
         <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-6">
           <div className="max-w-2xl w-full bg-white rounded-2xl shadow-2xl p-8 md:p-12">
@@ -120,15 +162,18 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
             {/* Support Information */}
             <div className="mt-8 pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 text-center">
-                If this problem persists, please contact our support team at{' '}
-                <a
-                  href="mailto:airestoreassist@gmail.com"
-                  className="text-blue-600 hover:text-blue-800 underline font-medium"
-                >
-                  airestoreassist@gmail.com
-                </a>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                If this problem persists, please contact our support team:
               </p>
+              <div className="flex justify-center">
+                <a
+                  href="mailto:airestoreassist@gmail.com?subject=Error Report&body=Please describe what you were doing when the error occurred:"
+                  className="inline-flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Mail className="w-5 h-5" />
+                  <span>Contact Support</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>

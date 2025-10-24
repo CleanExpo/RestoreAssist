@@ -17,15 +17,24 @@ const AUSTRALIAN_STANDARDS = {
   NT: 'NT Building Regulations + NCC 2022',
 };
 
+/**
+ * Service for integrating with Claude AI to generate disaster restoration reports
+ */
 export class ClaudeService {
+  /**
+   * Generates a comprehensive damage assessment report using Claude AI
+   * @param request - The report generation request containing property and damage details
+   * @returns A promise that resolves to a generated report with itemized estimates
+   * @throws Error if API key is missing or Claude API request fails
+   */
   async generateReport(request: GenerateReportRequest): Promise<GeneratedReport> {
     const prompt = this.buildPrompt(request);
 
     // Get the documentation generator skill ID
     const skillId = skillsService.getDocumentationGeneratorSkillId();
 
-    // Build message configuration
-    const messageConfig: any = {
+    // Build message configuration with proper typing
+    const baseConfig: Anthropic.Messages.MessageCreateParams = {
       model: 'claude-opus-4-20250514',
       max_tokens: 8000,
       temperature: 0.3,
@@ -35,14 +44,19 @@ export class ClaudeService {
       }]
     };
 
-    // Add skill attachment if available
+    // Add skill attachment if available (using type assertion for beta features)
+    let messageConfig: any = baseConfig;
+
     if (skillId) {
       console.log(`🎯 Using Documentation Generator Skill: ${skillId}`);
-      messageConfig.skill_attachment = {
-        type: 'skill',
-        skill_id: skillId
+      messageConfig = {
+        ...baseConfig,
+        skill_attachment: {
+          type: 'skill',
+          skill_id: skillId
+        },
+        betas: ['skills-2025-10-02']
       };
-      messageConfig.betas = ['skills-2025-10-02'];
 
       // Increment usage counter
       skillsService.incrementUsage('documentation-generator');
@@ -50,15 +64,25 @@ export class ClaudeService {
       console.warn('⚠️  Documentation Generator Skill not available, using standard prompt');
     }
 
-    const message = await client.messages.create(messageConfig);
+    const message = await client.messages.create(messageConfig as Anthropic.Messages.MessageCreateParams);
 
-    const responseText = message.content[0].type === 'text'
-      ? message.content[0].text
-      : '';
+    // Type guard to ensure we have a Message, not a Stream
+    if ('content' in message) {
+      const responseText = message.content[0].type === 'text'
+        ? message.content[0].text
+        : '';
 
-    return this.parseResponse(responseText, request);
+      return this.parseResponse(responseText, request);
+    }
+
+    throw new Error('Unexpected stream response from Claude API');
   }
 
+  /**
+   * Builds the AI prompt for report generation with Australian compliance standards
+   * @param request - The report generation request
+   * @returns A formatted prompt string for Claude AI
+   */
   private buildPrompt(request: GenerateReportRequest): string {
     const standards = AUSTRALIAN_STANDARDS[request.state];
 

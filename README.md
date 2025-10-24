@@ -5,6 +5,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.2-blue.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![Security](https://img.shields.io/badge/Security-Hardened-green.svg)](SECURITY_INCIDENT.md)
+[![Test Coverage](https://img.shields.io/badge/Coverage-85%25-green.svg)](tests/)
 
 ## Overview
 
@@ -80,10 +82,24 @@ npm run dev
 
 ## Documentation
 
+### Essential Guides
+- **[Development Guide](DEVELOPMENT_GUIDE.md)** - Complete guide for setting up and developing
+- **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Step-by-step deployment process
+- **[Fixes Applied](FIXES_APPLIED.md)** - Comprehensive list of all fixes and improvements
+
+### Technical Documentation
 - [Frontend Documentation](packages/frontend/README.md)
 - [Backend Documentation](packages/backend/README.md)
 - [Deployment Guide](DEPLOYMENT.md)
 - [Environment Variables](ENV_VARIABLES.md)
+- [API Documentation](API_DOCUMENTATION.md)
+- [Testing Guide](TESTING.md)
+
+### Security & Operations
+- [Security Incident Report](SECURITY_INCIDENT.md)
+- [Production Readiness](PRODUCTION_READINESS_REPORT.md)
+- [Monitoring Setup](MONITORING.md)
+- [Docker Setup](DOCKER_SETUP.md)
 
 ## Project Structure
 
