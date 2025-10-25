@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
           console.log('Updating user subscription for:', session.customer_email)
           
           // Update user subscription status
-          const result = await prisma.user.updateMany({
+          const checkoutResult = await prisma.user.updateMany({
             where: { email: session.customer_email },
             data: {
               subscriptionStatus: 'ACTIVE',
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
             }
           })
           
-          console.log('User update result:', result)
+          console.log('User update result:', checkoutResult)
         }
         break
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         if (subscription.customer) {
           console.log('Updating user subscription for customer:', subscription.customer)
           
-          const result = await prisma.user.updateMany({
+          const subscriptionResult = await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
               subscriptionStatus: 'ACTIVE',
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
             }
           })
           
-          console.log('Subscription update result:', result)
+          console.log('Subscription update result:', subscriptionResult)
         }
         break
 
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
           status: updatedSubscription.status
         })
         
-        const result = await prisma.user.updateMany({
+        const updateResult = await prisma.user.updateMany({
           where: { subscriptionId: updatedSubscription.id },
           data: {
             subscriptionStatus: updatedSubscription.status === 'active' ? 'ACTIVE' : 'CANCELED',
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
           }
         })
         
-        console.log('Subscription update result:', result)
+        console.log('Subscription update result:', updateResult)
         break
 
       case "customer.subscription.deleted":
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           id: deletedSubscription.id
         })
         
-        const result = await prisma.user.updateMany({
+        const deletionResult = await prisma.user.updateMany({
           where: { subscriptionId: deletedSubscription.id },
           data: {
             subscriptionStatus: 'EXPIRED',
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
           }
         })
         
-        console.log('Subscription deletion result:', result)
+        console.log('Subscription deletion result:', deletionResult)
         break
 
       case "invoice.payment_succeeded":
