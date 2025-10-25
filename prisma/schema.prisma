@@ -1,0 +1,233 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Subscription fields
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  subscriptionPlan   String?
+  subscriptionId     String? @unique
+  stripeCustomerId   String? @unique
+  trialEndsAt        DateTime?
+  subscriptionEndsAt DateTime?
+  creditsRemaining   Int     @default(3)
+  totalCreditsUsed   Int     @default(0)
+  lastBillingDate    DateTime?
+  nextBillingDate    DateTime?
+
+  accounts Account[]
+  sessions Session[]
+  reports  Report[]
+  clients  Client[]
+  integrations Integration[]
+  costLibraries CostLibrary[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  phone       String?
+  address     String?
+  company     String?
+  contactPerson String?
+  notes       String? @db.Text
+  status      ClientStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports     Report[]
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      ReportStatus @default(DRAFT)
+  clientName  String
+  propertyAddress String
+  hazardType  String
+  insuranceType String
+  totalCost   Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  
+  // IICRC S500 Compliance Fields
+  reportNumber     String?
+  inspectionDate   DateTime?
+  waterCategory    String? // Category 1, 2, or 3
+  waterClass       String? // Class 1, 2, 3, or 4
+  sourceOfWater    String?
+  affectedArea     Float? // Square footage
+  safetyHazards    String? @db.Text
+  equipmentUsed    String? @db.Text
+  dryingPlan       String? @db.Text
+  completionDate   DateTime?
+  
+  // Detailed Assessment Fields
+  structuralDamage String? @db.Text
+  contentsDamage  String? @db.Text
+  hvacAffected    Boolean @default(false)
+  electricalHazards String? @db.Text
+  microbialGrowth String? @db.Text
+  
+  // Drying Plan Details
+  dehumidificationCapacity Float?
+  airmoversCount          Int?
+  targetHumidity          Float?
+  targetTemperature        Float?
+  estimatedDryingTime     Int? // Hours
+  
+  // Monitoring Data
+  psychrometricReadings    String? @db.Text
+  moistureReadings        String? @db.Text
+  equipmentPlacement      String? @db.Text
+  
+  // Compliance Documentation
+  safetyPlan              String? @db.Text
+  containmentSetup        String? @db.Text
+  decontaminationProcedures String? @db.Text
+  postRemediationVerification String? @db.Text
+  
+  // Insurance Information
+  propertyCover           String? @db.Text
+  contentsCover           String? @db.Text
+  liabilityCover          String? @db.Text
+  businessInterruption    String? @db.Text
+  additionalCover         String? @db.Text
+  
+  // AI-Generated Detailed Report
+  detailedReport          String? @db.Text
+}
+
+enum Role {
+  USER
+  ADMIN
+  MANAGER
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  PROSPECT
+  ARCHIVED
+}
+
+enum ReportStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  COMPLETED
+  ARCHIVED
+}
+
+model Integration {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  status      IntegrationStatus @default(DISCONNECTED)
+  apiKey      String?  @db.Text
+  config      String?  @db.Text // JSON configuration
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CostLibrary {
+  id          String   @id @default(cuid())
+  name        String
+  region      String
+  description String?  @db.Text
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       CostItem[]
+}
+
+model CostItem {
+  id          String     @id @default(cuid())
+  category    String
+  description String
+  rate        Float
+  unit        String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  libraryId   String
+  library     CostLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+}
