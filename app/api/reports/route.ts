@@ -13,8 +13,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "10")
+    const pageParam = searchParams.get("page")
+    const limitParam = searchParams.get("limit")
+    // Only apply pagination if explicitly requested, otherwise fetch all (up to 10000)
+    const shouldPaginate = pageParam !== null || limitParam !== null
+    const page = pageParam ? parseInt(pageParam) : 1
+    const limit = limitParam ? parseInt(limitParam) : (shouldPaginate ? 10 : 10000)
     const status = searchParams.get("status")
     const waterCategory = searchParams.get("waterCategory")
     const waterClass = searchParams.get("waterClass")
@@ -38,7 +42,7 @@ export async function GET(request: NextRequest) {
     const reports = await prisma.report.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
+      skip: shouldPaginate ? (page - 1) * limit : 0,
       take: limit,
       include: {
         user: {
@@ -46,20 +50,35 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true
           }
+        },
+        estimates: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+          select: {
+            totalIncGST: true
+          }
         }
       }
     })
 
+    // Map reports to include estimatedCost from estimate
+    const reportsWithCost = reports.map(report => ({
+      ...report,
+      estimatedCost: report.estimates?.[0]?.totalIncGST || report.estimatedCost || null
+    }))
+
     const total = await prisma.report.count({ where })
 
     return NextResponse.json({
-      reports,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      reports: reportsWithCost,
+      ...(page && limit ? {
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      } : { total })
     })
   } catch (error) {
     console.error("Error fetching reports:", error)
@@ -182,11 +201,26 @@ export async function POST(request: NextRequest) {
       // Continue without detailed report - don't fail the entire process
     }
     
+    // Find client by name to set clientId (for linking updated client info)
+    let clientId = body.clientId || null
+    if (body.clientName && !clientId) {
+      const client = await prisma.client.findFirst({
+        where: {
+          name: body.clientName,
+          userId: session.user.id
+        }
+      })
+      if (client) {
+        clientId = client.id
+      }
+    }
+    
     const report = await prisma.report.create({
       data: {
         // Basic fields
         title: body.title,
         clientName: body.clientName,
+        clientId: clientId,
         propertyAddress: body.propertyAddress,
         hazardType: body.hazardType,
         insuranceType: body.insuranceType,

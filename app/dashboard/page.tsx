@@ -444,8 +444,8 @@ export default function DashboardPage() {
                   {dashboardData.loading ? "..." : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
                 </h3>
                 <p className="text-slate-400 text-sm">Reports per Client</p>
-              </div>
-              
+      </div>
+
               <div className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-white" />

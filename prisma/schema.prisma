@@ -67,6 +67,8 @@ model User {
   clients  Client[]
   integrations Integration[]
   costLibraries CostLibrary[]
+  scopes    Scope[]
+  estimates Estimate[]
 }
 
 model VerificationToken {
@@ -157,6 +159,10 @@ model Report {
   
   // AI-Generated Detailed Report
   detailedReport          String? @db.Text
+  
+  // Scoping & Estimation
+  scope     Scope?
+  estimates Estimate[]
 }
 
 enum Role {
@@ -231,4 +237,192 @@ enum SubscriptionStatus {
   CANCELED
   EXPIRED
   PAST_DUE
+}
+
+// Scope Models
+model Scope {
+  id       String    @id @default(cuid())
+  reportId String    @unique
+  report   Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  // Step 1: Input & Data Ingestion
+  scopeType     String // WATER, FIRE, MOULD, MULTI_LOSS
+  siteVariables String? @db.Text // JSON: structure, materials, etc.
+
+  // Step 2: Labour Parameters (stored as JSON)
+  labourParameters String? @db.Text // JSON: roles, rates, modifiers
+
+  // Step 3: Equipment Parameters (stored as JSON)
+  equipmentParameters String? @db.Text // JSON: equipment list with rates
+
+  // Step 4: Chemical Application (stored as JSON)
+  chemicalApplication String? @db.Text // JSON: chemicals with rates and areas
+
+  // Step 5: Time & Productivity (stored as JSON)
+  timeCalculations String? @db.Text // JSON: productivity, efficiency factors
+
+  // Step 6: Scope Summary (calculated)
+  labourCostTotal    Float?
+  equipmentCostTotal Float?
+  chemicalCostTotal  Float?
+  totalDuration      Float? // Days
+
+  // Step 7: Compliance
+  complianceNotes String? @db.Text
+  assumptions     String? @db.Text
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+  updatedBy String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  estimate Estimate?
+}
+
+// Estimate Models
+model Estimate {
+  id       String  @id @default(cuid())
+  reportId String
+  report   Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  scopeId  String? @unique
+  scope    Scope?  @relation(fields: [scopeId], references: [id], onDelete: SetNull)
+
+  // Workflow State
+  status  EstimateStatus @default(DRAFT)
+  version Int            @default(1)
+
+  // Input Parameters (stored as JSON)
+  rateTables       String? @db.Text // JSON: labour, subcontractor, equipment rates
+  commercialParams String? @db.Text // JSON: OH&P, contingency, escalation
+
+  // Totals (calculated)
+  labourSubtotal        Float?
+  equipmentSubtotal     Float?
+  chemicalsSubtotal     Float?
+  subcontractorSubtotal Float?
+  travelSubtotal        Float?
+  wasteSubtotal         Float?
+  overheads             Float?
+  profit                Float?
+  contingency           Float?
+  escalation            Float?
+  subtotalExGST         Float?
+  gst                   Float?
+  totalIncGST           Float?
+
+  // Assumptions & Compliance
+  assumptions         String? @db.Text
+  inclusions          String? @db.Text
+  exclusions          String? @db.Text
+  allowances          String? @db.Text
+  complianceStatement String? @db.Text
+  disclaimer          String? @db.Text
+
+  // Approval & Versioning
+  approverName      String?
+  approverRole      String?
+  approverSignature String? // Base64 signature image
+  approvedAt        DateTime?
+  estimatedDuration Float? // Days
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+  updatedBy String
+
+  // Relations
+  lineItems  EstimateLineItem[]
+  versions   EstimateVersion[]
+  variations EstimateVariation[]
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+}
+
+model EstimateLineItem {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  // Line Item Details
+  code        String?
+  category    String // Prelims, Mitigation, Demolition, Restoration, Specialist, Contents, Travel, Compliance, Admin
+  description String
+  qty         Float
+  unit        String
+  rate        Float
+  formula     String? // Formula breakdown for info hover
+  subtotal    Float // qty * rate
+
+  // Flags & Audit
+  isScopeLinked    Boolean   @default(false) // If true, qty is immutable except by changing scope
+  isEstimatorAdded Boolean   @default(true)
+  createdBy        String
+  modifiedBy       String?
+  modifiedAt       DateTime?
+  changeReason     String?   @db.Text
+
+  // Ordering
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estimateId])
+  @@index([category])
+}
+
+model EstimateVersion {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  version   Int
+  changes   String?  @db.Text // JSON: array of changes
+  reason    String?  @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+
+  // Snapshot data
+  snapshot String? @db.Text // JSON: full estimate snapshot
+
+  @@unique([estimateId, version])
+  @@index([estimateId])
+}
+
+model EstimateVariation {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  variationNumber Int
+  reason          String  @db.Text
+  evidence        String? @db.Text // JSON: photos, notes
+
+  // Delta changes (stored as JSON)
+  addedItems   String? @db.Text // JSON array
+  removedItems String? @db.Text // JSON array
+  changedItems String? @db.Text // JSON array
+
+  // Totals
+  previousTotal   Float
+  variationAmount Float
+  newTotal        Float
+
+  createdAt DateTime @default(now())
+  createdBy String
+
+  @@unique([estimateId, variationNumber])
+  @@index([estimateId])
+}
+
+enum EstimateStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  CLIENT_REVIEW
+  APPROVED
+  LOCKED
 }

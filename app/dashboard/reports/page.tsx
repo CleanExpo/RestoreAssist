@@ -506,7 +506,7 @@ export default function ReportsPage() {
                               <Copy size={16} />
                             )}
                           </button>
-                          <button 
+                          {/* <button 
                             onClick={() => downloadReport(report.id)}
                             disabled={downloading === report.id}
                             className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
@@ -520,7 +520,7 @@ export default function ReportsPage() {
                           </button>
                           <button className="p-1 hover:bg-slate-700 rounded transition-colors" title="More">
                             <MoreVertical size={16} />
-                          </button>
+                          </button> */}
                         </div>
                       </td>
                     </tr>

@@ -1,13 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, Share2, MoreVertical, ChevronDown, AlertTriangle, CheckCircle, Clock } from "lucide-react"
+import { Download, Share2, MoreVertical, ChevronDown, AlertTriangle, CheckCircle, Clock, Mail, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import DetailedReportViewer from "@/components/DetailedReportViewer"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import toast from "react-hot-toast"
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [report, setReport] = useState<any>(null)
+  const [scope, setScope] = useState<any>(null)
+  const [estimate, setEstimate] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
@@ -30,13 +40,41 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   useEffect(() => {
     if (!reportId) return
 
-    const fetchReport = async () => {
+    const fetchReportData = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/reports/${reportId}`)
-        if (response.ok) {
-          const data = await response.json()
-          setReport(data)
+        
+        // Fetch report
+        const reportResponse = await fetch(`/api/reports/${reportId}`)
+        if (reportResponse.ok) {
+          const reportData = await reportResponse.json()
+          setReport(reportData)
+          
+          // Fetch scope if exists
+          try {
+            const scopeResponse = await fetch(`/api/scopes?reportId=${reportId}`)
+            if (scopeResponse.ok) {
+              const scopeData = await scopeResponse.json()
+              if (scopeData.id) {
+                setScope(scopeData)
+              }
+            }
+          } catch (err) {
+            console.log("No scope found for this report")
+          }
+          
+          // Fetch estimate if exists
+          try {
+            const estimateResponse = await fetch(`/api/estimates?reportId=${reportId}`)
+            if (estimateResponse.ok) {
+              const estimateData = await estimateResponse.json()
+              if (estimateData.id) {
+                setEstimate(estimateData)
+              }
+            }
+          } catch (err) {
+            console.log("No estimate found for this report")
+          }
         } else {
           setError("Report not found")
         }
@@ -48,7 +86,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       }
     }
 
-    fetchReport()
+    fetchReportData()
   }, [reportId])
 
   const toggleSection = (section: string) => {
@@ -88,6 +126,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     
     try {
       setDownloading(true)
+      toast.loading('Generating PDF report...', { id: 'download' })
+      
       const response = await fetch(`/api/reports/${reportId}/download`)
       
       if (response.ok) {
@@ -100,14 +140,32 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
+        toast.success('PDF downloaded successfully!', { id: 'download' })
       } else {
-        console.error('Failed to download report')
+        const error = await response.json()
+        toast.error(error.error || 'Failed to download report', { id: 'download' })
       }
     } catch (error) {
       console.error('Error downloading report:', error)
+      toast.error('Failed to download report', { id: 'download' })
     } finally {
       setDownloading(false)
     }
+  }
+
+  const handleShareWhatsApp = () => {
+    const reportUrl = window.location.href
+    const message = `Water Damage Restoration Report\n\nReport Number: ${report?.reportNumber || reportId}\nClient: ${report?.client?.name || report?.clientName}\nProperty: ${report?.propertyAddress}\n\nView full report: ${reportUrl}`
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+  }
+
+  const handleShareEmail = () => {
+    const reportUrl = window.location.href
+    const subject = `Water Damage Restoration Report - ${report?.reportNumber || reportId}`
+    const body = `Water Damage Restoration Report\n\nReport Number: ${report?.reportNumber || reportId}\nClient: ${report?.client?.name || report?.clientName}\nProperty: ${report?.propertyAddress}\n\nView full report: ${reportUrl}`
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.location.href = mailtoUrl
   }
 
   if (loading) {
@@ -147,28 +205,62 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               {report.status}
             </span>
           </div>
-          <p className="text-slate-400">{report.clientName}</p>
+          <p className="text-slate-400">{report.client?.name || report.clientName}</p>
           <p className="text-sm text-slate-500">{report.propertyAddress}</p>
+          {report.client && (
+            <div className="mt-2 space-y-1 text-sm text-slate-500">
+              {report.client.email && <p>Email: {report.client.email}</p>}
+              {report.client.phone && <p>Phone: {report.client.phone}</p>}
+              {report.client.company && <p>Company: {report.client.company}</p>}
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
-          <button 
+        <div className="flex gap-3">
+          <Button
             onClick={downloadReport}
             disabled={downloading}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50" 
-            title="Download PDF"
+            className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 font-semibold shadow-lg shadow-cyan-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {downloading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-500"></div>
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Generating...
+              </>
             ) : (
-              <Download size={20} />
+              <>
+                <Download className="mr-2" size={18} />
+                Download Report
+              </>
             )}
-          </button>
-          <button className="p-2 hover:bg-slate-800 rounded-lg transition-colors" title="Share">
-            <Share2 size={20} />
-          </button>
-          <button className="p-2 hover:bg-slate-800 rounded-lg transition-colors" title="More">
-            <MoreVertical size={20} />
-          </button>
+          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white px-6 py-2"
+              >
+                <Share2 className="mr-2" size={18} />
+                Share
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-slate-800 border-slate-700 text-white w-48">
+              <DropdownMenuItem 
+                onClick={handleShareWhatsApp}
+                className="cursor-pointer hover:bg-slate-700 focus:bg-slate-700"
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Share via WhatsApp
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={handleShareEmail}
+                className="cursor-pointer hover:bg-slate-700 focus:bg-slate-700"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Share via Email
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -216,7 +308,16 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-slate-400 mb-1">Client</p>
-                    <p className="font-medium">{report.clientName}</p>
+                    <p className="font-medium">{report.client?.name || report.clientName}</p>
+                    {report.client?.email && (
+                      <p className="text-xs text-slate-500 mt-1">Email: {report.client.email}</p>
+                    )}
+                    {report.client?.phone && (
+                      <p className="text-xs text-slate-500">Phone: {report.client.phone}</p>
+                    )}
+                    {report.client?.company && (
+                      <p className="text-xs text-slate-500">Company: {report.client.company}</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm text-slate-400 mb-1">Report Number</p>
@@ -285,8 +386,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 </div>
                 
                 {report.safetyHazards && (
-                  <div>
-                    <p className="text-sm text-slate-400 mb-2">Safety Hazards</p>
+                <div>
+                  <p className="text-sm text-slate-400 mb-2">Safety Hazards</p>
                     <p className="text-sm bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-amber-300">
                       {report.safetyHazards}
                     </p>
@@ -315,8 +416,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   <div>
                     <p className="text-sm text-slate-400 mb-1">HVAC Affected</p>
                     <p className="font-medium">{report.hvacAffected ? 'Yes' : 'No'}</p>
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <p className="text-sm text-slate-400 mb-1">Electrical Hazards</p>
                     <p className="font-medium">{report.electricalHazards || 'None detected'}</p>
                   </div>
@@ -344,59 +445,132 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <ChevronDown size={20} className={`transition-transform ${expandedSections.scope ? "rotate-180" : ""}`} />
             </button>
             {expandedSections.scope && (
-              <div className="px-6 pb-6 border-t border-slate-700 space-y-3 pt-4">
-                {/* Equipment Information */}
-                <div className="grid md:grid-cols-2 gap-4 mb-4">
-                  <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
-                    <h4 className="font-medium text-cyan-400 mb-2">Dehumidification</h4>
-                    <p className="text-sm text-slate-300">Capacity: {report.dehumidificationCapacity || 'N/A'} L/day</p>
-                    <p className="text-sm text-slate-300">Count: {report.airmoversCount || 'N/A'} units</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
-                    <h4 className="font-medium text-cyan-400 mb-2">Drying Plan</h4>
-                    <p className="text-sm text-slate-300">Target Humidity: {report.targetHumidity || 'N/A'}%</p>
-                    <p className="text-sm text-slate-300">Target Temperature: {report.targetTemperature || 'N/A'}°C</p>
-                    <p className="text-sm text-slate-300">Estimated Time: {report.estimatedDryingTime || 'N/A'} hours</p>
-                  </div>
-                </div>
+              <div className="px-6 pb-6 border-t border-slate-700 space-y-4 pt-4">
+                {scope ? (
+                  <>
+                    {/* Scope Type & Summary */}
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-2">Scope Type</h4>
+                        <p className="text-sm text-slate-300">{scope.scopeType}</p>
+                        {scope.totalDuration && (
+                          <p className="text-sm text-slate-300 mt-2">Duration: {scope.totalDuration} days</p>
+                        )}
+                      </div>
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-2">Cost Summary</h4>
+                        <p className="text-sm text-slate-300">Labour: ${(scope.labourCostTotal || 0).toFixed(2)}</p>
+                        <p className="text-sm text-slate-300">Equipment: ${(scope.equipmentCostTotal || 0).toFixed(2)}</p>
+                        <p className="text-sm text-slate-300">Chemicals: ${(scope.chemicalCostTotal || 0).toFixed(2)}</p>
+                        <p className="text-sm font-semibold text-cyan-400 mt-2">
+                          Total: ${((scope.labourCostTotal || 0) + (scope.equipmentCostTotal || 0) + (scope.chemicalCostTotal || 0)).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
 
-                {/* Equipment Placement */}
-                {report.equipmentPlacement && (
-                  <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
-                    <h4 className="font-medium text-cyan-400 mb-2">Equipment Placement</h4>
-                    <p className="text-sm text-slate-300">{report.equipmentPlacement}</p>
-                  </div>
-                )}
+                    {/* Site Variables */}
+                    {scope.siteVariables && (
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-2">Site Variables</h4>
+                        <div className="grid md:grid-cols-2 gap-3 text-sm">
+                          {scope.siteVariables.structure && (
+                            <div>
+                              <span className="text-slate-400">Structure: </span>
+                              <span className="text-slate-300">{scope.siteVariables.structure}</span>
+                            </div>
+                          )}
+                          {scope.siteVariables.materials && (
+                            <div>
+                              <span className="text-slate-400">Materials: </span>
+                              <span className="text-slate-300">{scope.siteVariables.materials}</span>
+                            </div>
+                          )}
+                          {scope.siteVariables.floors && (
+                            <div>
+                              <span className="text-slate-400">Floors: </span>
+                              <span className="text-slate-300">{scope.siteVariables.floors}</span>
+                            </div>
+                          )}
+                          {scope.siteVariables.condition && (
+                            <div>
+                              <span className="text-slate-400">Condition: </span>
+                              <span className="text-slate-300">{scope.siteVariables.condition}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Safety Plan */}
-                {report.safetyPlan && (
-                  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <h4 className="font-medium text-amber-400 mb-2">Safety Plan</h4>
-                    <p className="text-sm text-amber-300">{report.safetyPlan}</p>
-                  </div>
-                )}
+                    {/* Labour Parameters */}
+                    {scope.labourParameters?.roles && scope.labourParameters.roles.length > 0 && (
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-3">Labour Breakdown</h4>
+                        <div className="space-y-2">
+                          {scope.labourParameters.roles.map((role: any, index: number) => (
+                            role.hours > 0 && (
+                              <div key={index} className="flex justify-between text-sm">
+                                <span className="text-slate-300">{role.role}:</span>
+                                <span className="text-slate-300">
+                                  {role.hours} hrs @ ${role.rate}/hr = ${(role.hours * role.rate).toFixed(2)}
+                                </span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Containment Setup */}
-                {report.containmentSetup && (
-                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <h4 className="font-medium text-red-400 mb-2">Containment Setup</h4>
-                    <p className="text-sm text-red-300">{report.containmentSetup}</p>
-                  </div>
-                )}
+                    {/* Equipment Parameters */}
+                    {scope.equipmentParameters?.equipment && scope.equipmentParameters.equipment.length > 0 && (
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-3">Equipment</h4>
+                        <div className="space-y-2">
+                          {scope.equipmentParameters.equipment.map((eq: any, index: number) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span className="text-slate-300">{eq.type}:</span>
+                              <span className="text-slate-300">
+                                {eq.quantity} units × {eq.duration} days
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Decontamination Procedures */}
-                {report.decontaminationProcedures && (
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <h4 className="font-medium text-blue-400 mb-2">Decontamination Procedures</h4>
-                    <p className="text-sm text-blue-300">{report.decontaminationProcedures}</p>
-                  </div>
-                )}
+                    {/* Chemical Application */}
+                    {scope.chemicalApplication?.chemicals && scope.chemicalApplication.chemicals.length > 0 && (
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-3">Chemical Application</h4>
+                        <div className="space-y-2">
+                          {scope.chemicalApplication.chemicals.map((chem: any, index: number) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span className="text-slate-300">{chem.type}:</span>
+                              <span className="text-slate-300">{chem.area} sqm</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Post-Remediation Verification */}
-                {report.postRemediationVerification && (
-                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <h4 className="font-medium text-green-400 mb-2">Post-Remediation Verification</h4>
-                    <p className="text-sm text-green-300">{report.postRemediationVerification}</p>
+                    {/* Compliance Notes */}
+                    {scope.complianceNotes && (
+                      <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                        <h4 className="font-medium text-green-400 mb-2">Compliance Notes</h4>
+                        <p className="text-sm text-green-300 whitespace-pre-wrap">{scope.complianceNotes}</p>
+                      </div>
+                    )}
+
+                    {/* Assumptions */}
+                    {scope.assumptions && (
+                      <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <h4 className="font-medium text-blue-400 mb-2">Assumptions</h4>
+                        <p className="text-sm text-blue-300 whitespace-pre-wrap">{scope.assumptions}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-slate-400">No scope of work has been created for this report yet.</p>
                   </div>
                 )}
               </div>
@@ -413,68 +587,191 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <ChevronDown size={20} className={`transition-transform ${expandedSections.costs ? "rotate-180" : ""}`} />
             </button>
             {expandedSections.costs && (
-              <div className="px-6 pb-6 border-t border-slate-700">
-                {/* Insurance Coverage Information */}
-                {(report.propertyCover || report.contentsCover || report.liabilityCover || report.businessInterruption || report.additionalCover) && (
-                  <div className="mb-6">
-                    <h4 className="font-medium text-cyan-400 mb-3">Insurance Coverage</h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {report.propertyCover && (
-                        <div className="p-3 rounded-lg bg-slate-700/20 border border-slate-600">
-                          <h5 className="font-medium text-white mb-2">Property Cover</h5>
-                          <div className="space-y-1 text-sm">
-                            {Object.entries(report.propertyCover).map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-slate-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                <span className={value ? 'text-green-400' : 'text-red-400'}>
-                                  {value ? 'Covered' : 'Not Covered'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {report.contentsCover && (
-                        <div className="p-3 rounded-lg bg-slate-700/20 border border-slate-600">
-                          <h5 className="font-medium text-white mb-2">Contents Cover</h5>
-                          <div className="space-y-1 text-sm">
-                            {Object.entries(report.contentsCover).map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-slate-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                <span className={value ? 'text-green-400' : 'text-red-400'}>
-                                  {value ? 'Covered' : 'Not Covered'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+              <div className="px-6 pb-6 border-t border-slate-700 space-y-4 pt-4">
+                {estimate ? (
+                  <>
+                    {/* Estimate Status & Version */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          estimate.status === 'DRAFT' ? 'bg-slate-500/20 text-slate-400' :
+                          estimate.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400' :
+                          estimate.status === 'LOCKED' ? 'bg-red-500/20 text-red-400' :
+                          'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {estimate.status}
+                        </span>
+                        <span className="ml-2 text-sm text-slate-400">Version {estimate.version}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Cost Summary */}
+                    {/* Line Items */}
+                    {estimate.lineItems && estimate.lineItems.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="font-medium text-cyan-400 mb-3">Line Items</h4>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                          {estimate.lineItems.map((item: any, index: number) => (
+                            <div key={index} className="p-3 rounded-lg bg-slate-700/20 border border-slate-600">
+                              <div className="flex justify-between items-start mb-1">
+                                <div className="flex-1">
+                                  <span className="text-xs text-slate-400 mr-2">{item.code}</span>
+                                  <span className="text-sm font-medium text-white">{item.description}</span>
+                                </div>
+                                <span className="text-sm text-cyan-400 font-medium">
+                                  ${(item.subtotal || 0).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs text-slate-400 mt-1">
+                                <span>{item.qty} {item.unit} × ${item.rate}/{item.unit}</span>
+                                <span className="text-slate-500">{item.category}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cost Breakdown */}
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-3">Subtotals</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Labour:</span>
+                            <span className="text-slate-300">${(estimate.totals?.labourSubtotal || estimate.labourSubtotal || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Equipment:</span>
+                            <span className="text-slate-300">${(estimate.totals?.equipmentSubtotal || estimate.equipmentSubtotal || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Chemicals:</span>
+                            <span className="text-slate-300">${(estimate.totals?.chemicalsSubtotal || estimate.chemicalsSubtotal || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Subcontractors:</span>
+                            <span className="text-slate-300">${(estimate.totals?.subcontractorSubtotal || estimate.subcontractorSubtotal || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600">
+                        <h4 className="font-medium text-cyan-400 mb-3">Adjustments</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Overheads:</span>
+                            <span className="text-slate-300">${(estimate.totals?.overheads || estimate.overheads || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Profit:</span>
+                            <span className="text-slate-300">${(estimate.totals?.profit || estimate.profit || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Contingency:</span>
+                            <span className="text-slate-300">${(estimate.totals?.contingency || estimate.contingency || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-300">Escalation:</span>
+                            <span className="text-slate-300">${(estimate.totals?.escalation || estimate.escalation || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Grand Total */}
+                    <div className="p-6 rounded-lg bg-gradient-to-r from-cyan-600/20 to-cyan-500/20 border border-cyan-500/30">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="font-semibold text-white mb-1">Grand Total (Inc. GST)</h4>
+                          <p className="text-xs text-slate-300">Subtotal Ex-GST: ${(estimate.totals?.subtotalExGST || estimate.subtotalExGST || 0).toFixed(2)}</p>
+                          <p className="text-xs text-slate-300">GST (10%): ${(estimate.totals?.gst || estimate.gst || 0).toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-3xl font-bold text-cyan-400">
+                            ${(estimate.totals?.totalIncGST || estimate.totalIncGST || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Assumptions & Compliance */}
+                    {estimate.assumptions && (
+                      <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <h4 className="font-medium text-blue-400 mb-2">Assumptions</h4>
+                        <p className="text-sm text-blue-300 whitespace-pre-wrap">{estimate.assumptions}</p>
+                      </div>
+                    )}
+
+                    {estimate.inclusions && (
+                      <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                        <h4 className="font-medium text-green-400 mb-2">Inclusions</h4>
+                        <p className="text-sm text-green-300 whitespace-pre-wrap">{estimate.inclusions}</p>
+                      </div>
+                    )}
+
+                    {estimate.exclusions && (
+                      <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <h4 className="font-medium text-red-400 mb-2">Exclusions</h4>
+                        <p className="text-sm text-red-300 whitespace-pre-wrap">{estimate.exclusions}</p>
+                      </div>
+                    )}
+
+                    {estimate.complianceStatement && (
+                      <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <h4 className="font-medium text-amber-400 mb-2">Compliance Statement</h4>
+                        <p className="text-sm text-amber-300 whitespace-pre-wrap">{estimate.complianceStatement}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Fallback to old cost display if no estimate */}
+                    {(report.propertyCover || report.contentsCover || report.liabilityCover || report.businessInterruption || report.additionalCover) && (
+                      <div className="mb-6">
+                        <h4 className="font-medium text-cyan-400 mb-3">Insurance Coverage</h4>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {report.propertyCover && (
+                            <div className="p-3 rounded-lg bg-slate-700/20 border border-slate-600">
+                              <h5 className="font-medium text-white mb-2">Property Cover</h5>
+                              <div className="space-y-1 text-sm">
+                                {typeof report.propertyCover === 'object' ? (
+                                  Object.entries(report.propertyCover).map(([key, value]) => (
+                                    <div key={key} className="flex justify-between">
+                                      <span className="text-slate-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                                      <span className={value ? 'text-green-400' : 'text-red-400'}>
+                                        {value ? 'Covered' : 'Not Covered'}
+                                      </span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-slate-300">{report.propertyCover}</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                </div>
+                    )}
+
                 <div className="space-y-2 p-4 rounded-lg bg-slate-700/20 border border-slate-600">
                   <div className="flex justify-between text-sm">
-                    <span>Total Cost:</span>
-                    <span className="text-cyan-400 font-medium">
-                      {report.totalCost ? `$${report.totalCost.toLocaleString()}` : 'Not specified'}
-                    </span>
+                        <span>Total Cost:</span>
+                        <span className="text-cyan-400 font-medium">
+                          {report.totalCost ? `$${report.totalCost.toLocaleString()}` : 'Not specified'}
+                        </span>
                   </div>
-                  {report.estimatedDryingTime && (
-                    <div className="flex justify-between text-sm">
-                      <span>Estimated Drying Time:</span>
-                      <span className="text-slate-300">{report.estimatedDryingTime} hours</span>
+                      {report.estimatedDryingTime && (
+                  <div className="flex justify-between text-sm">
+                          <span>Estimated Drying Time:</span>
+                          <span className="text-slate-300">{report.estimatedDryingTime} hours</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {report.completionDate && (
-                    <div className="flex justify-between text-sm">
-                      <span>Completion Date:</span>
-                      <span className="text-slate-300">{formatDate(report.completionDate)}</span>
-                    </div>
-                  )}
-                </div>
+                    
+                    <div className="text-center py-4">
+                      <p className="text-slate-400">No estimate has been created for this report yet.</p>
+                  </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

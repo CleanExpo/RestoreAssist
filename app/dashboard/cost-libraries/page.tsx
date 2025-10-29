@@ -100,7 +100,7 @@ export default function CostLibrariesPage() {
         const newLibrary = await response.json()
         setLibraries([newLibrary, ...libraries])
         setFormData({ name: "", region: "", description: "", isDefault: false })
-        setShowAddModal(false)
+      setShowAddModal(false)
         setSelectedLibrary(newLibrary.id)
         toast.success("Cost library created successfully")
       } else {
@@ -329,11 +329,11 @@ export default function CostLibrariesPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         </div>
       ) : (
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Library List */}
-          <div className="lg:col-span-1">
-            <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase mb-4">Your Libraries</p>
+      <div className="grid lg:grid-cols-4 gap-6">
+        {/* Library List */}
+        <div className="lg:col-span-1">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase mb-4">Your Libraries</p>
               {libraries.length === 0 ? (
                 <p className="text-slate-400 text-sm">No libraries yet</p>
               ) : (
@@ -358,7 +358,7 @@ export default function CostLibrariesPage() {
                 ))
               )}
             </div>
-          </div>
+        </div>
 
         {/* Library Details */}
         {currentLibrary && (
@@ -423,8 +423,8 @@ export default function CostLibrariesPage() {
                             className="p-1 hover:bg-slate-600 rounded transition-colors"
                             title="Edit Item"
                           >
-                            <Edit size={16} />
-                          </button>
+                          <Edit size={16} />
+                        </button>
                           <button 
                             onClick={() => openDeleteItem(item)}
                             className="p-1 hover:bg-slate-600 rounded transition-colors"
