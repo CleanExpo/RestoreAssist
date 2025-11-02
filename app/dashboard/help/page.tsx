@@ -47,14 +47,8 @@ export default function HelpPage() {
       response: "24-48 hours",
     },
     {
-      icon: Phone,
-      title: "Phone Support",
-      description: "+61 2 9876 5432",
-      response: "Business hours",
-    },
-    {
       icon: MessageSquare,
-      title: "Live Chat",
+      title: "Live Chat (Coming Soon)",
       description: "Available in app",
       response: "9am-5pm AEST",
     },
@@ -63,12 +57,12 @@ export default function HelpPage() {
   const resources = [
     {
       icon: BookOpen,
-      title: "Documentation",
+      title: "Documentation (Coming Soon)",
       description: "Complete guides and references",
     },
     {
       icon: Video,
-      title: "Video Tutorials",
+      title: "Video Tutorials (Coming Soon)",
       description: "Step-by-step video guides",
     },
   ]
