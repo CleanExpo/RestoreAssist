@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { User, Mail, Calendar, CreditCard, Crown, Zap, Shield, Download, Bell, Key, Trash2, Edit, RefreshCw } from "lucide-react"
+import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 
 interface UserProfile {
@@ -75,10 +75,10 @@ export default function SettingsPage() {
       console.error('Error fetching profile:', error)
       // Fallback to session data
       setProfile({
-        id: session?.user?.id || 'current-user',
-        name: session?.user?.name || 'User Name',
-        email: session?.user?.email || 'user@example.com',
-        image: session?.user?.image,
+        id: (session?.user as { id?: string })?.id || 'current-user',
+        name: session?.user?.name ?? 'User Name',
+        email: session?.user?.email ?? 'user@example.com',
+        image: session?.user?.image ?? undefined,
         createdAt: new Date().toISOString(),
         subscriptionStatus: 'TRIAL',
         creditsRemaining: 3,
@@ -115,11 +115,10 @@ export default function SettingsPage() {
     }
   }
 
-  // Refresh profile data periodically to show updated credits
   useEffect(() => {
     const interval = setInterval(() => {
       fetchProfile()
-    }, 5000) // Refresh every 5 seconds
+    }, 5000) 
 
     return () => clearInterval(interval)
   }, [])
@@ -176,10 +175,10 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+      <div>
           <h1 className="text-3xl font-semibold mb-2">Settings & Profile</h1>
           <p className="text-slate-400">Manage your account settings and subscription</p>
-        </div>
+      </div>
         <div className="flex gap-2">
           <button
             onClick={() => fetchProfile(true)}
@@ -203,7 +202,7 @@ export default function SettingsPage() {
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Personal Information */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <User className="w-5 h-5" />
@@ -218,7 +217,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="space-y-4">
+              <div className="space-y-4">
               {/* User Avatar */}
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-xl">
@@ -254,9 +253,9 @@ export default function SettingsPage() {
                 ) : (
                   <p className="text-slate-300">{profile?.name || session?.user?.name || 'Not provided'}</p>
                 )}
-              </div>
+                </div>
 
-              <div>
+                <div>
                 <label className="block text-sm font-medium mb-2">Email Address</label>
                 {editing ? (
                   <input
@@ -268,12 +267,12 @@ export default function SettingsPage() {
                 ) : (
                   <p className="text-slate-300">{profile?.email || session?.user?.email || 'Not provided'}</p>
                 )}
-              </div>
+                </div>
 
-              <div>
+                  <div>
                 <label className="block text-sm font-medium mb-2">Member Since</label>
                 <p className="text-slate-300">{formatDate(profile?.createdAt) || 'Recently'}</p>
-              </div>
+                  </div>
 
               {editing && (
                 <div className="flex gap-3 pt-4">
@@ -295,30 +294,23 @@ export default function SettingsPage() {
           </div>
 
           {/* Account Actions */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
               <Key className="w-5 h-5" />
               Account Actions
             </h2>
 
-            <div className="space-y-4">
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors">
-                <Bell className="w-4 h-4" />
-                <span>Notification Preferences</span>
-              </button>
-
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button className="w-full flex items-center mb-3 gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors">
                 <Download className="w-4 h-4" />
-                <span>Export Data</span>
+                <span>Export Data (Coming Soon)</span>
               </button>
 
               <button className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors">
                 <Trash2 className="w-4 h-4" />
-                <span>Delete Account</span>
-              </button>
-            </div>
+                  <span>Delete Account (Coming Soon)</span>
+                  </button>
+                </div>
           </div>
-        </div>
 
         {/* Subscription & Credits Sidebar */}
         <div className="space-y-6">
@@ -330,7 +322,7 @@ export default function SettingsPage() {
             </h2>
 
             <div className="space-y-4">
-              <div>
+                <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
                 <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || 'TRIAL')}`}>
                   {getStatusText(profile?.subscriptionStatus || 'TRIAL')}
@@ -369,22 +361,22 @@ export default function SettingsPage() {
           </div>
 
           {/* Credits */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5" />
               Credits
             </h2>
 
-            <div className="space-y-4">
-              <div>
+              <div className="space-y-4">
+                  <div>
                 <label className="block text-sm font-medium mb-2">Remaining</label>
                 <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
                   {profile?.creditsRemaining || 0}
-                </div>
               </div>
+            </div>
 
-              <div>
+                    <div>
                 <label className="block text-sm font-medium mb-2">Used This Month</label>
                 <div className="text-lg text-slate-300">
                   {profile?.totalCreditsUsed || 0}
@@ -411,13 +403,13 @@ export default function SettingsPage() {
           </div>
 
           {/* Security */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5" />
               Security
             </h2>
 
-            <div className="space-y-3">
+              <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Two-Factor Authentication</span>
                 <span className="text-xs text-slate-500">Not enabled</span>
@@ -426,7 +418,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Login Sessions</span>
                 <span className="text-xs text-slate-500">1 active</span>
-              </div>
+                    </div>
               
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Last Login</span>

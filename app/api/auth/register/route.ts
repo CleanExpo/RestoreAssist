@@ -28,13 +28,17 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user
+    // Create user with 3 credits and TRIAL status
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: "USER"
+        role: "USER",
+        subscriptionStatus: "TRIAL",
+        creditsRemaining: 3,
+        totalCreditsUsed: 0,
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
       }
     })
 

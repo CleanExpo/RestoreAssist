@@ -54,6 +54,17 @@ export async function POST(
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
+    // Deduct credits BEFORE creating report (only for trial users)
+    if (user.subscriptionStatus === 'TRIAL') {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
+          totalCreditsUsed: user.totalCreditsUsed + 1,
+        }
+      })
+    }
+
     // Generate new report number
     const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
 
@@ -135,17 +146,6 @@ export async function POST(
         }
       }
     })
-
-    // Update credits (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL') {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
-          totalCreditsUsed: user.totalCreditsUsed + 1,
-        }
-      })
-    }
 
     return NextResponse.json(duplicatedReport, { status: 201 })
   } catch (error) {

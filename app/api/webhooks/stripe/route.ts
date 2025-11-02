@@ -43,26 +43,114 @@ export async function POST(request: NextRequest) {
           mode: session.mode,
           customerEmail: session.customer_email,
           customer: session.customer,
-          subscription: session.subscription
+          subscription: session.subscription,
+          metadata: session.metadata
         })
         
-        if (session.mode === 'subscription' && session.customer_email) {
-          console.log('Updating user subscription for:', session.customer_email)
+        if (session.mode === 'subscription') {
+          // Use userId from metadata if available (more reliable), otherwise fall back to email
+          let userId = session.metadata?.userId
           
-          // Update user subscription status
+          if (userId) {
+            console.log('Updating user subscription for userId:', userId)
+            
+            // Get subscription details to calculate billing dates
+            let subscriptionEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Default 30 days
+            let nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            
+            if (session.subscription) {
+              try {
+                const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription as string)
+                subscriptionEndsAt = new Date(stripeSubscription.current_period_end * 1000)
+                nextBillingDate = new Date(stripeSubscription.current_period_end * 1000)
+              } catch (err) {
+                console.error('Error retrieving subscription:', err)
+              }
+            }
+            
+            // Determine subscription plan from price or metadata
+            let subscriptionPlan = 'Monthly Plan' // Default
+            if (session.subscription) {
+              try {
+                const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription as string)
+                if (stripeSubscription.items.data[0]?.price) {
+                  const price = stripeSubscription.items.data[0].price
+                  if (price.recurring?.interval === 'year') {
+                    subscriptionPlan = 'Yearly Plan'
+                  } else {
+                    subscriptionPlan = 'Monthly Plan'
+                  }
+                }
+              } catch (err) {
+                console.error('Error determining plan:', err)
+              }
+            }
+            
+            // Update user subscription status using userId
+            const checkoutResult = await prisma.user.update({
+              where: { id: userId },
+              data: {
+                subscriptionStatus: 'ACTIVE',
+                subscriptionPlan: subscriptionPlan,
+                stripeCustomerId: session.customer as string,
+                subscriptionId: session.subscription as string,
+                subscriptionEndsAt: subscriptionEndsAt,
+                nextBillingDate: nextBillingDate,
+                creditsRemaining: 999999, // Unlimited for paid plans
+              }
+            })
+            
+            console.log('User update result:', checkoutResult)
+          } else if (session.customer_email) {
+            // Fallback to email if metadata userId not available
+            console.log('Updating user subscription for email:', session.customer_email)
+          
+            let subscriptionEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            let nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            
+            if (session.subscription) {
+              try {
+                const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription as string)
+                subscriptionEndsAt = new Date(stripeSubscription.current_period_end * 1000)
+                nextBillingDate = new Date(stripeSubscription.current_period_end * 1000)
+              } catch (err) {
+                console.error('Error retrieving subscription:', err)
+              }
+            }
+            
+            // Determine subscription plan from price
+            let subscriptionPlan = 'Monthly Plan' // Default
+            if (session.subscription) {
+              try {
+                const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription as string)
+                if (stripeSubscription.items.data[0]?.price) {
+                  const price = stripeSubscription.items.data[0].price
+                  if (price.recurring?.interval === 'year') {
+                    subscriptionPlan = 'Yearly Plan'
+                  } else {
+                    subscriptionPlan = 'Monthly Plan'
+                  }
+                }
+              } catch (err) {
+                console.error('Error determining plan:', err)
+              }
+            }
+            
           const checkoutResult = await prisma.user.updateMany({
             where: { email: session.customer_email },
             data: {
               subscriptionStatus: 'ACTIVE',
+                subscriptionPlan: subscriptionPlan,
               stripeCustomerId: session.customer as string,
               subscriptionId: session.subscription as string,
-              subscriptionEndsAt: new Date(session.subscription_details?.billing_cycle_anchor ? session.subscription_details.billing_cycle_anchor * 1000 : Date.now() + 30 * 24 * 60 * 60 * 1000),
-              nextBillingDate: new Date(session.subscription_details?.billing_cycle_anchor ? session.subscription_details.billing_cycle_anchor * 1000 : Date.now() + 30 * 24 * 60 * 60 * 1000),
+                subscriptionEndsAt: subscriptionEndsAt,
+                nextBillingDate: nextBillingDate,
               creditsRemaining: 999999, // Unlimited for paid plans
             }
           })
           
           console.log('User update result:', checkoutResult)
+          }
         }
         break
 
@@ -78,10 +166,22 @@ export async function POST(request: NextRequest) {
         if (subscription.customer) {
           console.log('Updating user subscription for customer:', subscription.customer)
           
+          // Determine subscription plan from price
+          let subscriptionPlan = 'Monthly Plan' // Default
+          if (subscription.items.data[0]?.price) {
+            const price = subscription.items.data[0].price
+            if (price.recurring?.interval === 'year') {
+              subscriptionPlan = 'Yearly Plan'
+            } else {
+              subscriptionPlan = 'Monthly Plan'
+            }
+          }
+          
           const subscriptionResult = await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
               subscriptionStatus: 'ACTIVE',
+              subscriptionPlan: subscriptionPlan,
               subscriptionId: subscription.id,
               subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
               nextBillingDate: new Date(subscription.current_period_end * 1000),

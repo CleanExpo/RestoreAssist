@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update credits (only for trial users)
+    // Deduct credits BEFORE creating report (only for trial users)
     if (user.subscriptionStatus === 'TRIAL') {
       await prisma.user.update({
         where: { id: session.user.id },

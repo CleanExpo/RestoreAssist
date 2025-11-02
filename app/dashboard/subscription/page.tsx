@@ -275,41 +275,6 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          {/* Billing Actions */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4">Billing Actions</h2>
-            
-            <div className="space-y-4">
-              {subscription.cancelAtPeriodEnd ? (
-                <button
-                  onClick={handleReactivateSubscription}
-                  disabled={reactivating}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg font-medium hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {reactivating ? 'Reactivating...' : 'Reactivate Subscription'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleCancelSubscription}
-                  disabled={canceling}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {canceling ? 'Canceling...' : 'Cancel Subscription'}
-                </button>
-              )}
-
-              <button className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                Update Payment Method
-              </button>
-
-              <button className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2">
-                <Download className="w-4 h-4" />
-                Download Invoices
-              </button>
-            </div>
-          </div>
-
           {/* Plan Features */}
           <div className="lg:col-span-2 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4">Plan Features</h2>

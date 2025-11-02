@@ -170,7 +170,7 @@ const upgradeItem = {
             <div className="flex items-center gap-4 ml-6">
               {/* Notifications */}
               <div className="relative">
-                <button
+                {/* <button
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
                   className="p-2 hover:bg-slate-800 rounded-lg transition-colors relative"
                 >
@@ -204,7 +204,7 @@ const upgradeItem = {
                       ))}
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
 
               {/* User Avatar & Dropdown */}
