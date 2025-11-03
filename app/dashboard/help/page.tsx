@@ -43,7 +43,7 @@ export default function HelpPage() {
     {
       icon: Mail,
       title: "Email Support",
-      description: "support@Restore Assist.com",
+      description: "airestoreassist@gmail.com",
       response: "24-48 hours",
     },
     {
