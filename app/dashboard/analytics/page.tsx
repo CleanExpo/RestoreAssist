@@ -174,23 +174,23 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
           <h3 className="font-semibold mb-4">Reports & Revenue Trend</h3>
           {reportTrendData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={reportTrendData}>
-                <defs>
-                  <linearGradient id="colorReports" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="date" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
-                />
-                <Area type="monotone" dataKey="reports" stroke="#3b82f6" fillOpacity={1} fill="url(#colorReports)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={reportTrendData}>
+              <defs>
+                <linearGradient id="colorReports" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="date" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
+              />
+              <Area type="monotone" dataKey="reports" stroke="#3b82f6" fillOpacity={1} fill="url(#colorReports)" />
+            </AreaChart>
+          </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
               No data available for selected period
@@ -202,26 +202,26 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
           <h3 className="font-semibold mb-4">Reports by Hazard Type</h3>
           {hazardDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={hazardDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {hazardDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={hazardDistribution}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={100}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                {hazardDistribution.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
               No data available
@@ -233,17 +233,17 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
           <h3 className="font-semibold mb-4">Reports by Insurance Type</h3>
           {insuranceTypeData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={insuranceTypeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="type" stroke="#94a3b8" angle={-45} textAnchor="end" height={80} />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
-                />
-                <Bar dataKey="count" fill="#06b6d4" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={insuranceTypeData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="type" stroke="#94a3b8" angle={-45} textAnchor="end" height={80} />
+              <YAxis stroke="#94a3b8" />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
+              />
+              <Bar dataKey="count" fill="#06b6d4" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
               No data available
@@ -255,17 +255,17 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
           <h3 className="font-semibold mb-4">Revenue by State</h3>
           {statePerformance.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={statePerformance}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="state" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
-                />
-                <Bar dataKey="value" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={statePerformance}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="state" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
+              />
+              <Bar dataKey="value" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
               No state data available
@@ -277,17 +277,17 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
           <h3 className="font-semibold mb-4">Avg Turnaround Time by Hazard</h3>
           {turnaroundTime.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={turnaroundTime}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="hazard" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
-                />
-                <Line type="monotone" dataKey="hours" stroke="#f59e0b" strokeWidth={2} dot={{ fill: "#f59e0b", r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={turnaroundTime}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="hazard" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #475569", borderRadius: "8px" }}
+              />
+              <Line type="monotone" dataKey="hours" stroke="#f59e0b" strokeWidth={2} dot={{ fill: "#f59e0b", r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
               No turnaround data available
@@ -299,20 +299,20 @@ export default function AnalyticsPage() {
         <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
           <h3 className="font-semibold mb-4">Top Clients by Revenue</h3>
           {topClients.length > 0 ? (
-            <div className="space-y-3">
-              {topClients.map((client, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-700/20 border border-slate-600"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{client.name}</p>
-                    <p className="text-xs text-slate-400">{client.reports} reports</p>
-                  </div>
-                  <p className="font-semibold text-cyan-400">{client.revenue}</p>
+          <div className="space-y-3">
+            {topClients.map((client, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-700/20 border border-slate-600"
+              >
+                <div>
+                  <p className="font-medium text-sm">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.reports} reports</p>
                 </div>
-              ))}
-            </div>
+                <p className="font-semibold text-cyan-400">{client.revenue}</p>
+              </div>
+            ))}
+          </div>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
               No client data available

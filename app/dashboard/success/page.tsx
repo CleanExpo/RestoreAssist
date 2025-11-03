@@ -43,8 +43,8 @@ export default function SuccessPage() {
       isCompletedRef.current = true
       isProcessingRef.current = false
       globalVerificationComplete = true // Set global flag to persist across remounts
-      setChecking(false)
-      setLoading(false)
+        setChecking(false)
+        setLoading(false)
     }
   }
 
@@ -92,7 +92,7 @@ export default function SuccessPage() {
         // Continue with verification if pre-check fails
         console.log('Pre-check failed, continuing with verification')
       }
-
+      
       // Check if already completed (race condition guard)
       if (isCompletedRef.current) {
         cleanup()
