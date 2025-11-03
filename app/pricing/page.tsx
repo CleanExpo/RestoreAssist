@@ -5,6 +5,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import Header from "@/components/landing/Header"
 import Footer from "@/components/landing/Footer"
+import { PRICING_CONFIG } from "@/lib/pricing"
 
 export default function PricingPage() {
   const [darkMode, setDarkMode] = useState(true)
@@ -30,50 +31,36 @@ export default function PricingPage() {
     }
   }, [])
 
-  const plans = [
-    {
-      name: "Starter",
-      price: "$99",
-      period: "/month",
-      description: "Perfect for small restoration companies getting started.",
-      features: [
-        "Up to 10 reports/month",
-        "Basic AI assessment",
-        "Standard templates",
-        "Email support"
-      ],
-      popular: false
-    },
-    {
-      name: "Professional",
-      price: "$249",
-      period: "/month",
-      description: "Ideal for growing restoration businesses.",
-      features: [
-        "Up to 50 reports/month",
-        "Advanced AI assessment",
-        "Custom templates",
-        "Priority support",
-        "Analytics dashboard"
-      ],
-      popular: true
-    },
-    {
-      name: "Enterprise",
-      price: "Custom",
-      period: "",
-      description: "Tailored solutions for large organizations.",
-      features: [
-        "Unlimited reports",
-        "Full AI suite",
-        "Custom integrations",
-        "Dedicated support",
-        "Advanced analytics",
-        "Training & onboarding"
-      ],
-      popular: false
+  // Map pricing config to display format
+  const plans = Object.values(PRICING_CONFIG.pricing).map((plan) => {
+    const price = plan.amount === 0 
+      ? "$0" 
+      : plan.amount % 1 === 0 
+        ? `$${plan.amount}` 
+        : `$${plan.amount.toFixed(2)}`
+    
+    const period = 'interval' in plan && plan.interval
+      ? `/${plan.interval}` 
+      : ""
+    
+    const description = plan.name === 'Free Trial'
+      ? "Perfect for trying out RestoreAssist with 3 free reports."
+      : plan.name === 'Monthly Plan'
+      ? "Ideal for growing restoration businesses."
+      : "Best value for long-term commitment with annual savings."
+    
+    return {
+      name: plan.displayName,
+      price,
+      period,
+      description,
+      features: plan.features,
+      popular: plan.popular,
+      badge: 'badge' in plan ? plan.badge : null,
+      monthlyEquivalent: 'monthlyEquivalent' in plan ? plan.monthlyEquivalent : null,
+      savings: 'savings' in plan ? plan.savings : null
     }
-  ]
+  })
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#1C2E47]' : 'bg-[#F4F5F6]'}`}>
@@ -130,6 +117,11 @@ export default function PricingPage() {
                     Most Popular
                   </div>
                 )}
+                {plan.badge && !plan.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                    {plan.badge}
+                  </div>
+                )}
                 <h3 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                   {plan.name}
                 </h3>
@@ -144,6 +136,11 @@ export default function PricingPage() {
                     <span className={`text-lg ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                       {plan.period}
                     </span>
+                  )}
+                  {plan.monthlyEquivalent && (
+                    <p className={`text-sm mt-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      ${plan.monthlyEquivalent}/month
+                    </p>
                   )}
                 </div>
                 <ul className="space-y-3 mb-8">
