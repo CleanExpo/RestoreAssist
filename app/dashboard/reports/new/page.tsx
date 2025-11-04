@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import toast from "react-hot-toast"
-import { FileText, Calculator, DollarSign, UserPlus, AlertCircle, ArrowRight } from "lucide-react"
+import { FileText, Calculator, DollarSign, UserPlus, AlertCircle, ArrowRight, Upload, File } from "lucide-react"
 import { CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 type WorkflowStage = "inspection" | "scoping" | "estimation"
@@ -37,6 +37,7 @@ export default function NewReportPage() {
     affectedArea: 0,
     inspectionDate: new Date().toISOString().slice(0, 16)
   })
+  const [uploadingPdf, setUploadingPdf] = useState(false)
 
   // Load clients
   const [clients, setClients] = useState<any[]>([])
@@ -56,6 +57,54 @@ export default function NewReportPage() {
       title: `WD-${year}-${timestamp}`
     }))
   }, [])
+
+  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.type !== "application/pdf") {
+      toast.error("Please upload a PDF file")
+      return
+    }
+
+    setUploadingPdf(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/reports/parse-pdf", {
+        method: "POST",
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const parsedData = result.parsedData
+
+        // Populate form with extracted data
+        setInspectionData(prev => ({
+          ...prev,
+          clientName: parsedData.clientName || prev.clientName,
+          propertyAddress: parsedData.propertyAddress || prev.propertyAddress,
+          inspectionDate: parsedData.inspectionDate || prev.inspectionDate,
+          waterCategory: parsedData.waterCategory || prev.waterCategory,
+          waterClass: parsedData.waterClass || prev.waterClass,
+          sourceOfWater: parsedData.sourceOfWater || prev.sourceOfWater,
+          affectedArea: parsedData.affectedArea || prev.affectedArea
+        }))
+
+        toast.success("PDF parsed successfully! Fields populated from PDF.")
+      } else {
+        const error = await response.json()
+        toast.error(error.error || "Failed to parse PDF")
+      }
+    } catch (error) {
+      console.error("Error uploading PDF:", error)
+      toast.error("Failed to upload PDF")
+    } finally {
+      setUploadingPdf(false)
+    }
+  }
 
   const handleCreateInspection = async () => {
     if (!inspectionData.clientName || !inspectionData.propertyAddress || !inspectionData.waterCategory || !inspectionData.waterClass) {
@@ -236,6 +285,53 @@ export default function NewReportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8 space-y-8">
+            {/* PDF Upload Section */}
+            <div className="p-6 rounded-lg border-2 border-dashed border-slate-700 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                    <Upload className="text-cyan-400" size={24} />
+                  </div>
+                  <div>
+                    <Label htmlFor="pdf-upload" className="text-white font-semibold cursor-pointer">
+                      Upload PDF Report
+                    </Label>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Upload an existing PDF report to auto-populate fields
+                    </p>
+                  </div>
+                </div>
+                <label htmlFor="pdf-upload">
+                  <input
+                    id="pdf-upload"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handlePdfUpload}
+                    disabled={uploadingPdf}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingPdf}
+                    className="border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  >
+                    {uploadingPdf ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-300 border-t-transparent mr-2"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <File className="mr-2" size={16} />
+                        Choose PDF
+                      </>
+                    )}
+                  </Button>
+                </label>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <Label htmlFor="title" className="text-white font-semibold text-sm">Report Number *</Label>
               <Input

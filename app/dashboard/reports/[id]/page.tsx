@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, Share2, MoreVertical, ChevronDown, AlertTriangle, CheckCircle, Clock, Mail, MessageCircle } from "lucide-react"
+import { Download, Share2, MoreVertical, ChevronDown, AlertTriangle, CheckCircle, Clock, Mail, MessageCircle, Edit2, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 import DetailedReportViewer from "@/components/DetailedReportViewer"
+import EditableReportSection from "@/components/EditableReportSection"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -22,6 +23,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [editMode, setEditMode] = useState(false)
   const [expandedSections, setExpandedSections] = useState({
     claimDetails: true,
     assessment: true,
@@ -168,6 +170,33 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     window.location.href = mailtoUrl
   }
 
+  const handleSaveSection = async (section: string, data: Record<string, any>) => {
+    if (!reportId) return
+
+    try {
+      const response = await fetch(`/api/reports/${reportId}/sections`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section, data })
+      })
+
+      if (response.ok) {
+        // Refresh report data
+        const reportResponse = await fetch(`/api/reports/${reportId}`)
+        if (reportResponse.ok) {
+          const updatedReport = await reportResponse.json()
+          setReport(updatedReport)
+        }
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to save section")
+      }
+    } catch (error) {
+      console.error("Error saving section:", error)
+      throw error
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -216,6 +245,24 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           )}
         </div>
         <div className="flex gap-3">
+          <Button
+            onClick={() => setEditMode(!editMode)}
+            variant="outline"
+            className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white px-6 py-2"
+          >
+            {editMode ? (
+              <>
+                <Eye className="mr-2" size={18} />
+                View Mode
+              </>
+            ) : (
+              <>
+                <Edit2 className="mr-2" size={18} />
+                Edit Mode
+              </>
+            )}
+          </Button>
+
           <Button
             onClick={downloadReport}
             disabled={downloading}
@@ -292,98 +339,197 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
           {/* Claim Details */}
-          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            <button
-              onClick={() => toggleSection("claimDetails")}
-              className="w-full flex items-center justify-between p-6 hover:bg-slate-700/20 transition-colors"
-            >
-              <h2 className="text-xl font-semibold">Claim Details</h2>
-              <ChevronDown
-                size={20}
-                className={`transition-transform ${expandedSections.claimDetails ? "rotate-180" : ""}`}
-              />
-            </button>
-            {expandedSections.claimDetails && (
-              <div className="px-6 pb-6 border-t border-slate-700 space-y-4 pt-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Client</p>
-                    <p className="font-medium">{report.client?.name || report.clientName}</p>
-                    {report.client?.email && (
-                      <p className="text-xs text-slate-500 mt-1">Email: {report.client.email}</p>
-                    )}
-                    {report.client?.phone && (
-                      <p className="text-xs text-slate-500">Phone: {report.client.phone}</p>
-                    )}
-                    {report.client?.company && (
-                      <p className="text-xs text-slate-500">Company: {report.client.company}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Report Number</p>
-                    <p className="font-medium">{report.reportNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Property Address</p>
-                    <p className="font-medium">{report.propertyAddress}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Insurance Type</p>
-                    <p className="font-medium">{report.insuranceType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Hazard Type</p>
-                    <p className="font-medium">{report.hazardType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Inspection Date</p>
-                    <p className="font-medium">{formatDate(report.inspectionDate)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Created</p>
-                    <p className="font-medium">{formatDateTime(report.createdAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Last Modified</p>
-                    <p className="font-medium">{formatDateTime(report.updatedAt)}</p>
+          {editMode ? (
+            <EditableReportSection
+              section="Claim Details"
+              fields={{
+                clientName: {
+                  label: "Client Name",
+                  type: "text",
+                  value: report.clientName || ""
+                },
+                propertyAddress: {
+                  label: "Property Address",
+                  type: "text",
+                  value: report.propertyAddress || ""
+                },
+                hazardType: {
+                  label: "Hazard Type",
+                  type: "select",
+                  value: report.hazardType || "",
+                  options: ["Water", "Fire", "Mould", "Biohazard"]
+                },
+                insuranceType: {
+                  label: "Insurance Type",
+                  type: "text",
+                  value: report.insuranceType || ""
+                },
+                inspectionDate: {
+                  label: "Inspection Date",
+                  type: "date",
+                  value: report.inspectionDate ? new Date(report.inspectionDate).toISOString().slice(0, 16) : ""
+                }
+              }}
+              onSave={handleSaveSection}
+            />
+          ) : (
+            <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+              <button
+                onClick={() => toggleSection("claimDetails")}
+                className="w-full flex items-center justify-between p-6 hover:bg-slate-700/20 transition-colors"
+              >
+                <h2 className="text-xl font-semibold">Claim Details</h2>
+                <ChevronDown
+                  size={20}
+                  className={`transition-transform ${expandedSections.claimDetails ? "rotate-180" : ""}`}
+                />
+              </button>
+              {expandedSections.claimDetails && (
+                <div className="px-6 pb-6 border-t border-slate-700 space-y-4 pt-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Client</p>
+                      <p className="font-medium">{report.client?.name || report.clientName}</p>
+                      {report.client?.email && (
+                        <p className="text-xs text-slate-500 mt-1">Email: {report.client.email}</p>
+                      )}
+                      {report.client?.phone && (
+                        <p className="text-xs text-slate-500">Phone: {report.client.phone}</p>
+                      )}
+                      {report.client?.company && (
+                        <p className="text-xs text-slate-500">Company: {report.client.company}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Report Number</p>
+                      <p className="font-medium">{report.reportNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Property Address</p>
+                      <p className="font-medium">{report.propertyAddress}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Insurance Type</p>
+                      <p className="font-medium">{report.insuranceType}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Hazard Type</p>
+                      <p className="font-medium">{report.hazardType}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Inspection Date</p>
+                      <p className="font-medium">{formatDate(report.inspectionDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Created</p>
+                      <p className="font-medium">{formatDateTime(report.createdAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Last Modified</p>
+                      <p className="font-medium">{formatDateTime(report.updatedAt)}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Damage Assessment */}
-          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            <button
-              onClick={() => toggleSection("assessment")}
-              className="w-full flex items-center justify-between p-6 hover:bg-slate-700/20 transition-colors"
-            >
-              <h2 className="text-xl font-semibold">Damage Assessment</h2>
-              <ChevronDown
-                size={20}
-                className={`transition-transform ${expandedSections.assessment ? "rotate-180" : ""}`}
-              />
-            </button>
-            {expandedSections.assessment && (
-              <div className="px-6 pb-6 border-t border-slate-700 space-y-4 pt-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Water Category</p>
-                    <p className="font-medium">{report.waterCategory}</p>
+          {editMode ? (
+            <EditableReportSection
+              section="Assessment"
+              fields={{
+                waterCategory: {
+                  label: "Water Category",
+                  type: "select",
+                  value: report.waterCategory || "",
+                  options: ["Category 1", "Category 2", "Category 3"]
+                },
+                waterClass: {
+                  label: "Water Class",
+                  type: "select",
+                  value: report.waterClass || "",
+                  options: ["Class 1", "Class 2", "Class 3", "Class 4"]
+                },
+                sourceOfWater: {
+                  label: "Source of Water",
+                  type: "text",
+                  value: report.sourceOfWater || ""
+                },
+                affectedArea: {
+                  label: "Affected Area (sqm)",
+                  type: "number",
+                  value: report.affectedArea || 0
+                },
+                safetyHazards: {
+                  label: "Safety Hazards",
+                  type: "textarea",
+                  value: report.safetyHazards || "",
+                  multiline: true
+                },
+                structuralDamage: {
+                  label: "Structural Damage",
+                  type: "textarea",
+                  value: report.structuralDamage || "",
+                  multiline: true
+                },
+                contentsDamage: {
+                  label: "Contents Damage",
+                  type: "textarea",
+                  value: report.contentsDamage || "",
+                  multiline: true
+                },
+                hvacAffected: {
+                  label: "HVAC Affected",
+                  type: "boolean",
+                  value: report.hvacAffected || false
+                },
+                electricalHazards: {
+                  label: "Electrical Hazards",
+                  type: "text",
+                  value: report.electricalHazards || ""
+                },
+                microbialGrowth: {
+                  label: "Microbial Growth",
+                  type: "textarea",
+                  value: report.microbialGrowth || "",
+                  multiline: true
+                }
+              }}
+              onSave={handleSaveSection}
+            />
+          ) : (
+            <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+              <button
+                onClick={() => toggleSection("assessment")}
+                className="w-full flex items-center justify-between p-6 hover:bg-slate-700/20 transition-colors"
+              >
+                <h2 className="text-xl font-semibold">Damage Assessment</h2>
+                <ChevronDown
+                  size={20}
+                  className={`transition-transform ${expandedSections.assessment ? "rotate-180" : ""}`}
+                />
+              </button>
+              {expandedSections.assessment && (
+                <div className="px-6 pb-6 border-t border-slate-700 space-y-4 pt-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Water Category</p>
+                      <p className="font-medium">{report.waterCategory}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Water Class</p>
+                      <p className="font-medium">{report.waterClass}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Affected Area</p>
+                      <p className="font-medium">{report.affectedArea ? `${report.affectedArea} sqm` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-400 mb-1">Source of Water</p>
+                      <p className="font-medium">{report.sourceOfWater || 'N/A'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Water Class</p>
-                    <p className="font-medium">{report.waterClass}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Affected Area</p>
-                    <p className="font-medium">{report.affectedArea ? `${report.affectedArea} sqm` : 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Source of Water</p>
-                    <p className="font-medium">{report.sourceOfWater || 'N/A'}</p>
-                  </div>
-                </div>
                 
                 {report.safetyHazards && (
                 <div>
@@ -433,7 +579,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 )}
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Scope of Work */}
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
