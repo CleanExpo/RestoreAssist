@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import toast from "react-hot-toast"
-import { FileText, Calculator, DollarSign, UserPlus, AlertCircle, ArrowRight, Upload, File } from "lucide-react"
+import { FileText, Calculator, DollarSign, UserPlus, AlertCircle, ArrowRight, Upload, File, FileJson } from "lucide-react"
 import { CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 type WorkflowStage = "inspection" | "scoping" | "estimation"
@@ -23,6 +23,8 @@ export default function NewReportPage() {
   const [scopeId, setScopeId] = useState<string | null>(null)
   const [reportData, setReportData] = useState<any>(null)
   const [scopeData, setScopeData] = useState<any>(null)
+  const [estimateData, setEstimateData] = useState<any>(null)
+  const [uploadedJsonData, setUploadedJsonData] = useState<any>(null) // Store full JSON data for later use
 
   // Basic inspection report data
   const [inspectionData, setInspectionData] = useState({
@@ -58,49 +60,57 @@ export default function NewReportPage() {
     }))
   }, [])
 
-  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
-    if (file.type !== "application/pdf") {
-      toast.error("Please upload a PDF file")
+    // Only accept JSON files
+    if (file.type !== "application/json" && !file.name.endsWith('.json')) {
+      toast.error("Please upload a JSON file only")
       return
     }
 
     setUploadingPdf(true)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      const fileText = await file.text()
+      const jsonData = JSON.parse(fileText)
 
-      const response = await fetch("/api/reports/parse-pdf", {
-        method: "POST",
-        body: formData
-      })
+      // Store full JSON data for later use (scoping and estimation)
+      setUploadedJsonData(jsonData)
 
-      if (response.ok) {
-        const result = await response.json()
-        const parsedData = result.parsedData
+      // Populate inspection form with ALL report fields from JSON
+      setInspectionData(prev => ({
+        ...prev,
+        title: jsonData.reportNumber || jsonData.title || prev.title,
+        clientName: jsonData.clientName || prev.clientName,
+        propertyAddress: jsonData.propertyAddress || prev.propertyAddress,
+        inspectionDate: jsonData.inspectionDate ? new Date(jsonData.inspectionDate).toISOString().slice(0, 16) : prev.inspectionDate,
+        waterCategory: jsonData.waterCategory || prev.waterCategory,
+        waterClass: jsonData.waterClass || prev.waterClass,
+        sourceOfWater: jsonData.sourceOfWater || prev.sourceOfWater,
+        affectedArea: jsonData.affectedArea || prev.affectedArea,
+        hazardType: jsonData.hazardType || prev.hazardType,
+        insuranceType: jsonData.insuranceType || prev.insuranceType
+      }))
 
-        // Populate form with extracted data
-        setInspectionData(prev => ({
-          ...prev,
-          clientName: parsedData.clientName || prev.clientName,
-          propertyAddress: parsedData.propertyAddress || prev.propertyAddress,
-          inspectionDate: parsedData.inspectionDate || prev.inspectionDate,
-          waterCategory: parsedData.waterCategory || prev.waterCategory,
-          waterClass: parsedData.waterClass || prev.waterClass,
-          sourceOfWater: parsedData.sourceOfWater || prev.sourceOfWater,
-          affectedArea: parsedData.affectedArea || prev.affectedArea
-        }))
-
-        toast.success("PDF parsed successfully! Fields populated from PDF.")
-      } else {
-        const error = await response.json()
-        toast.error(error.error || "Failed to parse PDF")
+      // Store scope data if exists
+      if (jsonData.scope) {
+        setScopeData(jsonData.scope)
       }
-    } catch (error) {
-      console.error("Error uploading PDF:", error)
-      toast.error("Failed to upload PDF")
+
+      // Store estimate data if exists
+      if (jsonData.estimate) {
+        setEstimateData(jsonData.estimate)
+      }
+
+      toast.success("JSON file loaded successfully! All data populated from JSON. Create report to proceed through all steps.")
+    } catch (error: any) {
+      console.error("Error uploading file:", error)
+      if (error.message?.includes('JSON') || error.name === 'SyntaxError') {
+        toast.error("Invalid JSON file. Please check the file format.")
+      } else {
+        toast.error("Failed to upload file")
+      }
     } finally {
       setUploadingPdf(false)
     }
@@ -165,6 +175,7 @@ export default function NewReportPage() {
       <ScopingEngine
         reportId={reportId}
         reportData={reportData}
+        initialScopeData={scopeData || uploadedJsonData?.scope}
         onScopeComplete={handleScopeComplete}
         onCancel={() => setStage("inspection")}
       />
@@ -178,6 +189,7 @@ export default function NewReportPage() {
         scopeId={scopeId || undefined}
         scopeData={scopeData}
         reportData={reportData}
+        initialEstimateData={estimateData || uploadedJsonData?.estimate}
         onEstimateComplete={handleEstimateComplete}
         onCancel={() => setStage("scoping")}
       />
@@ -285,7 +297,7 @@ export default function NewReportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8 space-y-8">
-            {/* PDF Upload Section */}
+            {/* File Upload Section */}
             <div className="p-6 rounded-lg border-2 border-dashed border-slate-700 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -293,20 +305,20 @@ export default function NewReportPage() {
                     <Upload className="text-cyan-400" size={24} />
                   </div>
                   <div>
-                    <Label htmlFor="pdf-upload" className="text-white font-semibold cursor-pointer">
-                      Upload PDF Report
+                    <Label htmlFor="file-upload" className="text-white font-semibold cursor-pointer">
+                      Upload JSON Report
                     </Label>
                     <p className="text-xs text-slate-400 mt-1">
-                      Upload an existing PDF report to auto-populate fields
+                      Upload a JSON file to populate all fields from existing report
                     </p>
                   </div>
                 </div>
-                <label htmlFor="pdf-upload">
+                <label htmlFor="file-upload">
                   <input
-                    id="pdf-upload"
+                    id="file-upload"
                     type="file"
-                    accept=".pdf"
-                    onChange={handlePdfUpload}
+                    accept=".json,application/json"
+                    onChange={handleFileUpload}
                     disabled={uploadingPdf}
                     className="hidden"
                   />
@@ -324,11 +336,17 @@ export default function NewReportPage() {
                     ) : (
                       <>
                         <File className="mr-2" size={16} />
-                        Choose PDF
+                        Choose File
                       </>
                     )}
                   </Button>
                 </label>
+              </div>
+              <div className="mt-3 flex gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-1">
+                  <FileJson size={12} />
+                  <span>JSON files only</span>
+                </div>
               </div>
             </div>
 

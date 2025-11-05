@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, Share2, MoreVertical, ChevronDown, AlertTriangle, CheckCircle, Clock, Mail, MessageCircle, Edit2, Eye } from "lucide-react"
+import { Download, Share2, MoreVertical, ChevronDown, AlertTriangle, CheckCircle, Clock, Mail, MessageCircle, Edit2, Eye, FileJson, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import DetailedReportViewer from "@/components/DetailedReportViewer"
 import EditableReportSection from "@/components/EditableReportSection"
@@ -23,6 +23,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [downloadingJson, setDownloadingJson] = useState(false)
+  const [generatingDetailed, setGeneratingDetailed] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [expandedSections, setExpandedSections] = useState({
     claimDetails: true,
@@ -155,6 +157,107 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  const downloadReportJson = async () => {
+    if (!reportId) return
+    
+    try {
+      setDownloadingJson(true)
+      toast.loading('Generating JSON report...', { id: 'download-json' })
+      
+      const response = await fetch(`/api/reports/${reportId}/download-json`)
+      
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `report-${report?.reportNumber || reportId}.json`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success('JSON downloaded successfully!', { id: 'download-json' })
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to download JSON', { id: 'download-json' })
+      }
+    } catch (error) {
+      console.error('Error downloading JSON:', error)
+      toast.error('Failed to download JSON', { id: 'download-json' })
+    } finally {
+      setDownloadingJson(false)
+    }
+  }
+
+  const generateDetailedReport = async () => {
+    if (!reportId) return
+    
+    try {
+      setGeneratingDetailed(true)
+      toast.loading('Generating AI report...', { id: 'generate-detailed' })
+      
+      const response = await fetch(`/api/reports/${reportId}/generate-detailed`, {
+        method: 'POST'
+      })
+      
+      if (!response.ok) {
+        try {
+          const error = await response.json()
+          toast.error(error.error || 'Failed to generate AI report', { id: 'generate-detailed' })
+        } catch (e) {
+          toast.error('Failed to generate AI report', { id: 'generate-detailed' })
+        }
+        return
+      }
+
+      // Get blob directly - API returns PDF when status is 200
+      const blob = await response.blob()
+      
+      // Check if blob is valid and not empty
+      if (!blob || blob.size === 0) {
+        console.error('Blob is empty or invalid')
+        toast.error('Generated PDF is empty', { id: 'generate-detailed' })
+        return
+      }
+
+      // Verify it's actually a PDF by checking the first few bytes
+      const firstBytes = await blob.slice(0, 4).text()
+      if (!firstBytes.startsWith('%PDF')) {
+        // Not a PDF, might be an error message
+        try {
+          const text = await blob.text()
+          const error = JSON.parse(text)
+          toast.error(error.error || 'Failed to generate AI report', { id: 'generate-detailed' })
+        } catch (e) {
+          toast.error('Invalid response format', { id: 'generate-detailed' })
+        }
+        return
+      }
+
+      try {
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `initial-assessment-report-${report?.reportNumber || reportId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        console.log('PDF downloaded successfully')
+        toast.success('AI report generated successfully!', { id: 'generate-detailed' })
+      } catch (downloadError: any) {
+        console.error('Error downloading PDF:', downloadError)
+        toast.error('Failed to download PDF: ' + (downloadError.message || 'Unknown error'), { id: 'generate-detailed' })
+      }
+    } catch (error: any) {
+      console.error('Error generating AI report:', error)
+      console.error('Error stack:', error.stack)
+      toast.error(error.message || 'Failed to generate AI report', { id: 'generate-detailed' })
+    } finally {
+      setGeneratingDetailed(false)
+    }
+  }
+
   const handleShareWhatsApp = () => {
     const reportUrl = window.location.href
     const message = `Water Damage Restoration Report\n\nReport Number: ${report?.reportNumber || reportId}\nClient: ${report?.client?.name || report?.clientName}\nProperty: ${report?.propertyAddress}\n\nView full report: ${reportUrl}`
@@ -264,6 +367,43 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           </Button>
 
           <Button
+            onClick={downloadReportJson}
+            disabled={downloadingJson}
+            variant="outline"
+            className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white px-6 py-2"
+          >
+            {downloadingJson ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-300 border-t-transparent mr-2"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <FileJson className="mr-2" size={18} />
+                Download JSON
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={generateDetailedReport}
+            disabled={generatingDetailed}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 font-semibold shadow-lg shadow-purple-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingDetailed ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2" size={18} />
+                Generate AI Report
+              </>
+            )}
+          </Button>
+
+          <Button
             onClick={downloadReport}
             disabled={downloading}
             className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 font-semibold shadow-lg shadow-cyan-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -276,7 +416,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             ) : (
               <>
                 <Download className="mr-2" size={18} />
-                Download Report
+                Download PDF
               </>
             )}
           </Button>

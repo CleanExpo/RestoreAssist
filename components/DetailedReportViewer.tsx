@@ -51,20 +51,51 @@ export default function DetailedReportViewer({ detailedReport, reportId }: Detai
     try {
       const response = await fetch(`/api/reports/${reportId}/generate-detailed`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        toast.success('Detailed report generated successfully!')
-        // Refresh the page to show the new report
-        window.location.reload()
-      } else {
+      if (!response.ok) {
+        try {
         const errorData = await response.json()
         toast.error(errorData.error || 'Failed to generate detailed report')
+        } catch (e) {
+          toast.error('Failed to generate detailed report')
+        }
+        return
       }
+
+      // API returns PDF blob, so download it
+      const blob = await response.blob()
+      
+      if (!blob || blob.size === 0) {
+        toast.error('Generated PDF is empty')
+        return
+      }
+
+      // Verify it's a PDF
+      const firstBytes = await blob.slice(0, 4).text()
+      if (!firstBytes.startsWith('%PDF')) {
+        // Not a PDF, might be an error message
+        try {
+          const text = await blob.text()
+          const error = JSON.parse(text)
+          toast.error(error.error || 'Failed to generate detailed report')
+        } catch (e) {
+          toast.error('Invalid response format')
+        }
+        return
+      }
+
+      // Download the PDF
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `initial-assessment-report-${reportId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('AI report PDF generated and downloaded successfully!')
     } catch (error) {
       console.error('Error generating detailed report:', error)
       toast.error('Failed to generate detailed report')

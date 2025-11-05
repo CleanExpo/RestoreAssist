@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronLeft, ChevronRight, Save, FileText, Calculator, Settings, AlertCircle } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { AlertCircle, Calculator, ChevronLeft, ChevronRight, FileText, Save, Settings } from "lucide-react"
+import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 
 interface ScopingEngineProps {
@@ -1163,29 +1163,7 @@ export default function ScopingEngine({ reportId, reportData, initialScopeData, 
         </div>
       </div>
 
-      <div className="flex space-x-4">
-        <Button
-          onClick={() => window.print()}
-          className="bg-cyan-600 hover:bg-cyan-700"
-        >
-          <FileText className="mr-2" size={16} />
-          Export PDF
-        </Button>
-        <Button
-          onClick={() => {
-            const jsonData = JSON.stringify(scopeData, null, 2)
-            const blob = new Blob([jsonData], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `scope-${reportId}.json`
-            a.click()
-          }}
-          className="bg-slate-700 hover:bg-slate-600"
-        >
-          Export JSON
-        </Button>
-      </div>
+
     </div>
   )
 

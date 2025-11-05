@@ -1,16 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Save, FileText, Calculator, Settings, AlertCircle, CheckCircle, Lock, History, Plus, Trash2, Edit2, ChevronRight } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { AlertCircle, Calculator, CheckCircle, ChevronRight, FileText, Plus, Save, Settings, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 
 interface EstimationEngineProps {
@@ -114,41 +113,71 @@ export default function EstimationEngine({
   useEffect(() => {
     if (initialEstimateData && isInitialMount.current) {
       try {
-        const parsedData = {
+        // Ensure lineItems is properly handled - check if it's an array and exists
+        // Always use the lineItems from initialEstimateData if it exists (even if empty array)
+        const lineItems = initialEstimateData.lineItems !== undefined && initialEstimateData.lineItems !== null
+          ? (Array.isArray(initialEstimateData.lineItems) 
+              ? initialEstimateData.lineItems 
+              : (initialEstimateData.lineItems ? [initialEstimateData.lineItems] : []))
+          : estimateData.lineItems
+        
+        const parsedData: any = {
           ...estimateData,
-          rateTables: typeof initialEstimateData.rateTables === 'string'
-            ? JSON.parse(initialEstimateData.rateTables)
-            : initialEstimateData.rateTables || estimateData.rateTables,
-          commercialParams: typeof initialEstimateData.commercialParams === 'string'
-            ? JSON.parse(initialEstimateData.commercialParams)
-            : initialEstimateData.commercialParams || estimateData.commercialParams,
-          lineItems: initialEstimateData.lineItems || estimateData.lineItems,
-          assumptions: initialEstimateData.assumptions || "",
-          inclusions: initialEstimateData.inclusions || "",
-          exclusions: initialEstimateData.exclusions || "",
-          allowances: initialEstimateData.allowances || "",
-          complianceStatement: initialEstimateData.complianceStatement || "",
-          disclaimer: initialEstimateData.disclaimer || "",
-          status: initialEstimateData.status || "DRAFT",
-          version: initialEstimateData.version || 1,
-          labourSubtotal: initialEstimateData.labourSubtotal || 0,
-          equipmentSubtotal: initialEstimateData.equipmentSubtotal || 0,
-          chemicalsSubtotal: initialEstimateData.chemicalsSubtotal || 0,
-          subcontractorSubtotal: initialEstimateData.subcontractorSubtotal || 0,
-          travelSubtotal: initialEstimateData.travelSubtotal || 0,
-          wasteSubtotal: initialEstimateData.wasteSubtotal || 0,
-          overheads: initialEstimateData.overheads || 0,
-          profit: initialEstimateData.profit || 0,
-          contingency: initialEstimateData.contingency || 0,
-          escalation: initialEstimateData.escalation || 0,
-          subtotalExGST: initialEstimateData.subtotalExGST || 0,
-          gst: initialEstimateData.gst || 0,
-          totalIncGST: initialEstimateData.totalIncGST || 0
+          rateTables: initialEstimateData.rateTables !== undefined && initialEstimateData.rateTables !== null
+            ? (typeof initialEstimateData.rateTables === 'string'
+                ? JSON.parse(initialEstimateData.rateTables)
+                : initialEstimateData.rateTables)
+            : estimateData.rateTables,
+          commercialParams: initialEstimateData.commercialParams !== undefined && initialEstimateData.commercialParams !== null
+            ? (typeof initialEstimateData.commercialParams === 'string'
+                ? JSON.parse(initialEstimateData.commercialParams)
+                : initialEstimateData.commercialParams)
+            : estimateData.commercialParams,
+          lineItems: lineItems,
+          assumptions: initialEstimateData.assumptions !== undefined ? initialEstimateData.assumptions : estimateData.assumptions,
+          inclusions: initialEstimateData.inclusions !== undefined ? initialEstimateData.inclusions : estimateData.inclusions,
+          exclusions: initialEstimateData.exclusions !== undefined ? initialEstimateData.exclusions : estimateData.exclusions,
+          allowances: initialEstimateData.allowances !== undefined ? initialEstimateData.allowances : estimateData.allowances,
+          complianceStatement: initialEstimateData.complianceStatement !== undefined ? initialEstimateData.complianceStatement : estimateData.complianceStatement,
+          disclaimer: initialEstimateData.disclaimer !== undefined ? initialEstimateData.disclaimer : estimateData.disclaimer,
+          status: initialEstimateData.status || estimateData.status,
+          version: initialEstimateData.version || estimateData.version,
+          labourSubtotal: initialEstimateData.labourSubtotal !== undefined ? initialEstimateData.labourSubtotal : 0,
+          equipmentSubtotal: initialEstimateData.equipmentSubtotal !== undefined ? initialEstimateData.equipmentSubtotal : 0,
+          chemicalsSubtotal: initialEstimateData.chemicalsSubtotal !== undefined ? initialEstimateData.chemicalsSubtotal : 0,
+          subcontractorSubtotal: initialEstimateData.subcontractorSubtotal !== undefined ? initialEstimateData.subcontractorSubtotal : 0,
+          travelSubtotal: initialEstimateData.travelSubtotal !== undefined ? initialEstimateData.travelSubtotal : 0,
+          wasteSubtotal: initialEstimateData.wasteSubtotal !== undefined ? initialEstimateData.wasteSubtotal : 0,
+          overheads: initialEstimateData.overheads !== undefined ? initialEstimateData.overheads : 0,
+          profit: initialEstimateData.profit !== undefined ? initialEstimateData.profit : 0,
+          contingency: initialEstimateData.contingency !== undefined ? initialEstimateData.contingency : 0,
+          escalation: initialEstimateData.escalation !== undefined ? initialEstimateData.escalation : 0,
+          subtotalExGST: initialEstimateData.subtotalExGST !== undefined ? initialEstimateData.subtotalExGST : 0,
+          gst: initialEstimateData.gst !== undefined ? initialEstimateData.gst : 0,
+          totalIncGST: initialEstimateData.totalIncGST !== undefined ? initialEstimateData.totalIncGST : 0
         }
+        
+        console.log("Loading initial estimate data:", {
+          lineItemsCount: parsedData.lineItems.length,
+          hasLineItems: Array.isArray(initialEstimateData.lineItems),
+          initialLineItems: initialEstimateData.lineItems,
+          loadedLineItems: parsedData.lineItems
+        })
+        
         setEstimateData(parsedData)
+        isInitialMount.current = false
       } catch (error) {
-        console.error("Error parsing initial estimate data:", error)
+        console.error("Error parsing initial estimate data:", error, initialEstimateData)
         toast.error("Failed to load existing estimate data")
+        isInitialMount.current = false
+      }
+    } else if (initialEstimateData && !isInitialMount.current) {
+      // If initialEstimateData changes after mount, update lineItems if they exist
+      if (initialEstimateData.lineItems !== undefined && Array.isArray(initialEstimateData.lineItems)) {
+        setEstimateData(prev => ({
+          ...prev,
+          lineItems: initialEstimateData.lineItems
+        }))
       }
     }
   }, [initialEstimateData])
@@ -1195,13 +1224,7 @@ export default function EstimationEngine({
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-white">Export Options</h3>
                   <div className="flex space-x-4">
-                    <Button
-                      onClick={() => window.print()}
-                      className="bg-cyan-600 hover:bg-cyan-700"
-                    >
-                      <FileText className="mr-2" size={16} />
-                      Export PDF
-                    </Button>
+    
                     <Button
                       onClick={() => {
                         const jsonData = JSON.stringify(estimateData, null, 2)
