@@ -6,13 +6,22 @@ import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 
+// Check if Google OAuth is properly configured
+const hasValidGoogleOAuth =
+  process.env.GOOGLE_CLIENT_ID &&
+  process.env.GOOGLE_CLIENT_SECRET &&
+  !process.env.GOOGLE_CLIENT_ID.includes('your-google-client-id')
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    // Only include Google provider if properly configured
+    ...(hasValidGoogleOAuth ? [
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      })
+    ] : []),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -20,35 +29,52 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            console.error('[Auth] Missing credentials');
+            throw new Error('Missing email or password');
           }
-        })
 
-        if (!user || !user.password) {
-          return null
-        }
+          console.log('[Auth] Attempting login for:', credentials.email);
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            }
+          });
 
-        if (!isPasswordValid) {
-          return null
-        }
+          if (!user) {
+            console.error('[Auth] User not found:', credentials.email);
+            throw new Error('Invalid email or password');
+          }
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
+          if (!user.password) {
+            console.error('[Auth] User has no password:', credentials.email);
+            throw new Error('Invalid email or password');
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            console.error('[Auth] Invalid password for:', credentials.email);
+            throw new Error('Invalid email or password');
+          }
+
+          console.log('[Auth] Login successful for:', credentials.email);
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error('[Auth] Authorization error:', error);
+          throw error;
         }
       }
     })
@@ -57,15 +83,17 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
+        token.id = user.id
         token.role = user.role
+        token.sub = user.id
       }
       return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub!
+      if (token && session.user) {
+        session.user.id = token.sub || token.id
         session.user.role = token.role as string
       }
       return session
@@ -76,4 +104,16 @@ export const authOptions: NextAuthOptions = {
     signUp: "/signup",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
+  logger: {
+    error(code, metadata) {
+      console.error('[NextAuth Error]', code, metadata);
+    },
+    warn(code) {
+      console.warn('[NextAuth Warn]', code);
+    },
+    debug(code, metadata) {
+      console.log('[NextAuth Debug]', code, metadata);
+    },
+  },
 }

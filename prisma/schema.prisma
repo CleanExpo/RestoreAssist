@@ -17,12 +17,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -48,6 +48,10 @@ model User {
   role          Role      @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // API Configuration
+  anthropicApiKey String? // User's own Anthropic API key (encrypted)
+  hasCompletedOnboarding Boolean @default(false) // Track if user completed API key setup
 
   // Subscription fields (temporarily optional for migration)
   subscriptionStatus SubscriptionStatus?
@@ -87,7 +91,7 @@ model Client {
   address     String?
   company     String?
   contactPerson String?
-  notes       String? @db.Text
+  notes       String?
   status      ClientStatus @default(ACTIVE)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -120,17 +124,17 @@ model Report {
   waterClass       String? // Class 1, 2, 3, or 4
   sourceOfWater    String?
   affectedArea     Float? // Square footage
-  safetyHazards    String? @db.Text
-  equipmentUsed    String? @db.Text
-  dryingPlan       String? @db.Text
+  safetyHazards    String?
+  equipmentUsed    String?
+  dryingPlan       String?
   completionDate   DateTime?
   
   // Detailed Assessment Fields
-  structuralDamage String? @db.Text
-  contentsDamage  String? @db.Text
+  structuralDamage String?
+  contentsDamage  String?
   hvacAffected    Boolean @default(false)
-  electricalHazards String? @db.Text
-  microbialGrowth String? @db.Text
+  electricalHazards String?
+  microbialGrowth String?
   
   // Drying Plan Details
   dehumidificationCapacity Float?
@@ -140,25 +144,25 @@ model Report {
   estimatedDryingTime     Int? // Hours
   
   // Monitoring Data
-  psychrometricReadings    String? @db.Text
-  moistureReadings        String? @db.Text
-  equipmentPlacement      String? @db.Text
+  psychrometricReadings    String?
+  moistureReadings        String?
+  equipmentPlacement      String?
   
   // Compliance Documentation
-  safetyPlan              String? @db.Text
-  containmentSetup        String? @db.Text
-  decontaminationProcedures String? @db.Text
-  postRemediationVerification String? @db.Text
+  safetyPlan              String?
+  containmentSetup        String?
+  decontaminationProcedures String?
+  postRemediationVerification String?
   
   // Insurance Information
-  propertyCover           String? @db.Text
-  contentsCover           String? @db.Text
-  liabilityCover          String? @db.Text
-  businessInterruption    String? @db.Text
-  additionalCover         String? @db.Text
+  propertyCover           String?
+  contentsCover           String?
+  liabilityCover          String?
+  businessInterruption    String?
+  additionalCover         String?
   
   // AI-Generated Detailed Report
-  detailedReport          String? @db.Text
+  detailedReport          String?
   
   // Scoping & Estimation
   scope     Scope?
@@ -192,8 +196,8 @@ model Integration {
   description String?
   icon        String?
   status      IntegrationStatus @default(DISCONNECTED)
-  apiKey      String?  @db.Text
-  config      String?  @db.Text // JSON configuration
+  apiKey      String? 
+  config      String?  // JSON configuration
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   userId      String
@@ -204,7 +208,7 @@ model CostLibrary {
   id          String   @id @default(cuid())
   name        String
   region      String
-  description String?  @db.Text
+  description String? 
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -247,19 +251,19 @@ model Scope {
 
   // Step 1: Input & Data Ingestion
   scopeType     String // WATER, FIRE, MOULD, MULTI_LOSS
-  siteVariables String? @db.Text // JSON: structure, materials, etc.
+  siteVariables String? // JSON: structure, materials, etc.
 
   // Step 2: Labour Parameters (stored as JSON)
-  labourParameters String? @db.Text // JSON: roles, rates, modifiers
+  labourParameters String? // JSON: roles, rates, modifiers
 
   // Step 3: Equipment Parameters (stored as JSON)
-  equipmentParameters String? @db.Text // JSON: equipment list with rates
+  equipmentParameters String? // JSON: equipment list with rates
 
   // Step 4: Chemical Application (stored as JSON)
-  chemicalApplication String? @db.Text // JSON: chemicals with rates and areas
+  chemicalApplication String? // JSON: chemicals with rates and areas
 
   // Step 5: Time & Productivity (stored as JSON)
-  timeCalculations String? @db.Text // JSON: productivity, efficiency factors
+  timeCalculations String? // JSON: productivity, efficiency factors
 
   // Step 6: Scope Summary (calculated)
   labourCostTotal    Float?
@@ -268,8 +272,8 @@ model Scope {
   totalDuration      Float? // Days
 
   // Step 7: Compliance
-  complianceNotes String? @db.Text
-  assumptions     String? @db.Text
+  complianceNotes String?
+  assumptions     String?
 
   // Metadata
   createdAt DateTime @default(now())
@@ -295,8 +299,8 @@ model Estimate {
   version Int            @default(1)
 
   // Input Parameters (stored as JSON)
-  rateTables       String? @db.Text // JSON: labour, subcontractor, equipment rates
-  commercialParams String? @db.Text // JSON: OH&P, contingency, escalation
+  rateTables       String? // JSON: labour, subcontractor, equipment rates
+  commercialParams String? // JSON: OH&P, contingency, escalation
 
   // Totals (calculated)
   labourSubtotal        Float?
@@ -314,12 +318,12 @@ model Estimate {
   totalIncGST           Float?
 
   // Assumptions & Compliance
-  assumptions         String? @db.Text
-  inclusions          String? @db.Text
-  exclusions          String? @db.Text
-  allowances          String? @db.Text
-  complianceStatement String? @db.Text
-  disclaimer          String? @db.Text
+  assumptions         String?
+  inclusions          String?
+  exclusions          String?
+  allowances          String?
+  complianceStatement String?
+  disclaimer          String?
 
   // Approval & Versioning
   approverName      String?
@@ -363,7 +367,7 @@ model EstimateLineItem {
   createdBy        String
   modifiedBy       String?
   modifiedAt       DateTime?
-  changeReason     String?   @db.Text
+  changeReason     String?  
 
   // Ordering
   displayOrder Int @default(0)
@@ -381,13 +385,13 @@ model EstimateVersion {
   estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
 
   version   Int
-  changes   String?  @db.Text // JSON: array of changes
-  reason    String?  @db.Text
+  changes   String?  // JSON: array of changes
+  reason    String? 
   createdBy String
   createdAt DateTime @default(now())
 
   // Snapshot data
-  snapshot String? @db.Text // JSON: full estimate snapshot
+  snapshot String? // JSON: full estimate snapshot
 
   @@unique([estimateId, version])
   @@index([estimateId])
@@ -399,13 +403,13 @@ model EstimateVariation {
   estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
 
   variationNumber Int
-  reason          String  @db.Text
-  evidence        String? @db.Text // JSON: photos, notes
+  reason          String 
+  evidence        String? // JSON: photos, notes
 
   // Delta changes (stored as JSON)
-  addedItems   String? @db.Text // JSON array
-  removedItems String? @db.Text // JSON array
-  changedItems String? @db.Text // JSON array
+  addedItems   String? // JSON array
+  removedItems String? // JSON array
+  changedItems String? // JSON array
 
   // Totals
   previousTotal   Float
