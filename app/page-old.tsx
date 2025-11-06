@@ -601,7 +601,7 @@ export default function Home() {
               >
                 <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
                 <p>ABN: [Company ABN]</p>
-                <p>Address: [Company Address]</p>
+                 
               </motion.div>
             </div>
             

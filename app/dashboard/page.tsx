@@ -173,13 +173,13 @@ export default function DashboardPage() {
       color: "from-blue-500 to-cyan-500",
       href: "/dashboard/reports/new"
     },
-    { 
-      title: "View Templates", 
-      description: "Browse IICRC compliant templates",
-      icon: FileText,
-      color: "from-emerald-500 to-teal-500",
-      href: "/dashboard/templates"
-    },
+    // { 
+    //   title: "View Templates", 
+    //   description: "Browse IICRC compliant templates",
+    //   icon: FileText,
+    //   color: "from-emerald-500 to-teal-500",
+    //   href: "/dashboard/templates"
+    // },
     { 
       title: "Analytics", 
       description: "Track your reporting performance",

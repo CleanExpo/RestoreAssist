@@ -221,7 +221,6 @@ export default function Home() {
                     <p>Built with Claude Opus 4.</p>
                     <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
                     <p>ABN: [Company ABN]</p>
-                    <p>Address: [Company Address]</p>
                   </div>
                 </div>
               </div>
