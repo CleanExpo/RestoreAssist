@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateDetailedReport } from "@/lib/anthropic"
+import { Prisma } from "@prisma/client"
+import { createReportSchema, paginationSchema, handleValidationError } from "@/lib/validation"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,27 +17,52 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const pageParam = searchParams.get("page")
     const limitParam = searchParams.get("limit")
+
+    // Validate query parameters
+    const queryValidation = paginationSchema.safeParse({
+      page: pageParam,
+      limit: limitParam,
+      status: searchParams.get("status"),
+    })
+
+    if (!queryValidation.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid query parameters",
+          details: handleValidationError(queryValidation.error)
+        },
+        { status: 400 }
+      )
+    }
+
     // Only apply pagination if explicitly requested, otherwise fetch all (up to 10000)
     const shouldPaginate = pageParam !== null || limitParam !== null
-    const page = pageParam ? parseInt(pageParam) : 1
-    const limit = limitParam ? parseInt(limitParam) : (shouldPaginate ? 10 : 10000)
+    const page = queryValidation.data.page || 1
+    const limit = queryValidation.data.limit || (shouldPaginate ? 10 : 10000)
+
+    // Validate waterCategory and waterClass to prevent injection
     const status = searchParams.get("status")
     const waterCategory = searchParams.get("waterCategory")
     const waterClass = searchParams.get("waterClass")
 
-    const where: any = {
+    // Define allowed values for enum-like fields
+    const allowedStatuses = ['DRAFT', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED']
+    const allowedWaterCategories = ['Category 1', 'Category 2', 'Category 3']
+    const allowedWaterClasses = ['Class 1', 'Class 2', 'Class 3', 'Class 4']
+
+    const where: Prisma.ReportWhereInput = {
       userId: session.user.id
     }
 
-    if (status && status !== "all") {
-      where.status = status
+    if (status && status !== "all" && allowedStatuses.includes(status)) {
+      where.status = status as any
     }
 
-    if (waterCategory && waterCategory !== "all") {
+    if (waterCategory && waterCategory !== "all" && allowedWaterCategories.includes(waterCategory)) {
       where.waterCategory = waterCategory
     }
 
-    if (waterClass && waterClass !== "all") {
+    if (waterClass && waterClass !== "all" && allowedWaterClasses.includes(waterClass)) {
       where.waterClass = waterClass
     }
 
@@ -92,30 +119,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    
-    // Validate required fields
-    const requiredFields = [
-      "title",
-      "clientName", 
-      "propertyAddress",
-      "waterCategory",
-      "waterClass"
-    ]
 
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        )
-      }
+    // Validate input with Zod schema
+    const validationResult = createReportSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: handleValidationError(validationResult.error)
+        },
+        { status: 400 }
+      )
     }
+
+    // Use validated data
+    const validatedData = validationResult.data
 
     // Check and use credits directly
     const user = await prisma.user.findUnique({
@@ -155,41 +180,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate report number if not provided
-    const reportNumber = body.reportNumber || `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+    const reportNumber = validatedData.reportNumber || `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
 
     // Calculate equipment needs based on IICRC S500 guidelines
-    const equipmentNeeds = calculateEquipmentNeeds(body.waterClass, body.affectedArea)
-    
+    const equipmentNeeds = calculateEquipmentNeeds(validatedData.waterClass, validatedData.affectedArea || 0)
+
     // Process insurance data
-    const insuranceData = body.insuranceData || {}
-    
+    const insuranceData = validatedData.insuranceData || {}
+
     // Generate detailed report using AI
     let detailedReport = null
     try {
       console.log('Generating detailed report with AI...')
-      console.log('Report data:', {
-        title: body.title,
-        clientName: body.clientName,
-        waterCategory: body.waterCategory,
-        waterClass: body.waterClass
-      })
-      
+
       detailedReport = await generateDetailedReport({
         basicInfo: {
-          title: body.title,
-          clientName: body.clientName,
-          propertyAddress: body.propertyAddress,
+          title: validatedData.title,
+          clientName: validatedData.clientName,
+          propertyAddress: validatedData.propertyAddress,
           dateOfLoss: body.dateOfLoss,
-          waterCategory: body.waterCategory,
-          waterClass: body.waterClass,
-          hazardType: body.hazardType,
-          insuranceType: body.insuranceType,
+          waterCategory: validatedData.waterCategory,
+          waterClass: validatedData.waterClass,
+          hazardType: validatedData.hazardType,
+          insuranceType: validatedData.insuranceType,
         },
-        remediationData: body.remediationData,
-        dryingPlan: body.dryingPlan,
-        equipmentSizing: body.equipmentSizing,
-        monitoringData: body.monitoringData,
-        insuranceData: body.insuranceData,
+        remediationData: validatedData.remediationData,
+        dryingPlan: validatedData.dryingPlan,
+        equipmentSizing: validatedData.equipmentSizing,
+        monitoringData: validatedData.monitoringData,
+        insuranceData: validatedData.insuranceData,
       })
       console.log('Detailed report generated successfully, length:', detailedReport?.length)
     } catch (aiError) {
@@ -202,11 +221,11 @@ export async function POST(request: NextRequest) {
     }
     
     // Find client by name to set clientId (for linking updated client info)
-    let clientId = body.clientId || null
-    if (body.clientName && !clientId) {
+    let clientId = validatedData.clientId || null
+    if (validatedData.clientName && !clientId) {
       const client = await prisma.client.findFirst({
         where: {
-          name: body.clientName,
+          name: validatedData.clientName,
           userId: session.user.id
         }
       })
@@ -214,65 +233,65 @@ export async function POST(request: NextRequest) {
         clientId = client.id
       }
     }
-    
+
     const report = await prisma.report.create({
       data: {
         // Basic fields
-        title: body.title,
-        clientName: body.clientName,
+        title: validatedData.title,
+        clientName: validatedData.clientName,
         clientId: clientId,
-        propertyAddress: body.propertyAddress,
-        hazardType: body.hazardType,
-        insuranceType: body.insuranceType,
+        propertyAddress: validatedData.propertyAddress,
+        hazardType: validatedData.hazardType || null,
+        insuranceType: validatedData.insuranceType || null,
         status: 'COMPLETED', // Set status as COMPLETED when report is created
         reportNumber,
         userId: session.user.id,
-        
+
         // IICRC Assessment fields
-        inspectionDate: body.inspectionDate ? new Date(body.inspectionDate) : new Date(),
-        waterCategory: body.waterCategory,
-        waterClass: body.waterClass,
-        sourceOfWater: body.sourceOfWater,
-        affectedArea: body.affectedArea,
-        safetyHazards: body.safetyHazards,
-        
+        inspectionDate: validatedData.inspectionDate ? new Date(validatedData.inspectionDate) : new Date(),
+        waterCategory: validatedData.waterCategory,
+        waterClass: validatedData.waterClass,
+        sourceOfWater: validatedData.sourceOfWater || null,
+        affectedArea: validatedData.affectedArea || null,
+        safetyHazards: validatedData.safetyHazards || null,
+
         // Damage assessment fields
-        structuralDamage: body.structuralDamage,
-        contentsDamage: body.contentsDamage,
-        hvacAffected: body.hvacAffected,
-        electricalHazards: body.electricalHazards,
-        microbialGrowth: body.microbialGrowth,
-        
+        structuralDamage: validatedData.structuralDamage || null,
+        contentsDamage: validatedData.contentsDamage || null,
+        hvacAffected: validatedData.hvacAffected || null,
+        electricalHazards: validatedData.electricalHazards || null,
+        microbialGrowth: validatedData.microbialGrowth || null,
+
         // Equipment and drying fields
         dehumidificationCapacity: equipmentNeeds.dehumidification,
         airmoversCount: equipmentNeeds.airmovers,
-        targetHumidity: body.dryingPlan?.targetHumidity,
-        targetTemperature: body.dryingPlan?.targetTemperature,
-        estimatedDryingTime: body.dryingPlan?.estimatedDryingTime,
-        equipmentPlacement: body.equipmentSizing?.equipmentPlacement,
-        
+        targetHumidity: validatedData.dryingPlan?.targetHumidity || null,
+        targetTemperature: validatedData.dryingPlan?.targetTemperature || null,
+        estimatedDryingTime: validatedData.dryingPlan?.estimatedDryingTime || null,
+        equipmentPlacement: validatedData.equipmentSizing?.equipmentPlacement || null,
+
         // Monitoring data (stored as JSON strings)
-        psychrometricReadings: body.monitoringData?.psychrometricReadings ? JSON.stringify(body.monitoringData.psychrometricReadings) : null,
-        moistureReadings: body.monitoringData?.moistureReadings ? JSON.stringify(body.monitoringData.moistureReadings) : null,
-        
+        psychrometricReadings: validatedData.monitoringData?.psychrometricReadings ? JSON.stringify(validatedData.monitoringData.psychrometricReadings) : null,
+        moistureReadings: validatedData.monitoringData?.moistureReadings ? JSON.stringify(validatedData.monitoringData.moistureReadings) : null,
+
         // Remediation data (stored as JSON strings)
-        safetyPlan: body.remediationData?.safetyPlan,
-        containmentSetup: body.remediationData?.containmentSetup,
-        decontaminationProcedures: body.remediationData?.decontaminationProcedures,
-        postRemediationVerification: body.remediationData?.postRemediationVerification,
-        
+        safetyPlan: validatedData.remediationData?.safetyPlan || null,
+        containmentSetup: validatedData.remediationData?.containmentSetup || null,
+        decontaminationProcedures: validatedData.remediationData?.decontaminationProcedures || null,
+        postRemediationVerification: validatedData.remediationData?.postRemediationVerification || null,
+
         // Insurance data (stored as JSON strings)
         propertyCover: insuranceData.propertyCover ? JSON.stringify(insuranceData.propertyCover) : null,
         contentsCover: insuranceData.contentsCover ? JSON.stringify(insuranceData.contentsCover) : null,
         liabilityCover: insuranceData.liabilityCover ? JSON.stringify(insuranceData.liabilityCover) : null,
         businessInterruption: insuranceData.businessInterruption ? JSON.stringify(insuranceData.businessInterruption) : null,
         additionalCover: insuranceData.additionalCover ? JSON.stringify(insuranceData.additionalCover) : null,
-        
+
         // Optional fields
-        completionDate: body.completionDate ? new Date(body.completionDate) : null,
-        totalCost: body.totalCost,
-        description: body.description,
-        
+        completionDate: validatedData.completionDate ? new Date(validatedData.completionDate) : null,
+        totalCost: validatedData.totalCost || null,
+        description: validatedData.description || null,
+
         // AI-Generated Detailed Report
         detailedReport: detailedReport,
       },

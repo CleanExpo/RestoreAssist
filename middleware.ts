@@ -1,48 +1,27 @@
 import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
 
 export default withAuth(
   function middleware(req) {
-    // Middleware runs after authentication is verified
-    return NextResponse.next()
+    // Add any additional middleware logic here
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        const pathname = req.nextUrl.pathname
-
         // Allow access to public routes
-        if (
-          pathname.startsWith("/login") ||
-          pathname.startsWith("/signup") ||
-          pathname === "/" ||
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/_next") ||
-          pathname.startsWith("/favicon") ||
-          pathname.startsWith("/public")
-        ) {
+        if (req.nextUrl.pathname.startsWith("/login") || 
+            req.nextUrl.pathname.startsWith("/signup") ||
+            req.nextUrl.pathname === "/" ||
+            req.nextUrl.pathname.startsWith("/api/auth") ||
+            req.nextUrl.pathname.startsWith("/_next") ||
+            req.nextUrl.pathname.startsWith("/favicon")) {
           return true
         }
-
-        // Protect all /api routes except /api/auth
-        if (pathname.startsWith("/api")) {
+        
+        // Require authentication for protected routes
+        if (req.nextUrl.pathname.startsWith("/dashboard")) {
           return !!token
         }
-
-        // Protect dashboard and other authenticated routes
-        if (
-          pathname.startsWith("/dashboard") ||
-          pathname.startsWith("/reports") ||
-          pathname.startsWith("/clients") ||
-          pathname.startsWith("/settings") ||
-          pathname.startsWith("/analytics") ||
-          pathname.startsWith("/integrations") ||
-          pathname.startsWith("/cost-libraries") ||
-          pathname.startsWith("/help")
-        ) {
-          return !!token
-        }
-
+        
         return true
       },
     },
@@ -51,7 +30,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // Dashboard routes
     "/dashboard/:path*",
     "/reports/:path*",
     "/clients/:path*",
@@ -59,8 +37,6 @@ export const config = {
     "/analytics/:path*",
     "/integrations/:path*",
     "/cost-libraries/:path*",
-    "/help/:path*",
-    // API routes (except auth)
-    "/api/:path*"
+    "/help/:path*"
   ]
 }

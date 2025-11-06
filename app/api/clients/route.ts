@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Prisma } from "@prisma/client"
+import { createClientSchema, paginationSchema, handleValidationError } from "@/lib/validation"
 
 const prisma = new PrismaClient()
 
@@ -15,13 +16,29 @@ export async function GET(request: NextRequest) {
 
 
     const { searchParams } = new URL(request.url)
-    const search = searchParams.get("search")
-    const status = searchParams.get("status")
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "10")
+
+    // Validate query parameters
+    const queryValidation = paginationSchema.safeParse({
+      page: searchParams.get("page"),
+      limit: searchParams.get("limit"),
+      search: searchParams.get("search"),
+      status: searchParams.get("status"),
+    })
+
+    if (!queryValidation.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid query parameters",
+          details: handleValidationError(queryValidation.error)
+        },
+        { status: 400 }
+      )
+    }
+
+    const { search, status, page = 1, limit = 10 } = queryValidation.data
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Prisma.ClientWhereInput = {
       userId: session.user.id
     }
 
@@ -94,17 +111,27 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const { name, email, phone, address, company, contactPerson, notes, status } = body
 
-    if (!name || !email) {
-      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
+    // Validate input with Zod schema
+    const validationResult = createClientSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: handleValidationError(validationResult.error)
+        },
+        { status: 400 }
+      )
     }
+
+    const { name, email, phone, address, company, contactPerson, notes, status } = validationResult.data
 
     // Check if client with same email already exists for this user
     const existingClient = await prisma.client.findFirst({

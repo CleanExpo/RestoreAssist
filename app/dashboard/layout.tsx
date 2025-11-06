@@ -30,12 +30,12 @@ export default function DashboardLayout({
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  // TEMPORARILY DISABLED FOR TESTING
-  // useEffect(() => {
-  //   if (status === "unauthenticated") {
-  //     router.push("/login")
-  //   }
-  // }, [status, router])
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
 
   if (status === "loading") {
     return (
@@ -45,14 +45,14 @@ export default function DashboardLayout({
     )
   }
 
-  // TEMPORARILY DISABLED FOR TESTING - Allow unauthenticated access
-  // if (status === "unauthenticated") {
-  //   return (
-  //     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-  //       <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-  //     </div>
-  //   )
-  // }
+  // Show loading state while redirecting unauthenticated users
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/" })

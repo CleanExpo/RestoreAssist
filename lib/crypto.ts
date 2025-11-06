@@ -1,12 +1,19 @@
 import crypto from 'crypto'
 
-// Use NEXTAUTH_SECRET as encryption key (already in .env)
-const ENCRYPTION_KEY = process.env.NEXTAUTH_SECRET || ''
 const ALGORITHM = 'aes-256-gcm'
+const MINIMUM_KEY_LENGTH = 32
 
-if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length < 32) {
-  console.warn('NEXTAUTH_SECRET is not properly configured for encryption')
+// Validate encryption key exists and meets minimum requirements
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error('NEXTAUTH_SECRET environment variable is required for encryption')
 }
+
+if (process.env.NEXTAUTH_SECRET.length < MINIMUM_KEY_LENGTH) {
+  throw new Error(`NEXTAUTH_SECRET must be at least ${MINIMUM_KEY_LENGTH} characters long for secure encryption`)
+}
+
+// Use NEXTAUTH_SECRET as encryption key
+const ENCRYPTION_KEY = process.env.NEXTAUTH_SECRET
 
 /**
  * Encrypt sensitive data (like API keys) using AES-256-GCM
