@@ -68,7 +68,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <div className={`text-xs space-y-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                   <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
                   <p>ABN: [Company ABN]</p>
-                  <p>Address: [Company Address]</p>
+                   
                 </div>
               </div>
             </div>

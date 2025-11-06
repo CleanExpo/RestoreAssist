@@ -130,7 +130,7 @@ export default function ComplianceLibraryPage() {
                         className={`text-sm font-medium ${darkMode ? 'text-[#8A6B4E] hover:text-[#8A6B4E]/80' : 'text-[#8A6B4E] hover:text-[#8A6B4E]/90'} transition-colors`}
                         style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
                       >
-                        Download →
+                        Coming Soon
                       </Link>
                     </div>
                   ))}

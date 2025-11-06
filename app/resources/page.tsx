@@ -34,7 +34,7 @@ export default function ResourcesPage() {
     {
       category: "Documentation",
       items: [
-        { title: "Getting Started Guide", description: "Learn the basics of using RestoreAssist", link: "/help" },
+        { title: "Getting Started Guide", description: "Learn the basics of using RestoreAssist", link: "/help", comingSoon: true },
         { title: "API Documentation", description: "Integrate RestoreAssist with your systems", link: "#" },
         { title: "Compliance Library", description: "Access compliance standards and guidelines", link: "#" }
       ]
@@ -44,7 +44,7 @@ export default function ResourcesPage() {
       items: [
         { title: "Help Centre", description: "Find answers to common questions", link: "/help" },
         { title: "Contact Support", description: "Get help from our support team", link: "#" },
-        { title: "Video Tutorials", description: "Watch step-by-step video guides", link: "#" }
+        { title: "Video Tutorials", description: "Watch step-by-step video guides", link: "#", comingSoon: true }
       ]
     },
     {
@@ -117,9 +117,16 @@ export default function ResourcesPage() {
                       href={item.link}
                       className={`block p-4 rounded-lg transition-colors ${darkMode ? 'hover:bg-[#1C2E47]/70' : 'hover:bg-[#F4F5F6]/70'}`}
                     >
-                      <h4 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                        {item.title}
-                      </h4>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className={`text-lg font-semibold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                          {item.title}
+                        </h4>
+                       
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${darkMode ? 'bg-[#8A6B4E]/20 text-[#8A6B4E]' : 'bg-[#8A6B4E]/10 text-[#8A6B4E]'} border border-[#8A6B4E]/30`}>
+                            Coming Soon
+                          </span>
+                        
+                      </div>
                       <p className={`text-sm ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                         {item.description}
                       </p>

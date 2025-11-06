@@ -85,17 +85,10 @@ export default function ContactPage() {
                     Email
                   </h3>
                   <p className={`${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                    support@restoreassist.com.au
+                  airestoreassist@gmail.com
                   </p>
                 </div>
-                <div>
-                  <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                    Phone
-                  </h3>
-                  <p className={`${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                    1300 RESTORE (1300 737 867)
-                  </p>
-                </div>
+     
                 <div>
                   <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                     Office Hours

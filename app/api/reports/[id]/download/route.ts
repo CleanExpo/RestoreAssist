@@ -47,7 +47,7 @@ export async function GET(
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
-    // Fetch scope if exists
+    // Fetch scope if exists - include ALL fields
     let scope = null
     try {
       const scopeData = await prisma.scope.findFirst({
@@ -56,6 +56,7 @@ export async function GET(
       if (scopeData) {
         scope = {
           id: scopeData.id,
+          reportId: scopeData.reportId,
           scopeType: scopeData.scopeType,
           siteVariables: scopeData.siteVariables ? JSON.parse(scopeData.siteVariables) : null,
           labourParameters: scopeData.labourParameters ? JSON.parse(scopeData.labourParameters) : null,
@@ -67,18 +68,24 @@ export async function GET(
           chemicalCostTotal: scopeData.chemicalCostTotal,
           totalDuration: scopeData.totalDuration,
           complianceNotes: scopeData.complianceNotes,
-          assumptions: scopeData.assumptions
+          assumptions: scopeData.assumptions,
+          createdAt: scopeData.createdAt,
+          updatedAt: scopeData.updatedAt,
+          createdBy: scopeData.createdBy,
+          updatedBy: scopeData.updatedBy,
+          userId: scopeData.userId
         }
       }
     } catch (err) {
       console.log("No scope found")
     }
 
-    // Fetch estimate if exists
+    // Fetch estimate if exists - include ALL fields
     let estimate = null
     try {
       const estimateData = await prisma.estimate.findFirst({
         where: { reportId: id },
+        orderBy: { createdAt: "desc" },
         include: {
           lineItems: {
             orderBy: { displayOrder: "asc" }
@@ -88,11 +95,33 @@ export async function GET(
       if (estimateData) {
         estimate = {
           id: estimateData.id,
+          reportId: estimateData.reportId,
+          scopeId: estimateData.scopeId,
           status: estimateData.status,
           version: estimateData.version,
           rateTables: estimateData.rateTables ? JSON.parse(estimateData.rateTables) : null,
           commercialParams: estimateData.commercialParams ? JSON.parse(estimateData.commercialParams) : null,
-          lineItems: estimateData.lineItems,
+          lineItems: estimateData.lineItems.map(item => ({
+            id: item.id,
+            estimateId: item.estimateId,
+            code: item.code,
+            category: item.category,
+            description: item.description,
+            qty: item.qty,
+            unit: item.unit,
+            rate: item.rate,
+            formula: item.formula,
+            subtotal: item.subtotal,
+            isScopeLinked: item.isScopeLinked,
+            isEstimatorAdded: item.isEstimatorAdded,
+            displayOrder: item.displayOrder,
+            createdBy: item.createdBy,
+            modifiedBy: item.modifiedBy,
+            modifiedAt: item.modifiedAt,
+            changeReason: item.changeReason,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt
+          })),
           labourSubtotal: estimateData.labourSubtotal,
           equipmentSubtotal: estimateData.equipmentSubtotal,
           chemicalsSubtotal: estimateData.chemicalsSubtotal,
@@ -111,7 +140,17 @@ export async function GET(
           exclusions: estimateData.exclusions,
           allowances: estimateData.allowances,
           complianceStatement: estimateData.complianceStatement,
-          disclaimer: estimateData.disclaimer
+          disclaimer: estimateData.disclaimer,
+          approverName: estimateData.approverName,
+          approverRole: estimateData.approverRole,
+          approverSignature: estimateData.approverSignature,
+          approvedAt: estimateData.approvedAt,
+          estimatedDuration: estimateData.estimatedDuration,
+          createdAt: estimateData.createdAt,
+          updatedAt: estimateData.updatedAt,
+          createdBy: estimateData.createdBy,
+          updatedBy: estimateData.updatedBy,
+          userId: estimateData.userId
         }
       }
     } catch (err) {
