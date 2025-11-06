@@ -1,0 +1,56 @@
+# ================================
+# RestoreAssist Test Environment
+# Docker Compose Configuration
+# ================================
+# For local testing of Docker builds
+
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: restoreassist-test-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: restoreassist_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restoreassist-test-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:test_password@postgres:5432/restoreassist_test?schema=public
+      DIRECT_URL: postgresql://postgres:test_password@postgres:5432/restoreassist_test?schema=public
+      NEXTAUTH_SECRET: test-secret-minimum-32-characters-long
+      JWT_SECRET: test-jwt-secret
+      JWT_REFRESH_SECRET: test-refresh-secret
+    ports:
+      - "3010:3001"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+networks:
+  test-network:
+    driver: bridge

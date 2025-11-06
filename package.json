@@ -8,7 +8,19 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:restart": "docker-compose restart",
+    "docker:clean": "docker-compose down -v",
+    "docker:dev": "docker-compose up",
+    "docker:db": "docker-compose up -d postgres",
+    "docker:prisma-migrate": "docker-compose exec app npx prisma migrate deploy",
+    "docker:prisma-studio": "docker-compose exec app npx prisma studio",
+    "docker:validate": "node validate-docker.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",

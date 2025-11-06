@@ -1,0 +1,62 @@
+version: '3.9'
+
+# ================================
+# Production Overrides for RestoreAssist
+# ================================
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    restart: always
+
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Log rotation for production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Don't expose database port to host in production
+    ports: []
+
+  app:
+    restart: always
+
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+      # Update strategy for zero-downtime deployments
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+
+    # Log rotation for production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    # Production environment overrides
+    environment:
+      NODE_ENV: production
+      DEBUG: "false"
+      LOG_LEVEL: info

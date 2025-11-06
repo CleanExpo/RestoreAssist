@@ -1,0 +1,85 @@
+name: Docker Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  test-docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (test)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: restoreassist:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Create test network
+        run: docker network create restoreassist-test-network
+
+      - name: Start PostgreSQL for testing
+        run: |
+          docker run -d \
+            --name test-postgres \
+            --network restoreassist-test-network \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=test_password \
+            -e POSTGRES_DB=restoreassist_test \
+            postgres:16-alpine
+
+      - name: Wait for PostgreSQL
+        run: |
+          timeout 30 sh -c 'until docker exec test-postgres pg_isready -U postgres; do sleep 1; done'
+
+      - name: Run application container (test)
+        run: |
+          docker run -d \
+            --name test-app \
+            --network restoreassist-test-network \
+            -e DATABASE_URL="postgresql://postgres:test_password@test-postgres:5432/restoreassist_test?schema=public" \
+            -e DIRECT_URL="postgresql://postgres:test_password@test-postgres:5432/restoreassist_test?schema=public" \
+            -e NEXTAUTH_SECRET="test-secret-minimum-32-characters-long" \
+            -e JWT_SECRET="test-jwt-secret" \
+            -e JWT_REFRESH_SECRET="test-refresh-secret" \
+            -p 3001:3001 \
+            restoreassist:test
+
+      - name: Wait for application to start
+        run: |
+          timeout 90 sh -c 'until curl -f http://localhost:3001/api/health; do sleep 2; done'
+
+      - name: Test health endpoint
+        run: |
+          response=$(curl -s http://localhost:3001/api/health)
+          echo "Health check response: $response"
+          echo "$response" | jq -e '.status == "healthy"'
+
+      - name: Check logs on failure
+        if: failure()
+        run: |
+          echo "=== Application Logs ==="
+          docker logs test-app
+          echo "=== PostgreSQL Logs ==="
+          docker logs test-postgres
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop test-app test-postgres || true
+          docker rm test-app test-postgres || true
+          docker network rm restoreassist-test-network || true

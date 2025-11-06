@@ -18,9 +18,15 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.docker
+!.env.example
 
 # vercel
 .vercel
+
+# docker
+.env.docker.local
+docker-compose.override.yml
 
 # typescript
 *.tsbuildinfo

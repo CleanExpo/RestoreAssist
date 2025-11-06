@@ -1,0 +1,27 @@
+version: '3.9'
+
+# ================================
+# Development Overrides for RestoreAssist
+# ================================
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  postgres:
+    # Expose database port for local development tools
+    ports:
+      - "5432:5432"
+
+  app:
+    # Development environment overrides
+    environment:
+      DEBUG: "true"
+      LOG_LEVEL: debug
+      NODE_ENV: development
+
+    # Mount volumes for hot reload (optional - uncomment if needed)
+    # volumes:
+    #   - ./app:/app/app:ro
+    #   - ./public:/app/public:ro
+
+    # Override command for development
+    # command: sh -c "npm run dev"

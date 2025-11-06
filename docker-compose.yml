@@ -1,0 +1,148 @@
+version: '3.9'
+
+# ================================
+# RestoreAssist Full Stack Docker Compose
+# ================================
+# Complete production-ready stack with Next.js app and PostgreSQL
+
+services:
+  # ================================
+  # PostgreSQL Database Service
+  # ================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: restoreassist-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-restoreassist}
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+    networks:
+      - restoreassist-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-restoreassist}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ================================
+  # Next.js Application Service
+  # ================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+
+    container_name: restoreassist-app
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      # Application
+      NODE_ENV: production
+      PORT: 3001
+
+      # Database - Connect to Docker PostgreSQL service
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-restoreassist}?schema=public
+      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-restoreassist}?schema=public
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+
+      # NextAuth
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+
+      # JWT Secrets
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY:-15m}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY:-7d}
+
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+
+      # AI Services
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+      # Stripe
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+
+      # Email
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+
+      # AWS/S3
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+
+      # Feature Flags
+      ENABLE_TRIAL_MODE: ${ENABLE_TRIAL_MODE:-true}
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+    ports:
+      - "${APP_PORT:-3001}:3001"
+
+    networks:
+      - restoreassist-network
+
+    volumes:
+      # Mount for uploaded files (if not using S3)
+      - app_uploads:/app/uploads
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Run Prisma migrations before starting the application
+    command: sh -c "npx prisma migrate deploy && node server.js"
+
+# ================================
+# Networks
+# ================================
+networks:
+  restoreassist-network:
+    driver: bridge
+    name: restoreassist-network
+
+# ================================
+# Volumes
+# ================================
+volumes:
+  postgres_data:
+    name: restoreassist_postgres_data
+    driver: local
+
+  app_uploads:
+    name: restoreassist_uploads
+    driver: local
