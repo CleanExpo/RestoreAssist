@@ -42,7 +42,7 @@ export default function FeaturesPage() {
     },
     {
       title: "Multi-Hazard Support",
-      description: "Comprehensive support for water, fire, mold, and storm damage assessments.",
+      description: "Comprehensive support for water, fire, mould, and storm damage assessments.",
       icon: "🌊"
     },
     {

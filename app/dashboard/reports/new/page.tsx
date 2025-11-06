@@ -155,8 +155,8 @@ export default function NewReportPage() {
                 <div className="space-y-3">
                   <h2 className="text-2xl font-bold text-white">No Clients Found</h2>
                   <p className="text-slate-400 text-lg max-w-md">
-                    You need to add at least one client before you can create a report. 
-                    Clients help organize your reports and track project history.
+                    You need to add at least one client before you can create a report.
+                    Clients help organise your reports and track project history.
                   </p>
             </div>
 
@@ -184,8 +184,8 @@ export default function NewReportPage() {
                     Quick Tip
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Create a client by clicking "Add Client" in the Clients section. 
-                    You can add client details like name, email, phone, and address for better organization.
+                    Create a client by clicking "Add Client" in the Clients section.
+                    You can add client details like name, email, phone, and address for better organisation.
                   </p>
                 </div>
               </div>

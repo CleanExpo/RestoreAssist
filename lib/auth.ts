@@ -12,8 +12,14 @@ const hasValidGoogleOAuth =
   process.env.GOOGLE_CLIENT_SECRET &&
   !process.env.GOOGLE_CLIENT_ID.includes('your-google-client-id')
 
+console.log('[Auth Config] Initializing authOptions')
+console.log('[Auth Config] Has valid Google OAuth:', hasValidGoogleOAuth)
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // NOTE: PrismaAdapter is NOT compatible with CredentialsProvider
+  // Only use adapter when Google OAuth is configured
+  // For credentials provider, we manage users manually in the authorize callback
+  ...(hasValidGoogleOAuth ? { adapter: PrismaAdapter(prisma) } : {}),
   providers: [
     // Only include Google provider if properly configured
     ...(hasValidGoogleOAuth ? [
@@ -23,12 +29,14 @@ export const authOptions: NextAuthOptions = {
       })
     ] : []),
     CredentialsProvider({
+      id: "credentials",
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        console.log('[Auth] ===== AUTHORIZE CALLBACK CALLED =====');
         try {
           if (!credentials?.email || !credentials?.password) {
             console.error('[Auth] Missing credentials');
@@ -37,11 +45,17 @@ export const authOptions: NextAuthOptions = {
 
           console.log('[Auth] Attempting login for:', credentials.email);
 
-          const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email
-            }
-          });
+          let user;
+          try {
+            user = await prisma.user.findUnique({
+              where: {
+                email: credentials.email
+              }
+            });
+          } catch (dbError) {
+            console.error('[Auth] Database error:',  dbError);
+            throw new Error('Database connection failed. Please contact support.');
+          }
 
           if (!user) {
             console.error('[Auth] User not found:', credentials.email);

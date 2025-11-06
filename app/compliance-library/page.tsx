@@ -35,8 +35,8 @@ export default function ComplianceLibraryPage() {
       category: "IICRC Standards",
       items: [
         { title: "IICRC S500 Standard", description: "Standard and Reference Guide for Professional Water Damage Restoration", type: "PDF" },
-        { title: "IICRC S520 Standard", description: "Standard and Reference Guide for Professional Mold Remediation", type: "PDF" },
-        { title: "IICRC R520 Reference Guide", description: "Reference Guide for Professional Mold Remediation", type: "PDF" }
+        { title: "IICRC S520 Standard", description: "Standard and Reference Guide for Professional Mould Remediation", type: "PDF" },
+        { title: "IICRC R520 Reference Guide", description: "Reference Guide for Professional Mould Remediation", type: "PDF" }
       ]
     },
     {

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Screenshot</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="http://localhost:3001/dashboard"></iframe>
+    <script>
+        setTimeout(() => {
+            console.log('Dashboard should be loaded. Please take a screenshot manually.');
+        }, 3000);
+    </script>
+</body>
+</html>
