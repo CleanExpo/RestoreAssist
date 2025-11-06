@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, Settings, XIcon, Plus, Trash2 } from "lucide-react"
+import { Check, X, Settings, XIcon, Plus, Trash2, Crown } from "lucide-react"
 import toast from "react-hot-toast"
+import { useRouter } from "next/navigation"
 
 interface Integration {
   id: string
@@ -16,23 +17,49 @@ interface Integration {
   updatedAt: string
 }
 
+interface SubscriptionStatus {
+  subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
+  subscriptionPlan?: string
+}
+
 export default function IntegrationsPage() {
+  const router = useRouter()
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [showApiModal, setShowApiModal] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null)
   const [apiKey, setApiKey] = useState("")
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    icon: ""
-  })
+  const [apiKeyType, setApiKeyType] = useState<'openai' | 'anthropic' | 'gemini'>('anthropic')
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
+  const [newApiKeyType, setNewApiKeyType] = useState<'openai' | 'anthropic' | 'gemini'>('anthropic')
+  const [newApiKey, setNewApiKey] = useState("")
 
-  // Fetch integrations from API
+  // Fetch integrations and subscription status from API
   useEffect(() => {
     fetchIntegrations()
+    fetchSubscriptionStatus()
   }, [])
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await fetch("/api/user/profile")
+      if (response.ok) {
+        const data = await response.json()
+        setSubscription({
+          subscriptionStatus: data.profile?.subscriptionStatus,
+          subscriptionPlan: data.profile?.subscriptionPlan
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching subscription status:", error)
+    }
+  }
+
+  const hasActiveSubscription = () => {
+    return subscription?.subscriptionStatus === 'ACTIVE'
+  }
 
   const fetchIntegrations = async () => {
     try {
@@ -53,21 +80,48 @@ export default function IntegrationsPage() {
   }
 
   const handleConnect = (integration: Integration) => {
+    // Check if user has active subscription before allowing API key insertion
+    if (!hasActiveSubscription()) {
+      setShowUpgradeModal(true)
+      return
+    }
+    
     setSelectedIntegration(integration)
     setApiKey("")
+    // Try to get API key type from existing config if available
+    if (integration.config) {
+      try {
+        const config = JSON.parse(integration.config)
+        if (config.apiKeyType && ['openai', 'anthropic', 'gemini'].includes(config.apiKeyType)) {
+          setApiKeyType(config.apiKeyType)
+        }
+      } catch (e) {
+        // Use default
+      }
+    }
     setShowApiModal(true)
   }
 
   const handleSaveConnection = async () => {
     if (!selectedIntegration) return
 
+    if (!apiKey) {
+      toast.error("API key is required")
+      return
+    }
+
     try {
+      const config = {
+        apiKeyType: apiKeyType
+      }
+      
       const response = await fetch(`/api/integrations/${selectedIntegration.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...selectedIntegration,
           apiKey,
+          config: JSON.stringify(config),
           status: apiKey ? "CONNECTED" : "DISCONNECTED"
         })
       })
@@ -115,22 +169,39 @@ export default function IntegrationsPage() {
   }
 
   const handleAddIntegration = async () => {
-    if (!formData.name) {
-      toast.error("Name is required")
+    if (!newApiKey) {
+      toast.error("API key is required")
       return
+    }
+
+    // Determine integration name and icon based on API key type
+    const integrationData = {
+      name: newApiKeyType === 'anthropic' ? 'Anthropic Claude' : 
+            newApiKeyType === 'openai' ? 'OpenAI GPT' : 
+            'Google Gemini',
+      description: newApiKeyType === 'anthropic' ? 'AI-powered report generation with Claude' : 
+                   newApiKeyType === 'openai' ? 'AI-powered report generation with GPT' : 
+                   'AI-powered report generation with Gemini',
+      icon: newApiKeyType === 'anthropic' ? '🤖' : 
+            newApiKeyType === 'openai' ? '🧠' : 
+            '🔮',
+      apiKey: newApiKey,
+      config: JSON.stringify({ apiKeyType: newApiKeyType }),
+      status: "CONNECTED"
     }
 
     try {
       const response = await fetch("/api/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(integrationData)
       })
 
       if (response.ok) {
         const newIntegration = await response.json()
         setIntegrations([newIntegration, ...integrations])
-        setFormData({ name: "", description: "", icon: "" })
+        setNewApiKey("")
+        setNewApiKeyType('anthropic')
         setShowAddModal(false)
         toast.success("Integration added successfully")
       } else {
@@ -267,12 +338,27 @@ export default function IntegrationsPage() {
             </div>
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium mb-2">API Key Type</label>
+                <select
+                  value={apiKeyType}
+                  onChange={(e) => setApiKeyType(e.target.value as 'openai' | 'anthropic' | 'gemini')}
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white"
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-2">
+                  Select the type of API key you want to connect
+                </p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-2">API Key</label>
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter your API key"
+                  placeholder={`Enter your ${apiKeyType === 'anthropic' ? 'Anthropic' : apiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
                   className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                 />
                 <p className="text-xs text-slate-400 mt-2">
@@ -301,50 +387,100 @@ export default function IntegrationsPage() {
         </div>
       )}
 
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                  <Crown className="text-white" size={24} />
+                </div>
+                <h2 className="text-xl font-semibold">Upgrade Required</h2>
+              </div>
+              <button onClick={() => setShowUpgradeModal(false)} className="p-1 hover:bg-slate-700 rounded">
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-slate-300">
+                To connect API keys and use integrations, you need an active subscription (Monthly or Yearly plan).
+              </p>
+              <p className="text-sm text-slate-400">
+                Upgrade now to unlock all features including API integrations, unlimited reports, and priority support.
+              </p>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    router.push('/dashboard/pricing')
+                  }}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all"
+                >
+                  Upgrade Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Integration Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Add New Integration</h2>
-              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-slate-700 rounded">
+              <button onClick={() => {
+                setShowAddModal(false)
+                setNewApiKey("")
+                setNewApiKeyType('anthropic')
+              }} className="p-1 hover:bg-slate-700 rounded">
                 <XIcon size={20} />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Integration Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Ascora CRM"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                />
+                <label className="block text-sm font-medium mb-2">API Key Type</label>
+                <select
+                  value={newApiKeyType}
+                  onChange={(e) => setNewApiKeyType(e.target.value as 'openai' | 'anthropic' | 'gemini')}
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white"
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-2">
+                  Select the type of API key you want to connect
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
+                <label className="block text-sm font-medium mb-2">API Key</label>
                 <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Brief description of the integration"
+                  type="password"
+                  value={newApiKey}
+                  onChange={(e) => setNewApiKey(e.target.value)}
+                  placeholder={`Enter your ${newApiKeyType === 'anthropic' ? 'Anthropic' : newApiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
                   className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Icon (Emoji)</label>
-                <input
-                  type="text"
-                  value={formData.icon}
-                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                  placeholder="🔗"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                />
+                <p className="text-xs text-slate-400 mt-2">
+                  Your API key is encrypted and stored securely. We'll never share it with third parties.
+                </p>
               </div>
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setNewApiKey("")
+                    setNewApiKeyType('anthropic')
+                  }}
                   className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel

@@ -99,6 +99,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Check if user has active subscription
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionStatus: true }
+    })
+
+    if (!user || user.subscriptionStatus !== 'ACTIVE') {
+      return NextResponse.json(
+        { 
+          error: "Upgrade required", 
+          upgradeRequired: true,
+          message: "You need an active subscription (Monthly or Yearly plan) to create clients."
+        },
+        { status: 402 }
+      )
+    }
+
     const body = await request.json()
     const { name, email, phone, address, company, contactPerson, notes, status } = body
 

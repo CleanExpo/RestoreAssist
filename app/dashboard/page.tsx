@@ -15,14 +15,24 @@ import {
   Shield,
   Calendar,
   ArrowRight,
-  Activity
+  Activity,
+  Crown,
+  XIcon
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
+
+interface SubscriptionStatus {
+  subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
+  subscriptionPlan?: string
+}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [dashboardData, setDashboardData] = useState({
     totalReports: 0,
     totalClients: 0,
@@ -31,13 +41,62 @@ export default function DashboardPage() {
     recentClients: [],
     loading: true
   })
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  const [showGuidedModal, setShowGuidedModal] = useState(false)
+  const [guidedStep, setGuidedStep] = useState<'api' | 'client' | 'report'>('api')
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
-      toast.success(`Welcome back, ${session.user.name?.split(' ')[0]}!`)
+      const upgradeFlag = searchParams.get('upgrade')
+      const upgradeSuccessFlag = searchParams.get('upgrade_success')
+      fetchSubscriptionStatus()
       fetchDashboardData()
+      
+      // Show guided modal if coming from successful payment
+      if (upgradeSuccessFlag === 'true') {
+        setTimeout(() => {
+          setShowGuidedModal(true)
+        }, 1500)
+      } else if (upgradeFlag === 'true') {
+        // Show upgrade modal if coming from signup or if user doesn't have active subscription
+        setTimeout(() => {
+          setShowUpgradeModal(true)
+        }, 1000)
+      }
     }
-  }, [status, session])
+  }, [status, session, searchParams])
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await fetch("/api/user/profile")
+      if (response.ok) {
+        const data = await response.json()
+        setSubscription({
+          subscriptionStatus: data.profile?.subscriptionStatus,
+          subscriptionPlan: data.profile?.subscriptionPlan
+        })
+        
+        // Check if user needs to upgrade (not ACTIVE)
+        if (data.profile?.subscriptionStatus !== 'ACTIVE') {
+          // Show upgrade modal after a delay if not already shown
+          setTimeout(() => {
+            const upgradeFlag = searchParams.get('upgrade')
+            if (!upgradeFlag) {
+              setShowUpgradeModal(true)
+            }
+          }, 2000)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching subscription status:", error)
+    }
+  }
+
+  const hasActiveSubscription = () => {
+    return subscription?.subscriptionStatus === 'ACTIVE'
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -469,6 +528,194 @@ export default function DashboardPage() {
           </motion.div>
         </div>
       </main>
+
+      {/* Guided Setup Modal (After Successful Payment) */}
+      {showGuidedModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                  <CheckCircle className="text-white" size={24} />
+                </div>
+                <h2 className="text-xl font-semibold">Welcome! Let's Get Started</h2>
+              </div>
+              <button onClick={() => setShowGuidedModal(false)} className="p-1 hover:bg-slate-700 rounded">
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {guidedStep === 'api' && (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white text-sm font-bold">1</div>
+                    <h3 className="text-lg font-semibold text-white">Add API Key First</h3>
+                  </div>
+                  <p className="text-slate-300">
+                    To unlock all features, start by adding your API key. This allows you to use AI-powered features and integrations.
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    You can add your Anthropic, OpenAI, or other LLM API keys in the Integrations section.
+                  </p>
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setShowGuidedModal(false)}
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    >
+                      Skip for Now
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowGuidedModal(false)
+                        router.push('/dashboard/integrations')
+                      }}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all"
+                    >
+                      Add API Key
+                    </button>
+                    <button
+                      onClick={() => setGuidedStep('client')}
+                      className="px-4 py-2 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/10 transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </>
+              )}
+              {guidedStep === 'client' && (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-sm font-bold">2</div>
+                    <h3 className="text-lg font-semibold text-white">Create Your First Client</h3>
+                  </div>
+                  <p className="text-slate-300">
+                    Now let's create your first client. Clients help you organize and manage all your restoration reports.
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    Add client details like name, email, phone, and address for better organization.
+                  </p>
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setGuidedStep('api')}
+                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={() => setShowGuidedModal(false)}
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    >
+                      Skip for Now
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowGuidedModal(false)
+                        router.push('/dashboard/clients')
+                      }}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg font-medium hover:shadow-lg hover:shadow-emerald-500/50 transition-all"
+                    >
+                      Create Client
+                    </button>
+                    <button
+                      onClick={() => setGuidedStep('report')}
+                      className="px-4 py-2 border border-emerald-500/50 text-emerald-400 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </>
+              )}
+              {guidedStep === 'report' && (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold">3</div>
+                    <h3 className="text-lg font-semibold text-white">Create Your First Report</h3>
+                  </div>
+                  <p className="text-slate-300">
+                    Perfect! Now you're ready to create your first restoration report. Generate professional, compliant reports for your clients.
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    Create comprehensive reports with inspection, scoping, and estimation data.
+                  </p>
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setGuidedStep('client')}
+                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      onClick={() => setShowGuidedModal(false)}
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    >
+                      Skip for Now
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowGuidedModal(false)
+                        router.push('/dashboard/reports/new')
+                      }}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    >
+                      Create Report
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            {/* Progress Indicator */}
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${guidedStep === 'api' ? 'bg-cyan-500' : 'bg-slate-600'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${guidedStep === 'client' ? 'bg-emerald-500' : 'bg-slate-600'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${guidedStep === 'report' ? 'bg-blue-500' : 'bg-slate-600'}`}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                  <Crown className="text-white" size={24} />
+                </div>
+                <h2 className="text-xl font-semibold">Upgrade Required</h2>
+              </div>
+              <button onClick={() => setShowUpgradeModal(false)} className="p-1 hover:bg-slate-700 rounded">
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-slate-300">
+                To create reports and clients, you need an active subscription (Monthly or Yearly plan).
+              </p>
+              <p className="text-sm text-slate-400">
+                Upgrade now to unlock all features including unlimited reports, client management, API integrations, and priority support.
+              </p>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                >
+                  Maybe Later
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    router.push('/dashboard/pricing')
+                  }}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all"
+                >
+                  Upgrade Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

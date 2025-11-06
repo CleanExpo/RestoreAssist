@@ -10,10 +10,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import toast from "react-hot-toast"
-import { FileText, Calculator, DollarSign, UserPlus, AlertCircle, ArrowRight, Upload, File, FileJson } from "lucide-react"
+import { FileText, Calculator, DollarSign, UserPlus, AlertCircle, ArrowRight, Upload, File, FileJson, Crown, XIcon } from "lucide-react"
 import { CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 type WorkflowStage = "inspection" | "scoping" | "estimation"
+
+interface SubscriptionStatus {
+  subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
+  subscriptionPlan?: string
+}
 
 export default function NewReportPage() {
   const router = useRouter()
@@ -25,6 +30,8 @@ export default function NewReportPage() {
   const [scopeData, setScopeData] = useState<any>(null)
   const [estimateData, setEstimateData] = useState<any>(null)
   const [uploadedJsonData, setUploadedJsonData] = useState<any>(null) // Store full JSON data for later use
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   // Basic inspection report data
   const [inspectionData, setInspectionData] = useState({
@@ -41,14 +48,29 @@ export default function NewReportPage() {
   })
   const [uploadingPdf, setUploadingPdf] = useState(false)
 
-  // Load clients
+  // Load clients and subscription status
   const [clients, setClients] = useState<any[]>([])
   useEffect(() => {
     fetch("/api/clients")
       .then(res => res.json())
       .then(data => setClients(data.clients || []))
       .catch(err => console.error("Error fetching clients:", err))
+    
+    // Fetch subscription status
+    fetch("/api/user/profile")
+      .then(res => res.json())
+      .then(data => {
+        setSubscription({
+          subscriptionStatus: data.profile?.subscriptionStatus,
+          subscriptionPlan: data.profile?.subscriptionPlan
+        })
+      })
+      .catch(err => console.error("Error fetching subscription status:", err))
   }, [])
+
+  const hasActiveSubscription = () => {
+    return subscription?.subscriptionStatus === 'ACTIVE'
+  }
 
   // Auto-generate report number
   useEffect(() => {
@@ -82,7 +104,7 @@ export default function NewReportPage() {
       setInspectionData(prev => ({
         ...prev,
         title: jsonData.reportNumber || jsonData.title || prev.title,
-        clientName: jsonData.clientName || prev.clientName,
+        clientName: jsonData.clientName || (jsonData.client?.name) || prev.clientName,
         propertyAddress: jsonData.propertyAddress || prev.propertyAddress,
         inspectionDate: jsonData.inspectionDate ? new Date(jsonData.inspectionDate).toISOString().slice(0, 16) : prev.inspectionDate,
         waterCategory: jsonData.waterCategory || prev.waterCategory,
@@ -117,6 +139,12 @@ export default function NewReportPage() {
   }
 
   const handleCreateInspection = async () => {
+    // Check if user has active subscription before allowing report creation
+    if (!hasActiveSubscription()) {
+      setShowUpgradeModal(true)
+      return
+    }
+
     if (!inspectionData.clientName || !inspectionData.propertyAddress || !inspectionData.waterCategory || !inspectionData.waterClass) {
       toast.error("Please fill in all required fields")
       return
@@ -124,15 +152,115 @@ export default function NewReportPage() {
 
     setLoading(true)
     try {
+      // First, check if client exists, if not create it
+      let clientId = null
+      const existingClient = clients.find(c => c.name === inspectionData.clientName)
+      
+      if (!existingClient && inspectionData.clientName) {
+        // Client doesn't exist, create it first
+        try {
+          // Get client data from JSON if available
+          const clientData = uploadedJsonData?.client || {}
+          const clientEmail = clientData.email || uploadedJsonData?.clientEmail || `${inspectionData.clientName.toLowerCase().replace(/\s+/g, '.')}@example.com`
+          
+          const clientResponse = await fetch("/api/clients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: inspectionData.clientName,
+              email: clientEmail,
+              phone: clientData.phone || uploadedJsonData?.clientPhone || null,
+              address: clientData.address || uploadedJsonData?.clientAddress || null,
+              company: clientData.company || uploadedJsonData?.clientCompany || null,
+              contactPerson: clientData.contactPerson || null,
+              notes: clientData.notes || null,
+              status: "ACTIVE"
+            })
+          })
+
+          if (clientResponse.ok) {
+            const newClient = await clientResponse.json()
+            clientId = newClient.id
+            // Add to clients list
+            setClients([newClient, ...clients])
+            toast.success(`Client "${inspectionData.clientName}" created successfully`)
+          } else {
+            const clientError = await clientResponse.json()
+            if (clientResponse.status === 402 && clientError.upgradeRequired) {
+              toast.error("Upgrade required to create clients")
+              setLoading(false)
+              return
+            }
+            console.warn("Failed to create client, continuing with report creation:", clientError)
+          }
+        } catch (clientError) {
+          console.warn("Error creating client, continuing with report creation:", clientError)
+        }
+      } else if (existingClient) {
+        clientId = existingClient.id
+      }
+
+      // Now create the report with all fields from JSON
+      const reportPayload: any = {
+        ...inspectionData,
+        title: inspectionData.title || `WD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+        description: uploadedJsonData?.description || "Initial Inspection Report",
+        status: uploadedJsonData?.status || "DRAFT",
+        reportNumber: uploadedJsonData?.reportNumber || inspectionData.title,
+        clientId: clientId || null
+      }
+
+      // Add all additional report fields from JSON if available
+      if (uploadedJsonData) {
+        // IICRC S500 Compliance Fields
+        if (uploadedJsonData.safetyHazards) reportPayload.safetyHazards = uploadedJsonData.safetyHazards
+        if (uploadedJsonData.equipmentUsed) reportPayload.equipmentUsed = uploadedJsonData.equipmentUsed
+        if (uploadedJsonData.dryingPlan) reportPayload.dryingPlan = uploadedJsonData.dryingPlan
+        if (uploadedJsonData.completionDate) reportPayload.completionDate = uploadedJsonData.completionDate
+        
+        // Detailed Assessment Fields
+        if (uploadedJsonData.structuralDamage) reportPayload.structuralDamage = uploadedJsonData.structuralDamage
+        if (uploadedJsonData.contentsDamage) reportPayload.contentsDamage = uploadedJsonData.contentsDamage
+        if (uploadedJsonData.hvacAffected !== undefined) reportPayload.hvacAffected = uploadedJsonData.hvacAffected
+        if (uploadedJsonData.electricalHazards) reportPayload.electricalHazards = uploadedJsonData.electricalHazards
+        if (uploadedJsonData.microbialGrowth) reportPayload.microbialGrowth = uploadedJsonData.microbialGrowth
+        
+        // Drying Plan Details
+        if (uploadedJsonData.dehumidificationCapacity) reportPayload.dehumidificationCapacity = uploadedJsonData.dehumidificationCapacity
+        if (uploadedJsonData.airmoversCount) reportPayload.airmoversCount = uploadedJsonData.airmoversCount
+        if (uploadedJsonData.targetHumidity) reportPayload.targetHumidity = uploadedJsonData.targetHumidity
+        if (uploadedJsonData.targetTemperature) reportPayload.targetTemperature = uploadedJsonData.targetTemperature
+        if (uploadedJsonData.estimatedDryingTime) reportPayload.estimatedDryingTime = uploadedJsonData.estimatedDryingTime
+        
+        // Monitoring Data
+        if (uploadedJsonData.psychrometricReadings) reportPayload.psychrometricReadings = typeof uploadedJsonData.psychrometricReadings === 'string' ? uploadedJsonData.psychrometricReadings : JSON.stringify(uploadedJsonData.psychrometricReadings)
+        if (uploadedJsonData.moistureReadings) reportPayload.moistureReadings = typeof uploadedJsonData.moistureReadings === 'string' ? uploadedJsonData.moistureReadings : JSON.stringify(uploadedJsonData.moistureReadings)
+        if (uploadedJsonData.equipmentPlacement) reportPayload.equipmentPlacement = uploadedJsonData.equipmentPlacement
+        
+        // Compliance Documentation
+        if (uploadedJsonData.safetyPlan) reportPayload.safetyPlan = uploadedJsonData.safetyPlan
+        if (uploadedJsonData.containmentSetup) reportPayload.containmentSetup = uploadedJsonData.containmentSetup
+        if (uploadedJsonData.decontaminationProcedures) reportPayload.decontaminationProcedures = uploadedJsonData.decontaminationProcedures
+        if (uploadedJsonData.postRemediationVerification) reportPayload.postRemediationVerification = uploadedJsonData.postRemediationVerification
+        
+        // Insurance Information
+        if (uploadedJsonData.propertyCover) reportPayload.propertyCover = typeof uploadedJsonData.propertyCover === 'string' ? uploadedJsonData.propertyCover : JSON.stringify(uploadedJsonData.propertyCover)
+        if (uploadedJsonData.contentsCover) reportPayload.contentsCover = typeof uploadedJsonData.contentsCover === 'string' ? uploadedJsonData.contentsCover : JSON.stringify(uploadedJsonData.contentsCover)
+        if (uploadedJsonData.liabilityCover) reportPayload.liabilityCover = typeof uploadedJsonData.liabilityCover === 'string' ? uploadedJsonData.liabilityCover : JSON.stringify(uploadedJsonData.liabilityCover)
+        if (uploadedJsonData.businessInterruption) reportPayload.businessInterruption = typeof uploadedJsonData.businessInterruption === 'string' ? uploadedJsonData.businessInterruption : JSON.stringify(uploadedJsonData.businessInterruption)
+        if (uploadedJsonData.additionalCover) reportPayload.additionalCover = typeof uploadedJsonData.additionalCover === 'string' ? uploadedJsonData.additionalCover : JSON.stringify(uploadedJsonData.additionalCover)
+        
+        // AI-Generated Detailed Report
+        if (uploadedJsonData.detailedReport) reportPayload.detailedReport = uploadedJsonData.detailedReport
+        
+        // Total Cost
+        if (uploadedJsonData.totalCost !== undefined) reportPayload.totalCost = uploadedJsonData.totalCost
+      }
+
       const response = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...inspectionData,
-          title: inspectionData.title || `WD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
-          description: "Initial Inspection Report",
-          status: "DRAFT"
-        })
+        body: JSON.stringify(reportPayload)
       })
 
       if (response.ok) {
@@ -298,35 +426,35 @@ export default function NewReportPage() {
           </CardHeader>
           <CardContent className="p-8 space-y-8">
             {/* File Upload Section */}
-            <div className="p-6 rounded-lg border-2 border-dashed border-slate-700 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                    <Upload className="text-cyan-400" size={24} />
+            <label htmlFor="file-upload" className="block cursor-pointer">
+              <input
+                id="file-upload"
+                type="file"
+                accept=".json,application/json"
+                onChange={handleFileUpload}
+                disabled={uploadingPdf}
+                className="hidden"
+              />
+              <div className="p-6 rounded-lg border-2 border-dashed border-slate-700 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                      <Upload className="text-cyan-400" size={24} />
+                    </div>
+                    <div>
+                      <div className="text-white font-semibold">
+                        Click here to upload JSON Report
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Upload a JSON file to populate all fields from existing report
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="file-upload" className="text-white font-semibold cursor-pointer">
-                      Upload JSON Report
-                    </Label>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Upload a JSON file to populate all fields from existing report
-                    </p>
-                  </div>
-                </div>
-                <label htmlFor="file-upload">
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={handleFileUpload}
-                    disabled={uploadingPdf}
-                    className="hidden"
-                  />
                   <Button
                     type="button"
                     variant="outline"
                     disabled={uploadingPdf}
-                    className="border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                    className="border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white pointer-events-none"
                   >
                     {uploadingPdf ? (
                       <>
@@ -340,15 +468,15 @@ export default function NewReportPage() {
                       </>
                     )}
                   </Button>
-                </label>
-              </div>
-              <div className="mt-3 flex gap-2 text-xs text-slate-400">
-                <div className="flex items-center gap-1">
-                  <FileJson size={12} />
-                  <span>JSON files only</span>
+                </div>
+                <div className="mt-3 flex gap-2 text-xs text-slate-400">
+                  <div className="flex items-center gap-1">
+                    <FileJson size={12} />
+                    <span>JSON files only</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </label>
 
             <div className="space-y-3">
               <Label htmlFor="title" className="text-white font-semibold text-sm">Report Number *</Label>
@@ -561,6 +689,50 @@ export default function NewReportPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                  <Crown className="text-white" size={24} />
+                </div>
+                <h2 className="text-xl font-semibold">Upgrade Required</h2>
+              </div>
+              <button onClick={() => setShowUpgradeModal(false)} className="p-1 hover:bg-slate-700 rounded">
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-slate-300">
+                To create reports, you need an active subscription (Monthly or Yearly plan).
+              </p>
+              <p className="text-sm text-slate-400">
+                Upgrade now to unlock all features including unlimited reports, API integrations, and priority support.
+              </p>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    router.push('/dashboard/pricing')
+                  }}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all"
+                >
+                  Upgrade Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

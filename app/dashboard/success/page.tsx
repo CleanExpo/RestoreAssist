@@ -372,10 +372,10 @@ export default function SuccessPage() {
 
         <div className="pt-4 space-y-3">
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/dashboard?upgrade_success=true')}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
           >
-            Go to Dashboard
+            Continue Setup
             <ArrowRight className="w-4 h-4" />
           </button>
           

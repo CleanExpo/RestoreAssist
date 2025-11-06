@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { Search, Plus, Edit, Trash2, MoreVertical, X, Filter, Download, Eye, Copy, CheckSquare, Square } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Search, Plus, Edit, Trash2, MoreVertical, X, Filter, Download, Eye, Copy, CheckSquare, Square, Crown, XIcon } from "lucide-react"
 import toast from "react-hot-toast"
 
 interface Client {
@@ -23,10 +24,12 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const router = useRouter()
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [clients, setClients] = useState<Client[]>([])
@@ -103,7 +106,13 @@ export default function ClientsPage() {
         toast.success("Client added successfully")
       } else {
         const error = await response.json()
-        toast.error(error.error || "Failed to add client")
+        if (response.status === 402 && error.upgradeRequired) {
+          // Show upgrade modal instead of error toast
+          setShowAddModal(false)
+          setShowUpgradeModal(true)
+        } else {
+          toast.error(error.error || "Failed to add client")
+        }
       }
     } catch (error) {
       console.error("Error adding client:", error)
@@ -757,6 +766,50 @@ export default function ClientsPage() {
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all"
                 >
                   Delete {selectedClients.length} Client(s)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                  <Crown className="text-white" size={24} />
+                </div>
+                <h2 className="text-xl font-semibold">Upgrade Required</h2>
+              </div>
+              <button onClick={() => setShowUpgradeModal(false)} className="p-1 hover:bg-slate-700 rounded">
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-slate-300">
+                To create clients, you need an active subscription (Monthly or Yearly plan).
+              </p>
+              <p className="text-sm text-slate-400">
+                Upgrade now to unlock all features including unlimited clients, reports, API integrations, and priority support.
+              </p>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    router.push('/dashboard/pricing')
+                  }}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all"
+                >
+                  Upgrade Now
                 </button>
               </div>
             </div>

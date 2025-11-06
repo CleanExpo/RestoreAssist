@@ -65,7 +65,7 @@ export default function DashboardLayout({
     { icon: Plus, label: "New Report", href: "/dashboard/reports/new", highlight: true },
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
-    { icon: DollarSign, label: "Cost Libraries", href: "/dashboard/cost-libraries" },
+    // { icon: DollarSign, label: "Cost Libraries", href: "/dashboard/cost-libraries" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     { icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" },
