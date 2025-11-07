@@ -90,6 +90,9 @@ db-connection-*.txt
 *CREDENTIAL*.md
 ALL_CREDENTIALS_SECURED.md
 CLAUDE_CONFIG_UPDATED.md
+DEPLOYMENT_TEST_RESULTS.md
+NEXT_STEPS_TODO.md
+SECURITY_INCIDENT_RESOLVED.md
 
 # Test files (may contain credentials)
 test-*.js
