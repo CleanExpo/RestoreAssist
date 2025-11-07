@@ -86,5 +86,17 @@ new-user-*.js
 db-connection-*.txt
 *-connection-*.txt
 
+# Credential-related documentation (contains actual credentials)
+*CREDENTIAL*.md
+ALL_CREDENTIALS_SECURED.md
+CLAUDE_CONFIG_UPDATED.md
+
+# Test files (may contain credentials)
+test-*.js
+test-*.html
+*-test.js
+playwright-test.js
+vercel-*-test.js
+
 # Important security documentation (NOT ignored)
 !SECURITY_*.md
