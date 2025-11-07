@@ -32,3 +32,39 @@ docker-compose.override.yml
 *.tsbuildinfo
 next-env.d.ts
 /lib/generated/prisma
+
+# testing and debugging
+*.log
+screenshots/
+test-results/
+playwright-report/
+cookies.txt
+*.backup
+
+# temporary files
+temp-install/
+packages/
+dist/
+ui/
+claude-code-agents-wizard-v2/
+sendgrid-mcp/
+
+# test data
+test-results*.json
+vercel-test-results.json
+NEW_USER_JOURNEY_TEST_RESULTS.json
+
+# temporary scripts
+check-*.js
+check-*.bat
+check-*.ps1
+monitor-*.js
+verify-*.js
+create-test-*.js
+seed-*.sql
+seed-*.js
+setup-*.js
+setup-*.bat
+fix-*.bat
+final-*.js
+new-user-*.js
