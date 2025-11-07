@@ -68,3 +68,23 @@ setup-*.bat
 fix-*.bat
 final-*.js
 new-user-*.js
+
+# security - documentation files with potential sensitive data
+*_SUMMARY.md
+*_RESOLUTION.md
+*_RESULTS.md
+*_FIXES*.md
+*_SUCCESS*.md
+*_TEST*.md
+*_COMPLETE*.md
+*_STATUS*.md
+*_CHECKLIST.md
+*_DEPLOYMENT*.md
+*_INTEGRATION*.md
+*_ARCHITECT*.md
+*_ENGINEER*.md
+db-connection-*.txt
+*-connection-*.txt
+
+# Important security documentation (NOT ignored)
+!SECURITY_*.md
