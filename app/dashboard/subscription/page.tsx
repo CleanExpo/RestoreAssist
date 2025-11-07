@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw } from "lucide-react"
+import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw, Settings } from "lucide-react"
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
 import toast from "react-hot-toast"
 
@@ -27,6 +27,7 @@ export default function SubscriptionPage() {
   const [pricingLoading, setPricingLoading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
     fetchSubscription()
@@ -133,6 +134,37 @@ export default function SubscriptionPage() {
     } finally {
       setReactivating(false)
     }
+  }
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true)
+    try {
+      const response = await fetch('/api/create-customer-portal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create portal session')
+      }
+
+      const { url } = await response.json()
+
+      if (url) {
+        // Redirect to Stripe Customer Portal
+        window.location.href = url
+      } else {
+        toast.error('Failed to get portal URL')
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to open customer portal')
+      setPortalLoading(false)
+    }
+    // Don't set loading to false here since we're redirecting
   }
 
   const formatDate = (timestamp: number) => {
@@ -272,6 +304,28 @@ export default function SubscriptionPage() {
                   </div>
                 )}
               </div>
+
+              {/* Manage Subscription Button */}
+              <button
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {portalLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Opening Portal...
+                  </>
+                ) : (
+                  <>
+                    <Settings className="w-4 h-4" />
+                    Manage Subscription
+                  </>
+                )}
+              </button>
+              <p className="text-xs text-slate-400 text-center mt-2">
+                Cancel, update payment method, or view billing history
+              </p>
             </div>
           </div>
 
