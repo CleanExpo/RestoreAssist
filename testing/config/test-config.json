@@ -1,0 +1,70 @@
+{
+  "productionUrl": "https://restoreassist.app",
+  "testTimeout": 30000,
+  "parallelAgents": true,
+  "agents": {
+    "frontend": {
+      "enabled": true,
+      "priority": "high",
+      "tests": [
+        "homepage-load",
+        "navigation",
+        "user-authentication",
+        "dashboard-functionality",
+        "pricing-page",
+        "visual-regression",
+        "accessibility",
+        "performance-metrics"
+      ]
+    },
+    "api": {
+      "enabled": true,
+      "priority": "high",
+      "tests": [
+        "authentication-endpoints",
+        "user-endpoints",
+        "subscription-endpoints",
+        "error-handling",
+        "rate-limiting"
+      ]
+    },
+    "security": {
+      "enabled": true,
+      "priority": "critical",
+      "tests": [
+        "xss-vulnerabilities",
+        "csrf-protection",
+        "sql-injection",
+        "authentication-bypass",
+        "environment-exposure",
+        "sensitive-data-leaks"
+      ]
+    },
+    "database": {
+      "enabled": true,
+      "priority": "high",
+      "tests": [
+        "connection-health",
+        "migration-status",
+        "data-integrity",
+        "query-performance"
+      ]
+    },
+    "performance": {
+      "enabled": true,
+      "priority": "medium",
+      "tests": [
+        "page-load-times",
+        "api-response-times",
+        "core-web-vitals",
+        "memory-usage"
+      ]
+    }
+  },
+  "reporting": {
+    "format": "json",
+    "outputDir": "./testing/reports",
+    "includeScreenshots": true,
+    "includeNetworkLogs": true
+  }
+}
