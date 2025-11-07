@@ -43,9 +43,18 @@ export async function POST(request: NextRequest) {
           where: { id: session.user.id },
           data: { stripeCustomerId: customerId }
         })
-      } catch (stripeError) {
-        console.error('Error creating Stripe customer:', stripeError)
-        return NextResponse.json({ error: "Failed to create customer" }, { status: 500 })
+      } catch (stripeError: any) {
+        console.error('Error creating Stripe customer:', {
+          message: stripeError.message,
+          type: stripeError.type,
+          code: stripeError.code,
+          statusCode: stripeError.statusCode,
+          raw: stripeError.raw
+        })
+        return NextResponse.json({
+          error: "Failed to create customer",
+          details: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+        }, { status: 500 })
       }
     }
 
@@ -128,8 +137,19 @@ export async function POST(request: NextRequest) {
       url: checkoutSession.url,
       customerId: customerId
     })
-  } catch (error) {
-    console.error("Error creating checkout session:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Error creating checkout session:", {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      statusCode: error.statusCode,
+      stack: error.stack,
+      raw: error.raw
+    })
+    return NextResponse.json({
+      error: "Internal server error",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      type: error.type || 'unknown'
+    }, { status: 500 })
   }
 }
