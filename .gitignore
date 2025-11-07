@@ -86,6 +86,10 @@ new-user-*.js
 db-connection-*.txt
 *-connection-*.txt
 
+# EXCEPTIONS - Allow these specific documentation files (no credentials)
+!DEPLOYMENT_STATUS_REPORT.md
+!QUICK_START_GUIDE.md
+
 # Credential-related documentation (contains actual credentials)
 *CREDENTIAL*.md
 ALL_CREDENTIALS_SECURED.md
