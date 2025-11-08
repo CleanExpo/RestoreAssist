@@ -3,11 +3,12 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
+import { isAdmin } from "@/lib/admin"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -25,6 +26,31 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // ADMIN BYPASS: Admins get unlimited access without subscription
+    if (isAdmin(user)) {
+      console.log(`[Admin Bypass] User ${user.email} granted unlimited access`)
+
+      // Update user to have unlimited credits (don't require Stripe subscription)
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          subscriptionStatus: 'ACTIVE',
+          subscriptionPlan: 'Admin - Unlimited',
+          creditsRemaining: 999999,
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        admin: true,
+        subscription: {
+          status: 'ACTIVE',
+          plan: 'Admin - Unlimited',
+          creditsRemaining: 999999
+        }
+      })
     }
 
     let customerId = user.stripeCustomerId

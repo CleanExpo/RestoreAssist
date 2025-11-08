@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateDetailedReport } from "@/lib/anthropic"
+import { isAdminEmail } from "@/lib/admin"
 
 export async function GET(request: NextRequest) {
   try {
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
+        email: true,
         subscriptionStatus: true,
         creditsRemaining: true,
         totalCreditsUsed: true,
@@ -131,27 +133,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Check if user has enough credits (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
-      return NextResponse.json(
-        { 
-          error: "Insufficient credits. Please upgrade your plan to create more reports.",
-          upgradeRequired: true,
-          creditsRemaining: user.creditsRemaining
-        },
-        { status: 402 }
-      )
-    }
+    // ADMIN BYPASS: Admins can create unlimited reports without credit checks
+    const isUserAdmin = isAdminEmail(user.email)
 
-    // Deduct credits BEFORE creating report (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL') {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
-          totalCreditsUsed: user.totalCreditsUsed + 1,
-        }
-      })
+    if (!isUserAdmin) {
+      // Check if user has enough credits (only for trial users)
+      if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
+        return NextResponse.json(
+          {
+            error: "Insufficient credits. Please upgrade your plan to create more reports.",
+            upgradeRequired: true,
+            creditsRemaining: user.creditsRemaining
+          },
+          { status: 402 }
+        )
+      }
+
+      // Deduct credits BEFORE creating report (only for trial users)
+      if (user.subscriptionStatus === 'TRIAL') {
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: {
+            creditsRemaining: Math.max(0, user.creditsRemaining - 1),
+            totalCreditsUsed: user.totalCreditsUsed + 1,
+          }
+        })
+      }
+    } else {
+      console.log(`[Admin Bypass] User ${user.email} creating report without credit check`)
     }
 
     // Generate report number if not provided
