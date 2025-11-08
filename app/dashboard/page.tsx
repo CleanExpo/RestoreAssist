@@ -2,11 +2,11 @@
 
 import { motion } from "framer-motion"
 import {
-  FileText, 
-  Plus, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
+  FileText,
+  Plus,
+  TrendingUp,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Users,
   DollarSign,
@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Activity,
   Crown,
-  XIcon
+  XIcon,
+  ClipboardCheck
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
@@ -225,29 +226,29 @@ export default function DashboardPage() {
   }
 
   const quickActions = [
-    { 
-      title: "Create New Report", 
+    {
+      title: "Create New Report",
       description: "Start a professional damage assessment",
       icon: Plus,
       color: "from-blue-500 to-cyan-500",
       href: "/dashboard/reports/new"
     },
-    // { 
-    //   title: "View Templates", 
-    //   description: "Browse IICRC compliant templates",
-    //   icon: FileText,
-    //   color: "from-emerald-500 to-teal-500",
-    //   href: "/dashboard/templates"
-    // },
-    { 
-      title: "Analytics", 
+    {
+      title: "RestoreAssist",
+      description: "IICRC S500 inspection & scope generator",
+      icon: ClipboardCheck,
+      color: "from-emerald-500 to-teal-500",
+      href: "/dashboard/restore-assist"
+    },
+    {
+      title: "Analytics",
       description: "Track your reporting performance",
       icon: BarChart3,
       color: "from-purple-500 to-pink-500",
       href: "/dashboard/analytics"
     },
-    { 
-      title: "Settings", 
+    {
+      title: "Settings",
       description: "Configure your preferences",
       icon: Users,
       color: "from-orange-500 to-red-500",

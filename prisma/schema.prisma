@@ -75,6 +75,8 @@ model User {
   scopes    Scope[]
   estimates Estimate[]
   pricingStructure PricingStructure?
+  inspectionReports InspectionReport[]
+  auditLogs AuditLog[]
 }
 
 model VerificationToken {
@@ -504,4 +506,200 @@ model PricingStructure {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Inspection Report System (IICRC S500 Compliant)
+model InspectionReport {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Claim & Property Information
+  claimReference   String
+  propertyAddress  String
+  clientName       String
+  technicianName   String
+
+  // Timeline
+  incidentDate    DateTime
+  attendanceDate  DateTime
+  generatedDate   DateTime @default(now())
+
+  // Report Configuration
+  reportDepth     ReportDepth
+  version         Int         @default(1) // Tracks regenerations
+  status          ReportDocumentStatus @default(DRAFT)
+
+  // Water Damage Classification
+  waterCategory   WaterCategory?
+  propertyType    String?
+  constructionYear Int?
+  occupancyStatus String?
+
+  // Detailed Data (JSON structures)
+  areasAffected   Json? // Room-by-room data: [{room: string, sqm: number, moistureReadings: object}]
+  hazardsIdentified Json? // Array of identified hazards with severity levels
+
+  // Content Fields
+  technicianReport String? @db.Text // Original technician input
+  executiveSummary String? @db.Text // AI-generated summary
+  standardsCompliance Json? // Compliance checklist against IICRC S500
+  dryingProtocol  Json? // Equipment placement, timeline, target parameters
+  safetyConsiderations Json? // Safety hazards and mitigation measures
+  authorityNotifications Json? // Required notifications to authorities
+  recommendations String? @db.Text // Professional recommendations
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  questionResponses QuestionResponse[]
+  scopeOfWorks      ScopeOfWorks?
+  auditLogs         AuditLog[]
+
+  @@index([userId])
+  @@index([claimReference])
+  @@index([status])
+  @@index([reportDepth])
+}
+
+// Question-Answer Framework for Multi-Tier Reports
+model QuestionResponse {
+  id                  String   @id @default(cuid())
+  inspectionReportId  String
+  inspectionReport    InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
+
+  // Question Details
+  tier         QuestionTier
+  questionId   String // Unique identifier for the question
+  questionText String @db.Text
+  answerValue  Json // Can store text, number, boolean, or complex objects
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionReportId])
+  @@index([tier])
+  @@index([questionId])
+}
+
+// Scope of Works Model
+model ScopeOfWorks {
+  id                  String   @id @default(cuid())
+  inspectionReportId  String   @unique
+  inspectionReport    InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
+
+  // Document Status
+  status  ReportDocumentStatus @default(DRAFT)
+  version Int                  @default(1)
+
+  // Structured Work Breakdown (JSON)
+  phases              Json? // Remediation phases: [{phase: string, description: string, duration: number, dependencies: string[]}]
+  restorationWorkItems Json? // Line items: [{category: string, description: string, qty: number, unit: string, notes: string}]
+  licensedTradesRequired Json? // Specialist referrals: [{trade: string, reason: string, contact: string}]
+  insuranceClaimBreakdown Json? // Cost breakdown for insurer
+  coordinationNotes   String? @db.Text // Project coordination notes
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  costEstimation CostEstimation?
+
+  @@index([inspectionReportId])
+  @@index([status])
+}
+
+// Cost Estimation Model
+model CostEstimation {
+  id             String   @id @default(cuid())
+  scopeOfWorksId String   @unique
+  scopeOfWorks   ScopeOfWorks @relation(fields: [scopeOfWorksId], references: [id], onDelete: Cascade)
+
+  // Document Status
+  status  ReportDocumentStatus @default(DRAFT)
+  version Int                  @default(1)
+
+  // Detailed Cost Breakdown (JSON structures)
+  labourCosts     Json? // By category: [{category: string, role: string, hours: number, rate: number, subtotal: number}]
+  equipmentCosts  Json? // By category: [{equipment: string, days: number, dailyRate: number, subtotal: number}]
+  chemicalCosts   Json? // [{chemical: string, area: number, rate: number, subtotal: number}]
+
+  // Summary Costs (Decimal for precision)
+  calloutFees     Decimal? @db.Decimal(10, 2)
+  adminFees       Decimal? @db.Decimal(10, 2)
+  subtotalExGST   Decimal? @db.Decimal(10, 2)
+  gstAmount       Decimal? @db.Decimal(10, 2)
+  totalIncGST     Decimal? @db.Decimal(10, 2)
+
+  // Comparative Analysis & Documentation
+  costComparison     Json? // Industry benchmarks and variance explanations
+  exclusions         Json? // Array of excluded items: [{item: string, reason: string}]
+  assumptions        Json? // Array of assumptions: [{assumption: string, impact: string}]
+  adjustmentTriggers Json? // Conditions that would trigger cost adjustments
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scopeOfWorksId])
+  @@index([status])
+}
+
+// Audit Log for Compliance Tracking
+model AuditLog {
+  id                  String   @id @default(cuid())
+  inspectionReportId  String
+  inspectionReport    InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
+
+  // Action Details
+  action   AuditAction
+  userId   String
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Change Tracking
+  changes  Json? // Before/after comparison for updates: {before: object, after: object, fields: string[]}
+
+  // Timestamp
+  timestamp DateTime @default(now())
+
+  @@index([inspectionReportId])
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+// Enums for Inspection Report System
+enum ReportDepth {
+  BASIC
+  ENHANCED
+  OPTIMISED
+}
+
+enum ReportDocumentStatus {
+  DRAFT
+  PRELIMINARY
+  FINAL
+}
+
+enum WaterCategory {
+  CATEGORY_1 // Clean water
+  CATEGORY_2 // Grey water
+  CATEGORY_3 // Black water
+}
+
+enum QuestionTier {
+  TIER_1 // Basic questions
+  TIER_2 // Enhanced questions
+  TIER_3 // Optimised/comprehensive questions
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  REGENERATED
+  EXPORTED
 }
