@@ -23,36 +23,46 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const report = await prisma.report.findFirst({
+    const inspection = await prisma.inspectionReport.findFirst({
       where: {
         id: params.id,
         userId: user.id,
       },
       include: {
-        scope: {
+        questionResponses: {
           select: {
             id: true,
-            scopeType: true,
+            tier: true,
+            questionId: true,
+            answerValue: true,
           },
         },
-        estimates: {
+        scopeOfWorks: {
           select: {
             id: true,
             status: true,
             version: true,
           },
-          orderBy: {
-            createdAt: "desc",
+        },
+        auditLogs: {
+          select: {
+            id: true,
+            action: true,
+            timestamp: true,
           },
+          orderBy: {
+            timestamp: "desc",
+          },
+          take: 5,
         },
       },
     });
 
-    if (!report) {
+    if (!inspection) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
     }
 
-    return NextResponse.json(report, { status: 200 });
+    return NextResponse.json(inspection, { status: 200 });
   } catch (error) {
     console.error("Error fetching inspection:", error);
     return NextResponse.json(
@@ -83,19 +93,19 @@ export async function DELETE(
     }
 
     // Check ownership
-    const report = await prisma.report.findFirst({
+    const inspection = await prisma.inspectionReport.findFirst({
       where: {
         id: params.id,
         userId: user.id,
       },
     });
 
-    if (!report) {
+    if (!inspection) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
     }
 
-    // Delete report (cascade will handle related records)
-    await prisma.report.delete({
+    // Delete inspection (cascade will handle related records)
+    await prisma.inspectionReport.delete({
       where: { id: params.id },
     });
 

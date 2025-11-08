@@ -20,19 +20,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const inspections = await prisma.report.findMany({
+    const inspections = await prisma.inspectionReport.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
-        reportNumber: true,
+        claimReference: true,
         clientName: true,
         propertyAddress: true,
-        inspectionDate: true,
+        incidentDate: true,
         status: true,
         createdAt: true,
         updatedAt: true,
-        title: true,
+        reportDepth: true,
+        version: true,
       },
     });
 
@@ -64,26 +65,30 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { reportNumber, clientName, propertyAddress, inspectionDate, technicianNotes } = body;
+    const { claimReference, clientName, propertyAddress, incidentDate, attendanceDate, technicianReport } = body;
 
     // Create basic inspection report
-    const report = await prisma.report.create({
+    const inspection = await prisma.inspectionReport.create({
       data: {
         userId: user.id,
-        title: `Inspection - ${clientName}`,
-        reportNumber: reportNumber || `INS-${Date.now()}`,
+        claimReference: claimReference || `CLAIM-${Date.now()}`,
         clientName,
         propertyAddress,
-        inspectionDate: inspectionDate ? new Date(inspectionDate) : new Date(),
+        incidentDate: incidentDate ? new Date(incidentDate) : new Date(),
+        attendanceDate: attendanceDate ? new Date(attendanceDate) : new Date(),
+        technicianReport: technicianReport || '',
         status: "DRAFT",
-        hazardType: "WATER",
-        insuranceType: "Property",
-        detailedReport: technicianNotes,
+        reportDepth: "BASIC",
+        version: 1,
+        waterCategory: null,
+        propertyType: null,
+        constructionYear: null,
+        occupancyStatus: null,
       },
     });
 
     return NextResponse.json(
-      { id: report.id, message: "Inspection created successfully" },
+      { id: inspection.id, message: "Inspection created successfully" },
       { status: 201 }
     );
   } catch (error) {

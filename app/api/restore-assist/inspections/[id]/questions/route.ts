@@ -96,22 +96,22 @@ export async function GET(
     const tier = searchParams.get('tier') || 'tier1'
 
     // Verify ownership
-    const report = await prisma.report.findFirst({
+    const inspection = await prisma.inspectionReport.findFirst({
       where: {
         id: reportId,
         userId
       }
     })
 
-    if (!report) {
+    if (!inspection) {
       return NextResponse.json(
         { success: false, error: 'Inspection not found' },
         { status: 404 }
       )
     }
 
-    // Get questions for hazard type and tier
-    const hazardType = report.hazardType.toUpperCase()
+    // Get questions for hazard type and tier (using waterCategory as default)
+    const hazardType = 'WATER' // RestoreAssist focuses on water damage
     const questions = QUESTION_TIERS[hazardType as keyof typeof QUESTION_TIERS]?.[tier as keyof typeof QUESTION_TIERS.WATER]
 
     if (!questions) {
@@ -160,14 +160,14 @@ export async function POST(
     const reportId = params.id
 
     // Verify ownership
-    const report = await prisma.report.findFirst({
+    const inspection = await prisma.inspectionReport.findFirst({
       where: {
         id: reportId,
         userId
       }
     })
 
-    if (!report) {
+    if (!inspection) {
       return NextResponse.json(
         { success: false, error: 'Inspection not found' },
         { status: 404 }
@@ -177,24 +177,25 @@ export async function POST(
     const body = await req.json()
     const { tier, responses } = body
 
-    // Map responses to report fields
-    const updateData: any = {}
+    // Create question responses in the database
+    const questionResponses = Object.entries(responses).map(([questionId, answerValue]) => ({
+      inspectionReportId: reportId,
+      tier: tier === 'tier1' ? 'TIER_1' : tier === 'tier2' ? 'TIER_2' : 'TIER_3',
+      questionId,
+      questionText: getQuestionText(questionId, tier),
+      answerValue: typeof answerValue === 'string' ? answerValue : JSON.stringify(answerValue),
+    }))
 
-    if (responses.water_category) updateData.waterCategory = responses.water_category
-    if (responses.water_class) updateData.waterClass = responses.water_class
-    if (responses.affected_area) updateData.affectedArea = parseFloat(responses.affected_area)
-    if (responses.source_of_water) updateData.sourceOfWater = responses.source_of_water
-    if (responses.structural_damage) updateData.structuralDamage = responses.structural_damage
-    if (responses.contents_damage) updateData.contentsDamage = responses.contents_damage
-    if (responses.hvac_affected !== undefined) updateData.hvacAffected = responses.hvac_affected
-    if (responses.safety_hazards) updateData.safetyHazards = responses.safety_hazards
-    if (responses.electrical_hazards) updateData.electricalHazards = responses.electrical_hazards
-    if (responses.microbial_growth) updateData.microbialGrowth = responses.microbial_growth
+    // Store responses
+    await prisma.questionResponse.createMany({
+      data: questionResponses,
+      skipDuplicates: true,
+    })
 
-    // Update report with responses
-    const updatedReport = await prisma.report.update({
+    // Get updated inspection with responses
+    const updatedInspection = await prisma.inspectionReport.findUnique({
       where: { id: reportId },
-      data: updateData
+      include: { questionResponses: true },
     })
 
     // Determine next tier
@@ -207,7 +208,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        report: updatedReport,
+        inspection: updatedInspection,
         nextTier,
         completed: tier === 'tier3'
       }
@@ -219,4 +220,12 @@ export async function POST(
       { status: 500 }
     )
   }
+}
+
+// Helper function to get question text from ID
+function getQuestionText(questionId: string, tier: string): string {
+  const hazardType = 'WATER'
+  const questions = QUESTION_TIERS[hazardType as keyof typeof QUESTION_TIERS]?.[tier as keyof typeof QUESTION_TIERS.WATER]
+  const question = questions?.find((q: any) => q.id === questionId)
+  return question?.question || questionId
 }
