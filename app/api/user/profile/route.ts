@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
+import { isAdminEmail } from "@/lib/admin"
 
 export async function GET(request: NextRequest) {
   try {
@@ -82,28 +83,50 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      return NextResponse.json({ 
-        profile: {
-          ...newUser,
-          createdAt: newUser.createdAt.toISOString(),
-          trialEndsAt: newUser.trialEndsAt?.toISOString(),
-          subscriptionEndsAt: newUser.subscriptionEndsAt?.toISOString(),
-          lastBillingDate: newUser.lastBillingDate?.toISOString(),
-          nextBillingDate: newUser.nextBillingDate?.toISOString(),
+      // ADMIN BYPASS: Override subscription status for admin users
+      let newUserProfile = {
+        ...newUser,
+        createdAt: newUser.createdAt.toISOString(),
+        trialEndsAt: newUser.trialEndsAt?.toISOString(),
+        subscriptionEndsAt: newUser.subscriptionEndsAt?.toISOString(),
+        lastBillingDate: newUser.lastBillingDate?.toISOString(),
+        nextBillingDate: newUser.nextBillingDate?.toISOString(),
+      }
+
+      if (isAdminEmail(newUser.email)) {
+        console.log(`[Admin Bypass] New user ${newUser.email} profile - granting unlimited access`)
+        newUserProfile = {
+          ...newUserProfile,
+          subscriptionStatus: 'ACTIVE',
+          subscriptionPlan: 'Admin - Unlimited',
+          creditsRemaining: 999999,
         }
-      })
+      }
+
+      return NextResponse.json({ profile: newUserProfile })
     }
 
-    return NextResponse.json({ 
-      profile: {
-        ...user,
-        createdAt: user.createdAt.toISOString(),
-        trialEndsAt: user.trialEndsAt?.toISOString(),
-        subscriptionEndsAt: user.subscriptionEndsAt?.toISOString(),
-        lastBillingDate: user.lastBillingDate?.toISOString(),
-        nextBillingDate: user.nextBillingDate?.toISOString(),
+    // ADMIN BYPASS: Override subscription status for admin users
+    let profileData = {
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      trialEndsAt: user.trialEndsAt?.toISOString(),
+      subscriptionEndsAt: user.subscriptionEndsAt?.toISOString(),
+      lastBillingDate: user.lastBillingDate?.toISOString(),
+      nextBillingDate: user.nextBillingDate?.toISOString(),
+    }
+
+    if (isAdminEmail(user.email)) {
+      console.log(`[Admin Bypass] User ${user.email} profile - granting unlimited access`)
+      profileData = {
+        ...profileData,
+        subscriptionStatus: 'ACTIVE',
+        subscriptionPlan: 'Admin - Unlimited',
+        creditsRemaining: 999999,
       }
-    })
+    }
+
+    return NextResponse.json({ profile: profileData })
   } catch (error) {
     console.error("Error fetching user profile:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -162,16 +185,27 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ 
-      profile: {
-        ...updatedUser,
-        createdAt: updatedUser.createdAt.toISOString(),
-        trialEndsAt: updatedUser.trialEndsAt?.toISOString(),
-        subscriptionEndsAt: updatedUser.subscriptionEndsAt?.toISOString(),
-        lastBillingDate: updatedUser.lastBillingDate?.toISOString(),
-        nextBillingDate: updatedUser.nextBillingDate?.toISOString(),
+    // ADMIN BYPASS: Override subscription status for admin users
+    let updatedProfile = {
+      ...updatedUser,
+      createdAt: updatedUser.createdAt.toISOString(),
+      trialEndsAt: updatedUser.trialEndsAt?.toISOString(),
+      subscriptionEndsAt: updatedUser.subscriptionEndsAt?.toISOString(),
+      lastBillingDate: updatedUser.lastBillingDate?.toISOString(),
+      nextBillingDate: updatedUser.nextBillingDate?.toISOString(),
+    }
+
+    if (isAdminEmail(updatedUser.email)) {
+      console.log(`[Admin Bypass] Updated user ${updatedUser.email} profile - granting unlimited access`)
+      updatedProfile = {
+        ...updatedProfile,
+        subscriptionStatus: 'ACTIVE',
+        subscriptionPlan: 'Admin - Unlimited',
+        creditsRemaining: 999999,
       }
-    })
+    }
+
+    return NextResponse.json({ profile: updatedProfile })
   } catch (error) {
     console.error("Error updating user profile:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

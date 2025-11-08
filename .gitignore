@@ -107,3 +107,14 @@ vercel-*-test.js
 
 # Important security documentation (NOT ignored)
 !SECURITY_*.md
+
+# Files with embedded credentials - NEVER commit
+RestoreAssist.env.vercel.production
+clear-test-customers-now.js
+diagnose-stripe-config.js
+diagnose-stripe-prices.js
+fix-stripe-keys.sh
+list-stripe-prices.js
+scripts/clear-test-stripe-customers.ts
+stripe-500-error-analysis.md
+verify-production-stripe.md
