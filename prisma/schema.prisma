@@ -63,8 +63,12 @@ model User {
   lastBillingDate    DateTime?
   nextBillingDate    DateTime?
 
-  // LLM API Key (required for report generation)
+  // LLM API Keys (required for report generation)
   anthropicApiKey    String? @db.Text
+  openaiApiKey       String? @db.Text
+  googleApiKey       String? @db.Text
+  preferredLLMProvider String? @default("anthropic") // anthropic, openai, or google
+  preferredLLMModel    String? // Model to use for the preferred provider
 
   accounts Account[]
   sessions Session[]

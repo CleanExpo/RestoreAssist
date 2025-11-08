@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { UnifiedLLMClient, type LLMProvider } from './llm-providers'
 
 // ==========================================
 // TYPES & INTERFACES
@@ -165,32 +166,24 @@ function createAnthropicClient(apiKey: string): Anthropic {
 
 export async function generateInspectionReport(
   data: InspectionReportData,
-  userApiKey: string
+  userApiKey: string,
+  provider: LLMProvider = 'anthropic',
+  model?: string
 ): Promise<string> {
   try {
-    console.log('[ReportGen] Starting inspection report generation...')
+    console.log(`[ReportGen] Starting inspection report generation using ${provider}...`)
 
-    const anthropic = createAnthropicClient(userApiKey)
-    const prompt = createInspectionReportPrompt(data)
-
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 8000,
-      temperature: 0.4,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+    const llmClient = new UnifiedLLMClient({
+      provider,
+      apiKey: userApiKey,
+      model,
     })
 
-    if (response.content[0].type === 'text') {
-      console.log('[ReportGen] Inspection report generated successfully')
-      return response.content[0].text
-    } else {
-      throw new Error('Unexpected response format from Anthropic API')
-    }
+    const prompt = createInspectionReportPrompt(data)
+    const response = await llmClient.generateCompletion(prompt)
+
+    console.log(`[ReportGen] Inspection report generated successfully using ${provider}`)
+    return response.content
   } catch (error) {
     console.error('[ReportGen] Error generating inspection report:', error)
     throw new Error(

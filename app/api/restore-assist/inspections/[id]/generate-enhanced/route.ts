@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin";
 import { generateInspectionReport, InspectionReportData } from "@/lib/reportGenerator";
+import { type LLMProvider } from "@/lib/llm-providers";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -36,36 +37,61 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       );
     }
 
-    // Get user with API key
+    // Get user with API keys
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         anthropicApiKey: true,
+        openaiApiKey: true,
+        googleApiKey: true,
+        preferredLLMProvider: true,
+        preferredLLMModel: true,
         email: true,
       },
     });
 
     // Check for API key (with admin bypass)
     const userIsAdmin = isAdmin(session.user.email);
-    let apiKey = process.env.ANTHROPIC_API_KEY || '';
+
+    // Determine which provider to use
+    const provider: LLMProvider = (user?.preferredLLMProvider as LLMProvider) || 'anthropic';
+    let apiKey = '';
 
     if (!userIsAdmin) {
-      if (!user?.anthropicApiKey) {
+      // Get API key for preferred provider
+      if (provider === 'anthropic' && user?.anthropicApiKey) {
+        apiKey = user.anthropicApiKey;
+      } else if (provider === 'openai' && user?.openaiApiKey) {
+        apiKey = user.openaiApiKey;
+      } else if (provider === 'google' && user?.googleApiKey) {
+        apiKey = user.googleApiKey;
+      } else {
         return NextResponse.json(
           {
-            error: "Anthropic API key required",
-            message: "Please add your Anthropic API key in Settings → API Key Management to generate reports.",
+            error: "LLM API key required",
+            message: `Please add your ${provider} API key in Settings → API Key Management to generate reports.`,
             requiresApiKey: true,
+            provider,
           },
           { status: 403 }
         );
       }
-      apiKey = user.anthropicApiKey;
-    } else if (!user?.anthropicApiKey && !apiKey) {
-      return NextResponse.json(
-        { error: "No API key available for report generation" },
-        { status: 400 }
-      );
+    } else {
+      // Admin bypass - try user's key first, then system key
+      if (provider === 'anthropic') {
+        apiKey = user?.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '';
+      } else if (provider === 'openai') {
+        apiKey = user?.openaiApiKey || process.env.OPENAI_API_KEY || '';
+      } else if (provider === 'google') {
+        apiKey = user?.googleApiKey || process.env.GOOGLE_API_KEY || '';
+      }
+
+      if (!apiKey) {
+        return NextResponse.json(
+          { error: `No ${provider} API key available for report generation` },
+          { status: 400 }
+        );
+      }
     }
 
     // Build report data from inspection and question responses
@@ -120,8 +146,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Generate enhanced report using AI
-    console.log(`[RestoreAssist] Generating enhanced report for inspection ${inspectionId}`);
-    const generatedReport = await generateInspectionReport(reportData, apiKey);
+    console.log(`[RestoreAssist] Generating enhanced report for inspection ${inspectionId} using ${provider}`);
+    const generatedReport = await generateInspectionReport(reportData, apiKey, provider, user?.preferredLLMModel);
 
     // Update inspection with generated content
     const updatedInspection = await prisma.inspectionReport.update({
