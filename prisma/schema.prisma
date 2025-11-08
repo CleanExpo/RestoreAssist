@@ -63,6 +63,9 @@ model User {
   lastBillingDate    DateTime?
   nextBillingDate    DateTime?
 
+  // LLM API Key (required for report generation)
+  anthropicApiKey    String? @db.Text
+
   accounts Account[]
   sessions Session[]
   reports  Report[]

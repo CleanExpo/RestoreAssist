@@ -1,10 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
-export { anthropic }
+// Create Anthropic client with user's API key
+export function createAnthropicClient(apiKey: string): Anthropic {
+  return new Anthropic({
+    apiKey: apiKey,
+  })
+}
 
 export interface ReportGenerationRequest {
   basicInfo: {
@@ -24,14 +25,20 @@ export interface ReportGenerationRequest {
   insuranceData: any
 }
 
-export async function generateDetailedReport(data: ReportGenerationRequest): Promise<string> {
+export async function generateDetailedReport(
+  data: ReportGenerationRequest,
+  userApiKey: string
+): Promise<string> {
   try {
-    console.log('Starting AI report generation...')
-    console.log('API Key available:', !!process.env.ANTHROPIC_API_KEY)
-    
+    console.log('Starting AI report generation with user API key...')
+    console.log('User API Key provided:', !!userApiKey)
+
+    // Create client with user's API key
+    const anthropic = createAnthropicClient(userApiKey)
+
     const prompt = createReportPrompt(data)
     console.log('Prompt created, length:', prompt.length)
-    
+
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 4000,

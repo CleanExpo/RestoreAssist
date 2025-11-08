@@ -31,14 +31,85 @@ export default function SettingsPage() {
     name: '',
     email: ''
   })
+  const [apiKeyStatus, setApiKeyStatus] = useState<{hasApiKey: boolean, maskedKey: string | null}>({ hasApiKey: false, maskedKey: null })
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false)
+  const [savingApiKey, setSavingApiKey] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       fetchProfile()
+      fetchApiKeyStatus()
     } else if (status === 'unauthenticated') {
       setLoading(false)
     }
   }, [status, session])
+
+  const fetchApiKeyStatus = async () => {
+    try {
+      const response = await fetch('/api/user/api-key')
+      if (response.ok) {
+        const data = await response.json()
+        setApiKeyStatus(data)
+      }
+    } catch (error) {
+      console.error('Error fetching API key status:', error)
+    }
+  }
+
+  const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim()) {
+      toast.error('Please enter an API key')
+      return
+    }
+
+    setSavingApiKey(true)
+    try {
+      const response = await fetch('/api/user/api-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKeyInput })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success('API key saved and validated successfully')
+        setApiKeyStatus({ hasApiKey: true, maskedKey: data.maskedKey })
+        setApiKeyInput('')
+        setShowApiKeyInput(false)
+      } else {
+        toast.error(data.error || 'Failed to save API key')
+      }
+    } catch (error) {
+      console.error('Error saving API key:', error)
+      toast.error('Failed to save API key')
+    } finally {
+      setSavingApiKey(false)
+    }
+  }
+
+  const handleDeleteApiKey = async () => {
+    if (!confirm('Are you sure you want to remove your API key? You will not be able to generate reports without it.')) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/user/api-key', {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast.success('API key removed successfully')
+        setApiKeyStatus({ hasApiKey: false, maskedKey: null })
+      } else {
+        toast.error('Failed to remove API key')
+      }
+    } catch (error) {
+      console.error('Error removing API key:', error)
+      toast.error('Failed to remove API key')
+    }
+  }
 
   const fetchProfile = async (isRefresh = false) => {
     if (isRefresh) {
@@ -288,6 +359,109 @@ export default function SettingsPage() {
                   >
                     Cancel
                   </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* API Key Management */}
+          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Anthropic API Key
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-sm text-blue-200">
+                  <strong>Required:</strong> You must provide your own Anthropic API key to generate AI-powered reports.
+                  This ensures your usage and costs are separate from other users.
+                </p>
+              </div>
+
+              {apiKeyStatus.hasApiKey ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Current API Key</label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 font-mono text-sm">
+                        {apiKeyStatus.maskedKey}
+                      </code>
+                      <button
+                        onClick={handleDeleteApiKey}
+                        className="px-4 py-2 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  >
+                    {showApiKeyInput ? 'Cancel Update' : 'Update API Key'}
+                  </button>
+
+                  {showApiKeyInput && (
+                    <div className="space-y-3 p-4 bg-slate-700/30 rounded-lg">
+                      <label className="block text-sm font-medium">New API Key</label>
+                      <input
+                        type="password"
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        placeholder="sk-ant-..."
+                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 font-mono text-sm"
+                      />
+                      <button
+                        onClick={handleSaveApiKey}
+                        disabled={savingApiKey}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingApiKey ? 'Validating...' : 'Save & Validate'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <p className="text-sm text-yellow-200">
+                      ⚠️ <strong>No API key configured.</strong> You will not be able to generate reports until you add your Anthropic API key.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium">Your Anthropic API Key</label>
+                    <input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="sk-ant-..."
+                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 font-mono text-sm"
+                    />
+                    <button
+                      onClick={handleSaveApiKey}
+                      disabled={savingApiKey}
+                      className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingApiKey ? 'Validating...' : 'Save & Validate API Key'}
+                    </button>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-700">
+                    <p className="text-sm text-slate-400 mb-2">
+                      <strong>How to get an API key:</strong>
+                    </p>
+                    <ol className="text-sm text-slate-400 space-y-1 list-decimal list-inside">
+                      <li>Visit <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">console.anthropic.com</a></li>
+                      <li>Sign up or log in to your account</li>
+                      <li>Navigate to API Keys in your account settings</li>
+                      <li>Create a new API key and copy it here</li>
+                    </ol>
+                  </div>
                 </div>
               )}
             </div>

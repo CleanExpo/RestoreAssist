@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
         subscriptionStatus: true,
         creditsRemaining: true,
         totalCreditsUsed: true,
+        anthropicApiKey: true,
       }
     })
 
@@ -135,6 +136,17 @@ export async function POST(request: NextRequest) {
 
     // ADMIN BYPASS: Admins can create unlimited reports without credit checks
     const isUserAdmin = isAdminEmail(user.email)
+
+    // CHECK FOR USER API KEY: Users must provide their own Anthropic API key
+    if (!isUserAdmin && !user.anthropicApiKey) {
+      return NextResponse.json(
+        {
+          error: "Anthropic API key required. Please add your API key in Settings to generate reports.",
+          requiresApiKey: true,
+        },
+        { status: 403 }
+      )
+    }
 
     if (!isUserAdmin) {
       // Check if user has enough credits (only for trial users)
@@ -182,7 +194,15 @@ export async function POST(request: NextRequest) {
         waterCategory: body.waterCategory,
         waterClass: body.waterClass
       })
-      
+
+      // Use user's API key (admins can use system key if they don't have their own)
+      const apiKeyToUse = user.anthropicApiKey || process.env.ANTHROPIC_API_KEY || ''
+
+      if (!apiKeyToUse) {
+        console.error('No API key available for report generation')
+        throw new Error('API key not configured')
+      }
+
       detailedReport = await generateDetailedReport({
         basicInfo: {
           title: body.title,
@@ -199,7 +219,7 @@ export async function POST(request: NextRequest) {
         equipmentSizing: body.equipmentSizing,
         monitoringData: body.monitoringData,
         insuranceData: body.insuranceData,
-      })
+      }, apiKeyToUse)
       console.log('Detailed report generated successfully, length:', detailedReport?.length)
     } catch (aiError) {
       console.error('Error generating detailed report:', aiError)
