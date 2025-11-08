@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Save, RefreshCw, AlertTriangle } from "lucide-react"
+import { Loader2, Save, RefreshCw, AlertTriangle, Info } from "lucide-react"
 
 interface PricingData {
   // Callout Fees
@@ -209,9 +209,19 @@ export default function PricingPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Company Pricing Structure</h1>
         <p className="text-muted-foreground">
-          Configure your company's pricing for accurate cost estimation in reports
+          Configure your company's pricing for accurate cost estimation in reports. All prices are excluding GST.
         </p>
       </div>
+
+      {/* GST Information Alert */}
+      <Alert className="mb-6 border-blue-500 bg-blue-50">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          <strong>Important:</strong> All prices entered are excluding GST. The system will automatically calculate and add 10% GST to the final cost estimation.
+          <br />
+          <span className="text-sm text-blue-700">Example: $15.00 (ex GST) = $15.00 + $1.50 GST = $16.50 (inc GST)</span>
+        </AlertDescription>
+      </Alert>
 
       {!pricingExists && (
         <Alert className="mb-6 border-orange-500 bg-orange-50">
@@ -235,7 +245,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Callout Fees</CardTitle>
-            <CardDescription>Standard callout and administration fees</CardDescription>
+            <CardDescription>Standard callout and administration fees (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PriceInput
@@ -257,7 +267,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Normal Hours Labour Rates</CardTitle>
-            <CardDescription>Hourly rates for standard business hours</CardDescription>
+            <CardDescription>Hourly rates for standard business hours (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
@@ -288,7 +298,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>After Hours - Master Qualified Technician</CardTitle>
-            <CardDescription>Hourly rates for after hours work</CardDescription>
+            <CardDescription>Hourly rates for after hours work (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
@@ -319,7 +329,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>After Hours - Qualified Technician</CardTitle>
-            <CardDescription>Hourly rates for after hours work</CardDescription>
+            <CardDescription>Hourly rates for after hours work (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
@@ -350,7 +360,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>After Hours - Labourer</CardTitle>
-            <CardDescription>Hourly rates for after hours work</CardDescription>
+            <CardDescription>Hourly rates for after hours work (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
@@ -381,7 +391,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Equipment - Dehumidifiers</CardTitle>
-            <CardDescription>Daily rates for dehumidifier equipment</CardDescription>
+            <CardDescription>Daily rates for dehumidifier equipment (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
@@ -412,7 +422,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Equipment - Air Movers</CardTitle>
-            <CardDescription>Daily rates for air mover equipment</CardDescription>
+            <CardDescription>Daily rates for air mover equipment (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
@@ -443,7 +453,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Equipment - Air Filtration Devices (AFDs)</CardTitle>
-            <CardDescription>Daily rates for air filtration units</CardDescription>
+            <CardDescription>Daily rates for air filtration units (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PriceInput
@@ -467,7 +477,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Equipment - Extraction Units</CardTitle>
-            <CardDescription>Hourly rates for extraction equipment</CardDescription>
+            <CardDescription>Hourly rates for extraction equipment (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PriceInput
@@ -491,7 +501,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Thermal Camera</CardTitle>
-            <CardDescription>Cost for thermal camera use in claims</CardDescription>
+            <CardDescription>Cost for thermal camera use in claims (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PriceInput
@@ -507,7 +517,7 @@ export default function PricingPage() {
         <Card>
           <CardHeader>
             <CardTitle>Chemical Costs</CardTitle>
-            <CardDescription>Cost per square meter for chemical applications</CardDescription>
+            <CardDescription>Cost per square meter for chemical applications (ex GST)</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <PriceInput
