@@ -74,6 +74,7 @@ model User {
   costLibraries CostLibrary[]
   scopes    Scope[]
   estimates Estimate[]
+  pricingStructure PricingStructure?
 }
 
 model VerificationToken {
@@ -430,4 +431,77 @@ enum EstimateStatus {
   CLIENT_REVIEW
   APPROVED
   LOCKED
+}
+
+// Pricing Structure for Cost Estimation
+model PricingStructure {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Callout Fees
+  minimalCalloutFee Float @default(0)
+  administrationFee Float @default(0)
+
+  // Normal Hours Labour Rates (per hour)
+  masterTechnicianRate Float @default(0)
+  qualifiedTechnicianRate Float @default(0)
+  labourerRate Float @default(0)
+
+  // After Hours Labour Rates - Master Technician
+  masterAfterHoursWeekday Float @default(0) // Mon-Fri after 4pm
+  masterSaturday Float @default(0)
+  masterSunday Float @default(0)
+
+  // After Hours Labour Rates - Qualified Technician
+  qualifiedAfterHoursWeekday Float @default(0) // Mon-Fri after 4pm
+  qualifiedSaturday Float @default(0)
+  qualifiedSunday Float @default(0)
+
+  // After Hours Labour Rates - Labourer
+  labourerAfterHoursWeekday Float @default(0) // Mon-Fri after 4pm
+  labourerSaturday Float @default(0)
+  labourerSunday Float @default(0)
+
+  // Equipment Rates (per day)
+  // Dehumidifiers
+  dehumidifierLarge Float @default(0)
+  dehumidifierMedium Float @default(0)
+  dehumidifierDesiccant Float @default(0)
+
+  // Air Movers
+  airmoverAxial Float @default(0)
+  airmoverCentrifugal Float @default(0)
+  airmoverLayflat Float @default(0)
+
+  // Air Filtration Units (AFDs)
+  afdExtraLarge Float @default(0)
+  afdLarge500cfm Float @default(0)
+
+  // Extraction Units (per hour)
+  extractionTruckMounted Float @default(0)
+  extractionElectric Float @default(0)
+
+  // Thermal Camera
+  thermalCameraClaimCost Float @default(0)
+
+  // Chemical Costs (per sqm)
+  chemicalAntiMicrobial Float @default(1.50)
+  chemicalMouldRemediation Float @default(2.50)
+  chemicalBioHazard Float @default(4.50)
+
+  // Custom Fields (stored as JSON for flexibility)
+  customLabourRates String? @db.Text // JSON: additional labour categories
+  customEquipmentRates String? @db.Text // JSON: additional equipment
+  customChemicalRates String? @db.Text // JSON: additional chemicals
+  customMiscRates String? @db.Text // JSON: other costs
+
+  // Metadata
+  currency String @default("AUD")
+  taxRate Float @default(0.10) // GST 10%
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
