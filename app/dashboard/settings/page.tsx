@@ -1,9 +1,10 @@
 "use client"
 
-import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap } from "lucide-react"
+import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, DollarSign } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
+import PricingConfiguration from "@/components/PricingConfiguration"
 
 interface UserProfile {
   id: string
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'profile' | 'pricing'>('profile')
   const [formData, setFormData] = useState({
     name: '',
     email: ''
@@ -198,6 +200,37 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-slate-700">
+        <nav className="flex gap-4">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'profile'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <User className="w-4 h-4 inline mr-2" />
+            Profile
+          </button>
+          <button
+            onClick={() => setActiveTab('pricing')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'pricing'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <DollarSign className="w-4 h-4 inline mr-2" />
+            Pricing Configuration
+          </button>
+        </nav>
+      </div>
+
+      {activeTab === 'pricing' ? (
+        <PricingConfiguration />
+      ) : (
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
@@ -428,6 +461,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

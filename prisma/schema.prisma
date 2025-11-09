@@ -8,7 +8,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // directUrl = env("DIRECT_URL")
 }
 
 
@@ -71,6 +71,7 @@ model User {
   costLibraries CostLibrary[]
   scopes    Scope[]
   estimates Estimate[]
+  pricingConfig CompanyPricingConfig?
 }
 
 model VerificationToken {
@@ -114,6 +115,48 @@ model Report {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   clientId    String?
   client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  
+  // Phase 2: Initial Data Entry Fields
+  clientContactDetails    String? // Phone, email, etc.
+  propertyPostcode        String? // Mandatory for state detection
+  claimReferenceNumber    String? // If existing claim
+  incidentDate            DateTime? // Date when water damage occurred
+  technicianAttendanceDate DateTime? // Date when technician attended
+  technicianName         String? // Technician's name if available
+  technicianFieldReport   String? @db.Text // The raw technician report text
+  
+  // Report Generation Stage
+  reportDepthLevel        String? // Basic / Enhanced / Optimised
+  reportVersion           Int @default(1) // Version tracking
+  
+  // Phase 3: Technician Report Analysis
+  technicianReportAnalysis String? @db.Text // JSON: analysis results from AI
+  
+  // Phase 4: Tiered Questioning Responses (stored as JSON)
+  tier1Responses          String? @db.Text // JSON: Tier 1 Q&A responses
+  tier2Responses          String? @db.Text // JSON: Tier 2 Q&A responses
+  tier3Responses          String? @db.Text // JSON: Tier 3 Q&A responses
+  
+  // Phase 6: Scope of Works Document
+  scopeOfWorksDocument    String? @db.Text // Generated Scope of Works document
+  scopeOfWorksData        String? @db.Text // JSON: Scope of Works line items and data
+  
+  // Phase 7: Cost Estimation Document
+  costEstimationDocument  String? @db.Text // Generated Cost Estimation document
+  costEstimationData      String? @db.Text // JSON: Cost Estimation line items and calculations
+  
+  // Phase 8: Version Control & Audit Trail
+  versionHistory          String? @db.Text // JSON: Array of version changes
+  lastEditedBy            String? // User ID who last edited
+  lastEditedAt            DateTime? // Timestamp of last edit
+  completenessScore       Int? // 0-100 percentage of completion
+  
+  // Phase 9: Geographic Intelligence
+  geographicIntelligence   String? @db.Text // JSON: Postcode-based weather, council info, etc.
+  
+  // Phase 11: Validation & Quality Control
+  validationWarnings      String? @db.Text // JSON: Array of validation warnings
+  validationErrors        String? @db.Text // JSON: Array of validation errors
   
   // IICRC S500 Compliance Fields
   reportNumber     String?
@@ -427,4 +470,49 @@ enum EstimateStatus {
   CLIENT_REVIEW
   APPROVED
   LOCKED
+}
+
+// Company Pricing Configuration Model
+model CompanyPricingConfig {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Labour Rates - Master Qualified Technician
+  masterQualifiedNormalHours   Float
+  masterQualifiedSaturday      Float
+  masterQualifiedSunday        Float
+  
+  // Labour Rates - Qualified Technician
+  qualifiedTechnicianNormalHours Float
+  qualifiedTechnicianSaturday     Float
+  qualifiedTechnicianSunday       Float
+  
+  // Labour Rates - Labourer
+  labourerNormalHours Float
+  labourerSaturday    Float
+  labourerSunday      Float
+  
+  // Equipment Daily Rental Rates
+  airMoverAxialDailyRate        Float
+  airMoverCentrifugalDailyRate  Float
+  dehumidifierLGRDailyRate      Float
+  dehumidifierDesiccantDailyRate Float
+  afdUnitLargeDailyRate         Float
+  extractionTruckMountedHourlyRate Float
+  extractionElectricHourlyRate  Float
+  injectionDryingSystemDailyRate Float
+  
+  // Chemical Treatment Rates (per sqm)
+  antimicrobialTreatmentRate    Float
+  mouldRemediationTreatmentRate Float
+  biohazardTreatmentRate        Float
+  
+  // Fees
+  administrationFee             Float
+  callOutFee                   Float
+  thermalCameraUseCostPerAssessment Float
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

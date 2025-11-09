@@ -228,7 +228,80 @@ export default function ReportsPage() {
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A"
     const date = new Date(dateString)
-    return date.toLocaleDateString()
+    return date.toLocaleDateString('en-AU', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    })
+  }
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return "N/A"
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-AU', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+    } else if (diffInHours < 168) { // Less than a week
+      return date.toLocaleDateString('en-AU', { 
+        weekday: 'short',
+        day: '2-digit', 
+        month: '2-digit' 
+      })
+    } else {
+      return date.toLocaleDateString('en-AU', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      })
+    }
+  }
+
+  const truncateText = (text: string, maxLength: number = 40) => {
+    if (!text || text === "To be completed") return "To be completed"
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength) + "..."
+  }
+
+  const getClientName = (report: any) => {
+    // Check if clientName is actually a conversation snippet (contains common conversation words)
+    const name = report.clientName || ""
+    if (!name || name.trim() === "") return "To be completed"
+    
+    // Filter out conversation snippets
+    const lowerName = name.toLowerCase()
+    if (name.length > 100 || 
+        lowerName.includes("i have been") || 
+        lowerName.includes("it has come") ||
+        lowerName.includes("sometime in this") ||
+        lowerName.includes("burst pipe") ||
+        lowerName.includes("kitchen sink") ||
+        lowerName.includes("water") && name.length > 50) {
+      return "To be completed"
+    }
+    return name.trim()
+  }
+
+  const getPropertyAddress = (report: any) => {
+    // Check if propertyAddress is actually a conversation snippet
+    const address = report.propertyAddress || ""
+    if (!address || address.trim() === "") return "To be completed"
+    
+    // Filter out conversation snippets
+    const lowerAddress = address.toLowerCase()
+    if (address.length > 100 || 
+        lowerAddress.includes("it has come") || 
+        lowerAddress.includes("burst pipe") ||
+        lowerAddress.includes("kitchen sink") ||
+        lowerAddress.includes("i have been") ||
+        lowerAddress.includes("sometime")) {
+      return "To be completed"
+    }
+    return address.trim()
   }
 
   const formatCost = (cost: number | string) => {
@@ -423,12 +496,10 @@ export default function ReportsPage() {
                     </button>
                   </th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Report ID</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Client</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Property</th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Client Name</th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Property Address</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Category</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Insurance</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Status</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Cost</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Date</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th>
                 </tr>
@@ -436,7 +507,7 @@ export default function ReportsPage() {
               <tbody>
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                    <td colSpan={9} className="py-8 text-center text-slate-400">
                       No reports found. <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">Create your first report</Link>
                     </td>
                   </tr>
@@ -455,29 +526,47 @@ export default function ReportsPage() {
                           )}
                         </button>
                       </td>
-                      <td className="py-4 px-6 font-medium text-cyan-400">
-                        <Link href={`/dashboard/reports/${report.id}`} className="hover:underline">
-                          {report.reportNumber || report.id}
+                      <td className="py-4 px-6">
+                        <Link href={`/dashboard/reports/${report.id}`} className="font-medium text-cyan-400 hover:text-cyan-300 hover:underline">
+                          {report.reportNumber || report.title || report.id.slice(0, 8) + "..."}
                         </Link>
                       </td>
-                      <td className="py-4 px-6">{report.clientName || "N/A"}</td>
-                      <td className="py-4 px-6 text-slate-400 text-xs">{report.propertyAddress || "N/A"}</td>
                       <td className="py-4 px-6">
-                        <span className="flex items-center gap-2">
-                          <span>{hazardIcons[report.waterCategory as keyof typeof hazardIcons] || "💧"}</span>
-                          {report.waterCategory || "N/A"}
+                        <span className="text-white font-medium" title={getClientName(report)}>
+                          {truncateText(getClientName(report), 30)}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-xs">{report.policyType || "N/A"}</td>
+                      <td className="py-4 px-6">
+                        <span className="text-slate-300 text-sm" title={getPropertyAddress(report)}>
+                          {truncateText(getPropertyAddress(report), 35)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="flex items-center gap-2">
+                          <span className="text-lg">{hazardIcons[report.hazardType as keyof typeof hazardIcons] || "💧"}</span>
+                          <span className="text-slate-300 text-sm">
+                            {report.hazardType || "Water"}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="flex items-center gap-2">
+                          <span className="text-cyan-400">💧</span>
+                          <span className="text-slate-300 text-sm">
+                            {report.waterCategory || "N/A"}
+                          </span>
+                        </span>
+                      </td>
                       <td className="py-4 px-6">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
                         >
-                          {report.status || "COMPLETED"}
+                          {report.status || "DRAFT"}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-medium">{formatCost(report.estimatedCost)}</td>
-                      <td className="py-4 px-6 text-slate-400">{formatDate(report.createdAt)}</td>
+                      <td className="py-4 px-6 text-slate-400 text-sm">
+                        {formatDateTime(report.updatedAt || report.createdAt)}
+                      </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
                           <Link

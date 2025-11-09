@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import fs from "fs/promises"
 import path from "path"
+import Anthropic from "@anthropic-ai/sdk"
 
 export async function GET(
   request: NextRequest,
@@ -272,31 +273,38 @@ export async function GET(
       if (process.env.ANTHROPIC_API_KEY) {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 4500)
-        const body = {
-          model: "claude-3-5-sonnet-20240620",
-          max_tokens: 400,
-          temperature: 0.2,
-          messages: [
-            {
-              role: "user",
-              content: `You are generating a concise, professional executive summary (5-8 sentences) for a water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration). Keep it factual, evidence-based, and audit-ready. Use Australian context.
+        const { tryClaudeModels } = await import('@/lib/anthropic-models')
+        const anthropicClient = new Anthropic({
+          apiKey: process.env.ANTHROPIC_API_KEY
+        })
+        
+        const message = await tryClaudeModels(
+          anthropicClient,
+          {
+            max_tokens: 400,
+            temperature: 0.2,
+            messages: [
+              {
+                role: "user",
+                content: `You are generating a concise, professional executive summary (5-8 sentences) for a water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration). Keep it factual, evidence-based, and audit-ready. Use Australian context.
 
 Report: ${JSON.stringify(parsedReport)}
 Scope: ${JSON.stringify(scope)}
 Estimate: ${JSON.stringify(estimate)}`,
-            },
-          ],
-        }
-        const resp = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY as string,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        })
+              },
+            ],
+          }
+        )
+        
+        const resp = {
+          ok: true,
+          json: async () => ({
+            content: [{
+              type: 'text',
+              text: message.content[0].type === 'text' ? message.content[0].text : JSON.stringify(message.content[0])
+            }]
+          })
+        } as Response
         clearTimeout(timeout)
         if (resp.ok) {
           const json = await resp.json()

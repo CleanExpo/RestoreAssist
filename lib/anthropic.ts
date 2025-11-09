@@ -32,17 +32,19 @@ export async function generateDetailedReport(data: ReportGenerationRequest): Pro
     const prompt = createReportPrompt(data)
     console.log('Prompt created, length:', prompt.length)
     
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4000,
-      temperature: 0.7,
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ]
-    })
+    const response = await tryClaudeModels(
+      anthropic,
+      {
+        max_tokens: 4000,
+        temperature: 0.7,
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      }
+    )
 
     console.log('AI response received:', response.content.length, 'content blocks')
     
