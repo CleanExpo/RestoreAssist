@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "npm run drive:start && npm run dev",
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
@@ -20,7 +21,16 @@
     "docker:db": "docker-compose up -d postgres",
     "docker:prisma-migrate": "docker-compose exec app npx prisma migrate deploy",
     "docker:prisma-studio": "docker-compose exec app npx prisma studio",
-    "docker:validate": "node validate-docker.js"
+    "docker:validate": "node validate-docker.js",
+    "drive:start": "cd docker && docker-compose up -d drive-resolver",
+    "drive:stop": "cd docker && docker-compose stop drive-resolver",
+    "drive:restart": "cd docker && docker-compose restart drive-resolver",
+    "drive:logs": "cd docker && docker-compose logs -f drive-resolver",
+    "drive:health": "curl -s http://localhost:5000/health",
+    "drive:stats": "curl -s http://localhost:5000/api/cache/stats",
+    "drive:list": "curl -s http://localhost:5000/api/list",
+    "drive:clear-cache": "curl -X POST http://localhost:5000/api/cache/clear",
+    "drive:monitor": "powershell -ExecutionPolicy Bypass -File docker/drive-resolver/start.ps1 -Monitor"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
