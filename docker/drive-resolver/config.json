@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "name": "GoogleDriveResolver",
+  "description": "Lightweight CLI-script hybrid resolver for fetching and caching regulatory or standards files from Google Drive without consuming excess context.",
+  "security": {
+    "auth_method": "service_account",
+    "credentials_file": "/app/credentials/drive_service_account.json",
+    "scopes": ["https://www.googleapis.com/auth/drive.readonly"]
+  },
+  "cache": {
+    "path": "/app/cache",
+    "ttl_hours": 24,
+    "max_size_mb": 512
+  },
+  "logging": {
+    "level": "info",
+    "file": "/app/logs/drive_resolver.log"
+  },
+  "permissions": {
+    "allowed_folders": [
+      "1lFqpslQZ0kGovGh6WiHhgC3_gs9Rzbl1",
+      "1oBIONxCz4gBW5Lujb9BCy83uNDULmLTZ"
+    ],
+    "deny_external_links": true
+  },
+  "output_format": {
+    "default": "json",
+    "fields": ["fileName", "fileId", "mimeType", "modifiedTime", "downloadLink"]
+  }
+}

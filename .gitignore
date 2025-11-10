@@ -118,3 +118,13 @@ list-stripe-prices.js
 scripts/clear-test-stripe-customers.ts
 stripe-500-error-analysis.md
 verify-production-stripe.md
+
+# Google Drive Resolver - NEVER commit credentials
+docker/drive-resolver/credentials/
+docker/drive-resolver/credentials/*.json
+docker/drive-resolver/*.json.key
+docker/drive-resolver/*service_account*.json
+docker/drive-resolver/cache/
+docker/drive-resolver/logs/
+docker/drive-resolver/__pycache__/
+docker/drive-resolver/*.pyc
