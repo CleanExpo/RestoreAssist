@@ -707,3 +707,190 @@ enum AuditAction {
   REGENERATED
   EXPORTED
 }
+
+// ========================================
+// Standards & Regulatory Compliance System
+// ========================================
+
+// Standard - Regulatory standards (e.g., IICRC S500, S520)
+model Standard {
+  id        String   @id @default(cuid())
+
+  // Identification
+  code      String   @unique // e.g., "S500", "S520", "AS1851"
+  title     String   // e.g., "Water Damage Restoration"
+  edition   String?  // e.g., "5th Edition", "2021"
+  publisher String   // e.g., "IICRC", "Standards Australia"
+
+  // Version Control
+  version       String    // e.g., "5.0", "2021"
+  publicationDate DateTime?
+  effectiveDate   DateTime?
+
+  // Google Drive Integration
+  driveFileId   String?   @unique
+  driveFileName String?
+  lastSyncedAt  DateTime?
+
+  // Content
+  description   String?   @db.Text
+  scope         String?   @db.Text
+  applicability String?   @db.Text // When this standard applies
+
+  // Status
+  status        StandardStatus @default(ACTIVE)
+  isRequired    Boolean        @default(false) // Is compliance mandatory?
+
+  // Metadata
+  category      String?   // e.g., "Water Damage", "Mould", "Fire", "Trauma"
+  tags          String?   @db.Text // JSON array of tags
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sections StandardSection[]
+  clauses  StandardClause[]
+
+  @@index([code])
+  @@index([category])
+  @@index([status])
+  @@index([driveFileId])
+}
+
+// StandardSection - Major sections within a standard
+model StandardSection {
+  id         String   @id @default(cuid())
+  standardId String
+  standard   Standard @relation(fields: [standardId], references: [id], onDelete: Cascade)
+
+  // Identification
+  sectionNumber String   // e.g., "1", "1.1", "A"
+  title         String   // e.g., "Scope and Purpose"
+
+  // Content
+  content       String?  @db.Text
+  summary       String?  @db.Text
+
+  // Hierarchy
+  parentSectionId String?
+  displayOrder    Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clauses StandardClause[]
+
+  @@unique([standardId, sectionNumber])
+  @@index([standardId])
+  @@index([parentSectionId])
+}
+
+// StandardClause - Individual clauses/requirements that can be referenced
+model StandardClause {
+  id         String   @id @default(cuid())
+  standardId String
+  standard   Standard @relation(fields: [standardId], references: [id], onDelete: Cascade)
+  sectionId  String?
+  section    StandardSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  // Identification
+  clauseNumber String   // e.g., "3.2.1", "Appendix A.1"
+  title        String?  // Optional title
+
+  // Content
+  content      String   @db.Text // The actual clause text
+  interpretation String? @db.Text // Plain language interpretation
+  keywords     String?  @db.Text // JSON array for search
+
+  // Classification
+  category     String?  // e.g., "Safety", "Equipment", "Documentation", "Process"
+  importance   ClauseImportance @default(STANDARD)
+  applicability String? @db.Text // When this clause applies
+
+  // Practical Implementation
+  howToComply  String? @db.Text // Practical steps to comply
+  examples     String? @db.Text // JSON: examples of compliance
+  commonErrors String? @db.Text // JSON: common mistakes to avoid
+
+  // References
+  relatedClauses String? @db.Text // JSON: array of related clause IDs
+  externalRefs   String? @db.Text // JSON: references to other standards
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([standardId, clauseNumber])
+  @@index([standardId])
+  @@index([sectionId])
+  @@index([category])
+  @@index([importance])
+}
+
+// SyncHistory - Track synchronization from Google Drive
+model SyncHistory {
+  id String @id @default(cuid())
+
+  // Sync Details
+  syncType      SyncType // FULL, INCREMENTAL, SINGLE_FILE
+  status        SyncStatus @default(IN_PROGRESS)
+
+  // Source
+  driveFileId   String?
+  driveFileName String?
+
+  // Results
+  standardsCreated Int @default(0)
+  standardsUpdated Int @default(0)
+  clausesCreated   Int @default(0)
+  clausesUpdated   Int @default(0)
+  errors           Int @default(0)
+
+  // Details
+  errorLog      String? @db.Text // JSON: array of errors
+  processedFiles String? @db.Text // JSON: list of processed files
+  summary       String? @db.Text
+
+  // Timing
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  duration    Int?      // Seconds
+
+  // Triggered By
+  triggeredBy   String? // User ID or "SYSTEM" or "SCHEDULE"
+  triggerMethod String? // "MANUAL", "AUTO", "API"
+
+  @@index([status])
+  @@index([syncType])
+  @@index([startedAt])
+}
+
+// Enums for Standards System
+enum StandardStatus {
+  ACTIVE
+  SUPERSEDED
+  WITHDRAWN
+  DRAFT
+}
+
+enum ClauseImportance {
+  CRITICAL     // Must comply - safety/legal requirement
+  REQUIRED     // Required for compliance
+  STANDARD     // Standard practice
+  RECOMMENDED  // Best practice recommendation
+  OPTIONAL     // Optional guidance
+}
+
+enum SyncType {
+  FULL
+  INCREMENTAL
+  SINGLE_FILE
+}
+
+enum SyncStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  PARTIAL
+}
