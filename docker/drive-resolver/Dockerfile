@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY resolver.py .
+COPY parser.py .
+COPY sync_service.py .
 COPY config.json .
 
 # Create necessary directories

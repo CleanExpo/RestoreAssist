@@ -18,6 +18,10 @@ from googleapiclient.http import MediaIoBaseDownload
 from cachetools import TTLCache
 import io
 
+# Import parser and sync modules
+from parser import StandardParser, parse_standard_document
+from sync_service import SupabaseSyncService, sync_parsed_document
+
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -513,6 +517,274 @@ def clear_cache():
 
     except Exception as e:
         logger.error(f"Error in clear_cache endpoint: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ========================================
+# Standards Sync Endpoints
+# ========================================
+
+@app.route('/api/sync/standard/<file_id>', methods=['POST'])
+def sync_standard(file_id: str):
+    """
+    Sync a single standard document from Google Drive to Supabase
+
+    Steps:
+    1. Download file from Drive
+    2. Parse PDF/DOCX to extract structure
+    3. Sync to Supabase database
+
+    Returns sync statistics
+    """
+    try:
+        logger.info(f"Starting sync for file: {file_id}")
+
+        # Step 1: Download file
+        download_result = resolver.download_file(file_id, use_cache=True)
+        file_path = download_result['filePath']
+        file_name = download_result['fileName']
+        mime_type = resolver.get_file_metadata(file_id).get('mimeType', 'application/pdf')
+
+        logger.info(f"Downloaded file: {file_name}")
+
+        # Step 2: Parse document
+        parser = StandardParser()
+        parsed_data = parser.parse_document(file_path, mime_type)
+
+        logger.info(f"Parsed {len(parsed_data.get('sections', []))} sections, "
+                   f"{len(parsed_data.get('clauses', []))} clauses")
+
+        # Step 3: Sync to Supabase
+        sync_result = sync_parsed_document(parsed_data, file_id, file_name)
+
+        logger.info(f"Sync completed: {sync_result.get('status')}")
+
+        return jsonify({
+            'success': True,
+            'sync': sync_result
+        })
+
+    except PermissionError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 403
+
+    except Exception as e:
+        logger.error(f"Error syncing standard: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/sync/all', methods=['POST'])
+def sync_all_standards():
+    """
+    Sync all standards from configured Google Drive folders
+
+    Fetches all files from allowed folders and syncs each one
+    """
+    try:
+        logger.info("Starting full sync of all standards")
+
+        # List all files
+        all_files = resolver.list_files()
+
+        sync_results = []
+        total_success = 0
+        total_failed = 0
+
+        for file_info in all_files:
+            file_id = file_info['fileId']
+            file_name = file_info['fileName']
+
+            try:
+                logger.info(f"Syncing: {file_name}")
+
+                # Download
+                download_result = resolver.download_file(file_id, use_cache=True)
+                file_path = download_result['filePath']
+                mime_type = file_info.get('mimeType', 'application/pdf')
+
+                # Parse
+                parser = StandardParser()
+                parsed_data = parser.parse_document(file_path, mime_type)
+
+                # Sync
+                sync_result = sync_parsed_document(parsed_data, file_id, file_name)
+
+                sync_results.append({
+                    'fileId': file_id,
+                    'fileName': file_name,
+                    'status': sync_result.get('status'),
+                    'stats': sync_result
+                })
+
+                if sync_result.get('status') == 'success':
+                    total_success += 1
+                else:
+                    total_failed += 1
+
+            except Exception as e:
+                logger.error(f"Failed to sync {file_name}: {e}")
+                sync_results.append({
+                    'fileId': file_id,
+                    'fileName': file_name,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+                total_failed += 1
+
+        logger.info(f"Full sync completed: {total_success} success, {total_failed} failed")
+
+        return jsonify({
+            'success': True,
+            'summary': {
+                'totalFiles': len(all_files),
+                'successCount': total_success,
+                'failedCount': total_failed
+            },
+            'results': sync_results
+        })
+
+    except Exception as e:
+        logger.error(f"Error in full sync: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/sync/status/<sync_id>', methods=['GET'])
+def get_sync_status(sync_id: str):
+    """
+    Get status of a specific sync operation
+
+    Queries SyncHistory table for the given sync ID
+    """
+    try:
+        sync_service = SupabaseSyncService()
+
+        if sync_service.supabase_client:
+            # Query using Supabase client
+            result = sync_service.supabase_client.table('SyncHistory') \
+                .select('*') \
+                .eq('id', sync_id) \
+                .execute()
+
+            if result.data:
+                return jsonify({
+                    'success': True,
+                    'sync': result.data[0]
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Sync ID not found'
+                }), 404
+
+        elif sync_service.db_connection:
+            # Query using direct SQL
+            cursor = sync_service.db_connection.cursor()
+            cursor.execute('SELECT * FROM "SyncHistory" WHERE id = %s', (sync_id,))
+            row = cursor.fetchone()
+            cursor.close()
+
+            if row:
+                # Convert to dict (assuming columns match schema)
+                return jsonify({
+                    'success': True,
+                    'sync': dict(row)
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Sync ID not found'
+                }), 404
+
+        sync_service.close()
+
+    except Exception as e:
+        logger.error(f"Error getting sync status: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/sync/history', methods=['GET'])
+def get_sync_history():
+    """
+    Get sync history with optional filters
+
+    Query params:
+    - limit: Number of records (default: 50)
+    - status: Filter by status (IN_PROGRESS, COMPLETED, FAILED, PARTIAL)
+    - syncType: Filter by type (FULL, INCREMENTAL, SINGLE_FILE)
+    """
+    try:
+        limit = int(request.args.get('limit', 50))
+        status_filter = request.args.get('status')
+        sync_type_filter = request.args.get('syncType')
+
+        sync_service = SupabaseSyncService()
+
+        if sync_service.supabase_client:
+            # Build query
+            query = sync_service.supabase_client.table('SyncHistory').select('*')
+
+            if status_filter:
+                query = query.eq('status', status_filter)
+
+            if sync_type_filter:
+                query = query.eq('syncType', sync_type_filter)
+
+            # Order by most recent first
+            query = query.order('startedAt', desc=True).limit(limit)
+
+            result = query.execute()
+
+            return jsonify({
+                'success': True,
+                'count': len(result.data),
+                'history': result.data
+            })
+
+        elif sync_service.db_connection:
+            # Build SQL query
+            sql = 'SELECT * FROM "SyncHistory" WHERE 1=1'
+            params = []
+
+            if status_filter:
+                sql += ' AND status = %s'
+                params.append(status_filter)
+
+            if sync_type_filter:
+                sql += ' AND "syncType" = %s'
+                params.append(sync_type_filter)
+
+            sql += ' ORDER BY "startedAt" DESC LIMIT %s'
+            params.append(limit)
+
+            cursor = sync_service.db_connection.cursor()
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            cursor.close()
+
+            return jsonify({
+                'success': True,
+                'count': len(rows),
+                'history': [dict(row) for row in rows]
+            })
+
+        sync_service.close()
+
+    except Exception as e:
+        logger.error(f"Error getting sync history: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
