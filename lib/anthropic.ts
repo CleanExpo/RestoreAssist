@@ -35,14 +35,14 @@ export async function generateDetailedReport(data: ReportGenerationRequest): Pro
     const response = await tryClaudeModels(
       anthropic,
       {
-        max_tokens: 4000,
-        temperature: 0.7,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
+      max_tokens: 4000,
+      temperature: 0.7,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
       }
     )
 

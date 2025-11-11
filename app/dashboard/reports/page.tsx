@@ -498,16 +498,17 @@ export default function ReportsPage() {
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Report ID</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Client Name</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Property Address</th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Postcode</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Category</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Status</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Date</th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Updated</th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       No reports found. <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">Create your first report</Link>
                     </td>
                   </tr>
@@ -538,56 +539,76 @@ export default function ReportsPage() {
                       </td>
                       <td className="py-4 px-6">
                         <span className="text-slate-300 text-sm" title={getPropertyAddress(report)}>
-                          {truncateText(getPropertyAddress(report), 35)}
+                          {truncateText(getPropertyAddress(report), 30)}
                         </span>
                       </td>
                       <td className="py-4 px-6">
+                        <span className="text-slate-400 text-xs">
+                          {report.propertyPostcode || "—"}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
                         <span className="flex items-center gap-2">
-                          <span className="text-lg">{hazardIcons[report.hazardType as keyof typeof hazardIcons] || "💧"}</span>
-                          <span className="text-slate-300 text-sm">
-                            {report.hazardType || "Water"}
+                            <span className="text-lg">{hazardIcons[report.hazardType as keyof typeof hazardIcons] || "💧"}</span>
+                            <span className="text-slate-300 text-xs">
+                              {report.hazardType || "Water"}
+                            </span>
                           </span>
+                          {report.waterCategory && (
+                            <span className="text-slate-500 text-xs ml-6">
+                              {report.waterCategory}
                         </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="flex items-center gap-2">
-                          <span className="text-cyan-400">💧</span>
-                          <span className="text-slate-300 text-sm">
-                            {report.waterCategory || "N/A"}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
                         >
                           {report.status || "DRAFT"}
                         </span>
+                          {report.reportDepthLevel && (
+                            <span className="text-slate-500 text-xs">
+                              {report.reportDepthLevel}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-4 px-6 text-slate-400 text-sm">
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-slate-300 text-xs">
                         {formatDateTime(report.updatedAt || report.createdAt)}
+                          </span>
+                          {report.incidentDate && (
+                            <span className="text-slate-500 text-xs">
+                              Incident: {formatDate(report.incidentDate)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors"
-                            title="View"
+                            className="p-1.5 hover:bg-slate-700 rounded transition-colors text-slate-300 hover:text-cyan-400"
+                            title="View Report"
                           >
                             <Eye size={16} />
                           </Link>
                           <Link
                             href={`/dashboard/reports/${report.id}/edit`}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors"
-                            title="Edit"
+                            className="p-1.5 hover:bg-slate-700 rounded transition-colors text-slate-300 hover:text-blue-400"
+                            title="Edit Report"
                           >
                             <Edit size={16} />
                           </Link>
                           <button 
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
-                            title="Duplicate"
+                            className="p-1.5 hover:bg-slate-700 rounded transition-colors disabled:opacity-50 text-slate-300 hover:text-green-400"
+                            title="Duplicate Report"
                           >
                             {duplicating === report.id ? (
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>

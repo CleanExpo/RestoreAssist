@@ -62,6 +62,73 @@ export async function POST(request: NextRequest) {
       ? new Date(data.technicianAttendanceDate) 
       : null
 
+    // Extract email and phone from clientContactDetails if provided
+    let clientEmail = ''
+    let clientPhone = ''
+    if (data.clientContactDetails) {
+      const contactDetails = data.clientContactDetails.trim()
+      // Try to extract email (look for @ symbol)
+      const emailMatch = contactDetails.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)
+      if (emailMatch) {
+        clientEmail = emailMatch[1]
+      }
+      // Try to extract phone (look for phone patterns)
+      const phoneMatch = contactDetails.match(/(\+?\d{1,3}[\s-]?)?\(?\d{2,4}\)?[\s-]?\d{1,4}[\s-]?\d{1,4}[\s-]?\d{1,9}/)
+      if (phoneMatch) {
+        clientPhone = phoneMatch[0].trim()
+      }
+    }
+    
+    // If no email found, create a placeholder email
+    if (!clientEmail) {
+      clientEmail = `${data.clientName.trim().toLowerCase().replace(/\s+/g, '.')}@client.local`
+    }
+
+    // Find or create client record
+    let clientId = null
+    try {
+      // First, try to find existing client by name or email
+      const existingClient = await prisma.client.findFirst({
+        where: {
+          userId: user.id,
+          OR: [
+            { name: data.clientName.trim() },
+            { email: clientEmail }
+          ]
+        }
+      })
+
+      if (existingClient) {
+        clientId = existingClient.id
+        // Update client with new information if available
+        await prisma.client.update({
+          where: { id: existingClient.id },
+          data: {
+            phone: clientPhone || existingClient.phone,
+            address: data.propertyAddress.trim() || existingClient.address,
+            // Update email if we found a real one
+            email: clientEmail.includes('@client.local') ? existingClient.email : clientEmail
+          }
+        })
+      } else {
+        // Create new client record (no subscription check - allow creating clients from reports)
+        const newClient = await prisma.client.create({
+          data: {
+            name: data.clientName.trim(),
+            email: clientEmail,
+            phone: clientPhone || null,
+            address: data.propertyAddress.trim() || null,
+            status: 'ACTIVE',
+            userId: user.id
+          }
+        })
+        clientId = newClient.id
+      }
+    } catch (error) {
+      console.error('Error creating/updating client:', error)
+      // Continue without clientId if there's an error - don't block report creation
+    }
+
     // Create the report with initial data
     const report = await prisma.report.create({
       data: {
@@ -69,6 +136,7 @@ export async function POST(request: NextRequest) {
         description: 'Initial data entry - awaiting report generation',
         status: 'DRAFT',
         clientName: data.clientName.trim(),
+        clientId: clientId, // Link to client if created/found
         propertyAddress: data.propertyAddress.trim(),
         hazardType: 'Water', // Default for water damage restoration
         insuranceType: 'Building and Contents Insurance', // Default

@@ -115,14 +115,14 @@ Example responses:
         anthropic,
         {
           system: systemPrompt,
-          max_tokens: 500,
-          messages: [
-            ...formattedMessages,
-            {
-              role: "user",
-              content: "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message."
-            }
-          ]
+        max_tokens: 500,
+        messages: [
+          ...formattedMessages,
+          {
+            role: "user",
+            content: "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message."
+          }
+        ]
         }
       )
 
@@ -161,12 +161,12 @@ Example responses:
       // If 404, the tryClaudeModels utility already tried all models, so just return error
       if (apiError.status === 404) {
         // The utility already tried all models, so we just return the error
-        return NextResponse.json({
+            return NextResponse.json({
           error: "Failed to connect to Anthropic API. Please check your API key and try again.",
           details: apiError.message
         }, { status: 500 })
-      }
-      
+        }
+        
       // For other errors, return the error
       return NextResponse.json({
         error: "Failed to generate question. Please check your API key and try again.",

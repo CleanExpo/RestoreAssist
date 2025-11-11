@@ -104,6 +104,7 @@ export default function ClientsPage() {
         setFormData({ name: "", email: "", phone: "", address: "", company: "", contactPerson: "", notes: "", status: "ACTIVE" })
         setShowAddModal(false)
         toast.success("Client added successfully")
+        fetchClients() // Refresh to get updated list
       } else {
         const error = await response.json()
         if (response.status === 402 && error.upgradeRequired) {
@@ -152,6 +153,14 @@ export default function ClientsPage() {
   const handleDeleteClient = async () => {
     if (!selectedClient) return
 
+    // Check if this is a report-based client (can't delete, it's derived from reports)
+    if ((selectedClient as any)._isFromReport) {
+      toast.info("This client was created from a report. It will disappear once all related reports are deleted or linked to a real client.")
+      setShowDeleteModal(false)
+      setSelectedClient(null)
+      return
+    }
+
     try {
       const response = await fetch(`/api/clients/${selectedClient.id}`, {
         method: "DELETE"
@@ -162,6 +171,7 @@ export default function ClientsPage() {
         setShowDeleteModal(false)
         setSelectedClient(null)
         toast.success("Client deleted successfully")
+        fetchClients() // Refresh to get updated list
       } else {
         const error = await response.json()
         toast.error(error.error || "Failed to delete client")
@@ -173,6 +183,24 @@ export default function ClientsPage() {
   }
 
   const openEditModal = (client: Client) => {
+    // Check if this is a report-based client (can't edit directly, need to create real client)
+    if ((client as any)._isFromReport) {
+      toast.info("This client was created from a report. Please create a new client record to edit.")
+      // Pre-fill the form with the report client's data
+      setFormData({
+        name: client.name,
+        email: client.email,
+        phone: client.phone || "",
+        address: client.address || "",
+        company: client.company || "",
+        contactPerson: client.contactPerson || "",
+        notes: client.notes || "",
+        status: client.status
+      })
+      setShowAddModal(true)
+      return
+    }
+    
     setSelectedClient(client)
     setFormData({
       name: client.name,
@@ -339,7 +367,7 @@ export default function ClientsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-700 bg-slate-900/50">
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">
                       <button
                         onClick={selectedClients.length === filteredClients.length ? clearSelection : selectAllClients}
                         className="flex items-center gap-2 hover:text-white transition-colors"
@@ -351,7 +379,7 @@ export default function ClientsPage() {
                         )}
                         Select All
                       </button>
-                    </th>
+                    </th> */}
                     <th className="text-left py-4 px-6 text-slate-400 font-medium">Client Name</th>
                     <th className="text-left py-4 px-6 text-slate-400 font-medium">Email</th>
                     <th className="text-left py-4 px-6 text-slate-400 font-medium">Phone</th>
@@ -359,7 +387,7 @@ export default function ClientsPage() {
                     <th className="text-left py-4 px-6 text-slate-400 font-medium">Reports</th>
                     <th className="text-left py-4 px-6 text-slate-400 font-medium">Total Revenue</th>
                     <th className="text-left py-4 px-6 text-slate-400 font-medium">Last Job</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th>
+                    {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -372,7 +400,7 @@ export default function ClientsPage() {
                   ) : (
                     filteredClients.map((client) => (
                       <tr key={client.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
-                        <td className="py-4 px-6">
+                        {/* <td className="py-4 px-6">
                           <button
                             onClick={() => toggleClientSelection(client.id)}
                             className="flex items-center gap-2 hover:text-white transition-colors"
@@ -383,13 +411,20 @@ export default function ClientsPage() {
                               <Square size={16} />
                             )}
                           </button>
-                        </td>
+                        </td> */}
                         <td className="py-4 px-6 font-medium">
-                          <Link href={`/dashboard/clients/${client.id}`} className="text-cyan-400 hover:underline">
-                            {client.name}
-                          </Link>
+                          {(client as any)._isFromReport ? (
+                            <span className="text-cyan-400">{client.name}</span>
+                          ) : (
+                            <Link href={`/dashboard/clients/${client.id}`} className="text-cyan-400 hover:underline">
+                              {client.name}
+                            </Link>
+                          )}
                           {client.company && (
                             <div className="text-xs text-slate-500 mt-1">{client.company}</div>
+                          )}
+                          {(client as any)._isFromReport && (
+                            <div className="text-xs text-amber-400 mt-1">From Report</div>
                           )}
                         </td>
                         <td className="py-4 px-6 text-slate-400">{client.email}</td>
@@ -413,7 +448,7 @@ export default function ClientsPage() {
                           ${client.totalRevenue ? client.totalRevenue.toLocaleString() : '0'}
                         </td>
                         <td className="py-4 px-6 text-slate-400">{client.lastJob || "—"}</td>
-                        <td className="py-4 px-6">
+                        {/* <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Link href={`/dashboard/clients/${client.id}`}>
                               <button className="p-1 hover:bg-slate-700 rounded transition-colors" title="View">
@@ -447,7 +482,7 @@ export default function ClientsPage() {
                               <Trash2 size={16} className="text-rose-400" />
                             </button>
                           </div>
-                        </td>
+                        </td> */}
                       </tr>
                     ))
                   )}

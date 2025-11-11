@@ -268,20 +268,20 @@ Format the response as a well-structured professional report with clear sections
     const message = await tryClaudeModels(
       anthropic,
       {
-        system: systemPrompt,
+          system: systemPrompt,
         max_tokens: 8000,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
+          messages: [
+            {
+              role: "user",
+              content: prompt
+            }
+          ]
       }
     )
 
     const enhancedReport = message.content[0].type === 'text' 
-      ? message.content[0].text 
-      : JSON.stringify(message.content[0])
+          ? message.content[0].text 
+          : JSON.stringify(message.content[0])
     
     // If still no report, throw error
     if (!enhancedReport) {

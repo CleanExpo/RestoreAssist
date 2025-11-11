@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { DollarSign, Download, Loader2, AlertCircle, CheckCircle, Edit, Save } from "lucide-react"
 import toast from "react-hot-toast"
+import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
 
 interface CostEstimationViewerProps {
   reportId: string
@@ -235,30 +236,18 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
             </div>
           </div>
 
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
             {editing ? (
-              <textarea
-                value={costDocument}
-                onChange={(e) => setCostDocument(e.target.value)}
-                rows={30}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm"
-              />
-            ) : (
-              <div className="prose prose-invert max-w-none">
-                <div 
-                  className="text-slate-300 whitespace-pre-wrap font-mono text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{ 
-                    __html: costDocument
-                      .replace(/\n\n/g, '</p><p>')
-                      .replace(/\n/g, '<br>')
-                      .replace(/## (.*?)(?=\n|$)/g, '<h2 class="text-xl font-semibold text-white mt-6 mb-3">$1</h2>')
-                      .replace(/### (.*?)(?=\n|$)/g, '<h3 class="text-lg font-semibold text-cyan-400 mt-4 mb-2">$1</h3>')
-                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-                      .replace(/\$(\d+[\d,]*\.?\d*)/g, '<span class="text-green-400 font-semibold">$$1</span>')
-                      .replace(/⚠️/g, '<span class="text-red-400">⚠️</span>')
-                  }}
+              <div className="p-6">
+                <textarea
+                  value={costDocument}
+                  onChange={(e) => setCostDocument(e.target.value)}
+                  rows={30}
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
                 />
               </div>
+            ) : (
+              <ProfessionalDocumentViewer content={costDocument} />
             )}
           </div>
 

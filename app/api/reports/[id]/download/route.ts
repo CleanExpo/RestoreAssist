@@ -281,19 +281,19 @@ export async function GET(
         const message = await tryClaudeModels(
           anthropicClient,
           {
-            max_tokens: 400,
-            temperature: 0.2,
-            messages: [
-              {
-                role: "user",
-                content: `You are generating a concise, professional executive summary (5-8 sentences) for a water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration). Keep it factual, evidence-based, and audit-ready. Use Australian context.
+          max_tokens: 400,
+          temperature: 0.2,
+          messages: [
+            {
+              role: "user",
+              content: `You are generating a concise, professional executive summary (5-8 sentences) for a water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration). Keep it factual, evidence-based, and audit-ready. Use Australian context.
 
 Report: ${JSON.stringify(parsedReport)}
 Scope: ${JSON.stringify(scope)}
 Estimate: ${JSON.stringify(estimate)}`,
-              },
-            ],
-          }
+            },
+          ],
+        }
         )
         
         const resp = {

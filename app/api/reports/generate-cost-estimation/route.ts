@@ -116,42 +116,8 @@ export async function POST(request: NextRequest) {
       scopeData
     })
 
-    // Generate the document using AI
-    const prompt = buildCostEstimationPrompt(costData)
-
-    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system. Generate comprehensive, professional Cost Estimation documents that clearly break down all costs by category, provide industry comparisons, and include all necessary disclaimers and assumptions. Use the exact pricing and calculations provided.`
-
-    const response = await tryClaudeModels(
-      anthropic,
-      {
-        system: systemPrompt,
-        max_tokens: 12000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      }
-    )
-
-    let costDocument = ''
-    if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
-      costDocument = response.content[0].text
-    } else {
-      console.error('Unexpected response format:', response)
-      return NextResponse.json(
-        { error: 'Failed to generate cost estimation: Unexpected response format from AI' },
-        { status: 500 }
-      )
-    }
-
-    if (!costDocument || costDocument.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to generate cost estimation: Empty response from AI' },
-        { status: 500 }
-      )
-    }
+    // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
+    const costDocument = buildCostEstimationDocument(costData)
 
     // Save the generated document and data
     await prisma.report.update({
@@ -600,89 +566,123 @@ function buildCostEstimationData(data: {
   }
 }
 
-function buildCostEstimationPrompt(costData: any): string {
-  return `Generate a comprehensive Cost Estimation document for RestoreAssist with the following structure:
+// Build the complete cost estimation document server-side with exact values
+function buildCostEstimationDocument(costData: any): string {
+  // Format categories as complete tables with exact values
+  const formatCategories = (categories: any) => {
+    let output = ''
+    Object.values(categories).forEach((cat: any) => {
+      output += `\n## ${cat.name}\n\n`
+      
+      // Determine table structure based on category type
+      const hasDays = cat.lineItems.some((item: any) => item.days)
+      const hasSqm = cat.lineItems.some((item: any) => item.sqm)
+      
+      if (hasDays) {
+        output += `| Description | Qty | Days | Daily Rate | Subtotal |\n`
+        output += `|-------------|-----|------|------------|----------|\n`
+        cat.lineItems.forEach((item: any) => {
+          const qty = item.qty || 1
+          const days = item.days || 1
+          const rate = item.dailyRate || 0
+          const subtotal = item.subtotal || 0
+          output += `| ${item.description} | ${qty} | ${days} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`
+        })
+      } else if (hasSqm) {
+        output += `| Description | Sqm | Rate per Sqm | Subtotal |\n`
+        output += `|-------------|-----|--------------|----------|\n`
+        cat.lineItems.forEach((item: any) => {
+          const sqm = item.sqm || 0
+          const rate = item.ratePerSqm || 0
+          const subtotal = item.subtotal || 0
+          output += `| ${item.description} | ${sqm} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`
+        })
+      } else {
+        // Default: Hours/Qty, Rate, Subtotal
+        const hasHours = cat.lineItems.some((item: any) => item.hours)
+        if (hasHours) {
+          output += `| Description | Hours | Rate | Subtotal |\n`
+          output += `|-------------|-------|------|----------|\n`
+          cat.lineItems.forEach((item: any) => {
+            const hours = item.hours || 0
+            const rate = item.rate || 0
+            const subtotal = item.subtotal || 0
+            output += `| ${item.description} | ${hours} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`
+          })
+        } else {
+          output += `| Description | Qty | Rate | Subtotal |\n`
+          output += `|-------------|-----|------|----------|\n`
+          cat.lineItems.forEach((item: any) => {
+            const qty = item.qty || 1
+            const rate = item.rate || 0
+            const subtotal = item.subtotal || 0
+            output += `| ${item.description} | ${qty} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`
+          })
+        }
+      }
+      
+      output += `\n**Category Total: $${cat.total.toFixed(2)}**\n\n`
+    })
+    return output
+  }
 
-# COST ESTIMATION DATA
+  // Format flagged items properly - remove duplicates
+  const formatFlaggedItems = (items: any[]) => {
+    if (!items || items.length === 0) {
+      return 'No items flagged for manual review.'
+    }
+    // Remove duplicates based on flag text
+    const uniqueItems = items.filter((item, index, self) => 
+      index === self.findIndex((t) => t.flag === item.flag && t.reason === item.reason)
+    )
+    return uniqueItems.map((item: any) => {
+      return `⚠️ **${item.flag}**\n- **Reason:** ${item.reason}\n- **Action Required:** ${item.action}\n`
+    }).join('\n')
+  }
 
-## Header Information
-- Title: PRELIMINARY COST ESTIMATION — NOT FINAL ESTIMATE
-- Based on: Inspection Report & Scope of Works ${costData.claimReference || 'Reference'}
-- Date: ${costData.date}
-- Claim Reference: ${costData.claimReference}
-- Version: ${costData.version}
+  // Build complete document with exact values
+  let document = `# PRELIMINARY COST ESTIMATION — NOT FINAL ESTIMATE
 
-## Cost Categories
-${JSON.stringify(costData.categories, null, 2)}
+Based on: Inspection Report & Scope of Works ${costData.claimReference || 'Reference'}
+Date: ${costData.date}
+Claim Reference: ${costData.claimReference}
+Version: ${costData.version}
 
-## Totals
-${JSON.stringify(costData.totals, null, 2)}
+# SECTION 1: COST BREAKDOWN BY CATEGORY
 
-## Industry Comparison
-${JSON.stringify(costData.industryComparison, null, 2)}
+${formatCategories(costData.categories)}
 
-## Cost Drivers
-${costData.costDrivers.join(', ')}
-
-## Flagged Items
-${JSON.stringify(costData.flaggedItems, null, 2)}
-
-## State Information
-${costData.stateInfo ? `${costData.stateInfo.name}` : 'Not specified'}
-
-# DOCUMENT STRUCTURE REQUIREMENTS
-
-Generate a comprehensive Cost Estimation document with ALL of the following sections:
-
-## COVER PAGE
-- "PRELIMINARY COST ESTIMATION — NOT FINAL ESTIMATE"
-- Based on: [Inspection Report & Scope of Works Reference]
-- Date: [today's date]
-- Claim Reference: [from input]
-- Version: [1.0]
-
-## SECTION 1: COST BREAKDOWN BY CATEGORY
-
-List each category with all line items, showing:
-- Description
-- Quantity/Hours
-- Unit
-- Rate
-- Subtotal (calculated)
-- Category Total
-
-Categories to include:
-${Object.keys(costData.categories).map(key => `- ${costData.categories[key].name}`).join('\n')}
-
-## SECTION 2: GRAND TOTAL AND COST SUMMARY
+# SECTION 2: GRAND TOTAL AND COST SUMMARY
 
 - Total Labour Costs (all categories): $${costData.totals.totalLabour.toFixed(2)}
 - Total Equipment Rental Costs: $${costData.totals.totalEquipment.toFixed(2)}
 - Total Chemical & Treatment Costs: $${costData.totals.totalChemicals.toFixed(2)}
 - Total Administrative & Miscellaneous: $${costData.totals.totalAdmin.toFixed(2)}
 - ———————————————————
-- SUBTOTAL (Restoration Works): $${costData.totals.subtotal.toFixed(2)} (BOLD)
+- **SUBTOTAL (Restoration Works): $${costData.totals.subtotal.toFixed(2)}**
 - GST (10%): $${costData.totals.gst.toFixed(2)}
-- TOTAL ESTIMATED COST (Restoration Services): $${costData.totals.totalIncGST.toFixed(2)} (BOLD, LARGE)
+- **TOTAL ESTIMATED COST (Restoration Services): $${costData.totals.totalIncGST.toFixed(2)}**
 
-## SECTION 3: COST COMPARISON AND JUSTIFICATION
+# SECTION 3: COST COMPARISON AND JUSTIFICATION
 
-### Industry Average for Similar Claim
+## Industry Average for Similar Claim
 - ${costData.stateInfo?.name || 'Australian'} Water Damage, ${costData.affectedAreaSqm} sqm, ${costData.dryingDuration}-day drying
 - Range: $${costData.industryComparison.average.min.toLocaleString()}–$${costData.industryComparison.average.max.toLocaleString()}
 - Note: Based on IICRC S500 standard remediation; regional variation applies
 
-### Your Estimated Cost
+## Your Estimated Cost
 - Amount: $${costData.totals.subtotal.toFixed(2)}
 - Analysis: ${costData.industryComparison.analysis}
 
-### Cost Drivers (Key Line Items)
-${costData.costDrivers.map((d: string) => `- ${d}`).join('\n')}
+## Cost Drivers (Key Line Items)
+${costData.costDrivers.length > 0 
+  ? costData.costDrivers.map((d: string) => `- ${d}`).join('\n')
+  : '- Standard water damage restoration protocol'}
 
-### Value Articulation Statement
-"This estimate reflects comprehensive water damage restoration per IICRC S500 standards, including 24/7 equipment operation, daily professional monitoring, thermal imaging to detect hidden moisture, and antimicrobial treatment to prevent secondary mould damage. The cost avoids far greater expenses: occupant relocation ($200–$400/night), contents replacement, and structural repairs if moisture damage extends ($50K+)."
+## Value Articulation Statement
+This estimate reflects comprehensive water damage restoration per IICRC S500 standards, including 24/7 equipment operation, daily professional monitoring, thermal imaging to detect hidden moisture, and antimicrobial treatment to prevent secondary mould damage. The cost avoids far greater expenses: occupant relocation ($200–$400/night), contents replacement, and structural repairs if moisture damage extends ($50K+).
 
-## SECTION 4: EXCLUSIONS AND NOT INCLUDED
+# SECTION 4: EXCLUSIONS AND NOT INCLUDED
 
 NOT INCLUDED IN THIS ESTIMATE:
 - Licensed Trades: Plumbing repair, electrical work, carpentry, mould specialist, asbestos abatement (separate specialist quotes required)
@@ -692,7 +692,7 @@ ${costData.needsClass4 ? '- Class 4 Drying (if not explicitly listed): If yellow
 - Insurance Excess: Client responsibility per PDS
 - Ongoing Maintenance Post-Restoration: Regular cleaning, preventative treatments beyond initial restoration scope
 
-## SECTION 5: CONDITIONS AND ASSUMPTIONS
+# SECTION 5: CONDITIONS AND ASSUMPTIONS
 
 THIS ESTIMATE ASSUMES:
 - Water source successfully stopped (plumbing repair assumed completed before drying begins)
@@ -703,30 +703,25 @@ THIS ESTIMATE ASSUMES:
 - Equipment availability at time of loss
 - Drying completion within ${costData.dryingDuration} days
 
-## SECTION 6: COST ADJUSTMENT TRIGGERS
+# SECTION 6: COST ADJUSTMENT TRIGGERS
 
 TRIGGERS THAT WILL INCREASE COSTS:
 ${costData.hasHazards ? '- Hazard Discovery (Asbestos, Lead Paint, Mould): Can add $5K–$20K+ depending on extent' : ''}
 - Extended Drying Timeline (>${costData.dryingDuration} days): Each additional day adds ~$800–$1,500
 ${costData.needsClass4 ? '- Class 4 Drying Confirmed: Typically adds $3K–$8K+' : ''}
-${costData.flaggedItems.some((f: any) => f.flag.includes('Mould')) ? '- Active Mould Growth: Can add $5K–$15K+ depending on spread' : ''}
+${costData.flaggedItems.some((f: any) => f.flag && f.flag.includes('Mould')) ? '- Active Mould Growth: Can add $5K–$15K+ depending on spread' : ''}
 - Weekend/After-Hours Deployment (Emergency): Can add 20–50% to labour
 - Multiple Floors/Significant Water Migration: Add 30–50% to estimate
 
-## SECTION 7: CLIENT EDIT AND CUSTOMISATION FIELDS
+# SECTION 7: CLIENT EDIT AND CUSTOMISATION FIELDS
 
 Note: All line items, quantities, rates, and calculations can be edited by the admin before finalising. System maintains calculation formulas but allows manual override.
 
-## SECTION 8: FLAGGED ITEMS REQUIRING MANUAL REVIEW
+# SECTION 8: FLAGGED ITEMS REQUIRING MANUAL REVIEW
 
-${costData.flaggedItems.length > 0 
-  ? costData.flaggedItems.map((item: any) => `
-⚠️ ${item.flag}
-- Reason: ${item.reason}
-- Action Required: ${item.action}
-`).join('\n')
-  : 'No items flagged for manual review.'}
+${formatFlaggedItems(costData.flaggedItems || [])}
+`
 
-Format the document professionally with clear sections, proper formatting, currency formatting (AUD $), and all calculations displayed.`
+  return document
 }
 

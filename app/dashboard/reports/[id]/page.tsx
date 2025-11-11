@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign } from "lucide-react"
 import { useRouter } from "next/navigation"
-import DetailedReportViewer from "@/components/DetailedReportViewer"
-import TechnicianInputForm from "@/components/TechnicianInputForm"
+import InspectionReportViewer from "@/components/InspectionReportViewer"
+import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer"
+import CostEstimationViewer from "@/components/CostEstimationViewer"
 import toast from "react-hot-toast"
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +14,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'inspection' | 'scope' | 'cost'>('inspection')
 
   useEffect(() => {
     const getParams = async () => {
@@ -74,62 +76,104 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     )
   }
 
+  const refreshReport = async () => {
+    if (!reportId) return
+    try {
+      const reportResponse = await fetch(`/api/reports/${reportId}`)
+      if (reportResponse.ok) {
+        const updatedReport = await reportResponse.json()
+        setReport(updatedReport)
+      }
+    } catch (err) {
+      console.error("Error refreshing report:", err)
+    }
+  }
+
   return (
-    <div className="mx-auto h-full">
-      {/* AI-Generated Detailed Report or Technician Input Form */}
-      {report.detailedReport ? (
-        <DetailedReportViewer 
-          detailedReport={report.detailedReport} 
-          reportId={report.id} 
-        />
-      ) : (
-        <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-6">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-white mb-2">Generate Enhanced Professional Report</h3>
-            <p className="text-sm text-slate-400">
-              Enter your technician notes to generate a comprehensive professional report using AI.
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/dashboard/reports')}
+            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            title="Back to Reports"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold mb-1">
+              {report.reportNumber || report.title || 'Report Details'}
+            </h1>
+            <p className="text-slate-400 text-sm">
+              {report.clientName && `${report.clientName} • `}
+              {report.propertyAddress}
+              {report.propertyPostcode && ` • ${report.propertyPostcode}`}
             </p>
           </div>
-          <TechnicianInputForm
-            reportId={report.id}
-            onReportGenerated={async (id) => {
-              // Refresh report data
-              const reportResponse = await fetch(`/api/reports/${id}`)
-              if (reportResponse.ok) {
-                const updatedReport = await reportResponse.json()
-                setReport(updatedReport)
-                toast.success("Enhanced report generated successfully!")
-              }
-            }}
-            initialData={{
-              technicianNotes: report.equipmentUsed ? (() => {
-                try {
-                  const equipmentData = JSON.parse(report.equipmentUsed)
-                  return equipmentData.technicianNotes || ""
-                } catch {
-                  return ""
-                }
-              })() : "",
-              dateOfAttendance: report.equipmentUsed ? (() => {
-                try {
-                  const equipmentData = JSON.parse(report.equipmentUsed)
-                  return equipmentData.dateOfAttendance || ""
-                } catch {
-                  return ""
-                }
-              })() : "",
-              clientContacted: report.equipmentUsed ? (() => {
-                try {
-                  const equipmentData = JSON.parse(report.equipmentUsed)
-                  return equipmentData.clientContacted || ""
-                } catch {
-                  return ""
-                }
-              })() : ""
-            }}
-          />
         </div>
-      )}
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-slate-700">
+        <nav className="flex gap-4">
+          <button
+            onClick={() => setActiveTab('inspection')}
+            className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'inspection'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <FileText size={18} />
+            Inspection Report
+          </button>
+          <button
+            onClick={() => setActiveTab('scope')}
+            className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'scope'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <ClipboardList size={18} />
+            Scope of Works
+          </button>
+          <button
+            onClick={() => setActiveTab('cost')}
+            className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'cost'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <DollarSign size={18} />
+            Cost Estimation
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="min-h-[400px]">
+        {activeTab === 'inspection' && (
+          <InspectionReportViewer 
+            reportId={reportId!}
+            onReportGenerated={refreshReport}
+          />
+        )}
+        {activeTab === 'scope' && (
+          <ScopeOfWorksViewer 
+            reportId={reportId!}
+            onScopeGenerated={refreshReport}
+          />
+        )}
+        {activeTab === 'cost' && (
+          <CostEstimationViewer 
+            reportId={reportId!}
+            onEstimationGenerated={refreshReport}
+          />
+        )}
+      </div>
     </div>
   )
 }
