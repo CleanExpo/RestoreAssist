@@ -40,7 +40,7 @@ class SupabaseSyncService:
             database_url: Direct PostgreSQL connection URL (or from env)
         """
         self.supabase_url = supabase_url or os.getenv('SUPABASE_URL')
-        self.supabase_key = supabase_key or os.getenv('SUPABASE_SERVICE_KEY')
+        self.supabase_key = supabase_key or os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_SERVICE_KEY')
         self.database_url = database_url or os.getenv('DATABASE_URL')
 
         self.supabase_client = None
@@ -51,7 +51,7 @@ class SupabaseSyncService:
     def _initialize_client(self):
         """Initialize Supabase client or direct DB connection"""
         try:
-            # Try Supabase client first (easier for REST operations)
+            # Prefer Supabase REST client (schema should be reloaded first)
             if create_client and self.supabase_url and self.supabase_key:
                 self.supabase_client = create_client(self.supabase_url, self.supabase_key)
                 logger.info("Initialized Supabase REST client")
@@ -110,8 +110,8 @@ class SupabaseSyncService:
                 code=standard_code,
                 title=self._extract_title(parsed_data, drive_file_name),
                 edition=metadata.get('edition'),
-                publisher=metadata.get('publisher', 'IICRC'),
-                version=metadata.get('version', '1.0'),
+                publisher=metadata.get('publisher') or 'IICRC',
+                version=metadata.get('version') or '1.0',
                 publication_year=metadata.get('publication_year'),
                 drive_file_id=drive_file_id,
                 drive_file_name=drive_file_name,

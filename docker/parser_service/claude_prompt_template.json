@@ -1,0 +1,46 @@
+{
+  "instruction": "Analyse the following property restoration report and return a structured JSON summary following the schema below.",
+  "context": {
+    "industry": "Cleaning, Restoration and Remediation",
+    "region": "Australia",
+    "standards": ["IICRC S500", "IICRC S520", "IICRC S700", "IICRC S540", "IICRC S100", "IICRC S220"],
+    "grades": ["Basic", "Intermediate", "Advanced"],
+    "grade_definitions": {
+      "1": "Basic - Simple residential jobs with minimal complexity",
+      "2": "Intermediate - Standard commercial or complex residential work",
+      "3": "Advanced - Large-scale commercial, multi-discipline, or high-risk projects"
+    }
+  },
+  "schema": {
+    "report_grade": "integer (1–3)",
+    "service_type": "string (e.g., Water Damage, Mould Remediation, Fire & Smoke, Biohazard, Crime Scene)",
+    "summary": "string - concise executive summary of the report",
+    "sections": [
+      {
+        "title": "string - section heading (e.g., Assessment, Containment, Remediation)",
+        "summary": "string - brief summary of this section",
+        "keywords": ["string - key terms and technical vocabulary"]
+      }
+    ],
+    "hazards": ["string - identified hazards or risks"],
+    "detected_standards": ["string - IICRC standard codes mentioned or applicable"],
+    "questions": [
+      {
+        "category": "string - category (e.g., Safety, Containment, Documentation, Equipment)",
+        "question": "string - specific question to verify compliance or quality",
+        "expected_evidence": ["string - what documentation or observations would answer this"],
+        "report_grade": "integer (1–3) - complexity level this question applies to"
+      }
+    ]
+  },
+  "instructions": [
+    "Read the entire report carefully",
+    "Identify the primary service type (water damage, mould, fire, etc.)",
+    "Determine report complexity grade (1 = basic, 2 = intermediate, 3 = advanced)",
+    "Extract key sections and summarize each",
+    "Identify all safety hazards mentioned",
+    "List relevant IICRC standards referenced or applicable",
+    "Generate 5-10 verification questions based on the service type and grade",
+    "Return ONLY valid JSON matching the schema above - no markdown, no extra text"
+  ]
+}

@@ -16,7 +16,10 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from cachetools import TTLCache
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 import io
+import atexit
 
 # Import parser and sync modules
 from parser import StandardParser, parse_standard_document
@@ -791,6 +794,149 @@ def get_sync_history():
         }), 500
 
 
+@app.route('/api/sync/trigger', methods=['POST'])
+def trigger_manual_sync():
+    """Manually trigger a full sync (for testing scheduled sync)"""
+    try:
+        logger.info("Manual sync triggered via API")
+
+        # Run sync job in background thread to avoid blocking the request
+        import threading
+        thread = threading.Thread(target=scheduled_sync_job)
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': 'Sync job started in background. Check logs for progress.'
+        })
+
+    except Exception as e:
+        logger.error(f"Error triggering manual sync: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def scheduled_sync_job():
+    """Background job that runs periodic sync of all standards"""
+    try:
+        logger.info("Starting scheduled sync job...")
+
+        # Initialize sync service
+        sync_service = SupabaseSyncService()
+
+        # Get all allowed folders
+        allowed_folders = CONFIG.get('permissions', {}).get('allowed_folders', [])
+
+        # Collect all PDF files from allowed folders
+        all_files = []
+        for folder_id in allowed_folders:
+            try:
+                results = drive_service.files().list(
+                    q=f"'{folder_id}' in parents and mimeType='application/pdf' and trashed=false",
+                    fields="files(id, name, modifiedTime)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True
+                ).execute()
+
+                files = results.get('files', [])
+                all_files.extend(files)
+            except Exception as e:
+                logger.error(f"Error listing files from folder {folder_id}: {e}")
+
+        logger.info(f"Found {len(all_files)} PDF files to sync")
+
+        # Sync each file (only if modified since last sync)
+        synced_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for file_info in all_files:
+            try:
+                file_id = file_info['id']
+                file_name = file_info['name']
+
+                # Check if file needs syncing (compare modified time)
+                # This would require tracking last sync time per file
+                # For now, we'll sync all files, but this can be optimized
+
+                # Download file to temp location
+                temp_path = f"/tmp/{file_id}.pdf"
+                request_obj = drive_service.files().get_media(fileId=file_id)
+                with io.FileIO(temp_path, 'wb') as fh:
+                    downloader = MediaIoBaseDownload(fh, request_obj)
+                    done = False
+                    while not done:
+                        status, done = downloader.next_chunk()
+
+                # Parse document
+                parsed_data = parse_standard_document(temp_path, 'application/pdf')
+
+                # Sync to Supabase
+                stats = sync_service.sync_standard(
+                    drive_file_id=file_id,
+                    drive_file_name=file_name,
+                    parsed_data=parsed_data
+                )
+
+                if stats.get('status') == 'success':
+                    synced_count += 1
+                    logger.info(f"Synced {file_name}: {stats}")
+                else:
+                    error_count += 1
+                    logger.warning(f"Failed to sync {file_name}: {stats}")
+
+                # Clean up temp file
+                Path(temp_path).unlink(missing_ok=True)
+
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error syncing file {file_info.get('name')}: {e}")
+
+        sync_service.close()
+
+        logger.info(f"Scheduled sync completed: {synced_count} synced, {skipped_count} skipped, {error_count} errors")
+
+    except Exception as e:
+        logger.error(f"Scheduled sync job failed: {e}")
+
+
+def init_scheduler():
+    """Initialize background scheduler for periodic syncs"""
+    # Get sync interval from environment (default: 6 hours)
+    sync_interval_hours = int(os.getenv('AUTO_SYNC_INTERVAL_HOURS', 6))
+    auto_sync_enabled = os.getenv('AUTO_SYNC_ENABLED', 'true').lower() == 'true'
+
+    if not auto_sync_enabled:
+        logger.info("Auto-sync is disabled")
+        return None
+
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+
+    # Schedule the sync job
+    scheduler.add_job(
+        func=scheduled_sync_job,
+        trigger=IntervalTrigger(hours=sync_interval_hours),
+        id='sync_standards_job',
+        name='Sync standards from Google Drive',
+        replace_existing=True
+    )
+
+    logger.info(f"Scheduler initialized: auto-sync every {sync_interval_hours} hours")
+
+    # Shut down the scheduler when exiting the app
+    atexit.register(lambda: scheduler.shutdown())
+
+    return scheduler
+
+
 if __name__ == '__main__':
+    # Initialize scheduler
+    scheduler = init_scheduler()
+
+    # Run Flask app
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

@@ -17,6 +17,13 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/drive_service_account.json
       - CONFIG_PATH=/app/config.json
       - PORT=5000
+      # Supabase configuration for standards sync
+      - SUPABASE_URL=https://oxeiaavuspvpvanzcrjc.supabase.co
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94ZWlhYXZ1c3B2cHZhbnpjcmpjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc0ODU1NCwiZXhwIjoyMDc2MzI0NTU0fQ.SvDITcs_TEtHW1-PZsqlyPpfP7yVRiHp0YLl2jqjTOE
+      - DATABASE_URL=postgresql://postgres:SHev3MgZxkQyf2px@db.oxeiaavuspvpvanzcrjc.supabase.co:5432/postgres
+      # Auto-sync configuration
+      - AUTO_SYNC_ENABLED=true
+      - AUTO_SYNC_INTERVAL_HOURS=6
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
@@ -26,6 +33,35 @@ services:
       start_period: 40s
     networks:
       - restoreassist-network
+
+  parser-service:
+    build:
+      context: ./parser_service
+      dockerfile: Dockerfile
+    container_name: restoreassist-parser-service
+    ports:
+      - "5001:5001"
+    environment:
+      # Supabase configuration
+      - SUPABASE_URL=https://oxeiaavuspvpvanzcrjc.supabase.co
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94ZWlhYXZ1c3B2cHZhbnpjcmpjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDc0ODU1NCwiZXhwIjoyMDc2MzI0NTU0fQ.SvDITcs_TEtHW1-PZsqlyPpfP7yVRiHp0YLl2jqjTOE
+      # AI Configuration (add your Anthropic API key here)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Flask configuration
+      - FLASK_ENV=production
+      # Next.js API URL for triggering question generation
+      - NEXT_API_URL=http://host.docker.internal:3001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - restoreassist-network
+    depends_on:
+      - drive-resolver
 
 volumes:
   drive-cache:
