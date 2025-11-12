@@ -21,15 +21,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Check if user has a connected API key
+    const integrations = await prisma.integration.findMany({
+      where: {
+        userId: user.id,
+        status: 'CONNECTED',
+        apiKey: { not: null }
+      }
+    })
+
+    const hasApiKey = integrations.length > 0
+
+    // Parse custom fields if they exist
+    let customFields = null
+    if (user.pricingConfig?.customFields) {
+      try {
+        customFields = JSON.parse(user.pricingConfig.customFields)
+      } catch (e) {
+        console.error('Error parsing custom fields:', e)
+      }
+    }
+
     // If no config exists, return default values
     if (!user.pricingConfig) {
       return NextResponse.json({
         pricingConfig: null,
-        defaults: getDefaultPricingConfig()
+        defaults: getDefaultPricingConfig(),
+        canEdit: true,
+        hasApiKey
       })
     }
 
-    return NextResponse.json({ pricingConfig: user.pricingConfig })
+    return NextResponse.json({ 
+      pricingConfig: {
+        ...user.pricingConfig,
+        customFields
+      },
+      canEdit: true,
+      hasApiKey
+    })
   } catch (error) {
     console.error('Error fetching pricing config:', error)
     return NextResponse.json(
@@ -55,6 +85,8 @@ export async function PUT(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    // Users can always update pricing configuration, even after API key is set
 
     const data = await request.json()
 
@@ -100,6 +132,47 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Handle custom fields - validate and stringify
+    let customFieldsJson = null
+    if (data.customFields) {
+      // Validate custom fields structure
+      const validCategories = ['labour', 'equipment', 'chemical', 'fees']
+      const customFieldsObj = data.customFields
+      
+      for (const category of Object.keys(customFieldsObj)) {
+        if (!validCategories.includes(category)) {
+          return NextResponse.json(
+            { error: `Invalid category: ${category}. Must be one of: ${validCategories.join(', ')}` },
+            { status: 400 }
+          )
+        }
+        
+        if (!Array.isArray(customFieldsObj[category])) {
+          return NextResponse.json(
+            { error: `Custom fields for ${category} must be an array` },
+            { status: 400 }
+          )
+        }
+        
+        for (const field of customFieldsObj[category]) {
+          if (!field.name || typeof field.name !== 'string') {
+            return NextResponse.json(
+              { error: `Each custom field must have a valid name` },
+              { status: 400 }
+            )
+          }
+          if (typeof field.value !== 'number' || field.value < 0) {
+            return NextResponse.json(
+              { error: `Custom field "${field.name}" must have a valid positive number value` },
+              { status: 400 }
+            )
+          }
+        }
+      }
+      
+      customFieldsJson = JSON.stringify(customFieldsObj)
+    }
+
     // Upsert pricing configuration
     const pricingConfig = await prisma.companyPricingConfig.upsert({
       where: { userId: user.id },
@@ -127,6 +200,7 @@ export async function PUT(request: NextRequest) {
         administrationFee: data.administrationFee,
         callOutFee: data.callOutFee,
         thermalCameraUseCostPerAssessment: data.thermalCameraUseCostPerAssessment,
+        customFields: customFieldsJson,
       },
       create: {
         userId: user.id,
@@ -153,10 +227,26 @@ export async function PUT(request: NextRequest) {
         administrationFee: data.administrationFee,
         callOutFee: data.callOutFee,
         thermalCameraUseCostPerAssessment: data.thermalCameraUseCostPerAssessment,
+        customFields: customFieldsJson,
       }
     })
 
-    return NextResponse.json({ pricingConfig })
+    // Parse custom fields for response
+    let customFields = null
+    if (pricingConfig.customFields) {
+      try {
+        customFields = JSON.parse(pricingConfig.customFields)
+      } catch (e) {
+        console.error('Error parsing custom fields:', e)
+      }
+    }
+
+    return NextResponse.json({ 
+      pricingConfig: {
+        ...pricingConfig,
+        customFields
+      }
+    })
   } catch (error) {
     console.error('Error saving pricing config:', error)
     return NextResponse.json(

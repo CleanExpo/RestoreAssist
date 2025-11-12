@@ -133,6 +133,19 @@ export default function IntegrationsPage() {
         ))
         setShowApiModal(false)
         toast.success("Integration updated successfully")
+        
+        // Check if pricing config exists, if not redirect to pricing config
+        // Note: Once API key is set, pricing will be locked, so redirect now if not configured
+        const pricingResponse = await fetch('/api/pricing-config')
+        if (pricingResponse.ok) {
+          const pricingData = await pricingResponse.json()
+          if (!pricingData.pricingConfig) {
+            toast("Redirecting to pricing configuration...", { icon: "ℹ️" })
+            setTimeout(() => {
+              router.push('/dashboard/pricing-config')
+            }, 500)
+          }
+        }
       } else {
         toast.error("Failed to update integration")
       }
@@ -204,6 +217,19 @@ export default function IntegrationsPage() {
         setNewApiKeyType('anthropic')
         setShowAddModal(false)
         toast.success("Integration added successfully")
+        
+        // Check if pricing config exists, if not redirect to pricing config
+        // Note: Once API key is set, pricing will be locked, so redirect now if not configured
+        const pricingResponse = await fetch('/api/pricing-config')
+        if (pricingResponse.ok) {
+          const pricingData = await pricingResponse.json()
+          if (!pricingData.pricingConfig) {
+            toast("Redirecting to pricing configuration...", { icon: "ℹ️" })
+            setTimeout(() => {
+              router.push('/dashboard/pricing-config')
+            }, 500)
+          }
+        }
       } else {
         toast.error("Failed to add integration")
       }

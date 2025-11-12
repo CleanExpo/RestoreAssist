@@ -513,6 +513,9 @@ model CompanyPricingConfig {
   callOutFee                   Float
   thermalCameraUseCostPerAssessment Float
   
+  // Custom Fields (JSON: { category: [{ name: string, value: number }] })
+  customFields                  String? @db.Text
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
