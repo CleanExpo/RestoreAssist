@@ -80,11 +80,7 @@ export async function POST(request: NextRequest) {
       if (!text) {
         throw new Error("No text extracted from PDF")
       }
-      
-      console.log("PDF text extracted, length:", text.length)
-      console.log("First 500 chars:", text.substring(0, 500))
     } catch (error: any) {
-      console.error("Error parsing PDF:", error)
       // If pdf-parse fails, provide a helpful error message
       if (error.message?.includes('canvas') || error.message?.includes('napi-rs')) {
         return NextResponse.json(

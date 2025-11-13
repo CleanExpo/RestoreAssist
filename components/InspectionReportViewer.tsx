@@ -97,23 +97,41 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!reportContent) {
       toast.error('No report content to download')
       return
     }
 
-    // Create a blob and download
-    const blob = new Blob([reportContent], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `RestoreAssist-Inspection-Report-${reportId}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success('Report downloaded')
+    try {
+      const response = await fetch(`/api/reports/${reportId}/download-inspection-report`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to download PDF')
+        return
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+      const filename = filenameMatch ? filenameMatch[1] : `Inspection-Report-${reportId}.pdf`
+      
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Inspection Report PDF downloaded')
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      toast.error('Failed to download PDF')
+    }
   }
 
   if (loading) {

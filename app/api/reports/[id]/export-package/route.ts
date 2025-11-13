@@ -168,8 +168,7 @@ async function generatePDFDocument(title: string, content: string, report: any):
     size: 12,
     font: boldFont,
     color: watermarkColor,
-    opacity: 0.3,
-    rotate: { angleRadians: -0.785 } // 45 degrees
+    opacity: 0.3
   })
 
   // Add title
@@ -256,8 +255,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
     size: 12,
     font: boldFont,
     color: watermarkColor,
-    opacity: 0.3,
-    rotate: { angleRadians: -0.785 }
+    opacity: 0.3
   })
 
   // Add title

@@ -108,8 +108,6 @@ Example responses:
       }))
 
       const { tryClaudeModels } = await import('@/lib/anthropic-models')
-      
-      console.log("Sending request to Anthropic API with fallback models")
 
       const message = await tryClaudeModels(
         anthropic,
@@ -151,12 +149,6 @@ Example responses:
         integrationUsed: "Anthropic API"
       })
     } catch (apiError: any) {
-      console.error("API Error:", apiError)
-      console.error("API Error Details:", {
-        status: apiError.status,
-        message: apiError.message,
-        error: apiError.error
-      })
       
       // If 404, the tryClaudeModels utility already tried all models, so just return error
       if (apiError.status === 404) {

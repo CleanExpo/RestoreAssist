@@ -110,60 +110,28 @@ export async function POST(request: NextRequest) {
       stateInfo
     })
 
-    // Generate the document using AI
-    const prompt = buildScopeOfWorksPrompt(scopeData)
-
-    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system. Generate comprehensive, professional Scope of Works documents that clearly outline all remediation phases, restoration works, licensed trades requirements, and coordination notes. Use the exact pricing and data provided.`
-
-    const response = await tryClaudeModels(
-      anthropic,
-      {
-        system: systemPrompt,
-        max_tokens: 12000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      }
-    )
-
-    let scopeDocument = ''
-    if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
-      scopeDocument = response.content[0].text
-    } else {
-      console.error('Unexpected response format:', response)
-      return NextResponse.json(
-        { error: 'Failed to generate scope of works: Unexpected response format from AI' },
-        { status: 500 }
-      )
-    }
-
-    if (!scopeDocument || scopeDocument.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to generate scope of works: Empty response from AI' },
-        { status: 500 }
-      )
-    }
+    // Generate the document server-side with exact values
+    const scopeDocument = buildScopeOfWorksDocument(scopeData)
 
     // Save the generated document and data
-    await prisma.report.update({
+    const updatedReport = await prisma.report.update({
       where: { id: reportId },
       data: {
         scopeOfWorksDocument: scopeDocument,
-        scopeOfWorksData: JSON.stringify(scopeData)
+        scopeOfWorksData: JSON.stringify(scopeData),
+        updatedAt: new Date()
       }
     })
 
-    const updatedReport = await prisma.report.findUnique({
-      where: { id: reportId }
-    })
-
+    // Return the fresh document directly, not from database query
     return NextResponse.json({ 
-      report: updatedReport,
+      report: {
+        ...updatedReport,
+        scopeOfWorksDocument: scopeDocument, // Return the fresh document we just generated
+        scopeOfWorksData: scopeData // Return parsed data, not stringified
+      },
       scopeOfWorks: {
-        document: scopeDocument,
+        document: scopeDocument, // Return the fresh document
         data: scopeData
       },
       message: 'Scope of Works generated successfully'
@@ -187,6 +155,41 @@ function buildScopeOfWorksData(data: {
   stateInfo: any
 }) {
   const { report, analysis, tier1, tier2, tier3, pricingConfig, stateInfo } = data
+
+  // Validate pricing config and ensure all values are numbers
+  if (!pricingConfig) {
+    throw new Error('Pricing configuration is required')
+  }
+
+  // Helper to ensure value is a number - convert to number and validate
+  const ensureNumber = (value: any): number => {
+    if (value === null || value === undefined || value === '') {
+      return 0
+    }
+    const num = typeof value === 'string' ? parseFloat(value) : Number(value)
+    if (isNaN(num)) {
+      return 0
+    }
+    return num
+  }
+
+  // Ensure all pricing config values are numbers - use actual values from database
+  const rates = {
+    masterQualifiedNormalHours: ensureNumber(pricingConfig.masterQualifiedNormalHours),
+    qualifiedTechnicianNormalHours: ensureNumber(pricingConfig.qualifiedTechnicianNormalHours),
+    labourerNormalHours: ensureNumber(pricingConfig.labourerNormalHours),
+    airMoverAxialDailyRate: ensureNumber(pricingConfig.airMoverAxialDailyRate),
+    dehumidifierLGRDailyRate: ensureNumber(pricingConfig.dehumidifierLGRDailyRate),
+    afdUnitLargeDailyRate: ensureNumber(pricingConfig.afdUnitLargeDailyRate),
+    extractionTruckMountedHourlyRate: ensureNumber(pricingConfig.extractionTruckMountedHourlyRate),
+    injectionDryingSystemDailyRate: ensureNumber(pricingConfig.injectionDryingSystemDailyRate),
+    thermalCameraUseCostPerAssessment: ensureNumber(pricingConfig.thermalCameraUseCostPerAssessment),
+    antimicrobialTreatmentRate: ensureNumber(pricingConfig.antimicrobialTreatmentRate),
+    mouldRemediationTreatmentRate: ensureNumber(pricingConfig.mouldRemediationTreatmentRate),
+    biohazardTreatmentRate: ensureNumber(pricingConfig.biohazardTreatmentRate),
+    callOutFee: ensureNumber(pricingConfig.callOutFee),
+    administrationFee: ensureNumber(pricingConfig.administrationFee)
+  }
 
   // Extract key information
   const waterCategory = tier1?.T1_Q3_waterSource 
@@ -236,16 +239,16 @@ function buildScopeOfWorksData(data: {
       description: 'Emergency Call-Out & Site Assessment',
       qty: 1,
       unit: 'Call-out',
-      rate: pricingConfig.callOutFee,
-      subtotal: pricingConfig.callOutFee
+      rate: rates.callOutFee,
+      subtotal: rates.callOutFee
     },
     {
       id: 'RW_2',
       description: 'Standing Water Extraction (Truck-Mounted Unit)',
       qty: 4, // Default hours
       unit: 'Hour',
-      rate: pricingConfig.extractionTruckMountedHourlyRate,
-      subtotal: 4 * pricingConfig.extractionTruckMountedHourlyRate
+      rate: rates.extractionTruckMountedHourlyRate,
+      subtotal: 4 * rates.extractionTruckMountedHourlyRate
     },
     {
       id: 'RW_3',
@@ -253,15 +256,15 @@ function buildScopeOfWorksData(data: {
       qty: 1,
       unit: 'Setup',
       labour: {
-        masterQualified: { hours: 4, rate: pricingConfig.masterQualifiedNormalHours },
-        qualified: { hours: 6, rate: pricingConfig.qualifiedTechnicianNormalHours }
+        masterQualified: { hours: 4, rate: rates.masterQualifiedNormalHours },
+        qualified: { hours: 6, rate: rates.qualifiedTechnicianNormalHours }
       },
       equipment: {
-        airMovers: { qty: airMoversQty, days: dryingDuration, rate: pricingConfig.airMoverAxialDailyRate },
-        dehumidifiers: { qty: dehumidifiersQty, days: dryingDuration, rate: pricingConfig.dehumidifierLGRDailyRate },
-        afd: { qty: afdQty, days: dryingDuration, rate: pricingConfig.afdUnitLargeDailyRate }
+        airMovers: { qty: airMoversQty, days: dryingDuration, rate: rates.airMoverAxialDailyRate },
+        dehumidifiers: { qty: dehumidifiersQty, days: dryingDuration, rate: rates.dehumidifierLGRDailyRate },
+        afd: { qty: afdQty, days: dryingDuration, rate: rates.afdUnitLargeDailyRate }
       },
-      subtotal: calculateRW3Subtotal(pricingConfig, airMoversQty, dehumidifiersQty, afdQty, dryingDuration)
+      subtotal: calculateRW3Subtotal(rates, airMoversQty, dehumidifiersQty, afdQty, dryingDuration)
     },
     {
       id: 'RW_4',
@@ -269,12 +272,12 @@ function buildScopeOfWorksData(data: {
       qty: 3,
       unit: 'Assessment (Days 0, 3, 7)',
       labour: {
-        masterQualified: { hours: 3, rate: pricingConfig.masterQualifiedNormalHours }
+        masterQualified: { hours: 3, rate: rates.masterQualifiedNormalHours }
       },
       equipment: {
-        thermalCamera: { qty: 3, rate: pricingConfig.thermalCameraUseCostPerAssessment }
+        thermalCamera: { qty: 3, rate: rates.thermalCameraUseCostPerAssessment }
       },
-      subtotal: (3 * pricingConfig.masterQualifiedNormalHours) + (3 * pricingConfig.thermalCameraUseCostPerAssessment)
+      subtotal: (3 * rates.masterQualifiedNormalHours) + (3 * rates.thermalCameraUseCostPerAssessment)
     },
     {
       id: 'RW_5',
@@ -282,9 +285,9 @@ function buildScopeOfWorksData(data: {
       qty: dryingDuration,
       unit: 'Day',
       labour: {
-        qualified: { hours: dryingDuration, rate: pricingConfig.qualifiedTechnicianNormalHours }
+        qualified: { hours: dryingDuration, rate: rates.qualifiedTechnicianNormalHours }
       },
-      subtotal: dryingDuration * pricingConfig.qualifiedTechnicianNormalHours
+      subtotal: dryingDuration * rates.qualifiedTechnicianNormalHours
     }
   ]
 
@@ -296,23 +299,23 @@ function buildScopeOfWorksData(data: {
       qty: 1,
       unit: 'Application',
       labour: {
-        masterQualified: { hours: 12, rate: pricingConfig.masterQualifiedNormalHours },
-        qualified: { hours: 8, rate: pricingConfig.qualifiedTechnicianNormalHours }
+        masterQualified: { hours: 12, rate: rates.masterQualifiedNormalHours },
+        qualified: { hours: 8, rate: rates.qualifiedTechnicianNormalHours }
       },
       equipment: {
-        injectionSystem: { qty: 1, days: dryingDuration, rate: pricingConfig.injectionDryingSystemDailyRate }
+        injectionSystem: { qty: 1, days: dryingDuration, rate: rates.injectionDryingSystemDailyRate }
       },
-      subtotal: (12 * pricingConfig.masterQualifiedNormalHours) + (8 * pricingConfig.qualifiedTechnicianNormalHours) + (dryingDuration * pricingConfig.injectionDryingSystemDailyRate)
+      subtotal: (12 * rates.masterQualifiedNormalHours) + (8 * rates.qualifiedTechnicianNormalHours) + (dryingDuration * rates.injectionDryingSystemDailyRate)
     })
   }
 
   // Chemical treatment
   const chemicalType = tier3?.T3_Q3_chemicalTreatment || 'Standard antimicrobial treatment'
-  let chemicalRate = pricingConfig.antimicrobialTreatmentRate
+  let chemicalRate = rates.antimicrobialTreatmentRate
   if (chemicalType.includes('mould')) {
-    chemicalRate = pricingConfig.mouldRemediationTreatmentRate
+    chemicalRate = rates.mouldRemediationTreatmentRate
   } else if (chemicalType.includes('Biohazard') || hasBiohazard) {
-    chemicalRate = pricingConfig.biohazardTreatmentRate
+    chemicalRate = rates.biohazardTreatmentRate
   }
 
   lineItems.push({
@@ -331,10 +334,10 @@ function buildScopeOfWorksData(data: {
     qty: 1,
     unit: 'Removal',
     labour: {
-      qualified: { hours: 2, rate: pricingConfig.qualifiedTechnicianNormalHours },
-      labourer: { hours: 2, rate: pricingConfig.labourerNormalHours }
+      qualified: { hours: 2, rate: rates.qualifiedTechnicianNormalHours },
+      labourer: { hours: 2, rate: rates.labourerNormalHours }
     },
-    subtotal: (2 * pricingConfig.qualifiedTechnicianNormalHours) + (2 * pricingConfig.labourerNormalHours)
+    subtotal: (2 * rates.qualifiedTechnicianNormalHours) + (2 * rates.labourerNormalHours)
   })
 
   // Final certification
@@ -344,9 +347,9 @@ function buildScopeOfWorksData(data: {
     qty: 1,
     unit: 'Certification',
     labour: {
-      masterQualified: { hours: 2, rate: pricingConfig.masterQualifiedNormalHours }
+      masterQualified: { hours: 2, rate: rates.masterQualifiedNormalHours }
     },
-    subtotal: 2 * pricingConfig.masterQualifiedNormalHours
+    subtotal: 2 * rates.masterQualifiedNormalHours
   })
 
   // Administration fee
@@ -355,8 +358,8 @@ function buildScopeOfWorksData(data: {
     description: 'Administration & Documentation Fee',
     qty: 1,
     unit: 'Claim',
-    rate: pricingConfig.administrationFee,
-    subtotal: pricingConfig.administrationFee
+    rate: rates.administrationFee,
+    subtotal: rates.administrationFee
   })
 
   // Licensed trades
@@ -423,14 +426,204 @@ function buildScopeOfWorksData(data: {
   }
 }
 
-function calculateRW3Subtotal(pricingConfig: any, airMovers: number, dehumidifiers: number, afd: number, days: number): number {
-  const labour = (4 * pricingConfig.masterQualifiedNormalHours) + (6 * pricingConfig.qualifiedTechnicianNormalHours)
-  const equipment = (airMovers * days * pricingConfig.airMoverAxialDailyRate) +
-                   (dehumidifiers * days * pricingConfig.dehumidifierLGRDailyRate) +
-                   (afd * days * pricingConfig.afdUnitLargeDailyRate)
+function calculateRW3Subtotal(rates: any, airMovers: number, dehumidifiers: number, afd: number, days: number): number {
+  const labour = (4 * rates.masterQualifiedNormalHours) + (6 * rates.qualifiedTechnicianNormalHours)
+  const equipment = (airMovers * days * rates.airMoverAxialDailyRate) +
+                   (dehumidifiers * days * rates.dehumidifierLGRDailyRate) +
+                   (afd * days * rates.afdUnitLargeDailyRate)
   return labour + equipment
 }
 
+// Build the complete scope of works document server-side with exact values
+function buildScopeOfWorksDocument(scopeData: any): string {
+  // Format line items with actual calculations
+  const formatLineItems = (items: any[]) => {
+    let output = ''
+    items.forEach((item: any, index: number) => {
+
+      output += `\n## ${item.id}: ${item.description}\n\n`
+      output += `- **Qty:** ${item.qty}\n`
+      output += `- **Unit:** ${item.unit}\n`
+      
+      // Calculate effective rate - use direct rate if available, otherwise calculate from subtotal/qty
+      let effectiveRate = 0
+      if (item.rate !== undefined && !item.labour && !item.equipment) {
+        // Simple item with direct rate
+        effectiveRate = Number(item.rate) || 0
+      } else {
+        // Complex item - calculate rate from subtotal divided by quantity
+        const subtotal = Number(item.subtotal) || 0
+        const qty = Number(item.qty) || 1
+        effectiveRate = qty > 0 ? subtotal / qty : subtotal
+      }
+      
+      // Always show rate
+      output += `- **Rate:** $${effectiveRate.toFixed(2)}\n`
+      
+      // Format labour if present
+      if (item.labour) {
+        output += `- **Labour:**\n`
+        if (item.labour.masterQualified) {
+          const hours = Number(item.labour.masterQualified.hours) || 0
+          const rate = Number(item.labour.masterQualified.rate) || 0
+          const subtotal = hours * rate
+          output += `  - Master Qualified: ${hours} hrs @ $${rate.toFixed(2)}/hr = $${subtotal.toFixed(2)}\n`
+        }
+        if (item.labour.qualified) {
+          const hours = Number(item.labour.qualified.hours) || 0
+          const rate = Number(item.labour.qualified.rate) || 0
+          const subtotal = hours * rate
+          output += `  - Qualified: ${hours} hrs @ $${rate.toFixed(2)}/hr = $${subtotal.toFixed(2)}\n`
+        }
+        if (item.labour.labourer) {
+          const hours = Number(item.labour.labourer.hours) || 0
+          const rate = Number(item.labour.labourer.rate) || 0
+          const subtotal = hours * rate
+          output += `  - Labourer: ${hours} hrs @ $${rate.toFixed(2)}/hr = $${subtotal.toFixed(2)}\n`
+        }
+      }
+      
+      // Format equipment if present
+      if (item.equipment) {
+        output += `- **Equipment:**\n`
+        if (item.equipment.airMovers) {
+          const qty = Number(item.equipment.airMovers.qty) || 0
+          const days = Number(item.equipment.airMovers.days) || 0
+          const rate = Number(item.equipment.airMovers.rate) || 0
+          const subtotal = qty * days * rate
+          output += `  - Air Movers: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`
+        }
+        if (item.equipment.dehumidifiers) {
+          const qty = Number(item.equipment.dehumidifiers.qty) || 0
+          const days = Number(item.equipment.dehumidifiers.days) || 0
+          const rate = Number(item.equipment.dehumidifiers.rate) || 0
+          const subtotal = qty * days * rate
+          output += `  - Dehumidifiers: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`
+        }
+        if (item.equipment.afd) {
+          const qty = Number(item.equipment.afd.qty) || 0
+          const days = Number(item.equipment.afd.days) || 0
+          const rate = Number(item.equipment.afd.rate) || 0
+          const subtotal = qty * days * rate
+          output += `  - AFD: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`
+        }
+        if (item.equipment.thermalCamera) {
+          const qty = Number(item.equipment.thermalCamera.qty) || 0
+          const rate = Number(item.equipment.thermalCamera.rate) || 0
+          const subtotal = qty * rate
+          output += `  - Thermal Camera: ${qty} assessments @ $${rate.toFixed(2)}/assessment = $${subtotal.toFixed(2)}\n`
+        }
+        if (item.equipment.injectionSystem) {
+          const qty = Number(item.equipment.injectionSystem.qty) || 0
+          const days = Number(item.equipment.injectionSystem.days) || 0
+          const rate = Number(item.equipment.injectionSystem.rate) || 0
+          const subtotal = qty * days * rate
+          output += `  - Injection Drying System: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`
+        }
+      }
+      
+      const subtotal = Number(item.subtotal) || 0
+      output += `- **Subtotal:** $${subtotal.toFixed(2)}\n\n`
+    })
+    return output
+  }
+
+  // Format licensed trades
+  const formatLicensedTrades = (trades: any[]) => {
+    if (!trades || trades.length === 0) {
+      return 'No licensed trades required for this scope.'
+    }
+    return trades.map((trade: any) => {
+      return `### ${trade.trade}
+- **Trigger:** ${trade.trigger}
+- **Scope:** ${trade.scope}
+- **Cost Status:** ${trade.costStatus}
+- **Timeline:** ${trade.timeline}
+`
+    }).join('\n')
+  }
+
+  // Build complete document
+  let document = `# PRELIMINARY SCOPE OF WORKS — NOT FINAL ESTIMATE
+
+Based on: Inspection Report ${scopeData.claimReference || 'Reference'}
+Date: ${scopeData.date}
+Version: ${scopeData.version}
+
+# SECTION 1: REMEDIATION PHASES
+
+## PHASE 1: Emergency Response & Stabilisation
+- **Duration:** Day 0–1
+- **Activities:** Site assessment, standing water extraction, initial equipment deployment, moisture/thermal imaging, site signage, client notification, authority notifications
+- **Deliverable:** Equipment operational; standing water removed
+
+## PHASE 2: Drying & Monitoring
+- **Duration:** Days 1–${scopeData.dryingDuration} (${scopeData.hasClass4Drying ? 'Class 4' : 'standard'})
+- **Activities:** Continuous equipment operation, daily moisture monitoring, thermal imaging, client check-ins, containment management, air quality monitoring
+- **Deliverable:** Moisture levels approaching acceptable
+
+## PHASE 3: Validation & Equipment Removal
+- **Duration:** Day ${scopeData.dryingDuration}–${scopeData.dryingDuration + 1}
+- **Activities:** Final moisture testing, visual inspection, certification, equipment collection, site cleanup, documentation
+- **Deliverable:** Restoration works complete
+
+## PHASE 4: Licensed Trades & Building Repairs (Outside Restoration Scope)
+- **Duration:** Variable
+- **Activities:** ${scopeData.licensedTrades.map((t: any) => t.trade).join(', ') || 'None required'}
+- **Deliverable:** Building code compliance; structural integrity restored
+
+## PHASE 5: Contents Restoration (If Applicable)
+- **Duration:** Variable
+- **Activities:** Carpet cleaning/replacement, furniture restoration, appliance testing, contents itemisation
+- **Deliverable:** Contents restored to pre-loss condition
+
+# SECTION 2: RESTORATION WORKS ONLY
+
+${formatLineItems(scopeData.lineItems)}
+
+# SECTION 3: LICENSED TRADES REQUIRED
+
+${formatLicensedTrades(scopeData.licensedTrades)}
+
+# SECTION 4: INSURANCE CLAIM BREAKDOWN
+
+## BUILDING CLAIM (Structural & Systems)
+- Water damage to structure
+- Restoration services
+${scopeData.hasClass4Drying ? '- Yellow tongue subfloor replacement (if beyond recovery)' : ''}
+${scopeData.licensedTrades.filter((t: any) => ['Plumbing', 'Electrical', 'Builder/Carpenter'].includes(t.trade)).map((t: any) => `- ${t.trade} repair/replacement`).join('\n') || ''}
+
+## CONTENTS CLAIM (Personal Property)
+- Carpets and flooring coverings
+- Furniture and textiles
+- Electrical appliances
+- Personal items
+
+## ADDITIONAL LIVING EXPENSES (if property uninhabitable)
+- Temporary accommodation
+- Meals and personal care
+- Storage for displaced contents
+
+# SECTION 5: COORDINATION AND SEQUENCING NOTES
+
+Critical sequencing information:
+${scopeData.licensedTrades.some((t: any) => t.trade === 'Plumbing') ? '- Plumbing must be completed BEFORE drying begins' : ''}
+${scopeData.licensedTrades.some((t: any) => t.trade === 'Electrical') ? '- Electrical clearance required BEFORE equipment activation' : ''}
+${scopeData.hasClass4Drying ? '- Class 4 drying: Specialist assessment takes priority' : ''}
+${scopeData.licensedTrades.some((t: any) => t.trade.includes('Mould')) ? '- Mould remediation: Work stops immediately; restoration resumes post-clearance' : ''}
+${scopeData.licensedTrades.some((t: any) => t.trade.includes('Asbestos')) ? '- Asbestos abatement: All work suspended; WorkSafe clearance mandatory' : ''}
+- Building repairs: May occur concurrently with final drying phase
+- Contents restoration: Final phase after building is dry
+
+# SECTION 6: CLIENT EDIT FIELDS
+
+Note: All line items, quantities, rates, and calculations can be edited by the admin before finalising. System maintains calculation formulas but allows manual override.
+`
+
+  return document
+}
+
+// Legacy function - kept for reference but not used
 function buildScopeOfWorksPrompt(scopeData: any): string {
   return `Generate a comprehensive Scope of Works document for RestoreAssist with the following structure:
 

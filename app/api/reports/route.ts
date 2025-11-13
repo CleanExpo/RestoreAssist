@@ -166,14 +166,6 @@ export async function POST(request: NextRequest) {
     // Generate detailed report using AI
     let detailedReport = null
     try {
-      console.log('Generating detailed report with AI...')
-      console.log('Report data:', {
-        title: body.title,
-        clientName: body.clientName,
-        waterCategory: body.waterCategory,
-        waterClass: body.waterClass
-      })
-      
       detailedReport = await generateDetailedReport({
         basicInfo: {
           title: body.title,
@@ -191,13 +183,7 @@ export async function POST(request: NextRequest) {
         monitoringData: body.monitoringData,
         insuranceData: body.insuranceData,
       })
-      console.log('Detailed report generated successfully, length:', detailedReport?.length)
     } catch (aiError) {
-      console.error('Error generating detailed report:', aiError)
-      console.error('AI Error details:', {
-        message: aiError instanceof Error ? aiError.message : 'Unknown error',
-        stack: aiError instanceof Error ? aiError.stack : undefined
-      })
       // Continue without detailed report - don't fail the entire process
     }
     

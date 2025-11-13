@@ -123,22 +123,41 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!costDocument) {
       toast.error('No cost estimation document to download')
       return
     }
 
-    const blob = new Blob([costDocument], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Cost-Estimation-${reportId}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success('Cost Estimation downloaded')
+    try {
+      const response = await fetch(`/api/reports/${reportId}/download-cost-estimation`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to download PDF')
+        return
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+      const filename = filenameMatch ? filenameMatch[1] : `Cost-Estimation-${reportId}.pdf`
+      
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Cost Estimation PDF downloaded')
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      toast.error('Failed to download PDF')
+    }
   }
 
   if (loading) {

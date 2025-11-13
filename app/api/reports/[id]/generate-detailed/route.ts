@@ -63,7 +63,7 @@ export async function POST(
         }
       }
     } catch (err) {
-      console.log("No scope found")
+      // No scope found - continue without it
     }
 
     // Fetch estimate with ALL fields including lineItems
@@ -86,7 +86,7 @@ export async function POST(
         }
       }
     } catch (err) {
-      console.log("No estimate found")
+      // No estimate found - continue without it
     }
 
     // Parse ALL JSON fields from report

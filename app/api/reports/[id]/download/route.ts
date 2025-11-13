@@ -78,7 +78,7 @@ export async function GET(
         }
       }
     } catch (err) {
-      console.log("No scope found")
+      // No scope found - continue without it
     }
 
     // Fetch estimate if exists - include ALL fields
@@ -155,7 +155,7 @@ export async function GET(
         }
       }
     } catch (err) {
-      console.log("No estimate found")
+      // No estimate found - continue without it
     }
 
     // Parse JSON fields

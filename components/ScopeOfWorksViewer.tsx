@@ -22,16 +22,19 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
     fetchReport()
   }, [reportId])
 
-  const fetchReport = async () => {
+  const fetchReport = async (skipDocumentUpdate = false) => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/reports/${reportId}`)
+      const response = await fetch(`/api/reports/${reportId}`, {
+        cache: 'no-store' // Prevent caching
+      })
       if (response.ok) {
         const data = await response.json()
         // API returns report directly, not wrapped in a 'report' object
         if (data && typeof data === 'object') {
           setReport(data)
-          if (data.scopeOfWorksDocument) {
+          // Only update document if we're not skipping (to avoid overwriting fresh data)
+          if (!skipDocumentUpdate && data.scopeOfWorksDocument) {
             setScopeDocument(data.scopeOfWorksDocument)
           }
           if (data.scopeOfWorksData) {
@@ -39,7 +42,6 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
             setScopeData(data.scopeOfWorksData)
           }
         } else {
-          console.error('Unexpected response structure:', data)
           toast.error('Failed to parse report data')
         }
       } else {
@@ -53,7 +55,6 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
         toast.error(errorMessage)
       }
     } catch (error) {
-      console.error('Error fetching report:', error)
       toast.error('Failed to load report')
     } finally {
       setLoading(false)
@@ -66,21 +67,34 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
       const response = await fetch('/api/reports/generate-scope-of-works', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId })
+        body: JSON.stringify({ reportId }),
+        cache: 'no-store' // Prevent caching
       })
 
       if (response.ok) {
         const data = await response.json()
+        
         if (data.scopeOfWorks && data.scopeOfWorks.document) {
-          setScopeDocument(data.scopeOfWorks.document)
+          // Use the document directly from the response
+          const freshDocument = data.scopeOfWorks.document
+          setScopeDocument(freshDocument)
           setScopeData(data.scopeOfWorks.data)
+          
+          // Also update report state with fresh data
+          if (data.report) {
+            setReport(data.report)
+          }
+          
           toast.success('Scope of Works generated successfully')
           if (onScopeGenerated) {
             onScopeGenerated()
           }
-          fetchReport()
+          
+          // Force a fresh fetch after a short delay, but skip document update to keep fresh data
+          setTimeout(() => {
+            fetchReport(true) // Skip document update to keep the fresh one we just set
+          }, 500)
         } else {
-          console.error('Unexpected response structure:', data)
           toast.error('Failed to parse scope of works response')
         }
       } else {
@@ -94,7 +108,6 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
         toast.error(errorMessage)
       }
     } catch (error) {
-      console.error('Error generating scope:', error)
       toast.error('Failed to generate scope of works')
     } finally {
       setGenerating(false)
@@ -119,27 +132,44 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
         toast.error('Failed to save scope of works')
       }
     } catch (error) {
-      console.error('Error saving scope:', error)
       toast.error('Failed to save scope of works')
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!scopeDocument) {
       toast.error('No scope document to download')
       return
     }
 
-    const blob = new Blob([scopeDocument], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Scope-of-Works-${reportId}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success('Scope of Works downloaded')
+    try {
+      const response = await fetch(`/api/reports/${reportId}/download-scope`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to download PDF')
+        return
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+      const filename = filenameMatch ? filenameMatch[1] : `Scope-of-Works-${reportId}.pdf`
+      
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Scope of Works PDF downloaded')
+    } catch (error) {
+      toast.error('Failed to download PDF')
+    }
   }
 
   if (loading) {

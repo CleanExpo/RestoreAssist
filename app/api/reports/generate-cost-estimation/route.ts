@@ -602,7 +602,6 @@ function buildCostEstimationDocument(costData: any): string {
         const hasHours = cat.lineItems.some((item: any) => item.hours)
         if (hasHours) {
           output += `| Description | Hours | Rate | Subtotal |\n`
-          output += `|-------------|-------|------|----------|\n`
           cat.lineItems.forEach((item: any) => {
             const hours = item.hours || 0
             const rate = item.rate || 0
@@ -611,7 +610,6 @@ function buildCostEstimationDocument(costData: any): string {
           })
         } else {
           output += `| Description | Qty | Rate | Subtotal |\n`
-          output += `|-------------|-----|------|----------|\n`
           cat.lineItems.forEach((item: any) => {
             const qty = item.qty || 1
             const rate = item.rate || 0

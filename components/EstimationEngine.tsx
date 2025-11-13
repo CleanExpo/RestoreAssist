@@ -157,13 +157,6 @@ export default function EstimationEngine({
           totalIncGST: initialEstimateData.totalIncGST !== undefined ? initialEstimateData.totalIncGST : 0
         }
         
-        console.log("Loading initial estimate data:", {
-          lineItemsCount: parsedData.lineItems.length,
-          hasLineItems: Array.isArray(initialEstimateData.lineItems),
-          initialLineItems: initialEstimateData.lineItems,
-          loadedLineItems: parsedData.lineItems
-        })
-        
         setEstimateData(parsedData)
         isInitialMount.current = false
       } catch (error) {

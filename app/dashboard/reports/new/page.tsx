@@ -17,7 +17,7 @@ export default function NewReportPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Create New Report</h1>
           <p className="text-slate-400">Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
-        </div>
+            </div>
 
         <ReportWorkflow onComplete={handleComplete} />
       </div>
