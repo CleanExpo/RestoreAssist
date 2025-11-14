@@ -120,8 +120,6 @@ Example:
           throw new Error('No JSON found in response')
         }
       } catch (parseError) {
-        console.error('Failed to parse Claude response:', parseError)
-        console.error('Raw response:', content.text)
         return NextResponse.json(
           { error: 'Failed to parse extracted data. Please try again.' },
           { status: 500 }
@@ -146,7 +144,6 @@ Example:
       })
 
     } catch (claudeError: any) {
-      console.error('Claude API error:', claudeError)
       return NextResponse.json(
         { error: `Claude API error: ${claudeError.message}` },
         { status: 500 }
@@ -154,7 +151,6 @@ Example:
     }
 
   } catch (error: any) {
-    console.error('Error in upload route:', error)
     return NextResponse.json(
       { error: `Failed to process PDF: ${error.message}` },
       { status: 500 }
