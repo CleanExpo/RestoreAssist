@@ -155,7 +155,10 @@ export async function PUT(
         
         // Phase 6 & 7: Scope of Works and Cost Estimation documents
         scopeOfWorksDocument: body.scopeOfWorksDocument !== undefined ? body.scopeOfWorksDocument : existingReport.scopeOfWorksDocument,
-        costEstimationDocument: body.costEstimationDocument !== undefined ? body.costEstimationDocument : existingReport.costEstimationDocument
+        costEstimationDocument: body.costEstimationDocument !== undefined ? body.costEstimationDocument : existingReport.costEstimationDocument,
+        
+        // Detailed Report (inspection report)
+        detailedReport: body.detailedReport !== undefined ? body.detailedReport : existingReport.detailedReport
       },
       include: {
         user: {

@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File must be a PDF' }, { status: 400 })
     }
 
-    // Convert PDF to base64
     const arrayBuffer = await file.arrayBuffer()
     const base64Data = Buffer.from(arrayBuffer).toString('base64')
 
@@ -105,14 +104,11 @@ Example:
         )
       }
 
-      // Extract JSON from response
       let parsedData: any = {}
       try {
-        // Remove markdown code blocks if present
         let jsonText = content.text.trim()
         jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
         
-        // Try to find JSON object
         const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           parsedData = JSON.parse(jsonMatch[0])

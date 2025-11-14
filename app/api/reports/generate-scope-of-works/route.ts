@@ -6,7 +6,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { tryClaudeModels } from '@/lib/anthropic-models'
 
-// POST - Generate Scope of Works document
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -33,7 +32,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get the complete report with all data
     const report = await prisma.report.findUnique({
       where: { id: reportId, userId: user.id }
     })
@@ -45,7 +43,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse all stored data
     const analysis = report.technicianReportAnalysis 
       ? JSON.parse(report.technicianReportAnalysis) 
       : null
@@ -59,7 +56,6 @@ export async function POST(request: NextRequest) {
       ? JSON.parse(report.tier3Responses) 
       : null
 
-    // Get pricing configuration
     const pricingConfig = user.pricingConfig
 
     if (!pricingConfig) {
@@ -69,11 +65,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Detect state
     const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
     const stateInfo = getStateInfo(stateCode)
 
-    // Get user's Anthropic API integration
     const integrations = await prisma.integration.findMany({
       where: {
         userId: user.id,
@@ -99,7 +93,6 @@ export async function POST(request: NextRequest) {
       apiKey: integration.apiKey
     })
 
-    // Build scope of works data structure
     const scopeData = buildScopeOfWorksData({
       report,
       analysis,
@@ -110,10 +103,8 @@ export async function POST(request: NextRequest) {
       stateInfo
     })
 
-    // Generate the document server-side with exact values
     const scopeDocument = buildScopeOfWorksDocument(scopeData)
 
-    // Save the generated document and data
     const updatedReport = await prisma.report.update({
       where: { id: reportId },
       data: {
@@ -123,21 +114,19 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Return the fresh document directly, not from database query
     return NextResponse.json({ 
       report: {
         ...updatedReport,
-        scopeOfWorksDocument: scopeDocument, // Return the fresh document we just generated
-        scopeOfWorksData: scopeData // Return parsed data, not stringified
+        scopeOfWorksDocument: scopeDocument,
+        scopeOfWorksData: scopeData
       },
       scopeOfWorks: {
-        document: scopeDocument, // Return the fresh document
+        document: scopeDocument,
         data: scopeData
       },
       message: 'Scope of Works generated successfully'
     })
   } catch (error) {
-    console.error('Error generating scope of works:', error)
     return NextResponse.json(
       { error: 'Failed to generate scope of works' },
       { status: 500 }
@@ -156,12 +145,10 @@ function buildScopeOfWorksData(data: {
 }) {
   const { report, analysis, tier1, tier2, tier3, pricingConfig, stateInfo } = data
 
-  // Validate pricing config and ensure all values are numbers
   if (!pricingConfig) {
     throw new Error('Pricing configuration is required')
   }
 
-  // Helper to ensure value is a number - convert to number and validate
   const ensureNumber = (value: any): number => {
     if (value === null || value === undefined || value === '') {
       return 0
@@ -173,7 +160,6 @@ function buildScopeOfWorksData(data: {
     return num
   }
 
-  // Ensure all pricing config values are numbers - use actual values from database
   const rates = {
     masterQualifiedNormalHours: ensureNumber(pricingConfig.masterQualifiedNormalHours),
     qualifiedTechnicianNormalHours: ensureNumber(pricingConfig.qualifiedTechnicianNormalHours),

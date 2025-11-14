@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Conversation is required" }, { status: 400 })
     }
 
-    // Get user's connected API integration
     const integrations = await prisma.integration.findMany({
       where: {
         userId: session.user.id,
@@ -28,7 +27,6 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Find Anthropic integration (check for both "Anthropic Claude" and "Anthropic API" for compatibility)
     const integration = integrations.find(i => 
       i.name === "Anthropic Claude" || 
       i.name === "Anthropic API" ||
@@ -49,17 +47,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Build conversation context
     const conversationHistory = conversation.map((msg: any) => ({
       role: msg.role === "user" ? "user" : "assistant",
       content: msg.content
     }))
 
-    // Determine if we have enough information
     const lastUserMessage = conversation[conversation.length - 1]?.content || ""
     const conversationLength = conversation.length
 
-    // Generate follow-up question using Anthropic Claude
     let question = ""
     let isComplete = false
 
@@ -108,7 +103,7 @@ Example responses:
       }))
 
       const { tryClaudeModels } = await import('@/lib/anthropic-models')
-
+      
       const message = await tryClaudeModels(
         anthropic,
         {
@@ -137,7 +132,6 @@ Example responses:
         isComplete = conversationLength >= 6 // Auto-complete after 6 exchanges
       }
 
-      // Auto-complete logic: if we have enough exchanges, mark as complete
       if (!isComplete && conversationLength >= 8) {
         isComplete = true
         question = question || "Thank you for providing all the information. A technician will review your case and contact you soon."
@@ -149,24 +143,19 @@ Example responses:
         integrationUsed: "Anthropic API"
       })
     } catch (apiError: any) {
-      
-      // If 404, the tryClaudeModels utility already tried all models, so just return error
       if (apiError.status === 404) {
-        // The utility already tried all models, so we just return the error
-            return NextResponse.json({
+        return NextResponse.json({
           error: "Failed to connect to Anthropic API. Please check your API key and try again.",
           details: apiError.message
         }, { status: 500 })
-        }
+      }
         
-      // For other errors, return the error
       return NextResponse.json({
         error: "Failed to generate question. Please check your API key and try again.",
         details: apiError.message
       }, { status: 500 })
     }
   } catch (error: any) {
-    console.error("Error generating question:", error)
     return NextResponse.json(
       { error: error.message || "Failed to generate question" },
       { status: 500 }

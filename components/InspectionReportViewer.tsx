@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Download, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { FileText, Download, Loader2, AlertCircle, CheckCircle, Edit, Save } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
@@ -15,6 +15,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [report, setReport] = useState<any>(null)
   const [reportContent, setReportContent] = useState<string>('')
 
@@ -35,7 +36,6 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
             setReportContent(data.detailedReport)
           }
         } else {
-          console.error('Unexpected response structure:', data)
           toast.error('Failed to parse report data')
         }
       } else {
@@ -49,7 +49,6 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
         toast.error(errorMessage)
       }
     } catch (error) {
-      console.error('Error fetching report:', error)
       toast.error('Failed to load report')
     } finally {
       setLoading(false)
@@ -76,7 +75,6 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           // Refresh report data
           fetchReport()
         } else {
-          console.error('Unexpected response structure:', data)
           toast.error('Failed to parse report response')
         }
       } else {
@@ -90,7 +88,6 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
         toast.error(errorMessage)
       }
     } catch (error) {
-      console.error('Error generating report:', error)
       toast.error('Failed to generate report')
     } finally {
       setGenerating(false)
@@ -129,8 +126,34 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
       URL.revokeObjectURL(url)
       toast.success('Inspection Report PDF downloaded')
     } catch (error) {
-      console.error('Error downloading PDF:', error)
       toast.error('Failed to download PDF')
+    }
+  }
+
+  const handleSave = async () => {
+    if (!reportContent) {
+      toast.error('No report content to save')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/reports/${reportId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          detailedReport: reportContent
+        })
+      })
+
+      if (response.ok) {
+        toast.success('Report saved successfully')
+        setEditing(false)
+        fetchReport() // Refresh report data
+      } else {
+        toast.error('Failed to save report')
+      }
+    } catch (error) {
+      toast.error('Failed to save report')
     }
   }
 
@@ -157,13 +180,31 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
         </div>
         <div className="flex gap-2">
           {reportContent && (
+            <>
+              <button
+                onClick={() => setEditing(!editing)}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                {editing ? 'Cancel Edit' : 'Edit'}
+              </button>
+              {editing && (
+                <button
+                  onClick={handleSave}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  <Save className="w-4 h-4" />
+                  Save
+                </button>
+              )}
             <button
               onClick={handleDownload}
               className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download
+                Download PDF
             </button>
+            </>
           )}
         </div>
       </div>
@@ -221,7 +262,18 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           </div>
 
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+            {editing ? (
+              <div className="p-6">
+                <textarea
+                  value={reportContent}
+                  onChange={(e) => setReportContent(e.target.value)}
+                  rows={30}
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
+                />
+              </div>
+            ) : (
             <ProfessionalDocumentViewer content={reportContent} />
+            )}
           </div>
 
           {/* Regenerate Option */}

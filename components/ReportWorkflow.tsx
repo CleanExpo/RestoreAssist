@@ -21,9 +21,20 @@ type WorkflowStage =
 interface ReportWorkflowProps {
   reportId?: string
   onComplete?: () => void
+  initialFormData?: {
+    clientName?: string
+    clientContactDetails?: string
+    propertyAddress?: string
+    propertyPostcode?: string
+    claimReferenceNumber?: string
+    incidentDate?: string
+    technicianAttendanceDate?: string
+    technicianName?: string
+    technicianFieldReport?: string
+  }
 }
 
-export default function ReportWorkflow({ reportId: initialReportId, onComplete }: ReportWorkflowProps) {
+export default function ReportWorkflow({ reportId: initialReportId, onComplete, initialFormData }: ReportWorkflowProps) {
   const router = useRouter()
   const [currentStage, setCurrentStage] = useState<WorkflowStage>(initialReportId ? 'analysis-choice' : 'initial-entry')
   const [reportId, setReportId] = useState<string | null>(initialReportId || null)
@@ -135,7 +146,10 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete }
 
       {/* Stage Content */}
       {currentStage === 'initial-entry' && (
-        <InitialDataEntryForm onSuccess={handleInitialEntryComplete} />
+        <InitialDataEntryForm 
+          onSuccess={handleInitialEntryComplete}
+          initialData={initialFormData}
+        />
       )}
 
       {currentStage === 'analysis-choice' && reportId && (

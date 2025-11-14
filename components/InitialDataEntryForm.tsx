@@ -1,28 +1,115 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileText, Calendar, MapPin, User, Phone, Mail, Save, ArrowRight } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 
 interface InitialDataEntryFormProps {
   onSuccess?: (reportId: string) => void
+  initialData?: {
+    clientName?: string
+    clientContactDetails?: string
+    propertyAddress?: string
+    propertyPostcode?: string
+    claimReferenceNumber?: string
+    incidentDate?: string
+    technicianAttendanceDate?: string
+    technicianName?: string
+    technicianFieldReport?: string
+  }
 }
 
-export default function InitialDataEntryForm({ onSuccess }: InitialDataEntryFormProps) {
+// Helper function to normalize date strings to YYYY-MM-DD format
+function normalizeDate(dateStr: string): string {
+  if (!dateStr) return ''
+  
+  // If already in YYYY-MM-DD format, return as is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr
+  }
+  
+  // Try to parse various date formats
+  const formats = [
+    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/, // DD/MM/YYYY or DD-MM-YYYY
+    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/, // YYYY/MM/DD or YYYY-MM-DD
+    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})/, // DD/MM/YY or DD-MM-YY
+  ]
+  
+  for (const format of formats) {
+    const match = dateStr.match(format)
+    if (match) {
+      let year, month, day
+      
+      if (match[3].length === 4) {
+        // Full year
+        if (format === formats[0]) {
+          // DD/MM/YYYY
+          day = match[1].padStart(2, '0')
+          month = match[2].padStart(2, '0')
+          year = match[3]
+        } else {
+          // YYYY/MM/DD
+          year = match[1]
+          month = match[2].padStart(2, '0')
+          day = match[3].padStart(2, '0')
+        }
+      } else {
+        // 2-digit year
+        day = match[1].padStart(2, '0')
+        month = match[2].padStart(2, '0')
+        const twoDigitYear = parseInt(match[3])
+        year = twoDigitYear > 50 ? `19${match[3]}` : `20${match[3]}`
+      }
+      
+      return `${year}-${month}-${day}`
+    }
+  }
+  
+  // If we can't parse it, try using Date object
+  try {
+    const date = new Date(dateStr)
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0]
+    }
+  } catch (e) {
+    // Ignore parsing errors
+  }
+  
+  return ''
+}
+
+export default function InitialDataEntryForm({ onSuccess, initialData }: InitialDataEntryFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    clientName: '',
-    clientContactDetails: '',
-    propertyAddress: '',
-    propertyPostcode: '',
-    claimReferenceNumber: '',
-    incidentDate: '',
-    technicianAttendanceDate: '',
-    technicianName: '',
-    technicianFieldReport: ''
+    clientName: initialData?.clientName || '',
+    clientContactDetails: initialData?.clientContactDetails || '',
+    propertyAddress: initialData?.propertyAddress || '',
+    propertyPostcode: initialData?.propertyPostcode || '',
+    claimReferenceNumber: initialData?.claimReferenceNumber || '',
+    incidentDate: normalizeDate(initialData?.incidentDate || ''),
+    technicianAttendanceDate: normalizeDate(initialData?.technicianAttendanceDate || ''),
+    technicianName: initialData?.technicianName || '',
+    technicianFieldReport: initialData?.technicianFieldReport || ''
   })
+
+  // Update form when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        clientName: initialData.clientName || '',
+        clientContactDetails: initialData.clientContactDetails || '',
+        propertyAddress: initialData.propertyAddress || '',
+        propertyPostcode: initialData.propertyPostcode || '',
+        claimReferenceNumber: initialData.claimReferenceNumber || '',
+        incidentDate: normalizeDate(initialData.incidentDate || ''),
+        technicianAttendanceDate: normalizeDate(initialData.technicianAttendanceDate || ''),
+        technicianName: initialData.technicianName || '',
+        technicianFieldReport: initialData.technicianFieldReport || ''
+      })
+    }
+  }, [initialData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
