@@ -79,6 +79,34 @@ export async function POST(request: NextRequest) {
     // Initialize Anthropic API client
     const anthropic = new Anthropic({ apiKey: integration.apiKey })
 
+    // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
+    let standardsContext = ''
+    try {
+      console.log('[Generate Enhanced Report] Starting standards retrieval from Google Drive...')
+      const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
+      
+      // Determine report type from technician notes
+      const reportType = determineReportType(technicianNotes)
+      console.log(`[Generate Enhanced Report] Determined report type: ${reportType}`)
+      
+      const retrievalQuery = {
+        reportType,
+        keywords: extractKeywords(technicianNotes),
+        materials: extractMaterials(technicianNotes),
+        technicianNotes: technicianNotes.substring(0, 1000),
+      }
+      
+      // Use the user's Anthropic API key to retrieve and analyze standards
+      console.log('[Generate Enhanced Report] Retrieving standards from Google Drive...')
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
+      console.log(`[Generate Enhanced Report] Retrieved ${retrievedStandards.documents.length} standards documents`)
+      standardsContext = buildStandardsContextPrompt(retrievedStandards)
+      console.log(`[Generate Enhanced Report] Standards context length: ${standardsContext.length} characters`)
+    } catch (error: any) {
+      console.error('[Generate Enhanced Report] Error retrieving standards from Google Drive:', error.message)
+      // Error retrieving standards from Google Drive (continuing without)
+    }
+
     // Build conversation context if available
     let conversationContext = ""
     if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
@@ -109,6 +137,8 @@ ${technicianNotes}
 
 ${conversationContext}
 ${photos && photos.length > 0 ? `Photos: ${photos.length} photos attached` : ''}
+
+${standardsContext}
 
 CRITICAL REQUIREMENTS - You MUST explicitly reference and comply with:
 

@@ -88,6 +88,48 @@ export async function POST(request: NextRequest) {
       apiKey: integration.apiKey
     })
 
+    // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
+    let standardsContext = ''
+    try {
+      console.log('[Generate Inspection Report] Starting standards retrieval from Google Drive...')
+      const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
+      
+      // Determine report type
+      const retrievalReportType = reportType === 'mould' ? 'mould' : 
+                                 reportType === 'fire' ? 'fire' : 
+                                 reportType === 'commercial' ? 'commercial' : 'water'
+      
+      console.log(`[Generate Inspection Report] Report type: ${retrievalReportType}`)
+      
+      const retrievalQuery = {
+        reportType: retrievalReportType,
+        waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
+        keywords: [
+          report.waterCategory ? `Category ${report.waterCategory}` : '',
+          report.waterClass ? `Class ${report.waterClass}` : '',
+        ].filter(Boolean),
+        materials: extractMaterialsFromReport(report),
+        technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
+      }
+      
+      console.log('[Generate Inspection Report] Retrieving standards from Google Drive folder...')
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
+      console.log(`[Generate Inspection Report] Retrieved ${retrievedStandards.documents.length} standards documents`)
+      
+      standardsContext = buildStandardsContextPrompt(retrievedStandards)
+      console.log(`[Generate Inspection Report] Standards context length: ${standardsContext.length} characters`)
+      
+      if (standardsContext.length > 0) {
+        console.log('[Generate Inspection Report] ✅ Successfully retrieved standards from Google Drive')
+      } else {
+        console.log('[Generate Inspection Report] ⚠️ No standards context generated (folder may be empty or no relevant files found)')
+      }
+    } catch (error: any) {
+      console.error('[Generate Inspection Report] ❌ Error retrieving standards from Google Drive:', error.message)
+      console.error('[Generate Inspection Report] Error stack:', error.stack)
+      // Continue without standards - report will use general knowledge
+    }
+
     // Build comprehensive prompt for all 13 sections
     const prompt = buildInspectionReportPrompt({
       report,
@@ -96,7 +138,8 @@ export async function POST(request: NextRequest) {
       tier2,
       tier3,
       stateInfo,
-      reportType
+      reportType,
+      standardsContext
     })
 
     const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report. Always use the actual information provided - NEVER use placeholder text or "[Redacted for Privacy]".`
@@ -168,8 +211,16 @@ function buildInspectionReportPrompt(data: {
   tier3: any
   stateInfo: any
   reportType: string
+  standardsContext?: string
 }): string {
-  const { report, analysis, tier1, tier2, tier3, stateInfo, reportType } = data
+  const { report, analysis, tier1, tier2, tier3, stateInfo, reportType, standardsContext } = data
+  
+  // Log if standards context is provided
+  if (standardsContext && standardsContext.length > 0) {
+    console.log(`[Build Prompt] Including standards context (${standardsContext.length} characters)`)
+  } else {
+    console.log('[Build Prompt] No standards context provided - using general knowledge only')
+  }
 
   // Extract water category from tier1 or analysis
   const waterCategory = tier1?.T1_Q3_waterSource 
@@ -319,7 +370,13 @@ ${stateRegulatoryText}
 ## Technician Field Report
 ${report.technicianFieldReport || 'Not provided'}
 
+${standardsContext ? standardsContext + '\n\n' : ''}
+
 # REPORT STRUCTURE REQUIREMENTS
+
+${standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
+
+${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
 
 Generate a comprehensive Professional Inspection Report with ALL of the following 13 sections:
 
@@ -433,6 +490,52 @@ ${stateInfo ? `Use state-specific authorities:
 10. Make it comprehensive and professional
 
 Generate the complete report now.`
+}
+
+function extractMaterialsFromReport(report: any): string[] {
+  const materials: string[] = []
+  
+  // Extract from tier1Responses
+  if (report.tier1Responses) {
+    try {
+      const tier1 = JSON.parse(report.tier1Responses)
+      if (tier1.T1_Q6_materialsAffected && Array.isArray(tier1.T1_Q6_materialsAffected)) {
+        materials.push(...tier1.T1_Q6_materialsAffected)
+      }
+    } catch (error) {
+      // Invalid JSON, skip
+    }
+  }
+  
+  // Extract from technicianReportAnalysis
+  if (report.technicianReportAnalysis) {
+    try {
+      const analysis = JSON.parse(report.technicianReportAnalysis)
+      if (analysis.materialsAffected && Array.isArray(analysis.materialsAffected)) {
+        materials.push(...analysis.materialsAffected)
+      }
+    } catch (error) {
+      // Invalid JSON, skip
+    }
+  }
+  
+  // Extract from technicianFieldReport text
+  if (report.technicianFieldReport) {
+    const lowerNotes = report.technicianFieldReport.toLowerCase()
+    const materialKeywords = [
+      'timber', 'wood', 'carpet', 'plasterboard', 'gyprock', 'concrete',
+      'particleboard', 'yellow tongue', 'floating floor', 'tiles', 'vinyl',
+      'drywall', 'insulation', 'ceiling', 'flooring', 'subfloor'
+    ]
+    
+    materialKeywords.forEach(material => {
+      if (lowerNotes.includes(material) && !materials.includes(material)) {
+        materials.push(material)
+      }
+    })
+  }
+  
+  return [...new Set(materials)] // Deduplicate
 }
 
 function extractWaterCategory(waterSource: string): string {
