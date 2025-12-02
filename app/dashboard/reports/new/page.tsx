@@ -1,19 +1,76 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Upload, FileText, Loader2, X, CheckCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
 
 export default function NewReportPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [uploading, setUploading] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [uploadedData, setUploadedData] = useState<any>(null)
   const [fileName, setFileName] = useState<string>('')
+  const [reportId, setReportId] = useState<string | null>(null)
+  const [loadingReport, setLoadingReport] = useState(false)
+
+  // Check for reportId in URL or localStorage on mount
+  useEffect(() => {
+    const urlReportId = searchParams.get('reportId')
+    const storedReportId = typeof window !== 'undefined' ? localStorage.getItem('currentReportId') : null
+    
+    if (urlReportId) {
+      setReportId(urlReportId)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('currentReportId', urlReportId)
+      }
+      loadReportData(urlReportId)
+    } else if (storedReportId) {
+      setReportId(storedReportId)
+      loadReportData(storedReportId)
+    }
+  }, [searchParams])
+
+  const loadReportData = async (id: string) => {
+    setLoadingReport(true)
+    try {
+      const response = await fetch(`/api/reports/${id}`)
+      if (response.ok) {
+        const reportData = await response.json()
+        // Set initial form data from report
+        setUploadedData({
+          clientName: reportData.clientName,
+          clientContactDetails: reportData.clientContactDetails,
+          propertyAddress: reportData.propertyAddress,
+          propertyPostcode: reportData.propertyPostcode,
+          claimReferenceNumber: reportData.claimReferenceNumber,
+          incidentDate: reportData.incidentDate ? new Date(reportData.incidentDate).toISOString().split('T')[0] : '',
+          technicianAttendanceDate: reportData.technicianAttendanceDate ? new Date(reportData.technicianAttendanceDate).toISOString().split('T')[0] : '',
+          technicianName: reportData.technicianName,
+          technicianFieldReport: reportData.technicianFieldReport,
+        })
+        toast.success('Report data loaded')
+      } else {
+        // Report not found, clear localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('currentReportId')
+        }
+        setReportId(null)
+      }
+    } catch (error) {
+      console.error('Error loading report:', error)
+    } finally {
+      setLoadingReport(false)
+    }
+  }
 
   const handleComplete = () => {
+    // Clear localStorage when report is complete
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentReportId')
+    }
     router.push("/dashboard/reports")
   }
 
@@ -170,10 +227,17 @@ export default function NewReportPage() {
           </div>
         </div>
 
+        {loadingReport ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+          </div>
+        ) : (
         <ReportWorkflow 
+            reportId={reportId || undefined}
           onComplete={handleComplete}
           initialFormData={uploadedData || undefined}
         />
+        )}
       </div>
     </div>
   )

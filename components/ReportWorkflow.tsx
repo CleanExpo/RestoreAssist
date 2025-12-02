@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import InitialDataEntryForm from "./InitialDataEntryForm"
 import ReportAnalysisChoice from "./ReportAnalysisChoice"
+import EquipmentToolsSelection from "./EquipmentToolsSelection"
 import Tier1Questions from "./Tier1Questions"
 import Tier2Questions from "./Tier2Questions"
 import Tier3Questions from "./Tier3Questions"
@@ -12,6 +13,7 @@ import { ArrowRight, CheckCircle } from "lucide-react"
 
 type WorkflowStage = 
   | 'initial-entry'
+  | 'equipment-tools'
   | 'analysis-choice'
   | 'tier1'
   | 'tier2'
@@ -40,9 +42,70 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
   const [reportId, setReportId] = useState<string | null>(initialReportId || null)
   const [reportType, setReportType] = useState<'basic' | 'enhanced' | null>(null)
   const [showTier3, setShowTier3] = useState(false)
+  const [loading, setLoading] = useState(!!initialReportId)
+
+  // Load report data and determine current stage
+  useEffect(() => {
+    if (initialReportId) {
+      loadReportState(initialReportId)
+    }
+  }, [initialReportId])
+
+  const loadReportState = async (id: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/reports/${id}`)
+      if (response.ok) {
+        const report = await response.json()
+        
+        // Determine report type
+        if (report.reportDepthLevel) {
+          setReportType(report.reportDepthLevel.toLowerCase() as 'basic' | 'enhanced')
+        }
+        
+        // Determine current stage based on what data exists
+        if (report.detailedReport) {
+          setCurrentStage('report-generation')
+        } else if (report.tier3Responses) {
+          setCurrentStage('report-generation')
+          setShowTier3(true)
+        } else if (report.tier2Responses) {
+          setCurrentStage('report-generation')
+          setShowTier3(true)
+        } else if (report.tier1Responses) {
+          setCurrentStage('tier2')
+        } else if (report.technicianReportAnalysis || report.reportDepthLevel) {
+          setCurrentStage('tier1')
+        } else if (report.psychrometricAssessment || report.equipmentSelection) {
+          setCurrentStage('analysis-choice')
+        } else if (report.technicianFieldReport) {
+          setCurrentStage('equipment-tools')
+        } else {
+          setCurrentStage('initial-entry')
+        }
+        
+        // Store reportId in localStorage for persistence
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('currentReportId', id)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading report state:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInitialEntryComplete = (newReportId: string) => {
     setReportId(newReportId)
+    // Store in localStorage for persistence
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentReportId', newReportId)
+    }
+    setCurrentStage('equipment-tools')
+  }
+  
+  const handleEquipmentToolsComplete = () => {
     setCurrentStage('analysis-choice')
   }
 
@@ -96,16 +159,25 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
   // Progress indicator
   const stages = [
     { id: 'initial-entry', label: 'Initial Entry', completed: currentStage !== 'initial-entry' },
-    { id: 'analysis-choice', label: 'Analysis', completed: currentStage !== 'initial-entry' && currentStage !== 'analysis-choice' },
-    { id: 'tier1', label: 'Tier 1', completed: reportType === 'enhanced' && currentStage !== 'tier1' && currentStage !== 'analysis-choice' && currentStage !== 'initial-entry' },
+    { id: 'equipment-tools', label: 'Equipment', completed: currentStage !== 'initial-entry' && currentStage !== 'equipment-tools' },
+    { id: 'analysis-choice', label: 'Analysis', completed: currentStage !== 'initial-entry' && currentStage !== 'equipment-tools' && currentStage !== 'analysis-choice' },
+    { id: 'tier1', label: 'Tier 1', completed: reportType === 'enhanced' && currentStage !== 'tier1' && currentStage !== 'analysis-choice' && currentStage !== 'equipment-tools' && currentStage !== 'initial-entry' },
     { id: 'tier2', label: 'Tier 2', completed: reportType === 'enhanced' && (currentStage === 'tier3' || currentStage === 'report-generation') },
     { id: 'tier3', label: 'Tier 3', completed: reportType === 'enhanced' && currentStage === 'report-generation' && showTier3 },
     { id: 'report-generation', label: 'Report', completed: false }
   ]
 
   const visibleStages = reportType === 'basic' 
-    ? stages.filter(s => s.id === 'initial-entry' || s.id === 'analysis-choice' || s.id === 'report-generation')
+    ? stages.filter(s => s.id === 'initial-entry' || s.id === 'equipment-tools' || s.id === 'analysis-choice' || s.id === 'report-generation')
     : stages
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -149,6 +221,13 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
         <InitialDataEntryForm 
           onSuccess={handleInitialEntryComplete}
           initialData={initialFormData}
+        />
+      )}
+
+      {currentStage === 'equipment-tools' && reportId && (
+        <EquipmentToolsSelection
+          reportId={reportId}
+          onComplete={handleEquipmentToolsComplete}
         />
       )}
 

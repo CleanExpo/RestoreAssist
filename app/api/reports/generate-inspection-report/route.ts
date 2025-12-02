@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { tryClaudeModels } from '@/lib/anthropic-models'
+import { getEquipmentGroupById } from '@/lib/equipment-matrix'
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -56,6 +57,15 @@ export async function POST(request: NextRequest) {
       : null
     const tier3 = report.tier3Responses 
       ? JSON.parse(report.tier3Responses) 
+      : null
+    const psychrometricAssessment = report.psychrometricAssessment
+      ? JSON.parse(report.psychrometricAssessment)
+      : null
+    const scopeAreas = report.scopeAreas
+      ? JSON.parse(report.scopeAreas)
+      : null
+    const equipmentSelection = report.equipmentSelection
+      ? JSON.parse(report.equipmentSelection)
       : null
 
     // Detect state from postcode
@@ -129,7 +139,7 @@ export async function POST(request: NextRequest) {
       console.error('[Generate Inspection Report] Error stack:', error.stack)
       // Continue without standards - report will use general knowledge
     }
-
+    
     // Build comprehensive prompt for all 13 sections
     const prompt = buildInspectionReportPrompt({
       report,
@@ -139,10 +149,21 @@ export async function POST(request: NextRequest) {
       tier3,
       stateInfo,
       reportType,
-      standardsContext
+      standardsContext,
+      psychrometricAssessment,
+      scopeAreas,
+      equipmentSelection
     })
 
-    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report. Always use the actual information provided - NEVER use placeholder text or "[Redacted for Privacy]".`
+    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
+
+CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
+- Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
+- Make up or invent information that is not in the provided data
+- Include sections for which no data was provided
+- Use dummy or default values
+
+Only include information that is explicitly provided in the REPORT DATA section. If a field is not provided, do not mention it in the report.`
 
     // Generate report using utility with fallback models
     const response = await tryClaudeModels(
@@ -212,8 +233,11 @@ function buildInspectionReportPrompt(data: {
   stateInfo: any
   reportType: string
   standardsContext?: string
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
+  equipmentSelection?: any[]
 }): string {
-  const { report, analysis, tier1, tier2, tier3, stateInfo, reportType, standardsContext } = data
+  const { report, analysis, tier1, tier2, tier3, stateInfo, reportType, standardsContext, psychrometricAssessment, scopeAreas, equipmentSelection } = data
   
   // Log if standards context is provided
   if (standardsContext && standardsContext.length > 0) {
@@ -222,10 +246,10 @@ function buildInspectionReportPrompt(data: {
     console.log('[Build Prompt] No standards context provided - using general knowledge only')
   }
 
-  // Extract water category from tier1 or analysis
+  // Extract water category from tier1 or analysis (only if exists)
   const waterCategory = tier1?.T1_Q3_waterSource 
     ? extractWaterCategory(tier1.T1_Q3_waterSource)
-    : (analysis?.waterCategory || 'Not specified')
+    : (analysis?.waterCategory || null)
 
   // Extract hazards from tier1
   const hazards = tier1?.T1_Q7_hazards || []
@@ -234,58 +258,58 @@ function buildInspectionReportPrompt(data: {
   // Extract materials from tier1
   const materials = tier1?.T1_Q6_materialsAffected || []
 
-  // Extract occupancy info
-  const occupancyStatus = tier1?.T1_Q4_occupancyStatus || 'Unknown'
-  const petsPresent = tier1?.T1_Q4_petsPresent || ''
-  const isOccupied = occupancyStatus.includes('Occupied')
-  const hasVulnerablePersons = occupancyStatus.includes('children') || 
+  // Extract occupancy info (only if exists)
+  const occupancyStatus = tier1?.T1_Q4_occupancyStatus || null
+  const petsPresent = tier1?.T1_Q4_petsPresent || null
+  const isOccupied = occupancyStatus ? occupancyStatus.includes('Occupied') : false
+  const hasVulnerablePersons = occupancyStatus ? (occupancyStatus.includes('children') || 
                                occupancyStatus.includes('elderly') || 
                                occupancyStatus.includes('respiratory') || 
-                               occupancyStatus.includes('disability')
+                               occupancyStatus.includes('disability')) : false
 
-  // Extract water duration
-  const waterDuration = tier1?.T1_Q8_waterDuration || 'Unknown'
+  // Extract water duration (only if exists)
+  const waterDuration = tier1?.T1_Q8_waterDuration || null
 
-  // Extract affected areas
-  const affectedAreas = tier1?.T1_Q5_roomsAffected || analysis?.affectedAreas?.join(', ') || 'Not specified'
+  // Extract affected areas (only if exists)
+  const affectedAreas = tier1?.T1_Q5_roomsAffected || analysis?.affectedAreas?.join(', ') || null
 
-  // Extract equipment from tier2 or analysis
+  // Extract equipment from tier2 or analysis (only if exists)
   const equipmentDeployed = tier2?.T2_Q3_equipmentDeployed || 
                             analysis?.equipmentDeployed?.join(', ') || 
-                            'Not specified'
+                            null
 
-  // Extract moisture readings
-  const moistureReadings = tier2?.T2_Q1_moistureReadings || 'Not provided'
+  // Extract moisture readings (only if exists)
+  const moistureReadings = tier2?.T2_Q1_moistureReadings || null
 
-  // Extract water migration pattern
-  const waterMigration = tier2?.T2_Q2_waterMigrationPattern || 'Not provided'
+  // Extract water migration pattern (only if exists)
+  const waterMigration = tier2?.T2_Q2_waterMigrationPattern || null
 
-  // Extract affected contents
-  const affectedContents = tier2?.T2_Q4_affectedContents || 'Not provided'
+  // Extract affected contents (only if exists)
+  const affectedContents = tier2?.T2_Q4_affectedContents || null
 
-  // Extract structural concerns
+  // Extract structural concerns (only if exists)
   const structuralConcerns = tier2?.T2_Q5_structuralConcerns || []
 
-  // Extract building services affected
+  // Extract building services affected (only if exists)
   const buildingServices = tier2?.T2_Q6_buildingServicesAffected || []
 
-  // Extract insurance considerations
-  const insuranceConsiderations = tier2?.T2_Q7_insuranceConsiderations || 'Not provided'
+  // Extract insurance considerations (only if exists)
+  const insuranceConsiderations = tier2?.T2_Q7_insuranceConsiderations || null
 
-  // Extract timeline requirements
-  const timelineRequirements = tier3?.T3_Q1_timelineRequirements || 'No specific deadline'
+  // Extract timeline requirements (only if exists)
+  const timelineRequirements = tier3?.T3_Q1_timelineRequirements || null
 
-  // Extract drying preferences
-  const dryingPreferences = tier3?.T3_Q2_dryingPreferences || 'Balanced'
+  // Extract drying preferences (only if exists)
+  const dryingPreferences = tier3?.T3_Q2_dryingPreferences || null
 
-  // Extract chemical treatment
-  const chemicalTreatment = tier3?.T3_Q3_chemicalTreatment || 'Standard antimicrobial treatment'
+  // Extract chemical treatment (only if exists)
+  const chemicalTreatment = tier3?.T3_Q3_chemicalTreatment || null
 
-  // Extract total affected area
-  const totalAffectedArea = tier3?.T3_Q4_totalAffectedArea || 'Not specified'
+  // Extract total affected area (only if exists)
+  const totalAffectedArea = tier3?.T3_Q4_totalAffectedArea || null
 
-  // Extract class 4 drying assessment
-  const class4Drying = tier3?.T3_Q5_class4DryingAssessment || 'Uncertain'
+  // Extract class 4 drying assessment (only if exists)
+  const class4Drying = tier3?.T3_Q5_class4DryingAssessment || null
 
   // Build state-specific regulatory text
   const stateRegulatoryText = stateInfo 
@@ -298,77 +322,117 @@ WHS Act: ${stateInfo.whsAct}
 EPA Act: ${stateInfo.epaAct}`
     : 'State information not available (postcode required)'
 
+  // Calculate total amps from equipment selection (only if equipment exists)
+  const totalAmps = equipmentSelection && equipmentSelection.length > 0
+    ? equipmentSelection.reduce((total: number, sel: any) => {
+        const group = getEquipmentGroupById(sel.groupId)
+        return total + (group?.amps || 0) * sel.quantity
+      }, 0).toFixed(1)
+    : null
+
   return `Generate a comprehensive Professional Inspection Report for RestoreAssist with the following structure. This is a ${reportType === 'basic' ? 'BASIC' : 'ENHANCED'} report.
 
 # REPORT DATA
 
 ## Cover Page Information
 - Report Title: RestoreAssist Inspection Report
-- Claim Reference: ${report.claimReferenceNumber || report.reportNumber || 'Not provided'}
+${report.claimReferenceNumber || report.reportNumber ? `- Claim Reference: ${report.claimReferenceNumber || report.reportNumber}` : ''}
 - Date Generated: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}
 - Property Address: ${report.propertyAddress}
-- Postcode: ${report.propertyPostcode || 'Not provided'}
+${report.propertyPostcode ? `- Postcode: ${report.propertyPostcode}` : ''}
 - Client Name: ${report.clientName}
-- Client Contact: ${report.clientContactDetails || 'Not provided'}
-- Technician Name: ${report.technicianName || 'Not provided'}
+${report.clientContactDetails ? `- Client Contact: ${report.clientContactDetails}` : ''}
+${report.technicianName ? `- Technician Name: ${report.technicianName}` : ''}
 - Report Depth Level: ${report.reportDepthLevel || (reportType === 'basic' ? 'Basic' : 'Enhanced')}
 - Version: ${report.reportVersion || 1}
 
 ## Incident Information
-- Date of Loss: ${report.incidentDate ? new Date(report.incidentDate).toLocaleDateString('en-AU') : 'Not provided'}
-- Technician Attendance Date: ${report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU') : 'Not provided'}
-- Water Source: ${tier1?.T1_Q3_waterSource || analysis?.waterSource || 'Not specified'}
-- Water Category: ${waterCategory}
-- Water Duration: ${waterDuration}
+${report.incidentDate ? `- Date of Loss: ${new Date(report.incidentDate).toLocaleDateString('en-AU')}` : ''}
+${report.technicianAttendanceDate ? `- Technician Attendance Date: ${new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU')}` : ''}
+${tier1?.T1_Q3_waterSource || analysis?.waterSource ? `- Water Source: ${tier1?.T1_Q3_waterSource || analysis?.waterSource}` : ''}
+${waterCategory ? `- Water Category: ${waterCategory}` : ''}
+${waterDuration ? `- Water Duration: ${waterDuration}` : ''}
 
 ## Property Information
-- Property Type: ${tier1?.T1_Q1_propertyType || 'Not specified'}
-- Construction Year: ${tier1?.T1_Q2_constructionYear || 'Unknown'}
-- Occupancy Status: ${occupancyStatus}
-- Pets Present: ${petsPresent || 'Not specified'}
+${tier1?.T1_Q1_propertyType ? `- Property Type: ${tier1.T1_Q1_propertyType}` : ''}
+${tier1?.T1_Q2_constructionYear ? `- Construction Year: ${tier1.T1_Q2_constructionYear}` : ''}
+${occupancyStatus ? `- Occupancy Status: ${occupancyStatus}` : ''}
+${petsPresent ? `- Pets Present: ${petsPresent}` : ''}
 
-## Affected Areas
-${affectedAreas}
+${affectedAreas ? `## Affected Areas
+${affectedAreas}` : ''}
 
-## Affected Materials
-${materials.join(', ') || 'Not specified'}
+${materials.length > 0 ? `## Affected Materials
+${materials.join(', ')}` : ''}
 
-## Equipment Deployed
-${equipmentDeployed}
+${equipmentDeployed ? `## Equipment Deployed
+${equipmentDeployed}` : ''}
 
-## Moisture Readings
-${moistureReadings}
+${moistureReadings ? `## Moisture Readings
+${moistureReadings}` : ''}
 
-## Water Migration Pattern
-${waterMigration}
+${waterMigration ? `## Water Migration Pattern
+${waterMigration}` : ''}
 
-## Affected Contents
-${affectedContents}
+${affectedContents ? `## Affected Contents
+${affectedContents}` : ''}
 
-## Structural Concerns
-${structuralConcerns.join(', ') || 'None identified'}
+${structuralConcerns.length > 0 ? `## Structural Concerns
+${structuralConcerns.join(', ')}` : ''}
 
-## Building Services Affected
-${buildingServices.join(', ') || 'No services affected'}
+${buildingServices.length > 0 ? `## Building Services Affected
+${buildingServices.join(', ')}` : ''}
 
-## Hazards Identified
-${hazards.join(', ') || 'None identified'}
+${hazards.length > 0 && hasHazards ? `## Hazards Identified
+${hazards.join(', ')}` : ''}
 
-## Insurance Considerations
-${insuranceConsiderations}
+${insuranceConsiderations ? `## Insurance Considerations
+${insuranceConsiderations}` : ''}
 
-## Timeline & Preferences
-- Timeline Requirements: ${timelineRequirements}
-- Drying Preferences: ${dryingPreferences}
-- Chemical Treatment: ${chemicalTreatment}
-- Total Affected Area: ${totalAffectedArea}
-- Class 4 Drying Assessment: ${class4Drying}
+${timelineRequirements || dryingPreferences || chemicalTreatment || totalAffectedArea || class4Drying ? `## Timeline & Preferences
+${timelineRequirements ? `- Timeline Requirements: ${timelineRequirements}` : ''}
+${dryingPreferences ? `- Drying Preferences: ${dryingPreferences}` : ''}
+${chemicalTreatment ? `- Chemical Treatment: ${chemicalTreatment}` : ''}
+${totalAffectedArea ? `- Total Affected Area: ${totalAffectedArea}` : ''}
+${class4Drying ? `- Class 4 Drying Assessment: ${class4Drying}` : ''}` : ''}
 
 ## State Regulatory Framework
 ${stateRegulatoryText}
 
-## Technician Field Report
-${report.technicianFieldReport || 'Not provided'}
+${report.technicianFieldReport ? `## Technician Field Report
+${report.technicianFieldReport}` : ''}
+
+${psychrometricAssessment ? `## Psychrometric Assessment Data
+${psychrometricAssessment.waterClass ? `- Water Loss Class: Class ${psychrometricAssessment.waterClass}` : ''}
+${psychrometricAssessment.temperature ? `- Temperature: ${psychrometricAssessment.temperature}°C` : ''}
+${psychrometricAssessment.humidity ? `- Humidity: ${psychrometricAssessment.humidity}%` : ''}
+${psychrometricAssessment.systemType ? `- System Type: ${psychrometricAssessment.systemType} Ventilation` : ''}
+${psychrometricAssessment.dryingPotential?.dryingIndex ? `- Drying Index: ${psychrometricAssessment.dryingPotential.dryingIndex}` : ''}
+${psychrometricAssessment.dryingPotential?.status ? `- Drying Status: ${psychrometricAssessment.dryingPotential.status}` : ''}
+${psychrometricAssessment.dryingPotential?.recommendation ? `- Recommendation: ${psychrometricAssessment.dryingPotential.recommendation}` : ''}
+
+${scopeAreas && scopeAreas.length > 0 ? `## Scope Areas (${scopeAreas.length} areas)
+${scopeAreas.map((area: any, idx: number) => `
+Area ${idx + 1}: ${area.name}
+- Dimensions: ${area.length}m × ${area.width}m × ${area.height}m
+- Volume: ${(area.length * area.width * area.height).toFixed(1)} m³
+- Wet Area: ${(area.length * area.width * (area.wetPercentage / 100)).toFixed(1)} m²
+- Wet Percentage: ${area.wetPercentage}%
+`).join('\n')}
+- Total Volume: ${scopeAreas.reduce((sum: number, a: any) => sum + (a.length * a.width * a.height), 0).toFixed(1)} m³
+- Total Affected Area: ${scopeAreas.reduce((sum: number, a: any) => sum + (a.length * a.width * (a.wetPercentage / 100)), 0).toFixed(1)} m²
+` : ''}
+
+${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Selection
+${equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  return `- ${group?.name || sel.groupId}: ${sel.quantity} units @ $${sel.dailyRate || group?.dailyRate || 0}/day`
+}).join('\n')}
+- Total Daily Cost: $${report.equipmentCostTotal ? (report.equipmentCostTotal / (report.estimatedDryingDuration || 1)).toFixed(2) : '0.00'}
+- Estimated Duration: ${report.estimatedDryingDuration || 'N/A'} days
+- Total Equipment Cost: $${report.equipmentCostTotal?.toFixed(2) || '0.00'}
+` : ''}
+` : ''}
 
 ${standardsContext ? standardsContext + '\n\n' : ''}
 
@@ -378,7 +442,7 @@ ${standardsContext ? '**IMPORTANT: The standards documents above have been retri
 
 ${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
 
-Generate a comprehensive Professional Inspection Report with ALL of the following 13 sections:
+Generate a comprehensive Professional Inspection Report with ALL of the following sections:
 
 ## COVER PAGE
 Include prominently: "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
@@ -399,21 +463,71 @@ Use the example format provided in the specification.
 - Client Contact & Occupancy Status
 - Technician Attendance Notes
 
-## SECTION 3: AREAS AFFECTED
+## SECTION 3: PSYCHROMETRIC ASSESSMENT
+${psychrometricAssessment ? `Include a comprehensive psychrometric assessment section with:
+
+### KEY PERFORMANCE METRICS
+${psychrometricAssessment.dryingPotential?.dryingIndex ? `- Drying Index: ${psychrometricAssessment.dryingPotential.dryingIndex}${psychrometricAssessment.dryingPotential?.status ? ` (Status: ${psychrometricAssessment.dryingPotential.status})` : ''}` : ''}
+${report.dehumidificationCapacity ? `- Liters/Day Target: ${report.dehumidificationCapacity} L/Day` : ''}
+${report.airmoversCount ? `- Air Movers Required: ${report.airmoversCount} units` : ''}
+${scopeAreas && scopeAreas.length > 0 ? `- Total Volume: ${scopeAreas.reduce((sum: number, a: any) => sum + (a.length * a.width * a.height), 0).toFixed(1)} m³` : ''}
+
+### ENVIRONMENTAL CONDITIONS
+${psychrometricAssessment.waterClass ? `- Water Class: Class ${psychrometricAssessment.waterClass} (IICRC Standard)` : ''}
+${psychrometricAssessment.temperature ? `- Temperature: ${psychrometricAssessment.temperature}°C (Ambient)` : ''}
+${psychrometricAssessment.humidity ? `- Humidity: ${psychrometricAssessment.humidity}% (Relative)` : ''}
+${psychrometricAssessment.systemType ? `- System Type: ${psychrometricAssessment.systemType} (Ventilation)` : ''}
+
+${psychrometricAssessment.dryingPotential?.recommendation ? `### DRYING STRATEGY ANALYSIS
+${psychrometricAssessment.dryingPotential.recommendation}` : ''}
+
+### DRYING POTENTIAL REFERENCE GUIDE
+- 0-30 (POOR): Air saturated or cold. Minimal evaporation. Action: Increase heat or dehumidification.
+- 30-50 (FAIR): Slow evaporation. Action: Add air movement and monitor closely.
+- 50-80 (GOOD): Optimal range. Action: Maintain current setup.
+- 80+ (EXCELLENT): Rapid evaporation. Action: Watch for over-drying.
+
+
+${equipmentSelection && equipmentSelection.length > 0 ? `### EQUIPMENT LOADOUT SCHEDULE
+${equipmentSelection.reduce((sum: number, sel: any) => sum + sel.quantity, 0)} Total Units
+
+${equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  const type = group?.id.includes('lgr') ? 'DEHUMIDIFIER TYPE' : 
+               group?.id.includes('desiccant') ? 'DEHUMIDIFIER TYPE' :
+               group?.id.includes('airmover') ? 'AIR_MOVER TYPE' :
+               group?.id.includes('heat') ? 'HEAT TYPE' : 'EQUIPMENT TYPE'
+  return `- ${group?.capacity || sel.groupId} (${type}): ×${sel.quantity} Units`
+}).join('\n')}
+
+${report.estimatedDryingDuration || report.equipmentCostTotal || totalAmps ? `**Estimated Consumption:**
+${report.estimatedDryingDuration ? `- Duration: ${report.estimatedDryingDuration} Days` : ''}
+${report.equipmentCostTotal ? `- Total Cost: $${report.equipmentCostTotal.toFixed(2)}` : ''}
+${totalAmps ? `- Total Draw: ${totalAmps} Amps` : ''}` : ''}
+` : ''}
+
+### REPORT CERTIFICATION
+This report has been generated using the AuRestor Proprietary Psychrometric Engine. All calculations comply with ANSI/IICRC S500 Standards for Professional Water Damage Restoration.
+
+Generated by AuRestor Industries
+© ${new Date().getFullYear()} AuRestor Industries. All rights reserved.
+` : 'Psychrometric assessment data not available. Include standard IICRC S500 psychrometric assessment based on available data.'}
+
+## SECTION 4: AREAS AFFECTED
 Detailed room-by-room breakdown with:
 - Affected materials
 - Visible damage description
 - Water depth estimate (if known)
 - Progression observed
 
-## SECTION 4: STANDARDS COMPLIANCE FRAMEWORK
+## SECTION 5: STANDARDS COMPLIANCE FRAMEWORK
 Subsection A: IICRC Water Damage Standards
 Subsection B: Building Code Compliance (use state-specific building code)
 Subsection C: Work Health and Safety (use state-specific WHS Act)
 Subsection D: Environmental Protection (use state-specific EPA Act)
 Subsection E: Local Council Requirements (if postcode available)
 
-## SECTION 5: HAZARD ASSESSMENT FLAGS
+## SECTION 6: HAZARD ASSESSMENT FLAGS
 ${hasHazards ? `For EACH hazard identified, create a STOP WORK FLAG block with:
 - 🚩 STOP WORK FLAG: [Hazard Name]
 - Description
@@ -423,37 +537,37 @@ ${hasHazards ? `For EACH hazard identified, create a STOP WORK FLAG block with:
 - Cost Impact
 - Timeline Impact` : 'No hazards identified - this section can be brief or omitted.'}
 
-## SECTION 6: INITIAL REMEDIATION ACTIONS COMPLETED
+## SECTION 7: INITIAL REMEDIATION ACTIONS COMPLETED
 - Standing Water Extraction
 - Equipment Deployed (with details from data)
 - Moisture Assessment
 - Initial PPE & Safety
 
-## SECTION 7: DRYING PROTOCOL AND METHODOLOGY
+## SECTION 8: DRYING PROTOCOL AND METHODOLOGY
 For each material type identified, provide specific protocols:
 ${materials.includes('Yellow tongue particleboard') ? '- Yellow Tongue Particleboard Subfloor (Class 3/4 drying) - IICRC S500 Section 5.2' : ''}
 ${materials.includes('Floating timber floors') ? '- Floating Timber Floors (Class 2/3) - IICRC S500 Section 5.1' : ''}
 ${materials.includes('Carpet on concrete slab') ? '- Carpet on Concrete Slab (Class 1) - IICRC S500 Section 4.2' : ''}
 ${materials.some(m => m.includes('Plasterboard')) ? '- Plasterboard Walls & Ceilings - IICRC S500 Section 5.3' : ''}
 
-## SECTION 8: OCCUPANCY AND SAFETY CONSIDERATIONS
+## SECTION 9: OCCUPANCY AND SAFETY CONSIDERATIONS
 ${isOccupied ? 'Include: Access Restrictions, Air Quality, Utilities, Pet/Children Safety' : ''}
 ${hasVulnerablePersons ? 'Include: Respiratory Health, Mobility, Medical Equipment' : ''}
 ${petsPresent ? 'Include: Dogs/Cats, Exotic Animals, Pest Activity considerations' : ''}
 ${occupancyStatus.includes('Vacant') ? 'Include: Security, Timeline Flexibility, Utility Access' : ''}
 
-## SECTION 9: SECONDARY DAMAGE AND MOULD RISK
+## SECTION 10: SECONDARY DAMAGE AND MOULD RISK
 - Mould Growth Risk Assessment (based on water duration)
 - Preventative Measures
 - If Active Mould Detected (protocol)
 - Occupant Health Considerations
 
-## SECTION 10: POWER AND EQUIPMENT REQUIREMENTS
+## SECTION 11: POWER AND EQUIPMENT REQUIREMENTS
 - Power Draw Calculation (calculate from equipment deployed)
 - Context and recommendations
 - Alternative options if needed
 
-## SECTION 11: THINGS TO CONSIDER
+## SECTION 12: THINGS TO CONSIDER
 - Insurance Coverage
 - Timeframe Expectations
 - Occupant Communication
@@ -461,7 +575,7 @@ ${occupancyStatus.includes('Vacant') ? 'Include: Security, Timeline Flexibility,
 - Temporary Accommodation
 - Contents Replacement
 
-## SECTION 12: AUTHORITY NOTIFICATION CHECKLIST
+## SECTION 13: AUTHORITY NOTIFICATION CHECKLIST
 ${stateInfo ? `Use state-specific authorities:
 - ${stateInfo.workSafetyAuthority} - Contact: ${stateInfo.workSafetyContact}
 - ${stateInfo.epaAuthority} - Contact: ${stateInfo.epaContact}
@@ -469,7 +583,7 @@ ${stateInfo ? `Use state-specific authorities:
 - Insurance Company
 - ${stateInfo.buildingAuthority} (if structural repairs required)` : 'Use generic Australian authorities'}
 
-## SECTION 13: RECOMMENDATIONS AND NEXT STEPS
+## SECTION 14: RECOMMENDATIONS AND NEXT STEPS
 - Immediate (Day 0–1)
 - Short-term (Days 1–7)
 - If Class 4 Drying Required
@@ -482,9 +596,9 @@ ${stateInfo ? `Use state-specific authorities:
 2. Reference IICRC S500:2025 and S520 standards explicitly
 3. Reference ${stateInfo ? stateInfo.buildingCode : 'NCC'} explicitly
 4. Reference ${stateInfo ? stateInfo.whsAct : 'Work Health and Safety Act 2011'} explicitly
-5. Use actual data provided - do not make up information
-6. If information is "Not provided" or "Not specified", note it appropriately
-7. Format professionally with clear headings and sections
+5. Use ONLY the actual data provided in the REPORT DATA section - do not make up information
+6. Do NOT include any placeholder text like "Not provided", "Not specified", "N/A", or "Unknown"
+7. Only include sections and fields for which actual data was provided
 8. Include all required subsections
 9. Use Australian English spelling
 10. Make it comprehensive and professional

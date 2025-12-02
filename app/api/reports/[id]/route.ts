@@ -61,6 +61,10 @@ export async function GET(
       // Phase 6 & 7: Parse scope and cost data
       scopeOfWorksData: report.scopeOfWorksData ? JSON.parse(report.scopeOfWorksData) : null,
       costEstimationData: report.costEstimationData ? JSON.parse(report.costEstimationData) : null,
+      // Equipment Tools: Parse psychrometric and equipment data
+      psychrometricAssessment: report.psychrometricAssessment ? JSON.parse(report.psychrometricAssessment) : null,
+      scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
+      equipmentSelection: report.equipmentSelection ? JSON.parse(report.equipmentSelection) : null,
     }
 
     return NextResponse.json(parsedReport)

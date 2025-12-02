@@ -1,5 +1,4 @@
 -- Migration to add subscription fields to User table
--- Run this on your Vercel production database
 
 -- Create SubscriptionStatus enum if it doesn't exist
 DO $$ BEGIN

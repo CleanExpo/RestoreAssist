@@ -4,16 +4,15 @@
  * Extracts text from various file formats (PDF, DOCX, TXT)
  */
 
-import { createRequire } from 'module'
-
-const require = createRequire(import.meta.url)
-
 /**
  * Extract text from PDF buffer
  */
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const pdfParse = require('pdf-parse')
+    // Use dynamic import for Next.js compatibility
+    // pdf-parse is a CommonJS module that exports a function directly
+    const pdfParseModule: any = await import('pdf-parse')
+    const pdfParse = pdfParseModule.default || pdfParseModule
     const data = await pdfParse(buffer)
     return data.text || ''
   } catch (error: any) {
@@ -26,7 +25,8 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
  */
 export async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   try {
-    const mammoth = require('mammoth')
+    // Use dynamic import for Next.js compatibility
+    const mammoth = await import('mammoth')
     const result = await mammoth.extractRawText({ buffer })
     return result.value || ''
   } catch (error: any) {
