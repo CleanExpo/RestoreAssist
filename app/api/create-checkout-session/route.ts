@@ -12,6 +12,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get the base URL from the request headers (works in both dev and production)
+    // Priority: NEXTAUTH_URL env var > origin header > host header with protocol
+    let baseUrl = process.env.NEXTAUTH_URL
+    
+    if (!baseUrl) {
+      const origin = request.headers.get('origin')
+      const host = request.headers.get('host')
+      
+      if (origin) {
+        // Origin is already a full URL (e.g., https://example.com)
+        baseUrl = origin
+      } else if (host) {
+        // Construct URL from host header
+        const protocol = request.headers.get('x-forwarded-proto') || 
+                        (host.includes('localhost') ? 'http' : 'https')
+        baseUrl = `${protocol}://${host}`
+      } else {
+        // Fallback for development
+        baseUrl = 'http://localhost:3000'
+      }
+    }
+
     const { priceId } = await request.json()
 
     if (!priceId) {
@@ -62,8 +84,8 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${process.env.NEXTAUTH_URL}/dashboard/success`,
-        cancel_url: `${process.env.NEXTAUTH_URL}/dashboard/pricing?canceled=true`,
+        success_url: `${baseUrl}/dashboard/success`,
+        cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
         metadata: {
           userId: session.user.id,
         },
@@ -112,8 +134,8 @@ export async function POST(request: NextRequest) {
               quantity: 1,
             },
           ],
-          success_url: `${process.env.NEXTAUTH_URL}/dashboard/success`,
-          cancel_url: `${process.env.NEXTAUTH_URL}/dashboard/pricing?canceled=true`,
+          success_url: `${baseUrl}/dashboard/success`,
+          cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
           metadata: {
             userId: session.user.id,
           },

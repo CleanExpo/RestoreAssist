@@ -16,20 +16,25 @@ export default function NewReportPage() {
   const [reportId, setReportId] = useState<string | null>(null)
   const [loadingReport, setLoadingReport] = useState(false)
 
-  // Check for reportId in URL or localStorage on mount
+  // Check for reportId in URL only (don't auto-load from localStorage for new reports)
   useEffect(() => {
     const urlReportId = searchParams.get('reportId')
-    const storedReportId = typeof window !== 'undefined' ? localStorage.getItem('currentReportId') : null
     
+    // Only load if there's an explicit reportId in the URL
     if (urlReportId) {
       setReportId(urlReportId)
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentReportId', urlReportId)
       }
       loadReportData(urlReportId)
-    } else if (storedReportId) {
-      setReportId(storedReportId)
-      loadReportData(storedReportId)
+    } else {
+      // Clear localStorage when creating a new report (no reportId in URL)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentReportId')
+      }
+      setReportId(null)
+      setUploadedData(null)
+      setFileName('')
     }
   }, [searchParams])
 
@@ -114,16 +119,45 @@ export default function NewReportPage() {
   const handleDiscardUpload = () => {
     setUploadedData(null)
     setFileName('')
+    setReportId(null)
+    // Clear localStorage when discarding
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentReportId')
+    }
     toast.success('Uploaded data discarded')
+  }
+
+  const handleStartNew = () => {
+    setUploadedData(null)
+    setFileName('')
+    setReportId(null)
+    setShowUpload(false)
+    // Clear localStorage when starting new
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentReportId')
+    }
+    // Clear URL params if any
+    router.replace('/dashboard/reports/new')
+    toast.success('Starting new report')
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
       <div className="max-w-8xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create New Report</h1>
-          <p className="text-slate-400">Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
-            </div>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Create New Report</h1>
+            <p className="text-slate-400">Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
+          </div>
+          {(reportId || uploadedData) && (
+            <button
+              onClick={handleStartNew}
+              className="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              Start Fresh
+            </button>
+          )}
+        </div>
 
         {/* Upload Option */}
         {!uploadedData && (
