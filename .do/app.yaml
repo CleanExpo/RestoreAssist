@@ -18,5 +18,7 @@ services:
     value: production
   - key: NPM_CONFIG_FORCE
     value: "true"
+  - key: CI
+    value: "false"
   - key: NPM_CONFIG_CI
     value: "false"
