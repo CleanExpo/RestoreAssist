@@ -10,7 +10,6 @@
     "dev": "next dev",
     "prebuild": "npm install --force",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
