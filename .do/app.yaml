@@ -16,11 +16,11 @@ services:
     envs:
       - key: NODE_ENV
         value: production
-      - key: NPM_CONFIG_FORCE
-        value: "true"
-      - key: CI
-        value: "false"
-      - key: USE_NPM_INSTALL
-        value: "true"
-      - key: NPM_CONFIG_LEGACY_PEER_DEPS
-        value: "true"
+  - key: NPM_CONFIG_FORCE
+    value: "true"
+  - key: CI
+    value: "false"
+  - key: USE_NPM_INSTALL
+    value: "true"
+  - key: NPM_CONFIG_LEGACY_PEER_DEPS
+    value: "true"
