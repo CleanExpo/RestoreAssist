@@ -590,6 +590,15 @@ ${stateInfo ? `Use state-specific authorities:
 - If Specialist Referrals Triggered
 - Final Validation
 
+## SIGNATURE
+${report.technicianName ? `At the end of the report, include a signature section aligned to the right side with:
+- Technician Name: ${report.technicianName}
+- Date: ${new Date().toLocaleDateString('en-AU')}
+- Position: Water Damage Restoration Technician
+- Company: RestoreAssist
+
+Format the signature section at the bottom right of the report with appropriate spacing.` : 'Include a signature section at the bottom right of the report with the date of report generation.'}
+
 # CRITICAL REQUIREMENTS
 
 1. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
