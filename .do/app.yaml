@@ -5,7 +5,7 @@ services:
   github:
     repo: CleanExpo/RestoreAssist
     branch: main
-  build_command: npm install --force && npm run build
+  build_command: rm -f package-lock.json && npm install --force && npm run build
   run_command: npm start
   environment_slug: node-js
   instance_count: 1
@@ -18,3 +18,5 @@ services:
     value: production
   - key: NPM_CONFIG_FORCE
     value: "true"
+  - key: NPM_CONFIG_CI
+    value: "false"
