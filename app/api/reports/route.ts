@@ -187,46 +187,29 @@ export async function POST(request: NextRequest) {
     // Generate detailed report using AI
     let detailedReport = null
     try {
-      console.log('Generating detailed report with AI...')
-      console.log('Report data:', {
-        title: body.title,
-        clientName: body.clientName,
-        waterCategory: body.waterCategory,
-        waterClass: body.waterClass
-      })
-
       // Use user's API key (admins can use system key if they don't have their own)
       const apiKeyToUse = user.anthropicApiKey || process.env.ANTHROPIC_API_KEY || ''
 
-      if (!apiKeyToUse) {
-        console.error('No API key available for report generation')
-        throw new Error('API key not configured')
+      if (apiKeyToUse) {
+        detailedReport = await generateDetailedReport({
+          basicInfo: {
+            title: body.title,
+            clientName: body.clientName,
+            propertyAddress: body.propertyAddress,
+            dateOfLoss: body.dateOfLoss,
+            waterCategory: body.waterCategory,
+            waterClass: body.waterClass,
+            hazardType: body.hazardType,
+            insuranceType: body.insuranceType,
+          },
+          remediationData: body.remediationData,
+          dryingPlan: body.dryingPlan,
+          equipmentSizing: body.equipmentSizing,
+          monitoringData: body.monitoringData,
+          insuranceData: body.insuranceData,
+        }, apiKeyToUse)
       }
-
-      detailedReport = await generateDetailedReport({
-        basicInfo: {
-          title: body.title,
-          clientName: body.clientName,
-          propertyAddress: body.propertyAddress,
-          dateOfLoss: body.dateOfLoss,
-          waterCategory: body.waterCategory,
-          waterClass: body.waterClass,
-          hazardType: body.hazardType,
-          insuranceType: body.insuranceType,
-        },
-        remediationData: body.remediationData,
-        dryingPlan: body.dryingPlan,
-        equipmentSizing: body.equipmentSizing,
-        monitoringData: body.monitoringData,
-        insuranceData: body.insuranceData,
-      }, apiKeyToUse)
-      console.log('Detailed report generated successfully, length:', detailedReport?.length)
     } catch (aiError) {
-      console.error('Error generating detailed report:', aiError)
-      console.error('AI Error details:', {
-        message: aiError instanceof Error ? aiError.message : 'Unknown error',
-        stack: aiError instanceof Error ? aiError.stack : undefined
-      })
       // Continue without detailed report - don't fail the entire process
     }
     

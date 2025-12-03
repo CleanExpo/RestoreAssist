@@ -1,0 +1,52 @@
+-- Sample Test Data for RestoreAssist
+-- Use this SQL to insert test data directly into the database (optional)
+
+-- Note: Replace 'USER_ID_HERE' with actual user ID from your database
+-- Replace 'CLIENT_ID_HERE' with actual client ID if using client table
+
+-- Example: Insert pricing configuration
+-- INSERT INTO "CompanyPricingConfig" (
+--   "id", "userId", 
+--   "masterQualifiedNormalHours", "masterQualifiedSaturday", "masterQualifiedSunday",
+--   "qualifiedTechnicianNormalHours", "qualifiedTechnicianSaturday", "qualifiedTechnicianSunday",
+--   "labourerNormalHours", "labourerSaturday", "labourerSunday",
+--   "airMoverAxialDailyRate", "airMoverCentrifugalDailyRate",
+--   "dehumidifierLGRDailyRate", "dehumidifierDesiccantDailyRate",
+--   "afdUnitLargeDailyRate", "extractionTruckMountedHourlyRate", "extractionElectricHourlyRate",
+--   "injectionDryingSystemDailyRate", "antimicrobialTreatmentRate",
+--   "mouldRemediationTreatmentRate", "biohazardTreatmentRate",
+--   "administrationFee", "callOutFee", "thermalCameraUseCostPerAssessment",
+--   "createdAt", "updatedAt"
+-- ) VALUES (
+--   'pricing-config-1', 'USER_ID_HERE',
+--   85.00, 127.50, 170.00,
+--   65.00, 97.50, 130.00,
+--   45.00, 67.50, 90.00,
+--   25.00, 35.00,
+--   45.00, 65.00,
+--   40.00, 120.00, 80.00,
+--   150.00, 8.50,
+--   15.00, 25.00,
+--   250.00, 150.00, 75.00,
+--   NOW(), NOW()
+-- );
+
+-- Example: Insert test report (Scenario 1)
+-- INSERT INTO "Report" (
+--   "id", "userId", "title",
+--   "clientName", "clientContactDetails",
+--   "propertyAddress", "propertyPostcode",
+--   "claimReferenceNumber", "incidentDate", "technicianAttendanceDate",
+--   "technicianName", "technicianFieldReport",
+--   "reportDepthLevel", "reportVersion",
+--   "createdAt", "updatedAt"
+-- ) VALUES (
+--   'report-scenario-1', 'USER_ID_HERE', 'Water Damage Assessment - 42 River Street',
+--   'John and Sarah Mitchell', 'Phone: 0412 345 678, Email: john.mitchell@email.com',
+--   '42 River Street', '4000',
+--   'INS-2024-001234', '2024-01-15 08:30:00', '2024-01-15 14:00:00',
+--   'Michael Chen', 'Attended property at 2:00 PM on 15/01/2024. Client reported water damage discovered at 8:30 AM. Investigation revealed burst hot water service pipe under kitchen sink...',
+--   'Enhanced', 1,
+--   NOW(), NOW()
+-- );
+

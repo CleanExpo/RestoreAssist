@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import fs from "fs/promises"
 import path from "path"
+import Anthropic from "@anthropic-ai/sdk"
 
 export async function GET(
   request: NextRequest,
@@ -77,7 +78,7 @@ export async function GET(
         }
       }
     } catch (err) {
-      console.log("No scope found")
+      // No scope found - continue without it
     }
 
     // Fetch estimate if exists - include ALL fields
@@ -154,7 +155,7 @@ export async function GET(
         }
       }
     } catch (err) {
-      console.log("No estimate found")
+      // No estimate found - continue without it
     }
 
     // Parse JSON fields
@@ -272,8 +273,14 @@ export async function GET(
       if (process.env.ANTHROPIC_API_KEY) {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 4500)
-        const body = {
-          model: "claude-3-5-sonnet-20240620",
+        const { tryClaudeModels } = await import('@/lib/anthropic-models')
+        const anthropicClient = new Anthropic({
+          apiKey: process.env.ANTHROPIC_API_KEY
+        })
+        
+        const message = await tryClaudeModels(
+          anthropicClient,
+          {
           max_tokens: 400,
           temperature: 0.2,
           messages: [
@@ -287,16 +294,17 @@ Estimate: ${JSON.stringify(estimate)}`,
             },
           ],
         }
-        const resp = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY as string,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        })
+        )
+        
+        const resp = {
+          ok: true,
+          json: async () => ({
+            content: [{
+              type: 'text',
+              text: message.content[0].type === 'text' ? message.content[0].text : JSON.stringify(message.content[0])
+            }]
+          })
+        } as Response
         clearTimeout(timeout)
         if (resp.ok) {
           const json = await resp.json()

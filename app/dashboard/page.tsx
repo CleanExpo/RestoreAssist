@@ -534,7 +534,7 @@ export default function DashboardPage() {
       {showGuidedModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
                   <CheckCircle className="text-white" size={24} />

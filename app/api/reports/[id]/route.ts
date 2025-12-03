@@ -53,6 +53,18 @@ export async function GET(
       liabilityCover: report.liabilityCover ? JSON.parse(report.liabilityCover) : null,
       businessInterruption: report.businessInterruption ? JSON.parse(report.businessInterruption) : null,
       additionalCover: report.additionalCover ? JSON.parse(report.additionalCover) : null,
+      // Phase 3 & 4: Parse analysis and tier responses
+      technicianReportAnalysis: report.technicianReportAnalysis ? JSON.parse(report.technicianReportAnalysis) : null,
+      tier1Responses: report.tier1Responses ? JSON.parse(report.tier1Responses) : null,
+      tier2Responses: report.tier2Responses ? JSON.parse(report.tier2Responses) : null,
+      tier3Responses: report.tier3Responses ? JSON.parse(report.tier3Responses) : null,
+      // Phase 6 & 7: Parse scope and cost data
+      scopeOfWorksData: report.scopeOfWorksData ? JSON.parse(report.scopeOfWorksData) : null,
+      costEstimationData: report.costEstimationData ? JSON.parse(report.costEstimationData) : null,
+      // Equipment Tools: Parse psychrometric and equipment data
+      psychrometricAssessment: report.psychrometricAssessment ? JSON.parse(report.psychrometricAssessment) : null,
+      scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
+      equipmentSelection: report.equipmentSelection ? JSON.parse(report.equipmentSelection) : null,
     }
 
     return NextResponse.json(parsedReport)
@@ -143,7 +155,14 @@ export async function PUT(
         // Optional fields
         completionDate: body.completionDate ? new Date(body.completionDate) : existingReport.completionDate,
         totalCost: body.totalCost,
-        description: body.description
+        description: body.description,
+        
+        // Phase 6 & 7: Scope of Works and Cost Estimation documents
+        scopeOfWorksDocument: body.scopeOfWorksDocument !== undefined ? body.scopeOfWorksDocument : existingReport.scopeOfWorksDocument,
+        costEstimationDocument: body.costEstimationDocument !== undefined ? body.costEstimationDocument : existingReport.costEstimationDocument,
+        
+        // Detailed Report (inspection report)
+        detailedReport: body.detailedReport !== undefined ? body.detailedReport : existingReport.detailedReport
       },
       include: {
         user: {

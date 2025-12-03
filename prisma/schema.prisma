@@ -8,7 +8,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 
@@ -78,9 +77,7 @@ model User {
   costLibraries CostLibrary[]
   scopes    Scope[]
   estimates Estimate[]
-  pricingStructure PricingStructure?
-  inspectionReports InspectionReport[]
-  auditLogs AuditLog[]
+  pricingConfig CompanyPricingConfig?
 }
 
 model VerificationToken {
@@ -125,6 +122,48 @@ model Report {
   clientId    String?
   client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   
+  // Phase 2: Initial Data Entry Fields
+  clientContactDetails    String? // Phone, email, etc.
+  propertyPostcode        String? // Mandatory for state detection
+  claimReferenceNumber    String? // If existing claim
+  incidentDate            DateTime? // Date when water damage occurred
+  technicianAttendanceDate DateTime? // Date when technician attended
+  technicianName         String? // Technician's name if available
+  technicianFieldReport   String? @db.Text // The raw technician report text
+  
+  // Report Generation Stage
+  reportDepthLevel        String? // Basic / Enhanced / Optimised
+  reportVersion           Int @default(1) // Version tracking
+  
+  // Phase 3: Technician Report Analysis
+  technicianReportAnalysis String? @db.Text // JSON: analysis results from AI
+  
+  // Phase 4: Tiered Questioning Responses (stored as JSON)
+  tier1Responses          String? @db.Text // JSON: Tier 1 Q&A responses
+  tier2Responses          String? @db.Text // JSON: Tier 2 Q&A responses
+  tier3Responses          String? @db.Text // JSON: Tier 3 Q&A responses
+  
+  // Phase 6: Scope of Works Document
+  scopeOfWorksDocument    String? @db.Text // Generated Scope of Works document
+  scopeOfWorksData        String? @db.Text // JSON: Scope of Works line items and data
+  
+  // Phase 7: Cost Estimation Document
+  costEstimationDocument  String? @db.Text // Generated Cost Estimation document
+  costEstimationData      String? @db.Text // JSON: Cost Estimation line items and calculations
+  
+  // Phase 8: Version Control & Audit Trail
+  versionHistory          String? @db.Text // JSON: Array of version changes
+  lastEditedBy            String? // User ID who last edited
+  lastEditedAt            DateTime? // Timestamp of last edit
+  completenessScore       Int? // 0-100 percentage of completion
+  
+  // Phase 9: Geographic Intelligence
+  geographicIntelligence   String? @db.Text // JSON: Postcode-based weather, council info, etc.
+  
+  // Phase 11: Validation & Quality Control
+  validationWarnings      String? @db.Text // JSON: Array of validation warnings
+  validationErrors        String? @db.Text // JSON: Array of validation errors
+  
   // IICRC S500 Compliance Fields
   reportNumber     String?
   inspectionDate   DateTime?
@@ -155,6 +194,13 @@ model Report {
   psychrometricReadings    String? @db.Text
   moistureReadings        String? @db.Text
   equipmentPlacement      String? @db.Text
+  
+  // Psychrometric Assessment Data (Equipment Tools)
+  psychrometricAssessment  String? @db.Text // JSON: waterClass, temperature, humidity, dryingPotential, systemType
+  scopeAreas              String? @db.Text // JSON: Array of areas with dimensions, volume, wet percentage
+  equipmentSelection      String? @db.Text // JSON: Selected equipment with quantities, costs, and specifications
+  equipmentCostTotal      Float? // Total cost of selected equipment
+  estimatedDryingDuration Int? // Days
   
   // Compliance Documentation
   safetyPlan              String? @db.Text
@@ -439,458 +485,50 @@ enum EstimateStatus {
   LOCKED
 }
 
-// Pricing Structure for Cost Estimation
-model PricingStructure {
+// Company Pricing Configuration Model
+model CompanyPricingConfig {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Callout Fees
-  minimalCalloutFee Float @default(0)
-  administrationFee Float @default(0)
+  // Labour Rates - Master Qualified Technician
+  masterQualifiedNormalHours   Float
+  masterQualifiedSaturday      Float
+  masterQualifiedSunday        Float
 
-  // Normal Hours Labour Rates (per hour)
-  masterTechnicianRate Float @default(0)
-  qualifiedTechnicianRate Float @default(0)
-  labourerRate Float @default(0)
+  // Labour Rates - Qualified Technician
+  qualifiedTechnicianNormalHours Float
+  qualifiedTechnicianSaturday     Float
+  qualifiedTechnicianSunday       Float
 
-  // After Hours Labour Rates - Master Technician
-  masterAfterHoursWeekday Float @default(0) // Mon-Fri after 4pm
-  masterSaturday Float @default(0)
-  masterSunday Float @default(0)
+  // Labour Rates - Labourer
+  labourerNormalHours Float
+  labourerSaturday    Float
+  labourerSunday      Float
 
-  // After Hours Labour Rates - Qualified Technician
-  qualifiedAfterHoursWeekday Float @default(0) // Mon-Fri after 4pm
-  qualifiedSaturday Float @default(0)
-  qualifiedSunday Float @default(0)
+  // Equipment Daily Rental Rates
+  airMoverAxialDailyRate        Float
+  airMoverCentrifugalDailyRate  Float
+  dehumidifierLGRDailyRate      Float
+  dehumidifierDesiccantDailyRate Float
+  afdUnitLargeDailyRate         Float
+  extractionTruckMountedHourlyRate Float
+  extractionElectricHourlyRate  Float
+  injectionDryingSystemDailyRate Float
 
-  // After Hours Labour Rates - Labourer
-  labourerAfterHoursWeekday Float @default(0) // Mon-Fri after 4pm
-  labourerSaturday Float @default(0)
-  labourerSunday Float @default(0)
+  // Chemical Treatment Rates (per sqm)
+  antimicrobialTreatmentRate    Float
+  mouldRemediationTreatmentRate Float
+  biohazardTreatmentRate        Float
 
-  // Equipment Rates (per day)
-  // Dehumidifiers
-  dehumidifierLarge Float @default(0)
-  dehumidifierMedium Float @default(0)
-  dehumidifierDesiccant Float @default(0)
+  // Fees
+  administrationFee             Float
+  callOutFee                   Float
+  thermalCameraUseCostPerAssessment Float
 
-  // Air Movers
-  airmoverAxial Float @default(0)
-  airmoverCentrifugal Float @default(0)
-  airmoverLayflat Float @default(0)
-
-  // Air Filtration Units (AFDs)
-  afdExtraLarge Float @default(0)
-  afdLarge500cfm Float @default(0)
-
-  // Extraction Units (per hour)
-  extractionTruckMounted Float @default(0)
-  extractionElectric Float @default(0)
-
-  // Thermal Camera
-  thermalCameraClaimCost Float @default(0)
-
-  // Chemical Costs (per sqm)
-  chemicalAntiMicrobial Float @default(1.50)
-  chemicalMouldRemediation Float @default(2.50)
-  chemicalBioHazard Float @default(4.50)
-
-  // Custom Fields (stored as JSON for flexibility)
-  customLabourRates String? @db.Text // JSON: additional labour categories
-  customEquipmentRates String? @db.Text // JSON: additional equipment
-  customChemicalRates String? @db.Text // JSON: additional chemicals
-  customMiscRates String? @db.Text // JSON: other costs
-
-  // Metadata
-  currency String @default("AUD")
-  taxRate Float @default(0.10) // GST 10%
+  // Custom Fields (JSON: { category: [{ name: string, value: number }] })
+  customFields                  String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([userId])
-}
-
-// Inspection Report System (IICRC S500 Compliant)
-model InspectionReport {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Claim & Property Information
-  claimReference   String
-  propertyAddress  String
-  clientName       String
-  technicianName   String
-
-  // Timeline
-  incidentDate    DateTime
-  attendanceDate  DateTime
-  generatedDate   DateTime @default(now())
-
-  // Report Configuration
-  reportDepth     ReportDepth
-  version         Int         @default(1) // Tracks regenerations
-  status          ReportDocumentStatus @default(DRAFT)
-
-  // Water Damage Classification
-  waterCategory   WaterCategory?
-  propertyType    String?
-  constructionYear Int?
-  occupancyStatus String?
-
-  // Detailed Data (JSON structures)
-  areasAffected   Json? // Room-by-room data: [{room: string, sqm: number, moistureReadings: object}]
-  hazardsIdentified Json? // Array of identified hazards with severity levels
-
-  // Content Fields
-  technicianReport String? @db.Text // Original technician input
-  executiveSummary String? @db.Text // AI-generated summary
-  standardsCompliance Json? // Compliance checklist against IICRC S500
-  dryingProtocol  Json? // Equipment placement, timeline, target parameters
-  safetyConsiderations Json? // Safety hazards and mitigation measures
-  authorityNotifications Json? // Required notifications to authorities
-  recommendations String? @db.Text // Professional recommendations
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  questionResponses QuestionResponse[]
-  scopeOfWorks      ScopeOfWorks?
-  auditLogs         AuditLog[]
-
-  @@index([userId])
-  @@index([claimReference])
-  @@index([status])
-  @@index([reportDepth])
-}
-
-// Question-Answer Framework for Multi-Tier Reports
-model QuestionResponse {
-  id                  String   @id @default(cuid())
-  inspectionReportId  String
-  inspectionReport    InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
-
-  // Question Details
-  tier         QuestionTier
-  questionId   String // Unique identifier for the question
-  questionText String @db.Text
-  answerValue  Json // Can store text, number, boolean, or complex objects
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionReportId])
-  @@index([tier])
-  @@index([questionId])
-}
-
-// Scope of Works Model
-model ScopeOfWorks {
-  id                  String   @id @default(cuid())
-  inspectionReportId  String   @unique
-  inspectionReport    InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
-
-  // Document Status
-  status  ReportDocumentStatus @default(DRAFT)
-  version Int                  @default(1)
-
-  // Structured Work Breakdown (JSON)
-  phases              Json? // Remediation phases: [{phase: string, description: string, duration: number, dependencies: string[]}]
-  restorationWorkItems Json? // Line items: [{category: string, description: string, qty: number, unit: string, notes: string}]
-  licensedTradesRequired Json? // Specialist referrals: [{trade: string, reason: string, contact: string}]
-  insuranceClaimBreakdown Json? // Cost breakdown for insurer
-  coordinationNotes   String? @db.Text // Project coordination notes
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  costEstimation CostEstimation?
-
-  @@index([inspectionReportId])
-  @@index([status])
-}
-
-// Cost Estimation Model
-model CostEstimation {
-  id             String   @id @default(cuid())
-  scopeOfWorksId String   @unique
-  scopeOfWorks   ScopeOfWorks @relation(fields: [scopeOfWorksId], references: [id], onDelete: Cascade)
-
-  // Document Status
-  status  ReportDocumentStatus @default(DRAFT)
-  version Int                  @default(1)
-
-  // Detailed Cost Breakdown (JSON structures)
-  labourCosts     Json? // By category: [{category: string, role: string, hours: number, rate: number, subtotal: number}]
-  equipmentCosts  Json? // By category: [{equipment: string, days: number, dailyRate: number, subtotal: number}]
-  chemicalCosts   Json? // [{chemical: string, area: number, rate: number, subtotal: number}]
-
-  // Summary Costs (Decimal for precision)
-  calloutFees     Decimal? @db.Decimal(10, 2)
-  adminFees       Decimal? @db.Decimal(10, 2)
-  subtotalExGST   Decimal? @db.Decimal(10, 2)
-  gstAmount       Decimal? @db.Decimal(10, 2)
-  totalIncGST     Decimal? @db.Decimal(10, 2)
-
-  // Comparative Analysis & Documentation
-  costComparison     Json? // Industry benchmarks and variance explanations
-  exclusions         Json? // Array of excluded items: [{item: string, reason: string}]
-  assumptions        Json? // Array of assumptions: [{assumption: string, impact: string}]
-  adjustmentTriggers Json? // Conditions that would trigger cost adjustments
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([scopeOfWorksId])
-  @@index([status])
-}
-
-// Audit Log for Compliance Tracking
-model AuditLog {
-  id                  String   @id @default(cuid())
-  inspectionReportId  String
-  inspectionReport    InspectionReport @relation(fields: [inspectionReportId], references: [id], onDelete: Cascade)
-
-  // Action Details
-  action   AuditAction
-  userId   String
-  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Change Tracking
-  changes  Json? // Before/after comparison for updates: {before: object, after: object, fields: string[]}
-
-  // Timestamp
-  timestamp DateTime @default(now())
-
-  @@index([inspectionReportId])
-  @@index([userId])
-  @@index([action])
-  @@index([timestamp])
-}
-
-// Enums for Inspection Report System
-enum ReportDepth {
-  BASIC
-  ENHANCED
-  OPTIMISED
-}
-
-enum ReportDocumentStatus {
-  DRAFT
-  PRELIMINARY
-  FINAL
-}
-
-enum WaterCategory {
-  CATEGORY_1 // Clean water
-  CATEGORY_2 // Grey water
-  CATEGORY_3 // Black water
-}
-
-enum QuestionTier {
-  TIER_1 // Basic questions
-  TIER_2 // Enhanced questions
-  TIER_3 // Optimised/comprehensive questions
-}
-
-enum AuditAction {
-  CREATED
-  UPDATED
-  REGENERATED
-  EXPORTED
-}
-
-// ========================================
-// Standards & Regulatory Compliance System
-// ========================================
-
-// Standard - Regulatory standards (e.g., IICRC S500, S520)
-model Standard {
-  id        String   @id @default(cuid())
-
-  // Identification
-  code      String   @unique // e.g., "S500", "S520", "AS1851"
-  title     String   // e.g., "Water Damage Restoration"
-  edition   String?  // e.g., "5th Edition", "2021"
-  publisher String   // e.g., "IICRC", "Standards Australia"
-
-  // Version Control
-  version       String    // e.g., "5.0", "2021"
-  publicationDate DateTime?
-  effectiveDate   DateTime?
-
-  // Google Drive Integration
-  driveFileId   String?   @unique
-  driveFileName String?
-  lastSyncedAt  DateTime?
-
-  // Content
-  description   String?   @db.Text
-  scope         String?   @db.Text
-  applicability String?   @db.Text // When this standard applies
-
-  // Status
-  status        StandardStatus @default(ACTIVE)
-  isRequired    Boolean        @default(false) // Is compliance mandatory?
-
-  // Metadata
-  category      String?   // e.g., "Water Damage", "Mould", "Fire", "Trauma"
-  tags          String?   @db.Text // JSON array of tags
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  sections StandardSection[]
-  clauses  StandardClause[]
-
-  @@index([code])
-  @@index([category])
-  @@index([status])
-  @@index([driveFileId])
-}
-
-// StandardSection - Major sections within a standard
-model StandardSection {
-  id         String   @id @default(cuid())
-  standardId String
-  standard   Standard @relation(fields: [standardId], references: [id], onDelete: Cascade)
-
-  // Identification
-  sectionNumber String   // e.g., "1", "1.1", "A"
-  title         String   // e.g., "Scope and Purpose"
-
-  // Content
-  content       String?  @db.Text
-  summary       String?  @db.Text
-
-  // Hierarchy
-  parentSectionId String?
-  displayOrder    Int      @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  clauses StandardClause[]
-
-  @@unique([standardId, sectionNumber])
-  @@index([standardId])
-  @@index([parentSectionId])
-}
-
-// StandardClause - Individual clauses/requirements that can be referenced
-model StandardClause {
-  id         String   @id @default(cuid())
-  standardId String
-  standard   Standard @relation(fields: [standardId], references: [id], onDelete: Cascade)
-  sectionId  String?
-  section    StandardSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-
-  // Identification
-  clauseNumber String   // e.g., "3.2.1", "Appendix A.1"
-  title        String?  // Optional title
-
-  // Content
-  content      String   @db.Text // The actual clause text
-  interpretation String? @db.Text // Plain language interpretation
-  keywords     String?  @db.Text // JSON array for search
-
-  // Classification
-  category     String?  // e.g., "Safety", "Equipment", "Documentation", "Process"
-  importance   ClauseImportance @default(STANDARD)
-  applicability String? @db.Text // When this clause applies
-
-  // Practical Implementation
-  howToComply  String? @db.Text // Practical steps to comply
-  examples     String? @db.Text // JSON: examples of compliance
-  commonErrors String? @db.Text // JSON: common mistakes to avoid
-
-  // References
-  relatedClauses String? @db.Text // JSON: array of related clause IDs
-  externalRefs   String? @db.Text // JSON: references to other standards
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([standardId, clauseNumber])
-  @@index([standardId])
-  @@index([sectionId])
-  @@index([category])
-  @@index([importance])
-}
-
-// SyncHistory - Track synchronization from Google Drive
-model SyncHistory {
-  id String @id @default(cuid())
-
-  // Sync Details
-  syncType      SyncType // FULL, INCREMENTAL, SINGLE_FILE
-  status        SyncStatus @default(IN_PROGRESS)
-
-  // Source
-  driveFileId   String?
-  driveFileName String?
-
-  // Results
-  standardsCreated Int @default(0)
-  standardsUpdated Int @default(0)
-  clausesCreated   Int @default(0)
-  clausesUpdated   Int @default(0)
-  errors           Int @default(0)
-
-  // Details
-  errorLog      String? @db.Text // JSON: array of errors
-  processedFiles String? @db.Text // JSON: list of processed files
-  summary       String? @db.Text
-
-  // Timing
-  startedAt   DateTime  @default(now())
-  completedAt DateTime?
-  duration    Int?      // Seconds
-
-  // Triggered By
-  triggeredBy   String? // User ID or "SYSTEM" or "SCHEDULE"
-  triggerMethod String? // "MANUAL", "AUTO", "API"
-
-  @@index([status])
-  @@index([syncType])
-  @@index([startedAt])
-}
-
-// Enums for Standards System
-enum StandardStatus {
-  ACTIVE
-  SUPERSEDED
-  WITHDRAWN
-  DRAFT
-}
-
-enum ClauseImportance {
-  CRITICAL     // Must comply - safety/legal requirement
-  REQUIRED     // Required for compliance
-  STANDARD     // Standard practice
-  RECOMMENDED  // Best practice recommendation
-  OPTIONAL     // Optional guidance
-}
-
-enum SyncType {
-  FULL
-  INCREMENTAL
-  SINGLE_FILE
-}
-
-enum SyncStatus {
-  IN_PROGRESS
-  COMPLETED
-  FAILED
-  PARTIAL
 }
