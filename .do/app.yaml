@@ -1,123 +1,20 @@
-name: restoreassist
+name: restore-assist
 region: syd
-
-alerts:
-  - rule: DEPLOYMENT_FAILED
-  - rule: DOMAIN_FAILED
-
 services:
-  - name: web
-    github:
-      repo: CleanExpo/RestoreAssist
-      branch: main
-      deploy_on_push: true
-
-    # Use Dockerfile instead of buildpack (handles legacy-peer-deps correctly)
-    dockerfile_path: Dockerfile
-
-    http_port: 3001
-    instance_size_slug: apps-s-1vcpu-1gb
-    instance_count: 1
-
-    health_check:
-      http_path: /api/health
-      initial_delay_seconds: 60
-      period_seconds: 30
-      timeout_seconds: 10
-      success_threshold: 1
-      failure_threshold: 3
-
-    envs:
-      # Application
-      - key: NODE_ENV
-        value: production
-        scope: RUN_AND_BUILD_TIME
-      - key: PORT
-        value: "3001"
-        scope: RUN_TIME
-
-      # Database - Reference to managed DB
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
-        scope: RUN_TIME
-      - key: DIRECT_URL
-        value: ${db.DATABASE_URL}
-        scope: RUN_TIME
-
-      # NextAuth
-      - key: NEXTAUTH_URL
-        value: ${APP_URL}
-        scope: RUN_TIME
-      - key: NEXTAUTH_SECRET
-        type: SECRET
-        scope: RUN_TIME
-
-      # JWT Secrets
-      - key: JWT_SECRET
-        type: SECRET
-        scope: RUN_TIME
-      - key: JWT_REFRESH_SECRET
-        type: SECRET
-        scope: RUN_TIME
-
-      # Google OAuth
-      - key: GOOGLE_CLIENT_ID
-        type: SECRET
-        scope: RUN_TIME
-      - key: GOOGLE_CLIENT_SECRET
-        type: SECRET
-        scope: RUN_TIME
-
-      # AI Services
-      - key: ANTHROPIC_API_KEY
-        type: SECRET
-        scope: RUN_TIME
-      - key: OPENAI_API_KEY
-        type: SECRET
-        scope: RUN_TIME
-
-      # Stripe
-      - key: STRIPE_SECRET_KEY
-        type: SECRET
-        scope: RUN_TIME
-      - key: STRIPE_PUBLISHABLE_KEY
-        type: SECRET
-        scope: RUN_TIME
-      - key: STRIPE_WEBHOOK_SECRET
-        type: SECRET
-        scope: RUN_TIME
-
-      # Email/SMTP
-      - key: SMTP_HOST
-        type: SECRET
-        scope: RUN_TIME
-      - key: SMTP_PORT
-        value: "587"
-        scope: RUN_TIME
-      - key: SMTP_USER
-        type: SECRET
-        scope: RUN_TIME
-      - key: SMTP_PASS
-        type: SECRET
-        scope: RUN_TIME
-      - key: EMAIL_FROM
-        type: SECRET
-        scope: RUN_TIME
-
-    run_command: npx prisma migrate deploy && node server.js
-
-databases:
-  - name: db
-    engine: PG
-    version: "16"
-    production: true
-    num_nodes: 1
-    size: db-s-1vcpu-1gb
-
-ingress:
-  rules:
-    - match:
-        path:
-          prefix: /
-      component:
-        name: web
+- name: web
+  github:
+    repo: CleanExpo/RestoreAssist
+    branch: main
+  build_command: npm install --force && npm run build
+  run_command: npm start
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  http_port: 3000
+  health_check:
+    http_path: /
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: NPM_CONFIG_FORCE
+    value: "true"
