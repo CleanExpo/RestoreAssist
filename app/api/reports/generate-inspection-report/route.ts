@@ -554,7 +554,7 @@ ${materials.some(m => m.includes('Plasterboard')) ? '- Plasterboard Walls & Ceil
 ${isOccupied ? 'Include: Access Restrictions, Air Quality, Utilities, Pet/Children Safety' : ''}
 ${hasVulnerablePersons ? 'Include: Respiratory Health, Mobility, Medical Equipment' : ''}
 ${petsPresent ? 'Include: Dogs/Cats, Exotic Animals, Pest Activity considerations' : ''}
-${occupancyStatus.includes('Vacant') ? 'Include: Security, Timeline Flexibility, Utility Access' : ''}
+${occupancyStatus && occupancyStatus.includes('Vacant') ? 'Include: Security, Timeline Flexibility, Utility Access' : ''}
 
 ## SECTION 10: SECONDARY DAMAGE AND MOULD RISK
 - Mould Growth Risk Assessment (based on water duration)
