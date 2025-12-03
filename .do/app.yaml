@@ -5,7 +5,7 @@ services:
   github:
     repo: CleanExpo/RestoreAssist
     branch: main
-  build_command: npm install --force && npm run build
+  build_command: npm install --force --legacy-peer-deps && npm run build
   run_command: npm start
   environment_slug: node-js
   instance_count: 1
