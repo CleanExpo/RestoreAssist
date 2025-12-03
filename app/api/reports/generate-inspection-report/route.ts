@@ -605,9 +605,9 @@ Format the signature section at the bottom right of the report with appropriate 
 # CRITICAL REQUIREMENTS
 
 1. **MARKDOWN FORMATTING IS MANDATORY**: You MUST use proper Markdown heading syntax:
-   - Use `# ` (single hash) for the main title "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
-   - Use `## ` (double hash) for all major section headers like "## SECTION 1: EXECUTIVE SUMMARY"
-   - Use `### ` (triple hash) for all subsection headers like "### KEY PERFORMANCE METRICS"
+   - Use single hash (#) followed by space for the main title "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
+   - Use double hash (##) followed by space for all major section headers like "## SECTION 1: EXECUTIVE SUMMARY"
+   - Use triple hash (###) followed by space for all subsection headers like "### KEY PERFORMANCE METRICS"
    - Do NOT use plain text for section titles - they must have markdown heading syntax
 2. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
 3. Reference IICRC S500:2025 and S520 standards explicitly
