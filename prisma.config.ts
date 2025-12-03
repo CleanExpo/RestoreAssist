@@ -8,6 +8,6 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    url: "postgresql://postgres:b6q4kWNS0t4OZAWK@db.oxeiaavuspvpvanzcrjc.supabase.co:5432/postgres" as string,
+    url: process.env.DATABASE_URL as string,
   },
 });
