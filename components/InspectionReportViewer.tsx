@@ -23,6 +23,31 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     fetchReport()
   }, [reportId])
 
+  // Preprocess report content to ensure proper markdown heading formatting
+  const preprocessReportContent = (content: string): string => {
+    if (!content) return ''
+    
+    let processed = content
+    
+    // Convert "PRELIMINARY ASSESSMENT" to H1 if not already formatted
+    processed = processed.replace(/^(\*\*)?PRELIMINARY ASSESSMENT[^\n]*(\*\*)?$/gim, '# PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE')
+    
+    // Convert "RestoreAssist Inspection Report" to H1 if not already formatted
+    processed = processed.replace(/^(\*\*)?RestoreAssist\s+Inspection\s+Report(\*\*)?$/gim, '# RestoreAssist Inspection Report')
+    
+    // Convert "SECTION X: TITLE" patterns to H2 if not already formatted
+    processed = processed.replace(/^(?!##\s)(\*\*)?(SECTION\s+\d+:\s*[^\n]+)(\*\*)?$/gim, '## $2')
+    processed = processed.replace(/^##\s*SECTION\s+(\d+):\s*([^\n]+)$/gim, '## SECTION $1: $2')
+    
+    // Convert subsection headers like "KEY PERFORMANCE METRICS" to H3
+    processed = processed.replace(/^(?!###\s)(\*\*)?(KEY\s+[A-Z\s]+|SUBSECTION\s+[A-Z]|Subsection\s+[A-Z])(\*\*)?$/gm, '### $2')
+    
+    // Convert "Subsection A:", "Subsection B:" etc. to H3
+    processed = processed.replace(/^(?!###\s)(\*\*)?(Subsection\s+[A-E]:\s*[^\n]+)(\*\*)?$/gim, '### $2')
+    
+    return processed
+  }
+
   const fetchReport = async () => {
     setLoading(true)
     try {
@@ -33,7 +58,8 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
         if (data && typeof data === 'object') {
           setReport(data)
           if (data.detailedReport) {
-            setReportContent(data.detailedReport)
+            const processedContent = preprocessReportContent(data.detailedReport)
+            setReportContent(processedContent)
           }
         } else {
           toast.error('Failed to parse report data')
@@ -67,7 +93,8 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
       if (response.ok) {
         const data = await response.json()
         if (data.report && data.report.detailedReport) {
-          setReportContent(data.report.detailedReport)
+          const processedContent = preprocessReportContent(data.report.detailedReport)
+          setReportContent(processedContent)
           toast.success('Inspection report generated successfully')
           if (onReportGenerated) {
             onReportGenerated()

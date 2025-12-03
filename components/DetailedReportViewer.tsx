@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { FileText, Download, Copy, Check, RefreshCw } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import toast from "react-hot-toast"
@@ -11,6 +12,7 @@ interface DetailedReportViewerProps {
 }
 
 export default function DetailedReportViewer({ detailedReport, reportId }: DetailedReportViewerProps) {
+  const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -100,56 +102,42 @@ export default function DetailedReportViewer({ detailedReport, reportId }: Detai
   const handleGenerateReport = async () => {
     setGenerating(true)
     try {
-      const response = await fetch(`/api/reports/${reportId}/generate-detailed`, {
+      toast.loading('Regenerating enhanced report...', { id: 'regenerate-enhanced' })
+      
+      // Use the inspection report generation endpoint which regenerates the text report
+      const response = await fetch('/api/reports/generate-inspection-report', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportId,
+          reportType: 'enhanced'
+        })
       })
 
       if (!response.ok) {
         try {
         const errorData = await response.json()
-        toast.error(errorData.error || 'Failed to generate detailed report')
+          toast.error(errorData.error || 'Failed to regenerate enhanced report', { id: 'regenerate-enhanced' })
         } catch (e) {
-          toast.error('Failed to generate detailed report')
+          toast.error('Failed to regenerate enhanced report', { id: 'regenerate-enhanced' })
         }
         return
       }
 
-      // API returns PDF blob, so download it
-      const blob = await response.blob()
+      const data = await response.json()
       
-      if (!blob || blob.size === 0) {
-        toast.error('Generated PDF is empty')
-        return
+      if (data.report?.detailedReport) {
+        // Refresh the page data without full reload
+        router.refresh()
+        toast.success('Enhanced report regenerated successfully! Refreshing...', { id: 'regenerate-enhanced' })
+      } else {
+        toast.error('Failed to regenerate enhanced report', { id: 'regenerate-enhanced' })
       }
-
-      // Verify it's a PDF
-      const firstBytes = await blob.slice(0, 4).text()
-      if (!firstBytes.startsWith('%PDF')) {
-        // Not a PDF, might be an error message
-        try {
-          const text = await blob.text()
-          const error = JSON.parse(text)
-          toast.error(error.error || 'Failed to generate detailed report')
-        } catch (e) {
-          toast.error('Invalid response format')
-        }
-        return
-      }
-
-      // Download the PDF
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `initial-assessment-report-${reportId}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      
-      toast.success('AI report PDF generated and downloaded successfully!')
     } catch (error) {
-      console.error('Error generating detailed report:', error)
-      toast.error('Failed to generate detailed report')
+      console.error('Error regenerating enhanced report:', error)
+      toast.error('Failed to regenerate enhanced report', { id: 'regenerate-enhanced' })
     } finally {
       setGenerating(false)
     }
@@ -204,6 +192,14 @@ export default function DetailedReportViewer({ detailedReport, reportId }: Detai
           >
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             {copied ? 'Copied!' : 'Copy'}
+          </button>
+          <button
+            onClick={() => handleGenerateReport()}
+            disabled={generating}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-all duration-200 border border-slate-600/50 hover:border-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+            {generating ? 'Regenerating...' : 'Regenerate'}
           </button>
           <button
             onClick={handleDownloadEnhancedPDF}

@@ -146,8 +146,8 @@ export default function NewReportPage() {
       <div className="max-w-8xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Create New Report</h1>
-            <p className="text-slate-400">Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Create New Report</h1>
+          <p className="text-slate-400">Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
           </div>
           {(reportId || uploadedData) && (
             <button
@@ -157,7 +157,7 @@ export default function NewReportPage() {
               Start Fresh
             </button>
           )}
-        </div>
+            </div>
 
         {/* Upload Option */}
         {!uploadedData && (

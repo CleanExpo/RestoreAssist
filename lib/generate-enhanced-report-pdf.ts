@@ -181,47 +181,99 @@ export async function generateEnhancedReportPDF(data: EnhancedReportData): Promi
   // Enhanced Report Content
   const reportText = data.enhancedReport || ""
   
-  // Split by double newlines first, then process each section
-  const sections = reportText.split(/\n\n+/)
+  // Process line by line for better heading detection
+  const lines = reportText.split('\n')
 
-  for (const section of sections) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    
     if (yPosition < margin + 50) {
       currentPage = pdfDoc.addPage([595, 842])
       yPosition = height - 50
     }
 
-    // Sanitize section first
-    const cleanSection = sanitizeText(section)
-    if (!cleanSection || cleanSection.length === 0) continue
+    const trimmedLine = line.trim()
+    if (!trimmedLine) {
+      yPosition -= 8 // Small spacing for empty lines
+      continue
+    }
 
-    // Check if it's a heading (starts with ** or is all caps or has specific patterns)
-    const isHeading = section.match(/^\*\*.*\*\*$/) || 
-                     section.match(/^[A-Z\s]+:$/) ||
-                     section.match(/^###/) ||
-                     section.match(/^##/) ||
-                     section.match(/^#/)
-
-    if (isHeading) {
-      // Heading - remove markdown formatting
-      const headingText = cleanSection
-        .replace(/\*\*/g, '')
-        .replace(/^#+\s*/, '')
-        .trim()
-      if (headingText) {
-        yPosition = addText(headingText, margin, yPosition, 14, helveticaBold, textColor)
+    // Check for different heading levels (process before sanitization to preserve markdown)
+    if (trimmedLine.startsWith('# ')) {
+      // Main heading (H1) - size 16, bold, colored
+      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const cleanText = sanitizeText(text)
+      if (cleanText) {
         yPosition -= 10
+        currentPage.drawText(cleanText, {
+          x: margin,
+          y: yPosition,
+          size: 16,
+          font: helveticaBold,
+          color: headerColor
+        })
+        yPosition -= 25
       }
-    } else if (cleanSection.length > 0) {
-      // Regular text - split by single newlines to handle line breaks properly
-      const lines = section.split(/\n+/)
-      for (const line of lines) {
-        const cleanLine = sanitizeText(line)
-        if (cleanLine && cleanLine.length > 0) {
-          yPosition = addText(cleanLine, margin, yPosition, 11, helvetica, textColor, width - (margin * 2))
-          yPosition -= 4 // Smaller spacing between lines
-        }
+    } else if (trimmedLine.startsWith('## ')) {
+      // Subheading (H2) - size 14, bold, colored
+      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const cleanText = sanitizeText(text)
+      if (cleanText) {
+        yPosition -= 5
+        currentPage.drawText(cleanText, {
+          x: margin,
+          y: yPosition,
+          size: 14,
+          font: helveticaBold,
+          color: headerColor
+        })
+        yPosition -= 20
       }
-      yPosition -= sectionSpacing
+    } else if (trimmedLine.startsWith('### ')) {
+      // Sub-subheading (H3) - size 12, bold
+      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const cleanText = sanitizeText(text)
+      if (cleanText) {
+        yPosition -= 5
+        currentPage.drawText(cleanText, {
+          x: margin,
+          y: yPosition,
+          size: 12,
+          font: helveticaBold,
+          color: textColor
+        })
+        yPosition -= 18
+      }
+    } else if (trimmedLine.startsWith('#### ')) {
+      // H4 heading - size 11, bold
+      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const cleanText = sanitizeText(text)
+      if (cleanText) {
+        yPosition -= 5
+        currentPage.drawText(cleanText, {
+          x: margin,
+          y: yPosition,
+          size: 11,
+          font: helveticaBold,
+          color: textColor
+        })
+        yPosition -= 16
+      }
+    } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && trimmedLine.length > 4) {
+      // Bold text (markdown **text**)
+      const text = trimmedLine.replace(/\*\*/g, '').trim()
+      const cleanText = sanitizeText(text)
+      if (cleanText) {
+        yPosition = addText(cleanText, margin, yPosition, 11, helveticaBold, textColor, width - (margin * 2))
+        yPosition -= 6
+      }
+    } else {
+      // Regular text
+      const cleanText = sanitizeText(trimmedLine)
+      if (cleanText) {
+        yPosition = addText(cleanText, margin, yPosition, 11, helvetica, textColor, width - (margin * 2))
+        yPosition -= 4
+      }
     }
   }
 

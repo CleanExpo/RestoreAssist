@@ -442,11 +442,13 @@ ${standardsContext ? '**IMPORTANT: The standards documents above have been retri
 
 ${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
 
-Generate a comprehensive Professional Inspection Report with ALL of the following sections:
+Generate a comprehensive Professional Inspection Report with ALL of the following sections. **CRITICAL: You MUST use proper Markdown heading syntax (# for H1, ## for H2, ### for H3) for all section headers. Do NOT use plain text for section titles.**
 
-## COVER PAGE
-Include prominently: "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
-All cover page information listed above.
+# PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE
+
+## RestoreAssist Inspection Report
+
+Include all cover page information listed above in a structured format.
 
 ## SECTION 1: EXECUTIVE SUMMARY
 One paragraph overview including:
@@ -467,6 +469,7 @@ Use the example format provided in the specification.
 ${psychrometricAssessment ? `Include a comprehensive psychrometric assessment section with:
 
 ### KEY PERFORMANCE METRICS
+**CRITICAL: Use ### for subsection headers like this one.**
 ${psychrometricAssessment.dryingPotential?.dryingIndex ? `- Drying Index: ${psychrometricAssessment.dryingPotential.dryingIndex}${psychrometricAssessment.dryingPotential?.status ? ` (Status: ${psychrometricAssessment.dryingPotential.status})` : ''}` : ''}
 ${report.dehumidificationCapacity ? `- Liters/Day Target: ${report.dehumidificationCapacity} L/Day` : ''}
 ${report.airmoversCount ? `- Air Movers Required: ${report.airmoversCount} units` : ''}
@@ -521,11 +524,11 @@ Detailed room-by-room breakdown with:
 - Progression observed
 
 ## SECTION 5: STANDARDS COMPLIANCE FRAMEWORK
-Subsection A: IICRC Water Damage Standards
-Subsection B: Building Code Compliance (use state-specific building code)
-Subsection C: Work Health and Safety (use state-specific WHS Act)
-Subsection D: Environmental Protection (use state-specific EPA Act)
-Subsection E: Local Council Requirements (if postcode available)
+### Subsection A: IICRC Water Damage Standards
+### Subsection B: Building Code Compliance (use state-specific building code)
+### Subsection C: Work Health and Safety (use state-specific WHS Act)
+### Subsection D: Environmental Protection (use state-specific EPA Act)
+### Subsection E: Local Council Requirements (if postcode available)
 
 ## SECTION 6: HAZARD ASSESSMENT FLAGS
 ${hasHazards ? `For EACH hazard identified, create a STOP WORK FLAG block with:
@@ -601,16 +604,21 @@ Format the signature section at the bottom right of the report with appropriate 
 
 # CRITICAL REQUIREMENTS
 
-1. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
-2. Reference IICRC S500:2025 and S520 standards explicitly
-3. Reference ${stateInfo ? stateInfo.buildingCode : 'NCC'} explicitly
-4. Reference ${stateInfo ? stateInfo.whsAct : 'Work Health and Safety Act 2011'} explicitly
-5. Use ONLY the actual data provided in the REPORT DATA section - do not make up information
-6. Do NOT include any placeholder text like "Not provided", "Not specified", "N/A", or "Unknown"
-7. Only include sections and fields for which actual data was provided
-8. Include all required subsections
-9. Use Australian English spelling
-10. Make it comprehensive and professional
+1. **MARKDOWN FORMATTING IS MANDATORY**: You MUST use proper Markdown heading syntax:
+   - Use `# ` (single hash) for the main title "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
+   - Use `## ` (double hash) for all major section headers like "## SECTION 1: EXECUTIVE SUMMARY"
+   - Use `### ` (triple hash) for all subsection headers like "### KEY PERFORMANCE METRICS"
+   - Do NOT use plain text for section titles - they must have markdown heading syntax
+2. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
+3. Reference IICRC S500:2025 and S520 standards explicitly
+4. Reference ${stateInfo ? stateInfo.buildingCode : 'NCC'} explicitly
+5. Reference ${stateInfo ? stateInfo.whsAct : 'Work Health and Safety Act 2011'} explicitly
+6. Use ONLY the actual data provided in the REPORT DATA section - do not make up information
+7. Do NOT include any placeholder text like "Not provided", "Not specified", "N/A", or "Unknown"
+8. Only include sections and fields for which actual data was provided
+9. Include all required subsections
+10. Use Australian English spelling
+11. Make it comprehensive and professional
 
 Generate the complete report now.`
 }
