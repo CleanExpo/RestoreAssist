@@ -60,7 +60,6 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Error generating inspection report PDF:', error)
     return NextResponse.json(
       { error: 'Failed to generate PDF' },
       { status: 500 }
@@ -119,9 +118,24 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
   })
   yPosition -= 20
 
-  // Helper function to wrap text
+  const sanitizeText = (text: string): string => {
+    return text
+      .replace(/✓/g, '[X]')
+      .replace(/✔/g, '[X]')
+      .replace(/✗/g, '[ ]')
+      .replace(/✘/g, '[ ]')
+      .replace(/[^\x00-\x7F]/g, (char) => {
+        const charCode = char.charCodeAt(0)
+        if (charCode >= 0x80 && charCode <= 0xFF) {
+          return char
+        }
+        return '?'
+      })
+  }
+
   const wrapText = (text: string, maxWidth: number, size: number): string[] => {
-    const words = text.split(' ')
+    const sanitized = sanitizeText(text)
+    const words = sanitized.split(' ')
     const lines: string[] = []
     let currentLine = ''
 
@@ -180,8 +194,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
     const trimmedLine = line.trim()
     
     if (trimmedLine.startsWith('# ')) {
-      // Main heading
-      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const text = sanitizeText(trimmedLine.replace(/^#+\s*/, '').trim())
       yPosition -= 10
       page.drawText(text, {
         x: margin,
@@ -192,8 +205,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
       })
       yPosition -= 25
     } else if (trimmedLine.startsWith('## ')) {
-      // Subheading
-      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const text = sanitizeText(trimmedLine.replace(/^#+\s*/, '').trim())
       yPosition -= 5
       page.drawText(text, {
         x: margin,
@@ -204,8 +216,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
       })
       yPosition -= 20
     } else if (trimmedLine.startsWith('### ')) {
-      // Sub-subheading
-      const text = trimmedLine.replace(/^#+\s*/, '').trim()
+      const text = sanitizeText(trimmedLine.replace(/^#+\s*/, '').trim())
       yPosition -= 5
       page.drawText(text, {
         x: margin,
@@ -215,8 +226,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
       })
       yPosition -= 18
     } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
-      // Bold text
-      const text = trimmedLine.replace(/\*\*/g, '').trim()
+      const text = sanitizeText(trimmedLine.replace(/\*\*/g, '').trim())
       const wrapped = wrapText(text, maxWidth, fontSize)
       wrapped.forEach((wrappedLine) => {
         if (yPosition < 80) {
@@ -232,8 +242,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
         yPosition -= lineHeight
       })
     } else if (trimmedLine.startsWith('- ')) {
-      // Bullet point
-      const text = trimmedLine.replace(/^-\s*/, '').trim()
+      const text = sanitizeText(trimmedLine.replace(/^-\s*/, '').trim())
       const wrapped = wrapText(text, maxWidth - 15, fontSize)
       wrapped.forEach((wrappedLine, index) => {
         if (yPosition < 80) {
@@ -249,8 +258,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
         yPosition -= lineHeight
       })
     } else if (trimmedLine) {
-      // Regular text
-      const wrapped = wrapText(trimmedLine, maxWidth, fontSize)
+      const wrapped = wrapText(sanitizeText(trimmedLine), maxWidth, fontSize)
       wrapped.forEach((wrappedLine) => {
         if (yPosition < 80) {
           page = pdfDoc.addPage([595.28, 841.89])
@@ -298,9 +306,8 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
         signatureY = height - 50
       }
       
-      const cleanLine = line.trim()
+      const cleanLine = sanitizeText(line.trim())
       if (cleanLine) {
-        // Calculate text width for right alignment
         const textWidth = font.widthOfTextAtSize(cleanLine, fontSize)
         page.drawText(cleanLine, {
           x: signatureStartX + (200 - textWidth), // Right-align within 200pt width
