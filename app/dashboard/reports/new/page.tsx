@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Upload, FileText, Loader2, X, CheckCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
+import OnboardingModal from "@/components/OnboardingModal"
 
 export default function NewReportPage() {
   const router = useRouter()
@@ -15,6 +16,18 @@ export default function NewReportPage() {
   const [fileName, setFileName] = useState<string>('')
   const [reportId, setReportId] = useState<string | null>(null)
   const [loadingReport, setLoadingReport] = useState(false)
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false)
+
+  // Check onboarding status on mount (only for new reports)
+  useEffect(() => {
+    const urlReportId = searchParams.get('reportId')
+    // Only check onboarding if creating a new report (no reportId)
+    if (!urlReportId && !hasCheckedOnboarding) {
+      checkOnboardingStatus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
 
   // Check for reportId in URL only (don't auto-load from localStorage for new reports)
   useEffect(() => {
@@ -37,6 +50,21 @@ export default function NewReportPage() {
       setFileName('')
     }
   }, [searchParams])
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const response = await fetch('/api/onboarding/status')
+      if (response.ok) {
+        const data = await response.json()
+        if (!data.isComplete && !hasCheckedOnboarding) {
+          setShowOnboardingModal(true)
+        }
+        setHasCheckedOnboarding(true)
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error)
+    }
+  }
 
   const loadReportData = async (id: string) => {
     setLoadingReport(true)
@@ -138,7 +166,18 @@ export default function NewReportPage() {
     }
     // Clear URL params if any
     router.replace('/dashboard/reports/new')
+    // Reset onboarding check flag and re-check when starting new
+    setHasCheckedOnboarding(false)
+    setTimeout(() => {
+      checkOnboardingStatus()
+    }, 100)
     toast.success('Starting new report')
+  }
+
+  const handleOnboardingClose = () => {
+    setShowOnboardingModal(false)
+    // Re-check onboarding status when modal closes (user might have completed steps)
+    checkOnboardingStatus()
   }
 
   return (
@@ -273,6 +312,16 @@ export default function NewReportPage() {
         />
         )}
       </div>
+
+      {/* Onboarding Modal */}
+      <OnboardingModal
+        isOpen={showOnboardingModal}
+        onClose={handleOnboardingClose}
+        onComplete={() => {
+          setShowOnboardingModal(false)
+          toast.success('Setup complete! You can now create reports.')
+        }}
+      />
     </div>
   )
 }
