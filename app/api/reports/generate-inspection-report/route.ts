@@ -365,7 +365,21 @@ ${affectedAreas}` : ''}
 ${materials.length > 0 ? `## Affected Materials
 ${materials.join(', ')}` : ''}
 
-${equipmentDeployed ? `## Equipment Deployed
+${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Selection
+${equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const itemDailyTotal = dailyRate * sel.quantity
+  const itemTotalCost = itemDailyTotal * (report.estimatedDryingDuration || 1)
+  return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
+}).join('\n')}
+- Total Daily Cost: $${equipmentSelection.reduce((sum: number, sel: any) => {
+  const dailyRate = sel.dailyRate || getEquipmentGroupById(sel.groupId)?.dailyRate || 0
+  return sum + (dailyRate * sel.quantity)
+}, 0).toFixed(2)}
+- Estimated Duration: ${report.estimatedDryingDuration || 'N/A'} days
+- Total Equipment Cost: $${report.equipmentCostTotal?.toFixed(2) || '0.00'}
+` : equipmentDeployed ? `## Equipment Deployed
 ${equipmentDeployed}` : ''}
 
 ${moistureReadings ? `## Moisture Readings
@@ -426,9 +440,15 @@ Area ${idx + 1}: ${area.name}
 ${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Selection
 ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
-  return `- ${group?.name || sel.groupId}: ${sel.quantity} units @ $${sel.dailyRate || group?.dailyRate || 0}/day`
+  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const itemDailyTotal = dailyRate * sel.quantity
+  const itemTotalCost = itemDailyTotal * (report.estimatedDryingDuration || 1)
+  return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
 }).join('\n')}
-- Total Daily Cost: $${report.equipmentCostTotal ? (report.equipmentCostTotal / (report.estimatedDryingDuration || 1)).toFixed(2) : '0.00'}
+- Total Daily Cost: $${equipmentSelection.reduce((sum: number, sel: any) => {
+  const dailyRate = sel.dailyRate || getEquipmentGroupById(sel.groupId)?.dailyRate || 0
+  return sum + (dailyRate * sel.quantity)
+}, 0).toFixed(2)}
 - Estimated Duration: ${report.estimatedDryingDuration || 'N/A'} days
 - Total Equipment Cost: $${report.equipmentCostTotal?.toFixed(2) || '0.00'}
 ` : ''}
@@ -496,17 +516,20 @@ ${equipmentSelection.reduce((sum: number, sel: any) => sum + sel.quantity, 0)} T
 
 ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
-  const type = group?.id.includes('lgr') ? 'DEHUMIDIFIER TYPE' : 
-               group?.id.includes('desiccant') ? 'DEHUMIDIFIER TYPE' :
-               group?.id.includes('airmover') ? 'AIR_MOVER TYPE' :
-               group?.id.includes('heat') ? 'HEAT TYPE' : 'EQUIPMENT TYPE'
-  return `- ${group?.capacity || sel.groupId} (${type}): ×${sel.quantity} Units`
+  const type = group?.id.includes('lgr') ? 'LGR DEHUMIDIFIER' : 
+               group?.id.includes('desiccant') ? 'DESICCANT DEHUMIDIFIER' :
+               group?.id.includes('airmover') ? 'AIR MOVER' :
+               group?.id.includes('heat') ? 'HEAT DRYING' : 'EQUIPMENT'
+  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const itemDailyTotal = dailyRate * sel.quantity
+  const itemTotalCost = itemDailyTotal * (report.estimatedDryingDuration || 1)
+  return `- ${group?.name || sel.groupId} (${type}): ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
 }).join('\n')}
 
 ${report.estimatedDryingDuration || report.equipmentCostTotal || totalAmps ? `**Estimated Consumption:**
 ${report.estimatedDryingDuration ? `- Duration: ${report.estimatedDryingDuration} Days` : ''}
-${report.equipmentCostTotal ? `- Total Cost: $${report.equipmentCostTotal.toFixed(2)}` : ''}
-${totalAmps ? `- Total Draw: ${totalAmps} Amps` : ''}` : ''}
+${report.equipmentCostTotal ? `- Total Equipment Cost: $${report.equipmentCostTotal.toFixed(2)}` : ''}
+${totalAmps ? `- Total Electrical Draw: ${totalAmps.toFixed(1)} Amps` : ''}` : ''}
 ` : ''}
 
 ### REPORT CERTIFICATION
@@ -542,7 +565,10 @@ ${hasHazards ? `For EACH hazard identified, create a STOP WORK FLAG block with:
 
 ## SECTION 7: INITIAL REMEDIATION ACTIONS COMPLETED
 - Standing Water Extraction
-- Equipment Deployed (with details from data)
+${equipmentSelection && equipmentSelection.length > 0 ? `- Equipment Deployed: ${equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  return `${sel.quantity}x ${group?.name || sel.groupId}`
+}).join(', ')}` : equipmentDeployed ? `- Equipment Deployed: ${equipmentDeployed}` : '- Equipment Deployed: (To be specified)'}
 - Moisture Assessment
 - Initial PPE & Safety
 
@@ -566,7 +592,15 @@ ${occupancyStatus && occupancyStatus.includes('Vacant') ? 'Include: Security, Ti
 - Occupant Health Considerations
 
 ## SECTION 11: POWER AND EQUIPMENT REQUIREMENTS
-- Power Draw Calculation (calculate from equipment deployed)
+${equipmentSelection && equipmentSelection.length > 0 ? `- Power Draw Calculation: ${totalAmps.toFixed(1)} Amps total (calculated from selected equipment)
+- Equipment Load: ${equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  return `${sel.quantity}x ${group?.name || sel.groupId} (${(group?.amps || 0) * sel.quantity}A)`
+}).join(', ')}
+- Total Daily Equipment Cost: $${equipmentSelection.reduce((sum: number, sel: any) => {
+  const dailyRate = sel.dailyRate || getEquipmentGroupById(sel.groupId)?.dailyRate || 0
+  return sum + (dailyRate * sel.quantity)
+}, 0).toFixed(2)}` : '- Power Draw Calculation: (calculate from equipment deployed)'}
 - Context and recommendations
 - Alternative options if needed
 

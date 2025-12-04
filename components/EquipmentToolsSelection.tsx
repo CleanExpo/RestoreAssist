@@ -20,6 +20,7 @@ import {
   calculateTotalAmps,
   calculateTotalDailyCost,
   calculateTotalCost,
+  getEquipmentDailyRate,
   type EquipmentSelection,
   type EquipmentGroup
 } from "@/lib/equipment-matrix"
@@ -52,6 +53,7 @@ export default function EquipmentToolsSelection({
 }: EquipmentToolsSelectionProps) {
   const [currentStep, setCurrentStep] = useState<Step>(1)
   const [loading, setLoading] = useState(false)
+  const [pricingConfig, setPricingConfig] = useState<any>(null)
   
   // Step 1: Psychrometric Assessment
   const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(2)
@@ -74,6 +76,30 @@ export default function EquipmentToolsSelection({
     initialData?.equipmentSelection || []
   )
   const [durationDays, setDurationDays] = useState(4)
+
+  // Fetch pricing config on mount
+  useEffect(() => {
+    const fetchPricingConfig = async () => {
+      try {
+        const response = await fetch('/api/pricing-config')
+        if (response.ok) {
+          const data = await response.json()
+          setPricingConfig(data)
+          
+          // Update equipment selections with pricing config rates if they don't have rates
+          if (data && equipmentSelections.length > 0) {
+            setEquipmentSelections(prev => prev.map(sel => ({
+              ...sel,
+              dailyRate: sel.dailyRate || getEquipmentDailyRate(sel.groupId, data)
+            })))
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching pricing config:', error)
+      }
+    }
+    fetchPricingConfig()
+  }, [])
   
   // Calculate drying potential
   const dryingPotential = calculateDryingPotential({
@@ -88,10 +114,10 @@ export default function EquipmentToolsSelection({
   const waterRemovalTarget = calculateWaterRemovalTarget(totalVolume, waterClass, totalAffectedArea)
   const airMoversRequired = calculateAirMoversRequired(totalAffectedArea, waterClass)
   
-  // Calculate equipment totals
+  // Calculate equipment totals using pricing config
   const totalAmps = calculateTotalAmps(equipmentSelections)
-  const totalDailyCost = calculateTotalDailyCost(equipmentSelections)
-  const totalCost = calculateTotalCost(equipmentSelections, durationDays)
+  const totalDailyCost = calculateTotalDailyCost(equipmentSelections, pricingConfig)
+  const totalCost = calculateTotalCost(equipmentSelections, durationDays, pricingConfig)
   
   // Calculate efficiency targets
   const totalEquipmentCapacity = equipmentSelections.reduce((total, sel) => {
@@ -156,10 +182,11 @@ export default function EquipmentToolsSelection({
         )
       } else if (delta > 0) {
         const group = getEquipmentGroupById(groupId)
+        const rate = pricingConfig ? getEquipmentDailyRate(groupId, pricingConfig) : (group?.dailyRate || 0)
         return [...prev, {
           groupId,
           quantity: 1,
-          dailyRate: group?.dailyRate
+          dailyRate: rate
         }]
       }
       return prev
@@ -179,10 +206,11 @@ export default function EquipmentToolsSelection({
         const capacity = parseInt(capacityMatch[1])
         const needed = Math.ceil(remainingCapacity / capacity)
         if (needed > 0) {
+          const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)
           selections.push({
             groupId: group.id,
             quantity: needed,
-            dailyRate: group.dailyRate
+            dailyRate: rate
           })
           remainingCapacity -= capacity * needed
         }
@@ -201,10 +229,11 @@ export default function EquipmentToolsSelection({
           if (existing) {
             existing.quantity += needed
           } else {
+            const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)
             selections.push({
               groupId: group.id,
               quantity: needed,
-              dailyRate: group.dailyRate
+              dailyRate: rate
             })
           }
           remainingAirMovers -= (group.airflow / 1500) * needed
@@ -656,6 +685,9 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
+                            <div className="text-xs text-cyan-400 mt-1">
+                              ${(pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)).toFixed(2)}/day
+                            </div>
                           </div>
                           {quantity > 0 && (
                             <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
@@ -700,6 +732,9 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
+                            <div className="text-xs text-cyan-400 mt-1">
+                              ${(pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)).toFixed(2)}/day
+                            </div>
                           </div>
                           {quantity > 0 && (
                             <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
@@ -743,6 +778,9 @@ export default function EquipmentToolsSelection({
                             <div className="font-medium">{group.capacity}</div>
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
+                            </div>
+                            <div className="text-xs text-cyan-400 mt-1">
+                              ${(pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)).toFixed(2)}/day
                             </div>
                           </div>
                           {quantity > 0 && (

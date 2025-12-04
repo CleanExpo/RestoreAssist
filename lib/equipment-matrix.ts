@@ -226,17 +226,50 @@ export function calculateTotalAmps(selections: EquipmentSelection[]): number {
   }, 0)
 }
 
-// Calculate total daily cost for selected equipment
-export function calculateTotalDailyCost(selections: EquipmentSelection[]): number {
+// Map equipment group ID to pricing config field name
+export function getEquipmentPricingField(groupId: string): string | null {
+  if (groupId.startsWith('lgr-')) {
+    return 'dehumidifierLGRDailyRate'
+  }
+  if (groupId.startsWith('desiccant-')) {
+    return 'dehumidifierDesiccantDailyRate'
+  }
+  if (groupId.startsWith('airmover-')) {
+    // Determine if axial or centrifugal based on group
+    const group = getEquipmentGroupById(groupId)
+    // For now, use axial for all air movers (can be refined later)
+    return 'airMoverAxialDailyRate'
+  }
+  if (groupId.startsWith('heat-')) {
+    // Heat drying might need custom fields, for now return null to use default
+    return null
+  }
+  return null
+}
+
+// Get daily rate from pricing config for an equipment group
+export function getEquipmentDailyRate(groupId: string, pricingConfig: any): number {
+  const pricingField = getEquipmentPricingField(groupId)
+  if (pricingField && pricingConfig && pricingConfig[pricingField]) {
+    return pricingConfig[pricingField]
+  }
+  // Fallback to default rate from equipment matrix
+  const group = getEquipmentGroupById(groupId)
+  return group?.dailyRate || 0
+}
+
+// Calculate total daily cost for selected equipment using pricing config
+export function calculateTotalDailyCost(selections: EquipmentSelection[], pricingConfig?: any): number {
   return selections.reduce((total, selection) => {
-    const rate = selection.dailyRate || getEquipmentGroupById(selection.groupId)?.dailyRate || 0
+    // Use the rate from selection (which should come from pricing config), or fallback
+    const rate = selection.dailyRate || (pricingConfig ? getEquipmentDailyRate(selection.groupId, pricingConfig) : getEquipmentGroupById(selection.groupId)?.dailyRate) || 0
     return total + (rate * selection.quantity)
   }, 0)
 }
 
 // Calculate total cost for selected equipment over duration
-export function calculateTotalCost(selections: EquipmentSelection[], durationDays: number): number {
-  const dailyCost = calculateTotalDailyCost(selections)
+export function calculateTotalCost(selections: EquipmentSelection[], durationDays: number, pricingConfig?: any): number {
+  const dailyCost = calculateTotalDailyCost(selections, pricingConfig)
   return dailyCost * durationDays
 }
 
