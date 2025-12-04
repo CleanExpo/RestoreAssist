@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Info, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
 import toast from "react-hot-toast"
 
 export default function SignupPage() {
@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [shouldRedirect, setShouldRedirect] = useState(false)
+  const [showInfo, setShowInfo] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function SignupPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <motion.h1
             className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2"
             style={{ fontFamily: 'Titillium Web, sans-serif' }}
@@ -115,6 +116,79 @@ export default function SignupPage() {
             Restore Assist          </motion.h1>
           <p className="text-slate-400">Create your account</p>
         </div>
+
+        {/* Information Box */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-6 bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4"
+        >
+          <button
+            onClick={() => setShowInfo(!showInfo)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-cyan-400" />
+              <span className="text-cyan-400 font-medium">What you'll need after signup</span>
+            </div>
+            {showInfo ? (
+              <ChevronUp className="w-5 h-5 text-cyan-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-cyan-400" />
+            )}
+          </button>
+          
+          {showInfo && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 space-y-3 text-sm text-slate-300"
+            >
+              <div>
+                <p className="font-semibold text-cyan-300 mb-1">1. Upgrade Your Package</p>
+                <p className="text-slate-400">Start with 3 free reports, then upgrade for unlimited access to all features.</p>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-cyan-300 mb-1">2. Get an API Key (Required for AI features)</p>
+                <p className="text-slate-400 mb-2">Choose one provider to enable AI-powered report generation:</p>
+                <ul className="list-disc list-inside space-y-1 text-slate-400 ml-2">
+                  <li>
+                    <strong>Anthropic (Recommended):</strong>{" "}
+                    <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
+                      Get API key <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
+                  <li>
+                    <strong>OpenAI:</strong>{" "}
+                    <a href="https://platform.openai.com/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
+                      Get API key <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
+                  <li>
+                    <strong>Google Gemini:</strong>{" "}
+                    <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
+                      Get API key <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-cyan-300 mb-1">3. Configure Pricing</p>
+                <p className="text-slate-400">Set your company's rates for labor, equipment, and services to generate accurate cost estimates.</p>
+              </div>
+              
+              <div className="pt-2 border-t border-cyan-500/20">
+                <p className="text-xs text-slate-400">
+                  💡 <strong>Tip:</strong> You can complete these steps after signing up. We'll guide you through the process!
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
 
         {/* Signup Form */}
         <motion.div
