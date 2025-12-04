@@ -142,8 +142,35 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
     return lines
   }
 
+  // Remove HTML tags and extract signature section
+  let processedContent = content
+  processedContent = processedContent.replace(/<p[^>]*>/gi, '')
+  processedContent = processedContent.replace(/<\/p>/gi, '\n')
+  processedContent = processedContent.replace(/<br\s*\/?>/gi, '\n')
+  processedContent = processedContent.replace(/<div[^>]*>/gi, '')
+  processedContent = processedContent.replace(/<\/div>/gi, '\n')
+  processedContent = processedContent.replace(/style="[^"]*"/gi, '')
+  
+  // Extract signature section for separate handling
+  const signaturePattern = /##\s*SIGNATURE[\s\S]*?(?=##|$)/i
+  const signatureMatch = processedContent.match(signaturePattern)
+  let signatureLines: string[] = []
+  
+  if (signatureMatch) {
+    signatureLines = signatureMatch[0]
+      .replace(/##\s*SIGNATURE/gi, '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.match(/^(Technician Name|Date|Position|Company):/i))
+      .filter(l => l.length > 0 && !l.match(/^[-•]/))
+      .filter(l => !l.match(/^<[^>]+>/))
+    
+    // Remove signature section from main content
+    processedContent = processedContent.replace(signaturePattern, '')
+  }
+  
   // Add content with proper formatting
-  const lines = content.split('\n')
+  const lines = processedContent.split('\n')
   for (const line of lines) {
     if (yPosition < 80) {
       page = pdfDoc.addPage([595.28, 841.89])
@@ -241,6 +268,50 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
       // Empty line
       yPosition -= lineHeight / 2
     }
+  }
+  
+  // Add signature section at the bottom right (before footer)
+  if (signatureLines.length > 0) {
+    if (yPosition < 80) {
+      page = pdfDoc.addPage([595.28, 841.89])
+      yPosition = height - 50
+    }
+    
+    yPosition -= 30 // Add spacing before signature
+    
+    // Draw a line above signature
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 0.5,
+      color: rgb(0.7, 0.7, 0.7)
+    })
+    yPosition -= 20
+    
+    // Add signature lines, right-aligned
+    const signatureStartX = width - margin - 200 // Right-aligned, 200pt wide
+    let signatureY = yPosition
+    
+    signatureLines.forEach((line) => {
+      if (signatureY < 80) {
+        page = pdfDoc.addPage([595.28, 841.89])
+        signatureY = height - 50
+      }
+      
+      const cleanLine = line.trim()
+      if (cleanLine) {
+        // Calculate text width for right alignment
+        const textWidth = font.widthOfTextAtSize(cleanLine, fontSize)
+        page.drawText(cleanLine, {
+          x: signatureStartX + (200 - textWidth), // Right-align within 200pt width
+          y: signatureY,
+          size: fontSize,
+          font: font,
+          color: rgb(0.1, 0.1, 0.1)
+        })
+        signatureY -= lineHeight
+      }
+    })
   }
 }
 

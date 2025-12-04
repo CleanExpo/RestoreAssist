@@ -628,13 +628,14 @@ ${stateInfo ? `Use state-specific authorities:
 - Final Validation
 
 ## SIGNATURE
-${report.technicianName ? `At the end of the report, include a signature section aligned to the right side with:
-- Technician Name: ${report.technicianName}
-- Date: ${new Date().toLocaleDateString('en-AU')}
-- Position: Water Damage Restoration Technician
-- Company: RestoreAssist
+${report.technicianName ? `At the end of the report, include a signature section. Format it as plain text (NO HTML TAGS, NO <br>, NO <p> tags) with the following information, each on a separate line:
 
-Format the signature section at the bottom right of the report with appropriate spacing.` : 'Include a signature section at the bottom right of the report with the date of report generation.'}
+${report.technicianName}
+Water Damage Restoration Technician
+RestoreAssist
+${new Date().toLocaleDateString('en-AU')}
+
+CRITICAL: Do NOT use HTML tags like <p>, <br>, or style attributes. Use plain text with line breaks. The signature should appear at the bottom of the report.` : `At the end of the report, include a signature section with the date: ${new Date().toLocaleDateString('en-AU')}. Use plain text only, NO HTML tags.`}
 
 # CRITICAL REQUIREMENTS
 
@@ -643,6 +644,7 @@ Format the signature section at the bottom right of the report with appropriate 
    - Use double hash (##) followed by space for all major section headers like "## SECTION 1: EXECUTIVE SUMMARY"
    - Use triple hash (###) followed by space for all subsection headers like "### KEY PERFORMANCE METRICS"
    - Do NOT use plain text for section titles - they must have markdown heading syntax
+   - **CRITICAL: NEVER use HTML tags like <p>, <br>, <div>, or style attributes anywhere in the report. Use plain text and markdown only.**
 2. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
 3. Reference IICRC S500:2025 and S520 standards explicitly
 4. Reference ${stateInfo ? stateInfo.buildingCode : 'NCC'} explicitly

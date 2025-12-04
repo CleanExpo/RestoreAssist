@@ -17,8 +17,40 @@ export default function DetailedReportViewer({ detailedReport, reportId }: Detai
   const [generating, setGenerating] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
-  // Ensure detailedReport is a string
-  const reportContent = typeof detailedReport === 'string' ? detailedReport : ''
+  // Ensure detailedReport is a string and preprocess it
+  let reportContent = typeof detailedReport === 'string' ? detailedReport : ''
+  
+  // Remove HTML tags that might have been incorrectly included
+  reportContent = reportContent.replace(/<p[^>]*>/gi, '')
+  reportContent = reportContent.replace(/<\/p>/gi, '\n')
+  reportContent = reportContent.replace(/<br\s*\/?>/gi, '\n')
+  reportContent = reportContent.replace(/<div[^>]*>/gi, '')
+  reportContent = reportContent.replace(/<\/div>/gi, '\n')
+  reportContent = reportContent.replace(/style="[^"]*"/gi, '')
+  
+  // Extract and format signature section
+  const signaturePattern = /##\s*SIGNATURE[\s\S]*?(?=##|$)/i
+  const signatureMatch = reportContent.match(signaturePattern)
+  let signatureContent: string | null = null
+  
+  if (signatureMatch) {
+    // Extract signature lines
+    const signatureText = signatureMatch[0]
+      .replace(/##\s*SIGNATURE/gi, '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.match(/^(Technician Name|Date|Position|Company):/i))
+      .filter(l => l.length > 0 && !l.match(/^[-•]/))
+      .filter(l => !l.match(/^<[^>]+>/)) // Remove any remaining HTML tags
+      .join('\n')
+    
+    if (signatureText.trim()) {
+      signatureContent = signatureText
+    }
+    
+    // Remove signature section from main content (we'll render it separately)
+    reportContent = reportContent.replace(signaturePattern, '')
+  }
 
   const handleCopy = async () => {
     if (reportContent) {
@@ -229,7 +261,13 @@ export default function DetailedReportViewer({ detailedReport, reportId }: Detai
               <ReactMarkdown
                 components={{
                   h1: ({ children }) => <h1 className="text-3xl font-bold text-white mb-6 mt-8 first:mt-0 border-b border-slate-700/50 pb-3">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-2xl font-bold text-cyan-400 mb-4 mt-8 border-l-4 border-cyan-500 pl-4">{children}</h2>,
+                  h2: ({ children }) => {
+                    const isSignature = typeof children === 'string' && children.toLowerCase().includes('signature')
+                    if (isSignature) {
+                      return null // We'll handle signature separately
+                    }
+                    return <h2 className="text-2xl font-bold text-cyan-400 mb-4 mt-8 border-l-4 border-cyan-500 pl-4">{children}</h2>
+                  },
                   h3: ({ children }) => <h3 className="text-xl font-bold text-cyan-300 mb-3 mt-6">{children}</h3>,
                   h4: ({ children }) => <h4 className="text-lg font-bold text-emerald-400 mb-2 mt-4">{children}</h4>,
                   p: ({ children, ...props }) => {
@@ -310,6 +348,19 @@ export default function DetailedReportViewer({ detailedReport, reportId }: Detai
               >
                 {reportContent}
               </ReactMarkdown>
+              
+              {/* Signature Section - Right Aligned */}
+              {signatureContent && (
+                <div className="mt-12 pt-8 border-t border-slate-700/50">
+                  <div className="text-right space-y-1">
+                    {signatureContent.split('\n').filter(l => l.trim()).map((line, idx) => (
+                      <div key={idx} className="text-slate-300 leading-relaxed">
+                        {line.trim()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

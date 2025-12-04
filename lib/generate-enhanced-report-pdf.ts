@@ -179,7 +179,33 @@ export async function generateEnhancedReportPDF(data: EnhancedReportData): Promi
   yPosition -= sectionSpacing
 
   // Enhanced Report Content
-  const reportText = data.enhancedReport || ""
+  let reportText = data.enhancedReport || ""
+  
+  // Remove HTML tags that might have been incorrectly included
+  reportText = reportText.replace(/<p[^>]*>/gi, '')
+  reportText = reportText.replace(/<\/p>/gi, '\n')
+  reportText = reportText.replace(/<br\s*\/?>/gi, '\n')
+  reportText = reportText.replace(/<div[^>]*>/gi, '')
+  reportText = reportText.replace(/<\/div>/gi, '\n')
+  reportText = reportText.replace(/style="[^"]*"/gi, '')
+  
+  // Extract signature section for separate handling
+  const signaturePattern = /##\s*SIGNATURE[\s\S]*?(?=##|$)/i
+  const signatureMatch = reportText.match(signaturePattern)
+  let signatureLines: string[] = []
+  
+  if (signatureMatch) {
+    signatureLines = signatureMatch[0]
+      .replace(/##\s*SIGNATURE/gi, '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.match(/^(Technician Name|Date|Position|Company):/i))
+      .filter(l => l.length > 0 && !l.match(/^[-•]/))
+      .filter(l => !l.match(/^<[^>]+>/))
+    
+    // Remove signature section from main content
+    reportText = reportText.replace(signaturePattern, '')
+  }
   
   // Process line by line for better heading detection
   const lines = reportText.split('\n')
@@ -275,6 +301,52 @@ export async function generateEnhancedReportPDF(data: EnhancedReportData): Promi
         yPosition -= 4
       }
     }
+  }
+
+  // Add signature section at the bottom right (before footer)
+  if (signatureLines.length > 0) {
+    if (yPosition < margin + 80) {
+      currentPage = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+    
+    yPosition -= 30 // Add spacing before signature
+    
+    // Draw a line above signature
+    currentPage.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 0.5,
+      color: secondaryColor
+    })
+    yPosition -= 20
+    
+    // Add signature lines, right-aligned
+    const signatureStartX = width - margin - 200 // Right-aligned, 200pt wide
+    let signatureY = yPosition
+    
+    signatureLines.forEach((line) => {
+      if (signatureY < margin + 20) {
+        currentPage = pdfDoc.addPage([595, 842])
+        signatureY = height - 50
+      }
+      
+      const cleanLine = sanitizeText(line)
+      if (cleanLine) {
+        // Calculate text width for right alignment
+        const textWidth = helvetica.widthOfTextAtSize(cleanLine, 11)
+        currentPage.drawText(cleanLine, {
+          x: signatureStartX + (200 - textWidth), // Right-align within 200pt width
+          y: signatureY,
+          size: 11,
+          font: helvetica,
+          color: textColor
+        })
+        signatureY -= 14
+      }
+    })
+    
+    yPosition = signatureY
   }
 
   // Add footer to all pages

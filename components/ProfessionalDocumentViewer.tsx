@@ -17,6 +17,14 @@ export default function ProfessionalDocumentViewer({ content }: ProfessionalDocu
   const formatContent = (text: string) => {
     let html = text
     
+    // Remove HTML tags that might have been incorrectly included
+    html = html.replace(/<p[^>]*>/gi, '')
+    html = html.replace(/<\/p>/gi, '\n')
+    html = html.replace(/<br\s*\/?>/gi, '\n')
+    html = html.replace(/<div[^>]*>/gi, '')
+    html = html.replace(/<\/div>/gi, '\n')
+    html = html.replace(/style="[^"]*"/gi, '')
+    
     // Convert section headers (## SECTION) - with better styling for category headers
     html = html.replace(/^##\s+(.*$)/gim, '<h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 pb-3 border-b-2 border-cyan-300 bg-gradient-to-r from-cyan-50 to-transparent px-4 py-2 rounded-t-lg">$1</h2>')
     
@@ -147,14 +155,41 @@ export default function ProfessionalDocumentViewer({ content }: ProfessionalDocu
     
     html = formattedLines.join('\n')
     
-    // Convert remaining line breaks to paragraphs
-    html = html.split('\n').map(line => {
+    // Detect and format signature section (right-aligned)
+    const signaturePattern = /(##\s*SIGNATURE[\s\S]*?)(?=##|$)/i
+    const signatureMatch = html.match(signaturePattern)
+    if (signatureMatch) {
+      const signatureContent = signatureMatch[1]
+      // Extract signature lines (technician name, position, company, date)
+      const signatureLines = signatureContent
+        .replace(/##\s*SIGNATURE/gi, '')
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l && !l.match(/^(Technician Name|Date|Position|Company):/i))
+        .filter(l => l.length > 0 && !l.match(/^[-•]/))
+      
+      if (signatureLines.length > 0) {
+        const signatureHtml = `
+          <div class="mt-12 pt-8 border-t-2 border-slate-300">
+            <div class="text-right">
+              ${signatureLines.map(line => `<div class="text-slate-700 leading-relaxed">${line}</div>`).join('')}
+            </div>
+          </div>
+        `
+        html = html.replace(signaturePattern, signatureHtml)
+      }
+    }
+    
+    // Convert remaining line breaks to paragraphs (but skip signature section)
+    html = html.split('\n').map((line, index, array) => {
       const trimmed = line.trim()
       if (!trimmed) return ''
       // Skip if already HTML
       if (trimmed.startsWith('<')) return line
       // Skip if it's a header (already processed)
       if (trimmed.match(/^<h[1-6]/)) return line
+      // Skip signature section lines (already processed)
+      if (trimmed.match(/^(Technician Name|Date|Position|Company):/i)) return ''
       return `<p class="mb-3 text-slate-700 leading-relaxed">${trimmed}</p>`
     }).filter(l => l).join('\n')
     

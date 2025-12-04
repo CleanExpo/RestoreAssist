@@ -29,6 +29,14 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     
     let processed = content
     
+    // Remove HTML tags that might have been incorrectly included
+    processed = processed.replace(/<p[^>]*>/gi, '')
+    processed = processed.replace(/<\/p>/gi, '\n')
+    processed = processed.replace(/<br\s*\/?>/gi, '\n')
+    processed = processed.replace(/<div[^>]*>/gi, '')
+    processed = processed.replace(/<\/div>/gi, '\n')
+    processed = processed.replace(/style="[^"]*"/gi, '')
+    
     // Convert "PRELIMINARY ASSESSMENT" to H1 if not already formatted
     processed = processed.replace(/^(\*\*)?PRELIMINARY ASSESSMENT[^\n]*(\*\*)?$/gim, '# PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE')
     
