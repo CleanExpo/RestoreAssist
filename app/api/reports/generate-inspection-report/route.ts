@@ -326,9 +326,12 @@ EPA Act: ${stateInfo.epaAct}`
   const totalAmps = equipmentSelection && equipmentSelection.length > 0
     ? equipmentSelection.reduce((total: number, sel: any) => {
         const group = getEquipmentGroupById(sel.groupId)
-        return total + (group?.amps || 0) * sel.quantity
-      }, 0).toFixed(1)
-    : null
+        return total + ((group?.amps || 0) * (sel.quantity || 0))
+      }, 0)
+    : 0
+  
+  // Ensure totalAmps is always a number
+  const totalAmpsNumber = typeof totalAmps === 'number' ? totalAmps : (parseFloat(String(totalAmps)) || 0)
 
   return `Generate a comprehensive Professional Inspection Report for RestoreAssist with the following structure. This is a ${reportType === 'basic' ? 'BASIC' : 'ENHANCED'} report.
 
@@ -526,10 +529,10 @@ ${equipmentSelection.map((sel: any) => {
   return `- ${group?.name || sel.groupId} (${type}): ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
 }).join('\n')}
 
-${report.estimatedDryingDuration || report.equipmentCostTotal || totalAmps ? `**Estimated Consumption:**
+${report.estimatedDryingDuration || report.equipmentCostTotal || totalAmpsNumber > 0 ? `**Estimated Consumption:**
 ${report.estimatedDryingDuration ? `- Duration: ${report.estimatedDryingDuration} Days` : ''}
 ${report.equipmentCostTotal ? `- Total Equipment Cost: $${report.equipmentCostTotal.toFixed(2)}` : ''}
-${totalAmps ? `- Total Electrical Draw: ${totalAmps.toFixed(1)} Amps` : ''}` : ''}
+${totalAmpsNumber > 0 ? `- Total Electrical Draw: ${totalAmpsNumber.toFixed(1)} Amps` : ''}` : ''}
 ` : ''}
 
 ### REPORT CERTIFICATION
@@ -592,7 +595,7 @@ ${occupancyStatus && occupancyStatus.includes('Vacant') ? 'Include: Security, Ti
 - Occupant Health Considerations
 
 ## SECTION 11: POWER AND EQUIPMENT REQUIREMENTS
-${equipmentSelection && equipmentSelection.length > 0 ? `- Power Draw Calculation: ${totalAmps.toFixed(1)} Amps total (calculated from selected equipment)
+${equipmentSelection && equipmentSelection.length > 0 ? `- Power Draw Calculation: ${totalAmpsNumber.toFixed(1)} Amps total (calculated from selected equipment)
 - Equipment Load: ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
   return `${sel.quantity}x ${group?.name || sel.groupId} (${(group?.amps || 0) * sel.quantity}A)`

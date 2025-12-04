@@ -3,11 +3,11 @@
 
 export interface EquipmentModel {
   name: string
-  capacity: number
+  capacity?: number // Optional - used for dehumidifiers
   amps?: number
-  airflow?: number
+  airflow?: number // Used for air movers
   tempRange?: string
-  capacityKW?: number
+  capacityKW?: number // Used for heat drying
 }
 
 export interface EquipmentGroup {
@@ -19,7 +19,7 @@ export interface EquipmentGroup {
   airflow?: number
   capacityKW?: number
   models: EquipmentModel[]
-  dailyRate?: number // Default daily rental rate
+  // dailyRate removed - all rates come from pricing configuration
 }
 
 export interface EquipmentSelection {
@@ -40,8 +40,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
     models: [
       { name: 'Trotec TTK Qube', capacity: 40 },
       { name: 'Dri-Eaz Evolution LGR', capacity: 35 }
-    ],
-    dailyRate: 45
+    ]
   },
   {
     id: 'lgr-55',
@@ -56,8 +55,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
       { name: 'Viking Pure LGR', capacity: 53 },
       { name: 'Climate Rental CR-LGR55', capacity: 55 },
       { name: 'Agile Equipment Midi LGR', capacity: 55 }
-    ],
-    dailyRate: 55
+    ]
   },
   {
     id: 'lgr-85',
@@ -70,8 +68,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
       { name: 'Dri-Eaz LGR 7000XLi', capacity: 80 },
       { name: 'Trotec TTK 350 S', capacity: 88 },
       { name: 'Ionmax Commercial LGR', capacity: 90 }
-    ],
-    dailyRate: 75
+    ]
   },
   {
     id: 'lgr-105',
@@ -82,8 +79,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
     models: [
       { name: 'Trotec TTK 655 S', capacity: 110 },
       { name: 'ThorAir Industrial LGR 120', capacity: 120 }
-    ],
-    dailyRate: 95
+    ]
   }
 ]
 
@@ -98,8 +94,7 @@ export const desiccantDehumidifiers: EquipmentGroup[] = [
     models: [
       { name: 'Trotec TTR 200', capacity: 18 },
       { name: 'Corroventa A2 Adsorption', capacity: 22 }
-    ],
-    dailyRate: 85
+    ]
   },
   {
     id: 'desiccant-35',
@@ -110,8 +105,7 @@ export const desiccantDehumidifiers: EquipmentGroup[] = [
     models: [
       { name: 'Trotec TTR 400', capacity: 38 },
       { name: 'Dri-Eaz DriTec 4000i', capacity: 35 }
-    ],
-    dailyRate: 120
+    ]
   },
   {
     id: 'desiccant-60',
@@ -121,8 +115,7 @@ export const desiccantDehumidifiers: EquipmentGroup[] = [
     tempRange: '-10°-40°',
     models: [
       { name: 'Corroventa A4 ES X', capacity: 65 }
-    ],
-    dailyRate: 180
+    ]
   }
 ]
 
@@ -139,8 +132,7 @@ export const airMovers: EquipmentGroup[] = [
       { name: 'Dri-Eaz Velo Pro', airflow: 800 },
       { name: 'ThorAir Low Profile Mover', airflow: 850 },
       { name: 'Trotec TFV 10', airflow: 750 }
-    ],
-    dailyRate: 25
+    ]
   },
   {
     id: 'airmover-1500',
@@ -152,8 +144,7 @@ export const airMovers: EquipmentGroup[] = [
       { name: 'ThorAir Snail Fan', airflow: 1600 },
       { name: 'Vacmaster Air Mover AM1202', airflow: 1400 },
       { name: 'Climate Rental Carpet Dryer 3-Speed', airflow: 1550 }
-    ],
-    dailyRate: 35
+    ]
   },
   {
     id: 'airmover-2500',
@@ -167,8 +158,7 @@ export const airMovers: EquipmentGroup[] = [
       { name: 'Trotec TTV 4500', airflow: 3000 },
       { name: 'Viking VP3000 Axial', airflow: 2900 },
       { name: 'OmniDry O-550 Axial', airflow: 2750 }
-    ],
-    dailyRate: 45
+    ]
   }
 ]
 
@@ -183,8 +173,7 @@ export const heatDrying: EquipmentGroup[] = [
     models: [
       { name: 'Drymatic Boost Box', capacityKW: 2 },
       { name: 'Trotec TDS 19 E', capacityKW: 3 }
-    ],
-    dailyRate: 60
+    ]
   },
   {
     id: 'heat-9kw',
@@ -195,8 +184,7 @@ export const heatDrying: EquipmentGroup[] = [
     models: [
       { name: 'Trotec TDS 50', capacityKW: 9 },
       { name: 'ThorAir 9KW Industrial', capacityKW: 9 }
-    ],
-    dailyRate: 150
+    ]
   }
 ]
 
@@ -241,28 +229,36 @@ export function getEquipmentPricingField(groupId: string): string | null {
     return 'airMoverAxialDailyRate'
   }
   if (groupId.startsWith('heat-')) {
-    // Heat drying might need custom fields, for now return null to use default
-    return null
+    // Heat drying uses injectionDryingSystemDailyRate
+    return 'injectionDryingSystemDailyRate'
   }
   return null
 }
 
 // Get daily rate from pricing config for an equipment group
 export function getEquipmentDailyRate(groupId: string, pricingConfig: any): number {
+  // ALWAYS prioritize pricing config rates when available
+  // Pricing config has one rate per equipment type (e.g., all LGR use dehumidifierLGRDailyRate)
   const pricingField = getEquipmentPricingField(groupId)
-  if (pricingField && pricingConfig && pricingConfig[pricingField]) {
-    return pricingConfig[pricingField]
+  
+  if (pricingField && pricingConfig && pricingConfig[pricingField] !== undefined && pricingConfig[pricingField] !== null) {
+    // Use pricing config rate - this is the user's configured rate
+    const rate = pricingConfig[pricingField]
+    console.log(`[Pricing Config] Equipment ${groupId} (${pricingField}): $${rate}/day`)
+    return rate
   }
-  // Fallback to default rate from equipment matrix
-  const group = getEquipmentGroupById(groupId)
-  return group?.dailyRate || 0
+  
+  // No fallback - pricing config is required
+  // Return 0 if pricing config is not available (should not happen in production)
+  console.warn(`[Pricing Config] No rate found for equipment group: ${groupId} (field: ${pricingField}). Please configure pricing.`)
+  return 0
 }
 
 // Calculate total daily cost for selected equipment using pricing config
 export function calculateTotalDailyCost(selections: EquipmentSelection[], pricingConfig?: any): number {
   return selections.reduce((total, selection) => {
-    // Use the rate from selection (which should come from pricing config), or fallback
-    const rate = selection.dailyRate || (pricingConfig ? getEquipmentDailyRate(selection.groupId, pricingConfig) : getEquipmentGroupById(selection.groupId)?.dailyRate) || 0
+    // Use the rate from selection (which should come from pricing config), or get from pricing config
+    const rate = selection.dailyRate || (pricingConfig ? getEquipmentDailyRate(selection.groupId, pricingConfig) : 0)
     return total + (rate * selection.quantity)
   }, 0)
 }

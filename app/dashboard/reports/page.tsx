@@ -597,13 +597,13 @@ export default function ReportsPage() {
                           >
                             <Eye size={16} />
                           </Link>
-                          <Link
+                          {/* <Link
                             href={`/dashboard/reports/${report.id}/edit`}
                             className="p-1.5 hover:bg-slate-700 rounded transition-colors text-slate-300 hover:text-blue-400"
                             title="Edit Report"
                           >
                             <Edit size={16} />
-                          </Link>
+                          </Link> */}
                           <button 
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}

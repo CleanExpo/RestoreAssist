@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
+import { getEquipmentGroupById, getEquipmentDailyRate } from '@/lib/equipment-matrix'
 import { tryClaudeModels } from '@/lib/anthropic-models'
 
 export async function POST(request: NextRequest) {
@@ -93,6 +94,19 @@ export async function POST(request: NextRequest) {
       apiKey: integration.apiKey
     })
 
+    // Parse equipment selection data (from Equipment Tools Selection step)
+    const equipmentSelection = report.equipmentSelection 
+      ? JSON.parse(report.equipmentSelection) 
+      : []
+    
+    // Parse psychrometric assessment and scope areas
+    const psychrometricAssessment = report.psychrometricAssessment 
+      ? JSON.parse(report.psychrometricAssessment) 
+      : null
+    const scopeAreas = report.scopeAreas 
+      ? JSON.parse(report.scopeAreas) 
+      : []
+    
     const scopeData = buildScopeOfWorksData({
       report,
       analysis,
@@ -100,7 +114,10 @@ export async function POST(request: NextRequest) {
       tier2,
       tier3,
       pricingConfig,
-      stateInfo
+      stateInfo,
+      equipmentSelection,
+      psychrometricAssessment,
+      scopeAreas
     })
 
     const scopeDocument = buildScopeOfWorksDocument(scopeData)
@@ -127,8 +144,9 @@ export async function POST(request: NextRequest) {
       message: 'Scope of Works generated successfully'
     })
   } catch (error) {
+    console.error('Error generating scope of works:', error)
     return NextResponse.json(
-      { error: 'Failed to generate scope of works' },
+      { error: 'Failed to generate scope of works', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }
@@ -142,8 +160,11 @@ function buildScopeOfWorksData(data: {
   tier3: any
   pricingConfig: any
   stateInfo: any
+  equipmentSelection?: any[]
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
 }) {
-  const { report, analysis, tier1, tier2, tier3, pricingConfig, stateInfo } = data
+  const { report, analysis, tier1, tier2, tier3, pricingConfig, stateInfo, equipmentSelection = [], psychrometricAssessment, scopeAreas = [] } = data
 
   if (!pricingConfig) {
     throw new Error('Pricing configuration is required')
@@ -200,23 +221,33 @@ function buildScopeOfWorksData(data: {
   const needsPlumber = tier1?.T1_Q3_waterSource?.includes('pipe') || tier1?.T1_Q3_waterSource?.includes('toilet')
   
   const affectedArea = tier3?.T3_Q4_totalAffectedArea || 'Not specified'
-  const equipmentDeployed = tier2?.T2_Q3_equipmentDeployed || analysis?.equipmentDeployed?.join(', ') || 'Not specified'
   
-  // Extract equipment quantities (basic parsing)
-  const airMoversMatch = equipmentDeployed.match(/(\d+)\s*air\s*mover/i)
-  const dehumidifiersMatch = equipmentDeployed.match(/(\d+)\s*dehumidifier/i)
-  const afdMatch = equipmentDeployed.match(/(\d+)\s*afd/i)
+  // Use actual equipment selection data if available, otherwise use 0 (no defaults)
+  const equipmentSelections = Array.isArray(equipmentSelection) ? equipmentSelection : []
   
-  const airMoversQty = airMoversMatch ? parseInt(airMoversMatch[1]) : 18
-  const dehumidifiersQty = dehumidifiersMatch ? parseInt(dehumidifiersMatch[1]) : 4
-  const afdQty = afdMatch ? parseInt(afdMatch[1]) : 2
+  // Calculate equipment quantities from actual selections
+  let airMoversQty = 0
+  let dehumidifiersQty = 0
+  let afdQty = 0
   
-  // Determine drying duration
-  const dryingDuration = needsClass4 ? 14 : 7
+  equipmentSelections.forEach((sel: any) => {
+    if (sel.groupId && sel.quantity) {
+      if (sel.groupId.startsWith('airmover-')) {
+        airMoversQty += sel.quantity || 0
+      } else if (sel.groupId.startsWith('lgr-') || sel.groupId.startsWith('desiccant-')) {
+        dehumidifiersQty += sel.quantity || 0
+      } else if (sel.groupId.includes('afd')) {
+        afdQty += sel.quantity || 0
+      }
+    }
+  })
   
-  // Calculate affected area in sqm (basic extraction)
+  // Use actual drying duration from report if available, otherwise calculate
+  const dryingDuration = report.estimatedDryingDuration || (needsClass4 ? 14 : 7)
+  
+  // Calculate affected area in sqm (no default - only use if provided)
   const areaMatch = affectedArea.match(/(\d+)\s*sqm/i) || affectedArea.match(/=\s*(\d+)/)
-  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 125 // Default
+  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 0
 
   // Build line items
   const lineItems = [
@@ -245,12 +276,42 @@ function buildScopeOfWorksData(data: {
         masterQualified: { hours: 4, rate: rates.masterQualifiedNormalHours },
         qualified: { hours: 6, rate: rates.qualifiedTechnicianNormalHours }
       },
-      equipment: {
-        airMovers: { qty: airMoversQty, days: dryingDuration, rate: rates.airMoverAxialDailyRate },
-        dehumidifiers: { qty: dehumidifiersQty, days: dryingDuration, rate: rates.dehumidifierLGRDailyRate },
-        afd: { qty: afdQty, days: dryingDuration, rate: rates.afdUnitLargeDailyRate }
-      },
-      subtotal: calculateRW3Subtotal(rates, airMoversQty, dehumidifiersQty, afdQty, dryingDuration)
+      equipment: equipmentSelections.length > 0 ? equipmentSelections.reduce((acc: any, sel: any) => {
+        if (sel.quantity > 0) {
+          const group = getEquipmentGroupById(sel.groupId)
+          const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+          const key = sel.groupId.startsWith('lgr-') ? 'lgr' :
+                     sel.groupId.startsWith('desiccant-') ? 'desiccant' :
+                     sel.groupId.startsWith('airmover-') ? 'airMovers' :
+                     sel.groupId.startsWith('heat-') ? 'heat' :
+                     sel.groupId.includes('afd') ? 'afd' : 'other'
+          
+          if (!acc[key]) {
+            acc[key] = { qty: 0, days: dryingDuration, rate: dailyRate, items: [] }
+          }
+          acc[key].qty += sel.quantity
+          acc[key].items.push({
+            groupId: sel.groupId,
+            name: group?.name || sel.groupId,
+            quantity: sel.quantity,
+            dailyRate: dailyRate
+          })
+        }
+        return acc
+      }, {}) : {},
+      subtotal: equipmentSelections.length > 0 
+        ? (() => {
+            const labour = (4 * rates.masterQualifiedNormalHours) + (6 * rates.qualifiedTechnicianNormalHours)
+            const equipmentCost = equipmentSelections.reduce((total: number, sel: any) => {
+              if (sel.quantity > 0) {
+                const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+                return total + (dailyRate * sel.quantity * dryingDuration)
+              }
+              return total
+            }, 0)
+            return labour + equipmentCost
+          })()
+        : (4 * rates.masterQualifiedNormalHours) + (6 * rates.qualifiedTechnicianNormalHours)
     },
     {
       id: 'RW_4',

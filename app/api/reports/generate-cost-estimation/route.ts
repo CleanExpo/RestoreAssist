@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { tryClaudeModels } from '@/lib/anthropic-models'
+import { getEquipmentGroupById, calculateTotalDailyCost, calculateTotalCost, getEquipmentDailyRate } from '@/lib/equipment-matrix'
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -63,6 +64,19 @@ export async function POST(request: NextRequest) {
     const tier3 = report.tier3Responses 
       ? JSON.parse(report.tier3Responses) 
       : null
+    
+    // Parse equipment selection data (from Equipment Tools Selection step)
+    const equipmentSelection = report.equipmentSelection 
+      ? JSON.parse(report.equipmentSelection) 
+      : []
+    
+    // Parse psychrometric assessment and scope areas
+    const psychrometricAssessment = report.psychrometricAssessment 
+      ? JSON.parse(report.psychrometricAssessment) 
+      : null
+    const scopeAreas = report.scopeAreas 
+      ? JSON.parse(report.scopeAreas) 
+      : []
 
     // Get pricing configuration
     const pricingConfig = user.pricingConfig
@@ -113,7 +127,10 @@ export async function POST(request: NextRequest) {
       tier3,
       pricingConfig,
       stateInfo,
-      scopeData
+      scopeData,
+      equipmentSelection,
+      psychrometricAssessment,
+      scopeAreas
     })
 
     // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
@@ -158,8 +175,11 @@ function buildCostEstimationData(data: {
   pricingConfig: any
   stateInfo: any
   scopeData: any
+  equipmentSelection?: any[]
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
 }) {
-  const { report, tier1, tier2, tier3, pricingConfig, stateInfo, scopeData } = data
+  const { report, tier1, tier2, tier3, pricingConfig, stateInfo, scopeData, equipmentSelection = [], psychrometricAssessment, scopeAreas = [] } = data
 
   // Extract information
   const timelineRequirements = tier3?.T3_Q1_timelineRequirements || 'No specific deadline'
@@ -179,18 +199,30 @@ function buildCostEstimationData(data: {
   
   const affectedArea = tier3?.T3_Q4_totalAffectedArea || 'Not specified'
   const areaMatch = affectedArea.match(/(\d+)\s*sqm/i) || affectedArea.match(/=\s*(\d+)/)
-  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 125
+  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 0 // No default - only use if provided
 
-  const equipmentDeployed = tier2?.T2_Q3_equipmentDeployed || ''
-  const airMoversMatch = equipmentDeployed.match(/(\d+)\s*air\s*mover/i)
-  const dehumidifiersMatch = equipmentDeployed.match(/(\d+)\s*dehumidifier/i)
-  const afdMatch = equipmentDeployed.match(/(\d+)\s*afd/i)
+  // Use actual equipment selection data if available, otherwise use 0 (no defaults)
+  const equipmentSelections = Array.isArray(equipmentSelection) ? equipmentSelection : []
   
-  const airMoversQty = airMoversMatch ? parseInt(airMoversMatch[1]) : 18
-  const dehumidifiersQty = dehumidifiersMatch ? parseInt(dehumidifiersMatch[1]) : 4
-  const afdQty = afdMatch ? parseInt(afdMatch[1]) : 2
+  // Calculate equipment quantities from actual selections
+  let airMoversQty = 0
+  let dehumidifiersQty = 0
+  let afdQty = 0
   
-  const dryingDuration = needsClass4 ? 14 : 7
+  equipmentSelections.forEach((sel: any) => {
+    if (sel.groupId && sel.quantity) {
+      if (sel.groupId.startsWith('airmover-')) {
+        airMoversQty += sel.quantity || 0
+      } else if (sel.groupId.startsWith('lgr-') || sel.groupId.startsWith('desiccant-')) {
+        dehumidifiersQty += sel.quantity || 0
+      } else if (sel.groupId.includes('afd')) {
+        afdQty += sel.quantity || 0
+      }
+    }
+  })
+  
+  // Use actual drying duration from report if available, otherwise calculate
+  const dryingDuration = report.estimatedDryingDuration || (needsClass4 ? 14 : 7)
 
   // Build cost categories
   const categories: any = {}
@@ -318,59 +350,105 @@ function buildCostEstimationData(data: {
     total: pricingConfig.callOutFee
   }
 
-  // Equipment Rental - Dehumidifiers
-  categories.dehumidifiers = {
-    name: 'Equipment Rental — Dehumidifiers',
-    lineItems: [
-      {
-        description: 'LGR Dehumidifier (Large)',
-        qty: dehumidifiersQty,
-        days: dryingDuration,
-        dailyRate: pricingConfig.dehumidifierLGRDailyRate,
-        subtotal: dehumidifiersQty * dryingDuration * pricingConfig.dehumidifierLGRDailyRate
+  // Equipment Rental - Use actual equipment selection data (only include if user selected)
+  if (equipmentSelections.length > 0) {
+    categories.equipment = {
+      name: 'Equipment Rental',
+      lineItems: [],
+      total: 0
+    }
+    
+    // Group equipment by type for better organization
+    const lgrSelections = equipmentSelections.filter((sel: any) => sel.groupId?.startsWith('lgr-'))
+    const desiccantSelections = equipmentSelections.filter((sel: any) => sel.groupId?.startsWith('desiccant-'))
+    const airMoverSelections = equipmentSelections.filter((sel: any) => sel.groupId?.startsWith('airmover-'))
+    const heatSelections = equipmentSelections.filter((sel: any) => sel.groupId?.startsWith('heat-'))
+    const afdSelections = equipmentSelections.filter((sel: any) => sel.groupId?.includes('afd'))
+    
+    // Add LGR Dehumidifiers
+    lgrSelections.forEach((sel: any) => {
+      if (sel.quantity > 0) {
+        const group = getEquipmentGroupById(sel.groupId)
+        const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+        const itemTotal = dailyRate * sel.quantity * dryingDuration
+        categories.equipment.lineItems.push({
+          description: group?.name || `LGR Dehumidifier (${sel.groupId})`,
+          qty: sel.quantity,
+          days: dryingDuration,
+          dailyRate: dailyRate,
+          subtotal: itemTotal
+        })
+        categories.equipment.total += itemTotal
       }
-    ],
-    total: dehumidifiersQty * dryingDuration * pricingConfig.dehumidifierLGRDailyRate
-  }
-
-  if (isSpeedPriority) {
-    categories.dehumidifiers.lineItems.push({
-      description: 'Desiccant Dehumidifier (Speed Priority)',
-      qty: 0, // To be determined
-      days: dryingDuration,
-      dailyRate: pricingConfig.dehumidifierDesiccantDailyRate,
-      subtotal: 0
     })
-  }
-
-  // Equipment Rental - Air Movers
-  categories.airMovers = {
-    name: 'Equipment Rental — Air Movers',
-    lineItems: [
-      {
-        description: 'Axial Air Mover',
-        qty: airMoversQty,
-        days: dryingDuration,
-        dailyRate: pricingConfig.airMoverAxialDailyRate,
-        subtotal: airMoversQty * dryingDuration * pricingConfig.airMoverAxialDailyRate
+    
+    // Add Desiccant Dehumidifiers
+    desiccantSelections.forEach((sel: any) => {
+      if (sel.quantity > 0) {
+        const group = getEquipmentGroupById(sel.groupId)
+        const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+        const itemTotal = dailyRate * sel.quantity * dryingDuration
+        categories.equipment.lineItems.push({
+          description: group?.name || `Desiccant Dehumidifier (${sel.groupId})`,
+          qty: sel.quantity,
+          days: dryingDuration,
+          dailyRate: dailyRate,
+          subtotal: itemTotal
+        })
+        categories.equipment.total += itemTotal
       }
-    ],
-    total: airMoversQty * dryingDuration * pricingConfig.airMoverAxialDailyRate
-  }
-
-  // Equipment Rental - AFD
-  categories.afd = {
-    name: 'Equipment Rental — Air Filtration (AFD/HEPA)',
-    lineItems: [
-      {
-        description: 'AFD Unit (Large 500 CFM)',
-        qty: afdQty,
-        days: dryingDuration,
-        dailyRate: pricingConfig.afdUnitLargeDailyRate,
-        subtotal: afdQty * dryingDuration * pricingConfig.afdUnitLargeDailyRate
+    })
+    
+    // Add Air Movers
+    airMoverSelections.forEach((sel: any) => {
+      if (sel.quantity > 0) {
+        const group = getEquipmentGroupById(sel.groupId)
+        const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+        const itemTotal = dailyRate * sel.quantity * dryingDuration
+        categories.equipment.lineItems.push({
+          description: group?.name || `Air Mover (${sel.groupId})`,
+          qty: sel.quantity,
+          days: dryingDuration,
+          dailyRate: dailyRate,
+          subtotal: itemTotal
+        })
+        categories.equipment.total += itemTotal
       }
-    ],
-    total: afdQty * dryingDuration * pricingConfig.afdUnitLargeDailyRate
+    })
+    
+    // Add Heat Drying Systems
+    heatSelections.forEach((sel: any) => {
+      if (sel.quantity > 0) {
+        const group = getEquipmentGroupById(sel.groupId)
+        const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+        const itemTotal = dailyRate * sel.quantity * dryingDuration
+        categories.equipment.lineItems.push({
+          description: group?.name || `Heat Drying System (${sel.groupId})`,
+          qty: sel.quantity,
+          days: dryingDuration,
+          dailyRate: dailyRate,
+          subtotal: itemTotal
+        })
+        categories.equipment.total += itemTotal
+      }
+    })
+    
+    // Add AFD Units
+    afdSelections.forEach((sel: any) => {
+      if (sel.quantity > 0) {
+        const group = getEquipmentGroupById(sel.groupId)
+        const dailyRate = sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig)
+        const itemTotal = dailyRate * sel.quantity * dryingDuration
+        categories.equipment.lineItems.push({
+          description: group?.name || `AFD Unit (${sel.groupId})`,
+          qty: sel.quantity,
+          days: dryingDuration,
+          dailyRate: dailyRate,
+          subtotal: itemTotal
+        })
+        categories.equipment.total += itemTotal
+      }
+    })
   }
 
   // Equipment Rental - Extraction
@@ -418,46 +496,47 @@ function buildCostEstimationData(data: {
     total: 3 * pricingConfig.thermalCameraUseCostPerAssessment
   }
 
-  // Chemical Treatment
-  const chemicalType = tier3?.T3_Q3_chemicalTreatment || 'Standard antimicrobial treatment'
-  let chemicalRate = pricingConfig.antimicrobialTreatmentRate
-  if (chemicalType.includes('mould')) {
-    chemicalRate = pricingConfig.mouldRemediationTreatmentRate
-  } else if (chemicalType.includes('Biohazard') || hasBiohazard) {
-    chemicalRate = pricingConfig.biohazardTreatmentRate
-  }
-
-  categories.chemicalTreatment = {
-    name: 'Chemical Treatment',
-    lineItems: [
-      {
+  // Chemical Treatment - Only include if user actually selected/needs it
+  // Only add if affectedAreaSqm > 0 (user provided area) and hazards are present
+  if (affectedAreaSqm > 0 && (hasMould || hasBiohazard || tier3?.T3_Q3_chemicalTreatment)) {
+    categories.chemicalTreatment = {
+      name: 'Chemical Treatment',
+      lineItems: [],
+      total: 0
+    }
+    
+    // Standard antimicrobial treatment (if no specific hazard)
+    if (!hasMould && !hasBiohazard && tier3?.T3_Q3_chemicalTreatment) {
+      categories.chemicalTreatment.lineItems.push({
         description: 'Anti-microbial Treatment',
         sqm: affectedAreaSqm,
         ratePerSqm: pricingConfig.antimicrobialTreatmentRate,
         subtotal: affectedAreaSqm * pricingConfig.antimicrobialTreatmentRate
-      }
-    ],
-    total: affectedAreaSqm * pricingConfig.antimicrobialTreatmentRate
-  }
-
-  if (hasMould) {
-    categories.chemicalTreatment.lineItems.push({
-      description: 'Mould Remediation Treatment',
-      sqm: affectedAreaSqm,
-      ratePerSqm: pricingConfig.mouldRemediationTreatmentRate,
-      subtotal: affectedAreaSqm * pricingConfig.mouldRemediationTreatmentRate
-    })
-    categories.chemicalTreatment.total += affectedAreaSqm * pricingConfig.mouldRemediationTreatmentRate
-  }
-
-  if (hasBiohazard) {
-    categories.chemicalTreatment.lineItems.push({
-      description: 'Bio-Hazard Treatment',
-      sqm: affectedAreaSqm,
-      ratePerSqm: pricingConfig.biohazardTreatmentRate,
-      subtotal: affectedAreaSqm * pricingConfig.biohazardTreatmentRate
-    })
-    categories.chemicalTreatment.total += affectedAreaSqm * pricingConfig.biohazardTreatmentRate
+      })
+      categories.chemicalTreatment.total += affectedAreaSqm * pricingConfig.antimicrobialTreatmentRate
+    }
+    
+    // Mould remediation (only if mould hazard identified)
+    if (hasMould) {
+      categories.chemicalTreatment.lineItems.push({
+        description: 'Mould Remediation Treatment',
+        sqm: affectedAreaSqm,
+        ratePerSqm: pricingConfig.mouldRemediationTreatmentRate,
+        subtotal: affectedAreaSqm * pricingConfig.mouldRemediationTreatmentRate
+      })
+      categories.chemicalTreatment.total += affectedAreaSqm * pricingConfig.mouldRemediationTreatmentRate
+    }
+    
+    // Biohazard treatment (only if biohazard identified)
+    if (hasBiohazard) {
+      categories.chemicalTreatment.lineItems.push({
+        description: 'Bio-Hazard Treatment',
+        sqm: affectedAreaSqm,
+        ratePerSqm: pricingConfig.biohazardTreatmentRate,
+        subtotal: affectedAreaSqm * pricingConfig.biohazardTreatmentRate
+      })
+      categories.chemicalTreatment.total += affectedAreaSqm * pricingConfig.biohazardTreatmentRate
+    }
   }
 
   // Administration Fee

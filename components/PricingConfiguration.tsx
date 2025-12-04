@@ -274,13 +274,7 @@ export default function PricingConfiguration() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold flex items-center gap-2">
-            <DollarSign className="w-6 h-6" />
-            Pricing Configuration
-          </h2>
-          <p className="text-slate-400 mt-1">
-            Configure your company's labour rates, equipment rental rates, and fees
-          </p>
+         
         </div>
         <div className="flex gap-2">
           <button

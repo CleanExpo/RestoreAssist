@@ -84,18 +84,31 @@ export default function EquipmentToolsSelection({
         const response = await fetch('/api/pricing-config')
         if (response.ok) {
           const data = await response.json()
-          setPricingConfig(data)
+          // Extract pricingConfig from response (it might be nested)
+          const config = data.pricingConfig || data
+          
+          if (config) {
+            console.log('[Pricing Config] Loaded pricing configuration:', {
+              dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
+              dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
+              airMoverAxialDailyRate: config.airMoverAxialDailyRate,
+              injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate
+            })
+          }
+          
+          setPricingConfig(config)
           
           // Update equipment selections with pricing config rates if they don't have rates
-          if (data && equipmentSelections.length > 0) {
+          if (config && equipmentSelections.length > 0) {
             setEquipmentSelections(prev => prev.map(sel => ({
               ...sel,
-              dailyRate: sel.dailyRate || getEquipmentDailyRate(sel.groupId, data)
+              // Only update if selection doesn't already have a rate
+              dailyRate: sel.dailyRate || getEquipmentDailyRate(sel.groupId, config)
             })))
           }
         }
       } catch (error) {
-        console.error('Error fetching pricing config:', error)
+        console.error('[Pricing Config] Error fetching pricing config:', error)
       }
     }
     fetchPricingConfig()
@@ -120,10 +133,13 @@ export default function EquipmentToolsSelection({
   const totalCost = calculateTotalCost(equipmentSelections, durationDays, pricingConfig)
   
   // Calculate efficiency targets
+  // Only count dehumidifiers (LGR/Desiccant) for water removal capacity, not air movers
   const totalEquipmentCapacity = equipmentSelections.reduce((total, sel) => {
     const group = getEquipmentGroupById(sel.groupId)
-    if (group && 'capacity' in group) {
-      // Extract numeric capacity for LGR/Desiccant
+    // Only include LGR and Desiccant dehumidifiers (they have capacity in L/Day)
+    // Exclude air movers (they have airflow, not water removal capacity)
+    if (group && (sel.groupId.startsWith('lgr-') || sel.groupId.startsWith('desiccant-'))) {
+      // Extract numeric capacity for LGR/Desiccant (e.g., "85L/Day Ave" -> 85)
       const capacityMatch = group.capacity.match(/(\d+)/)
       if (capacityMatch) {
         return total + (parseInt(capacityMatch[1]) * sel.quantity)
@@ -175,6 +191,7 @@ export default function EquipmentToolsSelection({
         if (newQuantity === 0) {
           return prev.filter(s => s.groupId !== groupId)
         }
+        // Preserve the existing dailyRate when changing quantity
         return prev.map(s => 
           s.groupId === groupId 
             ? { ...s, quantity: newQuantity }
@@ -182,7 +199,9 @@ export default function EquipmentToolsSelection({
         )
       } else if (delta > 0) {
         const group = getEquipmentGroupById(groupId)
-        const rate = pricingConfig ? getEquipmentDailyRate(groupId, pricingConfig) : (group?.dailyRate || 0)
+        // Use pricing config rate if available, otherwise use default from equipment matrix
+        // This ensures we use the correct rate for each capacity group
+        const rate = pricingConfig ? getEquipmentDailyRate(groupId, pricingConfig) : 0
         return [...prev, {
           groupId,
           quantity: 1,
@@ -206,7 +225,7 @@ export default function EquipmentToolsSelection({
         const capacity = parseInt(capacityMatch[1])
         const needed = Math.ceil(remainingCapacity / capacity)
         if (needed > 0) {
-          const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)
+          const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0
           selections.push({
             groupId: group.id,
             quantity: needed,
@@ -229,7 +248,7 @@ export default function EquipmentToolsSelection({
           if (existing) {
             existing.quantity += needed
           } else {
-            const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)
+            const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0
             selections.push({
               groupId: group.id,
               quantity: needed,
@@ -686,7 +705,7 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              ${(pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)).toFixed(2)}/day
+                              ${(selection?.dailyRate || (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)).toFixed(2)}/day
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -733,7 +752,7 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              ${(pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)).toFixed(2)}/day
+                              ${(selection?.dailyRate || (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)).toFixed(2)}/day
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -780,7 +799,7 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              ${(pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : (group.dailyRate || 0)).toFixed(2)}/day
+                              ${(selection?.dailyRate || (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)).toFixed(2)}/day
                             </div>
                           </div>
                           {quantity > 0 && (
