@@ -69,18 +69,18 @@ export default function PricingConfiguration() {
     labourerSunday: 90.00,
     airMoverAxialDailyRate: 25.00,
     airMoverCentrifugalDailyRate: 35.00,
-    dehumidifierLGRDailyRate: 85.00,
-    dehumidifierDesiccantDailyRate: 120.00,
-    afdUnitLargeDailyRate: 65.00,
-    extractionTruckMountedHourlyRate: 150.00,
-    extractionElectricHourlyRate: 75.00,
-    injectionDryingSystemDailyRate: 200.00,
+    dehumidifierLGRDailyRate: 45.00,
+    dehumidifierDesiccantDailyRate: 65.00,
+    afdUnitLargeDailyRate: 40.00,
+    extractionTruckMountedHourlyRate: 120.00,
+    extractionElectricHourlyRate: 80.00,
+    injectionDryingSystemDailyRate: 150.00,
     antimicrobialTreatmentRate: 8.50,
     mouldRemediationTreatmentRate: 15.00,
     biohazardTreatmentRate: 25.00,
-    administrationFee: 150.00,
-    callOutFee: 200.00,
-    thermalCameraUseCostPerAssessment: 50.00
+    administrationFee: 250.00,
+    callOutFee: 150.00,
+    thermalCameraUseCostPerAssessment: 75.00
   })
 
   useEffect(() => {

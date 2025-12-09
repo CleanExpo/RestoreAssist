@@ -926,7 +926,7 @@ function buildVisualCentricReportPrompt(data: {
   const estimatedDays = estimatedDryingDuration || report.estimatedDryingDuration || 4
   const totalCost = equipmentCostTotal || report.equipmentCostTotal || 0
 
-  return `Generate an INFOGRAPHIC-STYLE Water Damage Restoration Overview Report for RestoreAssist. This should be a highly visual, dashboard-style infographic with minimal text, maximum visual impact, icons, visual cards, and easy-to-scan layout. Think modern dashboard/infographic design, not traditional text-heavy report.
+  return `Generate a VISUAL-CENTRIC Water Damage Restoration Overview Report for RestoreAssist. This report should be highly visual, using icons, gauges, charts, and visual representations to present information at a glance.
 
 # REPORT DATA
 
@@ -991,39 +991,22 @@ Generate a visual-centric report matching the RestoreAssist dashboard style. Use
 
 ---
 
-## Overview Metrics Cards (Infographic Style)
+## Overview Metrics Cards
 
-Create large, visual summary cards with icons and prominent numbers:
+Create visual summary cards in a grid layout:
 
-🏠 **Rooms Affected**  
-**${roomsAffectedCount}**
+**🏠 Rooms Affected:** ${roomsAffectedCount}  
+**🧱 Materials Affected:** ${materialsList}  
+**💧 Moisture Level:** Avg. ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : '32%'}  
+**💰 Total Cost:** $${totalCost?.toFixed(2) || '2,320'}  
 
-🧱 **Materials Affected**  
-**${materialsList}**
+**📈 Drying Status:** ${dryingStatus || 'Fair'}  
+**💧 Total Litres Extracted:** ${totalLitresExtracted ? `${totalLitresExtracted} L` : '80-100 L'}  
+**📅 Estimated Duration:** ${estimatedDays} Days  
+**🌡️ Drying Index:** ${dryingIndex || '33.6'}  
 
-💧 **Moisture Level**  
-**Avg. ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : '32%'}**
-
-💰 **Total Cost**  
-**$${totalCost?.toFixed(2) || '2,320'}**
-
-📈 **Drying Status**  
-**${dryingStatus || 'Fair'}**
-
-💧 **Total Litres Extracted**  
-**${totalLitresExtracted ? `${totalLitresExtracted} L` : '80-100 L'}**
-
-📅 **Estimated Duration**  
-**${estimatedDays} Days**
-
-🌡️ **Drying Index**  
-**${dryingIndex || '33.6'}**
-
-🚦 **Safety Status**  
-${isOccupied ? '🟠 **Occupied**' : '🟢 **Vacant**'}${hasVulnerablePersons || petsPresent ? ' + Children' : ''}
-
-💧 **Water Category**  
-**${waterCategory || '1'}**
+**🚦 Safety Traffic Light:** ${isOccupied ? '🟠 Occupied' : '🟢 Vacant'}${hasVulnerablePersons || petsPresent ? ' + Children' : ''}  
+**💧 Category of Water:** ${waterCategory || '1'}
 
 ---
 
@@ -1131,7 +1114,7 @@ This timeframe is based on the current equipment loadout and site conditions.
 ### Equipment Cost Breakdown (${estimatedDays} Days)
 
 | QTY | RATE/DAY | TOTAL |
-|:---:|:--------:|:-----:|
+|-----|----------|-------|
 ${equipmentSelection && equipmentSelection.length > 0 ? (() => {
   const dehumidifiers = equipmentSelection.filter((sel: any) => {
     const group = getEquipmentGroupById(sel.groupId)
@@ -1152,7 +1135,7 @@ ${equipmentSelection && equipmentSelection.length > 0 ? (() => {
       return sum + (dailyRate * sel.quantity)
     }, 0)
     const totalCost = totalDailyRate * estimatedDays
-    rows.push(`| LGR (${totalQty}) | **$${totalDailyRate.toFixed(2)}** | **$${totalCost.toFixed(2)}** |`)
+    rows.push(`| LGR (${totalQty}) | $${totalDailyRate.toFixed(2)} | $${totalCost.toFixed(2)} |`)
   }
   
   if (airMovers.length > 0) {
@@ -1163,15 +1146,15 @@ ${equipmentSelection && equipmentSelection.length > 0 ? (() => {
       return sum + (dailyRate * sel.quantity)
     }, 0)
     const totalCost = totalDailyRate * estimatedDays
-    rows.push(`| Air (${totalQty}) | **$${totalDailyRate.toFixed(2)}** | **$${totalCost.toFixed(2)}** |`)
+    rows.push(`| Air (${totalQty}) | $${totalDailyRate.toFixed(2)} | $${totalCost.toFixed(2)} |`)
   }
   
   if (rows.length === 0) {
-    rows.push('| Equipment | **$0.00** | **$0.00** |')
+    rows.push('| Equipment | $0.00 | $0.00 |')
   }
   
   return rows.join('\n')
-})() : '| Equipment | **$0.00** | **$0.00** |'}
+})() : '| Equipment | $0.00 | $0.00 |'}
 
 **Total reserve:** ${estimatedDays} days
 
@@ -1205,54 +1188,21 @@ ${report.technicianName ? `**Technician:** ${report.technicianName}` : ''}
 
 ---
 
-# CRITICAL FORMATTING REQUIREMENTS - INFOGRAPHIC STYLE
+# CRITICAL FORMATTING REQUIREMENTS
 
-1. **INFOGRAPHIC DESIGN:** Create a highly visual, infographic-style report with minimal text and maximum visual impact. Think dashboard/infographic, not traditional report.
+1. **EXACT STRUCTURE:** Follow the structure above EXACTLY - Header, Overview Cards, State Compliance, Room Details, Status Panel, Cost & Forecast, Incident Details, Footer
+2. **Visual Cards Layout:** Present overview metrics as visual cards with icons (🏠, 💧, 📊, 💰, etc.)
+3. **Room Panels:** Each room should have its own section with Materials, Moisture (current and target), Status, Scope of work, and Equipment listed
+4. **State Compliance Section:** List compliance standards as bullet points (Work Health and Safety Act, EPA Act, Building Code, IICRC Standards)
+5. **Status Gauge:** Show drying status as a gauge value (e.g., "33.6 - FAIR") with clear status label
+6. **Cost Table:** Use a simple 3-column table (QTY | RATE/DAY | TOTAL) grouping equipment by type (LGR Dehumidifiers, Air Movers)
+7. **Warning Boxes:** Use amber warning boxes for occupied properties with children/vulnerable persons
+8. **Visual Separators:** Use horizontal rules (---) to separate major sections
+9. **NO HTML TAGS:** Use only markdown formatting, no <p>, <br>, <div>, or style attributes
+10. **Dashboard Style:** Make it look like a professional dashboard with clear sections, cards, and visual hierarchy
+11. **Use actual data only:** Only include information from the REPORT DATA section above
+12. **Footer:** Include "Report generated by RestoreAssist v1.0" at the bottom
 
-2. **Visual Cards:** Present ALL metrics as visual cards with large icons and numbers:
-   - Use emojis/icons prominently (🏠, 💧, 📊, 💰, 📈, ⏱️, 🌡️)
-   - Make numbers LARGE and bold
-   - Use visual spacing and separators
-
-3. **Minimal Text:** 
-   - Use short labels only
-   - Avoid long paragraphs
-   - Use bullet points with icons
-   - Keep descriptions brief and scannable
-
-4. **Visual Hierarchy:**
-   - Use markdown headers (#, ##, ###) for structure
-   - Use horizontal rules (---) to separate sections
-   - Create visual "cards" using markdown formatting
-
-5. **Tables:** 
-   - Use clean 3-column tables (QTY | RATE/DAY | TOTAL)
-   - NO separator lines between header and data rows
-   - Bold monetary values for emphasis
-   - Center-align columns using :---: syntax
-
-6. **Room Panels:** 
-   - Each room as a visual card/panel
-   - Use icons for materials, moisture, equipment
-   - Show data in a scannable format
-
-7. **Status Indicators:**
-   - Use visual gauge representations (text-based)
-   - Use color indicators (🟠, 🟢, 🔴) for status
-   - Make status values prominent
-
-8. **NO HTML TAGS:** Use only markdown formatting, no <p>, <br>, <div>, or style attributes
-
-9. **Infographic Elements:**
-   - Use visual separators (---, ===)
-   - Create visual groupings
-   - Use icons liberally throughout
-   - Make it look like a modern dashboard/infographic
-
-10. **Use actual data only:** Only include information from the REPORT DATA section above
-
-11. **Footer:** Include "Report generated by RestoreAssist v1.0" at the bottom
-
-Generate the complete infographic-style visual report now. Make it visually stunning, easy to scan, and professional.`
+Generate the complete visual-centric dashboard-style report now, matching the structure and format shown above.`
 }
 
