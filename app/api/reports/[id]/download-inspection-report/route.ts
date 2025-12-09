@@ -182,7 +182,7 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
     // Remove signature section from main content
     processedContent = processedContent.replace(signaturePattern, '')
   }
-  
+
   // Add content with proper formatting
   const lines = processedContent.split('\n')
   for (const line of lines) {

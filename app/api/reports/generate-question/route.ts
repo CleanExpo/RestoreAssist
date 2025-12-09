@@ -103,7 +103,7 @@ Example responses:
       }))
 
       const { tryClaudeModels } = await import('@/lib/anthropic-models')
-      
+
       const message = await tryClaudeModels(
         anthropic,
         {
@@ -144,11 +144,11 @@ Example responses:
       })
     } catch (apiError: any) {
       if (apiError.status === 404) {
-        return NextResponse.json({
+            return NextResponse.json({
           error: "Failed to connect to Anthropic API. Please check your API key and try again.",
           details: apiError.message
         }, { status: 500 })
-      }
+        }
         
       return NextResponse.json({
         error: "Failed to generate question. Please check your API key and try again.",

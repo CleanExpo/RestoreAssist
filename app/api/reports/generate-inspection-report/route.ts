@@ -155,7 +155,27 @@ export async function POST(request: NextRequest) {
       equipmentSelection
     })
 
-    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
+    const systemPrompt = reportType === 'basic' 
+      ? `You are RestoreAssist, an expert water damage restoration documentation system. Generate a VISUAL-CENTRIC, easy-to-scan overview report that presents information using icons, visual elements, clear formatting, and visual hierarchy.
+
+CRITICAL FOR VISUAL REPORTS:
+- Use emojis and icons liberally (🏠, 💧, 📊, ⚠️, 🔧, etc.) to make sections visually distinct
+- Create clear visual sections with horizontal rules (---)
+- Use tables for cost breakdowns and equipment lists
+- Highlight key metrics in bold
+- Use bullet points with icons for lists
+- Make it scannable with short paragraphs and clear headings
+- Focus on visual presentation over lengthy text
+- Use markdown formatting (NO HTML tags)
+
+CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
+- Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
+- Make up or invent information that is not in the provided data
+- Include sections for which no data was provided
+- Use dummy or default values
+
+Only include information that is explicitly provided in the REPORT DATA section. If a field is not provided, do not mention it in the report.`
+      : `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 
 CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
 - Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
@@ -332,6 +352,65 @@ EPA Act: ${stateInfo.epaAct}`
   
   // Ensure totalAmps is always a number
   const totalAmpsNumber = typeof totalAmps === 'number' ? totalAmps : (parseFloat(String(totalAmps)) || 0)
+
+  // Calculate visual metrics for basic reports
+  const roomsAffectedCount = affectedAreas ? (Array.isArray(affectedAreas) ? affectedAreas.length : affectedAreas.split(',').length) : 0
+  const materialsList = materials.length > 0 ? materials.join(', ') : 'Not specified'
+  const avgMoisture = moistureReadings ? extractAverageMoisture(moistureReadings) : null
+  const totalEquipmentUnits = equipmentSelection && equipmentSelection.length > 0
+    ? equipmentSelection.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
+    : 0
+  const totalLitresExtracted = report.dehumidificationCapacity || null
+  const dryingIndex = psychrometricAssessment?.dryingPotential?.dryingIndex || null
+  const dryingStatus = psychrometricAssessment?.dryingPotential?.status || null
+
+  // If basic report, use visual-centric prompt
+  if (reportType === 'basic') {
+    return buildVisualCentricReportPrompt({
+      report,
+      analysis,
+      tier1,
+      tier2,
+      tier3,
+      stateInfo,
+      standardsContext,
+      psychrometricAssessment,
+      scopeAreas,
+      equipmentSelection,
+      waterCategory,
+      materials,
+      affectedAreas,
+      moistureReadings,
+      equipmentDeployed,
+      roomsAffectedCount,
+      materialsList,
+      avgMoisture,
+      totalEquipmentUnits,
+      totalLitresExtracted,
+      dryingIndex,
+      dryingStatus,
+      totalAmpsNumber,
+      hazards,
+      hasHazards,
+      occupancyStatus,
+      isOccupied,
+    hasVulnerablePersons,
+    petsPresent,
+    waterDuration,
+    waterMigration,
+    affectedContents,
+    structuralConcerns,
+    buildingServices,
+    insuranceConsiderations,
+    timelineRequirements,
+    dryingPreferences,
+    chemicalTreatment,
+    totalAffectedArea,
+    class4Drying,
+    estimatedDryingDuration: report.estimatedDryingDuration,
+    equipmentCostTotal: report.equipmentCostTotal
+    })
+  }
 
   return `Generate a comprehensive Professional Inspection Report for RestoreAssist with the following structure. This is a ${reportType === 'basic' ? 'BASIC' : 'ENHANCED'} report.
 
@@ -720,5 +799,460 @@ function extractWaterCategory(waterSource: string): string {
   if (category3Sources.some(s => waterSource.includes(s))) return 'Category 3'
   
   return 'Category 1' // Default
+}
+
+function extractAverageMoisture(moistureReadings: any): number | null {
+  if (!moistureReadings) return null
+  
+  if (typeof moistureReadings === 'string') {
+    // Try to parse as JSON first
+    try {
+      const parsed = JSON.parse(moistureReadings)
+      if (Array.isArray(parsed)) {
+        const values = parsed.map((r: any) => {
+          const val = typeof r === 'object' ? r.moisture || r.value || r.percentage : parseFloat(String(r))
+          return isNaN(val) ? null : val
+        }).filter((v: any) => v !== null)
+        if (values.length > 0) {
+          return values.reduce((a: number, b: number) => a + b, 0) / values.length
+        }
+      }
+    } catch (e) {
+      // Not JSON, try to extract numbers from string
+      const matches = moistureReadings.match(/(\d+(?:\.\d+)?)\s*%/g)
+      if (matches && matches.length > 0) {
+        const values = matches.map((m: string) => parseFloat(m))
+        return values.reduce((a, b) => a + b, 0) / values.length
+      }
+    }
+  } else if (Array.isArray(moistureReadings)) {
+    const values = moistureReadings.map((r: any) => {
+      const val = typeof r === 'object' ? r.moisture || r.value || r.percentage : parseFloat(String(r))
+      return isNaN(val) ? null : val
+    }).filter((v: any) => v !== null)
+    if (values.length > 0) {
+      return values.reduce((a: number, b: number) => a + b, 0) / values.length
+    }
+  }
+  
+  return null
+}
+
+function buildVisualCentricReportPrompt(data: {
+  report: any
+  analysis: any
+  tier1: any
+  tier2: any
+  tier3: any
+  stateInfo: any
+  standardsContext?: string
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
+  equipmentSelection?: any[]
+  waterCategory: string | null
+  materials: string[]
+  affectedAreas: string | null
+  moistureReadings: any
+  equipmentDeployed: string | null
+  roomsAffectedCount: number
+  materialsList: string
+  avgMoisture: number | null
+  totalEquipmentUnits: number
+  totalLitresExtracted: number | null
+  dryingIndex: number | null
+  dryingStatus: string | null
+  totalAmpsNumber: number
+  hazards: string[]
+  hasHazards: boolean
+  occupancyStatus: string | null
+  isOccupied: boolean
+  hasVulnerablePersons: boolean
+  petsPresent: string | null
+  waterDuration: string | null
+  waterMigration: string | null
+  affectedContents: string | null
+  structuralConcerns: string[]
+  buildingServices: string[]
+  insuranceConsiderations: string | null
+  timelineRequirements: string | null
+  dryingPreferences: string | null
+  chemicalTreatment: string | null
+  totalAffectedArea: string | null
+  class4Drying: string | null
+  estimatedDryingDuration?: number | null
+  equipmentCostTotal?: number | null
+}): string {
+  const {
+    report,
+    tier1,
+    tier2,
+    tier3,
+    stateInfo,
+    psychrometricAssessment,
+    scopeAreas,
+    equipmentSelection,
+    waterCategory,
+    materials,
+    affectedAreas,
+    roomsAffectedCount,
+    materialsList,
+    avgMoisture,
+    totalEquipmentUnits,
+    totalLitresExtracted,
+    dryingIndex,
+    dryingStatus,
+    totalAmpsNumber,
+    hasHazards,
+    isOccupied,
+    hasVulnerablePersons,
+    petsPresent,
+    estimatedDryingDuration,
+    equipmentCostTotal,
+    waterMigration,
+    hazards,
+    occupancyStatus,
+    waterDuration,
+    affectedContents,
+    structuralConcerns,
+    buildingServices,
+    insuranceConsiderations,
+    timelineRequirements,
+    dryingPreferences,
+    chemicalTreatment,
+    totalAffectedArea,
+    class4Drying
+  } = data
+
+  const estimatedDays = estimatedDryingDuration || report.estimatedDryingDuration || 4
+  const totalCost = equipmentCostTotal || report.equipmentCostTotal || 0
+
+  return `Generate an INFOGRAPHIC-STYLE Water Damage Restoration Overview Report for RestoreAssist. This should be a highly visual, dashboard-style infographic with minimal text, maximum visual impact, icons, visual cards, and easy-to-scan layout. Think modern dashboard/infographic design, not traditional text-heavy report.
+
+# REPORT DATA
+
+## Cover Page Information
+- Report Title: Water Damage Restoration Overview
+- Claim Reference: ${report.claimReferenceNumber || report.reportNumber || 'N/A'}
+- Property Address: ${report.propertyAddress}
+${report.propertyPostcode ? `- Postcode: ${report.propertyPostcode}` : ''}
+- Client Name: ${report.clientName}
+- Date Generated: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}
+${report.technicianName ? `- Technician: ${report.technicianName}` : ''}
+
+## Incident Summary
+${tier1?.T1_Q3_waterSource || report.sourceOfWater ? `- Water Source: ${tier1?.T1_Q3_waterSource || report.sourceOfWater}` : ''}
+${waterCategory ? `- Water Category: ${waterCategory}` : ''}
+${report.incidentDate ? `- Date of Loss: ${new Date(report.incidentDate).toLocaleDateString('en-AU')}` : ''}
+${report.technicianAttendanceDate ? `- Technician Attendance: ${new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU')}` : ''}
+
+## Visual Metrics
+- Rooms Affected: ${roomsAffectedCount}
+- Materials Affected: ${materialsList}
+- Average Moisture: ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : 'N/A'}
+- Total Equipment Units: ${totalEquipmentUnits}
+- Total Litres Extracted: ${totalLitresExtracted ? `${totalLitresExtracted} L` : 'N/A'}
+- Drying Index: ${dryingIndex || 'N/A'}
+- Drying Status: ${dryingStatus || 'N/A'}
+- Estimated Duration: ${estimatedDays} Days
+- Total Equipment Cost: $${totalCost?.toFixed(2) || '0.00'}
+
+${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Breakdown
+${equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const itemDailyTotal = dailyRate * sel.quantity
+  const itemTotalCost = itemDailyTotal * estimatedDays
+  return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
+}).join('\n')}` : ''}
+
+${scopeAreas && scopeAreas.length > 0 ? `## Room Details
+${scopeAreas.map((area: any, idx: number) => `
+Room ${idx + 1}: ${area.name}
+- Material: ${materials[idx] || 'Various'}
+- Moisture: ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : 'N/A'} - Target: 12%
+- Status: Saturated
+- Dimensions: ${area.length}m × ${area.width}m × ${area.height}m
+- Wet Area: ${(area.length * area.width * (area.wetPercentage / 100)).toFixed(1)} m²
+`).join('\n')}` : ''}
+
+# VISUAL REPORT STRUCTURE
+
+Generate a visual-centric report matching the RestoreAssist dashboard style. Use this EXACT structure:
+
+# RestoreAssist Water Damage Restoration Overview
+
+## Header Section
+
+**RestoreAssist** | **Water Damage Restoration Overview**
+
+**Job Ref:** ${report.claimReferenceNumber || report.reportNumber || 'INS-2025-001234'}  
+**Date:** ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })}  
+**Occupancy:** ${isOccupied ? 'Occupied' : 'Vacant'}${hasVulnerablePersons || petsPresent ? ` (${hasVulnerablePersons ? '2 Children' : ''}${petsPresent ? petsPresent : ''})` : ''}
+
+---
+
+## Overview Metrics Cards (Infographic Style)
+
+Create large, visual summary cards with icons and prominent numbers:
+
+🏠 **Rooms Affected**  
+**${roomsAffectedCount}**
+
+🧱 **Materials Affected**  
+**${materialsList}**
+
+💧 **Moisture Level**  
+**Avg. ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : '32%'}**
+
+💰 **Total Cost**  
+**$${totalCost?.toFixed(2) || '2,320'}**
+
+📈 **Drying Status**  
+**${dryingStatus || 'Fair'}**
+
+💧 **Total Litres Extracted**  
+**${totalLitresExtracted ? `${totalLitresExtracted} L` : '80-100 L'}**
+
+📅 **Estimated Duration**  
+**${estimatedDays} Days**
+
+🌡️ **Drying Index**  
+**${dryingIndex || '33.6'}**
+
+🚦 **Safety Status**  
+${isOccupied ? '🟠 **Occupied**' : '🟢 **Vacant**'}${hasVulnerablePersons || petsPresent ? ' + Children' : ''}
+
+💧 **Water Category**  
+**${waterCategory || '1'}**
+
+---
+
+## STATE COMPLIANCE & STANDARDS
+
+${stateInfo ? `
+- Work Health and Safety Act ${stateInfo.whsAct ? stateInfo.whsAct.split(' ').pop() : '2011'}
+- ${stateInfo.epaAct || 'Environmental Protection Act 1994'}
+- ${stateInfo.buildingCode || 'Queensland Development Code'}
+- Standards Applied
+- ANSI/IICRC S500:2025
+` : `
+- Work Health and Safety Act 2011
+- Environmental Protection Act 1994
+- Queensland Development Code
+- Standards Applied
+- ANSI/IICRC S500:2025
+`}
+
+---
+
+## Room-Specific Details
+
+${scopeAreas && scopeAreas.length > 0 ? scopeAreas.map((area: any, idx: number) => {
+  const roomMaterials = materials[idx] || (materials.length > 0 ? materials[0] : 'Various')
+  const roomMoisture = avgMoisture ? avgMoisture.toFixed(0) : '32'
+  const targetMoisture = '12'
+  const isSaturated = parseFloat(roomMoisture) > 20
+  const roomEquipment = equipmentSelection && equipmentSelection.length > 0 
+    ? equipmentSelection.filter((sel: any) => {
+        const group = getEquipmentGroupById(sel.groupId)
+        return group?.id.includes('airmover') || group?.id.includes('lgr') || group?.id.includes('desiccant')
+      }).map((sel: any) => {
+        const group = getEquipmentGroupById(sel.groupId)
+        const isAirMover = group?.id.includes('airmover')
+        const isLGR = group?.id.includes('lgr')
+        return isAirMover ? `Air Mover (x${sel.quantity})` : isLGR ? `LGR Dehumidifier` : `${group?.name || sel.groupId}`
+      }).join(', ')
+    : 'Air Mover, LGR Dehumidifier'
+  
+  return `
+### ${area.name || `Room ${idx + 1}`}
+
+**Materials:** ${roomMaterials}  
+**Moisture:** ${roomMoisture}%${isSaturated ? ` - Target: ${targetMoisture}%` : ''}  
+**Current moisture:** ${isSaturated ? 'Saturated' : parseFloat(roomMoisture) > 15 ? 'Fair' : 'Good'}  
+**Scope of work:** Extract water & apply antimicrobial  
+**Equipment:** ${roomEquipment}
+`
+}).join('\n\n') : affectedAreas ? `
+### Affected Rooms
+
+${Array.isArray(affectedAreas) ? affectedAreas.map((room: string, idx: number) => `
+**${room}**
+- **Materials:** ${materials[idx] || materialsList}
+- **Moisture:** ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : '32%'} - Target: 12%
+- **Status:** Saturated
+- **Scope:** Extract water & apply antimicrobial
+`).join('\n') : `
+**${affectedAreas}**
+- **Materials:** ${materialsList}
+- **Moisture:** ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : '32%'} - Target: 12%
+- **Status:** Saturated
+- **Scope:** Extract water & apply antimicrobial
+`}
+` : ''}
+
+---
+
+## Overall Status / Warning Panel
+
+**Drying Status Gauge:** ${dryingIndex || '33.6'} - **${dryingStatus ? dryingStatus.toUpperCase() : 'FAIR'}**
+
+${isOccupied && (hasVulnerablePersons || petsPresent) ? `
+**⚠️ Amber Warning:** Occupied: ${hasVulnerablePersons ? 'Children Present' : petsPresent || 'Special Considerations'}
+` : ''}
+
+---
+
+## 🔧 Equipment Deployment
+
+**${totalEquipmentUnits} Drying Units Deployed**
+
+${equipmentSelection && equipmentSelection.length > 0 ? equipmentSelection.map((sel: any) => {
+  const group = getEquipmentGroupById(sel.groupId)
+  const isDehumidifier = group?.id.includes('lgr') || group?.id.includes('desiccant')
+  const isAirMover = group?.id.includes('airmover')
+  return `- ${isDehumidifier ? '💨' : isAirMover ? '🌀' : '⚙️'} ${group?.name || sel.groupId}: **${sel.quantity}** units`
+}).join('\n') : ''}
+
+**Includes:** Industrial-grade dehumidifiers and high-volume air movers
+
+---
+
+## ⏱️ Estimated Timeline
+
+**${estimatedDays}-Day Estimated Drying Time**
+
+This timeframe is based on the current equipment loadout and site conditions.
+
+---
+
+## COST & FORECAST
+
+### Equipment Cost Breakdown (${estimatedDays} Days)
+
+| QTY | RATE/DAY | TOTAL |
+|:---:|:--------:|:-----:|
+${equipmentSelection && equipmentSelection.length > 0 ? (() => {
+  const dehumidifiers = equipmentSelection.filter((sel: any) => {
+    const group = getEquipmentGroupById(sel.groupId)
+    return group?.id.includes('lgr') || group?.id.includes('desiccant')
+  })
+  const airMovers = equipmentSelection.filter((sel: any) => {
+    const group = getEquipmentGroupById(sel.groupId)
+    return group?.id.includes('airmover')
+  })
+  
+  let rows: string[] = []
+  
+  if (dehumidifiers.length > 0) {
+    const totalQty = dehumidifiers.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
+    const totalDailyRate = dehumidifiers.reduce((sum: number, sel: any) => {
+      const group = getEquipmentGroupById(sel.groupId)
+      const dailyRate = sel.dailyRate || group?.dailyRate || 0
+      return sum + (dailyRate * sel.quantity)
+    }, 0)
+    const totalCost = totalDailyRate * estimatedDays
+    rows.push(`| LGR (${totalQty}) | **$${totalDailyRate.toFixed(2)}** | **$${totalCost.toFixed(2)}** |`)
+  }
+  
+  if (airMovers.length > 0) {
+    const totalQty = airMovers.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
+    const totalDailyRate = airMovers.reduce((sum: number, sel: any) => {
+      const group = getEquipmentGroupById(sel.groupId)
+      const dailyRate = sel.dailyRate || group?.dailyRate || 0
+      return sum + (dailyRate * sel.quantity)
+    }, 0)
+    const totalCost = totalDailyRate * estimatedDays
+    rows.push(`| Air (${totalQty}) | **$${totalDailyRate.toFixed(2)}** | **$${totalCost.toFixed(2)}** |`)
+  }
+  
+  if (rows.length === 0) {
+    rows.push('| Equipment | **$0.00** | **$0.00** |')
+  }
+  
+  return rows.join('\n')
+})() : '| Equipment | **$0.00** | **$0.00** |'}
+
+**Total reserve:** ${estimatedDays} days
+
+---
+
+## Incident Details
+
+${tier1?.T1_Q3_waterSource || report.sourceOfWater ? `**Water Source:** ${tier1?.T1_Q3_waterSource || report.sourceOfWater}` : ''}  
+${waterCategory ? `**Water Category:** ${waterCategory}` : ''}  
+${report.incidentDate ? `**Date of Loss:** ${new Date(report.incidentDate).toLocaleDateString('en-AU')}` : ''}  
+${report.technicianAttendanceDate ? `**Technician Attendance:** ${new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU')}` : ''}
+
+${waterMigration ? `**Water Migration Pattern:** ${waterMigration}` : ''}
+
+---
+
+## Key Actions & Notes
+
+✅ Water extraction completed  
+✅ Moisture assessment performed  
+✅ Equipment deployed  
+✅ Initial safety measures implemented
+
+${hasHazards && hazards ? `⚠️ **Hazards Identified:** ${hazards.join(', ')}` : ''}
+
+---
+
+**Report generated by RestoreAssist v1.0**  
+**Generated:** ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}  
+${report.technicianName ? `**Technician:** ${report.technicianName}` : ''}
+
+---
+
+# CRITICAL FORMATTING REQUIREMENTS - INFOGRAPHIC STYLE
+
+1. **INFOGRAPHIC DESIGN:** Create a highly visual, infographic-style report with minimal text and maximum visual impact. Think dashboard/infographic, not traditional report.
+
+2. **Visual Cards:** Present ALL metrics as visual cards with large icons and numbers:
+   - Use emojis/icons prominently (🏠, 💧, 📊, 💰, 📈, ⏱️, 🌡️)
+   - Make numbers LARGE and bold
+   - Use visual spacing and separators
+
+3. **Minimal Text:** 
+   - Use short labels only
+   - Avoid long paragraphs
+   - Use bullet points with icons
+   - Keep descriptions brief and scannable
+
+4. **Visual Hierarchy:**
+   - Use markdown headers (#, ##, ###) for structure
+   - Use horizontal rules (---) to separate sections
+   - Create visual "cards" using markdown formatting
+
+5. **Tables:** 
+   - Use clean 3-column tables (QTY | RATE/DAY | TOTAL)
+   - NO separator lines between header and data rows
+   - Bold monetary values for emphasis
+   - Center-align columns using :---: syntax
+
+6. **Room Panels:** 
+   - Each room as a visual card/panel
+   - Use icons for materials, moisture, equipment
+   - Show data in a scannable format
+
+7. **Status Indicators:**
+   - Use visual gauge representations (text-based)
+   - Use color indicators (🟠, 🟢, 🔴) for status
+   - Make status values prominent
+
+8. **NO HTML TAGS:** Use only markdown formatting, no <p>, <br>, <div>, or style attributes
+
+9. **Infographic Elements:**
+   - Use visual separators (---, ===)
+   - Create visual groupings
+   - Use icons liberally throughout
+   - Make it look like a modern dashboard/infographic
+
+10. **Use actual data only:** Only include information from the REPORT DATA section above
+
+11. **Footer:** Include "Report generated by RestoreAssist v1.0" at the bottom
+
+Generate the complete infographic-style visual report now. Make it visually stunning, easy to scan, and professional.`
 }
 
