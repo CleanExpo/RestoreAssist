@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { tryClaudeModels } from '@/lib/anthropic-models'
-import { getEquipmentGroupById } from '@/lib/equipment-matrix'
+import { getEquipmentGroupById, getEquipmentDailyRate } from '@/lib/equipment-matrix'
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const integration = integrations.find(i => 
+    const integration = integrations.find((i: any) => 
       i.name === 'Anthropic Claude' || 
       i.name === 'Anthropic API' ||
       i.name.toLowerCase().includes('anthropic')
@@ -105,9 +105,10 @@ export async function POST(request: NextRequest) {
       const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
       
       // Determine report type
-      const retrievalReportType = reportType === 'mould' ? 'mould' : 
-                                 reportType === 'fire' ? 'fire' : 
-                                 reportType === 'commercial' ? 'commercial' : 'water'
+      const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
+        reportType === 'mould' ? 'mould' : 
+        reportType === 'fire' ? 'fire' : 
+        reportType === 'commercial' ? 'commercial' : 'water'
       
       console.log(`[Generate Inspection Report] Report type: ${retrievalReportType}`)
       
@@ -140,7 +141,46 @@ export async function POST(request: NextRequest) {
       // Continue without standards - report will use general knowledge
     }
     
-    // Build comprehensive prompt for all 13 sections
+    // For basic reports, return structured JSON data instead of markdown
+    if (reportType === 'basic') {
+      // Get user's pricing config for accurate equipment costs
+      const pricingConfig = user.pricingConfig
+      
+      const visualReportData = buildVisualReportData({
+        report,
+        analysis,
+        tier1,
+        tier2,
+        tier3,
+        stateInfo,
+        psychrometricAssessment,
+        scopeAreas,
+        equipmentSelection,
+        pricingConfig
+      })
+
+      // Save the structured data as JSON string in detailedReport
+      await prisma.report.update({
+        where: { id: reportId },
+        data: {
+          detailedReport: JSON.stringify(visualReportData),
+          reportDepthLevel: 'Basic',
+          status: 'PENDING'
+        }
+      })
+
+      return NextResponse.json({ 
+        report: {
+          id: reportId,
+          detailedReport: JSON.stringify(visualReportData),
+          reportType: 'basic',
+          visualData: visualReportData
+        },
+        message: 'Visual report generated successfully'
+      })
+    }
+
+    // For enhanced reports, use AI generation
     const prompt = buildInspectionReportPrompt({
       report,
       analysis,
@@ -155,27 +195,7 @@ export async function POST(request: NextRequest) {
       equipmentSelection
     })
 
-    const systemPrompt = reportType === 'basic' 
-      ? `You are RestoreAssist, an expert water damage restoration documentation system. Generate a VISUAL-CENTRIC, easy-to-scan overview report that presents information using icons, visual elements, clear formatting, and visual hierarchy.
-
-CRITICAL FOR VISUAL REPORTS:
-- Use emojis and icons liberally (🏠, 💧, 📊, ⚠️, 🔧, etc.) to make sections visually distinct
-- Create clear visual sections with horizontal rules (---)
-- Use tables for cost breakdowns and equipment lists
-- Highlight key metrics in bold
-- Use bullet points with icons for lists
-- Make it scannable with short paragraphs and clear headings
-- Focus on visual presentation over lengthy text
-- Use markdown formatting (NO HTML tags)
-
-CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
-- Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
-- Make up or invent information that is not in the provided data
-- Include sections for which no data was provided
-- Use dummy or default values
-
-Only include information that is explicitly provided in the REPORT DATA section. If a field is not provided, do not mention it in the report.`
-      : `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
+    const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 
 CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do NOT:
 - Use placeholder text like "Not provided", "Not specified", "N/A", "Unknown", or similar
@@ -223,7 +243,7 @@ Only include information that is explicitly provided in the REPORT DATA section.
       where: { id: reportId },
       data: {
         detailedReport: inspectionReport,
-        reportDepthLevel: reportType === 'basic' ? 'Basic' : (report.reportDepthLevel || 'Enhanced'),
+        reportDepthLevel: report.reportDepthLevel || 'Enhanced',
         status: 'PENDING'
       }
     })
@@ -241,6 +261,245 @@ Only include information that is explicitly provided in the REPORT DATA section.
       { error: 'Failed to generate inspection report' },
       { status: 500 }
     )
+  }
+}
+
+function buildVisualReportData(data: {
+  report: any
+  analysis: any
+  tier1: any
+  tier2: any
+  tier3: any
+  stateInfo: any
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
+  equipmentSelection?: any[]
+  pricingConfig?: any
+}) {
+  const { report, tier1, tier2, tier3, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, pricingConfig } = data
+
+  // Extract data
+  const waterCategory = tier1?.T1_Q3_waterSource 
+    ? extractWaterCategory(tier1.T1_Q3_waterSource)
+    : (report.waterCategory || '1')
+  
+  const materials = tier1?.T1_Q6_materialsAffected || []
+  const affectedAreas = tier1?.T1_Q5_roomsAffected || []
+  const occupancyStatus = tier1?.T1_Q4_occupancyStatus || null
+  const petsPresent = tier1?.T1_Q4_petsPresent || null
+  const isOccupied = occupancyStatus ? occupancyStatus.includes('Occupied') : false
+  const hasVulnerablePersons = occupancyStatus ? (occupancyStatus.includes('children') || 
+                               occupancyStatus.includes('elderly') || 
+                               occupancyStatus.includes('respiratory') || 
+                               occupancyStatus.includes('disability')) : false
+  
+  const moistureReadings = tier2?.T2_Q1_moistureReadings || null
+  const avgMoisture = moistureReadings ? extractAverageMoisture(moistureReadings) : null
+  
+  // Calculate rooms affected count - prioritize scopeAreas if available, otherwise use affectedAreas
+  let roomsAffectedCount = 0
+  if (scopeAreas && scopeAreas.length > 0) {
+    roomsAffectedCount = scopeAreas.length
+  } else if (Array.isArray(affectedAreas)) {
+    roomsAffectedCount = affectedAreas.length
+  } else if (affectedAreas) {
+    roomsAffectedCount = 1
+  }
+  
+  // Calculate materials list - use materials from tier1, or extract from scopeAreas if available
+  let materialsList = 'Not specified'
+  if (materials.length > 0) {
+    materialsList = materials.join(', ')
+  } else if (scopeAreas && scopeAreas.length > 0) {
+    // Try to extract materials from scope areas if available
+    const scopeMaterials = scopeAreas
+      .map((area: any) => area.materials || area.material)
+      .filter((m: any) => m && m !== 'Various' && m !== 'Not specified')
+    if (scopeMaterials.length > 0) {
+      // Get unique materials
+      const uniqueMaterials = [...new Set(scopeMaterials)]
+      materialsList = uniqueMaterials.join(', ')
+    } else {
+      // If we have rooms but no specific materials, use "Various"
+      materialsList = 'Various'
+    }
+  }
+  
+  const totalEquipmentUnits = equipmentSelection && equipmentSelection.length > 0
+    ? equipmentSelection.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
+    : 0
+  
+  const totalLitresExtracted = report.dehumidificationCapacity || null
+  const dryingIndex = psychrometricAssessment?.dryingPotential?.dryingIndex || 33.6
+  const dryingStatus = psychrometricAssessment?.dryingPotential?.status || 'Fair'
+  const estimatedDays = report.estimatedDryingDuration || 4
+  const totalCost = report.equipmentCostTotal || 0
+
+  // Build equipment cost breakdown
+  const equipmentCosts: Array<{ type: string; qty: number; ratePerDay: number; total: number }> = []
+  if (equipmentSelection && equipmentSelection.length > 0) {
+    const dehumidifiers = equipmentSelection.filter((sel: any) => {
+      const group = getEquipmentGroupById(sel.groupId)
+      return group?.id.includes('lgr') || group?.id.includes('desiccant')
+    })
+    const airMovers = equipmentSelection.filter((sel: any) => {
+      const group = getEquipmentGroupById(sel.groupId)
+      return group?.id.includes('airmover')
+    })
+
+    if (dehumidifiers.length > 0) {
+      const totalQty = dehumidifiers.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
+      const totalDailyRate = dehumidifiers.reduce((sum: number, sel: any) => {
+        const dailyRate = sel.dailyRate || (pricingConfig ? getEquipmentDailyRate(sel.groupId, pricingConfig) : 0)
+        return sum + (dailyRate * sel.quantity)
+      }, 0)
+      equipmentCosts.push({
+        type: 'LGR',
+        qty: totalQty,
+        ratePerDay: totalDailyRate,
+        total: totalDailyRate * estimatedDays
+      })
+    }
+
+    if (airMovers.length > 0) {
+      const totalQty = airMovers.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
+      const totalDailyRate = airMovers.reduce((sum: number, sel: any) => {
+        const dailyRate = sel.dailyRate || (pricingConfig ? getEquipmentDailyRate(sel.groupId, pricingConfig) : 0)
+        return sum + (dailyRate * sel.quantity)
+      }, 0)
+      equipmentCosts.push({
+        type: 'Air',
+        qty: totalQty,
+        ratePerDay: totalDailyRate,
+        total: totalDailyRate * estimatedDays
+      })
+    }
+  }
+
+  // Build room details
+  const roomDetails: Array<{
+    name: string
+    materials: string
+    moisture: number
+    targetMoisture: number
+    status: string
+    scopeOfWork: string
+    equipment: string[]
+  }> = []
+
+  // Update roomsAffectedCount and materialsList based on actual room details we're building
+  if (scopeAreas && scopeAreas.length > 0) {
+    // Use scopeAreas count for rooms affected
+    roomsAffectedCount = scopeAreas.length
+    
+    // Extract materials from scopeAreas if available, otherwise use tier1 materials
+    const scopeMaterials: string[] = []
+    scopeAreas.forEach((area: any) => {
+      if (area.materials && area.materials !== 'Various' && area.materials !== 'Not specified') {
+        if (Array.isArray(area.materials)) {
+          scopeMaterials.push(...area.materials)
+        } else {
+          scopeMaterials.push(area.materials)
+        }
+      }
+    })
+    
+    // Update materialsList if we found materials in scopeAreas
+    if (scopeMaterials.length > 0) {
+      const uniqueMaterials = [...new Set(scopeMaterials)]
+      materialsList = uniqueMaterials.join(', ')
+    } else if (materials.length > 0) {
+      materialsList = materials.join(', ')
+    } else {
+      // If we have rooms but no specific materials, use "Various"
+      materialsList = 'Various'
+    }
+    
+    scopeAreas.forEach((area: any, idx: number) => {
+      const roomMaterials = area.materials || materials[idx] || (materials.length > 0 ? materials[0] : 'Various')
+      const roomMoisture = avgMoisture || 32
+      const isSaturated = roomMoisture > 20
+      
+      const roomEquipment = equipmentSelection && equipmentSelection.length > 0 
+        ? equipmentSelection.filter((sel: any) => {
+            const group = getEquipmentGroupById(sel.groupId)
+            return group?.id.includes('airmover') || group?.id.includes('lgr') || group?.id.includes('desiccant')
+          }).map((sel: any) => {
+            const group = getEquipmentGroupById(sel.groupId)
+            const isAirMover = group?.id.includes('airmover')
+            const isLGR = group?.id.includes('lgr')
+            return isAirMover ? `${sel.quantity} x Air Mover` : isLGR ? 'LGR Dehumidifier' : `${group?.name || sel.groupId}`
+          })
+        : ['Air Mover', 'LGR Dehumidifier']
+
+      roomDetails.push({
+        name: area.name || `Room ${idx + 1}`,
+        materials: roomMaterials,
+        moisture: Math.round(roomMoisture),
+        targetMoisture: 12,
+        status: isSaturated ? 'Saturated' : roomMoisture > 15 ? 'Fair' : 'Good',
+        scopeOfWork: 'Extract water & apply antimicrobial',
+        equipment: roomEquipment
+      })
+    })
+  } else if (affectedAreas && Array.isArray(affectedAreas)) {
+    affectedAreas.forEach((room: string, idx: number) => {
+      roomDetails.push({
+        name: room,
+        materials: materials[idx] || materialsList,
+        moisture: Math.round(avgMoisture || 32),
+        targetMoisture: 12,
+        status: 'Saturated',
+        scopeOfWork: 'Extract water & apply antimicrobial',
+        equipment: ['Air Mover', 'LGR Dehumidifier']
+      })
+    })
+  }
+
+  // Build state compliance standards
+  const complianceStandards = stateInfo ? [
+    `Work Health and Safety Act ${stateInfo.whsAct ? stateInfo.whsAct.split(' ').pop() : '2011'}`,
+    stateInfo.epaAct || 'Environmental Protection Act 1994',
+    stateInfo.buildingCode || 'Queensland Development Code',
+    'Standards Applied',
+    'ANSI/IICRC S500:2025'
+  ] : [
+    'Work Health and Safety Act 2011',
+    'Environmental Protection Act 1994',
+    'Queensland Development Code',
+    'Standards Applied',
+    'ANSI/IICRC S500:2025'
+  ]
+
+  return {
+    header: {
+      title: 'RestoreAssist',
+      subtitle: 'Water Damage Restoration Overview',
+      claimRef: report.claimReferenceNumber || report.reportNumber || 'INS-2025-001234',
+      location: report.propertyPostcode ? `${stateInfo?.name || 'Brisbane'}, ${stateInfo?.code || 'QLD'}` : '',
+      date: new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      occupancy: isOccupied ? 'Occupied' : 'Vacant',
+      occupancyDetails: hasVulnerablePersons ? '2 Children' : petsPresent || ''
+    },
+    summaryMetrics: {
+      roomsAffected: roomsAffectedCount,
+      materialsAffected: materialsList,
+      moistureLevel: Math.round(avgMoisture || 32),
+      totalCost: totalCost,
+      dryingStatus: dryingStatus,
+      totalLitresExtracted: totalLitresExtracted ? `${totalLitresExtracted} L` : '80-100 L',
+      estimatedDuration: estimatedDays,
+      dryingIndex: dryingIndex
+    },
+    safety: {
+      trafficLight: isOccupied ? 'occupied' : 'vacant',
+      hasChildren: hasVulnerablePersons,
+      waterCategory: waterCategory.replace('Category ', '')
+    },
+    roomDetails,
+    complianceStandards,
+    equipmentCosts,
+    estimatedDays
   }
 }
 
@@ -450,13 +709,13 @@ ${materials.join(', ')}` : ''}
 ${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Selection
 ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
-  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   const itemDailyTotal = dailyRate * sel.quantity
   const itemTotalCost = itemDailyTotal * (report.estimatedDryingDuration || 1)
   return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
 }).join('\n')}
 - Total Daily Cost: $${equipmentSelection.reduce((sum: number, sel: any) => {
-  const dailyRate = sel.dailyRate || getEquipmentGroupById(sel.groupId)?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   return sum + (dailyRate * sel.quantity)
 }, 0).toFixed(2)}
 - Estimated Duration: ${report.estimatedDryingDuration || 'N/A'} days
@@ -522,13 +781,13 @@ Area ${idx + 1}: ${area.name}
 ${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Selection
 ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
-  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   const itemDailyTotal = dailyRate * sel.quantity
   const itemTotalCost = itemDailyTotal * (report.estimatedDryingDuration || 1)
   return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
 }).join('\n')}
 - Total Daily Cost: $${equipmentSelection.reduce((sum: number, sel: any) => {
-  const dailyRate = sel.dailyRate || getEquipmentGroupById(sel.groupId)?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   return sum + (dailyRate * sel.quantity)
 }, 0).toFixed(2)}
 - Estimated Duration: ${report.estimatedDryingDuration || 'N/A'} days
@@ -602,7 +861,7 @@ ${equipmentSelection.map((sel: any) => {
                group?.id.includes('desiccant') ? 'DESICCANT DEHUMIDIFIER' :
                group?.id.includes('airmover') ? 'AIR MOVER' :
                group?.id.includes('heat') ? 'HEAT DRYING' : 'EQUIPMENT'
-  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   const itemDailyTotal = dailyRate * sel.quantity
   const itemTotalCost = itemDailyTotal * (report.estimatedDryingDuration || 1)
   return `- ${group?.name || sel.groupId} (${type}): ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
@@ -659,7 +918,7 @@ For each material type identified, provide specific protocols:
 ${materials.includes('Yellow tongue particleboard') ? '- Yellow Tongue Particleboard Subfloor (Class 3/4 drying) - IICRC S500 Section 5.2' : ''}
 ${materials.includes('Floating timber floors') ? '- Floating Timber Floors (Class 2/3) - IICRC S500 Section 5.1' : ''}
 ${materials.includes('Carpet on concrete slab') ? '- Carpet on Concrete Slab (Class 1) - IICRC S500 Section 4.2' : ''}
-${materials.some(m => m.includes('Plasterboard')) ? '- Plasterboard Walls & Ceilings - IICRC S500 Section 5.3' : ''}
+${materials.some((m: string) => m.includes('Plasterboard')) ? '- Plasterboard Walls & Ceilings - IICRC S500 Section 5.3' : ''}
 
 ## SECTION 9: OCCUPANCY AND SAFETY CONSIDERATIONS
 ${isOccupied ? 'Include: Access Restrictions, Air Quality, Utilities, Pet/Children Safety' : ''}
@@ -680,7 +939,7 @@ ${equipmentSelection && equipmentSelection.length > 0 ? `- Power Draw Calculatio
   return `${sel.quantity}x ${group?.name || sel.groupId} (${(group?.amps || 0) * sel.quantity}A)`
 }).join(', ')}
 - Total Daily Equipment Cost: $${equipmentSelection.reduce((sum: number, sel: any) => {
-  const dailyRate = sel.dailyRate || getEquipmentGroupById(sel.groupId)?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   return sum + (dailyRate * sel.quantity)
 }, 0).toFixed(2)}` : '- Power Draw Calculation: (calculate from equipment deployed)'}
 - Context and recommendations
@@ -959,7 +1218,7 @@ ${report.technicianAttendanceDate ? `- Technician Attendance: ${new Date(report.
 ${equipmentSelection && equipmentSelection.length > 0 ? `## Equipment Breakdown
 ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
-  const dailyRate = sel.dailyRate || group?.dailyRate || 0
+  const dailyRate = sel.dailyRate || 0
   const itemDailyTotal = dailyRate * sel.quantity
   const itemTotalCost = itemDailyTotal * estimatedDays
   return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`
@@ -983,7 +1242,7 @@ Generate a visual-centric report matching the RestoreAssist dashboard style. Use
 
 ## Header Section
 
-**RestoreAssist** | **Water Damage Restoration Overview**
+**Restore Assist** | **Water Damage Restoration Overview**
 
 **Job Ref:** ${report.claimReferenceNumber || report.reportNumber || 'INS-2025-001234'}  
 **Date:** ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })}  
@@ -1131,7 +1390,7 @@ ${equipmentSelection && equipmentSelection.length > 0 ? (() => {
     const totalQty = dehumidifiers.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
     const totalDailyRate = dehumidifiers.reduce((sum: number, sel: any) => {
       const group = getEquipmentGroupById(sel.groupId)
-      const dailyRate = sel.dailyRate || group?.dailyRate || 0
+      const dailyRate = sel.dailyRate || 0
       return sum + (dailyRate * sel.quantity)
     }, 0)
     const totalCost = totalDailyRate * estimatedDays
@@ -1142,7 +1401,7 @@ ${equipmentSelection && equipmentSelection.length > 0 ? (() => {
     const totalQty = airMovers.reduce((sum: number, sel: any) => sum + sel.quantity, 0)
     const totalDailyRate = airMovers.reduce((sum: number, sel: any) => {
       const group = getEquipmentGroupById(sel.groupId)
-      const dailyRate = sel.dailyRate || group?.dailyRate || 0
+      const dailyRate = sel.dailyRate || 0
       return sum + (dailyRate * sel.quantity)
     }, 0)
     const totalCost = totalDailyRate * estimatedDays

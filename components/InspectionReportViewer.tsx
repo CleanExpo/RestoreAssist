@@ -5,6 +5,7 @@ import { FileText, Download, Loader2, AlertCircle, CheckCircle, Edit, Save } fro
 import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
+import VisualDashboardReport from "./VisualDashboardReport"
 
 interface InspectionReportViewerProps {
   reportId: string
@@ -18,6 +19,8 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
   const [editing, setEditing] = useState(false)
   const [report, setReport] = useState<any>(null)
   const [reportContent, setReportContent] = useState<string>('')
+  const [visualData, setVisualData] = useState<any>(null)
+  const [isBasicReport, setIsBasicReport] = useState(false)
 
   useEffect(() => {
     fetchReport()
@@ -66,8 +69,22 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
         if (data && typeof data === 'object') {
           setReport(data)
           if (data.detailedReport) {
-            const processedContent = preprocessReportContent(data.detailedReport)
-            setReportContent(processedContent)
+            // Check if it's JSON (basic visual report)
+            try {
+              const parsed = JSON.parse(data.detailedReport)
+              if (parsed.header && parsed.summaryMetrics) {
+                setVisualData(parsed)
+                setIsBasicReport(true)
+                setReportContent('')
+              } else {
+                throw new Error('Not visual data')
+              }
+            } catch (e) {
+              // It's text/markdown content
+              const processedContent = preprocessReportContent(data.detailedReport)
+              setReportContent(processedContent)
+              setIsBasicReport(false)
+            }
           }
         } else {
           toast.error('Failed to parse report data')
@@ -101,9 +118,27 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
       if (response.ok) {
         const data = await response.json()
         if (data.report && data.report.detailedReport) {
-          const processedContent = preprocessReportContent(data.report.detailedReport)
-          setReportContent(processedContent)
-          toast.success('Inspection report generated successfully')
+          // Check if it's a basic report with visual data
+          if (data.report.reportType === 'basic' || data.report.visualData) {
+            try {
+              const visualData = data.report.visualData || JSON.parse(data.report.detailedReport)
+              setVisualData(visualData)
+              setIsBasicReport(true)
+              setReportContent('') // Clear text content for basic reports
+              toast.success('Visual report generated successfully')
+            } catch (e) {
+              // Fallback to text if JSON parsing fails
+              const processedContent = preprocessReportContent(data.report.detailedReport)
+              setReportContent(processedContent)
+              setIsBasicReport(false)
+              toast.success('Inspection report generated successfully')
+            }
+          } else {
+            const processedContent = preprocessReportContent(data.report.detailedReport)
+            setReportContent(processedContent)
+            setIsBasicReport(false)
+            toast.success('Inspection report generated successfully')
+          }
           if (onReportGenerated) {
             onReportGenerated()
           }
@@ -287,7 +322,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
       )}
 
       {/* Report Content */}
-      {reportContent && (
+      {(reportContent || visualData) && (
         <div className="space-y-4">
           <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
             <div className="flex items-center gap-2">
@@ -297,7 +332,9 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           </div>
 
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            {editing ? (
+            {isBasicReport && visualData ? (
+              <VisualDashboardReport data={visualData} />
+            ) : editing ? (
               <div className="p-6">
                 <textarea
                   value={reportContent}
@@ -307,20 +344,20 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
                 />
               </div>
             ) : (
-            <ProfessionalDocumentViewer content={reportContent} />
+              <ProfessionalDocumentViewer content={reportContent} />
             )}
           </div>
 
           {/* Regenerate Option */}
-          <div className="flex justify-end gap-2">
+          {/* <div className="flex justify-end gap-2">
             <button
-              onClick={() => handleGenerateReport('enhanced')}
+              onClick={() => handleGenerateReport(isBasicReport ? 'basic' : 'enhanced')}
               disabled={generating}
               className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50"
             >
               Regenerate Report
             </button>
-          </div>
+          </div> */}
         </div>
       )}
 

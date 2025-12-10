@@ -230,3 +230,77 @@ body {
 .glass {
   @apply backdrop-blur-md bg-slate-900/50 border border-slate-700/50;
 }
+
+/* Print styles for Visual Dashboard Report */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0.5cm;
+  }
+
+  /* Hide everything except the report content */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the report content */
+  #visual-report-content,
+  #visual-report-content * {
+    visibility: visible;
+  }
+
+  #visual-report-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+  }
+
+  /* Hide buttons and footer in print */
+  button,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Remove shadows and borders for cleaner print */
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-md {
+    box-shadow: none !important;
+  }
+
+  /* Ensure colors print correctly */
+  .bg-blue-50,
+  .bg-slate-50,
+  .bg-slate-100 {
+    background-color: #f8fafc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  .bg-blue-600 {
+    background-color: #2563eb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  .text-blue-600,
+  .text-green-600 {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Avoid breaking inside cards */
+  .grid > div {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure proper spacing */
+  #visual-report-content {
+    padding: 1rem !important;
+  }
+}
