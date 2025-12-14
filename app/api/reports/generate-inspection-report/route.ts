@@ -17,7 +17,19 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { email: session.user.email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        businessName: true,
+        businessAddress: true,
+        businessLogo: true,
+        businessABN: true,
+        businessPhone: true,
+        businessEmail: true,
+        pricingConfig: true
+      }
     })
 
     if (!user) {
@@ -107,8 +119,8 @@ export async function POST(request: NextRequest) {
       // Determine report type
       const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
         reportType === 'mould' ? 'mould' : 
-        reportType === 'fire' ? 'fire' : 
-        reportType === 'commercial' ? 'commercial' : 'water'
+                                 reportType === 'fire' ? 'fire' : 
+                                 reportType === 'commercial' ? 'commercial' : 'water'
       
       console.log(`[Generate Inspection Report] Report type: ${retrievalReportType}`)
       
@@ -156,7 +168,15 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment,
         scopeAreas,
         equipmentSelection,
-        pricingConfig
+        pricingConfig,
+        businessInfo: {
+          businessName: user.businessName,
+          businessAddress: user.businessAddress,
+          businessLogo: user.businessLogo,
+          businessABN: user.businessABN,
+          businessPhone: user.businessPhone,
+          businessEmail: user.businessEmail
+        }
       })
 
       // Save the structured data as JSON string in detailedReport
@@ -275,8 +295,16 @@ function buildVisualReportData(data: {
   scopeAreas?: any[]
   equipmentSelection?: any[]
   pricingConfig?: any
+  businessInfo?: {
+    businessName?: string | null
+    businessAddress?: string | null
+    businessLogo?: string | null
+    businessABN?: string | null
+    businessPhone?: string | null
+    businessEmail?: string | null
+  }
 }) {
-  const { report, tier1, tier2, tier3, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, pricingConfig } = data
+  const { report, tier1, tier2, tier3, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, pricingConfig, businessInfo } = data
 
   // Extract data
   const waterCategory = tier1?.T1_Q3_waterSource 
@@ -499,7 +527,15 @@ function buildVisualReportData(data: {
     roomDetails,
     complianceStandards,
     equipmentCosts,
-    estimatedDays
+    estimatedDays,
+    businessInfo: businessInfo || {
+      businessName: null,
+      businessAddress: null,
+      businessLogo: null,
+      businessABN: null,
+      businessPhone: null,
+      businessEmail: null
+    }
   }
 }
 

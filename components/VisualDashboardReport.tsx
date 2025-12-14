@@ -47,6 +47,14 @@ interface VisualReportData {
     total: number
   }>
   estimatedDays: number
+  businessInfo?: {
+    businessName?: string | null
+    businessAddress?: string | null
+    businessLogo?: string | null
+    businessABN?: string | null
+    businessPhone?: string | null
+    businessEmail?: string | null
+  }
 }
 
 interface VisualDashboardReportProps {
@@ -112,15 +120,48 @@ export default function VisualDashboardReport({ data }: VisualDashboardReportPro
       waterCategory: safety?.waterCategory || '1'
     }
 
+    const businessInfo = data.businessInfo || {}
+    const hasBusinessInfo = businessInfo.businessName || businessInfo.businessLogo
+
     return (
     <div id="visual-report-content" className="bg-white p-8 rounded-lg shadow-lg w-full print-content">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-baseline gap-2 mb-2">
-          <h1 className="text-2xl font-bold text-slate-900">{safeHeader.title}</h1>
-          <h2 className="text-xl font-semibold text-slate-700">{safeHeader.subtitle}</h2>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            {hasBusinessInfo && (
+              <div className="flex items-center gap-4 mb-4">
+                {businessInfo.businessLogo && (
+                  <img 
+                    src={businessInfo.businessLogo} 
+                    alt={businessInfo.businessName || "Business Logo"} 
+                    className="h-16 w-auto object-contain"
+                  />
+                )}
+                <div>
+                  {businessInfo.businessName && (
+                    <h1 className="text-2xl font-bold text-slate-900">{businessInfo.businessName}</h1>
+                  )}
+                  {businessInfo.businessAddress && (
+                    <p className="text-sm text-slate-600 mt-1">{businessInfo.businessAddress}</p>
+                  )}
+                  <div className="flex gap-4 mt-1 text-xs text-slate-500">
+                    {businessInfo.businessABN && <span>ABN: {businessInfo.businessABN}</span>}
+                    {businessInfo.businessPhone && <span>Phone: {businessInfo.businessPhone}</span>}
+                    {businessInfo.businessEmail && <span>Email: {businessInfo.businessEmail}</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+            {!hasBusinessInfo && (
+              <div className="flex items-baseline gap-2 mb-2">
+                <h1 className="text-2xl font-bold text-slate-900">{safeHeader.title}</h1>
+                <h2 className="text-xl font-semibold text-slate-700">{safeHeader.subtitle}</h2>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="text-sm text-slate-600 space-y-1">
+        <div className="text-sm text-slate-600 space-y-1 border-t border-slate-200 pt-3">
           <p><strong>Claim Ref:</strong> {safeHeader.claimRef} {safeHeader.location && `| ${safeHeader.location}`}</p>
           <p><strong>Date:</strong> {safeHeader.date}</p>
           <p><strong>Occupancy:</strong> {safeHeader.occupancy}{safeHeader.occupancyDetails && ` (${safeHeader.occupancyDetails})`}</p>

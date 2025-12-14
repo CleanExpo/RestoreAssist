@@ -1,6 +1,6 @@
 "use client"
 
-import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap } from "lucide-react"
+import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
@@ -19,6 +19,12 @@ interface UserProfile {
   subscriptionEndsAt?: string
   lastBillingDate?: string
   nextBillingDate?: string
+  businessName?: string
+  businessAddress?: string
+  businessLogo?: string
+  businessABN?: string
+  businessPhone?: string
+  businessEmail?: string
 }
 
 export default function SettingsPage() {
@@ -29,8 +35,16 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
-    email: ''
+    email: '',
+    businessName: '',
+    businessAddress: '',
+    businessLogo: '',
+    businessABN: '',
+    businessPhone: '',
+    businessEmail: ''
   })
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
@@ -52,15 +66,21 @@ export default function SettingsPage() {
         setProfile(data.profile)
         setFormData({
           name: data.profile.name || session?.user?.name || '',
-          email: data.profile.email || session?.user?.email || ''
+          email: data.profile.email || session?.user?.email || '',
+          businessName: data.profile.businessName || '',
+          businessAddress: data.profile.businessAddress || '',
+          businessLogo: data.profile.businessLogo || '',
+          businessABN: data.profile.businessABN || '',
+          businessPhone: data.profile.businessPhone || '',
+          businessEmail: data.profile.businessEmail || ''
         })
       } else {
         // Fallback to session data
         setProfile({
-          id: session?.user?.id || 'current-user',
+          id: (session?.user as any)?.id || 'current-user',
           name: session?.user?.name || 'User Name',
           email: session?.user?.email || 'user@example.com',
-          image: session?.user?.image,
+          image: session?.user?.image || undefined,
           createdAt: new Date().toISOString(),
           subscriptionStatus: 'TRIAL',
           creditsRemaining: 3,
@@ -68,7 +88,13 @@ export default function SettingsPage() {
         })
         setFormData({
           name: session?.user?.name || 'User Name',
-          email: session?.user?.email || 'user@example.com'
+          email: session?.user?.email || 'user@example.com',
+          businessName: '',
+          businessAddress: '',
+          businessLogo: '',
+          businessABN: '',
+          businessPhone: '',
+          businessEmail: ''
         })
       }
     } catch (error) {
@@ -86,7 +112,13 @@ export default function SettingsPage() {
       })
       setFormData({
         name: session?.user?.name || 'User Name',
-        email: session?.user?.email || 'user@example.com'
+        email: session?.user?.email || 'user@example.com',
+        businessName: '',
+        businessAddress: '',
+        businessLogo: '',
+        businessABN: '',
+        businessPhone: '',
+        businessEmail: ''
       })
     } finally {
       setLoading(false)
@@ -95,6 +127,16 @@ export default function SettingsPage() {
   }
 
   const handleUpdateProfile = async () => {
+    if (uploadingLogo) {
+      toast.error('Please wait for the logo upload to complete')
+      return
+    }
+
+    if (saving) {
+      return // Prevent double submission
+    }
+
+    setSaving(true)
     try {
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -103,25 +145,83 @@ export default function SettingsPage() {
       })
 
       if (response.ok) {
-        toast.success('Profile updated successfully')
+        toast.success('Business information saved successfully')
         setEditing(false)
-        fetchProfile()
+        await fetchProfile()
       } else {
-        toast.error('Failed to update profile')
+        const error = await response.json()
+        toast.error(error.error || 'Failed to save business information')
       }
     } catch (error) {
       console.error('Error updating profile:', error)
-      toast.error('Failed to update profile')
+      toast.error('Failed to save business information. Please try again.')
+    } finally {
+      setSaving(false)
     }
   }
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchProfile()
-    }, 5000) 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      e.target.value = ''
+      return
+    }
 
-    return () => clearInterval(interval)
-  }, [])
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPEG, PNG, GIF, or WebP)')
+      e.target.value = ''
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 5MB')
+      e.target.value = ''
+      return
+    }
+
+    // Set uploading state - this only affects the logo display, not the save button
+    setUploadingLogo(true)
+    
+    try {
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+
+      const response = await fetch('/api/upload/logo', {
+        method: 'POST',
+        body: uploadFormData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Update formData with the new logo URL - this is only in memory, not saved to DB
+        setFormData(prev => ({
+          ...prev,
+          businessLogo: data.url
+        }))
+        toast.success('Logo uploaded. Click "Save Changes" to save all information.')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to upload logo')
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error)
+      toast.error('Failed to upload logo. Please try again.')
+    } finally {
+      setUploadingLogo(false)
+      // Reset file input so same file can be selected again
+      e.target.value = ''
+    }
+  }
+
+  // Removed auto-refresh to prevent formData from being reset while user is editing
+  // Profile is only refreshed when:
+  // 1. Component mounts (initial load)
+  // 2. User clicks "Refresh" button
+  // 3. After successful save
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -201,12 +301,12 @@ export default function SettingsPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Personal Information */}
+          {/* Business Information */}
             <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Personal Information
+                <Building2 className="w-5 h-5" />
+                Business Information
               </h2>
               <button
                 onClick={() => setEditing(!editing)}
@@ -218,73 +318,182 @@ export default function SettingsPage() {
             </div>
 
               <div className="space-y-4">
-              {/* User Avatar */}
+              {/* Business Logo */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-xl">
-                  {profile?.image ? (
+                <div className="relative group">
+                  {editing ? (
+                    <label className="cursor-pointer block">
+                      {uploadingLogo ? (
+                        <div className="w-24 h-24 rounded-lg bg-slate-700/50 border-2 border-slate-600 flex items-center justify-center transition-all">
+                          <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
+                        </div>
+                      ) : (formData.businessLogo || profile?.businessLogo) ? (
+                        <div className="relative w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-600 group-hover:border-cyan-500 transition-all">
+                          <img 
+                            src={formData.businessLogo || profile?.businessLogo || ''} 
+                            alt="Business Logo" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="text-white text-xs font-medium flex items-center gap-1">
+                              <Upload className="w-4 h-4" />
+                              <span>Change</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-slate-600 group-hover:border-cyan-500 flex flex-col items-center justify-center text-white transition-all cursor-pointer">
+                          <Upload className="w-8 h-8 mb-1" />
+                          <span className="text-xs font-medium">Upload Logo</span>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                        disabled={uploadingLogo}
+                      />
+                    </label>
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-600">
+                      {profile?.businessLogo ? (
                     <img 
-                      src={profile.image} 
-                      alt="Profile" 
-                      className="w-16 h-16 rounded-full object-cover"
+                          src={profile.businessLogo} 
+                          alt="Business Logo" 
+                          className="w-full h-full object-cover"
                     />
                   ) : (
-                    profile?.name?.charAt(0) || session?.user?.name?.charAt(0) || 'U'
+                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white">
+                          <Building2 className="w-10 h-10" />
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">
-                    {profile?.name || session?.user?.name || 'User Name'}
+                    {profile?.businessName || formData.businessName || 'Business Name'}
                   </h3>
                   <p className="text-slate-400 text-sm">
-                    {profile?.email || session?.user?.email || 'user@example.com'}
+                    {profile?.businessEmail || formData.businessEmail || 'Business Email'}
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
+                <label className="block text-sm font-medium mb-2">Business Name</label>
                 {editing ? (
                   <input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.businessName}
+                    onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
                     className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Enter business name"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.name || session?.user?.name || 'Not provided'}</p>
+                  <p className="text-slate-300">{profile?.businessName || 'Not provided'}</p>
                 )}
                 </div>
 
                 <div>
-                <label className="block text-sm font-medium mb-2">Email Address</label>
+                <label className="block text-sm font-medium mb-2">Business Address</label>
                 {editing ? (
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  <textarea
+                    value={formData.businessAddress}
+                    onChange={(e) => setFormData({ ...formData, businessAddress: e.target.value })}
                     className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Enter business address"
+                    rows={3}
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.email || session?.user?.email || 'Not provided'}</p>
+                  <p className="text-slate-300">{profile?.businessAddress || 'Not provided'}</p>
                 )}
                 </div>
 
-                  <div>
-                <label className="block text-sm font-medium mb-2">Member Since</label>
-                <p className="text-slate-300">{formatDate(profile?.createdAt) || 'Recently'}</p>
+                <div>
+                <label className="block text-sm font-medium mb-2">Business ABN</label>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={formData.businessABN}
+                    onChange={(e) => setFormData({ ...formData, businessABN: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Enter ABN"
+                  />
+                ) : (
+                  <p className="text-slate-300">{profile?.businessABN || 'Not provided'}</p>
+                )}
+                </div>
+
+                <div>
+                <label className="block text-sm font-medium mb-2">Business Phone Number</label>
+                {editing ? (
+                  <input
+                    type="tel"
+                    value={formData.businessPhone}
+                    onChange={(e) => setFormData({ ...formData, businessPhone: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Enter phone number"
+                  />
+                ) : (
+                  <p className="text-slate-300">{profile?.businessPhone || 'Not provided'}</p>
+                )}
+                </div>
+
+                <div>
+                <label className="block text-sm font-medium mb-2">Business Email Address</label>
+                {editing ? (
+                  <input
+                    type="email"
+                    value={formData.businessEmail}
+                    onChange={(e) => setFormData({ ...formData, businessEmail: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    placeholder="Enter business email"
+                  />
+                ) : (
+                  <p className="text-slate-300">{profile?.businessEmail || 'Not provided'}</p>
+                )}
                   </div>
 
               {editing && (
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-3 pt-4 border-t border-slate-700/50">
                   <button
                     onClick={handleUpdateProfile}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    disabled={uploadingLogo || saving}
+                    className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    Save Changes
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>Save Changes</span>
+                    )}
                   </button>
                   <button
-                    onClick={() => setEditing(false)}
-                    className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    onClick={() => {
+                      // Reset formData to profile data when canceling
+                      setFormData({
+                        name: profile?.name || session?.user?.name || '',
+                        email: profile?.email || session?.user?.email || '',
+                        businessName: profile?.businessName || '',
+                        businessAddress: profile?.businessAddress || '',
+                        businessLogo: profile?.businessLogo || '',
+                        businessABN: profile?.businessABN || '',
+                        businessPhone: profile?.businessPhone || '',
+                        businessEmail: profile?.businessEmail || ''
+                      })
+                      setEditing(false)
+                    }}
+                    disabled={uploadingLogo || saving}
+                    className="px-6 py-2.5 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>

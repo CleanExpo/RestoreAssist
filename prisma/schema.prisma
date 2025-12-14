@@ -62,6 +62,14 @@ model User {
   lastBillingDate    DateTime?
   nextBillingDate    DateTime?
 
+  // Business Information
+  businessName       String?
+  businessAddress    String?
+  businessLogo       String? // Cloudinary URL
+  businessABN        String?
+  businessPhone      String?
+  businessEmail      String?
+
   accounts Account[]
   sessions Session[]
   reports  Report[]

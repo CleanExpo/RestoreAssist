@@ -30,6 +30,12 @@ export async function GET(request: NextRequest) {
         totalCreditsUsed: true,
         lastBillingDate: true,
         nextBillingDate: true,
+        businessName: true,
+        businessAddress: true,
+        businessLogo: true,
+        businessABN: true,
+        businessPhone: true,
+        businessEmail: true,
       }
     })
 
@@ -79,6 +85,12 @@ export async function GET(request: NextRequest) {
           totalCreditsUsed: true,
           lastBillingDate: true,
           nextBillingDate: true,
+          businessName: true,
+          businessAddress: true,
+          businessLogo: true,
+          businessABN: true,
+          businessPhone: true,
+          businessEmail: true,
         }
       })
 
@@ -119,12 +131,22 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email } = body
+    const { 
+      name, 
+      email,
+      businessName,
+      businessAddress,
+      businessLogo,
+      businessABN,
+      businessPhone,
+      businessEmail
+    } = body
 
-    if (!name || !email) {
-      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
-    }
-
+    // Build update data object
+    const updateData: any = {}
+    
+    if (name !== undefined) updateData.name = name
+    if (email !== undefined) {
     // Check if email is already taken by another user
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -136,13 +158,20 @@ export async function PUT(request: NextRequest) {
     if (existingUser) {
       return NextResponse.json({ error: "Email already in use" }, { status: 400 })
     }
+      updateData.email = email
+    }
+    
+    // Business information fields
+    if (businessName !== undefined) updateData.businessName = businessName
+    if (businessAddress !== undefined) updateData.businessAddress = businessAddress
+    if (businessLogo !== undefined) updateData.businessLogo = businessLogo
+    if (businessABN !== undefined) updateData.businessABN = businessABN
+    if (businessPhone !== undefined) updateData.businessPhone = businessPhone
+    if (businessEmail !== undefined) updateData.businessEmail = businessEmail
 
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
-      data: {
-        name,
-        email,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -159,6 +188,12 @@ export async function PUT(request: NextRequest) {
         totalCreditsUsed: true,
         lastBillingDate: true,
         nextBillingDate: true,
+        businessName: true,
+        businessAddress: true,
+        businessLogo: true,
+        businessABN: true,
+        businessPhone: true,
+        businessEmail: true,
       }
     })
 
