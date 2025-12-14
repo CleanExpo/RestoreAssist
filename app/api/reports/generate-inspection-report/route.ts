@@ -212,7 +212,15 @@ export async function POST(request: NextRequest) {
       standardsContext,
       psychrometricAssessment,
       scopeAreas,
-      equipmentSelection
+      equipmentSelection,
+      businessInfo: {
+        businessName: user.businessName,
+        businessAddress: user.businessAddress,
+        businessLogo: user.businessLogo,
+        businessABN: user.businessABN,
+        businessPhone: user.businessPhone,
+        businessEmail: user.businessEmail
+      }
     })
 
     const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
@@ -223,7 +231,9 @@ CRITICAL: Only use the actual data provided in the REPORT DATA section above. Do
 - Include sections for which no data was provided
 - Use dummy or default values
 
-Only include information that is explicitly provided in the REPORT DATA section. If a field is not provided, do not mention it in the report.`
+Only include information that is explicitly provided in the REPORT DATA section. If a field is not provided, do not mention it in the report.
+
+BUSINESS INFORMATION: If business information is provided in the REPORT DATA section (Business Name, Business Address, Business ABN, Business Phone, Business Email), you MUST include this information in the report header/footer and use the business name as the reporting company name throughout the report. The business logo URL can be referenced if needed for document formatting.`
 
     // Generate report using utility with fallback models
     const response = await tryClaudeModels(
@@ -551,8 +561,16 @@ function buildInspectionReportPrompt(data: {
   psychrometricAssessment?: any
   scopeAreas?: any[]
   equipmentSelection?: any[]
+  businessInfo?: {
+    businessName?: string | null
+    businessAddress?: string | null
+    businessLogo?: string | null
+    businessABN?: string | null
+    businessPhone?: string | null
+    businessEmail?: string | null
+  }
 }): string {
-  const { report, analysis, tier1, tier2, tier3, stateInfo, reportType, standardsContext, psychrometricAssessment, scopeAreas, equipmentSelection } = data
+  const { report, analysis, tier1, tier2, tier3, stateInfo, reportType, standardsContext, psychrometricAssessment, scopeAreas, equipmentSelection, businessInfo } = data
   
   // Log if standards context is provided
   if (standardsContext && standardsContext.length > 0) {
@@ -711,8 +729,16 @@ EPA Act: ${stateInfo.epaAct}`
 
 # REPORT DATA
 
+## Business Information
+${businessInfo?.businessName ? `- Business Name: ${businessInfo.businessName}` : ''}
+${businessInfo?.businessAddress ? `- Business Address: ${businessInfo.businessAddress}` : ''}
+${businessInfo?.businessABN ? `- Business ABN: ${businessInfo.businessABN}` : ''}
+${businessInfo?.businessPhone ? `- Business Phone: ${businessInfo.businessPhone}` : ''}
+${businessInfo?.businessEmail ? `- Business Email: ${businessInfo.businessEmail}` : ''}
+${businessInfo?.businessLogo ? `- Business Logo URL: ${businessInfo.businessLogo}` : ''}
+
 ## Cover Page Information
-- Report Title: RestoreAssist Inspection Report
+- Report Title: ${businessInfo?.businessName || 'RestoreAssist'} Inspection Report
 ${report.claimReferenceNumber || report.reportNumber ? `- Claim Reference: ${report.claimReferenceNumber || report.reportNumber}` : ''}
 - Date Generated: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}
 - Property Address: ${report.propertyAddress}
