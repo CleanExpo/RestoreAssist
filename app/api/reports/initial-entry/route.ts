@@ -56,11 +56,31 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now().toString().slice(-6)
     const reportTitle = `WD-${year}-${timestamp}`
 
-    // Parse dates
-    const incidentDate = data.incidentDate ? new Date(data.incidentDate) : null
-    const technicianAttendanceDate = data.technicianAttendanceDate 
-      ? new Date(data.technicianAttendanceDate) 
-      : null
+    // Helper to sanitize string values (empty strings -> null)
+    const sanitizeString = (value: any): string | null => {
+      if (value === null || value === undefined) return null
+      const str = String(value).trim()
+      return str === '' ? null : str
+    }
+    
+    // Helper to sanitize integer values
+    const sanitizeInt = (value: any): number | null => {
+      if (value === null || value === undefined) return null
+      if (typeof value === 'string' && value.trim() === '') return null
+      const parsed = parseInt(String(value), 10)
+      return isNaN(parsed) ? null : parsed
+    }
+    
+    // Parse dates - handle empty strings and invalid dates
+    const parseDate = (dateValue: any): Date | null => {
+      if (!dateValue) return null
+      if (typeof dateValue === 'string' && dateValue.trim() === '') return null
+      const parsed = new Date(dateValue)
+      return isNaN(parsed.getTime()) ? null : parsed
+    }
+    
+    const incidentDate = parseDate(data.incidentDate)
+    const technicianAttendanceDate = parseDate(data.technicianAttendanceDate)
 
     // Extract email and phone from clientContactDetails if provided
     let clientEmail = ''
@@ -143,13 +163,33 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         
         // Phase 2: Initial Data Entry Fields
-        clientContactDetails: data.clientContactDetails?.trim() || null,
-        propertyPostcode: data.propertyPostcode.trim(),
-        claimReferenceNumber: data.claimReferenceNumber?.trim() || null,
+        clientContactDetails: sanitizeString(data.clientContactDetails),
+        propertyPostcode: data.propertyPostcode.trim(), // Required field, so no null check
+        claimReferenceNumber: sanitizeString(data.claimReferenceNumber),
         incidentDate: incidentDate,
         technicianAttendanceDate: technicianAttendanceDate,
-        technicianName: data.technicianName?.trim() || null,
-        technicianFieldReport: data.technicianFieldReport.trim(),
+        technicianName: sanitizeString(data.technicianName),
+        technicianFieldReport: data.technicianFieldReport.trim(), // Required field
+        
+        // Property Intelligence (Assessment Report Data Architecture)
+        buildingAge: sanitizeInt(data.buildingAge),
+        structureType: sanitizeString(data.structureType),
+        accessNotes: sanitizeString(data.accessNotes),
+        
+        // Hazard Profile (Assessment Report Data Architecture)
+        insurerName: sanitizeString(data.insurerName),
+        methamphetamineScreen: sanitizeString(data.methamphetamineScreen),
+        methamphetamineTestCount: sanitizeInt(data.methamphetamineTestCount),
+        biologicalMouldDetected: data.biologicalMouldDetected === true || data.biologicalMouldDetected === 'true' || data.biologicalMouldDetected === 1,
+        biologicalMouldCategory: sanitizeString(data.biologicalMouldCategory),
+        
+        // Timeline Estimation Data (Assessment Report Data Architecture)
+        phase1StartDate: parseDate(data.phase1StartDate),
+        phase1EndDate: parseDate(data.phase1EndDate),
+        phase2StartDate: parseDate(data.phase2StartDate),
+        phase2EndDate: parseDate(data.phase2EndDate),
+        phase3StartDate: parseDate(data.phase3StartDate),
+        phase3EndDate: parseDate(data.phase3EndDate),
         
         // Report Generation Stage
         reportDepthLevel: null, // Will be set when user chooses Basic/Enhanced
@@ -157,7 +197,7 @@ export async function POST(request: NextRequest) {
         
         // Set report number
         reportNumber: reportTitle,
-        inspectionDate: technicianAttendanceDate || new Date(),
+        inspectionDate: technicianAttendanceDate || incidentDate || new Date(),
       }
     })
 

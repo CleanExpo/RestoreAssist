@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Calendar, MapPin, User, Phone, Mail, Save, ArrowRight } from "lucide-react"
+import { FileText, Calendar, MapPin, User, Phone, Mail, Save, ArrowRight, AlertTriangle, Clock } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 
@@ -91,7 +91,24 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
     incidentDate: normalizeDate(initialData?.incidentDate || ''),
     technicianAttendanceDate: normalizeDate(initialData?.technicianAttendanceDate || ''),
     technicianName: initialData?.technicianName || '',
-    technicianFieldReport: initialData?.technicianFieldReport || ''
+    technicianFieldReport: initialData?.technicianFieldReport || '',
+    // Property Intelligence
+    buildingAge: initialData?.buildingAge || '',
+    structureType: initialData?.structureType || '',
+    accessNotes: initialData?.accessNotes || '',
+    // Hazard Profile
+    insurerName: initialData?.insurerName || '',
+    methamphetamineScreen: initialData?.methamphetamineScreen || 'NEGATIVE',
+    methamphetamineTestCount: initialData?.methamphetamineTestCount || '',
+    biologicalMouldDetected: initialData?.biologicalMouldDetected || false,
+    biologicalMouldCategory: initialData?.biologicalMouldCategory || '',
+    // Timeline Estimation
+    phase1StartDate: normalizeDate(initialData?.phase1StartDate || ''),
+    phase1EndDate: normalizeDate(initialData?.phase1EndDate || ''),
+    phase2StartDate: normalizeDate(initialData?.phase2StartDate || ''),
+    phase2EndDate: normalizeDate(initialData?.phase2EndDate || ''),
+    phase3StartDate: normalizeDate(initialData?.phase3StartDate || ''),
+    phase3EndDate: normalizeDate(initialData?.phase3EndDate || '')
   })
 
   // Update form when initialData changes
@@ -106,7 +123,24 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
         incidentDate: normalizeDate(initialData.incidentDate || ''),
         technicianAttendanceDate: normalizeDate(initialData.technicianAttendanceDate || ''),
         technicianName: initialData.technicianName || '',
-        technicianFieldReport: initialData.technicianFieldReport || ''
+        technicianFieldReport: initialData.technicianFieldReport || '',
+        // Property Intelligence
+        buildingAge: initialData.buildingAge || '',
+        structureType: initialData.structureType || '',
+        accessNotes: initialData.accessNotes || '',
+        // Hazard Profile
+        insurerName: initialData.insurerName || '',
+        methamphetamineScreen: initialData.methamphetamineScreen || 'NEGATIVE',
+        methamphetamineTestCount: initialData.methamphetamineTestCount || '',
+        biologicalMouldDetected: initialData.biologicalMouldDetected || false,
+        biologicalMouldCategory: initialData.biologicalMouldCategory || '',
+        // Timeline Estimation
+        phase1StartDate: normalizeDate(initialData.phase1StartDate || ''),
+        phase1EndDate: normalizeDate(initialData.phase1EndDate || ''),
+        phase2StartDate: normalizeDate(initialData.phase2StartDate || ''),
+        phase2EndDate: normalizeDate(initialData.phase2EndDate || ''),
+        phase3StartDate: normalizeDate(initialData.phase3StartDate || ''),
+        phase3EndDate: normalizeDate(initialData.phase3EndDate || '')
       })
     }
   }, [initialData])
@@ -173,12 +207,12 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-full mx-auto">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold mb-2">Initial Data Entry</h2>
         <p className="text-slate-400">
@@ -186,17 +220,17 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Client Information Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <User className="w-5 h-5" />
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <User className="w-4 h-4" />
             Client Information
           </h3>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-1">
                 Client Name <span className="text-red-400">*</span>
               </label>
               <input
@@ -204,13 +238,13 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
                 required
                 value={formData.clientName}
                 onChange={(e) => handleInputChange('clientName', e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
                 placeholder="Enter client's full name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-1">
                 Client Contact Details
               </label>
               <div className="relative">
@@ -219,7 +253,7 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
                   type="text"
                   value={formData.clientContactDetails}
                   onChange={(e) => handleInputChange('clientContactDetails', e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
                   placeholder="Phone number, email, etc."
                 />
               </div>
@@ -268,29 +302,41 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
         </div>
 
         {/* Claim Information Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
             Claim Information
           </h3>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-1">
                 Claim Reference Number
               </label>
               <input
                 type="text"
                 value={formData.claimReferenceNumber}
                 onChange={(e) => handleInputChange('claimReferenceNumber', e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                placeholder="If an existing claim reference exists"
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                placeholder="Claim reference"
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Insurer / Client Name
+              </label>
+              <input
+                type="text"
+                value={formData.insurerName}
+                onChange={(e) => handleInputChange('insurerName', e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                placeholder="Insurance company"
+              />
+            </div>
+
               <div>
-                <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-1">
                   Date of Incident
                 </label>
                 <div className="relative">
@@ -299,13 +345,13 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
                     type="date"
                     value={formData.incidentDate}
                     onChange={(e) => handleInputChange('incidentDate', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-1">
                   Technician Attendance Date
                 </label>
                 <div className="relative">
@@ -314,49 +360,218 @@ export default function InitialDataEntryForm({ onSuccess, initialData }: Initial
                     type="date"
                     value={formData.technicianAttendanceDate}
                     onChange={(e) => handleInputChange('technicianAttendanceDate', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
                   />
-                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
+            <div className="md:col-span-2 lg:col-span-4">
+              <label className="block text-sm font-medium mb-1">
                 Technician Name
               </label>
               <input
                 type="text"
                 value={formData.technicianName}
                 onChange={(e) => handleInputChange('technicianName', e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                placeholder="Name of technician who attended (if available)"
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                placeholder="Name of technician who attended"
               />
             </div>
           </div>
         </div>
 
         {/* Technician Field Report Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
             Technician Field Report
           </h3>
 
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label className="block text-sm font-medium mb-1">
               Technician's Field Report <span className="text-red-400">*</span>
             </label>
             <textarea
               required
               value={formData.technicianFieldReport}
               onChange={(e) => handleInputChange('technicianFieldReport', e.target.value)}
-              rows={12}
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 font-mono text-sm"
-              placeholder="Paste or type the technician's field report here. Include observations, affected areas, equipment deployed, moisture readings, and any other relevant details..."
+              rows={6}
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 font-mono text-sm"
+              placeholder="Paste or type the technician's field report here..."
             />
-            <p className="text-xs text-slate-400 mt-2">
-              This report will be analyzed to identify affected areas, water source, materials, and equipment deployed.
-            </p>
+          </div>
+        </div>
+
+        {/* Hazard Profile Section */}
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            Hazard Profile
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Methamphetamine Screen
+              </label>
+              <select
+                value={formData.methamphetamineScreen}
+                onChange={(e) => handleInputChange('methamphetamineScreen', e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+              >
+                <option value="NEGATIVE">NEGATIVE</option>
+                <option value="POSITIVE">POSITIVE</option>
+              </select>
+            </div>
+
+            {formData.methamphetamineScreen === 'POSITIVE' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Test Count
+                </label>
+                <input
+                  type="number"
+                  value={formData.methamphetamineTestCount}
+                  onChange={(e) => handleInputChange('methamphetamineTestCount', e.target.value ? parseInt(e.target.value) : '')}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  placeholder="Test count"
+                  min="1"
+                />
+              </div>
+            )}
+
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={formData.biologicalMouldDetected}
+                  onChange={(e) => handleInputChange('biologicalMouldDetected', e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                />
+                Bio/Mould Detected
+              </label>
+            </div>
+
+            {formData.biologicalMouldDetected && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Mould Category
+                </label>
+                <select
+                  value={formData.biologicalMouldCategory}
+                  onChange={(e) => handleInputChange('biologicalMouldCategory', e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                >
+                  <option value="">Select category</option>
+                  <option value="CAT 3">CAT 3</option>
+                  <option value="CAT 2">CAT 2</option>
+                  <option value="CAT 1">CAT 1</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Timeline Estimation Section */}
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Timeline Estimation (Optional)
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Phase 1 */}
+            <div>
+              <h4 className="text-xs font-semibold mb-2 text-slate-300">Phase 1: Make-safe</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Start</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input
+                      type="date"
+                      value={formData.phase1StartDate}
+                      onChange={(e) => handleInputChange('phase1StartDate', e.target.value)}
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+            />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">End</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input
+                      type="date"
+                      value={formData.phase1EndDate}
+                      onChange={(e) => handleInputChange('phase1EndDate', e.target.value)}
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phase 2 */}
+            <div>
+              <h4 className="text-xs font-semibold mb-2 text-slate-300">Phase 2: Remediation/Drying</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Start</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input
+                      type="date"
+                      value={formData.phase2StartDate}
+                      onChange={(e) => handleInputChange('phase2StartDate', e.target.value)}
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">End</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input
+                      type="date"
+                      value={formData.phase2EndDate}
+                      onChange={(e) => handleInputChange('phase2EndDate', e.target.value)}
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phase 3 */}
+            <div>
+              <h4 className="text-xs font-semibold mb-2 text-slate-300">Phase 3: Verification</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Start</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input
+                      type="date"
+                      value={formData.phase3StartDate}
+                      onChange={(e) => handleInputChange('phase3StartDate', e.target.value)}
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">End</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input
+                      type="date"
+                      value={formData.phase3EndDate}
+                      onChange={(e) => handleInputChange('phase3EndDate', e.target.value)}
+                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

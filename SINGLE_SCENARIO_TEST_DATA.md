@@ -53,9 +53,35 @@ This document contains a single, complete test scenario with verified calculatio
   "incidentDate": "2025-12-02T08:30:00Z",
   "technicianAttendanceDate": "2025-12-02T14:00:00Z",
   "technicianName": "Michael Chen",
-  "technicianFieldReport": "Attended property at 2:00 PM on 02/12/2025. Client reported water damage discovered at 8:30 AM. Investigation revealed burst hot water service pipe under kitchen sink. Water has migrated through kitchen, dining room, and into lounge room. Approximately 80-100 litres of standing water extracted from kitchen and dining areas. Water category appears to be Category 1 (clean water from supply line). Property is occupied - family of 4 with 2 children. Construction appears to be 1995 build. Affected materials include: vinyl flooring in kitchen, carpet in dining and lounge, plasterboard walls in kitchen (lower 300mm), and yellow tongue particleboard subfloor in affected areas. Moisture readings taken: Kitchen subfloor 28% MC, Dining room subfloor 32% MC, Lounge room subfloor 18% MC. Deployed 12 air movers, 3 LGR dehumidifiers, and 1 AFD unit. Thermal imaging shows moisture migration pattern extending approximately 8 metres from source. No visible mould growth at this stage. Property is electrically safe. Plumber has been contacted to repair pipe. Estimated affected area: approximately 45 square metres."
+  "technicianFieldReport": "Attended property at 2:00 PM on 02/12/2025. Client reported water damage discovered at 8:30 AM. Investigation revealed burst hot water service pipe under kitchen sink. Water has migrated through kitchen, dining room, and into lounge room. Approximately 80-100 litres of standing water extracted from kitchen and dining areas. Water category appears to be Category 1 (clean water from supply line). Property is occupied - family of 4 with 2 children. Construction appears to be 1995 build. Affected materials include: vinyl flooring in kitchen, carpet in dining and lounge, plasterboard walls in kitchen (lower 300mm), and yellow tongue particleboard subfloor in affected areas. Moisture readings taken: Kitchen subfloor 28% MC, Dining room subfloor 32% MC, Lounge room subfloor 18% MC. Deployed 12 air movers, 3 LGR dehumidifiers, and 1 AFD unit. Thermal imaging shows moisture migration pattern extending approximately 8 metres from source. No visible mould growth at this stage. Property is electrically safe. Plumber has been contacted to repair pipe. Estimated affected area: approximately 45 square metres.",
+  
+  "insurerName": "Allianz Insurance Australia",
+  
+  "buildingAge": 1995,
+  "structureType": "Brick Veneer",
+  "accessNotes": "Level driveway, truck mount access available. Standard residential access. No restrictions.",
+  
+  "methamphetamineScreen": "NEGATIVE",
+  "methamphetamineTestCount": null,
+  "biologicalMouldDetected": false,
+  "biologicalMouldCategory": null,
+  
+  "phase1StartDate": "2025-12-02T14:00:00Z",
+  "phase1EndDate": "2025-12-02T18:00:00Z",
+  "phase2StartDate": "2025-12-03T08:00:00Z",
+  "phase2EndDate": "2025-12-06T17:00:00Z",
+  "phase3StartDate": "2025-12-07T09:00:00Z",
+  "phase3EndDate": "2025-12-07T12:00:00Z"
 }
 ```
+
+**Assessment Report Data Architecture Fields**:
+- **Property Intelligence**: Building Age (1995), Structure Type (Brick Veneer), Access Notes
+- **Hazard Profile**: Meth Screen (NEGATIVE), Bio/Mould (Not Detected)
+- **Timeline Estimation**: 
+  - Phase 1 (Make-safe): Dec 2, 2:00 PM - 6:00 PM (4 hours)
+  - Phase 2 (Remediation/Drying): Dec 3-6 (4 days)
+  - Phase 3 (Verification/Handover): Dec 7, 9:00 AM - 12:00 PM (3 hours)
 
 ---
 
@@ -226,8 +252,7 @@ For FAIR status, use Temperature: 25°C, Humidity: 60% as shown above.
 
 ## 🎯 VERIFICATION CHECKLIST
 
-When testing, verify these calculations match exactly:
-
+### Equipment & Calculations
 - [ ] **Pricing Config**: All rates set correctly ($45 LGR, $25 Air Movers)
 - [ ] **Daily Cost**: $460.00/day
 - [ ] **Total Cost (4 days)**: $1,840.00
@@ -238,6 +263,18 @@ When testing, verify these calculations match exactly:
 - [ ] **Air Movers Required**: 3 units
 - [ ] **Equipment Rates**: All show $45/day for LGR, $25/day for Air Movers
 - [ ] **Console Logs**: Check browser console for pricing config rates
+
+### Assessment Report Data Architecture
+- [ ] **Property Intelligence**: Building Age (1995), Structure Type (Brick Veneer), Access Notes saved
+- [ ] **Hazard Profile**: Meth Screen (NEGATIVE), Bio/Mould (false) saved correctly
+- [ ] **Insurer Name**: "Allianz Insurance Australia" saved
+- [ ] **Timeline Phases**: All 6 phase dates (start/end for 3 phases) saved correctly
+- [ ] **Form Display**: All new fields visible and functional in Initial Data Entry form
+- [ ] **PDF Generation**: Assessment report PDF includes all new fields:
+  - [ ] Property Intelligence in summary
+  - [ ] Hazard badges (Meth: NEGATIVE, Bio/Mould: Not shown if false)
+  - [ ] Timeline Gantt chart with phase dates
+  - [ ] Business profile in header/footer
 
 ---
 
@@ -264,6 +301,17 @@ When testing, verify these calculations match exactly:
    - Equipment capacity: 225 L/Day
    - Air movement: 16 units (24,500 CFM)
 
+5. **Verify Assessment Report Data**:
+   - Check Initial Data Entry form displays all new fields
+   - Verify Property Intelligence fields save correctly
+   - Verify Hazard Profile fields save correctly
+   - Verify Timeline Estimation dates save correctly
+   - Check database: All new fields should be populated in Report table
+   - Generate PDF: Verify all data appears in Assessment Report PDF
+   - Check PDF Page 1: Hazard badges show correctly (Meth: NEGATIVE)
+   - Check PDF Page 3: Timeline Gantt chart shows Phase 1-3 dates
+   - Check PDF Header: Business profile information displays correctly
+
 ---
 
 ## 📝 NOTES
@@ -273,4 +321,19 @@ When testing, verify these calculations match exactly:
   1. Pricing config is saved correctly
   2. Browser console for pricing config logs
   3. Equipment selection has correct quantities
-  4. Duration is set to 5 days
+  4. Duration is set to 4 days (Phase 2: Dec 3-6)
+
+### Assessment Report Testing Notes
+- **Building Age**: 1995 (Post-1990, no Asbestos/Lead assessment required)
+- **Structure Type**: Brick Veneer (common Australian construction)
+- **Access Notes**: Standard residential access, no restrictions
+- **Hazard Profile**: Clean water damage scenario (Category 1), no meth or mould
+- **Timeline**: 
+  - Phase 1: Same day make-safe (4 hours)
+  - Phase 2: 4-day drying period
+  - Phase 3: Final verification on day 5
+- **PDF Generation**: Verify all fields appear in the generated Assessment Report PDF:
+  - Header shows business profile information
+  - Page 1 shows hazard badges (Meth: NEGATIVE)
+  - Page 3 shows timeline Gantt chart with correct phase dates
+  - Property intelligence included in forensic summary

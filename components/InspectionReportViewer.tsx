@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Download, Loader2, AlertCircle, CheckCircle, Edit, Save, Sparkles } from "lucide-react"
+import { FileText, Download, Loader2, AlertCircle, CheckCircle, Edit, Save, Sparkles, FileCheck } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
@@ -21,6 +21,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
   const [reportContent, setReportContent] = useState<string>('')
   const [visualData, setVisualData] = useState<any>(null)
   const [isBasicReport, setIsBasicReport] = useState(false)
+  const [downloadingForensic, setDownloadingForensic] = useState(false)
 
   useEffect(() => {
     fetchReport()
@@ -200,6 +201,41 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     }
   }
 
+  const handleDownloadForensicPDF = async () => {
+    setDownloadingForensic(true)
+    try {
+      const response = await fetch(`/api/reports/${reportId}/generate-forensic-pdf`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to generate forensic PDF')
+        return
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+      const filename = filenameMatch ? filenameMatch[1] : `Forensic-Report-${reportId}.pdf`
+      
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Forensic Report PDF downloaded successfully')
+    } catch (error) {
+      console.error('Error downloading forensic PDF:', error)
+      toast.error('Failed to generate forensic PDF')
+    } finally {
+      setDownloadingForensic(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!reportContent) {
       toast.error('No report content to save')
@@ -249,31 +285,52 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           </p>
         </div>
         <div className="flex gap-2">
-          {reportContent && (
+          {(reportContent || visualData) && (
             <>
-              <button
-                onClick={() => setEditing(!editing)}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-              >
-                <Edit className="w-4 h-4" />
-                {editing ? 'Cancel Edit' : 'Edit'}
-              </button>
-              {editing && (
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                >
-                  <Save className="w-4 h-4" />
-                  Save
-                </button>
+              {reportContent && (
+                <>
+                  {/* <button
+                    onClick={() => setEditing(!editing)}
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                    {editing ? 'Cancel Edit' : 'Edit'}
+                  </button>
+                  {editing && (
+                    <button
+                      onClick={handleSave}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save
+                    </button>
+                  )} */}
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </button>
+                </>
               )}
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" />
-                Download PDF
-            </button>
+              <button
+                onClick={handleDownloadForensicPDF}
+                disabled={downloadingForensic}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {downloadingForensic ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileCheck className="w-4 h-4" />
+                    Download Forensic Assessment PDF
+                  </>
+                )}
+              </button>
             </>
           )}
         </div>
@@ -325,38 +382,12 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
       {(reportContent || visualData) && (
         <div className="space-y-4">
           <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-400" />
-                <p className="text-green-400 font-medium">
-                  {isBasicReport ? 'Basic Report Generated Successfully' : 'Report Generated Successfully'}
-                </p>
-              </div>
-              {isBasicReport && visualData && (
-                <button
-                  onClick={() => handleGenerateReport('enhanced')}
-                  disabled={generating}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30"
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Generating Detailed Report...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Generate Detailed Report</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-            {isBasicReport && visualData && (
-              <p className="text-slate-300 text-sm mt-2">
-                Generate a comprehensive detailed report with all 13 sections using your business information and collected data.
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-400" />
+              <p className="text-green-400 font-medium">
+                {isBasicReport ? 'Basic Report Generated Successfully' : 'Report Generated Successfully'}
               </p>
-            )}
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
