@@ -98,19 +98,36 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     const duration = Date.now() - startTime
+    
+    // Always log to console for debugging (this will show in Digital Ocean logs)
+    console.error('=== REGISTRATION ERROR ===')
+    console.error('Error:', error)
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+      console.error('Error name:', error.name)
+    }
+    console.error('Duration:', `${duration}ms`)
+    console.error('========================')
+    
     try {
       logger.apiError('POST', '/api/auth/register', error, { duration: `${duration}ms` })
     } catch (e) {
-      // Log to console as fallback
-      console.error('Registration error:', error)
+      // Fallback already handled above
     }
     
     // Return detailed error in development, generic in production
     const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    const errorDetails = error instanceof Error ? {
+      name: error.name,
+      message: error.message,
+      ...(process.env.NODE_ENV === 'development' ? { stack: error.stack } : {})
+    } : { message: String(error) }
+    
     return NextResponse.json(
       { 
         error: process.env.NODE_ENV === 'development' ? errorMessage : "Internal server error",
-        ...(process.env.NODE_ENV === 'development' && error instanceof Error ? { stack: error.stack } : {})
+        ...(process.env.NODE_ENV === 'development' ? errorDetails : {})
       },
       { status: 500 }
     )
