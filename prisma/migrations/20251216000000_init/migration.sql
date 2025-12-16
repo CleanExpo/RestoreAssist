@@ -1,32 +1,46 @@
--- Idempotent migration: Check if types exist before creating
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Role') THEN
-        CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN', 'MANAGER');
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ClientStatus') THEN
-        CREATE TYPE "ClientStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'PROSPECT', 'ARCHIVED');
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReportStatus') THEN
-        CREATE TYPE "ReportStatus" AS ENUM ('DRAFT', 'PENDING', 'APPROVED', 'COMPLETED', 'ARCHIVED');
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'IntegrationStatus') THEN
-        CREATE TYPE "IntegrationStatus" AS ENUM ('CONNECTED', 'DISCONNECTED', 'ERROR');
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SubscriptionStatus') THEN
-        CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', 'ACTIVE', 'CANCELED', 'EXPIRED', 'PAST_DUE');
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'EstimateStatus') THEN
-        CREATE TYPE "EstimateStatus" AS ENUM ('DRAFT', 'INTERNAL_REVIEW', 'CLIENT_REVIEW', 'APPROVED', 'LOCKED');
-    END IF;
+-- CreateEnum (with IF NOT EXISTS check)
+DO $$ BEGIN
+    CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN', 'MANAGER');
+EXCEPTION
+    WHEN duplicate_object THEN null;
 END $$;
 
--- CreateTable with IF NOT EXISTS
+-- CreateEnum (with IF NOT EXISTS check)
+DO $$ BEGIN
+    CREATE TYPE "ClientStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'PROSPECT', 'ARCHIVED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- CreateEnum (with IF NOT EXISTS check)
+DO $$ BEGIN
+    CREATE TYPE "ReportStatus" AS ENUM ('DRAFT', 'PENDING', 'APPROVED', 'COMPLETED', 'ARCHIVED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- CreateEnum (with IF NOT EXISTS check)
+DO $$ BEGIN
+    CREATE TYPE "IntegrationStatus" AS ENUM ('CONNECTED', 'DISCONNECTED', 'ERROR');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- CreateEnum (with IF NOT EXISTS check)
+DO $$ BEGIN
+    CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', 'ACTIVE', 'CANCELED', 'EXPIRED', 'PAST_DUE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- CreateEnum (with IF NOT EXISTS check)
+DO $$ BEGIN
+    CREATE TYPE "EstimateStatus" AS ENUM ('DRAFT', 'INTERNAL_REVIEW', 'CLIENT_REVIEW', 'APPROVED', 'LOCKED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Account" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -44,6 +58,7 @@ CREATE TABLE IF NOT EXISTS "Account" (
     CONSTRAINT "Account_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Session" (
     "id" TEXT NOT NULL,
     "sessionToken" TEXT NOT NULL,
@@ -53,6 +68,7 @@ CREATE TABLE IF NOT EXISTS "Session" (
     CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "User" (
     "id" TEXT NOT NULL,
     "name" TEXT,
@@ -83,12 +99,14 @@ CREATE TABLE IF NOT EXISTS "User" (
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "VerificationToken" (
     "identifier" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "expires" TIMESTAMP(3) NOT NULL
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Client" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -106,6 +124,7 @@ CREATE TABLE IF NOT EXISTS "Client" (
     CONSTRAINT "Client_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Report" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
@@ -200,6 +219,7 @@ CREATE TABLE IF NOT EXISTS "Report" (
     CONSTRAINT "Report_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Integration" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -215,6 +235,7 @@ CREATE TABLE IF NOT EXISTS "Integration" (
     CONSTRAINT "Integration_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "CostLibrary" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -228,6 +249,7 @@ CREATE TABLE IF NOT EXISTS "CostLibrary" (
     CONSTRAINT "CostLibrary_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "CostItem" (
     "id" TEXT NOT NULL,
     "category" TEXT NOT NULL,
@@ -241,6 +263,7 @@ CREATE TABLE IF NOT EXISTS "CostItem" (
     CONSTRAINT "CostItem_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Scope" (
     "id" TEXT NOT NULL,
     "reportId" TEXT NOT NULL,
@@ -265,6 +288,7 @@ CREATE TABLE IF NOT EXISTS "Scope" (
     CONSTRAINT "Scope_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "Estimate" (
     "id" TEXT NOT NULL,
     "reportId" TEXT NOT NULL,
@@ -306,6 +330,7 @@ CREATE TABLE IF NOT EXISTS "Estimate" (
     CONSTRAINT "Estimate_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "EstimateLineItem" (
     "id" TEXT NOT NULL,
     "estimateId" TEXT NOT NULL,
@@ -330,6 +355,7 @@ CREATE TABLE IF NOT EXISTS "EstimateLineItem" (
     CONSTRAINT "EstimateLineItem_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "EstimateVersion" (
     "id" TEXT NOT NULL,
     "estimateId" TEXT NOT NULL,
@@ -343,6 +369,7 @@ CREATE TABLE IF NOT EXISTS "EstimateVersion" (
     CONSTRAINT "EstimateVersion_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "EstimateVariation" (
     "id" TEXT NOT NULL,
     "estimateId" TEXT NOT NULL,
@@ -361,6 +388,7 @@ CREATE TABLE IF NOT EXISTS "EstimateVariation" (
     CONSTRAINT "EstimateVariation_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (with IF NOT EXISTS check)
 CREATE TABLE IF NOT EXISTS "CompanyPricingConfig" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -394,146 +422,139 @@ CREATE TABLE IF NOT EXISTS "CompanyPricingConfig" (
     CONSTRAINT "CompanyPricingConfig_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex with IF NOT EXISTS
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'Account_provider_providerAccountId_key') THEN
-        CREATE UNIQUE INDEX "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
-    END IF;
+-- CreateIndex (with IF NOT EXISTS check)
+CREATE UNIQUE INDEX IF NOT EXISTS "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Session_sessionToken_key" ON "Session"("sessionToken");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "User_subscriptionId_key" ON "User"("subscriptionId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "User_stripeCustomerId_key" ON "User"("stripeCustomerId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_token_key" ON "VerificationToken"("token");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Scope_reportId_key" ON "Scope"("reportId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Estimate_scopeId_key" ON "Estimate"("scopeId");
+
+CREATE INDEX IF NOT EXISTS "EstimateLineItem_estimateId_idx" ON "EstimateLineItem"("estimateId");
+
+CREATE INDEX IF NOT EXISTS "EstimateLineItem_category_idx" ON "EstimateLineItem"("category");
+
+CREATE INDEX IF NOT EXISTS "EstimateVersion_estimateId_idx" ON "EstimateVersion"("estimateId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "EstimateVersion_estimateId_version_key" ON "EstimateVersion"("estimateId", "version");
+
+CREATE INDEX IF NOT EXISTS "EstimateVariation_estimateId_idx" ON "EstimateVariation"("estimateId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "EstimateVariation_estimateId_variationNumber_key" ON "EstimateVariation"("estimateId", "variationNumber");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "CompanyPricingConfig_userId_key" ON "CompanyPricingConfig"("userId");
+
+-- AddForeignKey (with IF NOT EXISTS check)
+DO $$ BEGIN
+ ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
 END $$;
 
--- CreateIndex with IF NOT EXISTS
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'Session_sessionToken_key') THEN
-        CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'User_email_key') THEN
-        CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'User_subscriptionId_key') THEN
-        CREATE UNIQUE INDEX "User_subscriptionId_key" ON "User"("subscriptionId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'User_stripeCustomerId_key') THEN
-        CREATE UNIQUE INDEX "User_stripeCustomerId_key" ON "User"("stripeCustomerId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'VerificationToken_token_key') THEN
-        CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'VerificationToken_identifier_token_key') THEN
-        CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'Scope_reportId_key') THEN
-        CREATE UNIQUE INDEX "Scope_reportId_key" ON "Scope"("reportId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'Estimate_scopeId_key') THEN
-        CREATE UNIQUE INDEX "Estimate_scopeId_key" ON "Estimate"("scopeId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'EstimateLineItem_estimateId_idx') THEN
-        CREATE INDEX "EstimateLineItem_estimateId_idx" ON "EstimateLineItem"("estimateId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'EstimateLineItem_category_idx') THEN
-        CREATE INDEX "EstimateLineItem_category_idx" ON "EstimateLineItem"("category");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'EstimateVersion_estimateId_idx') THEN
-        CREATE INDEX "EstimateVersion_estimateId_idx" ON "EstimateVersion"("estimateId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'EstimateVersion_estimateId_version_key') THEN
-        CREATE UNIQUE INDEX "EstimateVersion_estimateId_version_key" ON "EstimateVersion"("estimateId", "version");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'EstimateVariation_estimateId_idx') THEN
-        CREATE INDEX "EstimateVariation_estimateId_idx" ON "EstimateVariation"("estimateId");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'EstimateVariation_estimateId_variationNumber_key') THEN
-        CREATE UNIQUE INDEX "EstimateVariation_estimateId_variationNumber_key" ON "EstimateVariation"("estimateId", "variationNumber");
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'CompanyPricingConfig_userId_key') THEN
-        CREATE UNIQUE INDEX "CompanyPricingConfig_userId_key" ON "CompanyPricingConfig"("userId");
-    END IF;
+DO $$ BEGIN
+ ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
 END $$;
 
--- AddForeignKey (only if constraint doesn't exist)
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Account_userId_fkey') THEN
-        ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Session_userId_fkey') THEN
-        ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Client_userId_fkey') THEN
-        ALTER TABLE "Client" ADD CONSTRAINT "Client_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Report_userId_fkey') THEN
-        ALTER TABLE "Report" ADD CONSTRAINT "Report_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Report_clientId_fkey') THEN
-        ALTER TABLE "Report" ADD CONSTRAINT "Report_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Integration_userId_fkey') THEN
-        ALTER TABLE "Integration" ADD CONSTRAINT "Integration_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CostLibrary_userId_fkey') THEN
-        ALTER TABLE "CostLibrary" ADD CONSTRAINT "CostLibrary_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CostItem_libraryId_fkey') THEN
-        ALTER TABLE "CostItem" ADD CONSTRAINT "CostItem_libraryId_fkey" FOREIGN KEY ("libraryId") REFERENCES "CostLibrary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Scope_reportId_fkey') THEN
-        ALTER TABLE "Scope" ADD CONSTRAINT "Scope_reportId_fkey" FOREIGN KEY ("reportId") REFERENCES "Report"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Scope_userId_fkey') THEN
-        ALTER TABLE "Scope" ADD CONSTRAINT "Scope_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Estimate_reportId_fkey') THEN
-        ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_reportId_fkey" FOREIGN KEY ("reportId") REFERENCES "Report"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Estimate_scopeId_fkey') THEN
-        ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_scopeId_fkey" FOREIGN KEY ("scopeId") REFERENCES "Scope"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Estimate_userId_fkey') THEN
-        ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EstimateLineItem_estimateId_fkey') THEN
-        ALTER TABLE "EstimateLineItem" ADD CONSTRAINT "EstimateLineItem_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EstimateVersion_estimateId_fkey') THEN
-        ALTER TABLE "EstimateVersion" ADD CONSTRAINT "EstimateVersion_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EstimateVariation_estimateId_fkey') THEN
-        ALTER TABLE "EstimateVariation" ADD CONSTRAINT "EstimateVariation_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CompanyPricingConfig_userId_fkey') THEN
-        ALTER TABLE "CompanyPricingConfig" ADD CONSTRAINT "CompanyPricingConfig_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
+DO $$ BEGIN
+ ALTER TABLE "Client" ADD CONSTRAINT "Client_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
 END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Report" ADD CONSTRAINT "Report_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Report" ADD CONSTRAINT "Report_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Integration" ADD CONSTRAINT "Integration_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "CostLibrary" ADD CONSTRAINT "CostLibrary_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "CostItem" ADD CONSTRAINT "CostItem_libraryId_fkey" FOREIGN KEY ("libraryId") REFERENCES "CostLibrary"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Scope" ADD CONSTRAINT "Scope_reportId_fkey" FOREIGN KEY ("reportId") REFERENCES "Report"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Scope" ADD CONSTRAINT "Scope_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_reportId_fkey" FOREIGN KEY ("reportId") REFERENCES "Report"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_scopeId_fkey" FOREIGN KEY ("scopeId") REFERENCES "Scope"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "EstimateLineItem" ADD CONSTRAINT "EstimateLineItem_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "EstimateVersion" ADD CONSTRAINT "EstimateVersion_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "EstimateVariation" ADD CONSTRAINT "EstimateVariation_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "CompanyPricingConfig" ADD CONSTRAINT "CompanyPricingConfig_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
