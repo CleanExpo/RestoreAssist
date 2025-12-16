@@ -1,27 +1,43 @@
 import { withAuth } from "next-auth/middleware"
+import { NextResponse } from "next/server"
 
 export default withAuth(
   function middleware(req) {
-    // Add any additional middleware logic here
+    const { pathname } = req.nextUrl
+
+    // 1. Log ALL API requests
+    if (pathname.startsWith("/api")) {
+      console.log(
+        `[API REQUEST] ${req.method} ${pathname} | ${new Date().toISOString()}`
+      )
+    }
+
+    // 2. Continue request
+    return NextResponse.next()
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Allow access to public routes
-        if (req.nextUrl.pathname.startsWith("/login") || 
-            req.nextUrl.pathname.startsWith("/signup") ||
-            req.nextUrl.pathname === "/" ||
-            req.nextUrl.pathname.startsWith("/api/auth") ||
-            req.nextUrl.pathname.startsWith("/_next") ||
-            req.nextUrl.pathname.startsWith("/favicon")) {
+        const { pathname } = req.nextUrl
+
+        // 3. Public routes (no auth required)
+        if (
+          pathname === "/" ||
+          pathname.startsWith("/login") ||
+          pathname.startsWith("/signup") ||
+          pathname.startsWith("/api/auth") ||
+          pathname.startsWith("/_next") ||
+          pathname.startsWith("/favicon")
+        ) {
           return true
         }
-        
-        // Require authentication for protected routes
-        if (req.nextUrl.pathname.startsWith("/dashboard")) {
+
+        // 4. Protected dashboard routes
+        if (pathname.startsWith("/dashboard")) {
           return !!token
         }
-        
+
+        // 5. Allow other routes
         return true
       },
     },
@@ -30,6 +46,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    "/api/:path*",
     "/dashboard/:path*",
     "/reports/:path*",
     "/clients/:path*",
