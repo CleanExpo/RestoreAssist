@@ -496,4 +496,3 @@ ALTER TABLE "EstimateVariation" ADD CONSTRAINT "EstimateVariation_estimateId_fke
 
 -- AddForeignKey
 ALTER TABLE "CompanyPricingConfig" ADD CONSTRAINT "CompanyPricingConfig_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
