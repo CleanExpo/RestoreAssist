@@ -5,7 +5,19 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-import { logger } from "./logger"
+
+// Safe logger import with fallback
+let logger: any
+try {
+  logger = require("./logger").logger
+} catch (e) {
+  logger = {
+    info: (msg: string, ctx?: any) => console.log(`[INFO] ${msg}`, ctx || ''),
+    warn: (msg: string, ctx?: any) => console.warn(`[WARN] ${msg}`, ctx || ''),
+    error: (msg: string, err?: any, ctx?: any) => console.error(`[ERROR] ${msg}`, err, ctx || ''),
+    debug: () => {}
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -22,10 +34,14 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         const startTime = Date.now()
-        logger.info('Login attempt', { email: credentials?.email })
+        try {
+          logger.info('Login attempt', { email: credentials?.email })
+        } catch (e) {}
 
         if (!credentials?.email || !credentials?.password) {
-          logger.warn('Login failed: missing credentials', { hasEmail: !!credentials?.email, hasPassword: !!credentials?.password })
+          try {
+            logger.warn('Login failed: missing credentials', { hasEmail: !!credentials?.email, hasPassword: !!credentials?.password })
+          } catch (e) {}
           return null
         }
 
@@ -36,7 +52,9 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.password) {
-          logger.warn('Login failed: user not found', { email: credentials.email })
+          try {
+            logger.warn('Login failed: user not found', { email: credentials.email })
+          } catch (e) {}
           return null
         }
 
@@ -46,12 +64,16 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
-          logger.warn('Login failed: invalid password', { email: credentials.email, userId: user.id })
+          try {
+            logger.warn('Login failed: invalid password', { email: credentials.email, userId: user.id })
+          } catch (e) {}
           return null
         }
 
         const duration = Date.now() - startTime
-        logger.info('Login successful', { userId: user.id, email: user.email, duration: `${duration}ms` })
+        try {
+          logger.info('Login successful', { userId: user.id, email: user.email, duration: `${duration}ms` })
+        } catch (e) {}
 
         return {
           id: user.id,
@@ -70,7 +92,9 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
-        logger.debug('JWT token created', { userId: user.id, role: user.role })
+        try {
+          logger.debug('JWT token created', { userId: user.id, role: user.role })
+        } catch (e) {}
       }
       return token
     },
@@ -78,7 +102,9 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.sub!
         session.user.role = token.role as string
-        logger.debug('Session created', { userId: token.sub, role: token.role })
+        try {
+          logger.debug('Session created', { userId: token.sub, role: token.role })
+        } catch (e) {}
       }
       return session
     },

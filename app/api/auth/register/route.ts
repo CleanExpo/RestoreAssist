@@ -1,19 +1,45 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import { logger } from "@/lib/logger"
+
+// Safe logger import with fallback
+let logger: any
+try {
+  logger = require("@/lib/logger").logger
+} catch (e) {
+  // Fallback logger if import fails
+  logger = {
+    info: (msg: string, ctx?: any) => console.log(`[INFO] ${msg}`, ctx || ''),
+    warn: (msg: string, ctx?: any) => console.warn(`[WARN] ${msg}`, ctx || ''),
+    error: (msg: string, err?: any, ctx?: any) => console.error(`[ERROR] ${msg}`, err, ctx || ''),
+    apiRequest: () => {},
+    apiResponse: () => {},
+    apiError: (method: string, path: string, err: any) => console.error(`[API ERROR] ${method} ${path}`, err)
+  }
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  logger.apiRequest('POST', '/api/auth/register')
+  
+  try {
+    logger.apiRequest('POST', '/api/auth/register')
+  } catch (e) {
+    // Continue even if logging fails
+  }
 
   try {
     const { name, email, password } = await request.json()
 
-    logger.info('Registration attempt', { email, hasName: !!name, hasPassword: !!password })
+    try {
+      logger.info('Registration attempt', { email, hasName: !!name, hasPassword: !!password })
+    } catch (e) {
+      // Continue even if logging fails
+    }
 
     if (!name || !email || !password) {
-      logger.warn('Registration failed: missing fields', { hasName: !!name, hasEmail: !!email, hasPassword: !!password })
+      try {
+        logger.warn('Registration failed: missing fields', { hasName: !!name, hasEmail: !!email, hasPassword: !!password })
+      } catch (e) {}
       return NextResponse.json(
         { error: "Name, email, and password are required" },
         { status: 400 }
@@ -26,7 +52,9 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingUser) {
-      logger.warn('Registration failed: user already exists', { email })
+      try {
+        logger.warn('Registration failed: user already exists', { email })
+      } catch (e) {}
       return NextResponse.json(
         { error: "User with this email already exists" },
         { status: 400 }
@@ -54,8 +82,12 @@ export async function POST(request: NextRequest) {
     const { password: _, ...userWithoutPassword } = user
 
     const duration = Date.now() - startTime
-    logger.info('User registered successfully', { userId: user.id, email, duration: `${duration}ms` })
-    logger.apiResponse('POST', '/api/auth/register', 201, duration, { userId: user.id })
+    try {
+      logger.info('User registered successfully', { userId: user.id, email, duration: `${duration}ms` })
+      logger.apiResponse('POST', '/api/auth/register', 201, duration, { userId: user.id })
+    } catch (e) {
+      // Continue even if logging fails
+    }
 
     return NextResponse.json(
       { 
@@ -66,9 +98,20 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     const duration = Date.now() - startTime
-    logger.apiError('POST', '/api/auth/register', error, { duration: `${duration}ms` })
+    try {
+      logger.apiError('POST', '/api/auth/register', error, { duration: `${duration}ms` })
+    } catch (e) {
+      // Log to console as fallback
+      console.error('Registration error:', error)
+    }
+    
+    // Return detailed error in development, generic in production
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: process.env.NODE_ENV === 'development' ? errorMessage : "Internal server error",
+        ...(process.env.NODE_ENV === 'development' && error instanceof Error ? { stack: error.stack } : {})
+      },
       { status: 500 }
     )
   }
