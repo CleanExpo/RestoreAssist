@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "npm install --force",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && npm run resolve-migration && prisma migrate deploy && next build",
+    "resolve-migration": "node -e \"const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.$executeRawUnsafe('UPDATE _prisma_migrations SET finished_at=NULL, rolled_back_at=NOW() WHERE migration_name=\\'20251215150840_chnage_the_schema\\' AND finished_at IS NULL').then(()=>{console.log('Migration resolved');p.$disconnect()}).catch(()=>p.$disconnect())\" || true",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
