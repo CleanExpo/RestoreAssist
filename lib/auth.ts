@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import { logger } from "./logger"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -20,7 +21,11 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        const startTime = Date.now()
+        logger.info('Login attempt', { email: credentials?.email })
+
         if (!credentials?.email || !credentials?.password) {
+          logger.warn('Login failed: missing credentials', { hasEmail: !!credentials?.email, hasPassword: !!credentials?.password })
           return null
         }
 
@@ -31,6 +36,7 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.password) {
+          logger.warn('Login failed: user not found', { email: credentials.email })
           return null
         }
 
@@ -40,8 +46,12 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
+          logger.warn('Login failed: invalid password', { email: credentials.email, userId: user.id })
           return null
         }
+
+        const duration = Date.now() - startTime
+        logger.info('Login successful', { userId: user.id, email: user.email, duration: `${duration}ms` })
 
         return {
           id: user.id,
@@ -60,6 +70,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
+        logger.debug('JWT token created', { userId: user.id, role: user.role })
       }
       return token
     },
@@ -67,6 +78,7 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.sub!
         session.user.role = token.role as string
+        logger.debug('Session created', { userId: token.sub, role: token.role })
       }
       return session
     },
