@@ -201,9 +201,52 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // After saving, trigger intelligent standards analysis in background
+    // This prepares standards context for when user generates the report
+    try {
+      const { retrieveRelevantStandards } = await import('@/lib/standards-retrieval')
+      
+      // Get user's Anthropic integration
+      const integration = await prisma.integration.findFirst({
+        where: {
+          userId: user.id,
+          name: 'Anthropic'
+        }
+      })
+      
+      if (integration?.apiKey) {
+        // Build intelligent query from submitted data
+        const retrievalQuery = {
+          reportType: 'water' as const, // Default for water damage
+          waterCategory: report.waterCategory?.replace('Category ', '') as '1' | '2' | '3' | undefined,
+          materials: report.structureType ? [report.structureType] : [],
+          affectedAreas: [],
+          keywords: [
+            report.waterCategory || '',
+            report.waterClass || '',
+            report.biologicalMouldDetected ? 'mould' : '',
+            report.methamphetamineScreen === 'POSITIVE' ? 'methamphetamine' : '',
+          ].filter(Boolean) as string[],
+          technicianNotes: report.technicianFieldReport || ''
+        }
+        
+        // Pre-fetch standards in background (don't await - let it run async)
+        retrieveRelevantStandards(retrievalQuery, integration.apiKey)
+          .then(standards => {
+            console.log(`[Initial Entry] Pre-fetched ${standards.documents.length} relevant standards for report ${report.id}`)
+          })
+          .catch(error => {
+            console.error(`[Initial Entry] Error pre-fetching standards:`, error)
+          })
+      }
+    } catch (error) {
+      // Non-critical - just log the error
+      console.error(`[Initial Entry] Error setting up standards pre-fetch:`, error)
+    }
+
     return NextResponse.json({ 
       report,
-      message: 'Initial data saved successfully. Proceed to report generation.'
+      message: 'Initial data saved successfully. Standards analysis initiated. Proceed to report generation.'
     })
   } catch (error) {
     console.error('Error creating initial report entry:', error)

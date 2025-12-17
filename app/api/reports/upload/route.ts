@@ -35,33 +35,59 @@ export async function POST(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey: anthropicApiKey })
 
-    const systemPrompt = `You are a data extraction assistant. Extract structured information from the PDF document.
+    const systemPrompt = `You are a professional water damage restoration report analysis assistant. Extract ALL structured information from the PDF document.
 
-Extract the following fields if available:
-- clientName: Full name of the client
-- clientContactDetails: Phone number, email, etc.
-- propertyAddress: Full property address
-- propertyPostcode: Postcode (4 digits)
-- claimReferenceNumber: Claim reference or job number
-- incidentDate: Date of incident (format: YYYY-MM-DD)
-- technicianAttendanceDate: Date technician attended (format: YYYY-MM-DD)
-- technicianName: Name of technician/inspector
-- fullText: All text content from the PDF
+Extract the following fields if available in the document:
 
-Return ONLY a valid JSON object. Use empty string "" for missing fields.
+**Basic Information:**
+- clientName: Full name of the client/property owner
+- clientContactDetails: Phone number, email, contact information
+- propertyAddress: Full property address including street, suburb, state
+- propertyPostcode: Postcode (4 digits, Australian format)
+- claimReferenceNumber: Claim reference, job number, or report number
+- incidentDate: Date of water damage incident (format: YYYY-MM-DD)
+- technicianAttendanceDate: Date technician attended site (format: YYYY-MM-DD)
+- technicianName: Name of technician/inspector who attended
+- technicianFieldReport: Complete technician field report text/notes
 
-Example:
-{
-  "clientName": "John Doe",
-  "clientContactDetails": "0412 345 678",
-  "propertyAddress": "123 Main St, Sydney NSW",
-  "propertyPostcode": "2000",
-  "claimReferenceNumber": "CLM-12345",
-  "incidentDate": "2024-01-15",
-  "technicianAttendanceDate": "2024-01-16",
-  "technicianName": "Jane Smith",
-  "fullText": "entire document text..."
-}`
+**Property Intelligence:**
+- buildingAge: Year the building was constructed (integer, e.g., 1995)
+- structureType: Building structure type (e.g., "Brick Veneer", "Slab on Ground", "Timber Frame", "Concrete")
+- accessNotes: Access notes (e.g., "Level driveway", "Truck mount access", "Stairs only")
+
+**Hazard Profile:**
+- insurerName: Insurance company name
+- methamphetamineScreen: "POSITIVE" or "NEGATIVE" (if mentioned)
+- methamphetamineTestCount: Number of meth tests performed (integer, if mentioned)
+- biologicalMouldDetected: true or false (if mould/biological growth mentioned)
+- biologicalMouldCategory: Mould category if mentioned (e.g., "CAT 1", "CAT 2", "CAT 3")
+
+**Timeline Estimation:**
+- phase1StartDate: Phase 1 (Make-safe) start date (format: YYYY-MM-DD)
+- phase1EndDate: Phase 1 (Make-safe) end date (format: YYYY-MM-DD)
+- phase2StartDate: Phase 2 (Remediation/Drying) start date (format: YYYY-MM-DD)
+- phase2EndDate: Phase 2 (Remediation/Drying) end date (format: YYYY-MM-DD)
+- phase3StartDate: Phase 3 (Verification/Handover) start date (format: YYYY-MM-DD)
+- phase3EndDate: Phase 3 (Verification/Handover) end date (format: YYYY-MM-DD)
+
+**Water Damage Details:**
+- waterCategory: "Category 1", "Category 2", or "Category 3"
+- waterClass: "Class 1", "Class 2", "Class 3", or "Class 4"
+- sourceOfWater: Source of water (e.g., "Burst pipe", "Storm damage", "Appliance failure")
+- affectedArea: Affected area in square metres (float)
+
+**Additional Information:**
+- fullText: All text content from the PDF document
+
+**Important:**
+- Extract dates in YYYY-MM-DD format
+- Use null for missing optional fields, empty string "" for missing required text fields
+- For boolean fields, use true/false or null
+- For numeric fields, extract the number or use null
+- Analyze the document thoroughly - look for dates, measurements, test results, and phase information
+- If dates are mentioned in text format, convert to YYYY-MM-DD
+
+Return ONLY a valid JSON object with all extracted fields.`
 
     try {
       const response = await anthropic.messages.create({
@@ -122,21 +148,45 @@ Example:
         )
       }
 
+      // Extract and format all fields
+      const extractedData: any = {
+        // Basic Information
+        clientName: parsedData.clientName || '',
+        clientContactDetails: parsedData.clientContactDetails || '',
+        propertyAddress: parsedData.propertyAddress || '',
+        propertyPostcode: parsedData.propertyPostcode || '',
+        claimReferenceNumber: parsedData.claimReferenceNumber || '',
+        incidentDate: parsedData.incidentDate || '',
+        technicianAttendanceDate: parsedData.technicianAttendanceDate || '',
+        technicianName: parsedData.technicianName || '',
+        technicianFieldReport: parsedData.technicianFieldReport || parsedData.fullText || '',
+        
+        // Property Intelligence
+        buildingAge: parsedData.buildingAge ? String(parsedData.buildingAge) : '',
+        structureType: parsedData.structureType || '',
+        accessNotes: parsedData.accessNotes || '',
+        
+        // Hazard Profile
+        insurerName: parsedData.insurerName || '',
+        methamphetamineScreen: parsedData.methamphetamineScreen || 'NEGATIVE',
+        methamphetamineTestCount: parsedData.methamphetamineTestCount ? String(parsedData.methamphetamineTestCount) : '',
+        biologicalMouldDetected: parsedData.biologicalMouldDetected === true || parsedData.biologicalMouldDetected === 'true',
+        biologicalMouldCategory: parsedData.biologicalMouldCategory || '',
+        
+        // Timeline Estimation
+        phase1StartDate: parsedData.phase1StartDate || '',
+        phase1EndDate: parsedData.phase1EndDate || '',
+        phase2StartDate: parsedData.phase2StartDate || '',
+        phase2EndDate: parsedData.phase2EndDate || '',
+        phase3StartDate: parsedData.phase3StartDate || '',
+        phase3EndDate: parsedData.phase3EndDate || ''
+      }
+
       return NextResponse.json({
         success: true,
         extractedText: parsedData.fullText || '',
-        parsedData: {
-          clientName: parsedData.clientName || '',
-          clientContactDetails: parsedData.clientContactDetails || '',
-          propertyAddress: parsedData.propertyAddress || '',
-          propertyPostcode: parsedData.propertyPostcode || '',
-          claimReferenceNumber: parsedData.claimReferenceNumber || '',
-          incidentDate: parsedData.incidentDate || '',
-          technicianAttendanceDate: parsedData.technicianAttendanceDate || '',
-          technicianName: parsedData.technicianName || '',
-          technicianFieldReport: parsedData.fullText || ''
-        },
-        message: 'PDF parsed successfully. Please review and complete the form.'
+        parsedData: extractedData,
+        message: 'PDF parsed successfully. All available data extracted. Please review and complete the form.'
       })
 
     } catch (claudeError: any) {

@@ -162,6 +162,7 @@ function extractStandardType(fileName: string): string {
 
 /**
  * Use Anthropic API to extract relevant sections from document text
+ * Enhanced with deeper analysis and better context understanding
  */
 async function extractRelevantSectionsWithAI(
   anthropic: Anthropic,
@@ -170,9 +171,9 @@ async function extractRelevantSectionsWithAI(
   query: RetrievalQuery
 ): Promise<string[]> {
   try {
-    // Limit text length to avoid token limits (keep first 100k characters)
-    const truncatedText = documentText.length > 100000 
-      ? documentText.substring(0, 100000) + '\n\n[Document truncated...]'
+    // Limit text length to avoid token limits (keep first 150k characters for better context)
+    const truncatedText = documentText.length > 150000 
+      ? documentText.substring(0, 150000) + '\n\n[Document truncated...]'
       : documentText
     
     const relevantStandards = determineRelevantStandards(query)
@@ -180,41 +181,65 @@ async function extractRelevantSectionsWithAI(
       ...relevantStandards,
       ...(query.keywords || []),
       ...(query.materials || []),
+      ...(query.affectedAreas || []),
     ]
     
-    const systemPrompt = `You are an expert in IICRC standards and Australian building codes. Your task is to extract the most relevant sections from a standards document that relate to the given query context.
+    const systemPrompt = `You are a senior IICRC-certified water damage restoration specialist and standards expert with 30+ years of experience. Your task is to extract the MOST CRITICAL and RELEVANT sections from a standards document for generating a professional forensic restoration report.
 
-Extract 3-5 key sections or paragraphs that are most relevant to the query. For each section, provide:
-1. A brief heading/title
-2. The actual text content (preserve exact wording and standard references)
-3. Why it's relevant to the query
+Your extraction must:
+1. Focus on PROCEDURAL REQUIREMENTS - step-by-step protocols that must be followed
+2. Identify COMPLIANCE MANDATES - legal and regulatory requirements
+3. Extract TECHNICAL SPECIFICATIONS - equipment, materials, measurements, tolerances
+4. Capture STANDARD REFERENCES - exact citations (e.g., "IICRC S500 Section 14.3.2")
+5. Highlight SAFETY PROTOCOLS - OH&S, PPE, containment requirements
+6. Note MATERIAL-SPECIFIC GUIDELINES - if materials are mentioned in the query
 
-Format your response as a numbered list, with each item containing:
-- Section Title
-- Relevant Text (exact quotes from the document)
-- Relevance Explanation
+For each relevant section, provide:
+- Section Title (descriptive, specific)
+- Exact Text Content (preserve all standard references, numbers, measurements)
+- Standard Reference (e.g., "IICRC S500 Sec 14.2", "AS/NZS 3000:2018")
+- Application to Report (how this applies to the specific query context)
 
-Keep each section concise but complete enough to be useful for report generation.`
+Prioritize sections that:
+- Are directly applicable to the water category/class
+- Address the specific materials mentioned
+- Contain mandatory compliance requirements
+- Include verifiable procedures and protocols
+- Reference Australian standards (AS/NZS) when applicable
+
+Format as a numbered list with clear structure.`
 
     const userPrompt = `Document: ${fileName}
 
-Query Context:
-- Report Type: ${query.reportType}
-- Water Category: ${query.waterCategory || 'N/A'}
-- Materials: ${query.materials?.join(', ') || 'N/A'}
-- Keywords: ${keywords.join(', ')}
-${query.technicianNotes ? `- Technician Notes: ${query.technicianNotes.substring(0, 500)}` : ''}
+REPORT CONTEXT (Use this to determine relevance):
+- Report Type: ${query.reportType} damage restoration
+- Water Category: ${query.waterCategory ? `Category ${query.waterCategory}` : 'Not specified'}
+- Materials Affected: ${query.materials?.join(', ') || 'Not specified'}
+- Affected Areas: ${query.affectedAreas?.join(', ') || 'Not specified'}
+- Keywords: ${keywords.filter(k => k).join(', ') || 'None'}
+${query.technicianNotes ? `- Technician Field Notes Summary: ${query.technicianNotes.substring(0, 800)}` : ''}
 
-Document Content:
+DOCUMENT CONTENT:
 ${truncatedText}
 
-Extract the most relevant sections from this document that should be used when generating a ${query.reportType} damage restoration report. Focus on:
-- Specific procedures and requirements
-- Standard references and citations
-- Compliance requirements
-- Technical specifications
-- Safety protocols
-- Material-specific guidelines`
+TASK:
+Extract 4-7 of the MOST CRITICAL sections from this standards document that are directly applicable to generating a professional forensic ${query.reportType} damage restoration report.
+
+For each section, extract:
+1. The exact text (preserve all standard references, section numbers, measurements)
+2. The standard reference/citation (e.g., "IICRC S500 Section 14.3.2")
+3. Why it's critical for this specific report context
+
+Focus on extracting:
+- Mandatory procedures that MUST be followed
+- Compliance requirements with specific citations
+- Technical specifications (equipment, materials, measurements)
+- Safety and OH&S protocols
+- Material-specific remediation guidelines
+- Verification and documentation requirements
+- Australian standards (AS/NZS) when present
+
+Be thorough but precise. Each extracted section should be directly usable in the report generation.`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -248,8 +273,140 @@ Extract the most relevant sections from this document that should be used when g
 }
 
 /**
+ * Analyze folder structure using Anthropic AI to understand organization
+ */
+async function analyzeFolderStructureWithAI(
+  anthropic: Anthropic,
+  folderItems: { files: DriveFile[], folders: any[] },
+  query: RetrievalQuery
+): Promise<{ relevantFiles: DriveFile[], reasoning: string }> {
+  try {
+    // Build folder structure description
+    const fileList = folderItems.files.map(f => ({
+      name: f.name,
+      mimeType: f.mimeType,
+      id: f.id
+    })).slice(0, 100) // Limit to first 100 files for analysis
+    
+    const folderList = folderItems.folders?.map(f => ({
+      name: f.name,
+      id: f.id
+    })) || []
+    
+    const systemPrompt = `You are an expert in IICRC standards and Australian building codes. Your task is to analyze a Google Drive folder structure and identify the most relevant standards documents for a specific water damage restoration report.
+
+Analyze the folder structure and file names to:
+1. Understand how standards are organized (by standard number, category, type, etc.)
+2. Identify which files are most relevant to the report query
+3. Consider file naming patterns, folder organization, and document types
+4. Prioritize official IICRC standards (S500, S520, S400, etc.) and Australian standards (AS/NZS, NCC, etc.)
+
+Return a JSON object with:
+- relevantFileNames: Array of file names that should be prioritized
+- reasoning: Brief explanation of why these files were selected
+- standardTypes: Array of standard types identified (e.g., ["S500", "S520", "AS/NZS 3000"])
+- priority: High/Medium/Low for each file
+
+Be intelligent about matching - consider:
+- Water category and class requirements
+- Material-specific standards
+- Safety and compliance requirements
+- Regional standards (Australian vs. international)`
+
+    const userPrompt = `Report Query Context:
+- Report Type: ${query.reportType}
+- Water Category: ${query.waterCategory || 'Not specified'}
+- Materials Affected: ${query.materials?.join(', ') || 'Not specified'}
+- Affected Areas: ${query.affectedAreas?.join(', ') || 'Not specified'}
+- Keywords: ${query.keywords?.join(', ') || 'None'}
+${query.technicianNotes ? `- Technician Notes Summary: ${query.technicianNotes.substring(0, 500)}` : ''}
+
+Folder Structure:
+- Total Files: ${fileList.length}
+- Subfolders: ${folderList.length}
+
+Files in Folder:
+${JSON.stringify(fileList, null, 2)}
+
+${folderList.length > 0 ? `Subfolders:\n${JSON.stringify(folderList, null, 2)}` : ''}
+
+Analyze this folder structure and identify the most relevant standards documents for generating a professional ${query.reportType} damage restoration report. Consider the report context and prioritize files that contain:
+1. Specific procedures for the water category/class
+2. Material-specific remediation guidelines
+3. Safety and compliance requirements
+4. Australian building codes and regulations
+5. IICRC standard references and citations`
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ]
+    })
+
+    if (response.content[0].type === 'text') {
+      const analysisText = response.content[0].text
+      
+      // Try to extract JSON from response
+      const jsonMatch = analysisText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          const analysis = JSON.parse(jsonMatch[0])
+          const relevantFileNames = analysis.relevantFileNames || []
+          
+          // Match file names to actual files
+          const relevantFiles = folderItems.files.filter(file => 
+            relevantFileNames.some((name: string) => 
+              file.name.toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes(file.name.toLowerCase())
+            )
+          )
+          
+          return {
+            relevantFiles: relevantFiles.length > 0 ? relevantFiles : folderItems.files.slice(0, 10),
+            reasoning: analysis.reasoning || 'AI analysis completed'
+          }
+        } catch (e) {
+          // Fallback: use text analysis
+        }
+      }
+      
+      // Fallback: extract file names mentioned in text
+      const mentionedFiles: DriveFile[] = []
+      for (const file of folderItems.files) {
+        if (analysisText.toLowerCase().includes(file.name.toLowerCase().substring(0, 20))) {
+          mentionedFiles.push(file)
+        }
+      }
+      
+      return {
+        relevantFiles: mentionedFiles.length > 0 ? mentionedFiles : folderItems.files.slice(0, 10),
+        reasoning: analysisText.substring(0, 500)
+      }
+    }
+    
+    return {
+      relevantFiles: folderItems.files.slice(0, 10),
+      reasoning: 'AI analysis completed'
+    }
+  } catch (error: any) {
+    console.error(`[Standards Retrieval] Error in AI folder analysis:`, error.message)
+    return {
+      relevantFiles: folderItems.files.slice(0, 10),
+      reasoning: 'Using default file selection'
+    }
+  }
+}
+
+/**
  * Retrieve relevant standards from Google Drive
  * Uses folder: IICRC Standards (1lFqpslQZ0kGovGh6WiHhgC3_gs9Rzbl1)
+ * Enhanced with AI-powered folder structure analysis
  */
 export async function retrieveRelevantStandards(
   query: RetrievalQuery,
@@ -258,23 +415,49 @@ export async function retrieveRelevantStandards(
   try {
     // Get standards folder ID (default: 1lFqpslQZ0kGovGh6WiHhgC3_gs9Rzbl1)
     const standardsFolderId = getStandardsFolderId()
-    console.log(`[Standards Retrieval] Starting retrieval for report type: ${query.reportType}`)
+    console.log(`[Standards Retrieval] Starting AI-enhanced retrieval for report type: ${query.reportType}`)
     console.log(`[Standards Retrieval] Using Google Drive folder ID: ${standardsFolderId}`)
+    
+    // Initialize Anthropic client early for folder analysis
+    let anthropic: Anthropic
+    try {
+      anthropic = getAnthropicClient(anthropicApiKey)
+      console.log(`[Standards Retrieval] Anthropic API client initialized for folder analysis`)
+    } catch (error) {
+      console.error(`[Standards Retrieval] Error initializing Anthropic client:`, error)
+      return {
+        documents: [],
+        summary: 'Unable to initialize Anthropic API client. Report will be generated using general knowledge.'
+      }
+    }
     
     // Get all files from the standards folder
     let allFiles: DriveFile[] = []
+    let folderStructure: { files: DriveFile[], folders: any[] } = { files: [], folders: [] }
     
     try {
       // List files in the standards folder
       console.log(`[Standards Retrieval] Listing files in Google Drive folder...`)
       const folderItems = await listDriveItems(standardsFolderId)
       allFiles = folderItems.files
+      folderStructure = folderItems
       console.log(`[Standards Retrieval] Found ${allFiles.length} files in folder`)
       
-      // Also search for relevant files by keywords
+      // Use AI to analyze folder structure and identify relevant files
+      console.log(`[Standards Retrieval] Using AI to analyze folder structure and identify relevant standards...`)
+      const aiAnalysis = await analyzeFolderStructureWithAI(anthropic, folderStructure, query)
+      console.log(`[Standards Retrieval] AI Analysis Reasoning: ${aiAnalysis.reasoning}`)
+      console.log(`[Standards Retrieval] AI identified ${aiAnalysis.relevantFiles.length} relevant files`)
+      
+      // Add AI-identified files to our list (prioritize them)
+      const aiFileIds = new Set(aiAnalysis.relevantFiles.map(f => f.id))
+      const otherFiles = allFiles.filter(f => !aiFileIds.has(f.id))
+      allFiles = [...aiAnalysis.relevantFiles, ...otherFiles]
+      
+      // Also search for relevant files by keywords (as backup)
       const relevantStandards = determineRelevantStandards(query)
-      console.log(`[Standards Retrieval] Searching for relevant standards: ${relevantStandards.slice(0, 5).join(', ')}`)
-      for (const standard of relevantStandards.slice(0, 5)) {
+      console.log(`[Standards Retrieval] Searching for additional relevant standards: ${relevantStandards.slice(0, 5).join(', ')}`)
+      for (const standard of relevantStandards.slice(0, 3)) {
         try {
           const searchResults = await searchDriveFiles(standard, [
             'application/pdf',
@@ -282,7 +465,12 @@ export async function retrieveRelevantStandards(
             'text/plain'
           ])
           console.log(`[Standards Retrieval] Found ${searchResults.length} files matching "${standard}"`)
-          allFiles.push(...searchResults)
+          // Add files not already in our list
+          for (const file of searchResults) {
+            if (!allFiles.find(f => f.id === file.id)) {
+              allFiles.push(file)
+            }
+          }
         } catch (error: any) {
           console.error(`[Standards Retrieval] Error searching for "${standard}":`, error.message)
           // Continue with other searches
@@ -318,29 +506,17 @@ export async function retrieveRelevantStandards(
       }
     }
     
-    // Sort by score and take top 10 most relevant files
+    // Sort by score and take top 12 most relevant files (increased for better coverage)
     const topFiles = Array.from(uniqueFiles.values())
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
+      .slice(0, 12)
       .map(item => item.file)
     
     console.log(`[Standards Retrieval] Selected ${topFiles.length} most relevant files for processing`)
     topFiles.forEach((file, index) => {
-      console.log(`[Standards Retrieval] ${index + 1}. ${file.name} (score: ${Array.from(uniqueFiles.values()).find(f => f.file.id === file.id)?.score || 0})`)
+      const score = Array.from(uniqueFiles.values()).find(f => f.file.id === file.id)?.score || 0
+      console.log(`[Standards Retrieval] ${index + 1}. ${file.name} (relevance score: ${score})`)
     })
-    
-    // Initialize Anthropic client
-    let anthropic: Anthropic
-    try {
-      anthropic = getAnthropicClient(anthropicApiKey)
-      console.log(`[Standards Retrieval] Anthropic API client initialized`)
-    } catch (error) {
-      console.error(`[Standards Retrieval] Error initializing Anthropic client:`, error)
-      return {
-        documents: [],
-        summary: 'Unable to initialize Anthropic API client. Report will be generated using general knowledge.'
-      }
-    }
     
     // Extract text and relevant sections from top files
     // Process files sequentially to avoid overwhelming the API
@@ -406,9 +582,9 @@ export async function retrieveRelevantStandards(
         
         console.log(`[Standards Retrieval] Successfully processed ${file.name} (${standardType})`)
         
-        // Stop if we have enough documents (5-8 is usually sufficient)
-        if (documentsWithSections.length >= 8) {
-          console.log(`[Standards Retrieval] Reached maximum documents limit (8), stopping processing`)
+        // Stop if we have enough documents (10-12 for comprehensive coverage)
+        if (documentsWithSections.length >= 12) {
+          console.log(`[Standards Retrieval] Reached maximum documents limit (12), stopping processing`)
           break
         }
       } catch (error: any) {
@@ -443,34 +619,100 @@ export async function retrieveRelevantStandards(
 /**
  * Build context prompt for report generation
  * This formats the retrieved standards for inclusion in the generation prompt
+ * Enhanced with professional formatting and actionable guidance
  */
 export function buildStandardsContextPrompt(standardsContext: StandardsContext): string {
   if (standardsContext.documents.length === 0) {
     return ''
   }
   
-  let prompt = '\n\n## RELEVANT STANDARDS AND REGULATIONS (FROM GOOGLE DRIVE - IICRC STANDARDS FOLDER)\n\n'
-  prompt += standardsContext.summary + '\n\n'
-  
-  prompt += 'The following standards documents have been retrieved from the Google Drive folder "IICRC Standards" and are relevant to this report:\n\n'
-  
-  standardsContext.documents.forEach((doc, index) => {
-    prompt += `${index + 1}. **${doc.name}** (${doc.standardType})\n`
-    if (doc.relevantSections.length > 0) {
-      prompt += `   Relevant Sections:\n`
-      doc.relevantSections.forEach((section, sectionIndex) => {
-        prompt += `   ${sectionIndex + 1}. ${section}\n\n`
-      })
+  // Group documents by standard type for better organization
+  const documentsByType = new Map<string, typeof standardsContext.documents>()
+  standardsContext.documents.forEach(doc => {
+    const type = doc.standardType || 'General'
+    if (!documentsByType.has(type)) {
+      documentsByType.set(type, [])
     }
-    prompt += '\n'
+    documentsByType.get(type)!.push(doc)
   })
   
-  prompt += '\nCRITICAL INSTRUCTIONS:\n'
-  prompt += '- You MUST reference and cite specific sections from these standards documents\n'
-  prompt += '- Use the exact standard numbers, section references, and terminology from these documents\n'
-  prompt += '- Ensure all recommendations and procedures align with the requirements specified in these standards\n'
-  prompt += '- Quote specific requirements, procedures, and compliance criteria from the extracted sections\n'
-  prompt += '- Include standard references (e.g., "per IICRC S500 Section X", "as per AS-IICRC S500:2025") throughout the report\n\n'
+  let prompt = '\n\n═══════════════════════════════════════════════════════════════\n'
+  prompt += '📋 RELEVANT STANDARDS & REGULATIONS (GOOGLE DRIVE - IICRC STANDARDS)\n'
+  prompt += '═══════════════════════════════════════════════════════════════\n\n'
+  
+  prompt += `${standardsContext.summary}\n\n`
+  
+  prompt += 'The following standards documents have been intelligently selected from the Google Drive folder "IICRC Standards" based on AI-powered analysis of folder structure and report context:\n\n'
+  
+  // Organize by standard type
+  let docCounter = 1
+  for (const [standardType, docs] of documentsByType.entries()) {
+    prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
+    prompt += `📄 ${standardType} Standards (${docs.length} document${docs.length > 1 ? 's' : ''})\n`
+    prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+    
+    docs.forEach((doc) => {
+      prompt += `${docCounter}. **${doc.name}**\n`
+      prompt += `   └─ Standard Type: ${doc.standardType}\n`
+      prompt += `   └─ File ID: ${doc.fileId}\n\n`
+      
+      if (doc.relevantSections.length > 0) {
+        prompt += `   📌 CRITICAL SECTIONS EXTRACTED:\n\n`
+        doc.relevantSections.forEach((section, sectionIndex) => {
+          prompt += `   ${sectionIndex + 1}. ${section}\n\n`
+        })
+      }
+      docCounter++
+    })
+  }
+  
+  prompt += '\n═══════════════════════════════════════════════════════════════\n'
+  prompt += '⚠️  MANDATORY COMPLIANCE REQUIREMENTS\n'
+  prompt += '═══════════════════════════════════════════════════════════════\n\n'
+  
+  prompt += 'You MUST adhere to the following when generating this report:\n\n'
+  prompt += '1. **STANDARD CITATIONS**:\n'
+  prompt += '   - Reference EXACT section numbers from the extracted standards (e.g., "IICRC S500 Section 14.3.2", "AS-IICRC S500:2025 Section 12.4")\n'
+  prompt += '   - Include standard references in ALL procedural recommendations\n'
+  prompt += '   - Use the exact terminology and phrasing from the standards documents\n\n'
+  
+  prompt += '2. **PROCEDURAL COMPLIANCE**:\n'
+  prompt += '   - All remediation procedures MUST align with the requirements specified in the extracted sections\n'
+  prompt += '   - Follow the step-by-step protocols exactly as outlined in the standards\n'
+  prompt += '   - Include all mandatory steps, verification requirements, and documentation protocols\n\n'
+  
+  prompt += '3. **TECHNICAL SPECIFICATIONS**:\n'
+  prompt += '   - Use the exact measurements, tolerances, and specifications from the standards\n'
+  prompt += '   - Reference equipment requirements, material specifications, and performance criteria\n'
+  prompt += '   - Include all relevant Australian standards (AS/NZS) when applicable\n\n'
+  
+  prompt += '4. **SAFETY & COMPLIANCE**:\n'
+  prompt += '   - Include all OH&S requirements, PPE specifications, and safety protocols from the standards\n'
+  prompt += '   - Reference containment requirements, decontamination procedures, and verification protocols\n'
+  prompt += '   - Ensure all recommendations meet Australian Work Health and Safety (WHS) requirements\n\n'
+  
+  prompt += '5. **PROFESSIONAL FORMATTING**:\n'
+  prompt += '   - Structure the report to clearly show compliance with each referenced standard\n'
+  prompt += '   - Use professional terminology consistent with IICRC and Australian building codes\n'
+  prompt += '   - Include a "Standards Compliance" section that lists all referenced standards\n\n'
+  
+  prompt += '6. **VERIFICATION & DOCUMENTATION**:\n'
+  prompt += '   - Include all verification requirements and documentation protocols from the standards\n'
+  prompt += '   - Reference post-remediation verification procedures and acceptance criteria\n'
+  prompt += '   - Ensure all recommendations are verifiable and auditable\n\n'
+  
+  prompt += '═══════════════════════════════════════════════════════════════\n'
+  prompt += '💡 INTELLIGENT STANDARDS INTEGRATION\n'
+  prompt += '═══════════════════════════════════════════════════════════════\n\n'
+  
+  prompt += 'These standards were selected using AI-powered analysis that:\n'
+  prompt += '✓ Analyzed the Google Drive folder structure and organization\n'
+  prompt += '✓ Matched standards to the specific water category, class, and materials\n'
+  prompt += '✓ Extracted the most relevant sections for this specific report context\n'
+  prompt += '✓ Prioritized Australian standards (AS/NZS) and IICRC standards\n'
+  prompt += '✓ Considered technician field notes and report-specific requirements\n\n'
+  
+  prompt += 'Use these standards to generate a PROFESSIONAL, COMPLIANT, and TECHNICALLY ACCURATE forensic restoration report.\n\n'
   
   return prompt
 }

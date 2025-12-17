@@ -62,22 +62,34 @@ export async function generateForensicReportPDF(data: ReportData): Promise<Uint8
   // Extract data
   const { report, analysis, tier1, tier2, tier3, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, standardsContext, businessInfo } = data
   
-  // Extract key information
-  const jobRef = report.claimReferenceNumber || report.reportNumber || `#${report.id.slice(-6)}`
+  // Extract key information - NO STATIC FALLBACKS, use actual data only
+  const jobRef = report.claimReferenceNumber || report.reportNumber || (report.id ? `#${report.id.slice(-6)}` : '')
   const inspectionDate = report.technicianAttendanceDate 
     ? new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
-    : new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+    : (report.inspectionDate 
+        ? new Date(report.inspectionDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+        : '')
   
+  // Water category - extract from tier1 or use report data, NO static fallback
   const waterCategory = tier1?.T1_Q3_waterSource 
     ? extractWaterCategory(tier1.T1_Q3_waterSource)
-    : (report.waterCategory || 'Category 1')
+    : report.waterCategory || ''
   
-  const waterClass = report.waterClass || tier1?.T1_Q3_waterClass || 'Class 1'
+  // Water class - use actual data only
+  const waterClass = report.waterClass || tier1?.T1_Q3_waterClass || ''
+  
+  // Hazards - use actual data
   const hazards = tier1?.T1_Q7_hazards || []
-  const methScreen = report.methamphetamineScreen || (hazards.some((h: string) => h.toLowerCase().includes('meth')) ? 'POSITIVE' : 'NEGATIVE')
+  
+  // Meth screen - use actual data, check hazards only if report data exists
+  let methScreen = report.methamphetamineScreen || ''
+  if (!methScreen && hazards.length > 0) {
+    methScreen = hazards.some((h: string) => h.toLowerCase().includes('meth')) ? 'POSITIVE' : ''
+  }
+  
   const methTestCount = report.methamphetamineTestCount || null
-  const bioMouldDetected = report.biologicalMouldDetected || report.microbialGrowth ? true : false
-  const bioMouldCategory = report.biologicalMouldCategory || (waterCategory === 'Category 3' ? 'CAT 3' : null)
+  const bioMouldDetected = report.biologicalMouldDetected === true || (report.microbialGrowth && report.microbialGrowth !== '')
+  const bioMouldCategory = report.biologicalMouldCategory || ''
   
   // Build scope items from data
   const scopeItems = buildScopeItems(data, standardsContext || '')
@@ -187,10 +199,13 @@ export async function generateForensicReportPDF(data: ReportData): Promise<Uint8
   
   // Add headers and footers to all pages with proper dividers
   const pages = pdfDoc.getPages()
+  // Company name - use business profile data only, NO static fallback
   const companyName = (businessInfo?.businessName && businessInfo.businessName.trim()) 
     ? businessInfo.businessName.trim() 
-    : 'Disaster Recovery QLD'
-  const reportTitle = `${companyName} Forensic Restoration & Hygiene Report`
+    : ''
+  const reportTitle = companyName 
+    ? `${companyName} Forensic Restoration & Hygiene Report`
+    : 'Forensic Restoration & Hygiene Report'
   
   pages.forEach((page, index) => {
     const isFirstPage = index === 0
@@ -1511,31 +1526,43 @@ function addHeaderFooter(
   
   // Only show full header on first page - Professional clean header
   if (isFirstPage) {
+    // Use business name from profile only - NO static fallback
     const companyName = (businessInfo?.businessName && businessInfo.businessName.trim()) 
       ? businessInfo.businessName.trim() 
-      : 'Disaster Recovery QLD'
+      : ''
     
     // Header starts at top
     const headerTopY = height - 30
     const leftX = 50
     const rightX = width - 200
     
-    // Left side: Company name and subtitle
-    page.drawText(sanitizeTextForPDF(companyName), {
-      x: leftX,
-      y: headerTopY,
-      size: 16,
-      font: helveticaBold,
-      color: colors.darkBlue
-    })
-    
-    page.drawText('Forensic Restoration & Hygiene Consultants', {
-      x: leftX,
-      y: headerTopY - 18,
-      size: 10,
-      font: helvetica,
-      color: colors.darkGray
-    })
+    // Left side: Company name and subtitle - only show if company name exists
+    if (companyName) {
+      page.drawText(sanitizeTextForPDF(companyName), {
+        x: leftX,
+        y: headerTopY,
+        size: 16,
+        font: helveticaBold,
+        color: colors.darkBlue
+      })
+      
+      page.drawText('Forensic Restoration & Hygiene Consultants', {
+        x: leftX,
+        y: headerTopY - 18,
+        size: 10,
+        font: helvetica,
+        color: colors.darkGray
+      })
+    } else {
+      // If no company name, just show subtitle
+      page.drawText('Forensic Restoration & Hygiene Consultants', {
+        x: leftX,
+        y: headerTopY,
+        size: 14,
+        font: helveticaBold,
+        color: colors.darkBlue
+      })
+    }
     
     // Right side: Job Details and Date
     if (jobRef) {
@@ -1647,11 +1674,13 @@ function addHeaderFooter(
     color: colors.darkBlue
   })
   
-  // Footer Text
+  // Footer Text - use actual company name or omit if not available
   const companyName = (businessInfo?.businessName && businessInfo.businessName.trim()) 
     ? businessInfo.businessName.trim() 
-    : 'Disaster Recovery QLD'
-  const footerText = `Page ${pageNumber} of ${totalPages} | ${companyName} | Professional Report Series`
+    : ''
+  const footerText = companyName
+    ? `Page ${pageNumber} of ${totalPages} | ${companyName} | Professional Report Series`
+    : `Page ${pageNumber} of ${totalPages} | Professional Report Series`
   page.drawText(sanitizeTextForPDF(footerText), {
     x: 50,
     y: 30,
@@ -1957,40 +1986,80 @@ function buildTimelineData(data: ReportData, phase1Start?: Date | null, phase1En
     if (p3End > latestDate) latestDate = p3End
   }
   
-  // If no phase dates, estimate from report data
+  // If no phase dates, estimate from report data - use actual data only, NO static fallback
   if (phases.length === 0) {
-    const estimatedDays = report.estimatedDryingTime || report.estimatedDryingDuration || 14
-    const p1Duration = Math.ceil(estimatedDays * 0.2) // 20% for make-safe
-    const p2Duration = Math.ceil(estimatedDays * 0.6) // 60% for remediation
-    const p3Duration = Math.ceil(estimatedDays * 0.2) // 20% for verification
+    // Use actual estimated drying time from report, or calculate from affected area/scope
+    let estimatedDays = report.estimatedDryingTime || report.estimatedDryingDuration || null
     
-    phases.push({
-      name: 'Phase 1: Make-safe',
-      startDate: startDate,
-      endDate: new Date(startDate.getTime() + p1Duration * 24 * 60 * 60 * 1000),
-      duration: p1Duration,
-      color: rgb(0.1, 0.6, 0.3)
-    })
+    // If no estimated time, calculate from affected area or scope areas
+    if (!estimatedDays) {
+      const affectedArea = report.affectedArea || 0
+      const scopeAreas = data.scopeAreas || []
+      
+      if (scopeAreas.length > 0) {
+        // Calculate from scope areas volume
+        const totalVolume = scopeAreas.reduce((sum: number, area: any) => {
+          return sum + (area.volume || 0)
+        }, 0)
+        // Rough estimate: 1 day per 50 cubic metres
+        estimatedDays = Math.max(3, Math.ceil(totalVolume / 50))
+      } else if (affectedArea > 0) {
+        // Rough estimate: 1 day per 10 square metres
+        estimatedDays = Math.max(3, Math.ceil(affectedArea / 10))
+      }
+      // If still no estimate, use technician attendance date to calculate from incident date
+      if (!estimatedDays && report.incidentDate && report.technicianAttendanceDate) {
+        const incident = new Date(report.incidentDate)
+        const attendance = new Date(report.technicianAttendanceDate)
+        const daysSince = Math.ceil((attendance.getTime() - incident.getTime()) / (1000 * 60 * 60 * 24))
+        // Estimate based on time since incident
+        estimatedDays = Math.max(7, daysSince * 2)
+      }
+    }
     
-    const p2Start = new Date(startDate.getTime() + p1Duration * 24 * 60 * 60 * 1000)
-    phases.push({
-      name: 'Phase 2: Remediation/Drying',
-      startDate: p2Start,
-      endDate: new Date(p2Start.getTime() + p2Duration * 24 * 60 * 60 * 1000),
-      duration: p2Duration,
-      color: rgb(1, 0.65, 0)
-    })
-    
-    const p3Start = new Date(p2Start.getTime() + p2Duration * 24 * 60 * 60 * 1000)
-    phases.push({
-      name: 'Phase 3: Verification/Handover',
-      startDate: p3Start,
-      endDate: new Date(p3Start.getTime() + p3Duration * 24 * 60 * 60 * 1000),
-      duration: p3Duration,
-      color: rgb(0.1, 0.6, 0.3)
-    })
-    
-    latestDate = new Date(p3Start.getTime() + p3Duration * 24 * 60 * 60 * 1000)
+    // Only create phases if we have an estimate from actual data
+    if (estimatedDays) {
+      const p1Duration = Math.ceil(estimatedDays * 0.2) // 20% for make-safe
+      const p2Duration = Math.ceil(estimatedDays * 0.6) // 60% for remediation
+      const p3Duration = Math.ceil(estimatedDays * 0.2) // 20% for verification
+      
+      phases.push({
+        name: 'Phase 1: Make-safe',
+        startDate: startDate,
+        endDate: new Date(startDate.getTime() + p1Duration * 24 * 60 * 60 * 1000),
+        duration: p1Duration,
+        color: rgb(0.1, 0.6, 0.3)
+      })
+      
+      const p2Start = new Date(startDate.getTime() + p1Duration * 24 * 60 * 60 * 1000)
+      phases.push({
+        name: 'Phase 2: Remediation/Drying',
+        startDate: p2Start,
+        endDate: new Date(p2Start.getTime() + p2Duration * 24 * 60 * 60 * 1000),
+        duration: p2Duration,
+        color: rgb(1, 0.65, 0)
+      })
+      
+      const p3Start = new Date(p2Start.getTime() + p2Duration * 24 * 60 * 60 * 1000)
+      phases.push({
+        name: 'Phase 3: Verification/Handover',
+        startDate: p3Start,
+        endDate: new Date(p3Start.getTime() + p3Duration * 24 * 60 * 60 * 1000),
+        duration: p3Duration,
+        color: rgb(0.1, 0.6, 0.3)
+      })
+      
+      latestDate = new Date(p3Start.getTime() + p3Duration * 24 * 60 * 60 * 1000)
+    } else {
+      // No data available - return empty timeline
+      return { 
+        phases: [], 
+        totalDays: 0, 
+        startDate: startDate,
+        endDate: startDate,
+        actualPhases: []
+      }
+    }
   }
   
   // Calculate total timeline in days
