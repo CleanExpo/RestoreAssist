@@ -35,22 +35,21 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#1C2E47] text-white">
       {/* Header - Hamburger menu always visible, even on desktop */}
-      <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/95 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
           {/* Logo - Left Side */}
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
               {/* White circular logo */}
-              <div className="w-16 h-16 flex items-center justify-center relative overflow-hidden">
+              <div className=" flex items-center justify-center relative overflow-hidden">
                 <Image 
                   src="/logo.png" 
                   alt="Restore Assist Logo" 
-                  width={64} 
-                  height={64} 
-                  className="object-contain p-1"
+                  width={100} 
+                  height={100} 
+                  className="object-contain p-1 md:p-2"
                 />
               </div>
-          
             </Link>
           </div>
 
@@ -67,8 +66,6 @@ export default function Home() {
             )}
           </button>
         </div>
-
-        {/* Overlay and Sidebar Menu - Outside header for proper z-index */}
       </header>
 
       {/* Overlay when menu is open - Behind menu */}
@@ -168,12 +165,30 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-start overflow-hidden pt-20">
-        {/* Background - Dark theme */}
-        <div className="absolute inset-0 bg-[#1C2E47]"></div>
+      <section className="relative min-h-screen flex items-center justify-start overflow-hidden pt-20 bg-[#C4C8CA]/30">
+        {/* Golden Gradient Background Behind Section */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-full">
+            <div className="w-full h-full bg-gradient-to-r from-[#8A6B4E]/25 via-[#D4A574]/15 to-transparent blur-3xl"></div>
+          </div>
+        </div>
+        
+        {/* Golden Decorative Shapes */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/22 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
+          <svg className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20" viewBox="0 0 200 200">
+            <polygon points="100,20 180,60 160,140 40,140 20,60" fill="#8A6B4E"/>
+            <polygon points="100,50 150,75 135,125 65,125 50,75" fill="#8A6B4E" opacity="0.5"/>
+          </svg>
+          <svg className="absolute bottom-1/3 left-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
+            <rect x="50" y="50" width="100" height="100" rx="20" fill="none" stroke="#8A6B4E" strokeWidth="3"/>
+            <rect x="70" y="70" width="60" height="60" rx="10" fill="#8A6B4E" opacity="0.3"/>
+          </svg>
+        </div>
         
         {/* Large faded orange/brown star graphic - Bottom Right, Cut Off */}
-        <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] md:w-[700px] md:h-[700px] lg:w-[800px] lg:h-[800px] opacity-15 pointer-events-none">
+        <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] md:w-[700px] md:h-[700px] lg:w-[800px] lg:h-[800px] opacity-15 pointer-events-none z-0">
           <svg viewBox="0 0 200 200" className="w-full h-full">
             <path 
               d="M100 20 L120 80 L180 80 L135 115 L155 175 L100 140 L45 175 L65 115 L20 80 L80 80 Z" 
@@ -181,11 +196,6 @@ export default function Home() {
               className="opacity-40"
             />
           </svg>
-        </div>
-
-        {/* Golden Gradient Background Behind Text */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[600px] h-[400px] md:w-[800px] md:h-[500px] lg:w-[1000px] lg:h-[600px] opacity-20 pointer-events-none z-0">
-          <div className="w-full h-full bg-gradient-to-r from-[#8A6B4E]/30 via-[#D4A574]/20 to-transparent blur-3xl"></div>
         </div>
 
         {/* Content - Left Aligned */}
@@ -216,6 +226,13 @@ export default function Home() {
 
       {/* Section - Inspection. Scoping. Estimating. Connected. */}
       <section className={`py-20 px-6 relative transition-colors duration-300 bg-[#C4C8CA]/30 overflow-hidden`}>
+        {/* Golden Gradient Background Behind Section */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-full">
+            <div className="w-full h-full bg-gradient-to-r from-[#8A6B4E]/25 via-[#D4A574]/15 to-transparent blur-3xl"></div>
+          </div>
+        </div>
+        
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/22 rounded-full blur-3xl"></div>
