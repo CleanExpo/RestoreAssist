@@ -70,8 +70,8 @@ export default function SignupPage() {
 
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
-          // Redirect to dashboard with upgrade flag for new users
-          router.push("/dashboard?upgrade=true")
+          // Redirect to onboarding flow for new users
+          router.push("/dashboard/settings?onboarding=true")
         } else {
           toast.error("Please sign in manually")
           setTimeout(() => {

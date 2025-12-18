@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { X, CheckCircle, Circle, ArrowRight, Crown, Key, Settings, AlertCircle } from "lucide-react"
+import { X, CheckCircle, Circle, ArrowRight, Crown, Key, Settings, AlertCircle, User, FileText } from "lucide-react"
 
 interface OnboardingStatus {
   isComplete: boolean
   incompleteSteps: string[]
+  nextStep: string | null
   steps: {
-    upgrade: { completed: boolean; required: boolean }
-    api_key: { completed: boolean; required: boolean }
-    pricing_config: { completed: boolean; required: boolean }
+    business_profile: { completed: boolean; required: boolean; title: string; description: string; route: string }
+    integrations: { completed: boolean; required: boolean; title: string; description: string; route: string }
+    pricing_config: { completed: boolean; required: boolean; title: string; description: string; route: string }
+    first_report: { completed: boolean; required: boolean; title: string; description: string; route: string }
   }
 }
 
@@ -52,47 +54,50 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   }
 
   const handleStepAction = (step: string) => {
-    switch (step) {
-      case 'upgrade':
-        router.push('/dashboard/pricing')
+    if (status?.steps[step as keyof typeof status.steps]) {
+      const stepInfo = status.steps[step as keyof typeof status.steps]
+      router.push(stepInfo.route)
         onClose()
-        break
-      case 'api_key':
-        router.push('/dashboard/integrations')
-        onClose()
-        break
-      case 'pricing_config':
-        router.push('/dashboard/pricing-config')
-        onClose()
-        break
     }
   }
 
   const getStepInfo = (step: string) => {
+    if (!status?.steps[step as keyof typeof status.steps]) return null
+    
+    const stepData = status.steps[step as keyof typeof status.steps]
+    
     switch (step) {
-      case 'upgrade':
+      case 'business_profile':
         return {
-          title: 'Upgrade Your Package',
-          description: 'Upgrade to a paid plan to unlock all features including unlimited reports, API integrations, and priority support.',
-          icon: Crown,
-          action: 'Upgrade Now',
-          route: '/dashboard/pricing'
+          title: stepData.title,
+          description: stepData.description,
+          icon: Settings,
+          action: 'Setup Business Details',
+          route: stepData.route
         }
-      case 'api_key':
+      case 'integrations':
         return {
-          title: 'Configure API Key',
-          description: 'Set up your AI API key (Anthropic, OpenAI, or Gemini) to enable advanced report generation features.',
+          title: stepData.title,
+          description: stepData.description,
           icon: Key,
-          action: 'Set API Key',
-          route: '/dashboard/integrations'
+          action: 'Configure Integration',
+          route: stepData.route
         }
       case 'pricing_config':
         return {
-          title: 'Configure Pricing',
-          description: 'Set up your company pricing configuration for labor rates, equipment costs, and service fees.',
+          title: stepData.title,
+          description: stepData.description,
           icon: Settings,
           action: 'Configure Pricing',
-          route: '/dashboard/pricing-config'
+          route: stepData.route
+        }
+      case 'first_report':
+        return {
+          title: stepData.title,
+          description: stepData.description,
+          icon: ArrowRight,
+          action: 'Create Report',
+          route: stepData.route
         }
       default:
         return null
@@ -115,12 +120,18 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
               <p className="text-sm text-slate-400">Finish these steps to start creating reports</p>
             </div>
           </div>
+          {status?.isComplete ? (
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-slate-400" />
           </button>
+          ) : (
+            <div className="text-xs text-slate-500 px-2">
+              Complete all steps
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -132,8 +143,8 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           ) : status && !status.isComplete ? (
             <div className="space-y-4">
               <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <p className="text-sm text-amber-400">
-                  Please complete the following steps to create reports. You can skip steps and complete them later, but some features may be limited.
+                <p className="text-sm text-amber-400 font-medium">
+                  ⚠️ You must complete all required steps before creating reports. Please complete the following steps to continue.
                 </p>
               </div>
 
@@ -197,14 +208,11 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 )
               })}
 
-              {/* Skip Option */}
+              {/* Note: Cannot skip required steps */}
               <div className="mt-6 pt-6 border-t border-slate-700">
-                <button
-                  onClick={onClose}
-                  className="w-full px-4 py-2 text-slate-400 hover:text-slate-300 text-sm transition-colors"
-                >
-                  I'll complete this later
-                </button>
+                <p className="text-xs text-slate-500 text-center">
+                  All steps must be completed before creating reports
+                </p>
               </div>
             </div>
           ) : status?.isComplete ? (

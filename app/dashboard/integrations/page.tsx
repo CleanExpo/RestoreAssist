@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, Settings, XIcon, Plus, Trash2, Crown } from "lucide-react"
+import { Check, X, Settings, XIcon, Plus, Trash2, Crown, CheckCircle, ArrowRight } from "lucide-react"
 import toast from "react-hot-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import OnboardingGuide from "@/components/OnboardingGuide"
 
 interface Integration {
   id: string
@@ -24,6 +25,8 @@ interface SubscriptionStatus {
 
 export default function IntegrationsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isOnboarding = searchParams.get('onboarding') === 'true'
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [showApiModal, setShowApiModal] = useState(false)
@@ -134,6 +137,35 @@ export default function IntegrationsPage() {
         setShowApiModal(false)
         toast.success("Integration updated successfully")
         
+        // If in onboarding flow, check status and redirect to next step
+        if (isOnboarding) {
+          // Wait a moment for the API to update
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          const onboardingResponse = await fetch('/api/onboarding/status')
+          if (onboardingResponse.ok) {
+            const onboardingData = await onboardingResponse.json()
+            console.log('Onboarding status after save:', onboardingData)
+            if (onboardingData.nextStep) {
+              const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
+              if (nextStepRoute) {
+                toast.success('Step 2 complete! Redirecting to next step...', { duration: 2000 })
+                setTimeout(() => {
+                  router.push(`${nextStepRoute}?onboarding=true`)
+                }, 2000)
+                return
+              }
+            } else {
+              // All steps complete
+              toast.success('Onboarding complete! Redirecting to reports...', { duration: 2000 })
+              setTimeout(() => {
+                router.push('/dashboard/reports/new')
+              }, 2000)
+              return
+            }
+          }
+        }
+        
         // Check if pricing config exists, if not redirect to pricing config
         // Note: Once API key is set, pricing will be locked, so redirect now if not configured
         const pricingResponse = await fetch('/api/pricing-config')
@@ -218,6 +250,35 @@ export default function IntegrationsPage() {
         setShowAddModal(false)
         toast.success("Integration added successfully")
         
+        // If in onboarding flow, check status and redirect to next step
+        if (isOnboarding) {
+          // Wait a moment for the API to update
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          const onboardingResponse = await fetch('/api/onboarding/status')
+          if (onboardingResponse.ok) {
+            const onboardingData = await onboardingResponse.json()
+            console.log('Onboarding status after add:', onboardingData)
+            if (onboardingData.nextStep) {
+              const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
+              if (nextStepRoute) {
+                toast.success('Step 2 complete! Redirecting to next step...', { duration: 2000 })
+                setTimeout(() => {
+                  router.push(`${nextStepRoute}?onboarding=true`)
+                }, 2000)
+                return
+              }
+            } else {
+              // All steps complete
+              toast.success('Onboarding complete! Redirecting to reports...', { duration: 2000 })
+              setTimeout(() => {
+                router.push('/dashboard/reports/new')
+              }, 2000)
+              return
+            }
+          }
+        }
+        
         // Check if pricing config exists, if not redirect to pricing config
         // Note: Once API key is set, pricing will be locked, so redirect now if not configured
         const pricingResponse = await fetch('/api/pricing-config')
@@ -260,8 +321,17 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <>
+      {/* Onboarding Guide - Contextual Sidebar */}
+      <OnboardingGuide
+        step={2}
+        totalSteps={4}
+        title="AI Integration Setup"
+        description="Connect your AI API key to enable intelligent report generation. Choose from Anthropic Claude, OpenAI GPT, or Google Gemini."
+        value="AI-powered reports provide detailed analysis, compliance checks, and professional recommendations automatically."
+      >
+        <div className="space-y-6">
+        {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Integrations</h1>
@@ -522,6 +592,8 @@ export default function IntegrationsPage() {
           </div>
         </div>
       )}
-    </div>
+        </div>
+      </OnboardingGuide>
+    </>
   )
 }

@@ -1,9 +1,12 @@
 "use client"
 
-import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2 } from "lucide-react"
+import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2, CheckCircle, ArrowRight } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import toast from "react-hot-toast"
+import OnboardingGuide from "@/components/OnboardingGuide"
+import WelcomeScreen from "@/components/WelcomeScreen"
 
 interface UserProfile {
   id: string
@@ -29,6 +32,9 @@ interface UserProfile {
 
 export default function SettingsPage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const isOnboarding = searchParams.get('onboarding') === 'true'
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -45,14 +51,20 @@ export default function SettingsPage() {
   })
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       fetchProfile()
+      // Show welcome screen on first visit
+      if (isOnboarding && !localStorage.getItem('onboarding_welcome_shown')) {
+        setShowWelcome(true)
+        localStorage.setItem('onboarding_welcome_shown', 'true')
+      }
     } else if (status === 'unauthenticated') {
       setLoading(false)
     }
-  }, [status, session])
+  }, [status, session, isOnboarding])
 
   const fetchProfile = async (isRefresh = false) => {
     if (isRefresh) {
@@ -148,6 +160,34 @@ export default function SettingsPage() {
         toast.success('Business information saved successfully')
         setEditing(false)
         await fetchProfile()
+        
+        // If in onboarding flow, check status and redirect to next step
+        if (isOnboarding) {
+          // Wait a moment for the API to update
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          const onboardingResponse = await fetch('/api/onboarding/status')
+          if (onboardingResponse.ok) {
+            const onboardingData = await onboardingResponse.json()
+            if (onboardingData.nextStep) {
+              const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
+              if (nextStepRoute) {
+                toast.success('Step 1 complete! Redirecting to next step...', { duration: 2000 })
+                setTimeout(() => {
+                  router.push(`${nextStepRoute}?onboarding=true`)
+                }, 2000)
+                return
+              }
+            } else {
+              // All steps complete
+              toast.success('Onboarding complete! Redirecting to reports...', { duration: 2000 })
+              setTimeout(() => {
+                router.push('/dashboard/reports/new')
+              }, 2000)
+              return
+            }
+          }
+        }
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to save business information')
@@ -272,13 +312,27 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-      <div>
-          <h1 className="text-3xl font-semibold mb-2">Settings & Profile</h1>
-          <p className="text-slate-400">Manage your account settings and subscription</p>
-      </div>
+    <>
+      {/* Welcome Screen */}
+      {showWelcome && (
+        <WelcomeScreen onContinue={() => setShowWelcome(false)} />
+      )}
+
+      {/* Onboarding Guide - Contextual Sidebar */}
+      <OnboardingGuide
+        step={1}
+        totalSteps={4}
+        title="Business Profile Setup"
+        description="Add your business information, logo, and contact details. This will appear on all your professional reports."
+        value="Your business details will be automatically included in every report you generate, saving you time and ensuring consistency."
+      >
+        <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+        <div>
+            <h1 className="text-3xl font-semibold mb-2">Settings & Profile</h1>
+            <p className="text-slate-400">Manage your account settings and subscription</p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => fetchProfile(true)}
@@ -637,6 +691,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-    </div>
+        </div>
+      </OnboardingGuide>
+    </>
   )
 }

@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react"
+import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
+
+interface PricingConfigurationProps {
+  isOnboarding?: boolean
+}
 
 interface PricingConfig {
   id?: string
@@ -45,7 +50,8 @@ interface CustomFields {
   fees?: CustomField[]
 }
 
-export default function PricingConfiguration() {
+export default function PricingConfiguration({ isOnboarding = false }: PricingConfigurationProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [config, setConfig] = useState<PricingConfig | null>(null)
@@ -160,6 +166,34 @@ export default function PricingConfiguration() {
           })
         }
         toast.success('Pricing configuration saved successfully')
+        
+        // If in onboarding flow, check status and redirect to next step
+        if (isOnboarding) {
+          // Wait a moment for the API to update
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          const onboardingResponse = await fetch('/api/onboarding/status')
+          if (onboardingResponse.ok) {
+            const onboardingData = await onboardingResponse.json()
+            if (onboardingData.nextStep) {
+              const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
+              if (nextStepRoute) {
+                toast.success('Step 3 complete! Redirecting to create your first report...', { duration: 2000 })
+                setTimeout(() => {
+                  router.push(`${nextStepRoute}?onboarding=true`)
+                }, 2000)
+                return
+              }
+            } else {
+              // All steps complete
+              toast.success('Onboarding complete! Redirecting to reports...', { duration: 2000 })
+              setTimeout(() => {
+                router.push('/dashboard/reports/new')
+              }, 2000)
+              return
+            }
+          }
+        }
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to save pricing configuration')

@@ -18,6 +18,7 @@ export default function NewReportPage() {
   const [loadingReport, setLoadingReport] = useState(false)
   const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false)
+  const [onboardingComplete, setOnboardingComplete] = useState(false)
 
   // Check onboarding status on mount (only for new reports)
   useEffect(() => {
@@ -56,8 +57,12 @@ export default function NewReportPage() {
       const response = await fetch('/api/onboarding/status')
       if (response.ok) {
         const data = await response.json()
-        if (!data.isComplete && !hasCheckedOnboarding) {
+        setOnboardingComplete(data.isComplete)
+        if (!data.isComplete) {
           setShowOnboardingModal(true)
+          if (!hasCheckedOnboarding) {
+            toast.error('Please complete onboarding before creating reports')
+          }
         }
         setHasCheckedOnboarding(true)
       }
@@ -175,9 +180,13 @@ export default function NewReportPage() {
   }
 
   const handleOnboardingClose = () => {
-    setShowOnboardingModal(false)
-    // Re-check onboarding status when modal closes (user might have completed steps)
-    checkOnboardingStatus()
+    // Re-check onboarding status - don't allow closing if still incomplete
+    checkOnboardingStatus().then(() => {
+      // Only close if onboarding is now complete
+      if (onboardingComplete) {
+        setShowOnboardingModal(false)
+      }
+    })
   }
 
   return (
@@ -304,22 +313,42 @@ export default function NewReportPage() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
           </div>
+        ) : !onboardingComplete && hasCheckedOnboarding ? (
+          <div className="flex flex-col items-center justify-center py-20 px-6">
+            <div className="max-w-md text-center">
+              <div className="inline-flex p-4 bg-amber-500/10 rounded-full mb-4">
+                <FileText className="w-12 h-12 text-amber-400" />
+              </div>
+              <h3 className="text-2xl font-semibold text-white mb-2">Complete Onboarding First</h3>
+              <p className="text-slate-400 mb-6">
+                Please complete all required onboarding steps before creating a new report. This ensures your reports are generated with the correct business information and settings.
+              </p>
+              <button
+                onClick={() => setShowOnboardingModal(true)}
+                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Complete Onboarding
+              </button>
+            </div>
+          </div>
         ) : (
-        <ReportWorkflow 
+          <ReportWorkflow 
             reportId={reportId || undefined}
-          onComplete={handleComplete}
-          initialFormData={uploadedData || undefined}
-        />
+            onComplete={handleComplete}
+            initialFormData={uploadedData || undefined}
+          />
         )}
       </div>
 
-      {/* Onboarding Modal */}
+      {/* Onboarding Modal - Blocks report creation until complete */}
       <OnboardingModal
         isOpen={showOnboardingModal}
         onClose={handleOnboardingClose}
         onComplete={() => {
           setShowOnboardingModal(false)
-          toast.success('Setup complete! You can now create reports.')
+          setOnboardingComplete(true)
+          setHasCheckedOnboarding(true)
+          toast.success('Onboarding complete! You can now create reports.')
         }}
       />
     </div>

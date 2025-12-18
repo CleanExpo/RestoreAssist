@@ -656,12 +656,12 @@ export function buildStandardsContextPrompt(standardsContext: StandardsContext):
       prompt += `   └─ Standard Type: ${doc.standardType}\n`
       prompt += `   └─ File ID: ${doc.fileId}\n\n`
       
-      if (doc.relevantSections.length > 0) {
+    if (doc.relevantSections.length > 0) {
         prompt += `   📌 CRITICAL SECTIONS EXTRACTED:\n\n`
-        doc.relevantSections.forEach((section, sectionIndex) => {
-          prompt += `   ${sectionIndex + 1}. ${section}\n\n`
-        })
-      }
+      doc.relevantSections.forEach((section, sectionIndex) => {
+        prompt += `   ${sectionIndex + 1}. ${section}\n\n`
+      })
+    }
       docCounter++
     })
   }
