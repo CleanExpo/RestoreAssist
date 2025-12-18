@@ -330,8 +330,8 @@ export default function IntegrationsPage() {
         description="Connect your AI API key to enable intelligent report generation. Choose from Anthropic Claude, OpenAI GPT, or Google Gemini."
         value="AI-powered reports provide detailed analysis, compliance checks, and professional recommendations automatically."
       >
-        <div className="space-y-6">
-        {/* Header */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Integrations</h1>
@@ -592,7 +592,7 @@ export default function IntegrationsPage() {
           </div>
         </div>
       )}
-        </div>
+    </div>
       </OnboardingGuide>
     </>
   )

@@ -162,7 +162,10 @@ export async function PUT(
         costEstimationDocument: body.costEstimationDocument !== undefined ? body.costEstimationDocument : existingReport.costEstimationDocument,
         
         // Detailed Report (inspection report)
-        detailedReport: body.detailedReport !== undefined ? body.detailedReport : existingReport.detailedReport
+        detailedReport: body.detailedReport !== undefined ? body.detailedReport : existingReport.detailedReport,
+        
+        // Report Depth Level
+        reportDepthLevel: body.reportDepthLevel !== undefined ? body.reportDepthLevel : existingReport.reportDepthLevel
       },
       include: {
         user: {

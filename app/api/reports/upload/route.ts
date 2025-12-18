@@ -72,22 +72,55 @@ Extract the following fields if available in the document:
 
 **Water Damage Details:**
 - waterCategory: "Category 1", "Category 2", or "Category 3"
-- waterClass: "Class 1", "Class 2", "Class 3", or "Class 4"
+- waterClass: "Class 1", "Class 2", "Class 3", or "Class 4" (integer: 1, 2, 3, or 4)
 - sourceOfWater: Source of water (e.g., "Burst pipe", "Storm damage", "Appliance failure")
 - affectedArea: Affected area in square metres (float)
+
+**Equipment & Tools Selection - Psychrometric Assessment:**
+Look for psychrometric readings, environmental conditions, or drying assessment data:
+- psychrometricWaterClass: Water loss class (integer: 1, 2, 3, or 4). Extract from mentions like "Class 1", "Class 2", "Class 3", "Class 4", or "Water Class 2". If not mentioned, use the waterClass value from Water Damage Details.
+- psychrometricTemperature: Temperature in Celsius (integer). Look for phrases like "temperature", "ambient temp", "room temp", "25°C", "25 degrees". Extract the numeric value.
+- psychrometricHumidity: Humidity percentage (integer, 0-100). Look for "humidity", "RH", "relative humidity", "60% RH", "60% humidity". Extract the numeric percentage value.
+- psychrometricSystemType: "open" or "closed" (ventilation system type). Look for "open system", "closed system", "ventilated", "sealed". Default to "closed" if not mentioned.
+
+**Equipment & Tools Selection - Scope Areas (Room Management):**
+CRITICAL: Extract ALL rooms/areas mentioned in the document with their dimensions. Look for:
+- Room names: Kitchen, Bedroom, Lounge, Dining Room, Bathroom, Hallway, etc.
+- Dimensions: Look for measurements like "4.5m x 3.5m", "length 5m width 3.6m", "4.5 × 3.5", room dimensions, floor area measurements
+- Height: Usually 2.7m for standard rooms, but extract if mentioned (look for "ceiling height", "room height")
+- Wet percentage: Look for "85% wet", "90% affected", "partially wet", "fully saturated", "40% of floor area"
+
+For each room/area found, create an object with:
+  - name: Room/area name (e.g., "Kitchen", "Master Bedroom", "Lounge Room")
+  - length: Length in metres (float, extract from dimensions)
+  - width: Width in metres (float, extract from dimensions)
+  - height: Height in metres (float, default to 2.7 if not mentioned)
+  - wetPercentage: Percentage of area that is wet (integer, 0-100. If not specified, estimate based on descriptions like "fully affected" = 100%, "partially" = 50%, "minor" = 25%)
+
+Example format: [{"name": "Kitchen", "length": 4.5, "width": 3.5, "height": 2.7, "wetPercentage": 85}, {"name": "Dining Room", "length": 5.0, "width": 3.6, "height": 2.7, "wetPercentage": 90}]
+
+**Equipment & Tools Selection - Equipment:**
+- equipmentMentioned: Array of equipment types mentioned in document. Look for: "LGR dehumidifier", "desiccant", "air mover", "air mover fan", "dehumidifier", "drying equipment", "extraction equipment". Extract all equipment mentions.
+- estimatedDryingDuration: Estimated drying duration in days (integer). Look for "4 days", "drying period", "estimated duration", "drying time". Extract the number of days.
 
 **Additional Information:**
 - fullText: All text content from the PDF document
 
-**Important:**
+**CRITICAL EXTRACTION REQUIREMENTS:**
 - Extract dates in YYYY-MM-DD format
 - Use null for missing optional fields, empty string "" for missing required text fields
 - For boolean fields, use true/false or null
 - For numeric fields, extract the number or use null
-- Analyze the document thoroughly - look for dates, measurements, test results, and phase information
+- Analyze the document THOROUGHLY - examine every section, table, and paragraph
+- Look for dates, measurements, test results, phase information, room dimensions, equipment mentions
 - If dates are mentioned in text format, convert to YYYY-MM-DD
+- For scope areas: Extract EVERY room/area mentioned, even if dimensions are approximate. Don't miss any affected areas.
+- For psychrometric data: Look in tables, assessment sections, environmental readings, and technical data sections
+- For equipment: Extract ALL equipment mentions, even if just mentioned in passing
+- DO NOT skip any valuable information - if you see it in the document, extract it
+- If measurements are in different units, convert to metres (e.g., feet to metres: multiply by 0.3048)
 
-Return ONLY a valid JSON object with all extracted fields.`
+**Return ONLY a valid JSON object with ALL extracted fields. Ensure no valuable records are missed.**`
 
     try {
       const response = await anthropic.messages.create({
@@ -179,7 +212,20 @@ Return ONLY a valid JSON object with all extracted fields.`
         phase2StartDate: parsedData.phase2StartDate || '',
         phase2EndDate: parsedData.phase2EndDate || '',
         phase3StartDate: parsedData.phase3StartDate || '',
-        phase3EndDate: parsedData.phase3EndDate || ''
+        phase3EndDate: parsedData.phase3EndDate || '',
+        
+        // Equipment & Tools Selection - Psychrometric Assessment
+        psychrometricWaterClass: parsedData.psychrometricWaterClass || parsedData.waterClass || 2,
+        psychrometricTemperature: parsedData.psychrometricTemperature || null,
+        psychrometricHumidity: parsedData.psychrometricHumidity || null,
+        psychrometricSystemType: parsedData.psychrometricSystemType || 'closed',
+        
+        // Equipment & Tools Selection - Scope Areas
+        scopeAreas: parsedData.scopeAreas || [],
+        
+        // Equipment & Tools Selection - Equipment
+        equipmentMentioned: parsedData.equipmentMentioned || [],
+        estimatedDryingDuration: parsedData.estimatedDryingDuration || null
       }
 
       return NextResponse.json({

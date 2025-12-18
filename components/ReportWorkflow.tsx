@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import InitialDataEntryForm from "./InitialDataEntryForm"
-import ReportAnalysisChoice from "./ReportAnalysisChoice"
-import EquipmentToolsSelection from "./EquipmentToolsSelection"
 import Tier1Questions from "./Tier1Questions"
 import Tier2Questions from "./Tier2Questions"
 import Tier3Questions from "./Tier3Questions"
@@ -13,8 +11,6 @@ import { ArrowRight, CheckCircle } from "lucide-react"
 
 type WorkflowStage = 
   | 'initial-entry'
-  | 'equipment-tools'
-  | 'analysis-choice'
   | 'tier1'
   | 'tier2'
   | 'tier3'
@@ -76,10 +72,8 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
           setCurrentStage('tier2')
         } else if (report.technicianReportAnalysis || report.reportDepthLevel) {
           setCurrentStage('tier1')
-        } else if (report.psychrometricAssessment || report.equipmentSelection) {
-          setCurrentStage('analysis-choice')
         } else if (report.technicianFieldReport) {
-          setCurrentStage('equipment-tools')
+          setCurrentStage('initial-entry')
         } else {
           setCurrentStage('initial-entry')
         }
@@ -96,27 +90,26 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
     }
   }
 
-  const handleInitialEntryComplete = (newReportId: string) => {
+  const handleInitialEntryComplete = (newReportId: string, reportType?: 'basic' | 'enhanced') => {
     setReportId(newReportId)
     // Store in localStorage for persistence
     if (typeof window !== 'undefined') {
       localStorage.setItem('currentReportId', newReportId)
-    }
-    setCurrentStage('equipment-tools')
-  }
-  
-  const handleEquipmentToolsComplete = () => {
-    setCurrentStage('analysis-choice')
   }
 
-  const handleAnalysisChoice = (choice: 'basic' | 'enhanced') => {
-    setReportType(choice)
-    if (choice === 'basic') {
+    if (reportType) {
+      setReportType(reportType)
+      if (reportType === 'basic') {
       // Skip to report generation for basic reports
       setCurrentStage('report-generation')
     } else {
       // Go to Tier 1 for enhanced reports
       setCurrentStage('tier1')
+      }
+    } else {
+      // If no report type selected yet, wait for user to select (handled in form)
+      // This shouldn't happen with the merged form, but keep as fallback
+      setCurrentStage('report-generation')
     }
   }
 
@@ -159,16 +152,14 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
   // Progress indicator
   const stages = [
     { id: 'initial-entry', label: 'Initial Entry', completed: currentStage !== 'initial-entry' },
-    { id: 'equipment-tools', label: 'Equipment', completed: currentStage !== 'initial-entry' && currentStage !== 'equipment-tools' },
-    { id: 'analysis-choice', label: 'Analysis', completed: currentStage !== 'initial-entry' && currentStage !== 'equipment-tools' && currentStage !== 'analysis-choice' },
-    { id: 'tier1', label: 'Tier 1', completed: reportType === 'enhanced' && currentStage !== 'tier1' && currentStage !== 'analysis-choice' && currentStage !== 'equipment-tools' && currentStage !== 'initial-entry' },
+    { id: 'tier1', label: 'Tier 1', completed: reportType === 'enhanced' && currentStage !== 'tier1' && currentStage !== 'initial-entry' },
     { id: 'tier2', label: 'Tier 2', completed: reportType === 'enhanced' && (currentStage === 'tier3' || currentStage === 'report-generation') },
     { id: 'tier3', label: 'Tier 3', completed: reportType === 'enhanced' && currentStage === 'report-generation' && showTier3 },
     { id: 'report-generation', label: 'Report', completed: false }
   ]
 
   const visibleStages = reportType === 'basic' 
-    ? stages.filter(s => s.id === 'initial-entry' || s.id === 'equipment-tools' || s.id === 'analysis-choice' || s.id === 'report-generation')
+    ? stages.filter(s => s.id === 'initial-entry' || s.id === 'report-generation')
     : stages
 
   if (loading) {
@@ -221,20 +212,6 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
         <InitialDataEntryForm 
           onSuccess={handleInitialEntryComplete}
           initialData={initialFormData}
-        />
-      )}
-
-      {currentStage === 'equipment-tools' && reportId && (
-        <EquipmentToolsSelection
-          reportId={reportId}
-          onComplete={handleEquipmentToolsComplete}
-        />
-      )}
-
-      {currentStage === 'analysis-choice' && reportId && (
-        <ReportAnalysisChoice 
-          reportId={reportId} 
-          onChoiceSelected={handleAnalysisChoice}
         />
       )}
 
