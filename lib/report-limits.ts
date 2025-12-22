@@ -89,20 +89,21 @@ export async function getUserReportLimits(userId: string): Promise<ReportLimitIn
 
     const baseLimit = plan.reportLimit || 0
     
-    // Calculate add-on reports from purchases (sum of all completed purchases)
-    // Signup bonus is stored in addonReports field, so we need to use the field value
-    // to ensure signup bonus is included
-    let addonReports = user.addonReports || 0
-    
-    // If we have purchases in the table, calculate from purchases and add signup bonus
-    // Signup bonus (10 reports) is included in addonReports field when first subscribing
+    // Calculate add-on reports: sum of all completed purchases from AddonPurchase table
+    // This is the source of truth for purchased add-ons
+    let addonReportsFromPurchases = 0
     if (addonPurchases && addonPurchases.length > 0) {
-      // Sum up ALL completed add-on purchases
-      const totalFromPurchases = addonPurchases.reduce((sum, purchase) => sum + purchase.reportLimit, 0)
-      // Use the higher value between purchases and field (field includes signup bonus)
-      // This ensures signup bonus is always included
-      addonReports = Math.max(totalFromPurchases, addonReports)
+      addonReportsFromPurchases = addonPurchases.reduce((sum, purchase) => sum + purchase.reportLimit, 0)
     }
+    
+    // The user.addonReports field may contain signup bonus (10 reports)
+    // We need to check if signup bonus was applied by comparing with purchases
+    // If addonReports field is higher than purchases, it likely includes signup bonus
+    const userAddonReports = user.addonReports || 0
+    
+    // Use the maximum to ensure we include signup bonus if it exists
+    // This handles the case where signup bonus is in the field but not yet in purchases
+    const addonReports = Math.max(addonReportsFromPurchases, userAddonReports)
     
     const monthlyReportsUsed = user.monthlyReportsUsed || 0
     const totalLimit = baseLimit + addonReports

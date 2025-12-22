@@ -257,18 +257,48 @@ export default function PricingPage() {
                   {addon.description}
                 </p>
                 <button
-                  onClick={() => {
-                    toast('Add-ons are coming soon! Stay tuned for updates.', {
-                      icon: 'ℹ️',
-                    })
+                  onClick={async () => {
+                    setLoading(key)
+                    try {
+                      const response = await fetch('/api/addons/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ addonKey: key })
+                      })
+
+                      if (!response.ok) {
+                        const errorData = await response.json()
+                        throw new Error(errorData.error || 'Failed to create checkout session')
+                      }
+
+                      const { url } = await response.json()
+                      
+                      if (url) {
+                        window.location.href = url
+                      } else {
+                        throw new Error('No checkout URL received')
+                      }
+                    } catch (error) {
+                      console.error('Error purchasing add-on:', error)
+                      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
+                      setLoading(null)
+                    }
                   }}
+                  disabled={loading === key}
                   className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 ${
                     addon.popular
                       ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
                       : 'bg-slate-700 text-white hover:bg-slate-600'
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  Coming Soon
+                  {loading === key ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    'Purchase Now'
+                  )}
                 </button>
               </div>
             ))}

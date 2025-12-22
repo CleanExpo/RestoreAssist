@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
                 }
               })
               
+              console.log('✅ ADD-ON PROCESSED:', {
                 before: userBefore?.addonReports,
                 increment: addonReports,
                 after: updatedUser.addonReports,
@@ -501,6 +502,8 @@ export async function POST(request: NextRequest) {
       case "payment_intent.succeeded":
         // Handle add-on purchases via payment intent (backup to checkout.session.completed)
         const paymentIntent = event.data.object as Stripe.PaymentIntent
+        
+        console.log('💳 PAYMENT INTENT SUCCEEDED:', {
           id: paymentIntent.id,
           status: paymentIntent.status,
           amount: paymentIntent.amount,
@@ -557,8 +560,16 @@ export async function POST(request: NextRequest) {
                     }
                   }
                 })
+                
+                console.log('✅ ADD-ON PROCESSED VIA PAYMENT INTENT:', {
+                  userId,
+                  addonKey,
+                  addonReports,
+                  purchaseId: addonPurchase.id
+                })
               }
-              
+            } else {
+              console.log('⚠️ ADD-ON ALREADY PROCESSED (payment intent):', paymentIntent.id)
             }
           }
         }

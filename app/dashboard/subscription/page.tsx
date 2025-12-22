@@ -38,6 +38,17 @@ export default function SubscriptionPage() {
     availableReports: number
     hasUnlimited: boolean
   } | null>(null)
+  const [showAddonModal, setShowAddonModal] = useState(false)
+  const [addonLoading, setAddonLoading] = useState<string | null>(null)
+  const [addonPurchases, setAddonPurchases] = useState<Array<{
+    id: string
+    addonName: string
+    reportLimit: number
+    amount: number
+    currency: string
+    purchasedAt: string
+    status: string
+  }>>([])
 
   useEffect(() => {
     const isFromAddon = searchParams.get('addon')
@@ -45,6 +56,7 @@ export default function SubscriptionPage() {
     // ALWAYS fetch data immediately
     fetchSubscription()
     fetchReportLimits()
+    fetchAddonPurchases()
     
     // Only check for pending add-ons if coming from add-on purchase
     if (isFromAddon) {
@@ -59,7 +71,7 @@ export default function SubscriptionPage() {
           if (response.ok) {
             const data = await response.json()
             if (data.processed > 0) {
-              // Processed pending add-ons
+              toast.success(`Processed ${data.processed} add-on purchase(s)!`)
             }
           }
         } catch (error) {
@@ -69,6 +81,7 @@ export default function SubscriptionPage() {
         // Always refresh data after checking
         fetchReportLimits(true)
         fetchSubscription(true)
+        fetchAddonPurchases()
       }, 2000) // Wait 2 seconds for webhook
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -288,6 +301,46 @@ export default function SubscriptionPage() {
     }).format(amount)
   }
 
+  const fetchAddonPurchases = async () => {
+    try {
+      const response = await fetch('/api/addons/purchases')
+      if (response.ok) {
+        const data = await response.json()
+        setAddonPurchases(data.purchases || [])
+      }
+    } catch (error) {
+      // Error fetching purchases
+    }
+  }
+
+  const handlePurchaseAddon = async (addonKey: string) => {
+    setAddonLoading(addonKey)
+    try {
+      const response = await fetch('/api/addons/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addonKey })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create checkout session')
+      }
+
+      const { url } = await response.json()
+      
+      if (url) {
+        window.location.href = url
+      } else {
+        throw new Error('No checkout URL received')
+      }
+    } catch (error) {
+      console.error('Error purchasing add-on:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
+      setAddonLoading(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -408,16 +461,44 @@ export default function SubscriptionPage() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    toast('Add-ons are coming soon! Stay tuned for updates.', {
-                      icon: 'ℹ️',
-                    })
-                  }}
+                  onClick={() => setShowAddonModal(true)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
                 >
                   <Crown className="w-4 h-4" />
                   Purchase Add-ons
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Add-on Purchase History */}
+          {addonPurchases.length > 0 && (
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Crown className="w-5 h-5" />
+                Add-on Purchase History
+              </h2>
+              <div className="space-y-3">
+                {addonPurchases.map((purchase) => (
+                  <div key={purchase.id} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+                    <div>
+                      <div className="font-medium text-white">{purchase.addonName}</div>
+                      <div className="text-sm text-slate-400">
+                        {new Date(purchase.purchasedAt).toLocaleDateString('en-AU', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-cyan-400">+{purchase.reportLimit} reports</div>
+                      <div className="text-sm text-slate-400">
+                        {formatPricingAmount(purchase.amount, purchase.currency)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -605,6 +686,91 @@ export default function SubscriptionPage() {
                 <p className="text-slate-400 text-sm">
                   Access your data anytime, anywhere
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add-on Purchase Modal */}
+      {showAddonModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Crown className="w-6 h-6" />
+                  Purchase Add-ons
+                </h2>
+                <button
+                  onClick={() => setShowAddonModal(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <p className="text-slate-400 mb-6">
+                Add more reports to your monthly limit. Add-ons are one-time purchases that add to your current month's available reports.
+              </p>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                {Object.entries(PRICING_CONFIG.addons).map(([key, addon]) => (
+                  <div
+                    key={key}
+                    className={`relative bg-slate-700/30 rounded-lg border-2 p-4 transition-all ${
+                      addon.popular
+                        ? 'border-cyan-500 shadow-lg shadow-cyan-500/20'
+                        : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    {addon.popular && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <div className="bg-cyan-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                          Popular
+                        </div>
+                      </div>
+                    )}
+                    {addon.badge && (
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                          {addon.badge}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-bold text-white mb-2">
+                        {addon.displayName}
+                      </h3>
+                      <div className="text-2xl font-bold text-cyan-400 mb-2">
+                        {formatPricingAmount(addon.amount, addon.currency)}
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        {addon.reportLimit} additional reports
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handlePurchaseAddon(key)}
+                      disabled={addonLoading === key}
+                      className={`w-full py-2 px-4 rounded-lg font-semibold transition-all ${
+                        addon.popular
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
+                          : 'bg-slate-600 text-white hover:bg-slate-500'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {addonLoading === key ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Processing...
+                        </div>
+                      ) : (
+                        'Purchase'
+                      )}
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
