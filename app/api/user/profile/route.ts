@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
+import { getUserReportLimits } from "@/lib/report-limits"
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +37,9 @@ export async function GET(request: NextRequest) {
         businessABN: true,
         businessPhone: true,
         businessEmail: true,
+        addonReports: true,
+        monthlyReportsUsed: true,
+        monthlyResetDate: true,
       }
     })
 
@@ -106,6 +110,16 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Get report limits for active subscribers
+    let reportLimits = null
+    if (user.subscriptionStatus === 'ACTIVE') {
+      try {
+        reportLimits = await getUserReportLimits(user.id)
+      } catch (error: any) {
+        // Error fetching report limits
+      }
+    }
+
     return NextResponse.json({ 
       profile: {
         ...user,
@@ -114,6 +128,8 @@ export async function GET(request: NextRequest) {
         subscriptionEndsAt: user.subscriptionEndsAt?.toISOString(),
         lastBillingDate: user.lastBillingDate?.toISOString(),
         nextBillingDate: user.nextBillingDate?.toISOString(),
+        monthlyResetDate: user.monthlyResetDate?.toISOString(),
+        reportLimits: reportLimits,
       }
     })
   } catch (error) {

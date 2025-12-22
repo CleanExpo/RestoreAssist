@@ -13,6 +13,8 @@ export default function SuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, update } = useSession()
+  const addonKey = searchParams.get('addon')
+  const isAddonPurchase = !!addonKey
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(true)
   const hasVerifiedRef = useRef(false)
@@ -90,7 +92,6 @@ export default function SuccessPage() {
         }
       } catch (error) {
         // Continue with verification if pre-check fails
-        console.log('Pre-check failed, continuing with verification')
       }
       
       // Check if already completed (race condition guard)
@@ -102,8 +103,71 @@ export default function SuccessPage() {
         // Get session_id from ref
         const sessionId = sessionIdRef.current
         
+        // If this is an add-on purchase, handle it first
+        if (isAddonPurchase) {
+          if (sessionId) {
+            try {
+              const addonVerifyResponse = await fetch('/api/addons/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId })
+              })
+              
+              if (addonVerifyResponse.ok) {
+                const addonData = await addonVerifyResponse.json()
+                
+                if (isCompletedRef.current) {
+                  cleanup()
+                  return
+                }
+                
+                markCompleted()
+                showToastOnce(`Add-on purchase successful! You now have ${addonData.addonReports} additional reports.`)
+                cleanup()
+                return
+              } else {
+                const errorData = await addonVerifyResponse.json().catch(() => ({}))
+                // Continue to try finding session
+              }
+            } catch (addonError) {
+              console.error('❌ Error verifying add-on:', addonError)
+            }
+          }
+          
+          // If no session_id, try to find recent add-on purchases
+          try {
+            // Wait a bit for webhook to process
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            
+            // Check user profile to see if add-ons were updated
+            const profileCheck = await fetch('/api/user/profile?refresh=true')
+            if (profileCheck.ok) {
+              const profileData = await profileCheck.json()
+              const currentAddons = profileData.profile?.addonReports || 0
+              
+              if (currentAddons > 0) {
+                if (isCompletedRef.current) {
+                  cleanup()
+                  return
+                }
+                markCompleted()
+                showToastOnce(`Add-on purchase successful! You now have ${currentAddons} additional reports.`)
+                cleanup()
+                return
+              }
+            }
+          } catch (error) {
+            console.error('❌ Error checking add-on status:', error)
+          }
+          
+          // If still not found, mark as completed anyway (webhook might process later)
+          markCompleted()
+          showToastOnce("Add-on purchase received! Processing may take a moment. Please refresh the page.")
+          cleanup()
+          return
+        }
+        
         if (!sessionId) {
-          console.log('No session_id in URL, trying to find active subscription...')
           // Try checking active subscription directly first
           try {
             const checkResponse = await fetch('/api/check-active-subscription', {
@@ -118,7 +182,6 @@ export default function SuccessPage() {
               }
               
               const checkData = await checkResponse.json()
-              console.log('Active subscription found and updated:', checkData)
               
               // DON'T call update() here - it causes re-renders/remounts
               // Just mark as completed - session will update naturally
@@ -172,7 +235,6 @@ export default function SuccessPage() {
         }
 
         // If not updated yet, manually verify and update subscription
-        console.log('Verifying subscription with session ID:', sessionId)
         const verifyResponse = await fetch('/api/verify-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -186,7 +248,6 @@ export default function SuccessPage() {
           }
           
           const verifyData = await verifyResponse.json()
-          console.log('Subscription verified:', verifyData)
           
           // DON'T call update() - it causes remounts and infinite loops
           markCompleted()
@@ -195,7 +256,6 @@ export default function SuccessPage() {
         } else {
           // If verification fails, try checking active subscription directly
           const errorData = await verifyResponse.json().catch(() => ({ error: 'Unknown error' }))
-          console.log('Verification failed:', errorData)
           
           // Check if completed
           if (isCompletedRef.current) {
@@ -204,7 +264,6 @@ export default function SuccessPage() {
           }
           
           // Try to find and update subscription by checking Stripe customer
-          console.log('Trying to check active subscription directly...')
           const checkResponse = await fetch('/api/check-active-subscription', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -217,7 +276,6 @@ export default function SuccessPage() {
             }
             
             const checkData = await checkResponse.json()
-            console.log('Active subscription found and updated:', checkData)
             
             // DON'T call update() - it causes remounts
             markCompleted()
@@ -230,7 +288,6 @@ export default function SuccessPage() {
               return
             }
             
-            console.log('No active subscription found, waiting for webhook...')
             const timeout = setTimeout(async () => {
               if (isCompletedRef.current) return
               await checkProfileAndUpdate()
@@ -343,12 +400,27 @@ export default function SuccessPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - effect should run only once on mount, guards prevent re-runs
 
+  // Auto-redirect to subscription page for add-ons IMMEDIATELY (no modal shown)
+  useEffect(() => {
+    if (isAddonPurchase) {
+      // Redirect immediately without showing any UI
+      router.push('/dashboard/subscription?addon=success')
+    }
+  }, [isAddonPurchase, router])
+
+  // For add-ons, don't show any UI - redirect immediately
+  if (isAddonPurchase) {
+    return null
+  }
+
   if (loading || checking) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mx-auto" />
-          <p className="text-slate-300">Processing your subscription...</p>
+          <p className="text-slate-300">
+            Processing your subscription...
+          </p>
         </div>
       </div>
     )
@@ -366,24 +438,34 @@ export default function SuccessPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-white">Payment Successful!</h1>
           <p className="text-slate-400">
-            Thank you for your subscription. Your account has been upgraded and you now have unlimited access.
+            {isAddonPurchase 
+              ? `Your add-on pack has been added to your account. You can now create additional reports this month.`
+              : `Thank you for your subscription. Your account has been upgraded and you now have unlimited access.`
+            }
           </p>
         </div>
 
         <div className="pt-4 space-y-3">
           <button
-            onClick={() => router.push('/dashboard?upgrade_success=true')}
+            onClick={() => {
+              if (isAddonPurchase) {
+                router.push('/dashboard/subscription?addon=success')
+              } else {
+                // Redirect to onboarding flow after subscription
+                router.push('/dashboard/settings?onboarding=true')
+              }
+            }}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
           >
-            Continue Setup
+            {isAddonPurchase ? 'View Subscription' : 'Continue Setup'}
             <ArrowRight className="w-4 h-4" />
           </button>
           
           <button
-            onClick={() => router.push('/dashboard/settings')}
+            onClick={() => router.push(isAddonPurchase ? '/dashboard/subscription?addon=success' : '/dashboard/settings')}
             className="w-full px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-slate-300"
           >
-            View Subscription Details
+            {isAddonPurchase ? 'View Subscription Details' : 'View Subscription Details'}
           </button>
         </div>
       </div>

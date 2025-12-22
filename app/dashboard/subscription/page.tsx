@@ -59,11 +59,11 @@ export default function SubscriptionPage() {
           if (response.ok) {
             const data = await response.json()
             if (data.processed > 0) {
-              console.log('✅ Processed pending add-ons:', data.processed)
+              // Processed pending add-ons
             }
           }
         } catch (error) {
-          console.error('Error checking pending add-ons:', error)
+          // Error checking pending add-ons
         }
         
         // Always refresh data after checking
@@ -97,12 +97,10 @@ export default function SubscriptionPage() {
 
   const fetchReportLimits = async (forceRefresh = false) => {
     if (!session?.user) {
-      console.log('⚠️ No session, skipping fetchReportLimits')
       return
     }
     
     try {
-      console.log('🔵 FETCHING REPORT LIMITS:', { forceRefresh, userId: session?.user?.email || 'unknown' })
       // Add cache-busting parameter to force fresh data
       const url = forceRefresh ? `/api/user/profile?refresh=true&t=${Date.now()}` : `/api/user/profile?t=${Date.now()}`
       const response = await fetch(url, {
@@ -113,35 +111,19 @@ export default function SubscriptionPage() {
         }
       })
       
-      console.log('🔵 REPORT LIMITS RESPONSE STATUS:', response.status)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('🔵 REPORT LIMITS DATA RECEIVED:', {
-          hasProfile: !!data.profile,
-          hasReportLimits: !!data.profile?.reportLimits,
-          reportLimits: data.profile?.reportLimits,
-          subscriptionStatus: data.profile?.subscriptionStatus,
-          addonReports: data.profile?.addonReports
-        })
         
         if (data.profile?.reportLimits) {
-          console.log('✅ SETTING REPORT LIMITS:', data.profile.reportLimits)
           setReportLimits(data.profile.reportLimits)
-          console.log('✅ REPORT LIMITS SET - Add-ons:', data.profile.reportLimits.addonReports)
         } else if (data.profile?.subscriptionStatus === 'ACTIVE') {
-          console.log('⚠️ Active subscription but no report limits, retrying in 2 seconds...')
           // If subscription is active but no report limits, fetch again after a short delay
           // This handles the case where webhook hasn't processed yet
           setTimeout(() => fetchReportLimits(true), 2000)
-        } else {
-          console.log('⚠️ No report limits and not active subscription')
         }
-      } else {
-        console.error('❌ FAILED TO FETCH REPORT LIMITS:', response.status, response.statusText)
       }
     } catch (error) {
-      console.error('❌ ERROR FETCHING REPORT LIMITS:', error)
+      // Error fetching report limits
     }
   }
 
@@ -284,10 +266,8 @@ export default function SubscriptionPage() {
       }
 
       const { sessionId, url } = await response.json()
-      console.log('Checkout session created:', sessionId)
       
       if (url) {
-        console.log('Redirecting to Stripe checkout...')
         window.location.href = url
       } else {
         console.error('No checkout URL received')

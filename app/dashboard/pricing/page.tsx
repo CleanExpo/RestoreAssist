@@ -55,10 +55,8 @@ export default function PricingPage() {
       }
 
       const { sessionId, url } = await response.json()
-      console.log('Checkout session created:', sessionId)
       
       if (url) {
-        console.log('Redirecting to Stripe checkout...')
         window.location.href = url
       } else {
         console.error('No checkout URL received')
