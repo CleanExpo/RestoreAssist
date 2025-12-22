@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw } from "lucide-react"
+import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw,Crown } from "lucide-react"
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
 import toast from "react-hot-toast"
+import { useSession } from "next-auth/react"
+import { useSearchParams } from "next/navigation"
 
 interface Subscription {
   id: string
@@ -20,6 +22,8 @@ interface Subscription {
 }
 
 export default function SubscriptionPage() {
+  const { data: session } = useSession()
+  const searchParams = useSearchParams()
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [canceling, setCanceling] = useState(false)
@@ -27,10 +31,119 @@ export default function SubscriptionPage() {
   const [pricingLoading, setPricingLoading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [reportLimits, setReportLimits] = useState<{
+    baseLimit: number
+    addonReports: number
+    monthlyReportsUsed: number
+    availableReports: number
+    hasUnlimited: boolean
+  } | null>(null)
 
   useEffect(() => {
+    const isFromAddon = searchParams.get('addon')
+    
+    // ALWAYS fetch data immediately
     fetchSubscription()
+    fetchReportLimits()
+    
+    // Only check for pending add-ons if coming from add-on purchase
+    if (isFromAddon) {
+      // Wait a moment for webhook to process, then check if anything was missed
+      setTimeout(async () => {
+        try {
+          const response = await fetch('/api/addons/check-pending', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.processed > 0) {
+              console.log('✅ Processed pending add-ons:', data.processed)
+            }
+          }
+        } catch (error) {
+          console.error('Error checking pending add-ons:', error)
+        }
+        
+        // Always refresh data after checking
+        fetchReportLimits(true)
+        fetchSubscription(true)
+      }, 2000) // Wait 2 seconds for webhook
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Refresh report limits when page becomes visible (e.g., after returning from add-on purchase)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchReportLimits()
+      }
+    }
+
+    const handleFocus = () => {
+      fetchReportLimits()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  const fetchReportLimits = async (forceRefresh = false) => {
+    if (!session?.user) {
+      console.log('⚠️ No session, skipping fetchReportLimits')
+      return
+    }
+    
+    try {
+      console.log('🔵 FETCHING REPORT LIMITS:', { forceRefresh, userId: session?.user?.email || 'unknown' })
+      // Add cache-busting parameter to force fresh data
+      const url = forceRefresh ? `/api/user/profile?refresh=true&t=${Date.now()}` : `/api/user/profile?t=${Date.now()}`
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        }
+      })
+      
+      console.log('🔵 REPORT LIMITS RESPONSE STATUS:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('🔵 REPORT LIMITS DATA RECEIVED:', {
+          hasProfile: !!data.profile,
+          hasReportLimits: !!data.profile?.reportLimits,
+          reportLimits: data.profile?.reportLimits,
+          subscriptionStatus: data.profile?.subscriptionStatus,
+          addonReports: data.profile?.addonReports
+        })
+        
+        if (data.profile?.reportLimits) {
+          console.log('✅ SETTING REPORT LIMITS:', data.profile.reportLimits)
+          setReportLimits(data.profile.reportLimits)
+          console.log('✅ REPORT LIMITS SET - Add-ons:', data.profile.reportLimits.addonReports)
+        } else if (data.profile?.subscriptionStatus === 'ACTIVE') {
+          console.log('⚠️ Active subscription but no report limits, retrying in 2 seconds...')
+          // If subscription is active but no report limits, fetch again after a short delay
+          // This handles the case where webhook hasn't processed yet
+          setTimeout(() => fetchReportLimits(true), 2000)
+        } else {
+          console.log('⚠️ No report limits and not active subscription')
+        }
+      } else {
+        console.error('❌ FAILED TO FETCH REPORT LIMITS:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('❌ ERROR FETCHING REPORT LIMITS:', error)
+    }
+  }
 
   const fetchSubscription = async (forceRefresh = false) => {
     if (forceRefresh) {
@@ -39,12 +152,16 @@ export default function SubscriptionPage() {
     
     try {
       const url = forceRefresh ? '/api/subscription?refresh=true' : '/api/subscription'
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        cache: 'no-store'
+      })
       if (response.ok) {
         const data = await response.json()
         setSubscription(data.subscription)
         if (forceRefresh) {
           toast.success('Subscription data refreshed!')
+          // Also refresh report limits when subscription is refreshed
+          fetchReportLimits(true)
         }
       }
     } catch (error) {
@@ -151,11 +268,6 @@ export default function SubscriptionPage() {
   }
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    if (plan === 'freeTrial') {
-      toast.success("Free trial activated! You can now create up to 3 reports.")
-      return
-    }
-
     setPricingLoading(plan)
     try {
       const response = await fetch('/api/create-checkout-session', {
@@ -275,14 +387,71 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
+          {/* Report Usage */}
+          {reportLimits && (
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Report Usage
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-slate-400">Available This Month</label>
+                  <div className="text-3xl font-bold text-cyan-400">
+                    {reportLimits.availableReports} / {reportLimits.baseLimit + reportLimits.addonReports}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-slate-400">Base Plan</label>
+                    <div className="text-xl font-semibold text-white">{reportLimits.baseLimit}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-slate-400">Add-ons</label>
+                    <div className="text-xl font-semibold text-yellow-400">{reportLimits.addonReports}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-slate-400">Used</label>
+                    <div className="text-xl font-semibold text-slate-300">{reportLimits.monthlyReportsUsed}</div>
+                  </div>
+                </div>
+
+                <div className="w-full bg-slate-700 rounded-full h-3">
+                  <div 
+                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${Math.min(100, (reportLimits.monthlyReportsUsed / (reportLimits.baseLimit + reportLimits.addonReports || 1)) * 100)}%` 
+                    }}
+                  ></div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    toast('Add-ons are coming soon! Stay tuned for updates.', {
+                      icon: 'ℹ️',
+                    })
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                >
+                  <Crown className="w-4 h-4" />
+                  Purchase Add-ons
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Plan Features */}
-          <div className="lg:col-span-2 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className={`p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 ${reportLimits ? '' : 'lg:col-span-2'}`}>
             <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
             
             <div className="grid md:grid-cols-2 gap-4">
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">Unlimited reports</span>
+                <span className="text-slate-300">
+                  {subscription?.plan.name === 'Yearly Plan' ? '70' : '50'} reports per month
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-green-400" />
@@ -298,7 +467,7 @@ export default function SubscriptionPage() {
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">NCC 2022 compliant</span>
+                <span className="text-slate-300">IICRC S500 compliant</span>
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-green-400" />

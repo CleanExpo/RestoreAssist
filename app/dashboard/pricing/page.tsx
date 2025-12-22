@@ -1,19 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Check, Star, Zap, Shield, Download, Users, Clock, Award } from "lucide-react"
-import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
+import { PRICING_CONFIG, type PricingPlan, type AddonPack } from "@/lib/pricing"
 import toast from "react-hot-toast"
+import OnboardingGuide from "@/components/OnboardingGuide"
 
 export default function PricingPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const isOnboarding = searchParams.get('onboarding') === 'true'
+  const requireSubscription = searchParams.get('require_subscription') === 'true'
   const [loading, setLoading] = useState<string | null>(null)
+  
+  // Check if user already has subscription
+  useEffect(() => {
+    if (isOnboarding || requireSubscription) {
+      const checkSubscription = async () => {
+        try {
+          const response = await fetch('/api/subscription')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.subscription?.status === 'active') {
+              // User has active subscription, redirect to next onboarding step
+              toast.success('Subscription active! Redirecting to next step...')
+              setTimeout(() => {
+                router.push('/dashboard/settings?onboarding=true')
+              }, 1500)
+            }
+          }
+        } catch (error) {
+          console.error('Error checking subscription:', error)
+        }
+      }
+      checkSubscription()
+    }
+  }, [isOnboarding, requireSubscription, router])
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    if (plan === 'freeTrial') {
-      toast.success("Free trial activated! You can now create up to 3 reports.")
-      return
-    }
-
     setLoading(plan)
     try {
       const response = await fetch('/api/create-checkout-session', {
@@ -55,8 +80,15 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="container mx-auto px-4 py-8">
+    <OnboardingGuide
+      step={0}
+      totalSteps={5}
+      title="Subscribe to a Plan"
+      description="Choose a monthly or yearly plan to get started. Subscription is required before you can proceed with onboarding."
+      value="Select the plan that best fits your needs. All plans include first month signup bonus of 10 additional reports."
+    >
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-4">
@@ -105,24 +137,34 @@ export default function PricingPage() {
                 </h3>
                 <div className="mb-4">
                   <span className="text-4xl font-bold text-cyan-400">
-                    {plan.amount === 0 ? 'Free' : formatPrice(plan.amount, plan.currency)}
+                    {formatPrice(plan.amount, plan.currency)}
                   </span>
                   {plan.interval && (
                     <span className="text-slate-400">/{plan.interval}</span>
                   )}
                 </div>
                 
-                {/* Discount Display */}
-                {plan.discount && (
-                  <div className="text-sm text-green-400 mb-2">
-                    {plan.discount} discount - Save ${plan.savings}/year
-                  </div>
-                )}
-                
                 {/* Monthly Equivalent */}
                 {plan.monthlyEquivalent && (
-                  <div className="text-sm text-slate-400">
+                  <div className="text-sm text-slate-400 mb-2">
                     ${plan.monthlyEquivalent}/month equivalent
+                  </div>
+                )}
+
+                {/* Report Limit Display */}
+                {plan.reportLimit && typeof plan.reportLimit === 'number' && (
+                  <div className="mt-4 p-4 bg-slate-700/30 rounded-lg">
+                    <div className="text-2xl font-bold text-cyan-400 mb-1">
+                      {plan.reportLimit}
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      Inspection Reports{plan.interval === 'month' ? ' per month' : ' per month (yearly plan)'}
+                    </div>
+                    {'signupBonus' in plan && plan.signupBonus && (
+                      <div className="text-xs text-green-400 mt-2">
+                        +{plan.signupBonus} bonus reports on first month
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -137,19 +179,6 @@ export default function PricingPage() {
                 ))}
               </div>
 
-              {/* Report Limit */}
-              <div className="mb-6 p-4 bg-slate-700/30 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-5 h-5 text-yellow-400" />
-                  <span className="font-semibold text-white">Report Limit</span>
-                </div>
-                <div className="text-2xl font-bold text-cyan-400">
-                  {plan.reportLimit === 'unlimited' ? 'Unlimited' : plan.reportLimit}
-                </div>
-                <div className="text-sm text-slate-400">
-                  {plan.reportLimit === 'unlimited' ? 'Create as many reports as you need' : 'Reports per month'}
-                </div>
-              </div>
 
               {/* CTA Button */}
               <button
@@ -167,11 +196,85 @@ export default function PricingPage() {
                     Processing...
                   </div>
                 ) : (
-                  plan.amount === 0 ? 'Start Free Trial' : `Subscribe to ${plan.displayName}`
+                  `Subscribe to ${plan.displayName}`
                 )}
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Add-ons Section */}
+        <div className="mt-16 max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-white text-center mb-8">
+            Add More Reports
+          </h2>
+          <p className="text-xl text-slate-400 text-center mb-12 max-w-2xl mx-auto">
+            Need more reports? Add additional report packs to your subscription
+          </p>
+          <div className="grid md:grid-cols-3 gap-8">
+            {Object.entries(PRICING_CONFIG.addons).map(([key, addon]) => (
+              <div
+                key={key}
+                className={`relative bg-slate-800/50 rounded-2xl border-2 p-8 transition-all duration-300 hover:scale-105 ${
+                  addon.popular
+                    ? 'border-cyan-500 shadow-2xl shadow-cyan-500/20'
+                    : 'border-slate-700 hover:border-slate-600'
+                }`}
+              >
+                {addon.popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
+                      <Star className="w-4 h-4" />
+                      Most Popular
+                    </div>
+                  </div>
+                )}
+                {addon.badge && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      {addon.badge}
+                    </div>
+                  </div>
+                )}
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    {addon.displayName}
+                  </h3>
+                  <div className="mb-4">
+                    <span className="text-4xl font-bold text-cyan-400">
+                      {formatPrice(addon.amount, addon.currency)}
+                    </span>
+                  </div>
+                  <div className="p-4 bg-slate-700/30 rounded-lg">
+                    <div className="text-2xl font-bold text-cyan-400 mb-1">
+                      {addon.reportLimit}
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      Additional Reports
+                    </div>
+                  </div>
+                </div>
+                <p className="text-slate-300 text-center mb-6">
+                  {addon.description}
+                </p>
+                <button
+                  onClick={() => {
+                    toast('Add-ons are coming soon! Stay tuned for updates.', {
+                      icon: 'ℹ️',
+                    })
+                  }}
+                  className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 ${
+                    addon.popular
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
+                      : 'bg-slate-700 text-white hover:bg-slate-600'
+                  }`}
+                >
+                  Coming Soon
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Features Comparison */}
@@ -219,11 +322,20 @@ export default function PricingPage() {
           <div className="space-y-6">
             <div className="bg-slate-800/30 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-white mb-2">
-                What happens after my free trial ends?
+                What is the signup bonus?
               </h3>
               <p className="text-slate-400">
-                After your 3 free reports, you'll need to subscribe to a paid plan to continue creating reports. 
-                Your existing reports will remain accessible.
+                All new subscribers receive an additional 10 reports on their first month, on top of their regular monthly limit. 
+                This bonus applies to both monthly and yearly plans.
+              </p>
+            </div>
+            <div className="bg-slate-800/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Can I add more reports to my plan?
+              </h3>
+              <p className="text-slate-400">
+                Yes! You can purchase add-on packs to increase your monthly report limit. Choose from 8, 25, or 60 additional reports. 
+                Add-ons are added to your subscription and renew monthly.
               </p>
             </div>
             <div className="bg-slate-800/30 rounded-lg p-6">
@@ -248,5 +360,6 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+    </OnboardingGuide>
   )
 }
