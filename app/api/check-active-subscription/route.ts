@@ -86,21 +86,60 @@ export async function POST(request: NextRequest) {
         nextReset.setDate(1)
         nextReset.setHours(0, 0, 0, 0)
 
+        // Check if this is the user's first subscription (signup bonus eligibility)
+        const userBefore = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: {
+            subscriptionStatus: true,
+            lastBillingDate: true,
+            addonReports: true
+          }
+        })
+        
+        // Check if signupBonusApplied field exists (may not exist if migration not run)
+        let signupBonusApplied = false
+        try {
+          const userWithBonus = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: {
+              signupBonusApplied: true
+            }
+          })
+          signupBonusApplied = userWithBonus?.signupBonusApplied || false
+        } catch (e) {
+          // Field doesn't exist yet, assume false
+          signupBonusApplied = false
+        }
+        
+        // Determine if this is first-time subscription (never had ACTIVE status before)
+        const isFirstSubscription = !signupBonusApplied && 
+                                  (userBefore?.subscriptionStatus !== 'ACTIVE' || !userBefore?.lastBillingDate)
+
+        // Prepare update data
+        const updateData: any = {
+          subscriptionStatus: 'ACTIVE',
+          subscriptionPlan: subscriptionPlan,
+          stripeCustomerId: customerId,
+          subscriptionId: activeSubscription.id,
+          subscriptionEndsAt: new Date(activeSubscription.current_period_end * 1000),
+          nextBillingDate: new Date(activeSubscription.current_period_end * 1000),
+          lastBillingDate: new Date(activeSubscription.current_period_start * 1000),
+          monthlyReportsUsed: 0,
+          monthlyResetDate: nextReset,
+          // Don't set creditsRemaining for active subscriptions - they use monthly limits
+        }
+        
+        // Grant signup bonus (10 reports) if first subscription
+        // Note: signupBonusApplied field will be set after migration is run
+        if (isFirstSubscription) {
+          const currentAddonReports = userBefore?.addonReports || 0
+          updateData.addonReports = currentAddonReports + 10
+        }
+
         // Update user subscription in database
         const updatedUser = await prisma.user.update({
           where: { id: session.user.id },
-          data: {
-            subscriptionStatus: 'ACTIVE',
-            subscriptionPlan: subscriptionPlan,
-            stripeCustomerId: customerId,
-            subscriptionId: activeSubscription.id,
-            subscriptionEndsAt: new Date(activeSubscription.current_period_end * 1000),
-            nextBillingDate: new Date(activeSubscription.current_period_end * 1000),
-            lastBillingDate: new Date(activeSubscription.current_period_start * 1000),
-            monthlyReportsUsed: 0,
-            monthlyResetDate: nextReset,
-            // Don't set creditsRemaining for active subscriptions - they use monthly limits
-          }
+          data: updateData
         })
 
         return NextResponse.json({

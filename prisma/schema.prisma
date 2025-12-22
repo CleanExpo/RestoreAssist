@@ -64,6 +64,7 @@ model User {
   addonReports       Int?      @default(0) // Additional reports from add-ons
   monthlyReportsUsed Int?      @default(0) // Reports used this month
   monthlyResetDate   DateTime? // Date when monthly usage resets
+  signupBonusApplied Boolean?  @default(false) // Track if signup bonus has been applied
 
   // Business Information
   businessName    String?

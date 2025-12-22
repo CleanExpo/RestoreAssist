@@ -191,18 +191,67 @@ export async function POST(request: NextRequest) {
               }
             }
             
+            // Check if this is the user's first subscription (signup bonus eligibility)
+            const userBefore = await prisma.user.findUnique({
+              where: { id: userId },
+              select: {
+                subscriptionStatus: true,
+                lastBillingDate: true,
+                addonReports: true
+              }
+            })
+            
+            // Check if signupBonusApplied field exists (may not exist if migration not run)
+            let signupBonusApplied = false
+            try {
+              const userWithBonus = await prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                  signupBonusApplied: true
+                }
+              })
+              signupBonusApplied = userWithBonus?.signupBonusApplied || false
+            } catch (e) {
+              // Field doesn't exist yet, assume false
+              signupBonusApplied = false
+            }
+            
+            // Determine if this is first-time subscription (never had ACTIVE status before)
+            const isFirstSubscription = !signupBonusApplied && 
+                                      (userBefore?.subscriptionStatus !== 'ACTIVE' || !userBefore?.lastBillingDate)
+            
+            // Calculate monthly reset date (first day of next month)
+            const now = new Date()
+            const nextReset = new Date(now)
+            nextReset.setMonth(nextReset.getMonth() + 1)
+            nextReset.setDate(1)
+            nextReset.setHours(0, 0, 0, 0)
+            
+            // Prepare update data
+            const updateData: any = {
+              subscriptionStatus: 'ACTIVE',
+              subscriptionPlan: subscriptionPlan,
+              stripeCustomerId: session.customer as string,
+              subscriptionId: session.subscription as string,
+              subscriptionEndsAt: subscriptionEndsAt,
+              nextBillingDate: nextBillingDate,
+              lastBillingDate: new Date(stripeSubscription?.current_period_start * 1000 || Date.now()),
+              monthlyReportsUsed: 0,
+              monthlyResetDate: nextReset,
+              creditsRemaining: 999999, // Unlimited for paid plans
+            }
+            
+            // Grant signup bonus (10 reports) if first subscription
+            // Note: signupBonusApplied field will be set after migration is run
+            if (isFirstSubscription) {
+              const currentAddonReports = userBefore?.addonReports || 0
+              updateData.addonReports = currentAddonReports + 10
+            }
+            
             // Update user subscription status using userId
             const checkoutResult = await prisma.user.update({
               where: { id: userId },
-              data: {
-                subscriptionStatus: 'ACTIVE',
-                subscriptionPlan: subscriptionPlan,
-                stripeCustomerId: session.customer as string,
-                subscriptionId: session.subscription as string,
-                subscriptionEndsAt: subscriptionEndsAt,
-                nextBillingDate: nextBillingDate,
-                creditsRemaining: 999999, // Unlimited for paid plans
-              }
+              data: updateData
             })
             
           } else if (session.customer_email) {
@@ -239,18 +288,69 @@ export async function POST(request: NextRequest) {
               }
             }
             
-          const checkoutResult = await prisma.user.updateMany({
+          // Get user to check if first subscription
+          const userByEmail = await prisma.user.findFirst({
             where: { email: session.customer_email },
-            data: {
-              subscriptionStatus: 'ACTIVE',
-                subscriptionPlan: subscriptionPlan,
-              stripeCustomerId: session.customer as string,
-              subscriptionId: session.subscription as string,
-                subscriptionEndsAt: subscriptionEndsAt,
-                nextBillingDate: nextBillingDate,
-              creditsRemaining: 999999, // Unlimited for paid plans
+            select: {
+              id: true,
+              subscriptionStatus: true,
+              lastBillingDate: true,
+              addonReports: true
             }
           })
+          
+          if (userByEmail) {
+            // Check if signupBonusApplied field exists (may not exist if migration not run)
+            let signupBonusApplied = false
+            try {
+              const userWithBonus = await prisma.user.findFirst({
+                where: { email: session.customer_email },
+                select: {
+                  signupBonusApplied: true
+                }
+              })
+              signupBonusApplied = userWithBonus?.signupBonusApplied || false
+            } catch (e) {
+              // Field doesn't exist yet, assume false
+              signupBonusApplied = false
+            }
+            
+            const isFirstSubscription = !signupBonusApplied && 
+                                      (userByEmail.subscriptionStatus !== 'ACTIVE' || !userByEmail.lastBillingDate)
+            
+            // Calculate monthly reset date
+            const now = new Date()
+            const nextReset = new Date(now)
+            nextReset.setMonth(nextReset.getMonth() + 1)
+            nextReset.setDate(1)
+            nextReset.setHours(0, 0, 0, 0)
+            
+            // Prepare update data
+            const updateData: any = {
+              subscriptionStatus: 'ACTIVE',
+              subscriptionPlan: subscriptionPlan,
+              stripeCustomerId: session.customer as string,
+              subscriptionId: session.subscription as string,
+              subscriptionEndsAt: subscriptionEndsAt,
+              nextBillingDate: nextBillingDate,
+              lastBillingDate: new Date(),
+              monthlyReportsUsed: 0,
+              monthlyResetDate: nextReset,
+              creditsRemaining: 999999, // Unlimited for paid plans
+            }
+            
+            // Grant signup bonus (10 reports) if first subscription
+            // Note: signupBonusApplied field will be set after migration is run
+            if (isFirstSubscription) {
+              const currentAddonReports = userByEmail.addonReports || 0
+              updateData.addonReports = currentAddonReports + 10
+            }
+            
+            const checkoutResult = await prisma.user.updateMany({
+              where: { email: session.customer_email },
+              data: updateData
+            })
+          }
           
           }
         }
@@ -284,19 +384,61 @@ export async function POST(request: NextRequest) {
           nextReset.setDate(1)
           nextReset.setHours(0, 0, 0, 0)
           
-          const subscriptionResult = await prisma.user.updateMany({
+          // Get user to check if first subscription
+          const userByCustomer = await prisma.user.findFirst({
             where: { stripeCustomerId: subscription.customer as string },
-            data: {
+            select: {
+              id: true,
+              subscriptionStatus: true,
+              lastBillingDate: true,
+              addonReports: true
+            }
+          })
+          
+          if (userByCustomer) {
+            // Check if signupBonusApplied field exists (may not exist if migration not run)
+            let signupBonusApplied = false
+            try {
+              const userWithBonus = await prisma.user.findFirst({
+                where: { stripeCustomerId: subscription.customer as string },
+                select: {
+                  signupBonusApplied: true
+                }
+              })
+              signupBonusApplied = userWithBonus?.signupBonusApplied || false
+            } catch (e) {
+              // Field doesn't exist yet, assume false
+              signupBonusApplied = false
+            }
+            
+            const isFirstSubscription = !signupBonusApplied && 
+                                      (userByCustomer.subscriptionStatus !== 'ACTIVE' || !userByCustomer.lastBillingDate)
+            
+            // Prepare update data
+            const updateData: any = {
               subscriptionStatus: 'ACTIVE',
               subscriptionPlan: subscriptionPlan,
               subscriptionId: subscription.id,
               subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
               nextBillingDate: new Date(subscription.current_period_end * 1000),
+              lastBillingDate: new Date(subscription.current_period_start * 1000),
               monthlyReportsUsed: 0,
               monthlyResetDate: nextReset,
               // Don't set creditsRemaining for active subscriptions - they use monthly limits
             }
-          })
+            
+            // Grant signup bonus (10 reports) if first subscription
+            // Note: signupBonusApplied field will be set after migration is run
+            if (isFirstSubscription) {
+              const currentAddonReports = userByCustomer.addonReports || 0
+              updateData.addonReports = currentAddonReports + 10
+            }
+            
+            const subscriptionResult = await prisma.user.updateMany({
+              where: { stripeCustomerId: subscription.customer as string },
+              data: updateData
+            })
+          }
           
         }
         break
