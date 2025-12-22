@@ -103,7 +103,6 @@ export async function GET(
     let standardsContext = ''
     if (integration?.apiKey) {
       try {
-        console.log('[Generate Forensic PDF] Starting standards retrieval from Google Drive...')
         const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
         
         // Determine report type
@@ -123,12 +122,9 @@ export async function GET(
           technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
         }
         
-        console.log('[Generate Forensic PDF] Retrieving standards from Google Drive folder...')
         const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
-        console.log(`[Generate Forensic PDF] Retrieved ${retrievedStandards.documents.length} standards documents`)
         
         standardsContext = buildStandardsContextPrompt(retrievedStandards)
-        console.log(`[Generate Forensic PDF] Standards context length: ${standardsContext.length} characters`)
       } catch (error: any) {
         console.error('[Generate Forensic PDF] Error retrieving standards:', error)
         // Continue without standards context - not critical for PDF generation
@@ -176,9 +172,7 @@ export async function GET(
     }
 
     // Generate PDF
-    console.log('[Generate Forensic PDF] Generating PDF...')
     const pdfBytes = await generateForensicReportPDF(reportData)
-    console.log('[Generate Forensic PDF] PDF generated successfully')
 
     // Return PDF as response
     const filename = `Forensic-Report-${report.claimReferenceNumber || report.reportNumber || reportId}.pdf`

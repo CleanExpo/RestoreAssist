@@ -82,12 +82,10 @@ export async function POST(request: NextRequest) {
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''
     try {
-      console.log('[Generate Enhanced Report] Starting standards retrieval from Google Drive...')
       const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
       
       // Determine report type from technician notes
       const reportType = determineReportType(technicianNotes)
-      console.log(`[Generate Enhanced Report] Determined report type: ${reportType}`)
       
       const retrievalQuery = {
         reportType,
@@ -97,11 +95,8 @@ export async function POST(request: NextRequest) {
       }
       
       // Use the user's Anthropic API key to retrieve and analyze standards
-      console.log('[Generate Enhanced Report] Retrieving standards from Google Drive...')
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
-      console.log(`[Generate Enhanced Report] Retrieved ${retrievedStandards.documents.length} standards documents`)
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
-      console.log(`[Generate Enhanced Report] Standards context length: ${standardsContext.length} characters`)
     } catch (error: any) {
       console.error('[Generate Enhanced Report] Error retrieving standards from Google Drive:', error.message)
       // Error retrieving standards from Google Drive (continuing without)

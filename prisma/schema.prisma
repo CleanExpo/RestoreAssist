@@ -59,6 +59,11 @@ model User {
   totalCreditsUsed   Int?
   lastBillingDate    DateTime?
   nextBillingDate    DateTime?
+  
+  // Add-on tracking
+  addonReports       Int?      @default(0) // Additional reports from add-ons
+  monthlyReportsUsed Int?      @default(0) // Reports used this month
+  monthlyResetDate   DateTime? // Date when monthly usage resets
 
   // Business Information
   businessName    String?
@@ -77,6 +82,7 @@ model User {
   scopes        Scope[]
   estimates     Estimate[]
   pricingConfig CompanyPricingConfig?
+  addonPurchases AddonPurchase[]
 }
 
 model VerificationToken {
@@ -552,4 +558,43 @@ model CompanyPricingConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Add-on Purchase Tracking
+model AddonPurchase {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Add-on details
+  addonKey      String   // e.g., "pack8", "pack25", "pack60"
+  addonName     String   // Display name
+  reportLimit   Int      // Number of reports in this add-on
+  amount        Float    // Price paid
+  currency      String   @default("AUD")
+  
+  // Stripe details
+  stripeSessionId String? @unique
+  stripePaymentIntentId String? @unique
+  
+  // Status
+  status        AddonPurchaseStatus @default(PENDING)
+  
+  // Dates
+  purchasedAt   DateTime @default(now())
+  expiresAt     DateTime? // When this add-on expires (if applicable)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([purchasedAt])
+}
+
+enum AddonPurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }

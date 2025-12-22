@@ -26,11 +26,8 @@ export interface ReportGenerationRequest {
 
 export async function generateDetailedReport(data: ReportGenerationRequest): Promise<string> {
   try {
-    console.log('Starting AI report generation...')
-    console.log('API Key available:', !!process.env.ANTHROPIC_API_KEY)
     
     const prompt = createReportPrompt(data)
-    console.log('Prompt created, length:', prompt.length)
     
     const response = await tryClaudeModels(
       anthropic,
@@ -46,10 +43,8 @@ export async function generateDetailedReport(data: ReportGenerationRequest): Pro
       }
     )
 
-    console.log('AI response received:', response.content.length, 'content blocks')
     
     if (response.content[0].type === 'text') {
-      console.log('Report generated successfully, length:', response.content[0].text.length)
       return response.content[0].text
     } else {
       console.error('Unexpected response type:', response.content[0].type)

@@ -88,7 +88,6 @@ export default function EquipmentToolsSelection({
           const config = data.pricingConfig || data
           
           if (config) {
-            console.log('[Pricing Config] Loaded pricing configuration:', {
               dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
               dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
               airMoverAxialDailyRate: config.airMoverAxialDailyRate,

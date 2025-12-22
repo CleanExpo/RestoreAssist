@@ -244,7 +244,6 @@ export function getEquipmentDailyRate(groupId: string, pricingConfig: any): numb
   if (pricingField && pricingConfig && pricingConfig[pricingField] !== undefined && pricingConfig[pricingField] !== null) {
     // Use pricing config rate - this is the user's configured rate
     const rate = pricingConfig[pricingField]
-    console.log(`[Pricing Config] Equipment ${groupId} (${pricingField}): $${rate}/day`)
     return rate
   }
   

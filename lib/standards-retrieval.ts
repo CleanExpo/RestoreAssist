@@ -415,14 +415,11 @@ export async function retrieveRelevantStandards(
   try {
     // Get standards folder ID (default: 1lFqpslQZ0kGovGh6WiHhgC3_gs9Rzbl1)
     const standardsFolderId = getStandardsFolderId()
-    console.log(`[Standards Retrieval] Starting AI-enhanced retrieval for report type: ${query.reportType}`)
-    console.log(`[Standards Retrieval] Using Google Drive folder ID: ${standardsFolderId}`)
     
     // Initialize Anthropic client early for folder analysis
     let anthropic: Anthropic
     try {
       anthropic = getAnthropicClient(anthropicApiKey)
-      console.log(`[Standards Retrieval] Anthropic API client initialized for folder analysis`)
     } catch (error) {
       console.error(`[Standards Retrieval] Error initializing Anthropic client:`, error)
       return {
@@ -437,17 +434,12 @@ export async function retrieveRelevantStandards(
     
     try {
       // List files in the standards folder
-      console.log(`[Standards Retrieval] Listing files in Google Drive folder...`)
       const folderItems = await listDriveItems(standardsFolderId)
       allFiles = folderItems.files
       folderStructure = folderItems
-      console.log(`[Standards Retrieval] Found ${allFiles.length} files in folder`)
       
       // Use AI to analyze folder structure and identify relevant files
-      console.log(`[Standards Retrieval] Using AI to analyze folder structure and identify relevant standards...`)
       const aiAnalysis = await analyzeFolderStructureWithAI(anthropic, folderStructure, query)
-      console.log(`[Standards Retrieval] AI Analysis Reasoning: ${aiAnalysis.reasoning}`)
-      console.log(`[Standards Retrieval] AI identified ${aiAnalysis.relevantFiles.length} relevant files`)
       
       // Add AI-identified files to our list (prioritize them)
       const aiFileIds = new Set(aiAnalysis.relevantFiles.map(f => f.id))
@@ -456,7 +448,6 @@ export async function retrieveRelevantStandards(
       
       // Also search for relevant files by keywords (as backup)
       const relevantStandards = determineRelevantStandards(query)
-      console.log(`[Standards Retrieval] Searching for additional relevant standards: ${relevantStandards.slice(0, 5).join(', ')}`)
       for (const standard of relevantStandards.slice(0, 3)) {
         try {
           const searchResults = await searchDriveFiles(standard, [
@@ -464,7 +455,6 @@ export async function retrieveRelevantStandards(
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'text/plain'
           ])
-          console.log(`[Standards Retrieval] Found ${searchResults.length} files matching "${standard}"`)
           // Add files not already in our list
           for (const file of searchResults) {
             if (!allFiles.find(f => f.id === file.id)) {
@@ -512,50 +502,38 @@ export async function retrieveRelevantStandards(
       .slice(0, 12)
       .map(item => item.file)
     
-    console.log(`[Standards Retrieval] Selected ${topFiles.length} most relevant files for processing`)
     topFiles.forEach((file, index) => {
       const score = Array.from(uniqueFiles.values()).find(f => f.file.id === file.id)?.score || 0
-      console.log(`[Standards Retrieval] ${index + 1}. ${file.name} (relevance score: ${score})`)
     })
     
     // Extract text and relevant sections from top files
     // Process files sequentially to avoid overwhelming the API
     const documentsWithSections = []
     for (const file of topFiles) {
-      console.log(`[Standards Retrieval] Processing file: ${file.name}`)
       try {
         // Download file from Google Drive
-        console.log(`[Standards Retrieval] Downloading file: ${file.name} (${file.id})`)
         const { buffer, mimeType } = await downloadDriveFile(file.id)
-        console.log(`[Standards Retrieval] Downloaded ${buffer.length} bytes, mimeType: ${mimeType}`)
         
         // Extract text based on file type
         let extractedText = ''
         if (mimeType === 'application/pdf' || file.mimeType === 'application/pdf') {
-          console.log(`[Standards Retrieval] Extracting text from PDF...`)
           extractedText = await extractTextFromPDF(buffer)
         } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
                    file.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-          console.log(`[Standards Retrieval] Extracting text from DOCX...`)
           extractedText = await extractTextFromDOCX(buffer)
         } else if (mimeType === 'text/plain' || file.mimeType === 'text/plain') {
-          console.log(`[Standards Retrieval] Extracting text from TXT...`)
           extractedText = await extractTextFromTXT(buffer)
         } else {
           // Try to extract as text
-          console.log(`[Standards Retrieval] Extracting as plain text...`)
           extractedText = buffer.toString('utf-8')
         }
         
-        console.log(`[Standards Retrieval] Extracted ${extractedText.length} characters from ${file.name}`)
         
         if (!extractedText || extractedText.trim().length < 100) {
-          console.log(`[Standards Retrieval] Skipping ${file.name} - insufficient text content`)
           continue
         }
         
         // Use AI to extract relevant sections
-        console.log(`[Standards Retrieval] Using AI to extract relevant sections from ${file.name}...`)
         const relevantSections = await extractRelevantSectionsWithAI(
           anthropic,
           extractedText,
@@ -563,10 +541,8 @@ export async function retrieveRelevantStandards(
           query
         )
         
-        console.log(`[Standards Retrieval] Extracted ${relevantSections.length} relevant sections from ${file.name}`)
         
         if (relevantSections.length === 0) {
-          console.log(`[Standards Retrieval] Skipping ${file.name} - no relevant sections found`)
           continue
         }
         
@@ -580,11 +556,9 @@ export async function retrieveRelevantStandards(
           extractedContent: extractedText.substring(0, 5000) // Store first 5k chars for reference
         })
         
-        console.log(`[Standards Retrieval] Successfully processed ${file.name} (${standardType})`)
         
         // Stop if we have enough documents (10-12 for comprehensive coverage)
         if (documentsWithSections.length >= 12) {
-          console.log(`[Standards Retrieval] Reached maximum documents limit (12), stopping processing`)
           break
         }
       } catch (error: any) {
@@ -600,8 +574,6 @@ export async function retrieveRelevantStandards(
       `Documents include information relevant to ${query.reportType} damage restoration, ` +
       `including applicable IICRC standards, Australian building codes, and safety regulations.`
     
-    console.log(`[Standards Retrieval] Successfully retrieved ${documentsWithSections.length} documents: ${standardTypes.join(', ')}`)
-    console.log(`[Standards Retrieval] Summary: ${summary}`)
     
     return {
       documents: documentsWithSections,

@@ -113,7 +113,6 @@ export async function POST(request: NextRequest) {
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''
     try {
-      console.log('[Generate Inspection Report] Starting standards retrieval from Google Drive...')
       const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
       
       // Determine report type
@@ -122,7 +121,6 @@ export async function POST(request: NextRequest) {
                                  reportType === 'fire' ? 'fire' : 
                                  reportType === 'commercial' ? 'commercial' : 'water'
       
-      console.log(`[Generate Inspection Report] Report type: ${retrievalReportType}`)
       
       const retrievalQuery = {
         reportType: retrievalReportType,
@@ -135,17 +133,12 @@ export async function POST(request: NextRequest) {
         technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
       }
       
-      console.log('[Generate Inspection Report] Retrieving standards from Google Drive folder...')
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
-      console.log(`[Generate Inspection Report] Retrieved ${retrievedStandards.documents.length} standards documents`)
       
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
-      console.log(`[Generate Inspection Report] Standards context length: ${standardsContext.length} characters`)
       
       if (standardsContext.length > 0) {
-        console.log('[Generate Inspection Report] ✅ Successfully retrieved standards from Google Drive')
       } else {
-        console.log('[Generate Inspection Report] ⚠️ No standards context generated (folder may be empty or no relevant files found)')
       }
     } catch (error: any) {
       console.error('[Generate Inspection Report] ❌ Error retrieving standards from Google Drive:', error.message)
@@ -574,9 +567,7 @@ function buildInspectionReportPrompt(data: {
   
   // Log if standards context is provided
   if (standardsContext && standardsContext.length > 0) {
-    console.log(`[Build Prompt] Including standards context (${standardsContext.length} characters)`)
   } else {
-    console.log('[Build Prompt] No standards context provided - using general knowledge only')
   }
 
   // Extract water category from tier1 or analysis (only if exists)

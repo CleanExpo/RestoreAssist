@@ -110,7 +110,6 @@ export default function VisualDashboardReport({ data }: VisualDashboardReportPro
       estimatedDuration: summaryMetrics?.estimatedDuration ?? 0,
       dryingIndex: summaryMetrics?.dryingIndex ?? 0
     }
-    console.log("safeSummaryMetrics", safeSummaryMetrics)
 
     const safeSafety = {
       trafficLight: (safety?.trafficLight === 'occupied' || safety?.trafficLight === 'vacant') 

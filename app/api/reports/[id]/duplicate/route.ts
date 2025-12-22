@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canCreateReport, incrementReportUsage } from "@/lib/report-limits"
 
 export async function POST(
   request: NextRequest,
@@ -16,27 +17,14 @@ export async function POST(
 
     const { id } = await params
 
-    // Check and use credits
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-      }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Check if user has enough credits (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
+    // Check if user can create a report
+    const canCreate = await canCreateReport(session.user.id)
+    
+    if (!canCreate.allowed) {
       return NextResponse.json(
         { 
-          error: "Insufficient credits. Please upgrade your plan to create more reports.",
+          error: canCreate.reason || "Cannot create report",
           upgradeRequired: true,
-          creditsRemaining: user.creditsRemaining
         },
         { status: 402 }
       )
@@ -54,15 +42,31 @@ export async function POST(
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
-    // Deduct credits BEFORE creating report (only for trial users)
+    // For trial users, deduct credits
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        subscriptionStatus: true,
+        creditsRemaining: true,
+        totalCreditsUsed: true,
+      }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
     if (user.subscriptionStatus === 'TRIAL') {
       await prisma.user.update({
         where: { id: session.user.id },
         data: {
-          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
-          totalCreditsUsed: user.totalCreditsUsed + 1,
+          creditsRemaining: Math.max(0, (user.creditsRemaining || 0) - 1),
+          totalCreditsUsed: (user.totalCreditsUsed || 0) + 1,
         }
       })
+    } else if (user.subscriptionStatus === 'ACTIVE') {
+      // Increment monthly usage for active subscribers
+      await incrementReportUsage(session.user.id)
     }
 
     // Generate new report number

@@ -39,7 +39,10 @@ export default function DocumentExportPackage({
         downloadBlob(blob, `RestoreAssist-Package-${reportId}.${extension}`)
       } else {
         // Word format (future implementation)
-        toast.info('Word format export coming soon')
+        toast('Word format export coming soon', {
+          icon: 'ℹ️',
+          duration: 4000,
+        })
       }
 
       toast.success(`Documents exported successfully as ${format.toUpperCase()}`)
@@ -64,7 +67,10 @@ export default function DocumentExportPackage({
 
   const handleEmailDelivery = async () => {
     // Future implementation - email delivery
-    toast.info('Email delivery feature coming soon')
+    toast('Email delivery feature coming soon', {
+      icon: 'ℹ️',
+      duration: 4000,
+    })
   }
 
   return (

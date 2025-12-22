@@ -59,7 +59,6 @@ export async function tryClaudeModels(
         system: requestConfig.system,
         messages: requestConfig.messages,
       })
-      console.log(`✓ Successfully used model: ${modelConfig.name}`)
       return response
     } catch (error: any) {
       lastError = error
@@ -67,18 +66,15 @@ export async function tryClaudeModels(
       
       // If it's a 404/not_found, try next model
       if (error.status === 404 || errorType === 'not_found_error') {
-        console.log(`✗ Model ${modelConfig.name} not found (404), trying next...`)
         continue
       }
       
       // If it's a deprecation warning but still works, log and continue
       if (error.message?.includes('deprecated')) {
-        console.log(`⚠ Model ${modelConfig.name} is deprecated, trying next...`)
         continue
       }
       
       // For other errors, still try next model
-      console.log(`✗ Model ${modelConfig.name} failed: ${error.message || 'Unknown error'}, trying next...`)
       continue
     }
   }

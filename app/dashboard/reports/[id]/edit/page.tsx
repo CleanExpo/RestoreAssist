@@ -92,7 +92,6 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             }
           }
         } catch (err) {
-          console.log("No scope found")
         }
         
         // Fetch estimate if exists
@@ -105,7 +104,6 @@ export default function EditReportPage({ params }: { params: Promise<{ id: strin
             }
           }
         } catch (err) {
-          console.log("No estimate found")
         }
       } else {
         setError("Report not found")

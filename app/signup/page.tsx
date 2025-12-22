@@ -70,8 +70,8 @@ export default function SignupPage() {
 
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
-          // Redirect to onboarding flow for new users
-          router.push("/dashboard/settings?onboarding=true")
+          // Redirect to pricing page first - subscription is required
+          router.push("/dashboard/pricing?onboarding=true&require_subscription=true")
         } else {
           toast.error("Please sign in manually")
           setTimeout(() => {
@@ -147,12 +147,17 @@ export default function SignupPage() {
               className="mt-4 space-y-3 text-sm text-slate-300"
             >
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">1. Upgrade Your Package</p>
-                <p className="text-slate-400">Start with 3 free reports, then upgrade for unlimited access to all features.</p>
+                <p className="font-semibold text-cyan-300 mb-1">1. Subscribe to a Plan (Required)</p>
+                <p className="text-slate-400">Choose a monthly or yearly plan to get started. Subscription is required before you can create reports.</p>
               </div>
               
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">2. Get an API Key (Required for AI features)</p>
+                <p className="font-semibold text-cyan-300 mb-1">2. Setup Business Profile</p>
+                <p className="text-slate-400">Enter your business details including name, address, and contact information.</p>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-cyan-300 mb-1">3. Get an API Key (Required for AI features)</p>
                 <p className="text-slate-400 mb-2">Choose one provider to enable AI-powered report generation:</p>
                 <ul className="list-disc list-inside space-y-1 text-slate-400 ml-2">
                   <li>
@@ -177,8 +182,13 @@ export default function SignupPage() {
               </div>
               
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">3. Configure Pricing</p>
+                <p className="font-semibold text-cyan-300 mb-1">4. Configure Pricing</p>
                 <p className="text-slate-400">Set your company's rates for labor, equipment, and services to generate accurate cost estimates.</p>
+              </div>
+              
+              <div>
+                <p className="font-semibold text-cyan-300 mb-1">5. Create Your First Report</p>
+                <p className="text-slate-400">Once setup is complete, create your first inspection report.</p>
               </div>
               
               <div className="pt-2 border-t border-cyan-500/20">

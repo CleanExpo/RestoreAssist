@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
             subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
             nextBillingDate: new Date(subscription.current_period_end * 1000),
             lastBillingDate: new Date(subscription.current_period_start * 1000),
-            creditsRemaining: subscription.status === 'active' ? 999999 : user.creditsRemaining,
+            // Don't set creditsRemaining for active subscriptions - they use monthly limits
           }
         })
 

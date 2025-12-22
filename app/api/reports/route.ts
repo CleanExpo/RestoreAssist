@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateDetailedReport } from "@/lib/anthropic"
+import { canCreateReport, incrementReportUsage } from "@/lib/report-limits"
 
 export async function GET(request: NextRequest) {
   try {
@@ -117,7 +118,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check and use credits directly
+    // Check if user can create a report
+    const canCreate = await canCreateReport(session.user.id)
+    
+    if (!canCreate.allowed) {
+      return NextResponse.json(
+        { 
+          error: canCreate.reason || "Cannot create report",
+          upgradeRequired: true,
+        },
+        { status: 402 }
+      )
+    }
+
+    // For trial users, deduct credits
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
@@ -131,27 +145,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Check if user has enough credits (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
-      return NextResponse.json(
-        { 
-          error: "Insufficient credits. Please upgrade your plan to create more reports.",
-          upgradeRequired: true,
-          creditsRemaining: user.creditsRemaining
-        },
-        { status: 402 }
-      )
-    }
-
-    // Deduct credits BEFORE creating report (only for trial users)
     if (user.subscriptionStatus === 'TRIAL') {
       await prisma.user.update({
         where: { id: session.user.id },
         data: {
-          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
-          totalCreditsUsed: user.totalCreditsUsed + 1,
+          creditsRemaining: Math.max(0, (user.creditsRemaining || 0) - 1),
+          totalCreditsUsed: (user.totalCreditsUsed || 0) + 1,
         }
       })
+    } else if (user.subscriptionStatus === 'ACTIVE') {
+      // Increment monthly usage for active subscribers
+      await incrementReportUsage(session.user.id)
     }
 
     // Generate report number if not provided

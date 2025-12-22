@@ -139,7 +139,6 @@ export default function ReportsPage() {
         setSelectedReports([])
         setShowBulkDeleteModal(false)
         // Show success message
-        console.log(`${selectedReports.length} reports deleted successfully`)
       } else {
         console.error('Failed to delete reports')
       }
@@ -369,7 +368,6 @@ export default function ReportsPage() {
         <button 
           onClick={() => {
             // Download all reports as a batch (you can implement this later)
-            console.log('Batch download not implemented yet')
           }}
           className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
           title="Download All Reports"

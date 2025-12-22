@@ -233,7 +233,6 @@ export async function POST(request: NextRequest) {
         // Pre-fetch standards in background (don't await - let it run async)
         retrieveRelevantStandards(retrievalQuery, integration.apiKey)
           .then(standards => {
-            console.log(`[Initial Entry] Pre-fetched ${standards.documents.length} relevant standards for report ${report.id}`)
           })
           .catch(error => {
             console.error(`[Initial Entry] Error pre-fetching standards:`, error)

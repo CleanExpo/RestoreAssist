@@ -15,7 +15,6 @@ export function validateEnvironment() {
     return false
   }
 
-  console.log('✅ All required environment variables are set')
   return true
 }
 

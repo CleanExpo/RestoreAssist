@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { X, CheckCircle, Circle, ArrowRight, Sparkles, HelpCircle, Lightbulb, Zap, Building2, KeyRound, DollarSign, FileText } from "lucide-react"
+import { X, CheckCircle, Circle, ArrowRight, Sparkles, HelpCircle, Lightbulb, Zap, Building2, KeyRound, DollarSign, FileText, CreditCard } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 // @ts-ignore - canvas-confetti types
 import confetti from "canvas-confetti"
@@ -64,6 +64,13 @@ export default function OnboardingGuide({
 
   const steps = [
     { 
+      number: 0, 
+      name: 'Subscribe to Plan', 
+      icon: CreditCard,
+      route: '/dashboard/pricing',
+      description: 'Choose a monthly or yearly plan'
+    },
+    { 
       number: 1, 
       name: 'Business Profile', 
       icon: Building2,
@@ -106,7 +113,7 @@ export default function OnboardingGuide({
   }
 
   const currentStepData = steps.find(s => s.number === step)
-  const progress = ((step - 1) / totalSteps) * 100
+  const progress = (step / totalSteps) * 100
 
   return (
     <div className="relative">

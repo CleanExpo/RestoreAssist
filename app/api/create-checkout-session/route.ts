@@ -93,31 +93,27 @@ export async function POST(request: NextRequest) {
     } catch (priceError: any) {
       // If price doesn't exist, create it dynamically
       if (priceError.code === 'resource_missing') {
-        console.log('Price not found, creating dynamic price...')
         
         // Create price based on the priceId
         let priceData
         if (priceId === 'MONTHLY_PLAN' || priceId.includes('MONTHLY')) {
           priceData = {
-            unit_amount: 4950, // $49.50 in cents
+            unit_amount: 9900, // $99.00 in cents
             currency: 'aud',
             recurring: { interval: 'month' },
             product_data: {
-              name: 'Monthly Plan',
+              name: 'Monthly Plan - 50 Reports',
             },
           }
         } else if (priceId === 'YEARLY_PLAN' || priceId.includes('YEARLY')) {
           priceData = {
-            unit_amount: 52800, // $528 in cents
+            unit_amount: 118800, // $1188.00 in cents
             currency: 'aud',
             recurring: { interval: 'year' },
             product_data: {
-              name: 'Yearly Plan',
+              name: 'Yearly Plan - 70 Reports/Month',
             },
           }
-        } else if (priceId === 'FREE_TRIAL' || priceId.includes('FREE')) {
-          // Free trial doesn't need a price
-          return NextResponse.json({ error: "Free trial doesn't require payment" }, { status: 400 })
         } else {
           throw new Error('Invalid price ID')
         }

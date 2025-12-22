@@ -3,16 +3,11 @@ import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
 import Stripe from "stripe"
+import { PRICING_CONFIG } from "@/lib/pricing"
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const signature = headers().get("stripe-signature")
-
-  console.log('Webhook received:', { 
-    hasSignature: !!signature, 
-    bodyLength: body.length,
-    webhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET 
-  })
 
   if (!signature) {
     console.error('No signature provided')
@@ -33,26 +28,136 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    console.log('Processing webhook event:', event.type)
-    
     switch (event.type) {
       case "checkout.session.completed":
         const session = event.data.object as Stripe.Checkout.Session
-        console.log('Checkout session completed:', {
-          id: session.id,
-          mode: session.mode,
-          customerEmail: session.customer_email,
-          customer: session.customer,
-          subscription: session.subscription,
-          metadata: session.metadata
-        })
+        
+        // Handle add-on purchases (one-time payments)
+        if (session.mode === 'payment' && session.metadata?.type === 'addon') {
+          const userId = session.metadata?.userId
+          const addonKey = session.metadata?.addonKey
+          const addonReports = parseInt(session.metadata?.addonReports || '0')
+          const addon = PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons]
+          
+          if (!userId) {
+            console.error('❌ ADD-ON ERROR: No userId in metadata')
+          }
+          if (!addonKey) {
+            console.error('❌ ADD-ON ERROR: No addonKey in metadata')
+          }
+          if (addonReports <= 0) {
+            console.error('❌ ADD-ON ERROR: Invalid addonReports value:', addonReports)
+          }
+          if (!addon) {
+            console.error('❌ ADD-ON ERROR: Addon not found in PRICING_CONFIG for key:', addonKey)
+          }
+          
+          if (userId && addonReports > 0 && addon) {
+            try {
+              // Get current user data before update
+              const userBefore = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { addonReports: true }
+              })
+              
+              // Get payment intent ID if available
+              const paymentIntentId = session.payment_intent as string | undefined
+              
+              // Check if AddonPurchase model is available and check for duplicates
+              let alreadyProcessed = false
+              let canUsePurchaseTable = false
+              
+              try {
+                // Try to access the model - if it exists, it will be an object with methods
+                if (prisma.addonPurchase && typeof (prisma.addonPurchase as any).findUnique === 'function') {
+                  canUsePurchaseTable = true
+                  const existingPurchase = await (prisma.addonPurchase as any).findUnique({
+                    where: { stripeSessionId: session.id }
+                  })
+                  if (existingPurchase) {
+                    alreadyProcessed = true
+                  }
+                }
+              } catch (error: any) {
+                // Model doesn't exist or not available
+                canUsePurchaseTable = false
+              }
+              
+              if (alreadyProcessed) {
+                return NextResponse.json({ received: true, message: 'Already processed' })
+              }
+              
+              // Try to create purchase record if table is available
+              let addonPurchase = null
+              if (canUsePurchaseTable) {
+                try {
+                  addonPurchase = await (prisma.addonPurchase as any).create({
+                    data: {
+                      userId: userId,
+                      addonKey: addonKey,
+                      addonName: addon.name,
+                      reportLimit: addonReports,
+                      amount: addon.amount,
+                      currency: addon.currency,
+                      stripeSessionId: session.id,
+                      stripePaymentIntentId: paymentIntentId,
+                      status: 'COMPLETED',
+                    }
+                  })
+                } catch (purchaseError: any) {
+                  // If record already exists (unique constraint), skip processing
+                  if (purchaseError.code === 'P2002' || purchaseError.message?.includes('Unique constraint') || purchaseError.message?.includes('unique')) {
+                    return NextResponse.json({ received: true, message: 'Already processed' })
+                  }
+                  console.warn('⚠️ Could not create AddonPurchase record:', purchaseError.message)
+                  canUsePurchaseTable = false // Fall back to user field only
+                }
+              }
+              
+              // ALWAYS update user's addonReports field (works even if table doesn't exist)
+              const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                  addonReports: {
+                    increment: addonReports
+                  }
+                },
+                select: {
+                  addonReports: true,
+                  id: true
+                }
+              })
+              
+                before: userBefore?.addonReports,
+                increment: addonReports,
+                after: updatedUser.addonReports,
+                userId: updatedUser.id,
+                purchaseRecordId: addonPurchase?.id || 'N/A (using field only)'
+              })
+              
+            } catch (error: any) {
+              console.error('❌ ADD-ON PROCESSING ERROR:', {
+                error: error.message,
+                stack: error.stack,
+                userId,
+                addonReports
+              })
+              throw error
+            }
+          } else {
+            console.error('❌ ADD-ON VALIDATION FAILED - Not processing')
+          }
+        } else {
+            mode: session.mode,
+            type: session.metadata?.type
+          })
+        }
         
         if (session.mode === 'subscription') {
           // Use userId from metadata if available (more reliable), otherwise fall back to email
           let userId = session.metadata?.userId
           
           if (userId) {
-            console.log('Updating user subscription for userId:', userId)
             
             // Get subscription details to calculate billing dates
             let subscriptionEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Default 30 days
@@ -100,10 +205,8 @@ export async function POST(request: NextRequest) {
               }
             })
             
-            console.log('User update result:', checkoutResult)
           } else if (session.customer_email) {
             // Fallback to email if metadata userId not available
-            console.log('Updating user subscription for email:', session.customer_email)
           
             let subscriptionEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             let nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -149,14 +252,12 @@ export async function POST(request: NextRequest) {
             }
           })
           
-          console.log('User update result:', checkoutResult)
           }
         }
         break
 
       case "customer.subscription.created":
         const subscription = event.data.object as Stripe.Subscription
-        console.log('Subscription created:', {
           id: subscription.id,
           customer: subscription.customer,
           status: subscription.status
@@ -164,7 +265,6 @@ export async function POST(request: NextRequest) {
         
         // Update user subscription
         if (subscription.customer) {
-          console.log('Updating user subscription for customer:', subscription.customer)
           
           // Determine subscription plan from price
           let subscriptionPlan = 'Monthly Plan' // Default
@@ -177,6 +277,13 @@ export async function POST(request: NextRequest) {
             }
           }
           
+          // Calculate monthly reset date (first day of next month)
+          const now = new Date()
+          const nextReset = new Date(now)
+          nextReset.setMonth(nextReset.getMonth() + 1)
+          nextReset.setDate(1)
+          nextReset.setHours(0, 0, 0, 0)
+          
           const subscriptionResult = await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
@@ -185,17 +292,17 @@ export async function POST(request: NextRequest) {
               subscriptionId: subscription.id,
               subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
               nextBillingDate: new Date(subscription.current_period_end * 1000),
-              creditsRemaining: 999999,
+              monthlyReportsUsed: 0,
+              monthlyResetDate: nextReset,
+              // Don't set creditsRemaining for active subscriptions - they use monthly limits
             }
           })
           
-          console.log('Subscription update result:', subscriptionResult)
         }
         break
 
       case "customer.subscription.updated":
         const updatedSubscription = event.data.object as Stripe.Subscription
-        console.log('Subscription updated:', {
           id: updatedSubscription.id,
           status: updatedSubscription.status
         })
@@ -209,14 +316,10 @@ export async function POST(request: NextRequest) {
           }
         })
         
-        console.log('Subscription update result:', updateResult)
         break
 
       case "customer.subscription.deleted":
         const deletedSubscription = event.data.object as Stripe.Subscription
-        console.log('Subscription deleted:', {
-          id: deletedSubscription.id
-        })
         
         const deletionResult = await prisma.user.updateMany({
           where: { subscriptionId: deletedSubscription.id },
@@ -227,21 +330,95 @@ export async function POST(request: NextRequest) {
           }
         })
         
-        console.log('Subscription deletion result:', deletionResult)
         break
 
       case "invoice.payment_succeeded":
         const invoice = event.data.object as Stripe.Invoice
         
         if (invoice.subscription) {
+          // Reset monthly usage on successful payment
+          const now = new Date()
+          const nextReset = new Date(now)
+          nextReset.setMonth(nextReset.getMonth() + 1)
+          nextReset.setDate(1)
+          nextReset.setHours(0, 0, 0, 0)
+          
           await prisma.user.updateMany({
             where: { subscriptionId: invoice.subscription as string },
             data: {
               lastBillingDate: new Date(),
               nextBillingDate: new Date(invoice.period_end * 1000),
-              creditsRemaining: 999999,
+              monthlyReportsUsed: 0,
+              monthlyResetDate: nextReset,
+              // Don't set creditsRemaining for active subscriptions - they use monthly limits
             }
           })
+        }
+        break
+
+      case "payment_intent.succeeded":
+        // Handle add-on purchases via payment intent (backup to checkout.session.completed)
+        const paymentIntent = event.data.object as Stripe.PaymentIntent
+          id: paymentIntent.id,
+          status: paymentIntent.status,
+          amount: paymentIntent.amount,
+          currency: paymentIntent.currency,
+          metadata: paymentIntent.metadata
+        })
+        
+        // Check if this is an add-on purchase
+        if (paymentIntent.metadata?.type === 'addon') {
+          const userId = paymentIntent.metadata?.userId
+          const addonKey = paymentIntent.metadata?.addonKey
+          const addonReports = parseInt(paymentIntent.metadata?.addonReports || '0')
+          const addon = PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons]
+          
+          if (userId && addonReports > 0 && addon) {
+            // Check if purchase already exists
+            const existingPurchase = await prisma.addonPurchase.findUnique({
+              where: { stripePaymentIntentId: paymentIntent.id }
+            })
+            
+            if (!existingPurchase) {
+              
+              // Create add-on purchase record FIRST (acts as unique lock)
+              let addonPurchase = null
+              try {
+                addonPurchase = await prisma.addonPurchase.create({
+                  data: {
+                    userId: userId,
+                    addonKey: addonKey,
+                    addonName: addon.name,
+                    reportLimit: addonReports,
+                    amount: addon.amount,
+                    currency: addon.currency,
+                    stripePaymentIntentId: paymentIntent.id,
+                    status: 'COMPLETED',
+                  }
+                })
+              } catch (purchaseError: any) {
+                // If record already exists (unique constraint), skip processing
+                if (purchaseError.code === 'P2002' || purchaseError.message?.includes('Unique constraint') || purchaseError.message?.includes('unique')) {
+                  return NextResponse.json({ received: true, message: 'Already processed' })
+                }
+                console.error('❌ Error creating purchase record:', purchaseError.message)
+                return NextResponse.json({ received: true, message: 'Failed to create purchase record' })
+              }
+              
+              // Only update user if we successfully created the record
+              if (addonPurchase) {
+                await prisma.user.update({
+                  where: { id: userId },
+                  data: {
+                    addonReports: {
+                      increment: addonReports
+                    }
+                  }
+                })
+              }
+              
+            }
+          }
         }
         break
 
@@ -259,7 +436,6 @@ export async function POST(request: NextRequest) {
         break
 
       default:
-        console.log(`Unhandled event type: ${event.type}`)
     }
 
     return NextResponse.json({ received: true })

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
+import { PRICING_CONFIG } from "@/lib/pricing"
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,6 +79,13 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Calculate monthly reset date (first day of next month)
+        const now = new Date()
+        const nextReset = new Date(now)
+        nextReset.setMonth(nextReset.getMonth() + 1)
+        nextReset.setDate(1)
+        nextReset.setHours(0, 0, 0, 0)
+
         // Update user subscription in database
         const updatedUser = await prisma.user.update({
           where: { id: session.user.id },
@@ -89,7 +97,9 @@ export async function POST(request: NextRequest) {
             subscriptionEndsAt: new Date(activeSubscription.current_period_end * 1000),
             nextBillingDate: new Date(activeSubscription.current_period_end * 1000),
             lastBillingDate: new Date(activeSubscription.current_period_start * 1000),
-            creditsRemaining: 999999, // Unlimited for paid plans
+            monthlyReportsUsed: 0,
+            monthlyResetDate: nextReset,
+            // Don't set creditsRemaining for active subscriptions - they use monthly limits
           }
         })
 

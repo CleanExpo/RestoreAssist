@@ -145,7 +145,6 @@ export default function IntegrationsPage() {
           const onboardingResponse = await fetch('/api/onboarding/status')
           if (onboardingResponse.ok) {
             const onboardingData = await onboardingResponse.json()
-            console.log('Onboarding status after save:', onboardingData)
             if (onboardingData.nextStep) {
               const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
               if (nextStepRoute) {
@@ -258,7 +257,6 @@ export default function IntegrationsPage() {
           const onboardingResponse = await fetch('/api/onboarding/status')
           if (onboardingResponse.ok) {
             const onboardingData = await onboardingResponse.json()
-            console.log('Onboarding status after add:', onboardingData)
             if (onboardingData.nextStep) {
               const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
               if (nextStepRoute) {
@@ -325,7 +323,7 @@ export default function IntegrationsPage() {
       {/* Onboarding Guide - Contextual Sidebar */}
       <OnboardingGuide
         step={2}
-        totalSteps={4}
+        totalSteps={5}
         title="AI Integration Setup"
         description="Connect your AI API key to enable intelligent report generation. Choose from Anthropic Claude, OpenAI GPT, or Google Gemini."
         value="AI-powered reports provide detailed analysis, compliance checks, and professional recommendations automatically."

@@ -155,7 +155,10 @@ export default function ClientsPage() {
 
     // Check if this is a report-based client (can't delete, it's derived from reports)
     if ((selectedClient as any)._isFromReport) {
-      toast.info("This client was created from a report. It will disappear once all related reports are deleted or linked to a real client.")
+      toast("This client was created from a report. It will disappear once all related reports are deleted or linked to a real client.", {
+        icon: 'ℹ️',
+        duration: 4000,
+      })
       setShowDeleteModal(false)
       setSelectedClient(null)
       return
@@ -185,7 +188,10 @@ export default function ClientsPage() {
   const openEditModal = (client: Client) => {
     // Check if this is a report-based client (can't edit directly, need to create real client)
     if ((client as any)._isFromReport) {
-      toast.info("This client was created from a report. Please create a new client record to edit.")
+      toast("This client was created from a report. Please create a new client record to edit.", {
+        icon: 'ℹ️',
+        duration: 4000,
+      })
       // Pre-fill the form with the report client's data
       setFormData({
         name: client.name,

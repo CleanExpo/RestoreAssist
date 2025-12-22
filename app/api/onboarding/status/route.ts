@@ -19,12 +19,17 @@ export async function GET(request: NextRequest) {
         businessABN: true,
         businessPhone: true,
         businessEmail: true,
+        subscriptionStatus: true,
+        subscriptionPlan: true,
       }
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    // Check subscription status - REQUIRED before onboarding
+    const hasActiveSubscription = user.subscriptionStatus === 'ACTIVE'
 
     // Check integrations (Any AI API key - Anthropic, OpenAI, or Gemini)
     const integration = await prisma.integration.findFirst({
@@ -58,8 +63,15 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Define the 4 onboarding steps
+    // Define onboarding steps - subscription is required first
     const steps = {
+      subscription: {
+        completed: hasActiveSubscription,
+        required: true,
+        title: 'Subscribe to a Plan',
+        description: 'Choose a monthly or yearly plan to get started',
+        route: '/dashboard/pricing'
+      },
       business_profile: {
         completed: !!(user.businessName && user.businessAddress),
         required: true,

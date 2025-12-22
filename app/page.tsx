@@ -143,11 +143,11 @@ export default function Home() {
                   {/* Action Buttons */}
                   <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
                     <Link
-                      href="/signup"
+                      href="/pricing"
                       className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Free Trial
+                      Pricing
                     </Link>
                     <Link
                       href="/login"

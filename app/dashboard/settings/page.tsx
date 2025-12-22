@@ -28,6 +28,16 @@ interface UserProfile {
   businessABN?: string
   businessPhone?: string
   businessEmail?: string
+  addonReports?: number
+  monthlyReportsUsed?: number
+  monthlyResetDate?: string
+  reportLimits?: {
+    baseLimit: number
+    addonReports: number
+    monthlyReportsUsed: number
+    availableReports: number
+    hasUnlimited: boolean
+  }
 }
 
 export default function SettingsPage() {
@@ -55,6 +65,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
+      // Check subscription status first - redirect if not subscribed
+      if (isOnboarding) {
+        checkSubscriptionAndRedirect()
+      }
       fetchProfile()
       // Show welcome screen on first visit
       if (isOnboarding && !localStorage.getItem('onboarding_welcome_shown')) {
@@ -65,6 +79,22 @@ export default function SettingsPage() {
       setLoading(false)
     }
   }, [status, session, isOnboarding])
+
+  const checkSubscriptionAndRedirect = async () => {
+    try {
+      const response = await fetch('/api/subscription')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.subscription?.status !== 'active') {
+          // No active subscription, redirect to pricing
+          toast.error('Please subscribe to a plan first')
+          router.push('/dashboard/pricing?onboarding=true&require_subscription=true')
+        }
+      }
+    } catch (error) {
+      console.error('Error checking subscription:', error)
+    }
+  }
 
   const fetchProfile = async (isRefresh = false) => {
     if (isRefresh) {
@@ -321,7 +351,7 @@ export default function SettingsPage() {
       {/* Onboarding Guide - Contextual Sidebar */}
       <OnboardingGuide
         step={1}
-        totalSteps={4}
+        totalSteps={5}
         title="Business Profile Setup"
         description="Add your business information, logo, and contact details. This will appear on all your professional reports."
         value="Your business details will be automatically included in every report you generate, saving you time and ensuring consistency."
@@ -623,45 +653,87 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Credits */}
+          {/* Reports / Credits */}
             <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5" />
-              Credits
+              {profile?.subscriptionStatus === 'ACTIVE' ? 'Reports' : 'Credits'}
             </h2>
 
               <div className="space-y-4">
-                  <div>
-                <label className="block text-sm font-medium mb-2">Remaining</label>
-                <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
-                  {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  {profile?.creditsRemaining || 0}
-              </div>
-            </div>
+                {profile?.subscriptionStatus === 'ACTIVE' && profile?.reportLimits ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Available This Month</label>
+                      <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                        {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
+                        {profile.reportLimits.availableReports} / {profile.reportLimits.baseLimit + profile.reportLimits.addonReports}
+                      </div>
+                      <div className="text-sm text-slate-400 mt-1">
+                        Base: {profile.reportLimits.baseLimit}
+                        {profile.reportLimits.addonReports > 0 && ` + Add-ons: ${profile.reportLimits.addonReports}`}
+                      </div>
+                    </div>
 
                     <div>
-                <label className="block text-sm font-medium mb-2">Used This Month</label>
-                <div className="text-lg text-slate-300">
-                  {profile?.totalCreditsUsed || 0}
-                </div>
-              </div>
+                      <label className="block text-sm font-medium mb-2">Used This Month</label>
+                      <div className="text-lg text-slate-300">
+                        {profile.reportLimits.monthlyReportsUsed}
+                      </div>
+                    </div>
 
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0))) * 100)}%` 
-                  }}
-                ></div>
-              </div>
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${Math.min(100, (profile.reportLimits.monthlyReportsUsed / (profile.reportLimits.baseLimit + profile.reportLimits.addonReports)) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
 
-              <a
-                href="/pricing"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-              >
-                <Crown className="w-4 h-4" />
-                Upgrade Package
-              </a>
+                    <a
+                      href="/dashboard/pricing"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                    >
+                      <Crown className="w-4 h-4" />
+                      Purchase Add-ons
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Remaining</label>
+                      <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                        {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
+                        {profile?.creditsRemaining || 0}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Used</label>
+                      <div className="text-lg text-slate-300">
+                        {profile?.totalCreditsUsed || 0}
+                      </div>
+                    </div>
+
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0) || 1)) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+
+                    <a
+                      href="/dashboard/pricing"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                    >
+                      <Crown className="w-4 h-4" />
+                      Upgrade Package
+                    </a>
+                  </>
+                )}
             </div>
           </div>
 

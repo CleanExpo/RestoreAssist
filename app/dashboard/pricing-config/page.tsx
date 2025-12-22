@@ -13,7 +13,7 @@ export default function PricingConfigPage() {
       {/* Onboarding Guide - Contextual Sidebar */}
       <OnboardingGuide
         step={3}
-        totalSteps={4}
+        totalSteps={5}
         title="Pricing Configuration"
         description="Configure your company rates for labor, equipment, and services. These rates will be used to generate accurate cost estimates in your reports."
         value="Accurate pricing ensures your reports include realistic cost projections that help with insurance claims and project planning."
