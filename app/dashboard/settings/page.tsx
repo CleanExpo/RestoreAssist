@@ -701,37 +701,37 @@ export default function SettingsPage() {
                   </>
                 ) : (
                   <>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Remaining</label>
-                      <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
-                        {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-                        {profile?.creditsRemaining || 0}
-                      </div>
-                    </div>
+                  <div>
+                <label className="block text-sm font-medium mb-2">Remaining</label>
+                <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                  {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
+                  {profile?.creditsRemaining || 0}
+              </div>
+            </div>
 
                     <div>
                       <label className="block text-sm font-medium mb-2">Used</label>
-                      <div className="text-lg text-slate-300">
-                        {profile?.totalCreditsUsed || 0}
-                      </div>
-                    </div>
+                <div className="text-lg text-slate-300">
+                  {profile?.totalCreditsUsed || 0}
+                </div>
+              </div>
 
-                    <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ 
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{ 
                           width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0) || 1)) * 100)}%` 
-                        }}
-                      ></div>
-                    </div>
+                  }}
+                ></div>
+              </div>
 
-                    <a
+              <a
                       href="/dashboard/pricing"
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-                    >
-                      <Crown className="w-4 h-4" />
-                      Upgrade Package
-                    </a>
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade Package
+              </a>
                   </>
                 )}
             </div>

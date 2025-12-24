@@ -116,18 +116,18 @@ export async function POST(request: NextRequest) {
               
               // ALWAYS update user's addonReports field (works even if table doesn't exist)
               const updatedUser = await prisma.user.update({
-                where: { id: userId },
-                data: {
-                  addonReports: {
-                    increment: addonReports
-                  }
+              where: { id: userId },
+              data: {
+                addonReports: {
+                  increment: addonReports
+                }
                 },
                 select: {
                   addonReports: true,
                   id: true
-                }
-              })
-              
+              }
+            })
+            
               console.log('✅ ADD-ON PROCESSED:', {
                 before: userBefore?.addonReports,
                 increment: addonReports,
@@ -230,17 +230,17 @@ export async function POST(request: NextRequest) {
             
             // Prepare update data
             const updateData: any = {
-              subscriptionStatus: 'ACTIVE',
-              subscriptionPlan: subscriptionPlan,
-              stripeCustomerId: session.customer as string,
-              subscriptionId: session.subscription as string,
-              subscriptionEndsAt: subscriptionEndsAt,
-              nextBillingDate: nextBillingDate,
+                subscriptionStatus: 'ACTIVE',
+                subscriptionPlan: subscriptionPlan,
+                stripeCustomerId: session.customer as string,
+                subscriptionId: session.subscription as string,
+                subscriptionEndsAt: subscriptionEndsAt,
+                nextBillingDate: nextBillingDate,
               lastBillingDate: new Date(stripeSubscription?.current_period_start * 1000 || Date.now()),
               monthlyReportsUsed: 0,
               monthlyResetDate: nextReset,
-              creditsRemaining: 999999, // Unlimited for paid plans
-            }
+                creditsRemaining: 999999, // Unlimited for paid plans
+              }
             
             // Grant signup bonus (10 reports) if first subscription
             // Note: signupBonusApplied field will be set after migration is run
@@ -329,11 +329,11 @@ export async function POST(request: NextRequest) {
             // Prepare update data
             const updateData: any = {
               subscriptionStatus: 'ACTIVE',
-              subscriptionPlan: subscriptionPlan,
+                subscriptionPlan: subscriptionPlan,
               stripeCustomerId: session.customer as string,
               subscriptionId: session.subscription as string,
-              subscriptionEndsAt: subscriptionEndsAt,
-              nextBillingDate: nextBillingDate,
+                subscriptionEndsAt: subscriptionEndsAt,
+                nextBillingDate: nextBillingDate,
               lastBillingDate: new Date(),
               monthlyReportsUsed: 0,
               monthlyResetDate: nextReset,

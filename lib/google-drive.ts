@@ -105,7 +105,20 @@ export async function listDriveItems(folderId: string = 'root'): Promise<DriveIt
     
     return { files, folders }
   } catch (error: any) {
-    throw new Error(`Failed to list Drive items: ${error.message}`)
+    // Preserve the original error message for better debugging
+    const errorMessage = error.message || 'Unknown error'
+    const errorCode = error.code || error.response?.status
+    
+    // Check for specific permission errors
+    if (errorCode === 403 || errorMessage.includes('insufficientFilePermissions') || errorMessage.includes('Forbidden')) {
+      throw new Error(`Permission denied: The service account does not have access to this folder. Please share the folder with ${process.env.GOOGLE_CLIENT_EMAIL || 'your-service-account@project.iam.gserviceaccount.com'}`)
+    }
+    
+    if (errorCode === 404 || errorMessage.includes('not found')) {
+      throw new Error(`Folder not found: The folder ID "${folderId}" does not exist or is not accessible.`)
+    }
+    
+    throw new Error(`Failed to list Drive items: ${errorMessage}`)
   }
 }
 

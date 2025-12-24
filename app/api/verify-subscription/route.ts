@@ -114,13 +114,13 @@ export async function POST(request: NextRequest) {
 
       // Prepare update data
       const updateData: any = {
-        subscriptionStatus: 'ACTIVE',
-        subscriptionPlan: subscriptionPlan,
-        stripeCustomerId: checkoutSession.customer as string,
-        subscriptionId: subscriptionId as string,
-        subscriptionEndsAt: new Date(stripeSubscription.current_period_end * 1000),
-        nextBillingDate: new Date(stripeSubscription.current_period_end * 1000),
-        lastBillingDate: new Date(stripeSubscription.current_period_start * 1000),
+          subscriptionStatus: 'ACTIVE',
+          subscriptionPlan: subscriptionPlan,
+          stripeCustomerId: checkoutSession.customer as string,
+          subscriptionId: subscriptionId as string,
+          subscriptionEndsAt: new Date(stripeSubscription.current_period_end * 1000),
+          nextBillingDate: new Date(stripeSubscription.current_period_end * 1000),
+          lastBillingDate: new Date(stripeSubscription.current_period_start * 1000),
         monthlyReportsUsed: 0,
         monthlyResetDate: nextReset,
         // Don't set creditsRemaining for active subscriptions - they use monthly limits

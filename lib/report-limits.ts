@@ -24,7 +24,7 @@ export async function getUserReportLimits(userId: string): Promise<ReportLimitIn
       createdAt: true,
     }
   })
-  
+
   // Query add-on purchases separately (in case Prisma client hasn't been regenerated)
   let addonPurchases: Array<{ reportLimit: number; purchasedAt: Date }> = []
   try {

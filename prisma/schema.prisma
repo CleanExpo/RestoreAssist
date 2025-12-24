@@ -84,6 +84,8 @@ model User {
   estimates     Estimate[]
   pricingConfig CompanyPricingConfig?
   addonPurchases AddonPurchase[]
+  claimAnalysisBatches ClaimAnalysisBatch[]
+  standardTemplates StandardTemplate[]
 }
 
 model VerificationToken {
@@ -598,4 +600,216 @@ enum AddonPurchaseStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+// Claim Analysis Models - For analyzing completed claims from Google Drive
+model ClaimAnalysisBatch {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Batch details
+  folderId    String   // Google Drive folder ID
+  folderName  String?
+  status      ClaimAnalysisBatchStatus @default(PENDING)
+  totalFiles  Int      @default(0)
+  processedFiles Int  @default(0)
+  failedFiles Int     @default(0)
+  
+  // Results summary
+  averageCompletenessScore Float?
+  averageComplianceScore   Float?
+  totalMissingElements     Int     @default(0)
+  estimatedRevenueRecovery Float?  // Estimated additional revenue from missing items
+  
+  // Metadata
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  errorMessage String? @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  analyses    ClaimAnalysis[]
+  
+  @@index([userId])
+  @@index([status])
+}
+
+enum ClaimAnalysisBatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+model ClaimAnalysis {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       ClaimAnalysisBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  // Source file information
+  googleDriveFileId String   @unique
+  fileName          String
+  fileSize          Int?     // Bytes
+  fileUrl           String?  // Google Drive file URL
+  
+  // Extracted claim information
+  claimNumber       String?
+  propertyAddress   String?
+  technicianName    String?
+  inspectionDate    DateTime?
+  reportDate        DateTime?
+  clientName        String?
+  insurerName       String?
+  
+  // Analysis scores (0-100)
+  completenessScore Int?     // How complete is the report
+  complianceScore   Int?     // IICRC compliance score
+  standardizationScore Int?  // How well it matches standard format
+  documentationScore Int?    // Quality of documentation
+  billingAccuracyScore Int?  // Accuracy of billing items
+  
+  // Report structure analysis
+  reportStructure   String?  @db.Text // JSON: sections found, order, completeness
+  reportFlow        String?  @db.Text // JSON: flow analysis, technician patterns
+  technicianPattern String?  @db.Text // JSON: technician-specific patterns
+  
+  // Missing elements summary
+  missingIICRCElements    Int @default(0)
+  missingOHSElements      Int @default(0)
+  missingBillingItems     Int @default(0)
+  missingDocumentation    Int @default(0)
+  
+  // Estimated impact
+  estimatedMissingRevenue  Float? // Estimated revenue from missing billable items
+  estimatedTimeSavings     Float? // Estimated hours saved with standardization
+  
+  // Full analysis data
+  fullAnalysisData  String?  @db.Text // JSON: complete analysis results
+  extractedText     String?  @db.Text // Extracted text from PDF
+  
+  // Status
+  status            ClaimAnalysisStatus @default(PENDING)
+  errorMessage      String?  @db.Text
+  
+  // Metadata
+  processedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  missingElements   MissingElement[]
+  
+  @@index([batchId])
+  @@index([technicianName])
+  @@index([status])
+  @@index([completenessScore])
+}
+
+enum ClaimAnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model MissingElement {
+  id            String   @id @default(cuid())
+  analysisId    String
+  analysis      ClaimAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  
+  // Element details
+  category      MissingElementCategory
+  elementType   String   // e.g., "IICRC S500 Water Category", "OH&S Confined Space Permit"
+  elementName   String   // Specific element name
+  description   String?  @db.Text
+  severity      MissingElementSeverity @default(MEDIUM)
+  
+  // Standards reference
+  standardReference String? // e.g., "IICRC S500 Section 4.2", "OH&S Act 2004"
+  requirementText   String? @db.Text // Text of the requirement
+  
+  // Billing impact (if applicable)
+  isBillable        Boolean  @default(false)
+  estimatedCost     Float?   // Estimated cost if this was billed
+  estimatedHours    Float?   // Estimated hours if this was included
+  suggestedLineItem String?  @db.Text // Suggested line item description
+  
+  // Context
+  context           String?  @db.Text // Where this should appear in the report
+  suggestedValue    String?  @db.Text // Suggested value/content
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([analysisId])
+  @@index([category])
+  @@index([severity])
+  @@index([isBillable])
+}
+
+enum MissingElementCategory {
+  IICRC_COMPLIANCE
+  OH_S_POLICY
+  WORKING_AT_HEIGHTS
+  CONFINED_SPACES
+  PPE_REQUIREMENTS
+  BILLING_ITEM
+  DOCUMENTATION
+  SCOPE_OF_WORKS
+  JOB_COSTING
+  ENVIRONMENTAL_CONTROLS
+  WASTE_DISPOSAL
+  QUALITY_CONTROL
+  OTHER
+}
+
+enum MissingElementSeverity {
+  CRITICAL  // Must be included, compliance issue
+  HIGH      // Important, likely billing impact
+  MEDIUM    // Should be included, best practice
+  LOW       // Nice to have, minor improvement
+}
+
+// Standardized Templates generated from analysis
+model StandardTemplate {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Template details
+  templateType StandardTemplateType
+  name        String
+  version     Int      @default(1)
+  description String?  @db.Text
+  
+  // Template structure
+  structure   String   @db.Text // JSON: template structure, sections, fields
+  checklist   String?  @db.Text // JSON: required elements checklist
+  lineItems   String?  @db.Text // JSON: standard line items for billing
+  
+  // Generation metadata
+  generatedFromBatchId String? // Which batch analysis generated this
+  basedOnAnalysisCount Int?    // How many claims were analyzed to create this
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false) // Default template for this type
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  
+  @@index([templateType])
+  @@index([isActive])
+  @@index([isDefault])
+}
+
+enum StandardTemplateType {
+  INITIAL_INSPECTION_REPORT
+  SCOPE_OF_WORKS
+  JOB_COSTING
+  COMPLIANCE_CHECKLIST
+  BILLING_TEMPLATE
 }

@@ -21,6 +21,7 @@ import {
   HelpCircle,
   CreditCard,
   Crown,
+  FileSearch,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 
@@ -68,6 +69,7 @@ export default function DashboardLayout({
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
+    { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
     { icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
