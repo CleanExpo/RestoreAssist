@@ -7,8 +7,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { listDriveItems, downloadDriveFile } from '@/lib/google-drive'
 import { performGapAnalysis } from '@/lib/gap-analysis'
+import { retrieveRelevantStandards, buildStandardsContextPrompt } from '@/lib/standards-retrieval'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,13 +27,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'folderId is required' }, { status: 400 })
     }
 
-    // Use Anthropic API key from .env
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY
-    if (!anthropicApiKey) {
+    const userId = (session.user as any).id
+
+    // Get user's connected integration (same logic as onboarding - use saved integration)
+    const integration = await prisma.integration.findFirst({
+      where: {
+        userId,
+        status: 'CONNECTED',
+        apiKey: { not: null },
+        OR: [
+          { name: { contains: 'Anthropic' } },
+          { name: { contains: 'OpenAI' } },
+          { name: { contains: 'Gemini' } },
+          { name: { contains: 'Claude' } },
+          { name: { contains: 'GPT' } }
+        ]
+      },
+      orderBy: {
+        createdAt: 'desc' // Use most recently connected
+      }
+    })
+
+    if (!integration || !integration.apiKey) {
       return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY is not configured in environment variables' },
-        { status: 500 }
+        { 
+          error: 'No connected API integration found',
+          details: 'Please connect an Anthropic, OpenAI, or other AI API integration in the Integrations page during onboarding.'
+        },
+        { status: 400 }
       )
+    }
+
+    const anthropicApiKey = integration.apiKey
+
+    // Retrieve ALL IICRC standards from Google Drive for revolutionary comprehensive analysis
+    let standardsContext = ''
+    try {
+      // Retrieve comprehensive standards for all report types
+      const retrievalQuery = {
+        reportType: 'water' as const,
+        keywords: [
+          'S500', 'S520', 'S540', 'IICRC', 'AS-IICRC',
+          'AS/NZS 3000', 'AS/NZS 3500', 'AS 1668', 'AS/NZS 3666',
+          'NCC', 'QDC', 'WHS', 'OH&S', 'Work Health and Safety',
+          'Insurance', 'ICA', 'APRA', 'compliance', 'standards',
+          'billing', 'scope of works', 'equipment', 'monitoring',
+          'psychrometric', 'drying', 'restoration', 'remediation'
+        ],
+        technicianNotes: 'Comprehensive revolutionary gap analysis of completed claim reports against all Australian and IICRC standards'
+      }
+      
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
+      standardsContext = buildStandardsContextPrompt(retrievedStandards)
+      
+      console.log(`[Revolutionary Gap Analysis] Retrieved ${retrievedStandards.documents.length} relevant standards documents for comprehensive analysis`)
+    } catch (error: any) {
+      console.error('[Revolutionary Gap Analysis] Error retrieving standards from Google Drive:', error.message)
+      // Continue without standards - analysis will use comprehensive built-in knowledge
     }
 
     // List all PDF files in the folder
@@ -68,8 +120,8 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    // Perform gap analysis on all PDFs in a single API call
-    const analysisResults = await performGapAnalysis(pdfData, anthropicApiKey)
+    // Perform enhanced gap analysis on all PDFs with standards context
+    const analysisResults = await performGapAnalysis(pdfData, anthropicApiKey, standardsContext)
 
     // Calculate summary statistics
     const summary = {
@@ -77,9 +129,14 @@ export async function POST(request: NextRequest) {
       totalIssues: analysisResults.reduce((sum, r) => sum + r.issues.length, 0),
       totalMissingElements: {
         iicrc: analysisResults.reduce((sum, r) => sum + r.missingElements.iicrc, 0),
+        australianStandards: analysisResults.reduce((sum, r) => sum + r.missingElements.australianStandards, 0),
         ohs: analysisResults.reduce((sum, r) => sum + r.missingElements.ohs, 0),
+        whs: analysisResults.reduce((sum, r) => sum + r.missingElements.whs, 0),
+        scopeOfWorks: analysisResults.reduce((sum, r) => sum + r.missingElements.scopeOfWorks, 0),
         billing: analysisResults.reduce((sum, r) => sum + r.missingElements.billing, 0),
         documentation: analysisResults.reduce((sum, r) => sum + r.missingElements.documentation, 0),
+        equipment: analysisResults.reduce((sum, r) => sum + r.missingElements.equipment, 0),
+        monitoring: analysisResults.reduce((sum, r) => sum + r.missingElements.monitoring, 0),
       },
       averageScores: {
         completeness: analysisResults.length > 0 
@@ -90,6 +147,12 @@ export async function POST(request: NextRequest) {
           : 0,
         standardization: analysisResults.length > 0
           ? analysisResults.reduce((sum, r) => sum + r.scores.standardization, 0) / analysisResults.length
+          : 0,
+        scopeAccuracy: analysisResults.length > 0
+          ? analysisResults.reduce((sum, r) => sum + r.scores.scopeAccuracy, 0) / analysisResults.length
+          : 0,
+        billingAccuracy: analysisResults.length > 0
+          ? analysisResults.reduce((sum, r) => sum + r.scores.billingAccuracy, 0) / analysisResults.length
           : 0,
       },
       totalEstimatedMissingRevenue: analysisResults.reduce((sum, r) => sum + (r.estimatedMissingRevenue || 0), 0),

@@ -34,21 +34,45 @@ interface GapAnalysisResult {
     elementName: string
     description: string
     severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+    standardReference?: string
     isBillable?: boolean
     estimatedCost?: number
+    estimatedHours?: number
+    suggestedLineItem?: string
   }>
   missingElements: {
     iicrc: number
+    australianStandards?: number
     ohs: number
+    whs?: number
+    scopeOfWorks?: number
     billing: number
     documentation: number
+    equipment?: number
+    monitoring?: number
   }
   scores: {
     completeness: number
     compliance: number
     standardization: number
+    scopeAccuracy?: number
+    billingAccuracy?: number
   }
   estimatedMissingRevenue?: number
+  standardsReferenced?: string[]
+  complianceGaps?: string[]
+  reportStructure?: {
+    sections: string[]
+    missingSections: string[]
+    sectionOrder: string[]
+    flowIssues: string[]
+  }
+  technicianPattern?: {
+    reportingStyle: string
+    commonOmissions: string[]
+    strengths: string[]
+    standardizationLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+  }
 }
 
 interface AnalysisSummary {
@@ -95,6 +119,8 @@ export default function ClaimsAnalysisPage() {
   const [analysisResults, setAnalysisResults] = useState<GapAnalysisResult[]>([])
   const [summary, setSummary] = useState<AnalysisSummary | null>(null)
   const [processing, setProcessing] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<GapAnalysisResult | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
 
   const fetchFiles = async () => {
     if (!folderId.trim()) {
@@ -477,21 +503,37 @@ export default function ClaimsAnalysisPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Missing IICRC</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.iicrc}</div>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.iicrc || 0}</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing OH&S</CardTitle>
+                  <CardTitle className="text-sm font-medium">Missing AU Standards</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.ohs}</div>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.australianStandards || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Missing OH&S/WHS</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements.ohs || 0) + (summary.totalMissingElements.whs || 0)}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Missing Scope</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.scopeOfWorks || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -499,28 +541,67 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Billing</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.billing}</div>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.billing || 0}</div>
                 </CardContent>
               </Card>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Missing Docs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.documentation}</div>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.documentation || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Missing Equipment</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.equipment || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Missing Monitoring</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summary.totalMissingElements.monitoring || 0}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Avg Scope Accuracy</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{summary.averageScores.scopeAccuracy?.toFixed(1) || 'N/A'}%</div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="analyses" className="space-y-4">
-            <div className="space-y-4">
-              {analysisResults.map((result, idx) => (
-                <Card key={idx}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{result.fileName}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+            {viewMode === 'list' ? (
+              <div className="space-y-4">
+                {analysisResults.map((result, idx) => (
+                  <Card 
+                    key={idx} 
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => {
+                      setSelectedDocument(result)
+                      setViewMode('detail')
+                    }}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{result.fileName}</CardTitle>
+                        <Button variant="ghost" size="sm">
+                          View Details →
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                       <div>
                         <div className="text-sm text-muted-foreground">Completeness</div>
@@ -535,16 +616,40 @@ export default function ClaimsAnalysisPage() {
                         </div>
                       </div>
                       <div>
+                        <div className="text-sm text-muted-foreground">Scope Accuracy</div>
+                        <div className="text-lg font-semibold">
+                          {result.scores.scopeAccuracy?.toFixed(0) || 'N/A'}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Billing Accuracy</div>
+                        <div className="text-lg font-semibold">
+                          {result.scores.billingAccuracy?.toFixed(0) || 'N/A'}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Standardization</div>
+                        <div className="text-lg font-semibold">
+                          {result.scores.standardization.toFixed(0)}%
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div>
                         <div className="text-sm text-muted-foreground">IICRC Missing</div>
                         <div className="text-lg font-semibold">{result.missingElements.iicrc}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-muted-foreground">OH&S Missing</div>
-                        <div className="text-lg font-semibold">{result.missingElements.ohs}</div>
+                        <div className="text-sm text-muted-foreground">AU Standards Missing</div>
+                        <div className="text-lg font-semibold">{result.missingElements.australianStandards || 0}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-muted-foreground">Billing Missing</div>
-                        <div className="text-lg font-semibold">{result.missingElements.billing}</div>
+                        <div className="text-sm text-muted-foreground">OH&S/WHS Missing</div>
+                        <div className="text-lg font-semibold">{(result.missingElements.ohs || 0) + (result.missingElements.whs || 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Scope Missing</div>
+                        <div className="text-lg font-semibold">{result.missingElements.scopeOfWorks || 0}</div>
                       </div>
                     </div>
                     {result.estimatedMissingRevenue && result.estimatedMissingRevenue > 0 && (
@@ -560,11 +665,23 @@ export default function ClaimsAnalysisPage() {
                         <h4 className="text-sm font-semibold mb-2">Issues Found ({result.issues.length})</h4>
                         <div className="space-y-1 max-h-40 overflow-y-auto">
                           {result.issues.slice(0, 5).map((issue, issueIdx) => (
-                            <div key={issueIdx} className="flex items-center gap-2 text-sm">
+                            <div key={issueIdx} className="flex items-start gap-2 text-sm p-2 border rounded">
                               <Badge className={getSeverityColor(issue.severity)}>
                                 {issue.severity}
                               </Badge>
-                              <span className="flex-1">{issue.elementName}</span>
+                              <div className="flex-1">
+                                <div className="font-medium">{issue.elementName}</div>
+                                {issue.standardReference && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {issue.standardReference}
+                                  </div>
+                                )}
+                                {issue.description && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {issue.description.substring(0, 150)}...
+                                  </div>
+                                )}
+                              </div>
                               {issue.isBillable && issue.estimatedCost && (
                                 <Badge variant="outline" className="text-green-600">
                                   ${issue.estimatedCost.toFixed(2)}
@@ -584,6 +701,267 @@ export default function ClaimsAnalysisPage() {
                 </Card>
               ))}
             </div>
+            ) : selectedDocument ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" onClick={() => {
+                    setViewMode('list')
+                    setSelectedDocument(null)
+                  }}>
+                    ← Back to List
+                  </Button>
+                  <h2 className="text-2xl font-bold">{selectedDocument.fileName}</h2>
+                  <div></div>
+                </div>
+
+                {/* Original Document */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Original Document</CardTitle>
+                    <CardDescription>View or download the original PDF</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2 mb-4">
+                      <Button asChild>
+                        <a 
+                          href={`/api/claims/document/${selectedDocument.fileId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          View PDF
+                        </a>
+                      </Button>
+                      <Button variant="outline" asChild>
+                        <a 
+                          href={`/api/claims/document/${selectedDocument.fileId}`}
+                          download={selectedDocument.fileName}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download PDF
+                        </a>
+                      </Button>
+                    </div>
+                    <div className="border rounded-lg overflow-hidden" style={{ height: '600px' }}>
+                      <iframe
+                        src={`/api/claims/document/${selectedDocument.fileId}`}
+                        className="w-full h-full"
+                        title="PDF Viewer"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Missing Elements by Category */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Missing Elements Analysis</CardTitle>
+                    <CardDescription>All missing elements identified in the gap analysis</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="all" className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-7">
+                        <TabsTrigger value="all">All ({selectedDocument.issues.length})</TabsTrigger>
+                        <TabsTrigger value="iicrc">IICRC ({selectedDocument.issues.filter(i => i.category === 'IICRC_COMPLIANCE').length})</TabsTrigger>
+                        <TabsTrigger value="australian">AU ({selectedDocument.issues.filter(i => i.category === 'AUSTRALIAN_STANDARD').length})</TabsTrigger>
+                        <TabsTrigger value="ohs">OH&S ({selectedDocument.issues.filter(i => i.category === 'OH_S_POLICY' || i.category === 'WHS_REQUIREMENT').length})</TabsTrigger>
+                        <TabsTrigger value="scope">Scope ({selectedDocument.issues.filter(i => i.category === 'SCOPE_OF_WORKS').length})</TabsTrigger>
+                        <TabsTrigger value="billing">Billing ({selectedDocument.issues.filter(i => i.category === 'BILLING_ITEM').length})</TabsTrigger>
+                        <TabsTrigger value="docs">Docs ({selectedDocument.issues.filter(i => i.category === 'DOCUMENTATION').length})</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="all" className="space-y-3">
+                        {selectedDocument.issues.map((issue, idx) => (
+                          <Card key={idx} className="border-l-4" style={{
+                            borderLeftColor: issue.severity === 'CRITICAL' ? '#ef4444' :
+                                            issue.severity === 'HIGH' ? '#f97316' :
+                                            issue.severity === 'MEDIUM' ? '#eab308' : '#3b82f6'
+                          }}>
+                            <CardContent className="pt-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge className={getSeverityColor(issue.severity)}>{issue.severity}</Badge>
+                                    <Badge variant="outline">{issue.category.replace(/_/g, ' ')}</Badge>
+                                  </div>
+                                  <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
+                                  {issue.standardReference && (
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      <strong>Standard:</strong> {issue.standardReference}
+                                    </p>
+                                  )}
+                                  {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
+                                  {issue.suggestedLineItem && (
+                                    <p className="text-sm text-muted-foreground">
+                                      <strong>Line Item:</strong> {issue.suggestedLineItem}
+                                    </p>
+                                  )}
+                                </div>
+                                {issue.isBillable && (
+                                  <div className="text-right">
+                                    {issue.estimatedCost && (
+                                      <div className="text-2xl font-bold text-green-600">
+                                        ${issue.estimatedCost.toFixed(2)}
+                                      </div>
+                                    )}
+                                    {issue.estimatedHours && (
+                                      <div className="text-sm text-muted-foreground">
+                                        {issue.estimatedHours.toFixed(1)}h
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </TabsContent>
+
+                      {['iicrc', 'australian', 'ohs', 'scope', 'billing', 'docs'].map(category => (
+                        <TabsContent key={category} value={category} className="space-y-3">
+                          {selectedDocument.issues
+                            .filter(issue => {
+                              if (category === 'iicrc') return issue.category === 'IICRC_COMPLIANCE'
+                              if (category === 'australian') return issue.category === 'AUSTRALIAN_STANDARD'
+                              if (category === 'ohs') return issue.category === 'OH_S_POLICY' || issue.category === 'WHS_REQUIREMENT'
+                              if (category === 'scope') return issue.category === 'SCOPE_OF_WORKS'
+                              if (category === 'billing') return issue.category === 'BILLING_ITEM'
+                              if (category === 'docs') return issue.category === 'DOCUMENTATION'
+                              return false
+                            })
+                            .map((issue, idx) => (
+                              <Card key={idx} className="border-l-4" style={{
+                                borderLeftColor: issue.severity === 'CRITICAL' ? '#ef4444' :
+                                                issue.severity === 'HIGH' ? '#f97316' :
+                                                issue.severity === 'MEDIUM' ? '#eab308' : '#3b82f6'
+                              }}>
+                                <CardContent className="pt-4">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Badge className={getSeverityColor(issue.severity)}>{issue.severity}</Badge>
+                                      </div>
+                                      <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
+                                      {issue.standardReference && (
+                                        <p className="text-sm text-muted-foreground mb-2">
+                                          <strong>Standard:</strong> {issue.standardReference}
+                                        </p>
+                                      )}
+                                      {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
+                                      {issue.suggestedLineItem && (
+                                        <p className="text-sm text-muted-foreground">
+                                          <strong>Line Item:</strong> {issue.suggestedLineItem}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {issue.isBillable && (
+                                      <div className="text-right">
+                                        {issue.estimatedCost && (
+                                          <div className="text-2xl font-bold text-green-600">
+                                            ${issue.estimatedCost.toFixed(2)}
+                                          </div>
+                                        )}
+                                        {issue.estimatedHours && (
+                                          <div className="text-sm text-muted-foreground">
+                                            {issue.estimatedHours.toFixed(1)}h
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  </CardContent>
+                </Card>
+
+                {/* Report Structure Analysis */}
+                {selectedDocument.reportStructure && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Report Structure & Flow Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">Sections Found:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedDocument.reportStructure.sections.map((section, idx) => (
+                            <Badge key={idx} variant="outline">{section}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      {selectedDocument.reportStructure.missingSections.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2 text-red-600">Missing Sections:</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedDocument.reportStructure.missingSections.map((section, idx) => (
+                              <Badge key={idx} variant="destructive">{section}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {selectedDocument.reportStructure.flowIssues.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2 text-yellow-600">Flow Issues:</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {selectedDocument.reportStructure.flowIssues.map((issue, idx) => (
+                              <li key={idx} className="text-sm">{issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Technician Pattern Analysis */}
+                {selectedDocument.technicianPattern && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Technician Pattern Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">Reporting Style:</h4>
+                        <p className="text-sm">{selectedDocument.technicianPattern.reportingStyle}</p>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold mb-2">Standardization Level:</h4>
+                        <Badge className={
+                          selectedDocument.technicianPattern.standardizationLevel === 'HIGH' ? 'bg-green-500' :
+                          selectedDocument.technicianPattern.standardizationLevel === 'MEDIUM' ? 'bg-yellow-500' : 'bg-red-500'
+                        }>
+                          {selectedDocument.technicianPattern.standardizationLevel}
+                        </Badge>
+                      </div>
+                      {selectedDocument.technicianPattern.strengths.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2 text-green-600">Strengths:</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {selectedDocument.technicianPattern.strengths.map((strength, idx) => (
+                              <li key={idx} className="text-sm">{strength}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedDocument.technicianPattern.commonOmissions.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2 text-red-600">Common Omissions:</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {selectedDocument.technicianPattern.commonOmissions.map((omission, idx) => (
+                              <li key={idx} className="text-sm">{omission}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="issues" className="space-y-4">

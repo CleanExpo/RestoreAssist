@@ -446,15 +446,19 @@ export async function retrieveRelevantStandards(
       const otherFiles = allFiles.filter(f => !aiFileIds.has(f.id))
       allFiles = [...aiAnalysis.relevantFiles, ...otherFiles]
       
-      // Also search for relevant files by keywords (as backup)
+      // Also search for relevant files by keywords (as backup) - search within the standards folder
       const relevantStandards = determineRelevantStandards(query)
       for (const standard of relevantStandards.slice(0, 3)) {
         try {
-          const searchResults = await searchDriveFiles(standard, [
-            'application/pdf',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'text/plain'
-          ])
+          const searchResults = await searchDriveFiles(
+            standard, 
+            [
+              'application/pdf',
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              'text/plain'
+            ],
+            standardsFolderId // Search within the standards folder
+          )
           // Add files not already in our list
           for (const file of searchResults) {
             if (!allFiles.find(f => f.id === file.id)) {
@@ -463,7 +467,7 @@ export async function retrieveRelevantStandards(
           }
         } catch (error: any) {
           console.error(`[Standards Retrieval] Error searching for "${standard}":`, error.message)
-          // Continue with other searches
+          // Continue with other searches - errors are now handled gracefully in searchDriveFiles
         }
       }
     } catch (error: any) {

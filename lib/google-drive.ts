@@ -127,13 +127,24 @@ export async function listDriveItems(folderId: string = 'root'): Promise<DriveIt
  */
 export async function searchDriveFiles(
   keyword: string,
-  mimeTypes?: string[]
+  mimeTypes?: string[],
+  folderId?: string
 ): Promise<DriveFile[]> {
   try {
     const drive = getDriveClient()
     
-    let query = `trashed=false and (name contains '${keyword}' or fullText contains '${keyword}')`
+    // Escape single quotes in keyword for query safety
+    const escapedKeyword = keyword.replace(/'/g, "\\'")
     
+    // Build query - only use name contains (fullText requires different permissions and can cause errors)
+    let query = `trashed=false and name contains '${escapedKeyword}'`
+    
+    // If folderId is provided, search within that folder
+    if (folderId) {
+      query += ` and '${folderId}' in parents`
+    }
+    
+    // Add mimeType filter if provided
     if (mimeTypes && mimeTypes.length > 0) {
       const mimeTypeQuery = mimeTypes.map(mt => `mimeType='${mt}'`).join(' or ')
       query += ` and (${mimeTypeQuery})`
@@ -143,7 +154,7 @@ export async function searchDriveFiles(
       q: query,
       fields: 'files(id, name, mimeType, size)',
       pageSize: 50,
-      orderBy: 'relevance'
+      orderBy: 'name' // Changed from 'relevance' as it may not be supported
     })
     
     if (!response.data.files) {
@@ -157,7 +168,10 @@ export async function searchDriveFiles(
       size: file.size
     }))
   } catch (error: any) {
-    throw new Error(`Failed to search Drive files: ${error.message}`)
+    // Log the actual error for debugging
+    console.error(`[Google Drive Search] Error searching for "${keyword}":`, error.message)
+    // Return empty array instead of throwing to allow graceful degradation
+    return []
   }
 }
 
