@@ -128,13 +128,6 @@ export async function POST(request: NextRequest) {
               }
             })
             
-              console.log('✅ ADD-ON PROCESSED:', {
-                before: userBefore?.addonReports,
-                increment: addonReports,
-                after: updatedUser.addonReports,
-                userId: updatedUser.id,
-                purchaseRecordId: addonPurchase?.id || 'N/A (using field only)'
-              })
               
             } catch (error: any) {
               console.error('❌ ADD-ON PROCESSING ERROR:', {
@@ -503,13 +496,6 @@ export async function POST(request: NextRequest) {
         // Handle add-on purchases via payment intent (backup to checkout.session.completed)
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         
-        console.log('💳 PAYMENT INTENT SUCCEEDED:', {
-          id: paymentIntent.id,
-          status: paymentIntent.status,
-          amount: paymentIntent.amount,
-          currency: paymentIntent.currency,
-          metadata: paymentIntent.metadata
-        })
         
         // Check if this is an add-on purchase
         if (paymentIntent.metadata?.type === 'addon') {
@@ -561,15 +547,8 @@ export async function POST(request: NextRequest) {
                   }
                 })
                 
-                console.log('✅ ADD-ON PROCESSED VIA PAYMENT INTENT:', {
-                  userId,
-                  addonKey,
-                  addonReports,
-                  purchaseId: addonPurchase.id
-                })
               }
             } else {
-              console.log('⚠️ ADD-ON ALREADY PROCESSED (payment intent):', paymentIntent.id)
             }
           }
         }

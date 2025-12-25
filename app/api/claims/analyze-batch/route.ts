@@ -79,10 +79,8 @@ export async function POST(request: NextRequest) {
       
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
-      
-      console.log(`[Revolutionary Gap Analysis] Retrieved ${retrievedStandards.documents.length} relevant standards documents for comprehensive analysis`)
     } catch (error: any) {
-      console.error('[Revolutionary Gap Analysis] Error retrieving standards from Google Drive:', error.message)
+      // Error retrieving standards - continue without standards context
       // Continue without standards - analysis will use comprehensive built-in knowledge
     }
 
