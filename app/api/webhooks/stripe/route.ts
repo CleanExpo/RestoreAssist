@@ -141,10 +141,6 @@ export async function POST(request: NextRequest) {
           } else {
             console.error('❌ ADD-ON VALIDATION FAILED - Not processing')
           }
-        } else {
-            mode: session.mode,
-            type: session.metadata?.type
-          })
         }
         
         if (session.mode === 'subscription') {
