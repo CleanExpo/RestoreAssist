@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
             console.error('❌ ADD-ON VALIDATION FAILED - Not processing')
           }
         } else {
+          console.log('Non-addon checkout session:', {
             mode: session.mode,
             type: session.metadata?.type
           })
@@ -359,6 +360,7 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.created":
         const subscription = event.data.object as Stripe.Subscription
+        console.log('Subscription created:', {
           id: subscription.id,
           customer: subscription.customer,
           status: subscription.status
@@ -446,6 +448,7 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.updated":
         const updatedSubscription = event.data.object as Stripe.Subscription
+        console.log('Subscription updated:', {
           id: updatedSubscription.id,
           status: updatedSubscription.status
         })
