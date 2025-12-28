@@ -88,14 +88,8 @@ export default function EquipmentToolsSelection({
           const config = data.pricingConfig || data
           
           if (config) {
-              dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
-              dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
-              airMoverAxialDailyRate: config.airMoverAxialDailyRate,
-              injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate
-            })
+            setPricingConfig(config)
           }
-          
-          setPricingConfig(config)
           
           // Update equipment selections with pricing config rates if they don't have rates
           if (config && equipmentSelections.length > 0) {

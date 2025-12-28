@@ -90,7 +90,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
     }
   }
 
-  const handleInitialEntryComplete = (newReportId: string, reportType?: 'basic' | 'enhanced') => {
+  const handleInitialEntryComplete = (newReportId: string, reportType?: 'basic' | 'enhanced' | 'nir') => {
     setReportId(newReportId)
     // Store in localStorage for persistence
     if (typeof window !== 'undefined') {

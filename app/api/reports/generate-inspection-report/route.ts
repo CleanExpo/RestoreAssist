@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { tryClaudeModels } from '@/lib/anthropic-models'
 import { getEquipmentGroupById, getEquipmentDailyRate } from '@/lib/equipment-matrix'
+import { generateVerificationChecklist } from '@/lib/nir-verification-checklist'
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -146,22 +147,52 @@ export async function POST(request: NextRequest) {
       // Continue without standards - report will use general knowledge
     }
     
-    // For basic reports, return structured JSON data instead of markdown
-    if (reportType === 'basic') {
-      // Get user's pricing config for accurate equipment costs
-      const pricingConfig = user.pricingConfig
+    // Get NIR inspection data if available
+    // Since Inspection.reportId column doesn't exist, find inspection by matching property address and user
+    let inspectionData = null
+    try {
+      // Find inspection by matching property address and user ID
+      const inspection = await prisma.inspection.findFirst({
+        where: {
+          userId: user.id,
+          propertyAddress: report.propertyAddress,
+          // Match by postcode too if available
+          ...(report.propertyPostcode ? { propertyPostcode: report.propertyPostcode } : {})
+        },
+        include: {
+          environmentalData: true,
+          moistureReadings: true,
+          affectedAreas: true,
+          scopeItems: true,
+          costEstimates: true,
+          classifications: true,
+          photos: true
+        },
+        orderBy: {
+          createdAt: 'desc' // Get most recent inspection
+        }
+      })
       
-      const visualReportData = buildVisualReportData({
+      if (inspection) {
+        inspectionData = inspection
+      }
+    } catch (error) {
+      console.error('Error fetching inspection data:', error)
+      // Continue without inspection data - report generation will use Report model data
+      inspectionData = null
+    }
+
+    // For basic reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
+    if (reportType === 'basic') {
+      // Build structured data directly from actual Report model data - NO AI, ensures all real data is used
+      const structuredReportData = buildStructuredBasicReport({
         report,
         analysis,
-        tier1,
-        tier2,
-        tier3,
         stateInfo,
         psychrometricAssessment,
         scopeAreas,
         equipmentSelection,
-        pricingConfig,
+        inspectionData,
         businessInfo: {
           businessName: user.businessName,
           businessAddress: user.businessAddress,
@@ -172,11 +203,11 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Save the structured data as JSON string in detailedReport
+      // Save the structured report as JSON
       await prisma.report.update({
         where: { id: reportId },
         data: {
-          detailedReport: JSON.stringify(visualReportData),
+          detailedReport: JSON.stringify(structuredReportData),
           reportDepthLevel: 'Basic',
           status: 'PENDING'
         }
@@ -185,11 +216,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         report: {
           id: reportId,
-          detailedReport: JSON.stringify(visualReportData),
-          reportType: 'basic',
-          visualData: visualReportData
+          structuredData: structuredReportData
         },
-        message: 'Visual report generated successfully'
+        message: 'Basic inspection report generated successfully'
       })
     }
 
@@ -285,6 +314,382 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
       { status: 500 }
     )
   }
+}
+
+// Helper function to check if a value exists and is not empty
+function hasValue(value: any): boolean {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string' && value.trim() === '') return false
+  if (Array.isArray(value) && value.length === 0) return false
+  return true
+}
+
+function buildBasicReportPromptStructured(data: {
+  report: any
+  analysis: any
+  stateInfo: any
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
+  equipmentSelection?: any[]
+  inspectionData?: any
+  businessInfo?: {
+    businessName?: string | null
+    businessAddress?: string | null
+    businessLogo?: string | null
+    businessABN?: string | null
+    businessPhone?: string | null
+    businessEmail?: string | null
+  }
+}): string {
+  const { report, analysis, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, inspectionData, businessInfo } = data
+
+  let prompt = `# REPORT DATA
+
+## Client Information`
+  
+  if (hasValue(report.clientName)) {
+    prompt += `\n- Client Name: ${report.clientName}`
+  }
+  if (hasValue(report.clientContactDetails)) {
+    prompt += `\n- Client Contact Details: ${report.clientContactDetails}`
+  }
+
+  prompt += `\n\n## Property Information`
+  
+  if (hasValue(report.propertyAddress)) {
+    prompt += `\n- Property Address: ${report.propertyAddress}`
+  }
+  if (hasValue(report.propertyPostcode)) {
+    prompt += `\n- Property Postcode: ${report.propertyPostcode}`
+  }
+  if (hasValue(stateInfo?.name)) {
+    prompt += `\n- State: ${stateInfo.name}`
+  }
+  if (hasValue(report.buildingAge)) {
+    prompt += `\n- Building Age: ${report.buildingAge}`
+  }
+  if (hasValue(report.structureType)) {
+    prompt += `\n- Structure Type: ${report.structureType}`
+  }
+  if (hasValue(report.accessNotes)) {
+    prompt += `\n- Access Notes: ${report.accessNotes}`
+  }
+
+  prompt += `\n\n## Claim Information`
+  
+  if (hasValue(report.claimReferenceNumber)) {
+    prompt += `\n- Claim Reference Number: ${report.claimReferenceNumber}`
+  }
+  if (hasValue(report.insurerName)) {
+    prompt += `\n- Insurer / Client Name: ${report.insurerName}`
+  }
+  if (hasValue(report.incidentDate)) {
+    prompt += `\n- Date of Incident: ${new Date(report.incidentDate).toLocaleDateString()}`
+  }
+  if (hasValue(report.technicianAttendanceDate)) {
+    prompt += `\n- Technician Attendance Date: ${new Date(report.technicianAttendanceDate).toLocaleDateString()}`
+  }
+  if (hasValue(report.technicianName)) {
+    prompt += `\n- Technician Name: ${report.technicianName}`
+  }
+
+  // NIR Inspection Data - Environmental Data
+  if (inspectionData?.environmentalData) {
+    const env = inspectionData.environmentalData
+    prompt += `\n\n## Environmental Data`
+    if (hasValue(env.ambientTemperature)) {
+      prompt += `\n- Temperature (°F): ${env.ambientTemperature}`
+    }
+    if (hasValue(env.humidityLevel)) {
+      prompt += `\n- Humidity (%): ${env.humidityLevel}`
+    }
+    if (hasValue(env.dewPoint)) {
+      prompt += `\n- Dew Point (°F): ${env.dewPoint}`
+    }
+    if (hasValue(env.airCirculation)) {
+      prompt += `\n- Air Circulation: ${env.airCirculation ? 'Yes' : 'No'}`
+    }
+  }
+
+  // Moisture Readings
+  if (inspectionData?.moistureReadings && inspectionData.moistureReadings.length > 0) {
+    prompt += `\n\n## Moisture Readings`
+    inspectionData.moistureReadings.forEach((reading: any) => {
+      if (hasValue(reading.location) || hasValue(reading.surfaceType) || hasValue(reading.moistureLevel)) {
+        prompt += `\n- Location: ${reading.location || 'N/A'}, Surface: ${reading.surfaceType || 'N/A'}, Moisture: ${reading.moistureLevel || 0}%`
+        if (hasValue(reading.depth)) {
+          prompt += `, Depth: ${reading.depth}`
+        }
+      }
+    })
+  }
+
+  // Affected Areas
+  if (inspectionData?.affectedAreas && inspectionData.affectedAreas.length > 0) {
+    prompt += `\n\n## Affected Areas`
+    inspectionData.affectedAreas.forEach((area: any) => {
+      if (hasValue(area.roomZoneId) || hasValue(area.affectedSquareFootage)) {
+        prompt += `\n- Room/Zone: ${area.roomZoneId || 'N/A'}`
+        if (hasValue(area.affectedSquareFootage)) {
+          prompt += `, Square Footage: ${area.affectedSquareFootage}`
+        }
+        if (hasValue(area.waterSource)) {
+          prompt += `, Water Source: ${area.waterSource}`
+        }
+        if (hasValue(area.timeSinceLoss)) {
+          prompt += `, Time Since Loss: ${area.timeSinceLoss} hours`
+        }
+      }
+    })
+  }
+
+  // Scope Items
+  if (inspectionData?.scopeItems && inspectionData.scopeItems.length > 0) {
+    prompt += `\n\n## Scope Items`
+    inspectionData.scopeItems.forEach((item: any) => {
+      if (hasValue(item.description) || hasValue(item.itemType)) {
+        prompt += `\n- ${item.description || item.itemType || 'Scope Item'}`
+        if (hasValue(item.quantity)) {
+          prompt += ` (Quantity: ${item.quantity}${item.unit ? ` ${item.unit}` : ''})`
+        }
+      }
+    })
+  }
+
+  // Photos
+  if (inspectionData?.photos && inspectionData.photos.length > 0) {
+    prompt += `\n\n## Photos`
+    inspectionData.photos.forEach((photo: any, idx: number) => {
+      if (hasValue(photo.url)) {
+        prompt += `\n- Photo ${idx + 1}: ${photo.url}`
+        if (hasValue(photo.caption)) {
+          prompt += ` (${photo.caption})`
+        }
+      }
+    })
+  }
+
+  // Technician Field Report
+  if (hasValue(report.technicianFieldReport)) {
+    prompt += `\n\n## Technician Field Report\n${report.technicianFieldReport}`
+  }
+
+  // Hazard Profile
+  if (hasValue(report.methamphetamineScreen) || hasValue(report.biologicalMouldDetected)) {
+    prompt += `\n\n## Hazard Profile`
+    if (hasValue(report.methamphetamineScreen)) {
+      prompt += `\n- Methamphetamine Screen: ${report.methamphetamineScreen}`
+    }
+    if (hasValue(report.biologicalMouldDetected)) {
+      prompt += `\n- Bio/Mould Detected: ${report.biologicalMouldDetected ? 'Yes' : 'No'}`
+      if (hasValue(report.biologicalMouldCategory)) {
+        prompt += ` (Category: ${report.biologicalMouldCategory})`
+      }
+    }
+  }
+
+  // Timeline Estimation
+  if (hasValue(report.phase1Start) || hasValue(report.phase2Start) || hasValue(report.phase3Start)) {
+    prompt += `\n\n## Timeline Estimation`
+    if (hasValue(report.phase1Start)) {
+      prompt += `\n- Phase 1 (Make-safe): ${new Date(report.phase1Start).toLocaleDateString()}`
+      if (hasValue(report.phase1End)) {
+        prompt += ` to ${new Date(report.phase1End).toLocaleDateString()}`
+      }
+    }
+    if (hasValue(report.phase2Start)) {
+      prompt += `\n- Phase 2 (Remediation/Drying): ${new Date(report.phase2Start).toLocaleDateString()}`
+      if (hasValue(report.phase2End)) {
+        prompt += ` to ${new Date(report.phase2End).toLocaleDateString()}`
+      }
+    }
+    if (hasValue(report.phase3Start)) {
+      prompt += `\n- Phase 3 (Verification): ${new Date(report.phase3Start).toLocaleDateString()}`
+      if (hasValue(report.phase3End)) {
+        prompt += ` to ${new Date(report.phase3End).toLocaleDateString()}`
+      }
+    }
+  }
+
+  // Business Information
+  if (businessInfo && (hasValue(businessInfo.businessName) || hasValue(businessInfo.businessAddress))) {
+    prompt += `\n\n## Business Information`
+    if (hasValue(businessInfo.businessName)) {
+      prompt += `\n- Business Name: ${businessInfo.businessName}`
+    }
+    if (hasValue(businessInfo.businessAddress)) {
+      prompt += `\n- Business Address: ${businessInfo.businessAddress}`
+    }
+    if (hasValue(businessInfo.businessABN)) {
+      prompt += `\n- Business ABN: ${businessInfo.businessABN}`
+    }
+    if (hasValue(businessInfo.businessPhone)) {
+      prompt += `\n- Business Phone: ${businessInfo.businessPhone}`
+    }
+    if (hasValue(businessInfo.businessEmail)) {
+      prompt += `\n- Business Email: ${businessInfo.businessEmail}`
+    }
+  }
+
+  prompt += `\n\n---\n\nBased on the above data, generate a comprehensive Professional Restoration Inspection Report in JSON format. Calculate costs, timeline, and equipment requirements based on IICRC S500 standards and Australian building codes. Only include fields that have actual data.`
+
+  return prompt
+}
+
+function buildBasicReportPrompt(data: {
+  report: any
+  analysis: any
+  stateInfo: any
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
+  equipmentSelection?: any[]
+  inspectionData?: any
+  verificationChecklist?: any
+  businessInfo?: {
+    businessName?: string | null
+    businessAddress?: string | null
+    businessLogo?: string | null
+    businessABN?: string | null
+    businessPhone?: string | null
+    businessEmail?: string | null
+  }
+}): string {
+  const { report, analysis, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, inspectionData, verificationChecklist, businessInfo } = data
+
+  let prompt = `# REPORT DATA
+
+## Property Information
+- Client Name: ${report.clientName || 'Not provided'}
+- Property Address: ${report.propertyAddress || 'Not provided'}
+- Property Postcode: ${report.propertyPostcode || 'Not provided'}
+- State: ${stateInfo?.name || 'Not detected'}
+- Claim Reference Number: ${report.claimReferenceNumber || 'Not provided'}
+- Incident Date: ${report.incidentDate ? new Date(report.incidentDate).toLocaleDateString() : 'Not provided'}
+- Technician Attendance Date: ${report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toLocaleDateString() : 'Not provided'}
+- Technician Name: ${report.technicianName || 'Not provided'}
+
+## Property Details
+- Building Age: ${report.buildingAge || 'Not provided'}
+- Structure Type: ${report.structureType || 'Not provided'}
+- Access Notes: ${report.accessNotes || 'Not provided'}
+
+## Hazard Profile
+- Insurer Name: ${report.insurerName || 'Not provided'}
+- Methamphetamine Screen: ${report.methamphetamineScreen || 'Not provided'}
+- Methamphetamine Test Count: ${report.methamphetamineTestCount || 'Not provided'}
+- Biological Mould Detected: ${report.biologicalMouldDetected ? 'Yes' : 'No'}
+- Biological Mould Category: ${report.biologicalMouldCategory || 'Not provided'}
+
+## Technician Field Report
+${report.technicianFieldReport || 'Not provided'}
+
+## Analysis Summary
+${analysis ? `
+- Affected Areas: ${analysis.affectedAreas?.join(', ') || 'Not specified'}
+- Water Source: ${analysis.waterSource || 'Not specified'}
+- Water Category: ${analysis.waterCategory || 'Not specified'}
+- Affected Materials: ${analysis.affectedMaterials?.join(', ') || 'Not specified'}
+- Equipment Deployed: ${analysis.equipmentDeployed?.join(', ') || 'Not specified'}
+- Hazards Identified: ${analysis.hazardsIdentified?.join(', ') || 'None'}
+- Observations: ${analysis.observations || 'Not specified'}
+` : 'No analysis data available'}
+
+## Psychrometric Assessment
+${psychrometricAssessment ? `
+- Water Class: ${psychrometricAssessment.waterClass || 'Not specified'}
+- Temperature: ${psychrometricAssessment.temperature || 'Not specified'}°C
+- Humidity: ${psychrometricAssessment.humidity || 'Not specified'}%
+- System Type: ${psychrometricAssessment.systemType || 'Not specified'}
+- Drying Potential: ${psychrometricAssessment.dryingPotential?.status || 'Not calculated'}
+` : 'No psychrometric data available'}
+
+## Scope Areas
+${scopeAreas && scopeAreas.length > 0 ? scopeAreas.map((area: any, idx: number) => `
+Area ${idx + 1}:
+- Name: ${area.name || 'Not specified'}
+- Dimensions: ${area.length || 0}m × ${area.width || 0}m × ${area.height || 0}m
+- Wet Percentage: ${area.wetPercentage || 0}%
+`).join('\n') : 'No scope areas defined'}
+
+## Equipment Selection
+${equipmentSelection && equipmentSelection.length > 0 ? equipmentSelection.map((eq: any) => `
+- ${eq.groupId}: ${eq.quantity || 0} units @ $${eq.dailyRate || 0}/day
+`).join('\n') : 'No equipment selected'}
+
+## NIR Inspection Data
+${inspectionData ? `
+### Environmental Data
+${inspectionData.environmentalData ? `
+- Ambient Temperature: ${inspectionData.environmentalData.ambientTemperature}°F
+- Humidity Level: ${inspectionData.environmentalData.humidityLevel}%
+- Dew Point: ${inspectionData.environmentalData.dewPoint}°F
+- Air Circulation: ${inspectionData.environmentalData.airCirculation ? 'Yes' : 'No'}
+` : 'No environmental data'}
+
+### Moisture Readings
+${inspectionData.moistureReadings && inspectionData.moistureReadings.length > 0 ? inspectionData.moistureReadings.map((reading: any) => `
+- Location: ${reading.location}, Surface: ${reading.surfaceType}, Moisture: ${reading.moistureLevel}%, Depth: ${reading.depth}
+`).join('\n') : 'No moisture readings'}
+
+### Affected Areas
+${inspectionData.affectedAreas && inspectionData.affectedAreas.length > 0 ? inspectionData.affectedAreas.map((area: any) => `
+- ${area.roomZoneId}: ${area.affectedSquareFootage} sq ft, Water Source: ${area.waterSource}, Time Since Loss: ${area.timeSinceLoss} hours
+`).join('\n') : 'No affected areas'}
+
+### IICRC Classification
+${inspectionData.classifications && inspectionData.classifications.length > 0 ? inspectionData.classifications.map((cls: any) => `
+- Category: ${cls.category}, Class: ${cls.class}
+- Justification: ${cls.justification || 'Not provided'}
+- Standard Reference: ${cls.standardReference || 'Not provided'}
+`).join('\n') : 'No classification data'}
+
+### Scope Items
+${inspectionData.scopeItems && inspectionData.scopeItems.length > 0 ? inspectionData.scopeItems.map((item: any) => `
+- ${item.description || item.itemType}: ${item.quantity || ''} ${item.unit || ''} - ${item.justification || 'No justification'}
+`).join('\n') : 'No scope items'}
+
+### Cost Estimates
+${inspectionData.costEstimates && inspectionData.costEstimates.length > 0 ? inspectionData.costEstimates.map((cost: any) => `
+- ${cost.description}: ${cost.quantity} ${cost.unit} @ $${cost.rate} = $${cost.subtotal} (Total: $${cost.total})
+`).join('\n') : 'No cost estimates'}
+` : 'No NIR inspection data available'}
+
+## Business Information
+${businessInfo ? `
+- Business Name: ${businessInfo.businessName || 'Not provided'}
+- Business Address: ${businessInfo.businessAddress || 'Not provided'}
+- Business ABN: ${businessInfo.businessABN || 'Not provided'}
+- Business Phone: ${businessInfo.businessPhone || 'Not provided'}
+- Business Email: ${businessInfo.businessEmail || 'Not provided'}
+` : 'No business information'}
+
+## Verification Checklist
+${verificationChecklist ? `
+This checklist is auto-generated for verification purposes (for Insurance Adjuster / Client review, not for technician completion):
+
+${verificationChecklist.items.map((item: any) => `
+${item.verified ? '✓' : '□'} ${item.item}${item.notes ? ` - ${item.notes}` : ''}
+`).join('')}
+` : 'Verification checklist not available'}
+
+---
+
+Generate a comprehensive Professional Inspection Report based on the above data. The report must:
+
+1. Include all relevant sections based on the data provided
+2. Reference specific Australian standards (IICRC S500, S520, WHS Regulations 2011, NCC, AS/NZS 3000) where applicable
+3. Assess compliance with Australian regulations
+4. Identify hazards (Asbestos, Lead, Electrical) based on WHS Regulations 2011
+5. Reference NCC requirements for structural integrity where applicable
+6. Reference AS/NZS 3000 for electrical safety assessments where water ingress is present
+7. Only use data that is explicitly provided - do not use placeholders or make up information
+8. Include clear recommendations with standard references
+9. Format professionally with proper sections and structure
+10. Include the Verification Checklist section at the end of the report for insurance adjuster/client review
+
+The report should be suitable for insurance claims, compliance documentation, and client communication.`
+
+  return prompt
 }
 
 function buildVisualReportData(data: {
@@ -1516,5 +1921,456 @@ ${report.technicianName ? `**Technician:** ${report.technicianName}` : ''}
 12. **Footer:** Include "Report generated by RestoreAssist v1.0" at the bottom
 
 Generate the complete visual-centric dashboard-style report now, matching the structure and format shown above.`
+}
+
+function buildStructuredBasicReport(data: {
+  report: any
+  analysis: any
+  stateInfo: any
+  psychrometricAssessment?: any
+  scopeAreas?: any[]
+  equipmentSelection?: any[]
+  inspectionData?: any
+  businessInfo?: {
+    businessName?: string | null
+    businessAddress?: string | null
+    businessLogo?: string | null
+    businessABN?: string | null
+    businessPhone?: string | null
+    businessEmail?: string | null
+  }
+}): any {
+  const { report, analysis, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, inspectionData, businessInfo } = data
+
+  // Extract photos from inspection data - ensure we get ALL photos
+  const photos: Array<{ url: string; thumbnailUrl?: string; location?: string; caption?: string }> = []
+  if (inspectionData?.photos && Array.isArray(inspectionData.photos)) {
+    inspectionData.photos.forEach((photo: any) => {
+      if (photo.url) { // Only add photos that have URLs
+        photos.push({
+          url: photo.url,
+          thumbnailUrl: photo.thumbnailUrl || photo.url, // Use main URL as fallback
+          location: photo.location || null,
+          caption: photo.location || photo.caption || null
+        })
+      }
+    })
+  }
+  
+  // Also check if photos are stored in report directly (legacy support)
+  if (photos.length === 0 && report.photos) {
+    try {
+      const reportPhotos = typeof report.photos === 'string' ? JSON.parse(report.photos) : report.photos
+      if (Array.isArray(reportPhotos)) {
+        reportPhotos.forEach((photo: any) => {
+          if (photo.url || photo.secure_url) {
+            photos.push({
+              url: photo.url || photo.secure_url,
+              thumbnailUrl: photo.thumbnailUrl || photo.url || photo.secure_url,
+              location: photo.location || null,
+              caption: photo.caption || photo.location || null
+            })
+          }
+        })
+      }
+    } catch (e) {
+      // Not JSON, skip
+    }
+  }
+
+  // Extract affected areas - PRIORITIZE scopeAreas (room management) from equipment selection
+  const affectedAreasList: Array<{
+    name: string
+    description: string
+    materials: string[]
+    moistureReadings: Array<{ location: string; value: number; unit: string }>
+    photos: string[]
+    dimensions?: { length: number; width: number; height: number }
+    wetPercentage?: number
+    volume?: number
+    wetArea?: number
+  }> = []
+  
+  // First priority: Use scopeAreas (room management) from equipment selection
+  if (scopeAreas && Array.isArray(scopeAreas) && scopeAreas.length > 0) {
+    scopeAreas.forEach((area: any) => {
+      const volume = (area.length || 0) * (area.width || 0) * (area.height || 0)
+      const wetArea = (area.length || 0) * (area.width || 0) * ((area.wetPercentage || 0) / 100)
+      
+      // Match photos by area name
+      let areaPhotos: string[] = []
+      if (area.name) {
+        areaPhotos = photos.filter(p => 
+          p.location && area.name &&
+          (p.location.toLowerCase().includes(area.name.toLowerCase()) ||
+           area.name.toLowerCase().includes(p.location.toLowerCase()))
+        ).map(p => p.url)
+      }
+      
+      // If no photos matched, include photos without location or all photos
+      if (areaPhotos.length === 0) {
+        const photosWithoutLocation = photos.filter(p => !p.location).map(p => p.url)
+        areaPhotos = photosWithoutLocation.length > 0 ? photosWithoutLocation : photos.map(p => p.url)
+      }
+      
+      // Get moisture readings for this area
+      let areaMoistureReadings: Array<{ location: string; value: number; unit: string }> = []
+      if (inspectionData?.moistureReadings && Array.isArray(inspectionData.moistureReadings)) {
+        if (area.name) {
+          areaMoistureReadings = inspectionData.moistureReadings
+            .filter((r: any) => {
+              if (!r.location) return false
+              const rLoc = r.location.toLowerCase()
+              const areaName = area.name.toLowerCase()
+              return rLoc.includes(areaName) || areaName.includes(rLoc)
+            })
+            .map((r: any) => ({
+              location: r.location || area.name || 'Unknown',
+              value: r.moistureLevel || 0,
+              unit: '%'
+            }))
+        }
+        
+        // If no readings matched, use all readings
+        if (areaMoistureReadings.length === 0) {
+          areaMoistureReadings = inspectionData.moistureReadings.map((r: any) => ({
+            location: r.location || area.name || 'Unknown',
+            value: r.moistureLevel || 0,
+            unit: '%'
+          }))
+        }
+      }
+      
+      affectedAreasList.push({
+        name: area.name || `Area ${affectedAreasList.length + 1}`,
+        description: `Dimensions: ${area.length || 0}m × ${area.width || 0}m × ${area.height || 0}m, Wet: ${area.wetPercentage || 0}%`,
+        materials: [],
+        moistureReadings: areaMoistureReadings,
+        photos: areaPhotos,
+        dimensions: {
+          length: area.length || 0,
+          width: area.width || 0,
+          height: area.height || 0
+        },
+        wetPercentage: area.wetPercentage || 0,
+        volume: volume,
+        wetArea: wetArea
+      })
+    })
+  }
+  
+  // Second priority: Use inspectionData affectedAreas if scopeAreas not available
+  if (affectedAreasList.length === 0 && inspectionData?.affectedAreas && Array.isArray(inspectionData.affectedAreas)) {
+    inspectionData.affectedAreas.forEach((area: any) => {
+      // Match photos by location or roomZoneId - be more flexible
+      let areaPhotos: string[] = []
+      
+      if (area.roomZoneId) {
+        // Try exact match first
+        areaPhotos = photos.filter(p => 
+          p.location && area.roomZoneId && 
+          (p.location.toLowerCase() === area.roomZoneId.toLowerCase() ||
+           p.location.toLowerCase().includes(area.roomZoneId.toLowerCase()) ||
+           area.roomZoneId.toLowerCase().includes(p.location.toLowerCase()))
+        ).map(p => p.url)
+      }
+      
+      // If no photos matched by location, try to match by area name
+      if (areaPhotos.length === 0 && area.name) {
+        areaPhotos = photos.filter(p => 
+          p.location && area.name &&
+          (p.location.toLowerCase().includes(area.name.toLowerCase()) ||
+           area.name.toLowerCase().includes(p.location.toLowerCase()))
+        ).map(p => p.url)
+      }
+      
+      // If still no photos, include photos without location or all photos
+      if (areaPhotos.length === 0) {
+        const photosWithoutLocation = photos.filter(p => !p.location).map(p => p.url)
+        areaPhotos = photosWithoutLocation.length > 0 ? photosWithoutLocation : photos.map(p => p.url)
+      }
+      
+      // Get moisture readings for this area - be more flexible
+      let areaMoistureReadings: Array<{ location: string; value: number; unit: string }> = []
+      
+      if (inspectionData.moistureReadings && Array.isArray(inspectionData.moistureReadings)) {
+        if (area.roomZoneId) {
+          areaMoistureReadings = inspectionData.moistureReadings
+            .filter((r: any) => {
+              if (!r.location) return false
+              const rLoc = r.location.toLowerCase()
+              const areaId = area.roomZoneId.toLowerCase()
+              return rLoc.includes(areaId) || areaId.includes(rLoc)
+            })
+            .map((r: any) => ({
+              location: r.location || area.roomZoneId || 'Unknown',
+              value: r.moistureLevel || 0,
+              unit: '%'
+            }))
+        }
+        
+        // If no readings matched, use all readings
+        if (areaMoistureReadings.length === 0) {
+          areaMoistureReadings = inspectionData.moistureReadings.map((r: any) => ({
+            location: r.location || area.roomZoneId || area.name || 'Unknown',
+            value: r.moistureLevel || 0,
+            unit: '%'
+          }))
+        }
+      }
+      
+      affectedAreasList.push({
+        name: area.roomZoneId || area.name || `Area ${affectedAreasList.length + 1}`,
+        description: area.description || '',
+        materials: [],
+        moistureReadings: areaMoistureReadings,
+        photos: areaPhotos
+      })
+    })
+  }
+  
+  // Third priority: Create areas from moisture readings if no other data
+  if (affectedAreasList.length === 0) {
+    // Create area from moisture readings
+    if (inspectionData?.moistureReadings && inspectionData.moistureReadings.length > 0) {
+      const uniqueLocations = [...new Set(inspectionData.moistureReadings.map((r: any) => r.location).filter(Boolean))]
+      if (uniqueLocations.length > 0) {
+        uniqueLocations.forEach((location: string) => {
+          const locationReadings = inspectionData.moistureReadings.filter((r: any) => r.location === location)
+          const locationPhotos = photos.filter(p => p.location === location).map(p => p.url)
+          
+          affectedAreasList.push({
+            name: location || 'Affected Area',
+            description: '',
+            materials: [],
+            moistureReadings: locationReadings.map((r: any) => ({
+              location: r.location || 'Unknown',
+              value: r.moistureLevel || 0,
+              unit: '%'
+            })),
+            photos: locationPhotos.length > 0 ? locationPhotos : photos.map(p => p.url)
+          })
+        })
+      }
+    }
+    
+    // If still no areas but we have photos, create a general area
+    if (affectedAreasList.length === 0 && photos.length > 0) {
+      affectedAreasList.push({
+        name: 'Inspection Area',
+        description: 'General inspection area',
+        materials: [],
+        moistureReadings: inspectionData?.moistureReadings?.map((r: any) => ({
+          location: r.location || 'Unknown',
+          value: r.moistureLevel || 0,
+          unit: '%'
+        })) || [],
+        photos: photos.map(p => p.url)
+      })
+    }
+  }
+
+  // Extract IICRC classification
+  const classification = inspectionData?.classifications?.[0] || null
+
+  // Extract scope items
+  const scopeItemsList: Array<{
+    description: string
+    quantity: number
+    unit: string
+    justification?: string
+  }> = []
+  
+  if (inspectionData?.scopeItems && Array.isArray(inspectionData.scopeItems)) {
+    inspectionData.scopeItems.forEach((item: any) => {
+      if (item.isSelected) {
+        scopeItemsList.push({
+          description: item.description || item.itemType || '',
+          quantity: item.quantity || 1,
+          unit: item.unit || 'JOB',
+          justification: item.justification || null
+        })
+      }
+    })
+  }
+
+  // Extract cost estimates
+  const costEstimates: Array<{
+    description: string
+    quantity: number
+    unit: string
+    rate: number
+    subtotal: number
+    total: number
+  }> = []
+  
+  if (inspectionData?.costEstimates && Array.isArray(inspectionData.costEstimates)) {
+    inspectionData.costEstimates.forEach((cost: any) => {
+      const quantity = Number(cost.quantity) || 1
+      const rate = Number(cost.rate) || 0
+      const subtotal = Number(cost.subtotal) || (quantity * rate)
+      const total = Number(cost.total) || subtotal
+      
+      costEstimates.push({
+        description: cost.description || 'Cost Item',
+        quantity: quantity,
+        unit: cost.unit || 'JOB',
+        rate: rate,
+        subtotal: subtotal,
+        total: total
+      })
+    })
+  }
+  
+  // If no cost estimates but we have equipment costs, create cost estimates from equipment
+  if (costEstimates.length === 0 && equipmentSelection && Array.isArray(equipmentSelection) && equipmentSelection.length > 0) {
+    equipmentSelection.forEach((sel: any) => {
+      const group = getEquipmentGroupById(sel.groupId)
+      const dailyRate = Number(sel.dailyRate) || 0
+      const quantity = Number(sel.quantity) || 0
+      const duration = Number(report.estimatedDryingDuration) || 1
+      const total = dailyRate * quantity * duration
+      
+      if (total > 0) {
+        costEstimates.push({
+          description: `${group?.name || sel.groupId || 'Equipment'} Rental`,
+          quantity: quantity,
+          unit: 'unit',
+          rate: dailyRate,
+          subtotal: dailyRate * quantity,
+          total: total
+        })
+      }
+    })
+  }
+
+  // Calculate summary metrics
+  const totalCost = costEstimates.length > 0 
+    ? costEstimates.reduce((sum, c) => sum + (Number(c.total) || 0), 0) 
+    : (Number(report.equipmentCostTotal) || 0)
+  const roomsAffected = affectedAreasList.length || (scopeAreas?.length || 0) || (analysis?.affectedAreas?.length || 0)
+  const avgMoisture = inspectionData?.moistureReadings?.length > 0
+    ? inspectionData.moistureReadings.reduce((sum: number, r: any) => sum + (r.moistureLevel || 0), 0) / inspectionData.moistureReadings.length
+    : null
+
+  return {
+    type: 'restoration_inspection_report',
+    version: '1.0',
+    generatedAt: new Date().toISOString(),
+    header: {
+      reportTitle: 'Restoration Inspection Report',
+      businessName: businessInfo?.businessName || 'RestoreAssist',
+      businessAddress: businessInfo?.businessAddress || null,
+      businessLogo: businessInfo?.businessLogo || null,
+      businessABN: businessInfo?.businessABN || null,
+      businessPhone: businessInfo?.businessPhone || null,
+      businessEmail: businessInfo?.businessEmail || null,
+      reportNumber: report.reportNumber || report.claimReferenceNumber || `RPT-${report.id.substring(0, 8).toUpperCase()}`,
+      dateGenerated: new Date().toISOString()
+    },
+    property: {
+      clientName: report.clientName || null,
+      propertyAddress: report.propertyAddress || null,
+      propertyPostcode: report.propertyPostcode || null,
+      state: stateInfo?.name || null,
+      buildingAge: report.buildingAge || null,
+      structureType: report.structureType || null,
+      accessNotes: report.accessNotes || null
+    },
+    incident: {
+      dateOfLoss: report.incidentDate ? new Date(report.incidentDate).toISOString() : null,
+      technicianAttendanceDate: report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toISOString() : null,
+      technicianName: report.technicianName || null,
+      claimReferenceNumber: report.claimReferenceNumber || null,
+      insurerName: report.insurerName || null,
+      waterSource: analysis?.waterSource || report.sourceOfWater || null,
+      waterCategory: classification?.category || report.waterCategory || null,
+      waterClass: classification?.class || report.waterClass || null,
+      timeSinceLoss: inspectionData?.affectedAreas?.[0]?.timeSinceLoss || null
+    },
+    environmental: inspectionData?.environmentalData ? {
+      ambientTemperature: inspectionData.environmentalData.ambientTemperature || null,
+      humidityLevel: inspectionData.environmentalData.humidityLevel || null,
+      dewPoint: inspectionData.environmentalData.dewPoint || null,
+      airCirculation: inspectionData.environmentalData.airCirculation || false
+    } : null,
+    psychrometric: psychrometricAssessment ? {
+      waterClass: psychrometricAssessment.waterClass || null,
+      temperature: psychrometricAssessment.temperature || null,
+      humidity: psychrometricAssessment.humidity || null,
+      systemType: psychrometricAssessment.systemType || null,
+      dryingIndex: psychrometricAssessment.dryingPotential?.dryingIndex || null,
+      dryingStatus: psychrometricAssessment.dryingPotential?.status || null,
+      recommendation: psychrometricAssessment.dryingPotential?.recommendation || null
+    } : null,
+    affectedAreas: affectedAreasList,
+    moistureReadings: inspectionData?.moistureReadings?.map((r: any) => ({
+      location: r.location || 'Unknown',
+      surfaceType: r.surfaceType || null,
+      moistureLevel: r.moistureLevel || 0,
+      depth: r.depth || null,
+      unit: '%'
+    })) || [],
+    classification: classification ? {
+      category: classification.category || null,
+      class: classification.class || null,
+      justification: classification.justification || null,
+      standardReference: classification.standardReference || null
+    } : null,
+    hazards: {
+      methamphetamineScreen: report.methamphetamineScreen || null,
+      methamphetamineTestCount: report.methamphetamineTestCount || null,
+      biologicalMouldDetected: report.biologicalMouldDetected || false,
+      biologicalMouldCategory: report.biologicalMouldCategory || null,
+      asbestosRisk: report.buildingAge && parseInt(report.buildingAge) < 1990 ? 'PRE-1990_BUILDING' : null,
+      leadRisk: report.buildingAge && parseInt(report.buildingAge) < 1990 ? 'PRE-1990_BUILDING' : null
+    },
+    scopeItems: scopeItemsList,
+    costEstimates: costEstimates,
+    equipment: equipmentSelection && Array.isArray(equipmentSelection) ? equipmentSelection.map((sel: any) => {
+      const group = getEquipmentGroupById(sel.groupId)
+      const dailyRate = Number(sel.dailyRate) || 0
+      const quantity = Number(sel.quantity) || 0
+      const duration = Number(report.estimatedDryingDuration) || 1
+      const totalCost = dailyRate * quantity * duration
+      
+      return {
+        name: group?.name || sel.groupId || 'Equipment',
+        type: sel.groupId?.includes('lgr') ? 'LGR_DEHUMIDIFIER' : 
+              sel.groupId?.includes('desiccant') ? 'DESICCANT_DEHUMIDIFIER' :
+              sel.groupId?.includes('airmover') ? 'AIR_MOVER' : 
+              sel.groupId?.includes('heat') ? 'HEAT_DRYING' : 'OTHER',
+        quantity: quantity,
+        dailyRate: dailyRate,
+        estimatedDuration: duration,
+        totalCost: totalCost
+      }
+    }) : [],
+    photos: photos,
+    summary: {
+      roomsAffected: roomsAffected,
+      totalCost: totalCost,
+      averageMoisture: avgMoisture,
+      estimatedDuration: report.estimatedDryingDuration || null,
+      dryingStatus: psychrometricAssessment?.dryingPotential?.status || null
+    },
+    compliance: {
+      standards: [
+        'IICRC S500 (Water Damage Restoration)',
+        'IICRC S520 (Mould Remediation)',
+        stateInfo?.whsAct || 'Work Health and Safety Act 2011',
+        stateInfo?.epaAct || 'Environmental Protection Act 1994',
+        stateInfo?.buildingCode || 'National Construction Code (NCC)',
+        'AS/NZS 3000 (Electrical wiring rules)'
+      ],
+      state: stateInfo?.name || null,
+      buildingAuthority: stateInfo?.buildingAuthority || null,
+      workSafetyAuthority: stateInfo?.workSafetyAuthority || null,
+      epaAuthority: stateInfo?.epaAuthority || null
+    },
+    technicianNotes: report.technicianFieldReport || null,
+    recommendations: [],
+    verificationChecklist: null
+  }
 }
 

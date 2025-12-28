@@ -94,7 +94,7 @@ const upgradeItem = {
                   {/* Logo */}
                   <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800 flex-shrink-0">
                     {sidebarOpen && (
-                      <Link href="/" className="flex items-center gap-2">
+                      <Link href="/dashboard/" className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
                           <span className="text-white font-bold text-xs">RA</span>
                         </div>

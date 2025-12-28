@@ -67,6 +67,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "embla-carousel-react": "8.5.1",
     "framer-motion": "^12.23.24",
     "google-auth-library": "^10.4.2",

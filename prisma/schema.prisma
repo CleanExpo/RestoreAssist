@@ -86,6 +86,7 @@ model User {
   addonPurchases AddonPurchase[]
   claimAnalysisBatches ClaimAnalysisBatch[]
   standardTemplates StandardTemplate[]
+  inspections   Inspection[]
 }
 
 model VerificationToken {
@@ -251,6 +252,9 @@ model Report {
   // Scoping & Estimation
   scope     Scope?
   estimates Estimate[]
+  
+  // NIR Integration
+  inspection Inspection?
 }
 
 enum Role {
@@ -812,4 +816,353 @@ enum StandardTemplateType {
   JOB_COSTING
   COMPLIANCE_CHECKLIST
   BILLING_TEMPLATE
+}
+
+// ============================================
+// NIR (National Inspection Report) Models
+// ============================================
+
+// Main Inspection Record
+model Inspection {
+  id              String   @id @default(cuid())
+  reportId       String?  @unique // Link to existing Report if applicable
+  report         Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  
+  // Inspection Metadata
+  inspectionNumber String  @unique // NIR-YYYY-MM-XXXX format
+  propertyAddress  String
+  propertyPostcode String  // Required for state detection
+  inspectionDate   DateTime @default(now())
+  technicianName  String?
+  technicianId    String?  // Link to technician user if available
+  
+  // Status
+  status          InspectionStatus @default(DRAFT)
+  submittedAt      DateTime?
+  processedAt     DateTime?
+  
+  // Relations
+  userId          String
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  environmentalData    EnvironmentalData?
+  moistureReadings    MoistureReading[]
+  affectedAreas       AffectedArea[]
+  scopeItems          ScopeItem[]
+  classifications     Classification[]
+  costEstimates       CostEstimate[]
+  auditLogs           AuditLog[]
+  photos              InspectionPhoto[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([inspectionDate])
+  @@index([propertyPostcode])
+}
+
+enum InspectionStatus {
+  DRAFT
+  SUBMITTED
+  PROCESSING
+  CLASSIFIED
+  SCOPED
+  ESTIMATED
+  COMPLETED
+  REJECTED
+}
+
+// Environmental Data (Temperature, Humidity, Dew Point, etc.)
+model EnvironmentalData {
+  id            String     @id @default(cuid())
+  inspectionId  String     @unique
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Environmental Measurements
+  ambientTemperature Float    // °F or °C
+  humidityLevel      Float    // Percentage (0-100)
+  dewPoint           Float?   // °F or °C
+  airCirculation     Boolean  @default(false)
+  
+  // Additional Context
+  weatherConditions  String?  @db.Text
+  notes              String?  @db.Text
+  
+  recordedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// Moisture Readings (Location-specific measurements)
+model MoistureReading {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Location & Surface
+  location      String     // Room/Zone identifier
+  surfaceType   String     // drywall, wood, carpet, concrete, etc.
+  moistureLevel Float      // Percentage (0-100)
+  depth         String     // Surface | Subsurface
+  
+  // Additional Context
+  notes         String?    @db.Text
+  photoUrl      String?    // Link to photo if available
+  
+  recordedAt    DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([inspectionId])
+  @@index([surfaceType])
+}
+
+// Affected Areas (Room/Zone with Category/Class)
+model AffectedArea {
+  id                String     @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Area Identification
+  roomZoneId        String     // Room/Zone identifier
+  affectedSquareFootage Float  // Square footage affected
+  
+  // Water Source & Timing
+  waterSource       String     // clean water, grey water, black water
+  timeSinceLoss     Float?     // Hours since loss occurred
+  
+  // IICRC Classification (auto-determined by system)
+  category          String?    // A, B, C, D (or 1, 2, 3, 4)
+  class             String?     // 1, 2, 3, 4
+  
+  // Additional Context
+  description       String?    @db.Text
+  photos            String?    @db.Text // JSON array of photo URLs
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@index([inspectionId])
+  @@index([category])
+  @@index([class])
+}
+
+// Scope Items (Structured checklist items)
+model ScopeItem {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Item Details
+  itemType      String     // remove_carpet, sanitize_materials, install_dehumidification, etc.
+  description   String     // Human-readable description
+  areaId        String?    // Link to AffectedArea if applicable
+  
+  // Quantities & Specifications
+  quantity      Float?     // Quantity if applicable
+  unit          String?    // sq ft, days, units, etc.
+  specification String?    @db.Text // Additional specs (e.g., drywall height)
+  
+  // System Determination
+  autoDetermined Boolean   @default(false) // True if system auto-added this
+  justification  String?    @db.Text // Why this item is required (IICRC/building code reference)
+  
+  // Status
+  isRequired    Boolean    @default(true)
+  isSelected    Boolean    @default(true) // User can deselect if not needed
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([inspectionId])
+  @@index([itemType])
+  @@index([autoDetermined])
+}
+
+// Cost Estimates (Line items with costs)
+model CostEstimate {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Cost Item Details
+  scopeItemId   String?    // Link to ScopeItem if applicable
+  category      String     // Equipment, Labor, Materials, etc.
+  description   String
+  quantity      Float
+  unit          String
+  rate          Float      // Cost per unit
+  subtotal      Float      // quantity × rate
+  
+  // Source
+  costDatabaseId String?   // Link to CostDatabase entry if used
+  isEstimated   Boolean    @default(true) // True if from database, false if custom
+  
+  // Totals
+  contingency   Float?     // Contingency percentage applied
+  total         Float      // Final total including contingency
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([inspectionId])
+  @@index([category])
+}
+
+// Classification (IICRC Category & Class determination)
+model Classification {
+  id            String     @id @default(cuid())
+  inspectionId String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Classification Result
+  category      String     // 1, 2, 3, or 4 (IICRC S500)
+  class         String     // 1, 2, 3, or 4 (IICRC S500)
+  
+  // Justification
+  justification String     @db.Text // Why this classification was determined
+  standardReference String // IICRC S500 Section reference
+  confidence    Float?     // 0-100 confidence score
+  
+  // Input Data Used
+  inputData     String?    @db.Text // JSON: data used for classification
+  
+  // Status
+  isFinal       Boolean    @default(false)
+  reviewedBy    String?    // User ID if manually reviewed (shouldn't happen per spec)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([inspectionId])
+  @@index([category])
+  @@index([class])
+}
+
+// Audit Log (Complete audit trail)
+model AuditLog {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Action Details
+  action        String     // Data entered, photo added, form submitted, classification determined, etc.
+  entityType    String?    // EnvironmentalData, MoistureReading, AffectedArea, etc.
+  entityId      String?    // ID of the entity that was modified
+  
+  // User & Device
+  userId        String
+  device        String?    // Mobile, Web
+  gpsLocation   String?    // GPS coordinates if available
+  
+  // Changes
+  changes       String?    @db.Text // JSON: what was changed
+  previousValue String?    @db.Text // Previous value if applicable
+  newValue      String?    @db.Text // New value if applicable
+  
+  // Metadata
+  timestamp     DateTime   @default(now())
+  ipAddress     String?
+  userAgent     String?
+  
+  @@index([inspectionId])
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+// Building Code Database (State-specific requirements)
+model BuildingCode {
+  id            String     @id @default(cuid())
+  
+  // Location
+  state         String     // QLD, NSW, VIC, etc.
+  postcode      String?    // Specific postcode if applicable (null = state-wide)
+  
+  // Requirements
+  codeVersion   String     // Building code version
+  moistureThreshold Float? // Moisture threshold % that triggers requirements
+  dryingTimeStandard String? @db.Text // Drying time standards
+  dehumidificationRequired Boolean @default(false)
+  certificationRequired Boolean @default(false)
+  
+  // Specific Requirements (stored as JSON)
+  requirements  String?    @db.Text // JSON: detailed requirements
+  
+  // Additional Context
+  notes         String?    @db.Text
+  effectiveDate DateTime?
+  expiryDate    DateTime?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([state])
+  @@index([postcode])
+}
+
+// Cost Database (National average costs for common items)
+model CostDatabase {
+  id            String     @id @default(cuid())
+  
+  // Item Details
+  itemType      String     // remove_carpet, drywall_removal, dehumidifier_rental, etc.
+  category      String     // Equipment, Labor, Materials, etc.
+  description   String
+  unit          String     // sq ft, day, unit, etc.
+  
+  // Cost Range
+  minRate       Float      // Minimum rate
+  maxRate       Float      // Maximum rate
+  averageRate   Float      // Average rate (used for estimates)
+  
+  // Regional Variations
+  region        String?    // National, QLD, NSW, etc. (null = national average)
+  
+  // Update Tracking
+  lastUpdated   DateTime   @default(now())
+  source        String?    // Source of the cost data
+  updateFrequency String?  // Quarterly, Monthly, etc.
+  
+  // Status
+  isActive      Boolean    @default(true)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([itemType])
+  @@index([category])
+  @@index([region])
+  @@index([isActive])
+}
+
+// Inspection Photos
+model InspectionPhoto {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  
+  // Photo Details
+  url           String     // Cloudinary or S3 URL
+  thumbnailUrl  String?    // Thumbnail URL if available
+  location      String?    // Location where photo was taken
+  description   String?    @db.Text // Photo description
+  
+  // Metadata
+  timestamp     DateTime   @default(now()) // When photo was taken
+  uploadedAt     DateTime   @default(now()) // When photo was uploaded
+  fileSize      Int?       // File size in bytes
+  mimeType      String?    // image/jpeg, image/png, etc.
+  
+  // GPS if available
+  gpsLatitude   Float?
+  gpsLongitude  Float?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([inspectionId])
+  @@index([timestamp])
 }
