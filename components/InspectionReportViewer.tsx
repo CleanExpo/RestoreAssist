@@ -10,7 +10,22 @@ import RestorationInspectionReportViewer from "./RestorationInspectionReportView
 
 // Convert structured report data to VisualDashboardReport format
 function convertToVisualReportData(structuredData: any): any {
+  console.log('[convertToVisualReportData] 🔍 Input structured data:', {
+    hasData: !!structuredData,
+    type: structuredData?.type,
+    hasEnvironmental: !!structuredData?.environmental,
+    environmental: structuredData?.environmental,
+    hasPsychrometric: !!structuredData?.psychrometric,
+    psychrometric: structuredData?.psychrometric,
+    hasHazards: !!structuredData?.hazards,
+    hazards: structuredData?.hazards,
+    hasTimeline: !!structuredData?.timeline,
+    timeline: structuredData?.timeline,
+    fullData: structuredData
+  })
+  
   if (!structuredData || structuredData.type !== 'restoration_inspection_report') {
+    console.log('[convertToVisualReportData] ❌ Invalid structured data:', structuredData)
     return null
   }
 
@@ -18,8 +33,8 @@ function convertToVisualReportData(structuredData: any): any {
     header = {}, 
     property = {}, 
     incident = {}, 
-    environmental = {}, 
-    psychrometric = {}, 
+    environmental = null, 
+    psychrometric = null, 
     affectedAreas = [], 
     moistureReadings = [],
     scopeItems = [],
@@ -31,6 +46,17 @@ function convertToVisualReportData(structuredData: any): any {
     photos = [],
     technicianNotes = ''
   } = structuredData
+  
+  console.log('[convertToVisualReportData] 📦 Extracted data:', {
+    environmental,
+    psychrometric,
+    hazards,
+    affectedAreasCount: affectedAreas?.length || 0,
+    moistureReadingsCount: moistureReadings?.length || 0,
+    scopeItemsCount: scopeItems?.length || 0,
+    equipmentCount: equipment?.length || 0,
+    photosCount: photos?.length || 0
+  })
 
   // Calculate real materials from affected areas and scope items
   const allMaterials = new Set<string>()
@@ -168,7 +194,15 @@ function convertToVisualReportData(structuredData: any): any {
       businessEmail: header?.businessEmail || null
     },
     // Add full structured data for detailed pages
-    fullData: structuredData
+    fullData: {
+      ...structuredData,
+      // Ensure environmental data is passed through
+      environmental: environmental || null,
+      psychrometric: psychrometric || null,
+      classification: structuredData.classification || null,
+      hazards: hazards || {},
+      timeline: structuredData.timeline || null
+    }
   }
 }
 
@@ -268,6 +302,28 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
             // Check if it's structured JSON (new Basic Report format)
             try {
               const parsed = JSON.parse(data.detailedReport)
+              console.log('[InspectionReportViewer] 📊 Parsed structured report data:', {
+                type: parsed.type,
+                hasEnvironmental: !!parsed.environmental,
+                environmental: parsed.environmental,
+                hasPsychrometric: !!parsed.psychrometric,
+                psychrometric: parsed.psychrometric,
+                hasHazards: !!parsed.hazards,
+                hazards: parsed.hazards,
+                hasTimeline: !!parsed.timeline,
+                timeline: parsed.timeline,
+                hasEquipment: parsed.equipment?.length > 0,
+                equipmentCount: parsed.equipment?.length || 0,
+                hasMoistureReadings: parsed.moistureReadings?.length > 0,
+                moistureReadingsCount: parsed.moistureReadings?.length || 0,
+                hasAffectedAreas: parsed.affectedAreas?.length > 0,
+                affectedAreasCount: parsed.affectedAreas?.length || 0,
+                hasScopeItems: parsed.scopeItems?.length > 0,
+                scopeItemsCount: parsed.scopeItems?.length || 0,
+                hasPhotos: parsed.photos?.length > 0,
+                photosCount: parsed.photos?.length || 0,
+                fullData: parsed
+              })
               if (parsed.type === 'restoration_inspection_report') {
                 setStructuredReportData(parsed)
                 setIsBasicReport(true)
@@ -322,9 +378,20 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
 
       if (response.ok) {
         const data = await response.json()
+        console.log('[InspectionReportViewer] ✅ Report generation response:', {
+          hasReport: !!data.report,
+          hasStructuredData: !!data.report?.structuredData,
+          hasDetailedReport: !!data.report?.detailedReport,
+          reportData: data.report
+        })
         if (data.report) {
           // Check if it's structured data (new Basic Report format)
           if (data.report.structuredData) {
+            console.log('[InspectionReportViewer] 📊 Setting structured data from response:', {
+              hasEnvironmental: !!data.report.structuredData.environmental,
+              environmental: data.report.structuredData.environmental,
+              fullStructuredData: data.report.structuredData
+            })
             setStructuredReportData(data.report.structuredData)
             setIsBasicReport(true)
             setReportContent('')

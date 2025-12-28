@@ -147,38 +147,40 @@ export async function POST(request: NextRequest) {
       // Continue without standards - report will use general knowledge
     }
     
-    // Get NIR inspection data if available
-    // Since Inspection.reportId column doesn't exist, find inspection by matching property address and user
+    // Get NIR data from Report model (stored in moistureReadings field as JSON)
     let inspectionData = null
     try {
-      // Find inspection by matching property address and user ID
-      const inspection = await prisma.inspection.findFirst({
-        where: {
-          userId: user.id,
-          propertyAddress: report.propertyAddress,
-          // Match by postcode too if available
-          ...(report.propertyPostcode ? { propertyPostcode: report.propertyPostcode } : {})
-        },
-        include: {
-          environmentalData: true,
-          moistureReadings: true,
-          affectedAreas: true,
-          scopeItems: true,
-          costEstimates: true,
-          classifications: true,
-          photos: true
-        },
-        orderBy: {
-          createdAt: 'desc' // Get most recent inspection
+      // Parse NIR data from Report.moistureReadings JSON field
+      if (report.moistureReadings) {
+        const nirData = JSON.parse(report.moistureReadings)
+        
+        inspectionData = {
+          moistureReadings: nirData.moistureReadings || [],
+          affectedAreas: nirData.affectedAreas || [],
+          scopeItems: nirData.scopeItems || [],
+          photos: nirData.photos || [],
+          environmentalData: null, // Not stored in NIR data, will use psychrometric fallback
+          classifications: [],
+          costEstimates: []
         }
-      })
-      
-      if (inspection) {
-        inspectionData = inspection
+        
+        console.log('[Report Generation] ✅ NIR data found in Report:', {
+          hasMoistureReadings: inspectionData.moistureReadings?.length > 0,
+          moistureReadingsCount: inspectionData.moistureReadings?.length || 0,
+          hasAffectedAreas: inspectionData.affectedAreas?.length > 0,
+          affectedAreasCount: inspectionData.affectedAreas?.length || 0,
+          hasScopeItems: inspectionData.scopeItems?.length > 0,
+          scopeItemsCount: inspectionData.scopeItems?.length || 0,
+          hasPhotos: inspectionData.photos?.length > 0,
+          photosCount: inspectionData.photos?.length || 0,
+          photoUrls: inspectionData.photos?.map((p: any) => p.url || p) || []
+        })
+      } else {
+        console.log('[Report Generation] ⚠️ No NIR data found in Report.moistureReadings')
       }
     } catch (error) {
-      console.error('Error fetching inspection data:', error)
-      // Continue without inspection data - report generation will use Report model data
+      console.error('[Report Generation] ❌ Error parsing NIR data from Report:', error)
+      // Continue without NIR data - report generation will use other Report model data
       inspectionData = null
     }
 
@@ -1946,16 +1948,31 @@ function buildStructuredBasicReport(data: {
   const photos: Array<{ url: string; thumbnailUrl?: string; location?: string; caption?: string }> = []
   if (inspectionData?.photos && Array.isArray(inspectionData.photos)) {
     inspectionData.photos.forEach((photo: any) => {
-      if (photo.url) { // Only add photos that have URLs
-        photos.push({
-          url: photo.url,
-          thumbnailUrl: photo.thumbnailUrl || photo.url, // Use main URL as fallback
-          location: photo.location || null,
-          caption: photo.location || photo.caption || null
-        })
+      // Handle both object format {url, thumbnailUrl, ...} and string format
+      if (photo.url || (typeof photo === 'string' && photo)) {
+        const photoUrl = photo.url || photo
+        if (photoUrl) {
+          photos.push({
+            url: photoUrl,
+            thumbnailUrl: photo.thumbnailUrl || photoUrl, // Use main URL as fallback
+            location: photo.location || null,
+            caption: photo.caption || photo.location || null
+          })
+        }
       }
     })
   }
+  
+  console.log('[buildStructuredBasicReport] Photos extracted from NIR data:', {
+    photosCount: photos.length,
+    photos: photos.map(p => ({ 
+      url: p.url, 
+      thumbnailUrl: p.thumbnailUrl,
+      location: p.location, 
+      caption: p.caption 
+    })),
+    rawInspectionPhotos: inspectionData?.photos
+  })
   
   // Also check if photos are stored in report directly (legacy support)
   if (photos.length === 0 && report.photos) {
@@ -1999,18 +2016,30 @@ function buildStructuredBasicReport(data: {
       
       // Match photos by area name
       let areaPhotos: string[] = []
-      if (area.name) {
-        areaPhotos = photos.filter(p => 
+      if (area.name && photos.length > 0) {
+        // Try to match photos by location/name
+        const matchedPhotos = photos.filter(p => 
           p.location && area.name &&
           (p.location.toLowerCase().includes(area.name.toLowerCase()) ||
            area.name.toLowerCase().includes(p.location.toLowerCase()))
-        ).map(p => p.url)
+        )
+        areaPhotos = matchedPhotos.map(p => p.url)
+        
+        console.log(`[buildStructuredBasicReport] Area "${area.name}" photo matching:`, {
+          totalPhotos: photos.length,
+          matchedPhotos: matchedPhotos.length,
+          matchedUrls: areaPhotos
+        })
       }
       
       // If no photos matched, include photos without location or all photos
-      if (areaPhotos.length === 0) {
+      if (areaPhotos.length === 0 && photos.length > 0) {
         const photosWithoutLocation = photos.filter(p => !p.location).map(p => p.url)
         areaPhotos = photosWithoutLocation.length > 0 ? photosWithoutLocation : photos.map(p => p.url)
+        console.log(`[buildStructuredBasicReport] Area "${area.name}" using fallback photos:`, {
+          photosWithoutLocation: photosWithoutLocation.length,
+          totalPhotos: areaPhotos.length
+        })
       }
       
       // Get moisture readings for this area
@@ -2288,12 +2317,55 @@ function buildStructuredBasicReport(data: {
       waterClass: classification?.class || report.waterClass || null,
       timeSinceLoss: inspectionData?.affectedAreas?.[0]?.timeSinceLoss || null
     },
-    environmental: inspectionData?.environmentalData ? {
-      ambientTemperature: inspectionData.environmentalData.ambientTemperature || null,
-      humidityLevel: inspectionData.environmentalData.humidityLevel || null,
-      dewPoint: inspectionData.environmentalData.dewPoint || null,
-      airCirculation: inspectionData.environmentalData.airCirculation || false
-    } : null,
+    environmental: (() => {
+      const envData = inspectionData?.environmentalData
+      const psychroData = psychrometricAssessment
+      
+      console.log('[buildStructuredBasicReport] Environmental Data Check:', {
+        hasInspectionData: !!inspectionData,
+        hasEnvironmentalData: !!envData,
+        environmentalData: envData,
+        hasPsychrometricData: !!psychroData,
+        psychrometricData: psychroData,
+        ambientTemperature: envData?.ambientTemperature,
+        humidityLevel: envData?.humidityLevel,
+        dewPoint: envData?.dewPoint,
+        airCirculation: envData?.airCirculation
+      })
+      
+      // Priority 1: Use NIR environmental data if available
+      if (envData) {
+        return {
+          ambientTemperature: envData.ambientTemperature || null,
+          humidityLevel: envData.humidityLevel || null,
+          dewPoint: envData.dewPoint || null,
+          airCirculation: envData.airCirculation || false
+        }
+      }
+      
+      // Priority 2: Use psychrometric assessment data as fallback
+      if (psychroData && (psychroData.temperature !== null || psychroData.humidity !== null)) {
+        const temp = psychroData.temperature || null
+        const humidity = psychroData.humidity || null
+        const dewPoint = temp && humidity ? temp - (100 - humidity) / 5 : null
+        
+        console.log('[buildStructuredBasicReport] Using psychrometric data as environmental fallback:', {
+          temperature: temp,
+          humidity: humidity,
+          calculatedDewPoint: dewPoint
+        })
+        
+        return {
+          ambientTemperature: temp,
+          humidityLevel: humidity,
+          dewPoint: dewPoint ? Math.round(dewPoint * 10) / 10 : null,
+          airCirculation: false // Default to false if not specified
+        }
+      }
+      
+      console.log('[buildStructuredBasicReport] ⚠️ No environmental data available')
+      return null
+    })(),
     psychrometric: psychrometricAssessment ? {
       waterClass: psychrometricAssessment.waterClass || null,
       temperature: psychrometricAssessment.temperature || null,
@@ -2346,7 +2418,18 @@ function buildStructuredBasicReport(data: {
         totalCost: totalCost
       }
     }) : [],
-    photos: photos,
+    photos: (() => {
+      console.log('[buildStructuredBasicReport] Final photos array:', {
+        count: photos.length,
+        photos: photos.map(p => ({
+          url: p.url,
+          thumbnailUrl: p.thumbnailUrl,
+          location: p.location,
+          caption: p.caption
+        }))
+      })
+      return photos
+    })(),
     summary: {
       roomsAffected: roomsAffected,
       totalCost: totalCost,
@@ -2369,6 +2452,23 @@ function buildStructuredBasicReport(data: {
       epaAuthority: stateInfo?.epaAuthority || null
     },
     technicianNotes: report.technicianFieldReport || null,
+    timeline: {
+      phase1: {
+        startDate: report.phase1StartDate ? new Date(report.phase1StartDate).toISOString() : null,
+        endDate: report.phase1EndDate ? new Date(report.phase1EndDate).toISOString() : null,
+        description: 'Make-safe'
+      },
+      phase2: {
+        startDate: report.phase2StartDate ? new Date(report.phase2StartDate).toISOString() : null,
+        endDate: report.phase2EndDate ? new Date(report.phase2EndDate).toISOString() : null,
+        description: 'Remediation/Drying'
+      },
+      phase3: {
+        startDate: report.phase3StartDate ? new Date(report.phase3StartDate).toISOString() : null,
+        endDate: report.phase3EndDate ? new Date(report.phase3EndDate).toISOString() : null,
+        description: 'Verification'
+      }
+    },
     recommendations: [],
     verificationChecklist: null
   }

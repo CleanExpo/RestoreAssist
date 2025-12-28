@@ -123,6 +123,23 @@ interface RestorationInspectionReportData {
     epaAuthority: string | null
   }
   technicianNotes: string | null
+  timeline?: {
+    phase1?: {
+      startDate: string | null
+      endDate: string | null
+      description: string
+    }
+    phase2?: {
+      startDate: string | null
+      endDate: string | null
+      description: string
+    }
+    phase3?: {
+      startDate: string | null
+      endDate: string | null
+      description: string
+    }
+  }
   recommendations: any[]
   verificationChecklist: any
 }
@@ -731,6 +748,13 @@ export default function RestorationInspectionReportViewer({ data }: RestorationI
                     src={photo.url} 
                     alt={photo.caption || photo.location || `Photo ${idx + 1}`}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error(`[RestorationInspectionReportViewer] Failed to load image: ${photo.url}`)
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="20" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EImage Not Available%3C/text%3E%3C/svg%3E'
+                    }}
+                    onLoad={() => {
+                      console.log(`[RestorationInspectionReportViewer] Successfully loaded image: ${photo.url}`)
+                    }}
                   />
                   {(photo.caption || photo.location) && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2">
@@ -811,6 +835,47 @@ export default function RestorationInspectionReportViewer({ data }: RestorationI
             )}
           </div>
         </section>
+
+        {/* Timeline Estimation */}
+        {data.timeline && (data.timeline.phase1?.startDate || data.timeline.phase2?.startDate || data.timeline.phase3?.startDate) && (
+          <section className="print-avoid-break">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Clock className="w-6 h-6 text-cyan-600" />
+              Timeline Estimation
+            </h2>
+            <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+              <div className="space-y-4">
+                {data.timeline.phase1?.startDate && (
+                  <div className="border-l-4 border-blue-500 pl-4">
+                    <h3 className="font-semibold text-slate-900 mb-1">Phase 1: Make-safe</h3>
+                    <p className="text-sm text-slate-700">
+                      {formatDate(data.timeline.phase1.startDate)}
+                      {data.timeline.phase1.endDate && ` - ${formatDate(data.timeline.phase1.endDate)}`}
+                    </p>
+                  </div>
+                )}
+                {data.timeline.phase2?.startDate && (
+                  <div className="border-l-4 border-green-500 pl-4">
+                    <h3 className="font-semibold text-slate-900 mb-1">Phase 2: Remediation/Drying</h3>
+                    <p className="text-sm text-slate-700">
+                      {formatDate(data.timeline.phase2.startDate)}
+                      {data.timeline.phase2.endDate && ` - ${formatDate(data.timeline.phase2.endDate)}`}
+                    </p>
+                  </div>
+                )}
+                {data.timeline.phase3?.startDate && (
+                  <div className="border-l-4 border-purple-500 pl-4">
+                    <h3 className="font-semibold text-slate-900 mb-1">Phase 3: Verification</h3>
+                    <p className="text-sm text-slate-700">
+                      {formatDate(data.timeline.phase3.startDate)}
+                      {data.timeline.phase3.endDate && ` - ${formatDate(data.timeline.phase3.endDate)}`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Technician Notes */}
         {data.technicianNotes && (
