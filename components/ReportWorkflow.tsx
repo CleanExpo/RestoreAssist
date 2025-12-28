@@ -211,6 +211,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
       {currentStage === 'initial-entry' && (
         <InitialDataEntryForm 
           onSuccess={handleInitialEntryComplete}
+          initialReportId={reportId}
           initialData={initialFormData}
         />
       )}

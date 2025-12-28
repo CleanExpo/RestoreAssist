@@ -103,6 +103,52 @@ Example format: [{"name": "Kitchen", "length": 4.5, "width": 3.5, "height": 2.7,
 - equipmentMentioned: Array of equipment types mentioned in document. Look for: "LGR dehumidifier", "desiccant", "air mover", "air mover fan", "dehumidifier", "drying equipment", "extraction equipment". Extract all equipment mentions.
 - estimatedDryingDuration: Estimated drying duration in days (integer). Look for "4 days", "drying period", "estimated duration", "drying time". Extract the number of days.
 
+**NIR Inspection Data - Moisture Readings:**
+CRITICAL: Extract ALL moisture readings mentioned in the document. Look for:
+- Tables with moisture readings, moisture meters, moisture levels, moisture percentages
+- Mentions like "Kitchen wall: 45%", "Bedroom floor: 32% moisture", "moisture reading: 28%"
+- Surface types: "Drywall", "Wood", "Carpet", "Concrete", "Tile", "Vinyl", "Hardwood", "Particle Board", "Plaster", "Other"
+- Depth: "Surface" or "Subsurface" (look for "surface moisture", "subsurface", "deep moisture", "penetrating")
+
+For each moisture reading found, create an object with:
+  - location: Room/area name where reading was taken (e.g., "Kitchen", "Master Bedroom", "Lounge Room")
+  - surfaceType: Type of surface (must be one of: "Drywall", "Wood", "Carpet", "Concrete", "Tile", "Vinyl", "Hardwood", "Particle Board", "Plaster", "Other")
+  - moistureLevel: Moisture percentage (float, 0-100). Extract the numeric value.
+  - depth: "Surface" or "Subsurface" (default to "Surface" if not specified)
+
+Example format: [{"location": "Kitchen", "surfaceType": "Drywall", "moistureLevel": 45.5, "depth": "Surface"}, {"location": "Master Bedroom", "surfaceType": "Carpet", "moistureLevel": 32.0, "depth": "Subsurface"}]
+
+**NIR Inspection Data - Affected Areas:**
+CRITICAL: Extract ALL affected areas mentioned in the document. Look for:
+- Room/zone names with water damage, affected areas, wet areas
+- Square footage or area measurements (convert to square feet if needed: 1 sq m = 10.764 sq ft)
+- Water source: "Clean Water", "Grey Water", or "Black Water" (look for "clean", "grey", "gray", "black", "contaminated", "sewage")
+- Time since loss: Look for "hours since loss", "time since incident", "elapsed time", "hours ago"
+
+For each affected area found, create an object with:
+  - roomZoneId: Room/zone name (e.g., "Kitchen", "Master Bedroom", "Lounge Room")
+  - affectedSquareFootage: Affected area in square feet (float). Extract from measurements or estimates.
+  - waterSource: "Clean Water", "Grey Water", or "Black Water" (default to "Clean Water" if not specified)
+  - timeSinceLoss: Hours since water loss occurred (float). Extract numeric value.
+
+Example format: [{"roomZoneId": "Kitchen", "affectedSquareFootage": 150.5, "waterSource": "Clean Water", "timeSinceLoss": 24.0}, {"roomZoneId": "Master Bedroom", "affectedSquareFootage": 200.0, "waterSource": "Grey Water", "timeSinceLoss": 48.0}]
+
+**NIR Inspection Data - Scope Items:**
+Extract scope of work items mentioned in the document. Match to these IDs:
+- "remove_carpet": Look for "remove carpet", "carpet removal", "carpet extraction"
+- "sanitize_materials": Look for "sanitize", "sanitization", "disinfect", "antimicrobial"
+- "install_dehumidification": Look for "dehumidifier", "dehumidification", "drying equipment"
+- "install_air_movers": Look for "air mover", "air mover fan", "air circulation", "fans"
+- "extract_standing_water": Look for "extract water", "water extraction", "standing water", "remove water"
+- "demolish_drywall": Look for "demolish", "remove drywall", "cut out", "remove wall"
+- "apply_antimicrobial": Look for "antimicrobial", "antimicrobial treatment", "biocide"
+- "dry_out_structure": Look for "dry out", "drying", "structural drying"
+- "containment_setup": Look for "containment", "barrier", "isolation", "seal off"
+- "ppe_required": Look for "PPE", "personal protective equipment", "safety equipment", "protective gear"
+
+Return an array of scope item IDs that match items mentioned in the document.
+Example format: ["remove_carpet", "install_dehumidification", "install_air_movers", "extract_standing_water"]
+
 **Additional Information:**
 - fullText: All text content from the PDF document
 
@@ -225,7 +271,24 @@ Example format: [{"name": "Kitchen", "length": 4.5, "width": 3.5, "height": 2.7,
         
         // Equipment & Tools Selection - Equipment
         equipmentMentioned: parsedData.equipmentMentioned || [],
-        estimatedDryingDuration: parsedData.estimatedDryingDuration || null
+        estimatedDryingDuration: parsedData.estimatedDryingDuration || null,
+        
+        // NIR Inspection Data
+        nirData: {
+          moistureReadings: Array.isArray(parsedData.moistureReadings) ? parsedData.moistureReadings.map((r: any) => ({
+            location: r.location || '',
+            surfaceType: r.surfaceType || 'Drywall',
+            moistureLevel: typeof r.moistureLevel === 'number' ? r.moistureLevel : parseFloat(r.moistureLevel) || 0,
+            depth: r.depth === 'Subsurface' ? 'Subsurface' : 'Surface'
+          })) : [],
+          affectedAreas: Array.isArray(parsedData.affectedAreas) ? parsedData.affectedAreas.map((a: any) => ({
+            roomZoneId: a.roomZoneId || '',
+            affectedSquareFootage: typeof a.affectedSquareFootage === 'number' ? a.affectedSquareFootage : parseFloat(a.affectedSquareFootage) || 0,
+            waterSource: a.waterSource || 'Clean Water',
+            timeSinceLoss: typeof a.timeSinceLoss === 'number' ? a.timeSinceLoss : parseFloat(a.timeSinceLoss) || 0
+          })) : [],
+          scopeItems: Array.isArray(parsedData.scopeItems) ? parsedData.scopeItems : []
+        }
       }
 
       return NextResponse.json({

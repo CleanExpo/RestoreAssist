@@ -578,7 +578,24 @@ function DetailedReportPages({ fullData, businessInfo }: { fullData: any; busine
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mb-6">
-          {fullData.environmental ? (
+          {(() => {
+            console.log('[VisualDashboardReport] Environmental Data Check:', {
+              hasEnvironmental: !!fullData.environmental,
+              environmental: fullData.environmental,
+              hasTemperature: fullData.environmental?.ambientTemperature !== null && fullData.environmental?.ambientTemperature !== undefined,
+              hasHumidity: fullData.environmental?.humidityLevel !== null && fullData.environmental?.humidityLevel !== undefined,
+              hasDewPoint: fullData.environmental?.dewPoint !== null && fullData.environmental?.dewPoint !== undefined,
+              temperature: fullData.environmental?.ambientTemperature,
+              humidity: fullData.environmental?.humidityLevel,
+              dewPoint: fullData.environmental?.dewPoint
+            })
+            const hasEnvData = fullData.environmental && (
+              (fullData.environmental.ambientTemperature !== null && fullData.environmental.ambientTemperature !== undefined) ||
+              (fullData.environmental.humidityLevel !== null && fullData.environmental.humidityLevel !== undefined) ||
+              (fullData.environmental.dewPoint !== null && fullData.environmental.dewPoint !== undefined)
+            )
+            return hasEnvData
+          })() ? (
               <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-6 border-2 border-blue-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Thermometer className="w-6 h-6 text-blue-600" />
@@ -625,7 +642,7 @@ function DetailedReportPages({ fullData, businessInfo }: { fullData: any; busine
             </div>
           )}
 
-          {fullData.classification ? (
+          {/* {fullData.classification ? (
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Shield className="w-6 h-6 text-green-600" />
@@ -666,7 +683,7 @@ function DetailedReportPages({ fullData, businessInfo }: { fullData: any; busine
               </h3>
               <p className="text-slate-600 italic">No classification data available.</p>
             </div>
-          )}
+          )} */}
         </div>
 
         {fullData.psychrometric ? (
