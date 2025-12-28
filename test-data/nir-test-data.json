@@ -1,0 +1,474 @@
+{
+  "testScenarios": [
+    {
+      "scenarioName": "Category 1, Class 1 - Clean Water, Minimal Damage",
+      "description": "Clean water leak from burst pipe, caught early, minimal affected area",
+      "initialEntry": {
+        "clientName": "John Smith",
+        "clientContactDetails": "0412345678, john.smith@email.com",
+        "propertyAddress": "123 Main Street",
+        "propertyPostcode": "2000",
+        "claimReferenceNumber": "CLM-2024-001",
+        "incidentDate": "2024-01-15",
+        "technicianAttendanceDate": "2024-01-15",
+        "technicianName": "Mike Johnson",
+        "technicianFieldReport": "Attended property at 2:30 PM. Found water leak from burst pipe in kitchen. Water is clean, no contamination visible. Affected area limited to kitchen floor approximately 2m x 2m. Carpet is wet but not saturated. No structural damage observed. Property built in 2010, no asbestos concerns. Electrical outlets checked, no water ingress. Immediate extraction commenced.",
+        "buildingAge": "2010",
+        "structureType": "Residential - Single Storey",
+        "accessNotes": "Key under mat, owner present",
+        "insurerName": "ABC Insurance",
+        "methamphetamineScreen": "NEGATIVE",
+        "biologicalMouldDetected": false
+      },
+      "nirData": {
+        "environmentalData": {
+          "ambientTemperature": 22,
+          "humidityLevel": 55,
+          "dewPoint": 12.5,
+          "airCirculation": true
+        },
+        "moistureReadings": [
+          {
+            "location": "Kitchen Floor - Center",
+            "surfaceType": "Carpet",
+            "moistureLevel": 45,
+            "depth": "Surface"
+          },
+          {
+            "location": "Kitchen Floor - Under Sink",
+            "surfaceType": "Carpet",
+            "moistureLevel": 38,
+            "depth": "Surface"
+          }
+        ],
+        "affectedAreas": [
+          {
+            "roomZoneId": "Kitchen",
+            "affectedSquareFootage": 40,
+            "waterSource": "Clean Water",
+            "timeSinceLoss": 2
+          }
+        ],
+        "scopeItems": [
+          "extract_standing_water",
+          "install_air_movers",
+          "dry_out_structure"
+        ],
+        "photos": []
+      },
+      "expectedClassification": {
+        "category": "1",
+        "class": "1"
+      }
+    },
+    {
+      "scenarioName": "Category 2, Class 2 - Grey Water, Moderate Damage",
+      "description": "Washing machine overflow with detergent, affected multiple rooms",
+      "initialEntry": {
+        "clientName": "Sarah Williams",
+        "clientContactDetails": "0423456789, sarah.w@email.com",
+        "propertyAddress": "456 Oak Avenue",
+        "propertyPostcode": "3000",
+        "claimReferenceNumber": "CLM-2024-002",
+        "incidentDate": "2024-01-14",
+        "technicianAttendanceDate": "2024-01-15",
+        "technicianName": "David Chen",
+        "technicianFieldReport": "Washing machine overflow occurred approximately 18 hours ago. Grey water with detergent has affected laundry, hallway, and part of living room. Total affected area approximately 60 square meters. Carpet is saturated in laundry area. Some water has migrated under baseboards. Property built in 1995. No visible mould growth yet but conditions are favorable. Electrical safety check required.",
+        "buildingAge": "1995",
+        "structureType": "Residential - Two Storey",
+        "accessNotes": "Side gate unlocked",
+        "insurerName": "XYZ Insurance",
+        "methamphetamineScreen": "NEGATIVE",
+        "biologicalMouldDetected": false
+      },
+      "nirData": {
+        "environmentalData": {
+          "ambientTemperature": 24,
+          "humidityLevel": 68,
+          "dewPoint": 17.6,
+          "airCirculation": false
+        },
+        "moistureReadings": [
+          {
+            "location": "Laundry - Floor Center",
+            "surfaceType": "Carpet",
+            "moistureLevel": 78,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Hallway - Near Laundry",
+            "surfaceType": "Carpet",
+            "moistureLevel": 65,
+            "depth": "Surface"
+          },
+          {
+            "location": "Living Room - Entry",
+            "surfaceType": "Carpet",
+            "moistureLevel": 52,
+            "depth": "Surface"
+          },
+          {
+            "location": "Laundry - Baseboard",
+            "surfaceType": "Drywall",
+            "moistureLevel": 45,
+            "depth": "Surface"
+          }
+        ],
+        "affectedAreas": [
+          {
+            "roomZoneId": "Laundry",
+            "affectedSquareFootage": 25,
+            "waterSource": "Grey Water",
+            "timeSinceLoss": 18
+          },
+          {
+            "roomZoneId": "Hallway",
+            "affectedSquareFootage": 20,
+            "waterSource": "Grey Water",
+            "timeSinceLoss": 18
+          },
+          {
+            "roomZoneId": "Living Room",
+            "affectedSquareFootage": 15,
+            "waterSource": "Grey Water",
+            "timeSinceLoss": 18
+          }
+        ],
+        "scopeItems": [
+          "extract_standing_water",
+          "remove_carpet",
+          "sanitize_materials",
+          "install_dehumidification",
+          "install_air_movers",
+          "apply_antimicrobial",
+          "dry_out_structure"
+        ],
+        "photos": []
+      },
+      "expectedClassification": {
+        "category": "2",
+        "class": "2"
+      }
+    },
+    {
+      "scenarioName": "Category 3, Class 3 - Black Water, Extensive Damage with Asbestos Risk",
+      "description": "Sewage backup, extensive damage, pre-1990 building requiring asbestos assessment",
+      "initialEntry": {
+        "clientName": "Robert Thompson",
+        "clientContactDetails": "0434567890, robert.t@email.com",
+        "propertyAddress": "789 Elm Street",
+        "propertyPostcode": "4000",
+        "claimReferenceNumber": "CLM-2024-003",
+        "incidentDate": "2024-01-10",
+        "technicianAttendanceDate": "2024-01-12",
+        "technicianName": "Lisa Anderson",
+        "technicianFieldReport": "Sewage backup from main line occurred 48 hours ago. Black water has extensively affected ground floor including bathroom, kitchen, and living areas. Total affected area approximately 150 square meters. Carpet is heavily saturated and contaminated. Water has wicked up drywall approximately 30cm. Property built in 1985 - ASBESTOS ASSESSMENT REQUIRED. Visible mould growth in bathroom area. Electrical outlets may be compromised. Structural integrity assessment needed. Strong sewage odor present. PPE required for all personnel.",
+        "buildingAge": "1985",
+        "structureType": "Residential - Single Storey",
+        "accessNotes": "Rear door code: 1234",
+        "insurerName": "DEF Insurance",
+        "methamphetamineScreen": "NEGATIVE",
+        "biologicalMouldDetected": true,
+        "biologicalMouldCategory": "Category 2"
+      },
+      "nirData": {
+        "environmentalData": {
+          "ambientTemperature": 26,
+          "humidityLevel": 75,
+          "dewPoint": 21,
+          "airCirculation": false
+        },
+        "moistureReadings": [
+          {
+            "location": "Bathroom - Floor",
+            "surfaceType": "Tile",
+            "moistureLevel": 95,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Bathroom - Drywall Base",
+            "surfaceType": "Drywall",
+            "moistureLevel": 88,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Kitchen - Floor",
+            "surfaceType": "Carpet",
+            "moistureLevel": 92,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Living Room - Floor",
+            "surfaceType": "Carpet",
+            "moistureLevel": 75,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Kitchen - Drywall",
+            "surfaceType": "Drywall",
+            "moistureLevel": 65,
+            "depth": "Subsurface"
+          }
+        ],
+        "affectedAreas": [
+          {
+            "roomZoneId": "Bathroom",
+            "affectedSquareFootage": 30,
+            "waterSource": "Black Water",
+            "timeSinceLoss": 48
+          },
+          {
+            "roomZoneId": "Kitchen",
+            "affectedSquareFootage": 50,
+            "waterSource": "Black Water",
+            "timeSinceLoss": 48
+          },
+          {
+            "roomZoneId": "Living Room",
+            "affectedSquareFootage": 70,
+            "waterSource": "Black Water",
+            "timeSinceLoss": 48
+          }
+        ],
+        "scopeItems": [
+          "extract_standing_water",
+          "remove_carpet",
+          "demolish_drywall",
+          "sanitize_materials",
+          "install_dehumidification",
+          "install_air_movers",
+          "apply_antimicrobial",
+          "containment_setup",
+          "ppe_required",
+          "dry_out_structure"
+        ],
+        "photos": []
+      },
+      "expectedClassification": {
+        "category": "3",
+        "class": "3"
+      },
+      "expectedCompliance": {
+        "asbestosAssessment": true,
+        "leadAssessment": false,
+        "electricalAssessment": true,
+        "mouldTesting": true
+      }
+    },
+    {
+      "scenarioName": "Category 2, Class 4 - Grey Water, Deeply Held Moisture",
+      "description": "Dishwasher leak with water trapped in hard-to-dry materials",
+      "initialEntry": {
+        "clientName": "Emma Davis",
+        "clientContactDetails": "0445678901, emma.d@email.com",
+        "propertyAddress": "321 Pine Road",
+        "propertyPostcode": "5000",
+        "claimReferenceNumber": "CLM-2024-004",
+        "incidentDate": "2024-01-13",
+        "technicianAttendanceDate": "2024-01-14",
+        "technicianName": "James Wilson",
+        "technicianFieldReport": "Dishwasher leak discovered 24 hours ago. Grey water has affected kitchen and adjacent dining area. Water has penetrated under cabinets and into subfloor. Concrete slab shows moisture. Hardwood flooring affected. Total area approximately 45 square meters. Property built in 2005. No visible contamination but water has been standing. Requires specialized drying approach.",
+        "buildingAge": "2005",
+        "structureType": "Residential - Single Storey",
+        "accessNotes": "Front door, owner will be present",
+        "insurerName": "GHI Insurance",
+        "methamphetamineScreen": "NEGATIVE",
+        "biologicalMouldDetected": false
+      },
+      "nirData": {
+        "environmentalData": {
+          "ambientTemperature": 23,
+          "humidityLevel": 62,
+          "dewPoint": 15.2,
+          "airCirculation": true
+        },
+        "moistureReadings": [
+          {
+            "location": "Kitchen - Under Cabinet",
+            "surfaceType": "Concrete",
+            "moistureLevel": 85,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Kitchen - Subfloor",
+            "surfaceType": "Concrete",
+            "moistureLevel": 78,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Dining Room - Hardwood",
+            "surfaceType": "Hardwood",
+            "moistureLevel": 68,
+            "depth": "Subsurface"
+          },
+          {
+            "location": "Kitchen - Baseboard",
+            "surfaceType": "Drywall",
+            "moistureLevel": 55,
+            "depth": "Subsurface"
+          }
+        ],
+        "affectedAreas": [
+          {
+            "roomZoneId": "Kitchen",
+            "affectedSquareFootage": 30,
+            "waterSource": "Grey Water",
+            "timeSinceLoss": 24
+          },
+          {
+            "roomZoneId": "Dining Room",
+            "affectedSquareFootage": 15,
+            "waterSource": "Grey Water",
+            "timeSinceLoss": 24
+          }
+        ],
+        "scopeItems": [
+          "extract_standing_water",
+          "install_dehumidification",
+          "install_air_movers",
+          "dry_out_structure"
+        ],
+        "photos": []
+      },
+      "expectedClassification": {
+        "category": "2",
+        "class": "4"
+      }
+    },
+    {
+      "scenarioName": "Category 1, Class 2 - Clean Water, Moderate Evaporation Load",
+      "description": "Hot water system leak, clean water, moderate affected area",
+      "initialEntry": {
+        "clientName": "Michael Brown",
+        "clientContactDetails": "0456789012, michael.b@email.com",
+        "propertyAddress": "654 Maple Drive",
+        "propertyPostcode": "6000",
+        "claimReferenceNumber": "CLM-2024-005",
+        "incidentDate": "2024-01-16",
+        "technicianAttendanceDate": "2024-01-16",
+        "technicianName": "Amanda Taylor",
+        "technicianFieldReport": "Hot water system leak detected this morning. Clean water has affected laundry and hallway. Approximately 35 square meters affected. Carpet is wet but not saturated. No contamination. Property built in 2015. Quick response time, minimal damage expected.",
+        "buildingAge": "2015",
+        "structureType": "Residential - Two Storey",
+        "accessNotes": "Garage door remote required",
+        "insurerName": "JKL Insurance",
+        "methamphetamineScreen": "NEGATIVE",
+        "biologicalMouldDetected": false
+      },
+      "nirData": {
+        "environmentalData": {
+          "ambientTemperature": 25,
+          "humidityLevel": 58,
+          "dewPoint": 16,
+          "airCirculation": true
+        },
+        "moistureReadings": [
+          {
+            "location": "Laundry - Floor",
+            "surfaceType": "Carpet",
+            "moistureLevel": 55,
+            "depth": "Surface"
+          },
+          {
+            "location": "Hallway - Near Laundry",
+            "surfaceType": "Carpet",
+            "moistureLevel": 48,
+            "depth": "Surface"
+          }
+        ],
+        "affectedAreas": [
+          {
+            "roomZoneId": "Laundry",
+            "affectedSquareFootage": 20,
+            "waterSource": "Clean Water",
+            "timeSinceLoss": 4
+          },
+          {
+            "roomZoneId": "Hallway",
+            "affectedSquareFootage": 15,
+            "waterSource": "Clean Water",
+            "timeSinceLoss": 4
+          }
+        ],
+        "scopeItems": [
+          "extract_standing_water",
+          "install_air_movers",
+          "dry_out_structure"
+        ],
+        "photos": []
+      },
+      "expectedClassification": {
+        "category": "1",
+        "class": "2"
+      }
+    }
+  ],
+  "testInstructions": {
+    "description": "Use this test data to verify the NIR system functionality",
+    "steps": [
+      "1. Create a new report using the initialEntry data",
+      "2. Fill in the NIR fields with the nirData provided",
+      "3. Submit the inspection for processing",
+      "4. Verify the classification matches expectedClassification",
+      "5. Check that compliance requirements are triggered (asbestos, lead, electrical, mould) where applicable",
+      "6. Verify scope items are automatically determined",
+      "7. Check cost estimates are generated",
+      "8. Generate the final report and verify it includes all standards references"
+    ],
+    "expectedBehaviors": {
+      "classification": "System should automatically classify based on water source, contamination level, and affected area",
+      "compliance": "System should trigger asbestos assessment for pre-1990 buildings, lead assessment for pre-1970 buildings, electrical assessment for water ingress, and mould testing for >3 days",
+      "scopeDetermination": "System should automatically determine required scope items based on classification and building codes",
+      "costEstimation": "System should calculate costs based on scope items and cost database",
+      "reportGeneration": "Report should reference IICRC S500, WHS Regulations 2011, NCC, and AS/NZS 3000 where applicable"
+    }
+  },
+  "apiTestEndpoints": {
+    "createReport": {
+      "method": "POST",
+      "endpoint": "/api/reports/initial-entry",
+      "description": "Create initial report with test data"
+    },
+    "createInspection": {
+      "method": "POST",
+      "endpoint": "/api/inspections",
+      "description": "Create inspection record linked to report"
+    },
+    "addEnvironmentalData": {
+      "method": "POST",
+      "endpoint": "/api/inspections/[id]/environmental",
+      "description": "Add environmental readings"
+    },
+    "addMoistureReadings": {
+      "method": "POST",
+      "endpoint": "/api/inspections/[id]/moisture",
+      "description": "Add moisture readings"
+    },
+    "addAffectedAreas": {
+      "method": "POST",
+      "endpoint": "/api/inspections/[id]/affected-areas",
+      "description": "Add affected area information"
+    },
+    "addScopeItems": {
+      "method": "POST",
+      "endpoint": "/api/inspections/[id]/scope-items",
+      "description": "Add initial scope items"
+    },
+    "submitInspection": {
+      "method": "POST",
+      "endpoint": "/api/inspections/[id]/submit",
+      "description": "Submit inspection for processing (triggers classification, scope determination, cost estimation)"
+    },
+    "getClassification": {
+      "method": "GET",
+      "endpoint": "/api/inspections/[id]/classification",
+      "description": "Retrieve classification results"
+    },
+    "generateReport": {
+      "method": "POST",
+      "endpoint": "/api/reports/generate-inspection-report",
+      "description": "Generate final report (Basic or Enhanced)"
+    }
+  }
+}
+

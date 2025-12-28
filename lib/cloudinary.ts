@@ -55,3 +55,57 @@ export async function deleteImage(publicId: string): Promise<void> {
   }
 }
 
+export interface CloudinaryUploadResult {
+  url: string
+  thumbnailUrl?: string
+  publicId: string
+  width: number
+  height: number
+  format: string
+}
+
+export async function uploadToCloudinary(
+  buffer: Buffer,
+  options: {
+    folder?: string
+    resource_type?: 'image' | 'video' | 'raw' | 'auto'
+    transformation?: any[]
+  } = {}
+): Promise<CloudinaryUploadResult> {
+  try {
+    // Convert buffer to base64 data URI
+    const base64 = buffer.toString('base64')
+    const dataUri = `data:image/jpeg;base64,${base64}`
+    
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: options.folder || 'uploads',
+      resource_type: options.resource_type || 'image',
+      transformation: [
+        ...(options.transformation || []),
+        { quality: 'auto', format: 'auto' }
+      ],
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    })
+
+    // Generate thumbnail URL
+    const thumbnailUrl = cloudinary.url(result.public_id, {
+      transformation: [
+        { width: 300, height: 300, crop: 'limit' },
+        { quality: 'auto' }
+      ]
+    })
+
+    return {
+      url: result.secure_url,
+      thumbnailUrl,
+      publicId: result.public_id,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+    }
+  } catch (error) {
+    console.error('Cloudinary upload error:', error)
+    throw new Error('Failed to upload image to Cloudinary')
+  }
+}
+

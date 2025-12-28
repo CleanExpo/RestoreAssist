@@ -6,6 +6,171 @@ import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
 import VisualDashboardReport from "./VisualDashboardReport"
+import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer"
+
+// Convert structured report data to VisualDashboardReport format
+function convertToVisualReportData(structuredData: any): any {
+  if (!structuredData || structuredData.type !== 'restoration_inspection_report') {
+    return null
+  }
+
+  const { 
+    header = {}, 
+    property = {}, 
+    incident = {}, 
+    environmental = {}, 
+    psychrometric = {}, 
+    affectedAreas = [], 
+    moistureReadings = [],
+    scopeItems = [],
+    costEstimates = [],
+    summary = {}, 
+    equipment = [], 
+    compliance = {}, 
+    hazards = {},
+    photos = [],
+    technicianNotes = ''
+  } = structuredData
+
+  // Calculate real materials from affected areas and scope items
+  const allMaterials = new Set<string>()
+  if (affectedAreas && Array.isArray(affectedAreas)) {
+    affectedAreas.forEach((area: any) => {
+      if (area.materials && Array.isArray(area.materials)) {
+        area.materials.forEach((m: string) => allMaterials.add(m))
+      }
+    })
+  }
+  const materialsList = Array.from(allMaterials).join(', ') || 'Various'
+
+  // Calculate real average moisture from actual readings
+  let avgMoisture = 0
+  if (moistureReadings && Array.isArray(moistureReadings) && moistureReadings.length > 0) {
+    const total = moistureReadings.reduce((sum: number, r: any) => sum + (r.moistureLevel || 0), 0)
+    avgMoisture = Math.round(total / moistureReadings.length)
+  } else if (summary?.averageMoisture) {
+    avgMoisture = Math.round(summary.averageMoisture)
+  }
+
+  // Build room details from REAL affected areas data
+  const roomDetails = (affectedAreas && Array.isArray(affectedAreas) && affectedAreas.length > 0) ? affectedAreas.map((area: any) => {
+    // Get moisture readings for this area
+    const areaMoistureReadings = area.moistureReadings || []
+    const areaMoisture = areaMoistureReadings.length > 0
+      ? Math.round(areaMoistureReadings.reduce((sum: number, r: any) => sum + r.value, 0) / areaMoistureReadings.length)
+      : avgMoisture
+
+    // Get scope items for this area
+    const areaScopeItems = scopeItems?.filter((item: any) => 
+      item.description?.toLowerCase().includes(area.name?.toLowerCase() || '') ||
+      area.name?.toLowerCase().includes(item.description?.toLowerCase() || '')
+    ) || []
+
+    // Build scope of work from actual scope items
+    const scopeOfWork = areaScopeItems.length > 0
+      ? areaScopeItems.map((item: any) => item.description).join(', ')
+      : scopeItems?.length > 0 
+        ? scopeItems.map((item: any) => item.description).join(', ')
+        : 'Extract water & apply antimicrobial'
+
+    // Get equipment for this area (match by area or use all equipment)
+    const areaEquipment = equipment?.map((e: any) => `${e.quantity}x ${e.name}`) || []
+
+    return {
+      name: area.name || 'Unknown Area',
+      materials: area.materials?.length > 0 ? area.materials.join(', ') : materialsList,
+      moisture: areaMoisture,
+      targetMoisture: 12,
+      status: areaMoisture > 20 ? 'Saturated' : areaMoisture > 15 ? 'Fair' : 'Good',
+      scopeOfWork: scopeOfWork,
+      equipment: areaEquipment.length > 0 ? areaEquipment : []
+    }
+  }) : []
+
+  // Build equipment costs from REAL equipment data
+  const equipmentCosts: any[] = []
+  const lgrEquipment = equipment?.filter((e: any) => e.type === 'LGR_DEHUMIDIFIER' || e.type === 'DESICCANT_DEHUMIDIFIER') || []
+  const airMovers = equipment?.filter((e: any) => e.type === 'AIR_MOVER') || []
+
+  if (lgrEquipment.length > 0) {
+    const totalQty = lgrEquipment.reduce((sum: number, e: any) => sum + (e.quantity || 0), 0)
+    const totalDailyRate = lgrEquipment.reduce((sum: number, e: any) => sum + ((e.dailyRate || 0) * (e.quantity || 0)), 0)
+    const totalCost = lgrEquipment.reduce((sum: number, e: any) => sum + (e.totalCost || 0), 0)
+    if (totalQty > 0) {
+      equipmentCosts.push({
+        type: 'LGR',
+        qty: totalQty,
+        ratePerDay: totalDailyRate,
+        total: totalCost
+      })
+    }
+  }
+
+  if (airMovers.length > 0) {
+    const totalQty = airMovers.reduce((sum: number, e: any) => sum + (e.quantity || 0), 0)
+    const totalDailyRate = airMovers.reduce((sum: number, e: any) => sum + ((e.dailyRate || 0) * (e.quantity || 0)), 0)
+    const totalCost = airMovers.reduce((sum: number, e: any) => sum + (e.totalCost || 0), 0)
+    if (totalQty > 0) {
+      equipmentCosts.push({
+        type: 'Air',
+        qty: totalQty,
+        ratePerDay: totalDailyRate,
+        total: totalCost
+      })
+    }
+  }
+
+  // Calculate total litres extracted from cost estimates or equipment
+  let totalLitresExtracted = '0 L'
+  const extractionItem = costEstimates?.find((item: any) => 
+    item.description?.toLowerCase().includes('extract') || 
+    item.description?.toLowerCase().includes('water removal')
+  )
+  if (extractionItem && extractionItem.quantity) {
+    totalLitresExtracted = `${extractionItem.quantity} L`
+  }
+
+  return {
+    header: {
+      title: header?.businessName || 'Restore Assist',
+      subtitle: 'Water Damage Restoration Overview',
+      claimRef: header?.reportNumber || incident?.claimReferenceNumber || 'N/A',
+      location: property?.state ? `${property.state}` : '',
+      date: header?.dateGenerated ? new Date(header.dateGenerated).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' }) : new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      occupancy: 'Vacant', // Can be enhanced with actual occupancy data
+      occupancyDetails: ''
+    },
+    summaryMetrics: {
+      roomsAffected: summary?.roomsAffected || (Array.isArray(affectedAreas) ? affectedAreas.length : 0) || 0,
+      materialsAffected: materialsList,
+      moistureLevel: avgMoisture,
+      totalCost: summary?.totalCost || (Array.isArray(costEstimates) ? costEstimates.reduce((sum: number, item: any) => sum + (item.total || 0), 0) : 0) || 0,
+      dryingStatus: summary?.dryingStatus || psychrometric?.dryingStatus || 'Fair',
+      totalLitresExtracted: totalLitresExtracted,
+      estimatedDuration: summary?.estimatedDuration || (Array.isArray(equipment) && equipment.length > 0 ? equipment[0]?.estimatedDuration : null) || 4,
+      dryingIndex: psychrometric?.dryingIndex || 33.6
+    },
+    safety: {
+      trafficLight: 'vacant',
+      hasChildren: false,
+      waterCategory: incident?.waterCategory?.replace('Category ', '') || incident?.waterCategory || '1'
+    },
+    roomDetails: roomDetails.length > 0 ? roomDetails : [],
+    complianceStandards: Array.isArray(compliance?.standards) ? compliance.standards : [],
+    equipmentCosts: equipmentCosts,
+    estimatedDays: summary?.estimatedDuration || (Array.isArray(equipment) && equipment.length > 0 ? equipment[0]?.estimatedDuration : null) || 4,
+    businessInfo: {
+      businessName: header?.businessName || null,
+      businessAddress: header?.businessAddress || null,
+      businessLogo: header?.businessLogo || null,
+      businessABN: header?.businessABN || null,
+      businessPhone: header?.businessPhone || null,
+      businessEmail: header?.businessEmail || null
+    },
+    // Add full structured data for detailed pages
+    fullData: structuredData
+  }
+}
 
 interface InspectionReportViewerProps {
   reportId: string
@@ -20,12 +185,42 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
   const [report, setReport] = useState<any>(null)
   const [reportContent, setReportContent] = useState<string>('')
   const [visualData, setVisualData] = useState<any>(null)
+  const [structuredReportData, setStructuredReportData] = useState<any>(null)
   const [isBasicReport, setIsBasicReport] = useState(false)
-  const [downloadingForensic, setDownloadingForensic] = useState(false)
+  const [hasAttemptedAutoGenerate, setHasAttemptedAutoGenerate] = useState(false)
 
   useEffect(() => {
     fetchReport()
   }, [reportId])
+
+  // Auto-generate Basic Report if it doesn't exist (only once)
+  useEffect(() => {
+    const autoGenerateBasicReport = async () => {
+      // Only auto-generate if:
+      // 1. Report is loaded
+      // 2. No report content exists
+      // 3. Report type is Basic (or reportDepthLevel is Basic)
+      // 4. Not currently generating
+      // 5. Haven't already attempted auto-generation
+      if (report && !reportContent && !structuredReportData && !visualData && !generating && !hasAttemptedAutoGenerate) {
+        const isBasicReport = report.reportDepthLevel === 'Basic' || 
+                              report.reportDepthLevel === 'basic' ||
+                              (!report.reportDepthLevel && !report.detailedReport)
+        
+        if (isBasicReport) {
+          setHasAttemptedAutoGenerate(true)
+          // Small delay to ensure UI is ready
+          setTimeout(() => {
+            handleGenerateReport('basic')
+          }, 500)
+        }
+      }
+    }
+
+    if (report && !loading && !hasAttemptedAutoGenerate) {
+      autoGenerateBasicReport()
+    }
+  }, [report, reportContent, structuredReportData, visualData, generating, loading, hasAttemptedAutoGenerate])
 
   // Preprocess report content to ensure proper markdown heading formatting
   const preprocessReportContent = (content: string): string => {
@@ -70,21 +265,30 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
         if (data && typeof data === 'object') {
           setReport(data)
           if (data.detailedReport) {
-            // Check if it's JSON (basic visual report)
+            // Check if it's structured JSON (new Basic Report format)
             try {
               const parsed = JSON.parse(data.detailedReport)
-              if (parsed.header && parsed.summaryMetrics) {
+              if (parsed.type === 'restoration_inspection_report') {
+                setStructuredReportData(parsed)
+                setIsBasicReport(true)
+                setReportContent('')
+                setVisualData(null)
+              } else if (parsed.header && parsed.summaryMetrics) {
+                // Legacy visual report format
                 setVisualData(parsed)
                 setIsBasicReport(true)
                 setReportContent('')
+                setStructuredReportData(null)
               } else {
-                throw new Error('Not visual data')
+                throw new Error('Not structured data')
               }
             } catch (e) {
               // It's text/markdown content
               const processedContent = preprocessReportContent(data.detailedReport)
               setReportContent(processedContent)
               setIsBasicReport(false)
+              setStructuredReportData(null)
+              setVisualData(null)
             }
           }
         } else {
@@ -118,27 +322,45 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
 
       if (response.ok) {
         const data = await response.json()
-        if (data.report && data.report.detailedReport) {
-          // Check if it's a basic report with visual data
-          if (data.report.reportType === 'basic' || data.report.visualData) {
+        if (data.report) {
+          // Check if it's structured data (new Basic Report format)
+          if (data.report.structuredData) {
+            setStructuredReportData(data.report.structuredData)
+            setIsBasicReport(true)
+            setReportContent('')
+            setVisualData(null)
+            toast.success('Restoration inspection report generated successfully')
+          } else if (data.report.detailedReport) {
+            // Try to parse as structured JSON
             try {
-              const visualData = data.report.visualData || JSON.parse(data.report.detailedReport)
-              setVisualData(visualData)
-              setIsBasicReport(true)
-              setReportContent('') // Clear text content for basic reports
-              toast.success('Visual report generated successfully')
+              const parsed = JSON.parse(data.report.detailedReport)
+              if (parsed.type === 'restoration_inspection_report') {
+                setStructuredReportData(parsed)
+                setIsBasicReport(true)
+                setReportContent('')
+                setVisualData(null)
+                toast.success('Restoration inspection report generated successfully')
+              } else if (parsed.header && parsed.summaryMetrics) {
+                // Legacy visual report format
+                setVisualData(parsed)
+                setIsBasicReport(true)
+                setReportContent('')
+                setStructuredReportData(null)
+                toast.success('Visual report generated successfully')
+              } else {
+                throw new Error('Not structured data')
+              }
             } catch (e) {
-              // Fallback to text if JSON parsing fails
+              // It's text/markdown content
               const processedContent = preprocessReportContent(data.report.detailedReport)
               setReportContent(processedContent)
               setIsBasicReport(false)
+              setStructuredReportData(null)
+              setVisualData(null)
               toast.success('Inspection report generated successfully')
             }
           } else {
-            const processedContent = preprocessReportContent(data.report.detailedReport)
-            setReportContent(processedContent)
-            setIsBasicReport(false)
-            toast.success('Inspection report generated successfully')
+            toast.error('Failed to parse report response')
           }
           if (onReportGenerated) {
             onReportGenerated()
@@ -201,40 +423,6 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     }
   }
 
-  const handleDownloadForensicPDF = async () => {
-    setDownloadingForensic(true)
-    try {
-      const response = await fetch(`/api/reports/${reportId}/generate-forensic-pdf`)
-      
-      if (!response.ok) {
-        const error = await response.json()
-        toast.error(error.error || 'Failed to generate forensic PDF')
-        return
-      }
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      
-      // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition')
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
-      const filename = filenameMatch ? filenameMatch[1] : `Forensic-Report-${reportId}.pdf`
-      
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success('Forensic Report PDF downloaded successfully')
-    } catch (error) {
-      console.error('Error downloading forensic PDF:', error)
-      toast.error('Failed to generate forensic PDF')
-    } finally {
-      setDownloadingForensic(false)
-    }
-  }
 
   const handleSave = async () => {
     if (!reportContent) {
@@ -314,30 +502,13 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
                   </button>
                 </>
               )}
-              <button
-                onClick={handleDownloadForensicPDF}
-                disabled={downloadingForensic}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {downloadingForensic ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <FileCheck className="w-4 h-4" />
-                    Download Forensic Assessment PDF
-                  </>
-                )}
-              </button>
             </>
           )}
         </div>
       </div>
 
       {/* Generate Report Options */}
-      {!reportContent && (
+      {!reportContent && !structuredReportData && !visualData && (
         <div className="p-6 rounded-lg border border-amber-500/50 bg-amber-500/10">
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5 text-amber-400" />
@@ -371,15 +542,15 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
             <div>
-              <p className="text-cyan-400 font-medium">Generating comprehensive inspection report...</p>
-              <p className="text-sm text-slate-400">This may take a few moments. Please wait.</p>
+              <p className="text-cyan-400 font-medium">Processing report generation...</p>
+              <p className="text-sm text-slate-400">Our AI expert system is analyzing your data and generating a professional restoration inspection report based on IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This may take a few moments. Please wait.</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Report Content */}
-      {(reportContent || visualData) && (
+      {(reportContent || visualData || structuredReportData) && (
         <div className="space-y-4">
           <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
             <div className="flex items-center gap-2">
@@ -391,7 +562,9 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           </div>
 
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            {isBasicReport && visualData ? (
+            {isBasicReport && structuredReportData ? (
+              <VisualDashboardReport data={convertToVisualReportData(structuredReportData) || structuredReportData} />
+            ) : isBasicReport && visualData ? (
               <VisualDashboardReport data={visualData} />
             ) : editing ? (
               <div className="p-6">
