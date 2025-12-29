@@ -20,7 +20,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.email) {
           return null
         }
 
@@ -30,7 +30,28 @@ export const authOptions: NextAuthOptions = {
           }
         })
 
-        if (!user || !user.password) {
+        if (!user) {
+          return null
+        }
+
+        // If no password provided, check if this is a Google user (no password in DB)
+        // Allow Google users to sign in without password
+        if (!credentials.password) {
+          // Check if user was created via Google (no password set)
+          if (!user.password) {
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              image: user.image,
+              role: user.role,
+            }
+          }
+          return null
+        }
+
+        // Regular password check for email/password users
+        if (!user.password) {
           return null
         }
 
