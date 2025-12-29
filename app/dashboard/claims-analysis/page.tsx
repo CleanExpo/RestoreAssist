@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  AlertTriangle,
+import { 
+  AlertTriangle, 
   DollarSign,
   Download,
   FileText,
@@ -272,14 +272,14 @@ export default function ClaimsAnalysisPage() {
 
       {/* Start New Analysis - Only show when no results */}
       {analysisResults.length === 0 && !summary && (
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
             <CardTitle>New Analysis</CardTitle>
-            <CardDescription>
+          <CardDescription>
               Upload and analyze claim reports from Google Drive
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="folderId">Google Drive Folder ID *</Label>
@@ -451,8 +451,8 @@ export default function ClaimsAnalysisPage() {
               <span>Loading files from Google Drive...</span>
             </div>
           )}
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
       )}
 
       {/* Analysis Results */}
