@@ -308,7 +308,7 @@ export default function SettingsPage() {
     switch (status) {
       case 'ACTIVE': return 'Active'
       case 'TRIAL': return 'Free Trial'
-      case 'CANCELED': return 'Canceled'
+      case 'CANCELED': return 'Cancelled'
       case 'EXPIRED': return 'Expired'
       case 'PAST_DUE': return 'Past Due'
       default: return 'Unknown'

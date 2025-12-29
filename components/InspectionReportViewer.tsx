@@ -602,7 +602,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
             <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
             <div>
               <p className="text-cyan-400 font-medium">Processing report generation...</p>
-              <p className="text-sm text-slate-400">Our AI expert system is analyzing your data and generating a professional restoration inspection report based on IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This may take a few moments. Please wait.</p>
+              <p className="text-sm text-slate-400">Our AI expert system is analysing your data and generating a professional restoration inspection report based on IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This may take a few moments. Please wait.</p>
             </div>
           </div>
         </div>

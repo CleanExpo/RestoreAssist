@@ -222,7 +222,7 @@ export default function SignupPage() {
               
               <div>
                 <p className="font-semibold text-cyan-300 mb-1">4. Configure Pricing</p>
-                <p className="text-slate-400">Set your company's rates for labor, equipment, and services to generate accurate cost estimates.</p>
+                <p className="text-slate-400">Set your company's rates for labour, equipment, and services to generate accurate cost estimates.</p>
               </div>
               
               <div>

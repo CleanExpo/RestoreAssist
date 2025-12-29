@@ -77,7 +77,7 @@ export default function VisualCostEstimationViewer({ data }: VisualCostEstimatio
 
   const { header, categories, totals, industryComparison, costDrivers = [], flaggedItems = [], disclaimers = [], assumptions = [], exclusions = [] } = data
 
-  // Organize categories into groups
+  // Organise categories into groups
   const labourCategories = Object.entries(categories || {})
     .filter(([_, cat]: [string, any]) => cat.name?.includes('Labour'))
     .map(([_, cat]: [string, any]) => cat)

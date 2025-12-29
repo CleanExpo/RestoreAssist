@@ -52,7 +52,7 @@ export default function HelpPage() {
     },
     {
       id: "4",
-      question: "Can I customize cost libraries?",
+      question: "Can I customise cost libraries?",
       answer:
         "Yes! Go to Cost Libraries and select a library to edit. You can modify rates, add new items, or create custom libraries for different regions.",
     },

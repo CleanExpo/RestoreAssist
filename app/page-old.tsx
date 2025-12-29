@@ -258,7 +258,7 @@ export default function Home() {
             {
               title: "Regional Cost Data",
               badge: "Cordell & Rawlinsons Integrated",
-              description: "Access verified regional pricing for labor, materials, equipment. Produce defensible cost estimates aligned with market rates.",
+              description: "Access verified regional pricing for labour, materials, equipment. Produce defensible cost estimates aligned with market rates.",
               icon: Database,
               color: "from-teal-500 to-green-500"
             }
@@ -319,7 +319,7 @@ export default function Home() {
             },
               {
                 title: "Real-Time Cost Calculation",
-              description: "Multiply unit rates by measured quantities (sqm, cubic meters, hours). Adjust for regional variations. Include equipment rental, labor certifications, materials.",
+              description: "Multiply unit rates by measured quantities (sqm, cubic metres, hours). Adjust for regional variations. Include equipment rental, labour certifications, materials.",
               icon: Calculator,
               color: "from-green-500 to-emerald-500"
             },

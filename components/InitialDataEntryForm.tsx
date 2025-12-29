@@ -958,17 +958,17 @@ export default function InitialDataEntryForm({
         if (data.analysis) {
           setAnalysis(data.analysis);
           setShowAnalysisChoice(true);
-          toast.success("Report analyzed successfully");
+          toast.success("Report analysed successfully");
         } else {
           toast.error("Failed to parse analysis response");
         }
       } else {
         const error = await response.json();
-        toast.error(error.error || "Failed to analyze report");
+        toast.error(error.error || "Failed to analyse report");
       }
     } catch (error) {
       console.error("Error analyzing report:", error);
-      toast.error("Failed to analyze report");
+      toast.error("Failed to analyse report");
     } finally {
       setAnalyzing(false);
     }
@@ -2635,7 +2635,7 @@ export default function InitialDataEntryForm({
         {analyzing && (
           <div className="flex flex-col items-center justify-center py-12 space-y-4 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
-            <p className="text-slate-400">Analyzing technician report...</p>
+            <p className="text-slate-400">Analysing technician report...</p>
           </div>
         )}
 

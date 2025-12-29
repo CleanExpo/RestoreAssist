@@ -213,13 +213,13 @@ export default function SubscriptionPage() {
       })
 
       if (response.ok) {
-        toast.success('Subscription canceled successfully')
+        toast.success('Subscription cancelled successfully')
         fetchSubscription()
       } else {
         toast.error('Failed to cancel subscription')
       }
     } catch (error) {
-      console.error('Error canceling subscription:', error)
+      console.error('Error cancelling subscription:', error)
       toast.error('Failed to cancel subscription')
     } finally {
       setCanceling(false)

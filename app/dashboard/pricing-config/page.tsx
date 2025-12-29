@@ -15,7 +15,7 @@ export default function PricingConfigPage() {
         step={3}
         totalSteps={5}
         title="Pricing Configuration"
-        description="Configure your company rates for labor, equipment, and services. These rates will be used to generate accurate cost estimates in your reports."
+        description="Configure your company rates for labour, equipment, and services. These rates will be used to generate accurate cost estimates in your reports."
         value="Accurate pricing ensures your reports include realistic cost projections that help with insurance claims and project planning."
       >
     <div className="space-y-6">

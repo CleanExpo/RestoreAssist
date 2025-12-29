@@ -40,7 +40,7 @@ const phoneScreens: PhoneScreen[] = [
     features: [
       "NCC 2022 compliant",
       "Regional cost libraries",
-      "Equipment & labor rates",
+      "Equipment & labour rates",
       "PDF & Excel export"
     ]
   },
