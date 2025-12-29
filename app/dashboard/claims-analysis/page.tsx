@@ -1,29 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  FileText, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle2, 
+import {
+  AlertTriangle,
   DollarSign,
-  Clock,
-  BarChart3,
   Download,
-  Play,
+  FileText,
   Loader2,
-  Search,
+  Play,
   RefreshCw,
+  Search
 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
 
 interface GapAnalysisResult {
@@ -262,22 +257,29 @@ export default function ClaimsAnalysisPage() {
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Claims Analysis</h1>
+          <h1 className="text-3xl font-bold">Claim Manager Dashboard</h1>
           <p className="text-muted-foreground mt-2">
-            Analyze completed claims to identify missing elements and generate standardized templates
+            Comprehensive analysis and insights for restoration claim management
           </p>
         </div>
+        {summary && (
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">Total Files</div>
+            <div className="text-2xl font-bold">{summary.totalFiles}</div>
+          </div>
+        )}
       </div>
 
-      {/* Start New Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Start New Analysis</CardTitle>
-          <CardDescription>
-            Enter a Google Drive folder ID containing PDF claim files to analyze
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* Start New Analysis - Only show when no results */}
+      {analysisResults.length === 0 && !summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle>New Analysis</CardTitle>
+            <CardDescription>
+              Upload and analyze claim reports from Google Drive
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="folderId">Google Drive Folder ID *</Label>
@@ -449,8 +451,9 @@ export default function ClaimsAnalysisPage() {
               <span>Loading files from Google Drive...</span>
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Analysis Results */}
       {analysisResults.length > 0 && summary && (
@@ -461,7 +464,8 @@ export default function ClaimsAnalysisPage() {
             <TabsTrigger value="issues">Top Issues</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-6">
+            {/* Key Performance Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2">
@@ -517,7 +521,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing AU Standards</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.australianStandards || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).australianStandards || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -525,7 +529,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing OH&S/WHS</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements.ohs || 0) + (summary.totalMissingElements.whs || 0)}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements.ohs || 0) + ((summary.totalMissingElements as any).whs || 0)}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -533,7 +537,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Scope</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.scopeOfWorks || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).scopeOfWorks || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -559,7 +563,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Equipment</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.equipment || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).equipment || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -567,7 +571,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Monitoring</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.monitoring || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).monitoring || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -575,7 +579,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Avg Scope Accuracy</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{summary.averageScores.scopeAccuracy?.toFixed(1) || 'N/A'}%</div>
+                  <div className="text-2xl font-bold">{((summary.averageScores as any).scopeAccuracy?.toFixed(1)) || 'N/A'}%</div>
                 </CardContent>
               </Card>
             </div>
@@ -601,8 +605,8 @@ export default function ClaimsAnalysisPage() {
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                    <CardContent className="pt-6">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                       <div>
                         <div className="text-sm text-muted-foreground">Completeness</div>
                         <div className="text-lg font-semibold">
