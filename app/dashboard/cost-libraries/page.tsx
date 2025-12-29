@@ -631,7 +631,7 @@ export default function CostLibrariesPage() {
                   type="text"
                   value={itemFormData.category}
                   onChange={(e) => setItemFormData({ ...itemFormData, category: e.target.value })}
-                  placeholder="e.g., Labor, Materials, Equipment"
+                  placeholder="e.g., Labour, Materials, Equipment"
                   className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                 />
               </div>
@@ -704,7 +704,7 @@ export default function CostLibrariesPage() {
                   type="text"
                   value={itemFormData.category}
                   onChange={(e) => setItemFormData({ ...itemFormData, category: e.target.value })}
-                  placeholder="e.g., Labor, Materials, Equipment"
+                  placeholder="e.g., Labour, Materials, Equipment"
                   className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                 />
               </div>

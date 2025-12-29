@@ -48,7 +48,7 @@ export default function HowItWorksPage() {
     {
       number: "04",
       title: "Estimating",
-      description: "Create accurate cost estimates with regional pricing libraries, equipment rates, and labor calculations."
+      description: "Create accurate cost estimates with regional pricing libraries, equipment rates, and labour calculations."
     },
     {
       number: "05",

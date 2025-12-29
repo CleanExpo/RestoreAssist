@@ -589,7 +589,7 @@ export default function DashboardPage() {
                     <h3 className="text-lg font-semibold text-white">Create Your First Client</h3>
                   </div>
                   <p className="text-slate-300">
-                    Now let's create your first client. Clients help you organize and manage all your restoration reports.
+                    Now let's create your first client. Clients help you organise and manage all your restoration reports.
                   </p>
                   <p className="text-sm text-slate-400">
                     Add client details like name, email, phone, and address for better organization.

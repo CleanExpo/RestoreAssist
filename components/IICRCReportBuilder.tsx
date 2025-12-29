@@ -294,7 +294,7 @@ export default function IICRCReportBuilder({ onReportComplete, initialData, isEd
         contentsDamage: "Furniture legs showing water staining, electronics on floor affected, personal items in contact with water",
         hvacAffected: true,
         electricalHazards: "GFCI outlets tripped, electrical panel shows moisture indicators",
-        microbialGrowth: "No visible mold growth detected, but conditions favorable for development within 24-48 hours"
+        microbialGrowth: "No visible mould growth detected, but conditions favourable for development within 24-48 hours"
       },
       category3: {
         structuralDamage: "Severe water damage to all structural materials, carpet and padding require removal",
@@ -629,7 +629,7 @@ export default function IICRCReportBuilder({ onReportComplete, initialData, isEd
                   <option value="Water Damage">Water Damage</option>
                   <option value="Fire Damage">Fire Damage</option>
                   <option value="Storm Damage">Storm Damage</option>
-                  <option value="Mold Remediation">Mold Remediation</option>
+                  <option value="Mould Remediation">Mould Remediation</option>
                   <option value="Biohazard">Biohazard</option>
                   <option value="Other">Other</option>
                 </select>
@@ -898,7 +898,7 @@ export default function IICRCReportBuilder({ onReportComplete, initialData, isEd
                 onChange={(e) => handleInputChange("microbialGrowth", e.target.value)}
                 className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
                 rows={3}
-                placeholder="Visible mold, musty odors, previous water damage history"
+                placeholder="Visible mould, musty odours, previous water damage history"
               />
             </div>
           </div>

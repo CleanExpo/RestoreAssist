@@ -246,7 +246,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
                 <div>
                   <h3 className="text-lg font-semibold text-green-400 mb-2">Tier 3 Questions Available</h3>
                   <p className="text-sm text-slate-300">
-                    You can optionally complete Tier 3 questions to optimize cost estimation and timeline prediction.
+                    You can optionally complete Tier 3 questions to optimise cost estimation and timeline prediction.
                   </p>
                 </div>
                 <button

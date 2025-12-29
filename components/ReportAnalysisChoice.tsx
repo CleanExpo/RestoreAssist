@@ -76,13 +76,13 @@ export default function ReportAnalysisChoice({ reportId, onChoiceSelected }: Rep
         const data = await response.json()
         if (data.analysis) {
           setAnalysis(data.analysis)
-          toast.success('Report analyzed successfully')
+          toast.success('Report analysed successfully')
         } else {
           console.error('Unexpected response structure:', data)
           toast.error('Failed to parse analysis response')
         }
       } else {
-        let errorMessage = 'Failed to analyze report'
+        let errorMessage = 'Failed to analyse report'
         try {
           const error = await response.json()
           errorMessage = error.error || errorMessage
@@ -93,7 +93,7 @@ export default function ReportAnalysisChoice({ reportId, onChoiceSelected }: Rep
       }
     } catch (error) {
       console.error('Error analyzing report:', error)
-      toast.error('Failed to analyze report')
+      toast.error('Failed to analyse report')
     } finally {
       setAnalyzing(false)
       setLoading(false)
@@ -109,7 +109,7 @@ export default function ReportAnalysisChoice({ reportId, onChoiceSelected }: Rep
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
         <p className="text-slate-400">
-          {analyzing ? 'Analyzing technician report...' : 'Loading...'}
+          {analyzing ? 'Analysing technician report...' : 'Loading...'}
         </p>
       </div>
     )

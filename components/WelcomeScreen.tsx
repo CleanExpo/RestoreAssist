@@ -44,7 +44,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
     {
       icon: DollarSign,
       title: "Step 3: Pricing Setup",
-      description: "Configure your company rates for labor, equipment, and services for accurate cost estimates.",
+      description: "Configure your company rates for labour, equipment, and services for accurate cost estimates.",
       color: "from-pink-500 to-orange-500"
     },
     {

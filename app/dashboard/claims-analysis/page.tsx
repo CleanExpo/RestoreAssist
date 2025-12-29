@@ -276,7 +276,7 @@ export default function ClaimsAnalysisPage() {
         <CardHeader>
             <CardTitle>New Analysis</CardTitle>
           <CardDescription>
-              Upload and analyze claim reports from Google Drive
+              Upload and analyse claim reports from Google Drive
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -406,7 +406,7 @@ export default function ClaimsAnalysisPage() {
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">
-                  Files to Analyze ({files.length})
+                  Files to Analyse ({files.length})
                 </Label>
                 <Button
                   variant="ghost"
