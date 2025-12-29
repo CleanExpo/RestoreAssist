@@ -9,6 +9,7 @@ interface OnboardingStatus {
   incompleteSteps: string[]
   nextStep: string | null
   steps: {
+    subscription: { completed: boolean; required: boolean; title: string; description: string; route: string }
     business_profile: { completed: boolean; required: boolean; title: string; description: string; route: string }
     integrations: { completed: boolean; required: boolean; title: string; description: string; route: string }
     pricing_config: { completed: boolean; required: boolean; title: string; description: string; route: string }
@@ -67,6 +68,14 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     const stepData = status.steps[step as keyof typeof status.steps]
     
     switch (step) {
+      case 'subscription':
+        return {
+          title: stepData.title,
+          description: stepData.description,
+          icon: Crown,
+          action: 'Upgrade Package',
+          route: stepData.route
+        }
       case 'business_profile':
         return {
           title: stepData.title,
@@ -148,13 +157,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 </p>
               </div>
 
-              {status.incompleteSteps.map((step, index) => {
+              {status.incompleteSteps.filter(step => step !== 'subscription').map((step, index, filteredArray) => {
                 const stepInfo = getStepInfo(step)
                 if (!stepInfo) return null
 
                 const Icon = stepInfo.icon
                 const isFirst = index === 0
-                const isLast = index === status.incompleteSteps.length - 1
+                const isLast = index === filteredArray.length - 1
 
                 return (
                   <div key={step} className="relative">
