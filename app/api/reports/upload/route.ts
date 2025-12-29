@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 
 export async function POST(request: NextRequest) {
@@ -11,13 +12,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY
-    if (!anthropicApiKey) {
+    const userId = (session.user as any).id
+
+    // Get user's connected integration (Anthropic, OpenAI, or Gemini)
+    const integration = await prisma.integration.findFirst({
+      where: {
+        userId,
+        status: 'CONNECTED',
+        apiKey: { not: null },
+        OR: [
+          { name: { contains: 'Anthropic' } },
+          { name: { contains: 'OpenAI' } },
+          { name: { contains: 'Gemini' } },
+          { name: { contains: 'Claude' } },
+          { name: { contains: 'GPT' } }
+        ]
+      },
+      orderBy: {
+        createdAt: 'desc' // Use most recently connected
+      }
+    })
+
+    if (!integration || !integration.apiKey) {
       return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY is not configured' },
-        { status: 500 }
+        { 
+          error: 'No connected API integration found',
+          details: 'Please connect an Anthropic, OpenAI, or other AI API integration in the Integrations page.'
+        },
+        { status: 400 }
       )
     }
+
+    const anthropicApiKey = integration.apiKey
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -35,7 +61,18 @@ export async function POST(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey: anthropicApiKey })
 
-    const systemPrompt = `You are a professional water damage restoration report analysis assistant. Extract ALL structured information from the PDF document.
+    const systemPrompt = `You are a professional water damage restoration report analysis assistant. Your task is to analyze ANY water damage restoration report PDF, regardless of its format, structure, or origin (whether from this system or any other restoration company).
+
+**CRITICAL INSTRUCTIONS:**
+- Analyze the document THOROUGHLY - examine every section, table, paragraph, header, footer, and note
+- Extract information even if it's in different formats, layouts, or terminology than expected
+- Look for information in various locations: headers, body text, tables, lists, sidebars, appendices
+- Handle reports from ANY restoration company or system - don't assume a specific format
+- If information is missing or unclear, use null or empty string appropriately
+- Be flexible with date formats, measurements, and terminology variations
+- Extract ALL available data - don't skip anything valuable
+
+Extract ALL structured information from the PDF document.
 
 Extract the following fields if available in the document:
 
@@ -153,25 +190,31 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
 - fullText: All text content from the PDF document
 
 **CRITICAL EXTRACTION REQUIREMENTS:**
-- Extract dates in YYYY-MM-DD format
+- Extract dates in YYYY-MM-DD format (handle various date formats: DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY, etc.)
 - Use null for missing optional fields, empty string "" for missing required text fields
 - For boolean fields, use true/false or null
 - For numeric fields, extract the number or use null
-- Analyze the document THOROUGHLY - examine every section, table, and paragraph
-- Look for dates, measurements, test results, phase information, room dimensions, equipment mentions
-- If dates are mentioned in text format, convert to YYYY-MM-DD
+- Analyze the document THOROUGHLY - examine every section, table, paragraph, header, footer, and note
+- Look for dates, measurements, test results, phase information, room dimensions, equipment mentions in ANY location
+- If dates are mentioned in text format, convert to YYYY-MM-DD (be flexible with date parsing)
 - For scope areas: Extract EVERY room/area mentioned, even if dimensions are approximate. Don't miss any affected areas.
-- For psychrometric data: Look in tables, assessment sections, environmental readings, and technical data sections
-- For equipment: Extract ALL equipment mentions, even if just mentioned in passing
+- For psychrometric data: Look in tables, assessment sections, environmental readings, technical data sections, or anywhere environmental conditions are mentioned
+- For equipment: Extract ALL equipment mentions, even if just mentioned in passing or in different terminology
 - DO NOT skip any valuable information - if you see it in the document, extract it
-- If measurements are in different units, convert to metres (e.g., feet to metres: multiply by 0.3048)
+- If measurements are in different units, convert to metres (e.g., feet to metres: multiply by 0.3048, inches to metres: multiply by 0.0254)
+- Handle reports from ANY system - be flexible with terminology, formats, and layouts
+- If a field uses different terminology (e.g., "customer" instead of "client", "job site" instead of "property"), extract it anyway
+- Look for information in unexpected places - some reports have data in headers, footers, or sidebars
 
-**Return ONLY a valid JSON object with ALL extracted fields. Ensure no valuable records are missed.**`
+**Return ONLY a valid JSON object with ALL extracted fields. Ensure no valuable records are missed.**
+**If the report format is unusual or different, still extract as much information as possible.**`
 
+    console.log(`[PDF Upload] Starting PDF analysis for user ${userId} using integration: ${integration.name}`)
+    
     try {
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192, // Increased for larger/complex reports
         system: systemPrompt,
         messages: [
           {
@@ -187,12 +230,14 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
               },
               {
                 type: 'text',
-                text: 'Extract all the structured data from this PDF document and return it as JSON.'
+                text: 'Extract all the structured data from this PDF document and return it as JSON. Analyze the document thoroughly, regardless of its format or origin. Extract all available information.'
               }
             ]
           }
         ]
       })
+      
+      console.log(`[PDF Upload] Claude API response received`)
 
       if (!response.content || response.content.length === 0) {
         return NextResponse.json(
@@ -212,17 +257,45 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
       let parsedData: any = {}
       try {
         let jsonText = content.text.trim()
-        jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
         
+        // Remove markdown code blocks if present
+        jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/g, '')
+        
+        // Try to find JSON object in the response
         const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          parsedData = JSON.parse(jsonMatch[0])
+          try {
+            parsedData = JSON.parse(jsonMatch[0])
+          } catch (parseError: any) {
+            console.error('JSON parse error:', parseError.message)
+            console.error('JSON text snippet:', jsonText.substring(0, 500))
+            
+            // Try to fix common JSON issues
+            let fixedJson = jsonMatch[0]
+            // Fix trailing commas
+            fixedJson = fixedJson.replace(/,(\s*[}\]])/g, '$1')
+            // Fix single quotes to double quotes
+            fixedJson = fixedJson.replace(/'/g, '"')
+            
+            try {
+              parsedData = JSON.parse(fixedJson)
+            } catch (retryError) {
+              throw new Error(`Failed to parse JSON: ${parseError.message}`)
+            }
+          }
         } else {
-          throw new Error('No JSON found in response')
+          // If no JSON object found, try to extract as much as possible
+          console.warn('No JSON object found in Claude response, attempting to extract data')
+          throw new Error('No JSON found in response. The AI may have returned an unexpected format.')
         }
-      } catch (parseError) {
+      } catch (parseError: any) {
+        console.error('Error parsing extracted data:', parseError)
         return NextResponse.json(
-          { error: 'Failed to parse extracted data. Please try again.' },
+          { 
+            error: 'Failed to parse extracted data from PDF.',
+            details: parseError.message || 'The AI response format was unexpected. Please try uploading the PDF again.',
+            suggestion: 'If this persists, the PDF format may be too complex. Try a simpler report or contact support.'
+          },
           { status: 500 }
         )
       }
@@ -291,6 +364,15 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
         }
       }
 
+      console.log(`[PDF Upload] Successfully extracted data:`, {
+        hasClientName: !!extractedData.clientName,
+        hasPropertyAddress: !!extractedData.propertyAddress,
+        moistureReadingsCount: extractedData.nirData?.moistureReadings?.length || 0,
+        affectedAreasCount: extractedData.nirData?.affectedAreas?.length || 0,
+        scopeAreasCount: extractedData.scopeAreas?.length || 0,
+        scopeItemsCount: extractedData.nirData?.scopeItems?.length || 0
+      })
+
       return NextResponse.json({
         success: true,
         extractedText: parsedData.fullText || '',
@@ -299,15 +381,46 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
       })
 
     } catch (claudeError: any) {
+      console.error('Claude API error during PDF upload:', claudeError)
+      
+      // Provide more helpful error messages
+      if (claudeError.message?.includes('rate_limit') || claudeError.message?.includes('429')) {
+        return NextResponse.json(
+          { error: 'API rate limit exceeded. Please try again in a moment.' },
+          { status: 429 }
+        )
+      }
+      
+      if (claudeError.message?.includes('invalid_api_key') || claudeError.message?.includes('401')) {
+        return NextResponse.json(
+          { error: 'Invalid API key. Please check your integration settings.' },
+          { status: 401 }
+        )
+      }
+      
+      if (claudeError.message?.includes('file') || claudeError.message?.includes('document')) {
+        return NextResponse.json(
+          { error: 'Failed to process PDF document. The file may be corrupted or in an unsupported format.' },
+          { status: 400 }
+        )
+      }
+      
       return NextResponse.json(
-        { error: `Claude API error: ${claudeError.message}` },
+        { 
+          error: `Failed to analyze PDF: ${claudeError.message || 'Unknown error'}`,
+          details: 'Please ensure the PDF is a valid water damage restoration report and try again.'
+        },
         { status: 500 }
       )
     }
 
   } catch (error: any) {
+    console.error('Error in PDF upload route:', error)
     return NextResponse.json(
-      { error: `Failed to process PDF: ${error.message}` },
+      { 
+        error: `Failed to process PDF: ${error.message || 'Unknown error'}`,
+        details: 'Please check the file format and try again.'
+      },
       { status: 500 }
     )
   }
