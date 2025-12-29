@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Download, Loader2, AlertCircle, CheckCircle, Edit, Save } from "lucide-react"
+import { FileText, Download, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import toast from "react-hot-toast"
-import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
+import VisualScopeOfWorksViewer from "./VisualScopeOfWorksViewer"
 
 interface ScopeOfWorksViewerProps {
   reportId: string
@@ -16,11 +16,31 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
   const [report, setReport] = useState<any>(null)
   const [scopeDocument, setScopeDocument] = useState<string>('')
   const [scopeData, setScopeData] = useState<any>(null)
-  const [editing, setEditing] = useState(false)
+  const [businessInfo, setBusinessInfo] = useState<any>(null)
 
   useEffect(() => {
     fetchReport()
+    fetchBusinessInfo()
   }, [reportId])
+
+  const fetchBusinessInfo = async () => {
+    try {
+      const response = await fetch('/api/user/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setBusinessInfo({
+          businessName: data.profile?.businessName || null,
+          businessAddress: data.profile?.businessAddress || null,
+          businessLogo: data.profile?.businessLogo || null,
+          businessABN: data.profile?.businessABN || null,
+          businessPhone: data.profile?.businessPhone || null,
+          businessEmail: data.profile?.businessEmail || null
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching business info:', error)
+    }
+  }
 
   const fetchReport = async (skipDocumentUpdate = false) => {
     setLoading(true)
@@ -114,25 +134,159 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
     }
   }
 
-  const handleSave = async () => {
-    // Save edited document
-    try {
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scopeOfWorksDocument: scopeDocument
-        })
-      })
+  // Convert scope data to visual format
+  const convertToVisualScopeData = (data: any, businessInfoData: any): any => {
+    if (!data) return null
 
-      if (response.ok) {
-        toast.success('Scope of Works saved successfully')
-        setEditing(false)
-      } else {
-        toast.error('Failed to save scope of works')
+    // Parse phases from document or build from data
+    const phases = [
+      {
+        name: 'PHASE 1: Emergency Response & Stabilisation',
+        duration: 'Day 0–1',
+        activities: [
+          'Site assessment',
+          'Standing water extraction',
+          'Initial equipment deployment',
+          'Moisture/thermal imaging',
+          'Site signage',
+          'Client notification',
+          'Authority notifications'
+        ],
+        deliverable: 'Equipment operational; standing water removed'
+      },
+      {
+        name: `PHASE 2: Drying & Monitoring`,
+        duration: `Days 1–${data.dryingDuration || 7} (${data.hasClass4Drying ? 'Class 4' : 'standard'})`,
+        activities: [
+          'Continuous equipment operation',
+          'Daily moisture monitoring',
+          'Thermal imaging',
+          'Client check-ins',
+          'Containment management',
+          'Air quality monitoring'
+        ],
+        deliverable: 'Moisture levels approaching acceptable'
+      },
+      {
+        name: `PHASE 3: Validation & Equipment Removal`,
+        duration: `Day ${data.dryingDuration || 7}–${(data.dryingDuration || 7) + 1}`,
+        activities: [
+          'Final moisture testing',
+          'Visual inspection',
+          'Certification',
+          'Equipment collection',
+          'Site cleanup',
+          'Documentation'
+        ],
+        deliverable: 'Restoration works complete'
+      },
+      {
+        name: 'PHASE 4: Licensed Trades & Building Repairs (Outside Restoration Scope)',
+        duration: 'Variable',
+        activities: data.licensedTrades?.map((t: any) => t.trade) || ['None required'],
+        deliverable: 'Building code compliance; structural integrity restored'
+      },
+      {
+        name: 'PHASE 5: Contents Restoration (If Applicable)',
+        duration: 'Variable',
+        activities: [
+          'Carpet cleaning/replacement',
+          'Furniture restoration',
+          'Appliance testing',
+          'Contents itemisation'
+        ],
+        deliverable: 'Contents restored to pre-loss condition'
       }
-    } catch (error) {
-      toast.error('Failed to save scope of works')
+    ]
+
+    // Format line items
+    const formattedLineItems = (data.lineItems || []).map((item: any) => ({
+      code: item.id || '',
+      description: item.description || '',
+      quantity: item.qty || 0,
+      unit: item.unit || '',
+      rate: item.rate || (item.subtotal && item.qty ? item.subtotal / item.qty : 0),
+      subtotal: item.subtotal || 0,
+      labourBreakdown: item.labour,
+      equipmentBreakdown: item.equipment
+    }))
+
+    // Format licensed trades
+    const formattedLicensedTrades = (data.licensedTrades || []).map((trade: any) => ({
+      trade: trade.trade || trade.name || '',
+      triggerCondition: trade.trigger || trade.triggerCondition || '',
+      scopeOfWork: trade.scope || trade.scopeOfWork || '',
+      costStatus: trade.costStatus || 'Specialist quote required',
+      timeline: trade.timeline || '',
+      notes: trade.notes || ''
+    }))
+
+    // Build insurance breakdown
+    const insuranceBreakdown = {
+      buildingClaim: [
+        'Water damage to structure',
+        'Restoration services',
+        ...(data.licensedTrades || [])
+          .filter((t: any) => ['Plumbing', 'Electrical', 'Builder/Carpenter'].includes(t.trade || t.name))
+          .map((t: any) => `${t.trade || t.name} repair/replacement`)
+      ],
+      contentsClaim: [
+        'Carpets and flooring coverings',
+        'Furniture and textiles',
+        'Electrical appliances',
+        'Personal items'
+      ],
+      additionalLivingExpenses: [
+        'Temporary accommodation',
+        'Meals and personal care',
+        'Storage for displaced contents'
+      ]
+    }
+
+    // Build coordination notes
+    const coordinationNotes = []
+    if (data.licensedTrades?.some((t: any) => (t.trade || t.name) === 'Plumbing')) {
+      coordinationNotes.push('Plumbing must be completed BEFORE drying begins')
+    }
+    if (data.licensedTrades?.some((t: any) => (t.trade || t.name) === 'Electrical')) {
+      coordinationNotes.push('Electrical clearance required BEFORE equipment activation')
+    }
+    if (data.hasClass4Drying) {
+      coordinationNotes.push('Class 4 drying: Specialist assessment takes priority')
+    }
+    if (data.licensedTrades?.some((t: any) => (t.trade || t.name)?.includes('Mould'))) {
+      coordinationNotes.push('Mould remediation: Work stops immediately; restoration resumes post-clearance')
+    }
+    if (data.licensedTrades?.some((t: any) => (t.trade || t.name)?.includes('Asbestos'))) {
+      coordinationNotes.push('Asbestos abatement: All work suspended; WorkSafe clearance mandatory')
+    }
+    coordinationNotes.push('Building repairs: May occur concurrently with final drying phase')
+    coordinationNotes.push('Contents restoration: Final phase after building is dry')
+    
+    return {
+      header: {
+        reportTitle: 'PRELIMINARY SCOPE OF WORKS — NOT FINAL ESTIMATE',
+        businessName: businessInfoData?.businessName || null,
+        businessAddress: businessInfoData?.businessAddress || null,
+        businessLogo: businessInfoData?.businessLogo || null,
+        businessABN: businessInfoData?.businessABN || null,
+        businessPhone: businessInfoData?.businessPhone || null,
+        businessEmail: businessInfoData?.businessEmail || null,
+        reportNumber: report?.reportNumber || report?.claimReferenceNumber || data.claimReference || 'N/A',
+        dateGenerated: data.date || new Date().toLocaleDateString('en-AU'),
+        claimReference: data.claimReference || report?.claimReferenceNumber || 'Reference',
+        version: data.version || '1.0'
+      },
+      phases,
+      lineItems: formattedLineItems,
+      licensedTrades: formattedLicensedTrades,
+      insuranceBreakdown,
+      coordinationNotes,
+      totalCost: formattedLineItems.reduce((sum: number, item: any) => sum + item.subtotal, 0),
+      dryingDuration: data.dryingDuration,
+      affectedAreaSqm: data.affectedAreaSqm,
+      waterCategory: data.waterCategory,
+      hasClass4Drying: data.hasClass4Drying
     }
   }
 
@@ -190,37 +344,8 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
             Scope of Works
           </h2>
           <p className="text-slate-400">
-            {scopeDocument ? 'View and edit your scope of works document' : 'Generate your comprehensive scope of works document'}
+            {scopeDocument ? 'View and download your generated scope of works document' : 'Generate your comprehensive scope of works document'}
           </p>
-        </div>
-        <div className="flex gap-2">
-          {scopeDocument && (
-            <>
-              <button
-                onClick={() => setEditing(!editing)}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-              >
-                <Edit className="w-4 h-4" />
-                {editing ? 'Cancel Edit' : 'Edit'}
-              </button>
-              {editing && (
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                >
-                  <Save className="w-4 h-4" />
-                  Save
-                </button>
-              )}
-              <button
-                onClick={handleDownload}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -237,7 +362,7 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
           <button
             onClick={handleGenerateScope}
             disabled={generating}
-            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
           >
             {generating ? 'Generating...' : 'Generate Scope of Works'}
           </button>
@@ -250,8 +375,8 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
             <div>
-              <p className="text-cyan-400 font-medium">Generating scope of works document...</p>
-              <p className="text-sm text-slate-400">This may take a few moments. Please wait.</p>
+              <p className="text-cyan-400 font-medium">Processing scope of works generation...</p>
+              <p className="text-sm text-slate-400">Our AI expert system is analyzing your data and generating a professional scope of works document based on IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000 standards. This may take a few moments. Please wait.</p>
             </div>
           </div>
         </div>
@@ -268,17 +393,10 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
           </div>
 
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            {editing ? (
-              <div className="p-6">
-                <textarea
-                  value={scopeDocument}
-                  onChange={(e) => setScopeDocument(e.target.value)}
-                  rows={30}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
-                />
-              </div>
+            {scopeData ? (
+              <VisualScopeOfWorksViewer data={convertToVisualScopeData(scopeData, businessInfo)} />
             ) : (
-              <ProfessionalDocumentViewer content={scopeDocument} />
+              <div className="p-6 text-slate-400">No scope data available</div>
             )}
           </div>
 
@@ -302,17 +420,6 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
               </div>
             </div>
           )}
-
-          {/* Regenerate Option */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleGenerateScope}
-              disabled={generating}
-              className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50"
-            >
-              Regenerate Scope
-            </button>
-          </div>
         </div>
       )}
     </div>

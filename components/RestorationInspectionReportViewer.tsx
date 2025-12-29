@@ -1,6 +1,6 @@
 "use client"
 
-import { Image as ImageIcon, MapPin, Calendar, User, Building2, AlertTriangle, CheckCircle, Droplet, Thermometer, Wind, FileText, DollarSign, Clock, Shield, Printer } from "lucide-react"
+import { AlertTriangle, Building2, Calendar, CheckCircle, Clock, DollarSign, Droplet, FileText, Image as ImageIcon, MapPin, Printer, Shield, Thermometer, User, Wind } from "lucide-react"
 
 interface RestorationInspectionReportData {
   type: string

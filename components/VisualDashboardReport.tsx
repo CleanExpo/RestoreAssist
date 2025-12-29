@@ -1,9 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { Home, Droplet, DollarSign, Gauge, Calendar, Building2, AlertTriangle, Square, Printer, Download, FileText, MapPin, Thermometer, Wind, Shield, Image as ImageIcon, User, Clock, CheckCircle } from "lucide-react"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
+import { Droplet, DollarSign, Gauge, Calendar, Building2, AlertTriangle, Square, Printer, Download, FileText, MapPin, Thermometer, Wind, Shield, Image as ImageIcon, User, Clock, CheckCircle } from "lucide-react"
 
 interface VisualReportData {
   header: {
