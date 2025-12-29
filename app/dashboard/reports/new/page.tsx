@@ -57,6 +57,18 @@ export default function NewReportPage() {
       const response = await fetch('/api/onboarding/status')
       if (response.ok) {
         const data = await response.json()
+        
+        // Check if subscription is incomplete FIRST
+        const subscriptionStep = data.steps?.subscription
+        if (subscriptionStep && !subscriptionStep.completed) {
+          // Subscription not complete - redirect to pricing
+          toast.error('Please upgrade your package to create reports')
+          router.push('/dashboard/pricing')
+          setHasCheckedOnboarding(true)
+          return
+        }
+        
+        // If subscription is complete, check other steps
         setOnboardingComplete(data.isComplete)
         if (!data.isComplete) {
           setShowOnboardingModal(true)
