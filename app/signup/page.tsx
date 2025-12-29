@@ -7,6 +7,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Info, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
 import toast from "react-hot-toast"
+import { signInWithGoogleFirebase } from "@/lib/firebase-google-auth"
 
 export default function SignupPage() {
   const [name, setName] = useState("")
@@ -90,11 +91,49 @@ export default function SignupPage() {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
+    setError("")
     try {
-      toast.success("Redirecting to Google...")
-      await signIn("google", { callbackUrl: "/dashboard" })
-    } catch (error) {
-      setError("Google sign-in failed. Please try again.")
+      // Use Firebase Google authentication
+      const googleUser = await signInWithGoogleFirebase()
+      
+      // After Firebase creates/updates user in DB, sign in with NextAuth
+      // Use NextAuth's signIn with a special token-based approach
+      // Since Google users don't have passwords, we'll use a session token
+      toast.success("Signing you in...")
+      
+      // Create a session by calling our API to verify user exists
+      const sessionResponse = await fetch('/api/auth/google-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: googleUser.email }),
+      })
+      
+      if (sessionResponse.ok) {
+        // Sign in with NextAuth using credentials (email only, no password for Google users)
+        const signInResult = await signIn("credentials", {
+          email: googleUser.email,
+          password: "", // Empty password - our updated CredentialsProvider handles this
+          redirect: false,
+        })
+
+        if (signInResult?.ok) {
+          toast.success("Welcome to Restore Assist!")
+          router.push("/dashboard")
+        } else {
+          toast.error("Failed to create session. Please try logging in manually.")
+          router.push("/login?email=" + encodeURIComponent(googleUser.email || ""))
+        }
+      } else {
+        // Fallback: redirect to login
+        toast.success("Account created! Redirecting to login...")
+        setTimeout(() => {
+          router.push("/login?email=" + encodeURIComponent(googleUser.email || ""))
+        }, 1500)
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || "Google sign-in failed. Please try again."
+      setError(errorMessage)
+      toast.error(errorMessage)
       setIsLoading(false)
     }
   }
