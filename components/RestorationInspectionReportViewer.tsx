@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, Building2, Calendar, CheckCircle, Clock, DollarSign, Droplet, FileText, Image as ImageIcon, MapPin, Printer, Shield, Thermometer, User, Wind } from "lucide-react"
+import { AlertTriangle, Building2, Calendar, CheckCircle, Clock, DollarSign, Droplet, FileText, Image as ImageIcon, Mail, MapPin, Phone, Printer, Shield, Thermometer, User, Wind } from "lucide-react"
 
 interface RestorationInspectionReportData {
   type: string
@@ -190,59 +190,321 @@ export default function RestorationInspectionReportViewer({ data }: RestorationI
   }
 
   return (
-    <div className="bg-white print:bg-white">
+    <>
       {/* Print Styles */}
-      <style jsx global>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; }
-          .print-break { page-break-after: always; }
-          .print-avoid-break { page-break-inside: avoid; }
-        }
-      `}</style>
+      <style dangerouslySetInnerHTML={{__html: `
+       @media print {
 
-      <div className="max-w-5xl mx-auto p-8 print:p-6 space-y-8">
-        {/* Print Button - Top */}
-        <div className="mb-6 flex justify-end print:hidden">
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-          >
-            <Printer className="w-4 h-4" />
-            Print Report
-          </button>
+  /* Force real A4 page */
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+
+  html, body {
+    width: 210mm;
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Kill everything except report */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #inspection-report-content,
+  #inspection-report-content * {
+    visibility: visible !important;
+  }
+
+  /* Absolute positioning to top-left */
+  #inspection-report-content {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Remove screen layout limits */
+  .max-w-5xl,
+  .mx-auto,
+  .p-8,
+  .print\\:p-0 {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove sticky headers */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Clean typography */
+  h1 {
+    font-size: 24pt !important;
+    line-height: 1.2 !important;
+    margin-bottom: 10mm !important;
+  }
+
+  h2 {
+    font-size: 16pt !important;
+    margin-top: 8mm !important;
+  }
+
+  p, li, td {
+    font-size: 10.5pt !important;
+  }
+
+  /* Tables behave professionally */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Page control */
+  .print-break {
+    page-break-after: always !important;
+  }
+
+  /* Remove shadows & UI fluff */
+  * {
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+
+}
+
+      `}} />
+      
+      <div id="inspection-report-content" className="bg-white text-slate-900 print-content">
+        {/* Print Button */}
+        <div className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 p-4 print:hidden">
+          <div className="flex justify-end">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              Print Report
+            </button>
+          </div>
         </div>
 
-        {/* Header */}
-        <div className="border-b-2 border-slate-300 pb-6 print-avoid-break">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              {data.header.businessLogo && (
-                <div className="mb-4">
-                  <img 
-                    src={data.header.businessLogo} 
-                    alt={data.header.businessName || 'Company Logo'}
-                    className="h-16 object-contain"
-                  />
+        <div className="w-full p-0 px-4 space-y-8">
+          {/* Header - Matching Image Design */}
+          <div className="border-b-2 border-slate-300 pb-6 print:pb-4 print-avoid-break print:mb-4">
+            <div className="flex items-start justify-between mb-4 print:mb-3 gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-4 print:mb-3">
+                  {data.header.businessLogo && (
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={data.header.businessLogo} 
+                        alt={data.header.businessName || 'Company Logo'}
+                        className="h-12 print:h-10 object-contain"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xl print:text-lg font-bold text-cyan-600 print:text-cyan-700">
+                      {data.header.businessName || 'RestoreAssist'}
+                    </p>
+                  </div>
                 </div>
-              )}
-              <h1 className="text-4xl font-bold text-slate-900 mb-2">
-                {data.header.reportTitle}
-              </h1>
-              <p className="text-lg text-slate-600">
-                {data.header.businessName || 'RestoreAssist'}
+                <h1 className="text-4xl print:text-2xl print:leading-tight font-bold text-slate-900 mb-2 print:mb-2 break-words">
+                  <span className="text-slate-900">RESTORATION </span>
+                  <span className="text-cyan-600 print:text-cyan-700">INSPECTION REPORT</span>
+                </h1>
+              </div>
+              <div className="text-right text-sm print:text-xs text-slate-600 print:ml-4 flex-shrink-0">
+                <p className="mb-1 print:mb-0.5">
+                  <span className="font-semibold text-slate-900">Date: </span>
+                  {formatDate(data.header.dateGenerated)}
+                </p>
+                <p className="mt-2 print:mt-1">
+                  <span className="font-semibold text-slate-900">Number: </span>
+                  <span className="font-bold text-slate-900 break-all">{data.header.reportNumber}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Information Section - Dark Blue Banner */}
+          <div className="print-avoid-break">
+            <div className="bg-cyan-700 print:bg-cyan-800 text-white px-6 py-3 print:px-4 print:py-2 rounded-t-lg">
+              <h2 className="text-lg print:text-base font-bold">Customer Information</h2>
+            </div>
+            <div className="bg-white border border-slate-300 border-t-0 rounded-b-lg p-6 print:p-4">
+              <table className="w-full">
+                <tbody>
+                  <tr>
+                    <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700 w-1/4">Name:</td>
+                    <td className="py-2 print:py-1.5 text-slate-900">{data.property.clientName || 'Not provided'}</td>
+                  </tr>
+                  {data.incident.insurerName && (
+                    <tr>
+                      <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700 w-1/4">Company:</td>
+                      <td className="py-2 print:py-1.5 text-slate-900">{data.incident.insurerName}</td>
+                    </tr>
+                  )}
+                  {data.header.businessEmail && (
+                    <tr>
+                      <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700 w-1/4">Email:</td>
+                      <td className="py-2 print:py-1.5 text-slate-900">{data.header.businessEmail}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700 w-1/4">Address:</td>
+                    <td className="py-2 print:py-1.5 text-slate-900">
+                      {data.property.propertyAddress || 'Not provided'}
+                      {data.property.propertyPostcode && `, ${data.property.propertyPostcode}`}
+                      {data.property.state && `, ${data.property.state}`}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Project Description Section - Light Blue Banner */}
+          <div className="print-avoid-break">
+            <div className="bg-cyan-50 print:bg-cyan-100 border border-cyan-200 text-slate-900 px-6 py-3 print:px-4 print:py-2 rounded-t-lg">
+              <h2 className="text-lg print:text-base font-bold">Project Description</h2>
+            </div>
+            <div className="bg-white border border-slate-300 border-t-0 rounded-b-lg p-6 print:p-4">
+              <p className="text-slate-700 leading-relaxed">
+                {data.technicianNotes || 
+                 `Water damage restoration inspection and assessment for ${data.property.propertyAddress || 'the property'}. 
+                 ${data.incident.waterSource ? `Water source: ${data.incident.waterSource}. ` : ''}
+                 ${data.incident.waterCategory ? `Water category: ${data.incident.waterCategory}. ` : ''}
+                 ${data.incident.waterClass ? `Water class: ${data.incident.waterClass}. ` : ''}
+                 Comprehensive assessment includes moisture readings, affected areas analysis, hazard identification, and restoration scope determination.`}
               </p>
             </div>
-            <div className="text-right text-sm text-slate-600">
-              <p className="font-semibold text-slate-900">Report Number</p>
-              <p className="text-lg">{data.header.reportNumber}</p>
-              <p className="mt-2">
-                {formatDate(data.header.dateGenerated)}
-              </p>
+          </div>
+
+          {/* Summary Section - Notes and Totals */}
+          <div className="print-avoid-break grid md:grid-cols-2 gap-6 print:gap-4">
+            {/* Notes Section */}
+            <div>
+              <h3 className="text-lg print:text-base font-bold text-slate-900 mb-3 print:mb-2">Notes</h3>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 print:p-3">
+                <p className="text-sm print:text-xs text-slate-700 leading-relaxed">
+                  This inspection report is valid for 30 days from the date issued. 
+                  {data.summary.estimatedDuration && ` Estimated restoration timeline is approximately ${data.summary.estimatedDuration} days from the start date.`}
+                  {data.summary.totalCost > 0 && ` A detailed cost estimation is available upon request.`}
+                  All findings are based on visual inspection and moisture meter readings at the time of assessment.
+                </p>
+              </div>
+            </div>
+
+            {/* Summary Totals */}
+            <div>
+              <h3 className="text-lg print:text-base font-bold text-slate-900 mb-3 print:mb-2">Summary</h3>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 print:p-3">
+                <table className="w-full">
+                  <tbody>
+                    <tr>
+                      <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700">Rooms Affected:</td>
+                      <td className="py-2 print:py-1.5 text-slate-900 text-right">{data.summary.roomsAffected || 0}</td>
+                    </tr>
+                    {data.summary.averageMoisture && (
+                      <tr>
+                        <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700">Avg Moisture:</td>
+                        <td className="py-2 print:py-1.5 text-slate-900 text-right">{data.summary.averageMoisture.toFixed(1)}%</td>
+                      </tr>
+                    )}
+                    {data.summary.estimatedDuration && (
+                      <tr>
+                        <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700">Est. Duration:</td>
+                        <td className="py-2 print:py-1.5 text-slate-900 text-right">{data.summary.estimatedDuration} days</td>
+                      </tr>
+                    )}
+                    {data.summary.totalCost > 0 && (
+                      <>
+                        <tr>
+                          <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700">Subtotal:</td>
+                          <td className="py-2 print:py-1.5 text-slate-900 text-right">{formatCurrency(data.summary.totalCost)}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-semibold text-slate-700">GST (10%):</td>
+                          <td className="py-2 print:py-1.5 text-slate-900 text-right">{formatCurrency(data.summary.totalCost * 0.1)}</td>
+                        </tr>
+                        <tr className="border-t border-slate-300">
+                          <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-bold text-slate-900">Total Estimate:</td>
+                          <td className="py-2 print:py-1.5 text-cyan-700 font-bold text-right">{formatCurrency(data.summary.totalCost * 1.1)}</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Section - Dark Blue Background */}
+          <div className="print-avoid-break bg-cyan-800 print:bg-cyan-900 text-white rounded-lg p-6 print:p-4 mt-8 print:mt-6">
+            <div className="grid md:grid-cols-2 gap-8 print:gap-6">
+              {/* Contact Us Section */}
+              <div>
+                <h3 className="text-lg print:text-base font-bold mb-4 print:mb-3">Contact Us</h3>
+                <div className="space-y-2 print:space-y-1.5 text-sm print:text-xs">
+                  {data.header.businessEmail && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 print:w-3 print:h-3 flex-shrink-0" />
+                      <span>{data.header.businessEmail}</span>
+                    </div>
+                  )}
+                  {data.header.businessPhone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 print:w-3 print:h-3 flex-shrink-0" />
+                      <span>{data.header.businessPhone}</span>
+                    </div>
+                  )}
+                  {data.header.businessAddress && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 print:w-3 print:h-3 flex-shrink-0" />
+                      <span>{data.header.businessAddress}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Signatures Section */}
+              <div>
+                <div className="grid grid-cols-2 gap-4 print:gap-3">
+                  <div>
+                    <p className="text-sm print:text-xs font-semibold mb-2 print:mb-1">Manager</p>
+                    <div className="border-b border-white/30 mb-2 print:mb-1 h-12 print:h-10"></div>
+                    <p className="text-xs print:text-[10px]">{data.header.businessName || 'RestoreAssist'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm print:text-xs font-semibold mb-2 print:mb-1">Client</p>
+                    <div className="border-b border-white/30 mb-2 print:mb-1 h-12 print:h-10"></div>
+                    <p className="text-xs print:text-[10px]">{data.property.clientName || 'Client Name'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Continue with rest of report sections */}
+        <div className="max-w-5xl mx-auto p-8 print:p-6 space-y-8">
         {/* Property Information */}
         <section className="print-avoid-break">
           <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
@@ -251,29 +513,6 @@ export default function RestorationInspectionReportViewer({ data }: RestorationI
           </h2>
           <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
             <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Client Name</p>
-                <p className="font-semibold text-slate-900">{data.property.clientName || 'Not provided'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Property Address</p>
-                <p className="font-semibold text-slate-900 flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {data.property.propertyAddress || 'Not provided'}
-                </p>
-              </div>
-              {data.property.propertyPostcode && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Postcode</p>
-                  <p className="font-semibold text-slate-900">{data.property.propertyPostcode}</p>
-                </div>
-              )}
-              {data.property.state && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">State</p>
-                  <p className="font-semibold text-slate-900">{data.property.state}</p>
-                </div>
-              )}
               {data.property.buildingAge && (
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Building Age</p>
@@ -750,7 +989,10 @@ export default function RestorationInspectionReportViewer({ data }: RestorationI
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       console.error(`[RestorationInspectionReportViewer] Failed to load image: ${photo.url}`)
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="20" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EImage Not Available%3C/text%3E%3C/svg%3E'
+                      const target = e.target as HTMLImageElement
+                      if (target) {
+                        target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="20" dy="10.5" font-weight="bold" x="50%25" y="50%25" text-anchor="middle"%3EImage Not Available%3C/text%3E%3C/svg%3E'
+                      }
                     }}
                     onLoad={() => {
                       console.log(`[RestorationInspectionReportViewer] Successfully loaded image: ${photo.url}`)
@@ -902,8 +1144,9 @@ export default function RestorationInspectionReportViewer({ data }: RestorationI
             <p className="mt-2 text-xs">© {new Date().getFullYear()} {data.header.businessName || 'RestoreAssist'}. All rights reserved.</p>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

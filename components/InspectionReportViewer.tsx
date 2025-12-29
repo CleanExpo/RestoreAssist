@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FileText, Download, Loader2, AlertCircle, CheckCircle, Edit, Save, Sparkles, FileCheck } from "lucide-react"
-import toast from "react-hot-toast"
+import { AlertCircle, CheckCircle, Download, FileText, Loader2, Printer } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import toast from "react-hot-toast"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
 import VisualDashboardReport from "./VisualDashboardReport"
-import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer"
 
 // Convert structured report data to VisualDashboardReport format
 function convertToVisualReportData(structuredData: any): any {
@@ -526,6 +525,10 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     )
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -536,38 +539,27 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
             Professional Inspection Report
           </h2>
           <p className="text-slate-400">
-            {reportContent ? 'View and download your generated report' : 'Generate your comprehensive inspection report'}
+            {reportContent || visualData || structuredReportData ? 'View and download your generated report' : 'Generate your comprehensive inspection report'}
           </p>
         </div>
         <div className="flex gap-2">
-          {(reportContent || visualData) && (
+          {(reportContent || visualData || structuredReportData) && (
             <>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+              >
+                <Printer className="w-4 h-4" />
+                Print Report
+              </button>
               {reportContent && (
-                <>
-                  {/* <button
-                    onClick={() => setEditing(!editing)}
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-                  >
-                    <Edit className="w-4 h-4" />
-                    {editing ? 'Cancel Edit' : 'Edit'}
-                  </button>
-                  {editing && (
-                    <button
-                      onClick={handleSave}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save
-                    </button>
-                  )} */}
-                  <button
-                    onClick={handleDownload}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download PDF
-                  </button>
-                </>
+                <button
+                  onClick={handleDownload}
+                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
               )}
             </>
           )}
@@ -618,47 +610,148 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
 
       {/* Report Content */}
       {(reportContent || visualData || structuredReportData) && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <p className="text-green-400 font-medium">
-                {isBasicReport ? 'Basic Report Generated Successfully' : 'Report Generated Successfully'}
-              </p>
+        <>
+          {/* Print Styles - EXACT COPY from Scope of Works */}
+          <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+
+  /* Force real A4 page */
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+
+  html, body {
+    width: 210mm;
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Kill everything except report */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #inspection-report-print-content,
+  #inspection-report-print-content * {
+    visibility: visible !important;
+  }
+
+  /* Absolute positioning to top-left */
+  #inspection-report-print-content {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Remove screen layout limits */
+  .max-w-8xl,
+  .mx-auto,
+  .p-8,
+  .print\\:p-0 {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove sticky headers */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Clean typography */
+  h1 {
+    font-size: 24pt !important;
+    line-height: 1.2 !important;
+    margin-bottom: 10mm !important;
+  }
+
+  h2 {
+    font-size: 16pt !important;
+    margin-top: 8mm !important;
+  }
+
+  p, li, td {
+    font-size: 10.5pt !important;
+  }
+
+  /* Tables behave professionally */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Page control */
+  .print-break {
+    page-break-after: always !important;
+  }
+
+  /* Remove shadows & UI fluff */
+  * {
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+
+}
+
+          `}} />
+          
+          <div id="inspection-report-print-content" className="bg-white text-slate-900 print-content">
+            <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10 print:hidden">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <p className="text-green-400 font-medium">
+                  {isBasicReport ? 'Basic Report Generated Successfully' : 'Report Generated Successfully'}
+                </p>
+              </div>
+            </div>
+
+            <div className="w-full p-0 px-4 space-y-8">
+              {isBasicReport && structuredReportData ? (
+                <VisualDashboardReport data={convertToVisualReportData(structuredReportData) || structuredReportData} />
+              ) : isBasicReport && visualData ? (
+                <VisualDashboardReport data={visualData} />
+              ) : editing ? (
+                <div className="p-6">
+                  <textarea
+                    value={reportContent}
+                    onChange={(e) => setReportContent(e.target.value)}
+                    rows={30}
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
+                  />
+                </div>
+              ) : (
+                <ProfessionalDocumentViewer content={reportContent} />
+              )}
             </div>
           </div>
-
-          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            {isBasicReport && structuredReportData ? (
-              <VisualDashboardReport data={convertToVisualReportData(structuredReportData) || structuredReportData} />
-            ) : isBasicReport && visualData ? (
-              <VisualDashboardReport data={visualData} />
-            ) : editing ? (
-              <div className="p-6">
-                <textarea
-                  value={reportContent}
-                  onChange={(e) => setReportContent(e.target.value)}
-                  rows={30}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
-                />
-              </div>
-            ) : (
-              <ProfessionalDocumentViewer content={reportContent} />
-            )}
-          </div>
-
-          {/* Regenerate Option */}
-          {/* <div className="flex justify-end gap-2">
-            <button
-              onClick={() => handleGenerateReport(isBasicReport ? 'basic' : 'enhanced')}
-              disabled={generating}
-              className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50"
-            >
-              Regenerate Report
-            </button>
-          </div> */}
-        </div>
+        </>
       )}
+
+      {/* Regenerate Option */}
+      {/* <div className="flex justify-end gap-2">
+        <button
+          onClick={() => handleGenerateReport(isBasicReport ? 'basic' : 'enhanced')}
+          disabled={generating}
+          className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+        >
+          Regenerate Report
+        </button>
+      </div> */}
 
       {/* Report Info */}
       {report && (

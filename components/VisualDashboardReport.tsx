@@ -60,11 +60,6 @@ interface VisualDashboardReportProps {
 }
 
 export default function VisualDashboardReport({ data }: VisualDashboardReportProps) {
-
-  const handlePrint = () => {
-    window.print()
-  }
-
   if (!data) {
     return (
       <div className="p-8 text-center">
@@ -121,17 +116,7 @@ export default function VisualDashboardReport({ data }: VisualDashboardReportPro
     const hasBusinessInfo = businessInfo.businessName || businessInfo.businessLogo
 
     return (
-    <div id="visual-report-content" className="bg-white p-8 rounded-lg shadow-lg w-full print-content">
-      {/* Print Button - Top */}
-      <div className="mb-6 flex justify-end print:hidden">
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-        >
-          <Printer className="w-4 h-4" />
-          Print Report
-        </button>
-      </div>
+    <div id="visual-report-content" className="bg-white p-8 rounded-lg shadow-lg w-full print-content print:p-0 print:shadow-none">
 
       {/* Header */}
       <div className="mb-6">
@@ -681,63 +666,61 @@ function DetailedReportPages({ fullData, businessInfo }: { fullData: any; busine
               <p className="text-slate-600 italic">No classification data available.</p>
             </div>
           )} */}
-        </div>
 
         {fullData.psychrometric ? (
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border-2 border-orange-200 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Gauge className="w-6 h-6 text-orange-600" />
-                Psychrometric Assessment
-              </h3>
-              <div className="grid md:grid-cols-4 gap-4 mb-4">
-                {fullData.psychrometric.dryingIndex !== null && (
-                  <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
-                    <Gauge className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 mb-1 font-medium">Drying Index</p>
-                    <p className="text-3xl font-bold text-slate-900">{fullData.psychrometric.dryingIndex}</p>
-                  </div>
-                )}
-                {fullData.psychrometric.dryingStatus && (
-                  <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
-                    <p className="text-xs text-slate-600 mb-1 font-medium">Drying Status</p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
-                      {fullData.psychrometric.dryingStatus.toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                {fullData.psychrometric.systemType && (
-                  <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
-                    <Wind className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 mb-1 font-medium">System Type</p>
-                    <p className="text-lg font-bold text-slate-900">{fullData.psychrometric.systemType}</p>
-                  </div>
-                )}
-                {fullData.psychrometric.temperature !== null && (
-                  <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
-                    <Thermometer className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 mb-1 font-medium">Temperature</p>
-                    <p className="text-lg font-bold text-slate-900">{fullData.psychrometric.temperature}°C</p>
-                  </div>
-                )}
-              </div>
-              {fullData.psychrometric.recommendation && (
-                <div className="mt-4 pt-4 border-t-2 border-orange-300 bg-white rounded-lg p-4">
-                  <p className="text-sm text-slate-600 mb-2 font-semibold">Recommendation</p>
-                  <p className="text-slate-900 leading-relaxed">{fullData.psychrometric.recommendation}</p>
+          <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border-2 border-orange-200 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Gauge className="w-6 h-6 text-orange-600" />
+              Psychrometric Assessment
+            </h3>
+            <div className="grid md:grid-cols-4 gap-4 mb-4">
+              {fullData.psychrometric.dryingIndex !== null && (
+                <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
+                  <Gauge className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-600 mb-1 font-medium">Drying Index</p>
+                  <p className="text-3xl font-bold text-slate-900">{fullData.psychrometric.dryingIndex}</p>
+                </div>
+              )}
+              {fullData.psychrometric.dryingStatus && (
+                <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
+                  <p className="text-xs text-slate-600 mb-1 font-medium">Drying Status</p>
+                  <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                    {fullData.psychrometric.dryingStatus.toUpperCase()}
+                  </span>
+                </div>
+              )}
+              {fullData.psychrometric.systemType && (
+                <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
+                  <Wind className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-600 mb-1 font-medium">System Type</p>
+                  <p className="text-lg font-bold text-slate-900">{fullData.psychrometric.systemType}</p>
+                </div>
+              )}
+              {fullData.psychrometric.temperature !== null && (
+                <div className="bg-white rounded-lg p-4 text-center border border-orange-200">
+                  <Thermometer className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-600 mb-1 font-medium">Temperature</p>
+                  <p className="text-lg font-bold text-slate-900">{fullData.psychrometric.temperature}°C</p>
                 </div>
               )}
             </div>
-          ) : (
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border-2 border-orange-200 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Gauge className="w-6 h-6 text-orange-600" />
-                Psychrometric Assessment
-              </h3>
-              <p className="text-slate-600 italic">No psychrometric assessment data available.</p>
-            </div>
-          )}
-        </div>
-      )}
+            {fullData.psychrometric.recommendation && (
+              <div className="mt-4 pt-4 border-t-2 border-orange-300 bg-white rounded-lg p-4">
+                <p className="text-sm text-slate-600 mb-2 font-semibold">Recommendation</p>
+                <p className="text-slate-900 leading-relaxed">{fullData.psychrometric.recommendation}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border-2 border-orange-200 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Gauge className="w-6 h-6 text-orange-600" />
+              Psychrometric Assessment
+            </h3>
+            <p className="text-slate-600 italic">No psychrometric assessment data available.</p>
+          </div>
+        )}
+      </div>
 
       {/* Page 4: Affected Areas with Photos */}
       {fullData.affectedAreas && fullData.affectedAreas.length > 0 && (
@@ -1121,6 +1104,7 @@ function DetailedReportPages({ fullData, businessInfo }: { fullData: any; busine
           <p className="mt-2 text-xs">© {new Date().getFullYear()} {businessInfo?.businessName || 'RestoreAssist'}. All rights reserved.</p>
         </div>
       </div>
+    </div>
     </div>
   )
 }
