@@ -67,6 +67,24 @@ interface InitialDataEntryFormProps {
     buildingAge?: string;
     structureType?: string;
     accessNotes?: string;
+    // New Fields
+    propertyId?: string;
+    jobNumber?: string;
+    reportInstructions?: string;
+    // Additional Contact Information
+    builderDeveloperCompanyName?: string;
+    builderDeveloperContact?: string;
+    builderDeveloperAddress?: string;
+    builderDeveloperPhone?: string;
+    ownerManagementContactName?: string;
+    ownerManagementPhone?: string;
+    ownerManagementEmail?: string;
+    // Previous Maintenance & Repair History
+    lastInspectionDate?: string;
+    buildingChangedSinceLastInspection?: string;
+    structureChangesSinceLastInspection?: string;
+    previousLeakage?: string;
+    emergencyRepairPerformed?: string;
     // Hazard Profile
     insurerName?: string;
     methamphetamineScreen?: string;
@@ -195,6 +213,25 @@ export default function InitialDataEntryForm({
     buildingAge: initialData?.buildingAge || "",
     structureType: initialData?.structureType || "",
     accessNotes: initialData?.accessNotes || "",
+    // New Fields: Property ID and Job No.
+    propertyId: initialData?.propertyId || "",
+    jobNumber: initialData?.jobNumber || "",
+    // Cover Page: Instructions/Standards References
+    reportInstructions: initialData?.reportInstructions || "",
+    // Additional Contact Information
+    builderDeveloperCompanyName: initialData?.builderDeveloperCompanyName || "",
+    builderDeveloperContact: initialData?.builderDeveloperContact || "",
+    builderDeveloperAddress: initialData?.builderDeveloperAddress || "",
+    builderDeveloperPhone: initialData?.builderDeveloperPhone || "",
+    ownerManagementContactName: initialData?.ownerManagementContactName || "",
+    ownerManagementPhone: initialData?.ownerManagementPhone || "",
+    ownerManagementEmail: initialData?.ownerManagementEmail || "",
+    // Previous Maintenance & Repair History
+    lastInspectionDate: normalizeDate(initialData?.lastInspectionDate || ""),
+    buildingChangedSinceLastInspection: initialData?.buildingChangedSinceLastInspection || "",
+    structureChangesSinceLastInspection: initialData?.structureChangesSinceLastInspection || "",
+    previousLeakage: initialData?.previousLeakage || "",
+    emergencyRepairPerformed: initialData?.emergencyRepairPerformed || "",
     // Hazard Profile
     insurerName: initialData?.insurerName || "",
     methamphetamineScreen: initialData?.methamphetamineScreen || "NEGATIVE",
@@ -328,7 +365,21 @@ export default function InitialDataEntryForm({
   const [nirSelectedScopeItems, setNirSelectedScopeItems] = useState<
     Set<string>
   >(new Set());
-  const [nirPhotos, setNirPhotos] = useState<File[]>([]);
+  // Photo categorization system (6 categories)
+  const PHOTO_CATEGORIES = [
+    { id: "site_damage", label: "Site & Damage Photography", max: 15, description: "Damage assessment, technical findings, evidence" },
+    { id: "measurement", label: "Measurement & Instrumentation", max: 8, description: "Moisture meters, hygrometers, psychrometric readings" },
+    { id: "floor_plans", label: "Floor Plans & Zone Maps", max: 6, description: "Affected areas, water migration, equipment placement" },
+    { id: "safety_compliance", label: "Safety & Compliance Visuals", max: 5, description: "WHS, PPE, electrical isolation, signage" },
+    { id: "process_timeline", label: "Process & Timeline Visuals", max: 5, description: "Timeline diagrams, drying progression, decision gates" },
+    { id: "explanatory", label: "Explanatory/Educational Visuals", max: 6, description: "Cross-sections, moisture migration diagrams" },
+  ];
+
+  const [nirPhotos, setNirPhotos] = useState<Array<{
+    file: File;
+    category: string;
+    description?: string;
+  }>>([]);
 
   // Surface types for NIR
   const SURFACE_TYPES = [
@@ -576,6 +627,22 @@ export default function InitialDataEntryForm({
         buildingAge: initialData.buildingAge || "",
         structureType: initialData.structureType || "",
         accessNotes: initialData.accessNotes || "",
+        // New Fields
+        propertyId: initialData.propertyId || "",
+        jobNumber: initialData.jobNumber || "",
+        reportInstructions: initialData.reportInstructions || "",
+        builderDeveloperCompanyName: initialData.builderDeveloperCompanyName || "",
+        builderDeveloperContact: initialData.builderDeveloperContact || "",
+        builderDeveloperAddress: initialData.builderDeveloperAddress || "",
+        builderDeveloperPhone: initialData.builderDeveloperPhone || "",
+        ownerManagementContactName: initialData.ownerManagementContactName || "",
+        ownerManagementPhone: initialData.ownerManagementPhone || "",
+        ownerManagementEmail: initialData.ownerManagementEmail || "",
+        lastInspectionDate: normalizeDate(initialData.lastInspectionDate || ""),
+        buildingChangedSinceLastInspection: initialData.buildingChangedSinceLastInspection || "",
+        structureChangesSinceLastInspection: initialData.structureChangesSinceLastInspection || "",
+        previousLeakage: initialData.previousLeakage || "",
+        emergencyRepairPerformed: initialData.emergencyRepairPerformed || "",
         // Hazard Profile
         insurerName: initialData.insurerName || "",
         methamphetamineScreen: initialData.methamphetamineScreen || "NEGATIVE",
@@ -1048,6 +1115,9 @@ export default function InitialDataEntryForm({
           technicianAttendanceDate: formData.technicianAttendanceDate
             ? new Date(formData.technicianAttendanceDate).toISOString()
             : null,
+          lastInspectionDate: formData.lastInspectionDate
+            ? new Date(formData.lastInspectionDate).toISOString()
+            : null,
         }),
       });
 
@@ -1158,10 +1228,28 @@ export default function InitialDataEntryForm({
       formDataToSend.append("affectedAreas", JSON.stringify(nirAffectedAreas));
       formDataToSend.append("scopeItems", JSON.stringify(scopeItems));
       
-      // Append photos
+      // Append photos with category metadata
       nirPhotos.forEach((photo) => {
-        formDataToSend.append("photos", photo);
+        formDataToSend.append("photos", photo.file);
+        // Store category in a separate field for each photo
+        formDataToSend.append(`photoCategory_${photo.file.name}`, photo.category);
+        if (photo.description) {
+          formDataToSend.append(`photoDescription_${photo.file.name}`, photo.description);
+        }
       });
+      
+      // Also send photo categories summary as JSON
+      const photoCategories = nirPhotos.reduce((acc, photo) => {
+        if (!acc[photo.category]) {
+          acc[photo.category] = [];
+        }
+        acc[photo.category].push({
+          fileName: photo.file.name,
+          description: photo.description || ""
+        });
+        return acc;
+      }, {} as Record<string, Array<{ fileName: string; description: string }>>);
+      formDataToSend.append("photoCategories", JSON.stringify(photoCategories));
 
       const response = await fetch(`/api/reports/${reportId}/nir-data`, {
         method: "POST",
@@ -1289,6 +1377,36 @@ export default function InitialDataEntryForm({
               </p>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Property ID
+                </label>
+                <input
+                  type="text"
+                  value={formData.propertyId}
+                  onChange={(e) =>
+                    handleInputChange("propertyId", e.target.value)
+                  }
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  placeholder="Property identifier"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Job Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.jobNumber}
+                  onChange={(e) =>
+                    handleInputChange("jobNumber", e.target.value)
+                  }
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  placeholder="Job number"
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
@@ -1443,6 +1561,250 @@ export default function InitialDataEntryForm({
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
                 placeholder="Name of technician who attended"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Cover Page Information Section */}
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Cover Page Information
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Report Instructions / Standards References
+              </label>
+              <textarea
+                value={formData.reportInstructions}
+                onChange={(e) =>
+                  handleInputChange("reportInstructions", e.target.value)
+                }
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                placeholder="e.g., Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity."
+                rows={3}
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                This will appear on the cover page of the report
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Contact Information Section */}
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <User className="w-4 h-4" />
+            Additional Contact Information
+          </h3>
+          <div className="space-y-4">
+            {/* Builder/Developer Information */}
+            <div className="p-3 rounded-lg border border-slate-600/50 bg-slate-900/30">
+              <h4 className="text-sm font-semibold mb-3 text-slate-300">
+                Builder/Developer Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.builderDeveloperCompanyName}
+                    onChange={(e) =>
+                      handleInputChange("builderDeveloperCompanyName", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Builder/Developer company name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Contact Person
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.builderDeveloperContact}
+                    onChange={(e) =>
+                      handleInputChange("builderDeveloperContact", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Contact person name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.builderDeveloperAddress}
+                    onChange={(e) =>
+                      handleInputChange("builderDeveloperAddress", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Builder/Developer address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.builderDeveloperPhone}
+                    onChange={(e) =>
+                      handleInputChange("builderDeveloperPhone", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Owner/Management Information */}
+            <div className="p-3 rounded-lg border border-slate-600/50 bg-slate-900/30">
+              <h4 className="text-sm font-semibold mb-3 text-slate-300">
+                Owner/Management Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ownerManagementContactName}
+                    onChange={(e) =>
+                      handleInputChange("ownerManagementContactName", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Owner/Management contact name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ownerManagementPhone}
+                    onChange={(e) =>
+                      handleInputChange("ownerManagementPhone", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.ownerManagementEmail}
+                    onChange={(e) =>
+                      handleInputChange("ownerManagementEmail", e.target.value)
+                    }
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    placeholder="Email address"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Previous Maintenance & Repair History Section */}
+        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Previous Maintenance & Repair History
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Date of Last Inspection
+              </label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="date"
+                  value={formData.lastInspectionDate}
+                  onChange={(e) =>
+                    handleInputChange("lastInspectionDate", e.target.value)
+                  }
+                  className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Was building changed since last inspection?
+                </label>
+                <select
+                  value={formData.buildingChangedSinceLastInspection}
+                  onChange={(e) =>
+                    handleInputChange("buildingChangedSinceLastInspection", e.target.value)
+                  }
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                >
+                  <option value="">Select...</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Were there changes/additions to structure since last inspection?
+                </label>
+                <select
+                  value={formData.structureChangesSinceLastInspection}
+                  onChange={(e) =>
+                    handleInputChange("structureChangesSinceLastInspection", e.target.value)
+                  }
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                >
+                  <option value="">Select...</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Was there any leakage?
+                </label>
+                <select
+                  value={formData.previousLeakage}
+                  onChange={(e) =>
+                    handleInputChange("previousLeakage", e.target.value)
+                  }
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                >
+                  <option value="">Select...</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Was emergency repair performed?
+                </label>
+                <select
+                  value={formData.emergencyRepairPerformed}
+                  onChange={(e) =>
+                    handleInputChange("emergencyRepairPerformed", e.target.value)
+                  }
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                >
+                  <option value="">Select...</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -1799,51 +2161,88 @@ export default function InitialDataEntryForm({
             </div>
           </div>
 
-          {/* Photos */}
+          {/* Photos with Categorization */}
           <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
               <Camera className="w-4 h-4" />
               Photos <span className="text-red-400">*</span>
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {nirPhotos.map((photo, index) => (
-                <div key={index} className="relative">
-                  <img
-                    src={URL.createObjectURL(photo)}
-                    alt={`Photo ${index + 1}`}
-                    className="w-full h-24 object-cover rounded border-2 border-slate-600"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNirPhotos(nirPhotos.filter((_, i) => i !== index));
-                      toast.success("Photo removed");
-                    }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              <label className="w-full h-24 border-2 border-dashed border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-green-500 transition-colors bg-slate-900/50">
-                <div className="text-center">
-                  <Camera className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                  <span className="text-xs text-slate-400">Add Photo</span>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (files.length > 0) {
-                      setNirPhotos([...nirPhotos, ...files]);
-                      toast.success(`${files.length} photo(s) added`);
-                    }
-                  }}
-                  className="hidden"
-                />
-              </label>
+            <p className="text-xs text-slate-400 mb-4">
+              Categorise photos for proper placement in the report (35-45 images recommended)
+            </p>
+            
+            {/* Photo Upload by Category */}
+            <div className="space-y-4 mb-4">
+              {PHOTO_CATEGORIES.map((category) => {
+                const categoryPhotos = nirPhotos.filter(p => p.category === category.id);
+                const remaining = category.max - categoryPhotos.length;
+                return (
+                  <div key={category.id} className="p-3 rounded-lg border border-slate-600/50 bg-slate-900/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h5 className="text-sm font-semibold text-white">{category.label}</h5>
+                        <p className="text-xs text-slate-400">{category.description}</p>
+                      </div>
+                      <span className="text-xs text-slate-400">
+                        {categoryPhotos.length} / {category.max}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                      {categoryPhotos.map((photo, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={URL.createObjectURL(photo.file)}
+                            alt={`${category.label} ${index + 1}`}
+                            className="w-full h-20 object-cover rounded border-2 border-slate-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNirPhotos(nirPhotos.filter((p, i) => 
+                                !(p.category === category.id && i === nirPhotos.findIndex(ph => ph === photo))
+                              ));
+                              toast.success("Photo removed");
+                            }}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {remaining > 0 && (
+                        <label className="w-full h-20 border-2 border-dashed border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-green-500 transition-colors bg-slate-900/50">
+                          <div className="text-center">
+                            <Camera className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                            <span className="text-xs text-slate-400">Add</span>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              if (files.length > 0) {
+                                const newPhotos = files.map(file => ({
+                                  file,
+                                  category: category.id,
+                                  description: ""
+                                }));
+                                if (categoryPhotos.length + files.length > category.max) {
+                                  toast.error(`Maximum ${category.max} photos allowed for ${category.label}`);
+                                  return;
+                                }
+                                setNirPhotos([...nirPhotos, ...newPhotos]);
+                                toast.success(`${files.length} photo(s) added to ${category.label}`);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
