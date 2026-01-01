@@ -16,6 +16,19 @@ interface VisualScopeOfWorksData {
     claimReference: string
     version: string
   }
+  property?: {
+    clientName?: string | null
+    clientCompany?: string | null
+    propertyAddress?: string | null
+    propertyPostcode?: string | null
+    propertyId?: string | null
+    jobNumber?: string | null
+  }
+  incident?: {
+    technicianName?: string | null
+    technicianAttendanceDate?: string | null
+    claimReferenceNumber?: string | null
+  }
   phases: Array<{
     name: string
     duration: string
@@ -70,21 +83,45 @@ export default function VisualScopeOfWorksViewer({ data }: VisualScopeOfWorksVie
     )
   }
 
-  const { header, phases = [], lineItems = [], licensedTrades = [], insuranceBreakdown, coordinationNotes = [] } = data
+  const { header, property, incident, phases = [], lineItems = [], licensedTrades = [], insuranceBreakdown, coordinationNotes = [] } = data
 
   // Calculate totals
   const totalLineItems = lineItems.reduce((sum, item) => sum + (item.subtotal || 0), 0)
 
+  // Format date helper
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not provided'
+    try {
+      return new Date(dateString).toLocaleDateString('en-AU', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      })
+    } catch {
+      return dateString
+    }
+  }
+
   return (
     <>
       {/* Print Styles */}
-      <style dangerouslySetInnerHTML={{__html: `
-       @media print {
+      <style dangerouslySetInnerHTML={{__html: `@media print {
 
   /* Force real A4 page */
   @page {
     size: A4 portrait;
     margin: 20mm;
+    /* Disable browser headers and footers */
+    marks: none;
+  }
+
+  /* Hide any browser-added URLs or page info */
+  body::after,
+  body::before,
+  html::after,
+  html::before {
+    display: none !important;
+    content: none !important;
   }
 
   html, body {
@@ -166,6 +203,26 @@ export default function VisualScopeOfWorksViewer({ data }: VisualScopeOfWorksVie
     page-break-after: always !important;
   }
 
+  /* Cover page - exactly one page */
+  .print-page {
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    min-height: 297mm !important;
+    height: 297mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Ensure cover page content doesn't overflow */
+  .print-page:first-of-type {
+    overflow: hidden !important;
+  }
+
+  /* Hide content after cover page until print */
+  .print-page-break {
+    page-break-before: always !important;
+  }
+
   /* Remove shadows & UI fluff */
   * {
     box-shadow: none !important;
@@ -173,77 +230,134 @@ export default function VisualScopeOfWorksViewer({ data }: VisualScopeOfWorksVie
   }
 
 }
-
       `}} />
       
       <div id="scope-of-works-content" className="bg-white text-slate-900 print-content">
-        {/* Print Button */}
-        <div className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 p-4 print:hidden">
-        <div className="flex justify-end">
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-          >
-            <Printer className="w-4 h-4" />
-            Print Report
-          </button>
-        </div>
-      </div>
-
-      <div className="w-full p-0 px-4 space-y-8">
-      {/* Header */}
-        <div className="border-b-2 border-slate-300 pb-6 print:pb-4 print-avoid-break print:mb-4">
-          <div className="flex items-start justify-between mb-4 print:mb-3 gap-4">
-            <div className="flex-1 min-w-0">
-              {header?.businessLogo && (
-                <div className="mb-4 print:mb-3">
-                  <img 
-                    src={header.businessLogo} 
-                    alt={header.businessName || 'Company Logo'}
-                    className="h-16 print:h-12 object-contain"
-                  />
-                </div>
-              )}
-              <h1 className="text-4xl print:text-2xl print:leading-tight font-bold text-slate-900 mb-2 print:mb-2 break-words">
-                {header?.reportTitle || 'PRELIMINARY SCOPE OF WORKS — NOT FINAL ESTIMATE'}
-              </h1>
-              <p className="text-lg print:text-base text-slate-600 print:mt-1">
-                {header?.businessName || 'RestoreAssist'}
+        {/* PAGE 1: PROFESSIONAL COVER PAGE */}
+        <div className="min-h-[297mm] print:min-h-[297mm] max-w-5xl mx-auto flex flex-col print-page" style={{ pageBreakAfter: 'always', pageBreakInside: 'avoid' }}>
+          {/* Header with Logo/Branding */}
+          <div className="mb-16 print:mb-6">
+            {header?.businessLogo && (
+              <div className="mb-4 print:mb-3">
+                <img 
+                  src={header.businessLogo} 
+                  alt={header.businessName || "Business Logo"} 
+                  className="h-16 print:h-12 w-auto object-contain"
+                />
+              </div>
+            )}
+            <div className="text-center print:text-left mb-2 print:mb-1">
+              <p className="text-xs print:text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                {header?.businessName || 'SCOPE OF WORKS DOCUMENTS'}
               </p>
-              {header?.businessAddress && (
-                <p className="text-sm print:text-xs text-slate-500 mt-1">
-                  {header.businessAddress}
-                </p>
-              )}
-              {(header?.businessABN || header?.businessPhone || header?.businessEmail) && (
-                <div className="text-xs print:text-[10px] text-slate-500 mt-2 print:mt-1 space-y-0.5">
-                  {header.businessABN && <p>ABN: {header.businessABN}</p>}
-                  {header.businessPhone && <p>Phone: {header.businessPhone}</p>}
-                  {header.businessEmail && <p>Email: {header.businessEmail}</p>}
-                </div>
-              )}
             </div>
-            <div className="text-right text-sm print:text-xs text-slate-600 print:ml-4 flex-shrink-0">
-              <p className="font-semibold text-slate-900 print:text-xs">Report Number</p>
-              <p className="text-lg print:text-base font-bold break-all">{header?.reportNumber || header?.claimReference || 'N/A'}</p>
-              <p className="mt-2 print:mt-1">
-                {header?.dateGenerated || new Date().toLocaleDateString('en-AU')}
+          </div>
+
+          {/* Main Title */}
+          <div className="text-center mb-12 print:mb-8">
+            <h1 className="text-4xl print:text-3xl font-bold text-slate-900 mb-3 print:mb-2">
+              {header?.businessName || 'Professional Restoration'}
+            </h1>
+            <h2 className="text-2xl print:text-xl font-semibold text-slate-700 mb-4 print:mb-3">
+              {header?.reportTitle || 'PRELIMINARY SCOPE OF WORKS — NOT FINAL ESTIMATE'}
+            </h2>
+          </div>
+
+          {/* Prepared By Section */}
+          <div className="mb-8 print:mb-6">
+            <p className="text-base print:text-sm text-slate-900 font-semibold mb-2 print:mb-1">
+              Prepared By:
+            </p>
+            <p className="text-base print:text-sm text-slate-700">
+              {incident?.technicianName || header?.businessName || 'Not provided'}
+            </p>
+          </div>
+
+          {/* Prepared For Section - Table Format */}
+          <div className="mb-8 print:mb-6">
+            <p className="text-base print:text-sm text-slate-900 font-semibold mb-3 print:mb-2">
+              Prepared for:
+            </p>
+            <table className="w-full border-collapse">
+              <tbody>
+                <tr>
+                  <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-bold text-slate-900 w-1/3 text-sm print:text-xs border-b border-slate-200">CLIENT NAME:</td>
+                  <td className="py-2 print:py-1.5 text-slate-700 text-sm print:text-xs border-b border-slate-200">
+                    {property?.clientName || property?.clientCompany || 'Not provided'}
+                  </td>
+                </tr>
+                {property?.propertyId && (
+                  <tr>
+                    <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-bold text-slate-900 w-1/3 text-sm print:text-xs border-b border-slate-200">PROPERTY ID:</td>
+                    <td className="py-2 print:py-1.5 text-slate-700 text-sm print:text-xs border-b border-slate-200">{property.propertyId}</td>
+                  </tr>
+                )}
+                {property?.jobNumber && (
+                  <tr>
+                    <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-bold text-slate-900 w-1/3 text-sm print:text-xs border-b border-slate-200">JOB NO:</td>
+                    <td className="py-2 print:py-1.5 text-slate-700 text-sm print:text-xs border-b border-slate-200">{property.jobNumber}</td>
+                  </tr>
+                )}
+                <tr>
+                  <td className="py-2 print:py-1.5 pr-4 print:pr-3 font-bold text-slate-900 w-1/3 text-sm print:text-xs">SITE ADDRESS:</td>
+                  <td className="py-2 print:py-1.5 text-slate-700 text-sm print:text-xs">
+                    {property?.propertyAddress || 'Not provided'}
+                    {property?.propertyPostcode && `, ${property.propertyPostcode}`}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Inspection Date */}
+          <div className="mb-8 print:mb-6">
+            <p className="text-base print:text-sm text-slate-700">
+              <span className="font-semibold">Date:</span> {formatDate(incident?.technicianAttendanceDate || header?.dateGenerated)}
+            </p>
+            {header?.claimReference && (
+              <p className="text-base print:text-sm text-slate-700 mt-2 print:mt-1">
+                <span className="font-semibold">Based on:</span> Inspection Report {header.claimReference}
               </p>
-              {header?.version && (
-                <p className="mt-1 text-xs print:text-[10px]">
-                  Version: {header.version}
-                </p>
+            )}
+          </div>
+
+          {/* Scope Summary Box */}
+          <div className="mb-8 print:mb-6">
+            <h3 className="text-base print:text-sm font-bold text-slate-900 mb-3 print:mb-2">
+              Scope Summary:
+            </h3>
+            <div className="bg-white border-2 border-slate-300 rounded-lg p-6 print:p-4 min-h-[120px] print:min-h-[100px]">
+              <p className="text-sm print:text-xs text-slate-700 leading-relaxed">
+                This preliminary scope of works document outlines the restoration works required to address water damage at the property. The scope includes {phases.length} remediation phases, {lineItems.length} restoration work line items{licensedTrades.length > 0 ? `, and ${licensedTrades.length} licensed trade requirement${licensedTrades.length > 1 ? 's' : ''}` : ''}. All works will be conducted in accordance with IICRC S500 standards and relevant Australian regulations.
+              </p>
+            </div>
+          </div>
+
+          {/* Footer - Business Information */}
+          <div className="mt-auto pt-8 print:pt-6 border-t-2 border-slate-300">
+            <div className="text-center text-xs print:text-[10px] text-slate-600 space-y-1">
+              {header?.businessName && (
+                <p className="font-semibold text-slate-700">{header.businessName}</p>
+              )}
+              {header?.businessAddress && (
+                <p>{header.businessAddress}</p>
+              )}
+              {header?.businessABN && (
+                <p>ABN: {header.businessABN}</p>
+              )}
+              {header?.businessPhone && (
+                <p>Phone: {header.businessPhone}</p>
+              )}
+              {header?.businessEmail && (
+                <p>Email: {header.businessEmail}</p>
               )}
             </div>
           </div>
-          {header?.claimReference && (
-            <div className="mt-4 print:mt-3 pt-4 print:pt-3 border-t border-slate-200">
-              <p className="text-sm print:text-xs text-slate-600">
-                <span className="font-medium">Based on:</span> Inspection Report {header.claimReference}
-              </p>
-            </div>
-          )}
         </div>
+
+        {/* PAGE 2+: SCOPE OF WORKS CONTENT */}
+        <div className="print-page-break print-page flex flex-col">
+          <div className="w-full p-0 px-4 space-y-8">
 
         {/* SECTION 1: REMEDIATION PHASES */}
         <div className="space-y-6">
@@ -463,6 +577,7 @@ export default function VisualScopeOfWorksViewer({ data }: VisualScopeOfWorksVie
           </div>
         </div>
       </div>
+        </div>
       </div>
     </>
   )
