@@ -139,6 +139,31 @@ model Report {
   technicianAttendanceDate DateTime? // Date when technician attended
   technicianName           String? // Technician's name if available
   technicianFieldReport    String?   @db.Text // The raw technician report text
+  
+  // New Fields: Property ID and Job Number
+  propertyId               String? // Property identifier
+  jobNumber                String? // Job number/reference
+  
+  // Cover Page: Instructions/Standards References
+  reportInstructions       String? @db.Text // Instructions/standards references for report
+  
+  // Additional Contact Information: Builder/Developer
+  builderDeveloperCompanyName String?
+  builderDeveloperContact     String?
+  builderDeveloperAddress     String?
+  builderDeveloperPhone       String?
+  
+  // Additional Contact Information: Owner/Management
+  ownerManagementContactName String?
+  ownerManagementPhone       String?
+  ownerManagementEmail       String?
+  
+  // Previous Maintenance & Repair History
+  lastInspectionDate                    DateTime?
+  buildingChangedSinceLastInspection    String?
+  structureChangesSinceLastInspection    String?
+  previousLeakage                       String?
+  emergencyRepairPerformed              String?
 
   // Report Generation Stage
   reportDepthLevel String? // Basic / Enhanced / Optimised

@@ -1,20 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  Droplets,
-  Wind,
-  Thermometer,
-  Shield,
+import {
+  CheckCircle,
+  Clock,
   FileText,
-  BarChart3,
-  Activity
+  Shield
 } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface IICRCDashboardProps {
   reports: any[]

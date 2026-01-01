@@ -1,19 +1,16 @@
 "use client"
 
-import { useState } from "react"
 import { motion } from "framer-motion"
-import { 
-  BookOpen, 
-  AlertTriangle, 
-  CheckCircle, 
-  Info, 
-  Shield, 
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle,
   Droplets,
-  Wind,
+  Shield,
   Thermometer,
-  Clock,
-  Users
+  Wind
 } from "lucide-react"
+import { useState } from "react"
 
 interface IICRCComplianceHelperProps {
   waterCategory?: string

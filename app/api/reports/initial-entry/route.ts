@@ -149,7 +149,36 @@ export async function POST(request: NextRequest) {
       // Continue without clientId if there's an error - don't block report creation
     }
 
-    // Create the report with initial data
+    // Prepare NIR data if provided
+    let nirDataJson = null
+    if (data.nirData) {
+      const nirData = {
+        moistureReadings: data.nirData.moistureReadings || [],
+        affectedAreas: data.nirData.affectedAreas || [],
+        scopeItems: data.nirData.scopeItems || [],
+        photos: [] // Photos are only in Tier 3, not initial entry
+      }
+      nirDataJson = JSON.stringify(nirData)
+    }
+
+    // Prepare equipment data if provided
+    let psychrometricAssessmentJson = null
+    let scopeAreasJson = null
+    let equipmentSelectionJson = null
+    
+    if (data.equipmentData) {
+      if (data.equipmentData.psychrometricAssessment) {
+        psychrometricAssessmentJson = JSON.stringify(data.equipmentData.psychrometricAssessment)
+      }
+      if (data.equipmentData.scopeAreas) {
+        scopeAreasJson = JSON.stringify(data.equipmentData.scopeAreas)
+      }
+      if (data.equipmentData.equipmentSelection) {
+        equipmentSelectionJson = JSON.stringify(data.equipmentData.equipmentSelection)
+      }
+    }
+
+    // Create the report with initial data (including NIR and equipment data if provided)
     const report = await prisma.report.create({
       data: {
         title: reportTitle,
@@ -171,6 +200,31 @@ export async function POST(request: NextRequest) {
         technicianName: sanitizeString(data.technicianName),
         technicianFieldReport: data.technicianFieldReport.trim(), // Required field
         
+        // New Fields: Property ID and Job Number
+        propertyId: sanitizeString(data.propertyId),
+        jobNumber: sanitizeString(data.jobNumber),
+        
+        // Cover Page: Instructions/Standards References
+        reportInstructions: sanitizeString(data.reportInstructions),
+        
+        // Additional Contact Information: Builder/Developer
+        builderDeveloperCompanyName: sanitizeString(data.builderDeveloperCompanyName),
+        builderDeveloperContact: sanitizeString(data.builderDeveloperContact),
+        builderDeveloperAddress: sanitizeString(data.builderDeveloperAddress),
+        builderDeveloperPhone: sanitizeString(data.builderDeveloperPhone),
+        
+        // Additional Contact Information: Owner/Management
+        ownerManagementContactName: sanitizeString(data.ownerManagementContactName),
+        ownerManagementPhone: sanitizeString(data.ownerManagementPhone),
+        ownerManagementEmail: sanitizeString(data.ownerManagementEmail),
+        
+        // Previous Maintenance & Repair History
+        lastInspectionDate: parseDate(data.lastInspectionDate),
+        buildingChangedSinceLastInspection: sanitizeString(data.buildingChangedSinceLastInspection),
+        structureChangesSinceLastInspection: sanitizeString(data.structureChangesSinceLastInspection),
+        previousLeakage: sanitizeString(data.previousLeakage),
+        emergencyRepairPerformed: sanitizeString(data.emergencyRepairPerformed),
+        
         // Property Intelligence (Assessment Report Data Architecture)
         buildingAge: sanitizeInt(data.buildingAge),
         structureType: sanitizeString(data.structureType),
@@ -190,6 +244,23 @@ export async function POST(request: NextRequest) {
         phase2EndDate: parseDate(data.phase2EndDate),
         phase3StartDate: parseDate(data.phase3StartDate),
         phase3EndDate: parseDate(data.phase3EndDate),
+        
+        // NIR Data (if provided)
+        moistureReadings: nirDataJson,
+        
+        // Equipment Data (if provided)
+        psychrometricAssessment: psychrometricAssessmentJson,
+        scopeAreas: scopeAreasJson,
+        equipmentSelection: equipmentSelectionJson,
+        equipmentCostTotal: data.equipmentData?.equipmentCostTotal || null,
+        estimatedDryingDuration: data.equipmentData?.estimatedDryingDuration || null,
+        // Update related fields if equipment data provided
+        waterClass: data.equipmentData?.psychrometricAssessment?.waterClass?.toString() || null,
+        targetTemperature: data.equipmentData?.psychrometricAssessment?.temperature || null,
+        targetHumidity: data.equipmentData?.psychrometricAssessment?.humidity || null,
+        affectedArea: data.equipmentData?.metrics?.totalAffectedArea || null,
+        dehumidificationCapacity: data.equipmentData?.metrics?.waterRemovalTarget || null,
+        airmoversCount: data.equipmentData?.metrics?.airMoversRequired || null,
         
         // Report Generation Stage
         reportDepthLevel: null, // Will be set when user chooses Basic/Enhanced

@@ -99,6 +99,24 @@ Extract the following fields if available in the document:
 - biologicalMouldDetected: true or false (if mould/biological growth mentioned)
 - biologicalMouldCategory: Mould category if mentioned (e.g., "CAT 1", "CAT 2", "CAT 3")
 
+**Additional Contact Information - Builder/Developer:**
+- builderDeveloperCompanyName: Builder/Developer company name (if mentioned)
+- builderDeveloperContact: Builder/Developer contact person name (if mentioned)
+- builderDeveloperAddress: Builder/Developer address (if mentioned)
+- builderDeveloperPhone: Builder/Developer phone number (if mentioned)
+
+**Additional Contact Information - Owner/Management:**
+- ownerManagementContactName: Owner/Management contact name (if mentioned)
+- ownerManagementPhone: Owner/Management phone number (if mentioned)
+- ownerManagementEmail: Owner/Management email address (if mentioned)
+
+**Previous Maintenance & Repair History:**
+- lastInspectionDate: Date of last inspection (format: YYYY-MM-DD, if mentioned)
+- buildingChangedSinceLastInspection: "Yes" or "No" or description (if mentioned)
+- structureChangesSinceLastInspection: Description of structural changes (if mentioned)
+- previousLeakage: "Yes" or "No" or description (if mentioned)
+- emergencyRepairPerformed: "Yes" or "No" or description (if mentioned)
+
 **Timeline Estimation:**
 - phase1StartDate: Phase 1 (Make-safe) start date (format: YYYY-MM-DD)
 - phase1EndDate: Phase 1 (Make-safe) end date (format: YYYY-MM-DD)
@@ -136,9 +154,31 @@ For each room/area found, create an object with:
 
 Example format: [{"name": "Kitchen", "length": 4.5, "width": 3.5, "height": 2.7, "wetPercentage": 85}, {"name": "Dining Room", "length": 5.0, "width": 3.6, "height": 2.7, "wetPercentage": 90}]
 
-**Equipment & Tools Selection - Equipment:**
-- equipmentMentioned: Array of equipment types mentioned in document. Look for: "LGR dehumidifier", "desiccant", "air mover", "air mover fan", "dehumidifier", "drying equipment", "extraction equipment". Extract all equipment mentions.
-- estimatedDryingDuration: Estimated drying duration in days (integer). Look for "4 days", "drying period", "estimated duration", "drying time". Extract the number of days.
+**Equipment & Tools Selection - Equipment Deployment:**
+CRITICAL: Extract ALL equipment deployment data from tables or sections showing "Equipment Deployment", "Equipment", "Equipment List", or similar headings. Look for tables with columns like:
+- Equipment name/type (e.g., "55L/Day", "800 CFM", "LGR Dehumidifier", "Air Mover", "Desiccant")
+- Quantity (number of units)
+- Daily Rate (price per day, e.g., "$45.00", "$25.00")
+- Duration (number of days, e.g., "4 days", "5 days")
+- Total Cost (total cost for that equipment, e.g., "$360.00", "$400.00")
+
+Also look for "Total Equipment Cost" or similar summary lines.
+
+For each equipment item found in the deployment table/section, create an object with:
+  - equipmentName: Name/type of equipment (e.g., "55L/Day", "800 CFM", "LGR Dehumidifier", "Air Mover")
+  - quantity: Number of units (integer, extract from "Qty", "Quantity", or the number before the equipment name)
+  - dailyRate: Daily rental rate in dollars (float, extract from "Daily Rate" column or price per day)
+  - duration: Duration in days (integer, extract from "Duration" column or "X days")
+  - totalCost: Total cost for this equipment (float, extract from "Total Cost" column or calculate: quantity × dailyRate × duration)
+
+Example format: [
+  {"equipmentName": "55L/Day", "quantity": 2, "dailyRate": 45.00, "duration": 4, "totalCost": 360.00},
+  {"equipmentName": "800 CFM", "quantity": 4, "dailyRate": 25.00, "duration": 4, "totalCost": 400.00}
+]
+
+- equipmentMentioned: Array of equipment types mentioned in document (for reference, if deployment table not found). Look for: "LGR dehumidifier", "desiccant", "air mover", "air mover fan", "dehumidifier", "drying equipment", "extraction equipment". Extract all equipment mentions.
+- estimatedDryingDuration: Estimated drying duration in days (integer). Look for "4 days", "drying period", "estimated duration", "drying time". Extract the number of days. If equipment deployment table has duration, use that.
+- totalEquipmentCost: Total equipment cost from the report (float). Look for "Total Equipment Cost", "Total Cost", or sum of all equipment totalCost values.
 
 **NIR Inspection Data - Moisture Readings:**
 CRITICAL: Extract ALL moisture readings mentioned in the document. Look for:
@@ -325,6 +365,24 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
         biologicalMouldDetected: parsedData.biologicalMouldDetected === true || parsedData.biologicalMouldDetected === 'true',
         biologicalMouldCategory: parsedData.biologicalMouldCategory || '',
         
+        // Additional Contact Information - Builder/Developer
+        builderDeveloperCompanyName: parsedData.builderDeveloperCompanyName || '',
+        builderDeveloperContact: parsedData.builderDeveloperContact || '',
+        builderDeveloperAddress: parsedData.builderDeveloperAddress || '',
+        builderDeveloperPhone: parsedData.builderDeveloperPhone || '',
+        
+        // Additional Contact Information - Owner/Management
+        ownerManagementContactName: parsedData.ownerManagementContactName || '',
+        ownerManagementPhone: parsedData.ownerManagementPhone || '',
+        ownerManagementEmail: parsedData.ownerManagementEmail || '',
+        
+        // Previous Maintenance & Repair History
+        lastInspectionDate: parsedData.lastInspectionDate || '',
+        buildingChangedSinceLastInspection: parsedData.buildingChangedSinceLastInspection || '',
+        structureChangesSinceLastInspection: parsedData.structureChangesSinceLastInspection || '',
+        previousLeakage: parsedData.previousLeakage || '',
+        emergencyRepairPerformed: parsedData.emergencyRepairPerformed || '',
+        
         // Timeline Estimation
         phase1StartDate: parsedData.phase1StartDate || '',
         phase1EndDate: parsedData.phase1EndDate || '',
@@ -342,9 +400,21 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
         // Equipment & Tools Selection - Scope Areas
         scopeAreas: parsedData.scopeAreas || [],
         
-        // Equipment & Tools Selection - Equipment
+        // Equipment & Tools Selection - Equipment Deployment
+        equipmentDeployment: Array.isArray(parsedData.equipmentDeployment) ? parsedData.equipmentDeployment.map((eq: any) => ({
+          equipmentName: eq.equipmentName || eq.name || '',
+          quantity: typeof eq.quantity === 'number' ? eq.quantity : parseInt(eq.quantity) || 0,
+          dailyRate: typeof eq.dailyRate === 'number' ? eq.dailyRate : parseFloat(eq.dailyRate) || 0,
+          duration: typeof eq.duration === 'number' ? eq.duration : parseInt(eq.duration) || 0,
+          totalCost: typeof eq.totalCost === 'number' ? eq.totalCost : parseFloat(eq.totalCost) || 0
+        })) : [],
         equipmentMentioned: parsedData.equipmentMentioned || [],
-        estimatedDryingDuration: parsedData.estimatedDryingDuration || null,
+        estimatedDryingDuration: parsedData.estimatedDryingDuration || (parsedData.equipmentDeployment && Array.isArray(parsedData.equipmentDeployment) && parsedData.equipmentDeployment.length > 0 
+          ? Math.max(...parsedData.equipmentDeployment.map((eq: any) => eq.duration || 0))
+          : null),
+        totalEquipmentCost: parsedData.totalEquipmentCost || (parsedData.equipmentDeployment && Array.isArray(parsedData.equipmentDeployment) && parsedData.equipmentDeployment.length > 0
+          ? parsedData.equipmentDeployment.reduce((sum: number, eq: any) => sum + (typeof eq.totalCost === 'number' ? eq.totalCost : parseFloat(eq.totalCost) || 0), 0)
+          : null),
         
         // NIR Inspection Data
         nirData: {
@@ -370,7 +440,26 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
         moistureReadingsCount: extractedData.nirData?.moistureReadings?.length || 0,
         affectedAreasCount: extractedData.nirData?.affectedAreas?.length || 0,
         scopeAreasCount: extractedData.scopeAreas?.length || 0,
-        scopeItemsCount: extractedData.nirData?.scopeItems?.length || 0
+        scopeItemsCount: extractedData.nirData?.scopeItems?.length || 0,
+        // Equipment Deployment
+        equipmentDeploymentCount: extractedData.equipmentDeployment?.length || 0,
+        equipmentDeployment: extractedData.equipmentDeployment || [],
+        totalEquipmentCost: extractedData.totalEquipmentCost,
+        estimatedDryingDuration: extractedData.estimatedDryingDuration,
+        // Additional Contact Information
+        hasBuilderDeveloperCompanyName: !!extractedData.builderDeveloperCompanyName,
+        hasBuilderDeveloperContact: !!extractedData.builderDeveloperContact,
+        hasBuilderDeveloperAddress: !!extractedData.builderDeveloperAddress,
+        hasBuilderDeveloperPhone: !!extractedData.builderDeveloperPhone,
+        hasOwnerManagementContactName: !!extractedData.ownerManagementContactName,
+        hasOwnerManagementPhone: !!extractedData.ownerManagementPhone,
+        hasOwnerManagementEmail: !!extractedData.ownerManagementEmail,
+        // Previous Maintenance & Repair History
+        hasLastInspectionDate: !!extractedData.lastInspectionDate,
+        hasBuildingChangedSinceLastInspection: !!extractedData.buildingChangedSinceLastInspection,
+        hasStructureChangesSinceLastInspection: !!extractedData.structureChangesSinceLastInspection,
+        hasPreviousLeakage: !!extractedData.previousLeakage,
+        hasEmergencyRepairPerformed: !!extractedData.emergencyRepairPerformed
       })
 
       return NextResponse.json({

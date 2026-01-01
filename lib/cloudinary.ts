@@ -1,11 +1,27 @@
 import { v2 as cloudinary } from 'cloudinary'
 
+// Get Cloudinary credentials from environment variables
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+const apiKey = process.env.CLOUDINARY_API_KEY
+const apiSecret = process.env.CLOUDINARY_API_SECRET
+
+// Validate that all required credentials are present
+if (!cloudName || !apiKey || !apiSecret) {
+  console.error('[Cloudinary] ❌ Missing Cloudinary credentials in environment variables:')
+  console.error('  - CLOUDINARY_CLOUD_NAME:', cloudName ? '✅ Set' : '❌ Missing')
+  console.error('  - CLOUDINARY_API_KEY:', apiKey ? '✅ Set' : '❌ Missing')
+  console.error('  - CLOUDINARY_API_SECRET:', apiSecret ? '✅ Set' : '❌ Missing')
+  throw new Error('Cloudinary credentials are not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.')
+}
+
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: 'dnkn6bcad',
-  api_key: process.env.CLOUDINARY_API_KEY || '956572481469639',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'UcL6hB3Lzu4WHtaz8UlAkoQNZV0',
+  cloud_name: cloudName,
+  api_key: apiKey,
+  api_secret: apiSecret,
 })
+
+console.log('[Cloudinary] ✅ Configuration initialized with cloud_name:', cloudName)
 
 export { cloudinary }
 
@@ -49,9 +65,14 @@ export async function uploadImage(
 export async function deleteImage(publicId: string): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId)
-  } catch (error) {
-    console.error('Cloudinary delete error:', error)
-    throw new Error('Failed to delete image from Cloudinary')
+  } catch (error: any) {
+    console.error('[Cloudinary] ❌ Delete error:', {
+      message: error?.message,
+      http_code: error?.http_code,
+      name: error?.name,
+      error: error
+    })
+    throw new Error(`Failed to delete image from Cloudinary: ${error?.message || 'Unknown error'}`)
   }
 }
 
@@ -95,6 +116,31 @@ export async function uploadToCloudinary(
       ]
     })
 
+    // Console log the full Cloudinary response
+    console.log(`[Cloudinary] ✅ Upload successful:`, {
+      publicId: result.public_id,
+      secureUrl: result.secure_url,
+      url: result.url,
+      thumbnailUrl,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+      bytes: result.bytes,
+      folder: result.folder,
+      createdAt: result.created_at,
+      fullResponse: {
+        public_id: result.public_id,
+        secure_url: result.secure_url,
+        url: result.url,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+        bytes: result.bytes,
+        folder: result.folder,
+        created_at: result.created_at
+      }
+    })
+
     return {
       url: result.secure_url,
       thumbnailUrl,
@@ -103,9 +149,22 @@ export async function uploadToCloudinary(
       height: result.height,
       format: result.format,
     }
-  } catch (error) {
-    console.error('Cloudinary upload error:', error)
-    throw new Error('Failed to upload image to Cloudinary')
+  } catch (error: any) {
+    console.error('[Cloudinary] ❌ Upload error:', {
+      message: error?.message,
+      http_code: error?.http_code,
+      name: error?.name,
+      error: error
+    })
+    
+    // Provide more specific error messages
+    if (error?.http_code === 401) {
+      throw new Error(`Cloudinary authentication failed. Please check your CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables. Error: ${error?.message}`)
+    } else if (error?.http_code === 400) {
+      throw new Error(`Cloudinary upload failed: ${error?.message}`)
+    } else {
+      throw new Error(`Failed to upload image to Cloudinary: ${error?.message || 'Unknown error'}`)
+    }
   }
 }
 
