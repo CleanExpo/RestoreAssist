@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Download, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { FileText, Loader2, AlertCircle, CheckCircle, Printer } from "lucide-react"
 import toast from "react-hot-toast"
 import VisualScopeOfWorksViewer from "./VisualScopeOfWorksViewer"
+import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
 
 interface ScopeOfWorksViewerProps {
   reportId: string
@@ -135,7 +136,7 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
   }
 
   // Convert scope data to visual format
-  const convertToVisualScopeData = (data: any, businessInfoData: any): any => {
+  const convertToVisualScopeData = (data: any, businessInfoData: any, reportData?: any): any => {
     if (!data) return null
 
     // Parse phases from document or build from data
@@ -277,6 +278,19 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
         claimReference: data.claimReference || report?.claimReferenceNumber || 'Reference',
         version: data.version || '1.0'
       },
+      property: {
+        clientName: reportData?.clientName || null,
+        clientCompany: reportData?.client?.company || null,
+        propertyAddress: reportData?.propertyAddress || null,
+        propertyPostcode: reportData?.propertyPostcode || null,
+        propertyId: reportData?.propertyId || null,
+        jobNumber: reportData?.jobNumber || null
+      },
+      incident: {
+        technicianName: reportData?.technicianName || null,
+        technicianAttendanceDate: reportData?.technicianAttendanceDate || null,
+        claimReferenceNumber: reportData?.claimReferenceNumber || null
+      },
       phases,
       lineItems: formattedLineItems,
       licensedTrades: formattedLicensedTrades,
@@ -290,41 +304,6 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
     }
   }
 
-  const handleDownload = async () => {
-    if (!scopeDocument) {
-      toast.error('No scope document to download')
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/reports/${reportId}/download-scope`)
-      
-      if (!response.ok) {
-        const error = await response.json()
-        toast.error(error.error || 'Failed to download PDF')
-        return
-      }
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      
-      // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition')
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
-      const filename = filenameMatch ? filenameMatch[1] : `Scope-of-Works-${reportId}.pdf`
-      
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success('Scope of Works PDF downloaded')
-    } catch (error) {
-      toast.error('Failed to download PDF')
-    }
-  }
 
   if (loading) {
     return (
@@ -332,6 +311,10 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
         <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
       </div>
     )
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   return (
@@ -344,8 +327,19 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
             Scope of Works
           </h2>
           <p className="text-slate-400">
-            {scopeDocument ? 'View and download your generated scope of works document' : 'Generate your comprehensive scope of works document'}
+            {scopeDocument ? 'View your generated scope of works document' : 'Generate your comprehensive scope of works document'}
           </p>
+        </div>
+        <div className="flex gap-2">
+          {scopeDocument && (
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+            >
+              <Printer className="w-4 h-4" />
+              Print Report
+            </button>
+          )}
         </div>
       </div>
 
@@ -384,25 +378,139 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
 
       {/* Scope Document Content */}
       {scopeDocument && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <p className="text-green-400 font-medium">Scope of Works Generated Successfully</p>
-            </div>
-          </div>
+        <>
+          {/* Print Styles - EXACT COPY from InspectionReportViewer */}
+          <style dangerouslySetInnerHTML={{__html: `
+        @media print {
 
-          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
-            {scopeData ? (
-              <VisualScopeOfWorksViewer data={convertToVisualScopeData(scopeData, businessInfo)} />
-            ) : (
-              <div className="p-6 text-slate-400">No scope data available</div>
-            )}
+  /* Force real A4 page */
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+    /* Disable browser headers and footers (URL, page numbers, etc.) */
+    marks: none;
+  }
+
+  /* Hide any browser-added URLs or page info */
+  body::after,
+  body::before,
+  html::after,
+  html::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  html, body {
+    width: 210mm;
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Kill everything except report */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #scope-of-works-print-content,
+  #scope-of-works-print-content * {
+    visibility: visible !important;
+  }
+
+  /* Absolute positioning to top-left */
+  #scope-of-works-print-content {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Remove screen layout limits */
+  .max-w-8xl,
+  .mx-auto,
+  .p-8,
+  .print\\:p-0 {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove sticky headers */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Clean typography */
+  h1 {
+    font-size: 24pt !important;
+    line-height: 1.2 !important;
+    margin-bottom: 10mm !important;
+  }
+
+  h2 {
+    font-size: 16pt !important;
+    margin-top: 8mm !important;
+  }
+
+  p, li, td {
+    font-size: 10.5pt !important;
+  }
+
+  /* Tables behave professionally */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Page control */
+  .print-break {
+    page-break-after: always !important;
+  }
+
+  /* Remove shadows & UI fluff */
+  * {
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+
+}
+
+          `}} />
+          
+          <div id="scope-of-works-print-content" className="bg-white text-slate-900 print-content">
+            <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10 print:hidden">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <p className="text-green-400 font-medium">Scope of Works Generated Successfully</p>
+              </div>
+            </div>
+
+            <div className="w-full p-0 px-4 space-y-8">
+              {scopeData ? (
+                <VisualScopeOfWorksViewer data={convertToVisualScopeData(scopeData, businessInfo, report)} />
+              ) : scopeDocument ? (
+                <ProfessionalDocumentViewer content={scopeDocument} />
+              ) : (
+                <div className="p-6 text-slate-400">No scope data available</div>
+              )}
+            </div>
           </div>
 
           {/* Scope Data Summary */}
           {scopeData && (
-            <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 print:hidden">
               <h3 className="text-sm font-semibold mb-2">Scope Summary</h3>
               <div className="grid md:grid-cols-3 gap-2 text-sm">
                 <div>
@@ -420,7 +528,7 @@ export default function ScopeOfWorksViewer({ reportId, onScopeGenerated }: Scope
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )

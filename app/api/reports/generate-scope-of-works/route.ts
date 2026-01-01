@@ -201,7 +201,7 @@ function buildScopeOfWorksData(data: {
   // Extract key information
   const waterCategory = tier1?.T1_Q3_waterSource 
     ? extractWaterCategory(tier1.T1_Q3_waterSource)
-    : 'Category 1'
+    : (report.waterCategory || analysis?.waterCategory || 'Category 1')
   
   const materials = tier1?.T1_Q6_materialsAffected || []
   const hasYellowTongue = materials.some((m: string) => m.includes('Yellow tongue'))
@@ -221,6 +221,11 @@ function buildScopeOfWorksData(data: {
   const needsPlumber = tier1?.T1_Q3_waterSource?.includes('pipe') || tier1?.T1_Q3_waterSource?.includes('toilet')
   
   const affectedArea = tier3?.T3_Q4_totalAffectedArea || 'Not specified'
+  
+  // Calculate affected area in sqm (no default - only use if provided)
+  const areaMatch = affectedArea.match(/(\d+)\s*sqm/i) || affectedArea.match(/=\s*(\d+)/)
+  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 
+                         (report.affectedArea ? parseFloat(String(report.affectedArea)) : 0)
   
   // Use actual equipment selection data if available, otherwise use 0 (no defaults)
   const equipmentSelections = Array.isArray(equipmentSelection) ? equipmentSelection : []
@@ -242,12 +247,16 @@ function buildScopeOfWorksData(data: {
     }
   })
   
-  // Use actual drying duration from report if available, otherwise calculate
-  const dryingDuration = report.estimatedDryingDuration || (needsClass4 ? 14 : 7)
-  
-  // Calculate affected area in sqm (no default - only use if provided)
-  const areaMatch = affectedArea.match(/(\d+)\s*sqm/i) || affectedArea.match(/=\s*(\d+)/)
-  const affectedAreaSqm = areaMatch ? parseFloat(areaMatch[1]) : 0
+  // Use actual drying duration from report if available, otherwise calculate based on data
+  const dryingDuration = report.estimatedDryingDuration || 
+                        analysis?.estimatedDryingDuration || 
+                        (tier3?.T3_Q2_dryingPreferences ? parseInt(tier3.T3_Q2_dryingPreferences.match(/(\d+)\s*days?/i)?.[1] || '0') : null) ||
+                        (needsClass4 ? 14 : (affectedAreaSqm > 50 ? 10 : 7))
+
+  // Calculate extraction hours based on affected area or use from analysis
+  // Standard: 1 hour per 25 sqm, minimum 2 hours, maximum 8 hours
+  const extractionHours = analysis?.extractionHours || 
+                         (affectedAreaSqm > 0 ? Math.max(2, Math.min(8, Math.ceil(affectedAreaSqm / 25))) : 4)
 
   // Build line items
   const lineItems = [
@@ -262,10 +271,10 @@ function buildScopeOfWorksData(data: {
     {
       id: 'RW_2',
       description: 'Standing Water Extraction (Truck-Mounted Unit)',
-      qty: 4, // Default hours
+      qty: extractionHours,
       unit: 'Hour',
       rate: rates.extractionTruckMountedHourlyRate,
-      subtotal: 4 * rates.extractionTruckMountedHourlyRate
+      subtotal: extractionHours * rates.extractionTruckMountedHourlyRate
     },
     {
       id: 'RW_3',
@@ -316,15 +325,18 @@ function buildScopeOfWorksData(data: {
     {
       id: 'RW_4',
       description: 'Moisture Assessment & Thermal Imaging',
-      qty: 3,
-      unit: 'Assessment (Days 0, 3, 7)',
+      qty: dryingDuration >= 7 ? 3 : (dryingDuration >= 4 ? 2 : 1), // Standard: 3 assessments for 7+ days, 2 for 4-6 days, 1 for shorter
+      unit: dryingDuration >= 7 ? 'Assessment (Days 0, 3, 7)' : (dryingDuration >= 4 ? 'Assessment (Days 0, Final)' : 'Assessment (Day 0)'),
       labour: {
-        masterQualified: { hours: 3, rate: rates.masterQualifiedNormalHours }
+        masterQualified: { hours: dryingDuration >= 7 ? 3 : (dryingDuration >= 4 ? 2 : 1), rate: rates.masterQualifiedNormalHours }
       },
       equipment: {
-        thermalCamera: { qty: 3, rate: rates.thermalCameraUseCostPerAssessment }
+        thermalCamera: { qty: dryingDuration >= 7 ? 3 : (dryingDuration >= 4 ? 2 : 1), rate: rates.thermalCameraUseCostPerAssessment }
       },
-      subtotal: (3 * rates.masterQualifiedNormalHours) + (3 * rates.thermalCameraUseCostPerAssessment)
+      subtotal: (() => {
+        const assessmentCount = dryingDuration >= 7 ? 3 : (dryingDuration >= 4 ? 2 : 1)
+        return (assessmentCount * rates.masterQualifiedNormalHours) + (assessmentCount * rates.thermalCameraUseCostPerAssessment)
+      })()
     },
     {
       id: 'RW_5',
@@ -356,8 +368,12 @@ function buildScopeOfWorksData(data: {
     })
   }
 
-  // Chemical treatment
-  const chemicalType = tier3?.T3_Q3_chemicalTreatment || 'Standard antimicrobial treatment'
+  // Chemical treatment - use actual data from tier3, analysis, or report
+  const chemicalType = tier3?.T3_Q3_chemicalTreatment || 
+                      analysis?.chemicalTreatment || 
+                      (hasMould ? 'Mould remediation treatment' : 
+                       hasBiohazard ? 'Biohazard treatment' : 
+                       'Standard antimicrobial treatment')
   let chemicalRate = rates.antimicrobialTreatmentRate
   if (chemicalType.includes('mould')) {
     chemicalRate = rates.mouldRemediationTreatmentRate
