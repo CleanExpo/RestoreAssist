@@ -34,11 +34,12 @@ interface ReportWorkflowProps {
 
 export default function ReportWorkflow({ reportId: initialReportId, onComplete, initialFormData }: ReportWorkflowProps) {
   const router = useRouter()
-  const [currentStage, setCurrentStage] = useState<WorkflowStage>(initialReportId ? 'analysis-choice' : 'initial-entry')
+  const [currentStage, setCurrentStage] = useState<WorkflowStage>(initialReportId ? 'report-generation' : 'initial-entry')
   const [reportId, setReportId] = useState<string | null>(initialReportId || null)
-  const [reportType, setReportType] = useState<'basic' | 'enhanced' | null>(null)
+  const [reportType, setReportType] = useState<'basic' | 'enhanced' | 'optimised' | null>(null)
   const [showTier3, setShowTier3] = useState(false)
   const [loading, setLoading] = useState(!!initialReportId)
+  const [report, setReport] = useState<any>(null)
 
   // Load report data and determine current stage
   useEffect(() => {
@@ -47,32 +48,58 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
     }
   }, [initialReportId])
 
+  // Fetch report data when in report-generation stage to check Tier 3 completion
+  useEffect(() => {
+    if (currentStage === 'report-generation' && reportId) {
+      // Always refresh report data when entering report-generation stage
+      loadReportState(reportId)
+    }
+  }, [currentStage, reportId])
+
   const loadReportState = async (id: string) => {
     try {
       setLoading(true)
       const response = await fetch(`/api/reports/${id}`)
       if (response.ok) {
-        const report = await response.json()
+        const reportData = await response.json()
+        setReport(reportData)
         
         // Determine report type
-        if (report.reportDepthLevel) {
-          setReportType(report.reportDepthLevel.toLowerCase() as 'basic' | 'enhanced')
+        if (reportData.reportDepthLevel) {
+          const depthLevel = reportData.reportDepthLevel.toLowerCase()
+          if (depthLevel === 'optimised' || depthLevel === 'optimized') {
+            setReportType('optimised')
+            // Only show Tier 3 option if not already completed
+            if (!reportData.tier3Responses) {
+              setShowTier3(true)
+            } else {
+              setShowTier3(false)
+            }
+          } else {
+            setReportType(depthLevel as 'basic' | 'enhanced')
+          }
         }
         
         // Determine current stage based on what data exists
-        if (report.detailedReport) {
+        if (reportData.detailedReport) {
           setCurrentStage('report-generation')
-        } else if (report.tier3Responses) {
+        } else if (reportData.tier3Responses) {
           setCurrentStage('report-generation')
-          setShowTier3(true)
-        } else if (report.tier2Responses) {
+          setShowTier3(false) // Tier 3 is completed, hide the banner
+        } else if (reportData.tier2Responses) {
           setCurrentStage('report-generation')
-          setShowTier3(true)
-        } else if (report.tier1Responses) {
+          // Only show Tier 3 option if not already completed and report type is optimised
+          const depthLevel = reportData.reportDepthLevel?.toLowerCase()
+          if (!reportData.tier3Responses && (depthLevel === 'optimised' || depthLevel === 'optimized')) {
+            setShowTier3(true)
+          } else {
+            setShowTier3(false)
+          }
+        } else if (reportData.tier1Responses) {
           setCurrentStage('tier2')
-        } else if (report.technicianReportAnalysis || report.reportDepthLevel) {
+        } else if (reportData.technicianReportAnalysis || reportData.reportDepthLevel) {
           setCurrentStage('tier1')
-        } else if (report.technicianFieldReport) {
+        } else if (reportData.technicianFieldReport) {
           setCurrentStage('initial-entry')
         } else {
           setCurrentStage('initial-entry')
@@ -90,21 +117,25 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
     }
   }
 
-  const handleInitialEntryComplete = (newReportId: string, reportType?: 'basic' | 'enhanced' | 'nir') => {
+  const handleInitialEntryComplete = (newReportId: string, reportType?: 'basic' | 'enhanced' | 'optimised') => {
     setReportId(newReportId)
     // Store in localStorage for persistence
     if (typeof window !== 'undefined') {
       localStorage.setItem('currentReportId', newReportId)
-  }
+    }
 
     if (reportType) {
       setReportType(reportType)
       if (reportType === 'basic') {
-      // Skip to report generation for basic reports
-      setCurrentStage('report-generation')
-    } else {
-      // Go to Tier 1 for enhanced reports
-      setCurrentStage('tier1')
+        // Skip to report generation for basic reports
+        setCurrentStage('report-generation')
+      } else if (reportType === 'enhanced') {
+        // Go to Tier 1 for enhanced reports
+        setCurrentStage('tier1')
+      } else if (reportType === 'optimised') {
+        // Go to Tier 1 for optimised reports (will continue through all tiers)
+        setCurrentStage('tier1')
+        setShowTier3(true) // Optimised always includes Tier 3
       }
     } else {
       // If no report type selected yet, wait for user to select (handled in form)
@@ -114,14 +145,47 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
   }
 
   const handleTier1Complete = () => {
+    if (reportType === 'optimised') {
+      // Optimised always goes through Tier 2 and Tier 3
+      setCurrentStage('tier2')
+    } else if (reportType === 'enhanced') {
+      // Enhanced: Show options to generate Enhanced report or continue to Tier 2
+      // Don't automatically move - wait for user choice
+      // The Tier1Questions component will handle showing the options
+    }
+  }
+
+  const handleTier1GenerateEnhanced = () => {
+    // User chose to generate Enhanced report after Tier 1
+    setCurrentStage('report-generation')
+  }
+
+  const handleTier1ContinueToTier2 = () => {
+    // User chose to continue to Tier 2
     setCurrentStage('tier2')
   }
 
   const handleTier2Complete = () => {
-    // Offer Tier 3 or go to report generation
-    setShowTier3(true)
-    // Move to report generation stage where Tier 3 option will be shown
+    if (reportType === 'optimised') {
+      // Optimised always goes to Tier 3
+      setCurrentStage('tier3')
+    } else if (reportType === 'enhanced') {
+      // Enhanced: Show options to generate Optimised report or continue to Tier 3
+      // Don't automatically move - wait for user choice
+      // The Tier2Questions component will handle showing the options
+    }
+  }
+
+  const handleTier2GenerateOptimised = () => {
+    // User chose to generate Optimised report after Tier 2
+    setReportType('optimised')
     setCurrentStage('report-generation')
+  }
+
+  const handleTier2ContinueToTier3 = () => {
+    // User chose to continue to Tier 3
+    setShowTier3(true)
+    setCurrentStage('tier3')
   }
 
   const handleTier2Skip = () => {
@@ -136,7 +200,11 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
     setCurrentStage('report-generation')
   }
 
-  const handleTier3Complete = () => {
+  const handleTier3Complete = async () => {
+    // Refresh report data to check if Tier 3 is completed
+    if (reportId) {
+      await loadReportState(reportId)
+    }
     setCurrentStage('report-generation')
   }
 
@@ -160,7 +228,9 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
 
   const visibleStages = reportType === 'basic' 
     ? stages.filter(s => s.id === 'initial-entry' || s.id === 'report-generation')
-    : stages
+    : reportType === 'enhanced'
+    ? stages.filter(s => s.id !== 'tier3' || showTier3)
+    : stages // optimised shows all stages
 
   if (loading) {
     return (
@@ -220,6 +290,9 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
         <Tier1Questions 
           reportId={reportId}
           onComplete={handleTier1Complete}
+          onGenerateEnhanced={handleTier1GenerateEnhanced}
+          onContinueToTier2={handleTier1ContinueToTier2}
+          reportType={reportType || undefined}
         />
       )}
 
@@ -228,6 +301,9 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
           reportId={reportId}
           onComplete={handleTier2Complete}
           onSkip={handleTier2Skip}
+          onGenerateOptimised={handleTier2GenerateOptimised}
+          onContinueToTier3={handleTier2ContinueToTier3}
+          reportType={reportType || undefined}
         />
       )}
 
@@ -240,7 +316,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
 
       {currentStage === 'report-generation' && reportId && (
         <div className="space-y-6">
-          {showTier3 && currentStage === 'report-generation' && (
+          {showTier3 && currentStage === 'report-generation' && !report?.tier3Responses && (
             <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
               <div className="flex items-center justify-between">
                 <div>

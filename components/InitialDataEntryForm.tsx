@@ -19,7 +19,6 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  Camera,
   X,
   Plus,
   Zap,
@@ -29,9 +28,9 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import {
-  calculateDryingPotential,
-  calculateWaterRemovalTarget,
+import { 
+  calculateDryingPotential, 
+  calculateWaterRemovalTarget, 
   calculateAirMoversRequired,
   calculateTotalVolume,
   type PsychrometricData,
@@ -112,6 +111,14 @@ interface InitialDataEntryFormProps {
     }>;
     equipmentMentioned?: string[];
     estimatedDryingDuration?: number;
+    equipmentDeployment?: Array<{
+      equipmentName: string;
+      quantity: number;
+      dailyRate: number;
+      duration: number;
+      totalCost: number;
+    }>;
+    totalEquipmentCost?: number;
     // NIR Inspection Data
     nirData?: {
       moistureReadings?: Array<{
@@ -134,24 +141,24 @@ interface InitialDataEntryFormProps {
 // Helper function to normalize date strings to YYYY-MM-DD format
 function normalizeDate(dateStr: string): string {
   if (!dateStr) return "";
-
+  
   // If already in YYYY-MM-DD format, return as is
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return dateStr;
   }
-
+  
   // Try to parse various date formats
   const formats = [
     /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/, // DD/MM/YYYY or DD-MM-YYYY
     /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/, // YYYY/MM/DD or YYYY-MM-DD
     /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})/, // DD/MM/YY or DD-MM-YY
   ];
-
+  
   for (const format of formats) {
     const match = dateStr.match(format);
     if (match) {
       let year, month, day;
-
+      
       if (match[3].length === 4) {
         // Full year
         if (format === formats[0]) {
@@ -176,7 +183,7 @@ function normalizeDate(dateStr: string): string {
       return `${year}-${month}-${day}`;
     }
   }
-
+  
   // If we can't parse it, try using Date object
   try {
     const date = new Date(dateStr);
@@ -186,7 +193,7 @@ function normalizeDate(dateStr: string): string {
   } catch (e) {
     // Ignore parsing errors
   }
-
+  
   return "";
 }
 
@@ -260,14 +267,12 @@ export default function InitialDataEntryForm({
     }
   }, [initialReportId]);
 
-  // Analysis State
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [showAnalysisChoice, setShowAnalysisChoice] = useState(false);
+  // Report Type Selection State
+  const [showReportTypeSelection, setShowReportTypeSelection] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<
-    "basic" | "enhanced" | null
+    "basic" | "enhanced" | "optimised" | null
   >(null);
-
+  
   // Equipment: Psychrometric Assessment
   const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(
     (initialData?.psychrometricWaterClass as 1 | 2 | 3 | 4) || 2
@@ -281,7 +286,7 @@ export default function InitialDataEntryForm({
   const [systemType, setSystemType] = useState<"open" | "closed">(
     initialData?.psychrometricSystemType || "closed"
   );
-
+  
   // Equipment: Scope Areas
   interface ScopeArea {
     id: string;
@@ -311,7 +316,7 @@ export default function InitialDataEntryForm({
     height: 2.7,
     wetPercentage: 100,
   });
-
+  
   // Equipment: Equipment Selection
   const [equipmentSelections, setEquipmentSelections] = useState<
     EquipmentSelection[]
@@ -365,21 +370,7 @@ export default function InitialDataEntryForm({
   const [nirSelectedScopeItems, setNirSelectedScopeItems] = useState<
     Set<string>
   >(new Set());
-  // Photo categorization system (6 categories)
-  const PHOTO_CATEGORIES = [
-    { id: "site_damage", label: "Site & Damage Photography", max: 15, description: "Damage assessment, technical findings, evidence" },
-    { id: "measurement", label: "Measurement & Instrumentation", max: 8, description: "Moisture meters, hygrometers, psychrometric readings" },
-    { id: "floor_plans", label: "Floor Plans & Zone Maps", max: 6, description: "Affected areas, water migration, equipment placement" },
-    { id: "safety_compliance", label: "Safety & Compliance Visuals", max: 5, description: "WHS, PPE, electrical isolation, signage" },
-    { id: "process_timeline", label: "Process & Timeline Visuals", max: 5, description: "Timeline diagrams, drying progression, decision gates" },
-    { id: "explanatory", label: "Explanatory/Educational Visuals", max: 6, description: "Cross-sections, moisture migration diagrams" },
-  ];
-
-  const [nirPhotos, setNirPhotos] = useState<Array<{
-    file: File;
-    category: string;
-    description?: string;
-  }>>([]);
+  // Photos are now only in Optimised flow (Tier 3), not in initial data entry
 
   // Surface types for NIR
   const SURFACE_TYPES = [
@@ -708,8 +699,88 @@ export default function InitialDataEntryForm({
         setDurationDays(initialData.estimatedDryingDuration);
         console.log('[InitialDataEntryForm] Set drying duration from initialData:', initialData.estimatedDryingDuration);
       }
+      
+      // Populate equipment from extracted equipment deployment data (from PDF)
+      if (initialData.equipmentDeployment && Array.isArray(initialData.equipmentDeployment) && initialData.equipmentDeployment.length > 0) {
+        console.log('[InitialDataEntryForm] Setting equipment from PDF extraction:', initialData.equipmentDeployment);
+        
+        // Map extracted equipment to equipment selections
+        // We need to match equipment names to equipment group IDs
+        const equipmentSelectionsFromPDF: EquipmentSelection[] = [];
+        
+        initialData.equipmentDeployment.forEach((eq: any) => {
+          // Try to match equipment name to equipment group
+          // Look for patterns like "55L/Day", "800 CFM", "LGR", "Desiccant", "Air Mover"
+          const eqName = (eq.equipmentName || '').toLowerCase();
+          let matchedGroupId: string | null = null;
+          
+          // Match dehumidifiers by capacity (e.g., "55L/Day" -> look for 55L capacity)
+          if (eqName.includes('l/day') || eqName.includes('lgr') || eqName.includes('dehumidifier')) {
+            const capacityMatch = eqName.match(/(\d+)\s*l/);
+            if (capacityMatch) {
+              const capacity = parseInt(capacityMatch[1]);
+              // Find matching LGR group by capacity
+              const matchingGroup = lgrDehumidifiers.find(g => {
+                const groupCapacity = g.capacity.match(/(\d+)/);
+                return groupCapacity && parseInt(groupCapacity[1]) === capacity;
+              });
+              if (matchingGroup) {
+                matchedGroupId = matchingGroup.id;
+              }
+            }
+            // If no exact match, use first LGR as fallback
+            if (!matchedGroupId && lgrDehumidifiers.length > 0) {
+              matchedGroupId = lgrDehumidifiers[0].id;
+            }
+          }
+          // Match air movers by CFM (e.g., "800 CFM" -> look for 800 CFM airflow)
+          else if (eqName.includes('cfm') || eqName.includes('air mover') || eqName.includes('fan')) {
+            const cfmMatch = eqName.match(/(\d+)\s*cfm/);
+            if (cfmMatch) {
+              const cfm = parseInt(cfmMatch[1]);
+              // Find matching air mover by airflow
+              const matchingGroup = airMovers.find(g => {
+                return g.airflow && Math.abs(g.airflow - cfm) < 100; // Allow 100 CFM tolerance
+              });
+              if (matchingGroup) {
+                matchedGroupId = matchingGroup.id;
+              }
+            }
+            // If no exact match, use first air mover as fallback
+            if (!matchedGroupId && airMovers.length > 0) {
+              matchedGroupId = airMovers[0].id;
+            }
+          }
+          // Match desiccant dehumidifiers
+          else if (eqName.includes('desiccant')) {
+            if (desiccantDehumidifiers.length > 0) {
+              matchedGroupId = desiccantDehumidifiers[0].id;
+            }
+          }
+          
+          if (matchedGroupId && pricingConfig) {
+            const dailyRate = eq.dailyRate || getEquipmentDailyRate(matchedGroupId, pricingConfig);
+            equipmentSelectionsFromPDF.push({
+              groupId: matchedGroupId,
+              quantity: eq.quantity || 1,
+              dailyRate: dailyRate
+            });
+            
+            // Use duration from equipment deployment if available
+            if (eq.duration && eq.duration > 0) {
+              setDurationDays(eq.duration);
+            }
+          }
+        });
+        
+        if (equipmentSelectionsFromPDF.length > 0) {
+          console.log('[InitialDataEntryForm] Setting equipment selections from PDF:', equipmentSelectionsFromPDF);
+          setEquipmentSelections(equipmentSelectionsFromPDF);
+          hasAutoSelectedEquipment.current = true; // Prevent auto-selection when using PDF data
+        }
+      }
     }
-  }, [initialData]);
+  }, [initialData, pricingConfig]);
 
   // Auto-select equipment when areas are set and pricing config is loaded
   useEffect(() => {
@@ -720,10 +791,10 @@ export default function InitialDataEntryForm({
     // 4. We haven't already auto-selected equipment
     const areasToUse = areas.length > 0 ? areas : (initialData?.scopeAreas?.map((area, index) => ({
       id: `temp-area-${index}`,
-      name: area.name,
-      length: area.length,
-      width: area.width,
-      height: area.height,
+          name: area.name,
+          length: area.length,
+          width: area.width,
+          height: area.height,
       wetPercentage: area.wetPercentage,
     })) || []);
 
@@ -737,7 +808,8 @@ export default function InitialDataEntryForm({
       waterClassToUse &&
       tempToUse !== undefined &&
       humidityToUse !== undefined &&
-      !hasAutoSelectedEquipment.current;
+      !hasAutoSelectedEquipment.current &&
+      !(initialData?.equipmentDeployment && initialData.equipmentDeployment.length > 0); // Don't auto-select if PDF has equipment data
 
     console.log('[InitialDataEntryForm] Auto-selection check:', {
       hasPricingConfig: !!pricingConfig,
@@ -883,7 +955,7 @@ export default function InitialDataEntryForm({
     durationDays,
     pricingConfig
   );
-
+  
   const totalEquipmentCapacity = equipmentSelections.reduce((total, sel) => {
     const group = getEquipmentGroupById(sel.groupId);
     if (
@@ -897,7 +969,7 @@ export default function InitialDataEntryForm({
     }
     return total;
   }, 0);
-
+  
   const totalAirflow = equipmentSelections.reduce((total, sel) => {
     const group = getEquipmentGroupById(sel.groupId);
     if (group && group.airflow) {
@@ -926,12 +998,12 @@ export default function InitialDataEntryForm({
     });
     toast.success("Area added");
   };
-
+  
   const handleRemoveArea = (id: string) => {
     setAreas(areas.filter((a) => a.id !== id));
     toast.success("Area removed");
   };
-
+  
   const handleEquipmentQuantityChange = (groupId: string, delta: number) => {
     setEquipmentSelections((prev) => {
       const existing = prev.find((s) => s.groupId === groupId);
@@ -951,8 +1023,8 @@ export default function InitialDataEntryForm({
         return [
           ...prev,
           {
-            groupId,
-            quantity: 1,
+          groupId,
+          quantity: 1,
             dailyRate: rate,
           },
         ];
@@ -960,7 +1032,7 @@ export default function InitialDataEntryForm({
       return prev;
     });
   };
-
+  
   const handleAutoSelect = () => {
     const selections: EquipmentSelection[] = [];
     let remainingCapacity = waterRemovalTarget;
@@ -1010,56 +1082,27 @@ export default function InitialDataEntryForm({
     toast.success("Equipment auto-selected based on targets");
   };
 
-  // Analysis Helper Functions
-  const triggerAnalysis = async (reportId: string) => {
-    setAnalyzing(true);
-    try {
-      const response = await fetch("/api/reports/analyze-technician-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.analysis) {
-          setAnalysis(data.analysis);
-          setShowAnalysisChoice(true);
-          toast.success("Report analysed successfully");
-        } else {
-          toast.error("Failed to parse analysis response");
-        }
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to analyse report");
-      }
-    } catch (error) {
-      console.error("Error analyzing report:", error);
-      toast.error("Failed to analyse report");
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handleReportTypeChoice = async (choice: "basic" | "enhanced") => {
+  const handleReportTypeChoice = async (choice: "basic" | "enhanced" | "optimised") => {
     if (!reportId) return;
 
     setLoading(true);
     try {
       // Update report with reportDepthLevel
+      const reportDepthLevel = choice === "basic" ? "Basic" : choice === "enhanced" ? "Enhanced" : "Optimised";
       const response = await fetch(`/api/reports/${reportId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reportDepthLevel: choice === "basic" ? "Basic" : "Enhanced",
+          reportDepthLevel,
         }),
       });
 
       if (response.ok) {
         setSelectedReportType(choice);
+        setShowReportTypeSelection(false);
         toast.success(`Report type set to ${choice}`);
         if (onSuccess) {
-          onSuccess(reportId, choice);
+          onSuccess(reportId, choice === "optimised" ? "enhanced" : choice);
         }
       } else {
         const error = await response.json();
@@ -1104,6 +1147,56 @@ export default function InitialDataEntryForm({
     }
 
     try {
+      // Prepare NIR data
+      const nirData = {
+        moistureReadings: nirMoistureReadings.length > 0 ? nirMoistureReadings.map(r => ({
+          location: r.location,
+          surfaceType: r.surfaceType,
+          moistureLevel: r.moistureLevel,
+          depth: r.depth
+        })) : [],
+        affectedAreas: nirAffectedAreas.length > 0 ? nirAffectedAreas.map(a => ({
+          roomZoneId: a.roomZoneId,
+          affectedSquareFootage: a.affectedSquareFootage,
+          waterSource: a.waterSource,
+          timeSinceLoss: a.timeSinceLoss
+        })) : [],
+        scopeItems: Array.from(nirSelectedScopeItems).map((itemId) => {
+          const item = SCOPE_ITEM_TYPES.find((i) => i.id === itemId);
+          return {
+            itemType: itemId,
+            description: item?.label || itemId,
+            autoDetermined: false,
+            isSelected: true
+          };
+        }),
+        photos: [] // Photos are only in Tier 3, not initial entry
+      };
+
+      // Prepare equipment data
+      const equipmentData = (areas.length > 0 || equipmentSelections.length > 0) ? {
+        psychrometricAssessment: {
+              waterClass,
+              temperature,
+              humidity,
+              systemType,
+          dryingPotential,
+        },
+              scopeAreas: areas,
+              equipmentSelection: equipmentSelections,
+              equipmentCostTotal: totalCost,
+              estimatedDryingDuration: durationDays,
+              metrics: {
+                totalVolume,
+                totalAffectedArea,
+                waterRemovalTarget,
+                airMoversRequired,
+                totalAmps,
+          totalDailyCost,
+        },
+      } : null;
+
+      // Single API call to save all data
       const response = await fetch("/api/reports/initial-entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1118,6 +1211,10 @@ export default function InitialDataEntryForm({
           lastInspectionDate: formData.lastInspectionDate
             ? new Date(formData.lastInspectionDate).toISOString()
             : null,
+          // Include NIR data if provided
+          nirData: (nirData.moistureReadings.length > 0 || nirData.affectedAreas.length > 0 || nirData.scopeItems.length > 0) ? nirData : null,
+          // Include equipment data if provided
+          equipmentData: equipmentData,
         }),
       });
 
@@ -1125,146 +1222,19 @@ export default function InitialDataEntryForm({
         const data = await response.json();
         const newReportId = data.report.id;
         setReportId(newReportId);
-        toast.success("Initial data saved successfully");
+        toast.success("All data saved successfully");
 
-        // Save NIR data if provided (available for all report types)
-        if (
-          nirMoistureReadings.length > 0 ||
-          nirAffectedAreas.length > 0 ||
-          nirPhotos.length > 0
-        ) {
-          try {
-            await handleNIRDataSave(newReportId);
-          } catch (error) {
-            console.error("Error saving NIR data:", error);
-            // Don't fail the submission if NIR data save fails
-          }
-        }
-
-        // Save equipment data if provided
-        if (areas.length > 0 || equipmentSelections.length > 0) {
-          try {
-            const psychrometricAssessment = {
-              waterClass,
-              temperature,
-              humidity,
-              systemType,
-              dryingPotential,
-            };
-
-            const equipmentData = {
-              psychrometricAssessment,
-              scopeAreas: areas,
-              equipmentSelection: equipmentSelections,
-              equipmentCostTotal: totalCost,
-              estimatedDryingDuration: durationDays,
-              metrics: {
-                totalVolume,
-                totalAffectedArea,
-                waterRemovalTarget,
-                airMoversRequired,
-                totalAmps,
-                totalDailyCost,
-              },
-            };
-
-            const equipmentResponse = await fetch(
-              `/api/reports/${newReportId}/equipment`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(equipmentData),
-              }
-            );
-
-            if (equipmentResponse.ok) {
-              toast.success("Equipment data saved successfully");
+        // Show report type selection UI
+        setShowReportTypeSelection(true);
             } else {
-              console.error("Failed to save equipment data");
+        const error = await response.json();
+        toast.error(error.error || "Failed to save data");
             }
           } catch (error) {
-            console.error("Error saving equipment data:", error);
-          }
-        }
-
-        // Trigger analysis (only if report type not yet selected)
-        if (!selectedReportType) {
-          await triggerAnalysis(newReportId);
-        } else {
-          // Report type already selected, complete workflow
-          if (onSuccess) {
-            onSuccess(newReportId, selectedReportType);
-          }
-        }
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to save initial data");
-      }
-    } catch (error) {
-      console.error("Error saving initial data:", error);
-      toast.error("Failed to save initial data");
+      console.error("Error saving data:", error);
+      toast.error("Failed to save data");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Save NIR data (available for all report types)
-  const handleNIRDataSave = async (reportId: string) => {
-    try {
-      // Prepare scope items data
-      const scopeItems = Array.from(nirSelectedScopeItems).map((itemId) => {
-        const item = SCOPE_ITEM_TYPES.find((i) => i.id === itemId);
-        return {
-          itemType: itemId,
-          description: item?.label || itemId,
-          autoDetermined: false,
-          isSelected: true
-        };
-      });
-
-      // Create FormData to send files and JSON data
-      const formDataToSend = new FormData();
-      formDataToSend.append("moistureReadings", JSON.stringify(nirMoistureReadings));
-      formDataToSend.append("affectedAreas", JSON.stringify(nirAffectedAreas));
-      formDataToSend.append("scopeItems", JSON.stringify(scopeItems));
-      
-      // Append photos with category metadata
-      nirPhotos.forEach((photo) => {
-        formDataToSend.append("photos", photo.file);
-        // Store category in a separate field for each photo
-        formDataToSend.append(`photoCategory_${photo.file.name}`, photo.category);
-        if (photo.description) {
-          formDataToSend.append(`photoDescription_${photo.file.name}`, photo.description);
-        }
-      });
-      
-      // Also send photo categories summary as JSON
-      const photoCategories = nirPhotos.reduce((acc, photo) => {
-        if (!acc[photo.category]) {
-          acc[photo.category] = [];
-        }
-        acc[photo.category].push({
-          fileName: photo.file.name,
-          description: photo.description || ""
-        });
-        return acc;
-      }, {} as Record<string, Array<{ fileName: string; description: string }>>);
-      formDataToSend.append("photoCategories", JSON.stringify(photoCategories));
-
-      const response = await fetch(`/api/reports/${reportId}/nir-data`, {
-        method: "POST",
-        body: formDataToSend,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to save NIR data");
-      }
-
-      toast.success("NIR inspection data saved successfully");
-    } catch (error: any) {
-      console.error("Error saving NIR data:", error);
-      throw error;
     }
   };
 
@@ -1275,14 +1245,219 @@ export default function InitialDataEntryForm({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Quick Fill with Test Data
+  const handleQuickFill = () => {
+    // Set form data
+    setFormData({
+      clientName: "ABC Co.",
+      clientContactDetails: "John Smith - 0401 987 654 - john.smith@abcco.com.au",
+      propertyAddress: "123 Main Street, Suburb, NSW 2000",
+      propertyPostcode: "2000",
+      claimReferenceNumber: "CLM-2024-001234",
+      incidentDate: "2024-01-15",
+      technicianAttendanceDate: "2024-01-16",
+      technicianName: "Mark O'Connor",
+      technicianFieldReport: "Attended site at 10:00 AM. Found significant water damage in master bedroom and ensuite. Water source appears to be burst pipe in wall cavity. Moisture readings elevated throughout affected areas. Immediate extraction required. Containment set up to prevent cross-contamination.",
+      buildingAge: "2010",
+      structureType: "Residential - Two Storey",
+      accessNotes: "Key under mat, owner present during inspection",
+      propertyId: "PROP-2024-001",
+      jobNumber: "JOB-2024-056",
+      reportInstructions: "Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity.",
+      builderDeveloperCompanyName: "Premier Builders Pty Ltd",
+      builderDeveloperContact: "Sarah Johnson",
+      builderDeveloperAddress: "456 Builder Street, Sydney NSW 2000",
+      builderDeveloperPhone: "02 9876 5432",
+      ownerManagementContactName: "Michael Brown",
+      ownerManagementPhone: "0412 345 678",
+      ownerManagementEmail: "michael.brown@management.com.au",
+      lastInspectionDate: "2023-06-15",
+      buildingChangedSinceLastInspection: "No",
+      structureChangesSinceLastInspection: "No",
+      previousLeakage: "No",
+      emergencyRepairPerformed: "Yes",
+      insurerName: "Allianz Insurance",
+      methamphetamineScreen: "NEGATIVE",
+      methamphetamineTestCount: "3",
+      biologicalMouldDetected: false,
+      biologicalMouldCategory: "",
+      phase1StartDate: "2024-01-17",
+      phase1EndDate: "2024-01-19",
+      phase2StartDate: "2024-01-20",
+      phase2EndDate: "2024-01-28",
+      phase3StartDate: "2024-01-29",
+      phase3EndDate: "2024-01-31",
+    });
+
+    // Set NIR Moisture Readings
+    setNirMoistureReadings([
+      {
+        id: "1",
+        location: "Master Bedroom - Floor",
+        surfaceType: "Carpet",
+        moistureLevel: 45.5,
+        depth: "Surface"
+      },
+      {
+        id: "2",
+        location: "Master Bedroom - Wall",
+        surfaceType: "Drywall",
+        moistureLevel: 38.2,
+        depth: "Subsurface"
+      },
+      {
+        id: "3",
+        location: "Ensuite - Floor",
+        surfaceType: "Tile",
+        moistureLevel: 52.1,
+        depth: "Surface"
+      },
+      {
+        id: "4",
+        location: "Ensuite - Wall",
+        surfaceType: "Drywall",
+        moistureLevel: 41.8,
+        depth: "Subsurface"
+      },
+      {
+        id: "5",
+        location: "Hallway - Floor",
+        surfaceType: "Hardwood",
+        moistureLevel: 28.5,
+        depth: "Surface"
+      }
+    ]);
+
+    // Set NIR Affected Areas
+    setNirAffectedAreas([
+      {
+        id: "1",
+        roomZoneId: "Master Bedroom",
+        affectedSquareFootage: 180,
+        waterSource: "Clean Water",
+        timeSinceLoss: 24
+      },
+      {
+        id: "2",
+        roomZoneId: "Ensuite",
+        affectedSquareFootage: 45,
+        waterSource: "Clean Water",
+        timeSinceLoss: 24
+      },
+      {
+        id: "3",
+        roomZoneId: "Hallway",
+        affectedSquareFootage: 30,
+        waterSource: "Clean Water",
+        timeSinceLoss: 24
+      }
+    ]);
+
+    // Set NIR Scope Items
+    setNirSelectedScopeItems(new Set([
+      "remove_carpet",
+      "extract_standing_water",
+      "install_dehumidification",
+      "install_air_movers",
+      "demolish_drywall",
+      "apply_antimicrobial",
+      "dry_out_structure",
+      "containment_setup"
+    ]));
+
+    // Set Environmental Data
+    setNirEnvironmentalData({
+      ambientTemperature: 22,
+      humidityLevel: 65,
+      dewPoint: 15.2,
+      airCirculation: true
+    });
+
+    // Set Psychrometric Data (for equipment calculation)
+    setWaterClass(2);
+    setTemperature(22);
+    setHumidity(65);
+    setSystemType("closed");
+
+    // Set Scope Areas (for equipment calculation)
+    setAreas([
+      {
+        id: `area-${Date.now()}-1`,
+        name: "Master Bedroom",
+        length: 5.5,
+        width: 4.0,
+        height: 2.7,
+        wetPercentage: 75
+      },
+      {
+        id: `area-${Date.now()}-2`,
+        name: "Ensuite",
+        length: 3.0,
+        width: 2.5,
+        height: 2.4,
+        wetPercentage: 90
+      },
+      {
+        id: `area-${Date.now()}-3`,
+        name: "Hallway",
+        length: 4.0,
+        width: 1.2,
+        height: 2.7,
+        wetPercentage: 50
+      }
+    ]);
+
+    // Set Duration Days
+    setDurationDays(4);
+
+    // Set Equipment Selections with default rates
+    // Rates will be updated from pricing config when it loads
+    const defaultEquipmentSelections: EquipmentSelection[] = [
+      {
+        groupId: "lgr-55",
+        quantity: 2,
+        dailyRate: 45.00 // Default rate, will update when pricing config loads
+      },
+      {
+        groupId: "airmover-800",
+        quantity: 4,
+        dailyRate: 25.00 // Default rate, will update when pricing config loads
+      }
+    ];
+    setEquipmentSelections(defaultEquipmentSelections);
+
+    // Update equipment rates when pricing config is available
+    if (pricingConfig) {
+      const updatedSelections = defaultEquipmentSelections.map(sel => ({
+        ...sel,
+        dailyRate: getEquipmentDailyRate(sel.groupId, pricingConfig)
+      }));
+      setEquipmentSelections(updatedSelections);
+    }
+
+    toast.success("Form filled with test data including equipment selections");
+  };
+
   return (
     <div className="max-w-full mx-auto">
       <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div>
         <h2 className="text-2xl font-semibold mb-2">Initial Data Entry</h2>
         <p className="text-slate-400">
-          Enter the basic information from the technician's field report. All
-          fields marked with * are required.
-        </p>
+              Enter the basic information from the technician's field report. All
+              fields marked with * are required.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleQuickFill}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+          >
+            <Zap className="w-4 h-4" />
+            Quick Fill Test Data
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -1511,32 +1686,32 @@ export default function InitialDataEntryForm({
               />
             </div>
 
-            <div>
+              <div>
               <label className="block text-sm font-medium mb-1">
-                Date of Incident
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="date"
-                  value={formData.incidentDate}
+                  Date of Incident
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="date"
+                    value={formData.incidentDate}
                   onChange={(e) =>
                     handleInputChange("incidentDate", e.target.value)
                   }
                   className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
-                />
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
+              <div>
               <label className="block text-sm font-medium mb-1">
-                Technician Attendance Date
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="date"
-                  value={formData.technicianAttendanceDate}
+                  Technician Attendance Date
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="date"
+                    value={formData.technicianAttendanceDate}
                   onChange={(e) =>
                     handleInputChange(
                       "technicianAttendanceDate",
@@ -1544,7 +1719,7 @@ export default function InitialDataEntryForm({
                     )
                   }
                   className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
-                />
+                  />
               </div>
             </div>
 
@@ -2161,90 +2336,6 @@ export default function InitialDataEntryForm({
             </div>
           </div>
 
-          {/* Photos with Categorization */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
-              <Camera className="w-4 h-4" />
-              Photos <span className="text-red-400">*</span>
-            </h4>
-            <p className="text-xs text-slate-400 mb-4">
-              Categorise photos for proper placement in the report (35-45 images recommended)
-            </p>
-            
-            {/* Photo Upload by Category */}
-            <div className="space-y-4 mb-4">
-              {PHOTO_CATEGORIES.map((category) => {
-                const categoryPhotos = nirPhotos.filter(p => p.category === category.id);
-                const remaining = category.max - categoryPhotos.length;
-                return (
-                  <div key={category.id} className="p-3 rounded-lg border border-slate-600/50 bg-slate-900/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h5 className="text-sm font-semibold text-white">{category.label}</h5>
-                        <p className="text-xs text-slate-400">{category.description}</p>
-                      </div>
-                      <span className="text-xs text-slate-400">
-                        {categoryPhotos.length} / {category.max}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                      {categoryPhotos.map((photo, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={URL.createObjectURL(photo.file)}
-                            alt={`${category.label} ${index + 1}`}
-                            className="w-full h-20 object-cover rounded border-2 border-slate-600"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNirPhotos(nirPhotos.filter((p, i) => 
-                                !(p.category === category.id && i === nirPhotos.findIndex(ph => ph === photo))
-                              ));
-                              toast.success("Photo removed");
-                            }}
-                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                      ))}
-                      {remaining > 0 && (
-                        <label className="w-full h-20 border-2 border-dashed border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-green-500 transition-colors bg-slate-900/50">
-                          <div className="text-center">
-                            <Camera className="w-4 h-4 text-slate-400 mx-auto mb-1" />
-                            <span className="text-xs text-slate-400">Add</span>
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) => {
-                              const files = Array.from(e.target.files || []);
-                              if (files.length > 0) {
-                                const newPhotos = files.map(file => ({
-                                  file,
-                                  category: category.id,
-                                  description: ""
-                                }));
-                                if (categoryPhotos.length + files.length > category.max) {
-                                  toast.error(`Maximum ${category.max} photos allowed for ${category.label}`);
-                                  return;
-                                }
-                                setNirPhotos([...nirPhotos, ...newPhotos]);
-                                toast.success(`${files.length} photo(s) added to ${category.label}`);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* Hazard Profile Section */}
@@ -2358,7 +2449,7 @@ export default function InitialDataEntryForm({
                         handleInputChange("phase1StartDate", e.target.value)
                       }
                       className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
-                    />
+            />
                   </div>
                 </div>
                 <div>
@@ -2482,7 +2573,7 @@ export default function InitialDataEntryForm({
                 </div>
               </div>
             </div>
-
+            
             <div className="grid md:grid-cols-2 gap-6">
               <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-900/30">
                 <h4 className="text-lg font-semibold mb-4">Water Loss Class</h4>
@@ -2505,7 +2596,7 @@ export default function InitialDataEntryForm({
                 <p className="text-xs text-slate-400 mb-6">
                   Class 1 (Least water) to Class 4 (Bound water/Deep saturation)
                 </p>
-
+                
                 <div className="space-y-6">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -2523,7 +2614,7 @@ export default function InitialDataEntryForm({
                       className="w-full"
                     />
                   </div>
-
+                  
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Droplets className="w-5 h-5 text-blue-400" />
@@ -2542,7 +2633,7 @@ export default function InitialDataEntryForm({
                   </div>
                 </div>
               </div>
-
+              
               <div className="p-6 rounded-lg border border-pink-500/50 bg-pink-500/10">
                 <div className="flex items-center justify-center mb-4">
                   <Zap className="w-8 h-8 text-red-400" />
@@ -2568,11 +2659,11 @@ export default function InitialDataEntryForm({
                 </div>
                 <p className="text-sm text-slate-300 text-center">
                   {dryingPotential.recommendation}
-                </p>
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-
+            
           {/* Equipment Selection */}
           <div className="space-y-4">
             <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
@@ -2589,7 +2680,7 @@ export default function InitialDataEntryForm({
                 </div>
               </div>
             </div>
-
+            
             <div className="grid md:grid-cols-2 gap-6">
               <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-900/30">
                 <h4 className="text-lg font-semibold mb-2">Job Manifest</h4>
@@ -2660,7 +2751,7 @@ export default function InitialDataEntryForm({
                   </div>
                 </div>
               </div>
-
+              
               <div className="space-y-4">
                 <button
                   type="button"
@@ -2670,7 +2761,7 @@ export default function InitialDataEntryForm({
                   <Wrench className="w-4 h-4" />
                   Auto-Select Best Fit
                 </button>
-
+                
                 <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-900/30 max-h-96 overflow-y-auto">
                   <h5 className="font-semibold mb-3">LGR DEHUMIDIFIERS</h5>
                   <div className="space-y-2">
@@ -2737,7 +2828,7 @@ export default function InitialDataEntryForm({
                       );
                     })}
                   </div>
-
+                  
                   <h5 className="font-semibold mb-3 mt-4">AIR MOVERS</h5>
                   <div className="space-y-2">
                     {airMovers.map((group) => {
@@ -2809,235 +2900,6 @@ export default function InitialDataEntryForm({
           </div>
         </div>
 
-        {/* Analysis Section */}
-        {showAnalysisChoice && analysis && (
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-6">
-            <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-cyan-400" />
-              Report Analysis Summary
-            </h3>
-
-            <div className="grid md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <h4 className="text-sm font-medium text-slate-400 mb-2">
-                  Affected Areas
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.affectedAreas?.length > 0 ? (
-                    analysis.affectedAreas.map((area: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-sm"
-                      >
-                        {area}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-slate-500 text-sm">
-                      Not specified
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-slate-400 mb-2">
-                  Water Source
-                </h4>
-                <p className="text-white">
-                  {analysis.waterSource || "Not specified"}
-                </p>
-                {analysis.waterCategory && (
-                  <span className="inline-block mt-2 px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
-                    Category {analysis.waterCategory}
-                  </span>
-                )}
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-slate-400 mb-2">
-                  Affected Materials
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.affectedMaterials?.length > 0 ? (
-                    analysis.affectedMaterials.map(
-                      (material: string, idx: number) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm"
-                        >
-                          {material}
-                        </span>
-                      )
-                    )
-                  ) : (
-                    <span className="text-slate-500 text-sm">
-                      Not specified
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-slate-400 mb-2">
-                  Equipment Deployed
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.equipmentDeployed?.length > 0 ? (
-                    analysis.equipmentDeployed.map(
-                      (equipment: string, idx: number) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm"
-                        >
-                          {equipment}
-                        </span>
-                      )
-                    )
-                  ) : (
-                    <span className="text-slate-500 text-sm">
-                      Not specified
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {analysis.hazardsIdentified?.length > 0 && (
-              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <h4 className="text-sm font-medium text-red-400 mb-2 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  Hazards Identified
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.hazardsIdentified.map(
-                    (hazard: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm"
-                      >
-                        {hazard}
-                      </span>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-
-            {analysis.observations && (
-              <div>
-                <h4 className="text-sm font-medium text-slate-400 mb-2">
-                  Key Observations
-                </h4>
-                <p className="text-slate-300 text-sm">
-                  {analysis.observations}
-                </p>
-              </div>
-            )}
-
-            {/* Report Type Choice */}
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <button
-                type="button"
-                onClick={() => handleReportTypeChoice("basic")}
-                disabled={loading || analyzing}
-                className="p-6 rounded-lg border-2 border-slate-600 hover:border-blue-500 bg-slate-800/30 hover:bg-slate-800/50 transition-all text-left group disabled:opacity-50"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
-                      <FileText className="w-6 h-6 text-blue-400" />
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-semibold text-white">
-                        Basic Report
-                      </h4>
-                      <p className="text-sm text-slate-400">Quick Processing</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-400 transition-colors" />
-                </div>
-                <p className="text-slate-300 mb-4">
-                  Suitable for straightforward, simple claims
-                </p>
-                <div className="space-y-2">
-                  {[
-                    "Areas affected",
-                    "Observations from technician",
-                    "Equipment deployed",
-                    "Reference to IICRC standards",
-                    "Any obvious hazards flagged",
-                  ].map((feature, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 text-sm text-slate-400"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleReportTypeChoice("enhanced")}
-                disabled={loading || analyzing}
-                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50"
-              >
-                <div className="absolute top-4 right-4">
-                  <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
-                    RECOMMENDED
-                  </span>
-                </div>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                      <Sparkles className="w-6 h-6 text-cyan-300" />
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-semibold text-white">
-                        Enhanced Report
-                      </h4>
-                      <p className="text-sm text-cyan-400">Depth Analysis</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
-                </div>
-                <p className="text-slate-300 mb-4">
-                  Recommended for complex claims with detailed questioning
-                  system
-                </p>
-                <div className="space-y-2">
-                  {[
-                    "All Basic Report features",
-                    "Detailed tiered questioning",
-                    "Comprehensive scope of works",
-                    "Detailed cost estimation",
-                    "Richer, more comprehensive reports",
-                  ].map((feature, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 text-sm text-slate-300"
-                    >
-                      <CheckCircle className="w-4 h-4 text-cyan-400" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Loading/Analyzing State */}
-        {analyzing && (
-          <div className="flex flex-col items-center justify-center py-12 space-y-4 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
-            <p className="text-slate-400">Analysing technician report...</p>
-          </div>
-        )}
-
         {/* Submit Button */}
         <div className="flex justify-end gap-4">
           <button
@@ -3064,8 +2926,159 @@ export default function InitialDataEntryForm({
               </>
             )}
           </button>
-        </div>
+                </div>
       </form>
+
+      {/* Report Type Selection - Appears after saving (outside form) */}
+      {showReportTypeSelection && (
+        <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-cyan-500/10 space-y-6 mt-6">
+          <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <FileText className="w-6 h-6 text-cyan-400" />
+            Select Report Type
+          </h3>
+          <p className="text-slate-400 mb-6">
+            Choose the level of detail for your inspection report. Data has been saved successfully.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-6">
+              <button
+                type="button"
+              onClick={() => handleReportTypeChoice("basic")}
+              disabled={loading}
+                className="p-6 rounded-lg border-2 border-slate-600 hover:border-blue-500 bg-slate-800/30 hover:bg-slate-800/50 transition-all text-left group disabled:opacity-50"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                      <FileText className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div>
+                    <h4 className="text-xl font-semibold text-white">
+                      Basic
+                    </h4>
+                      <p className="text-sm text-slate-400">Quick Processing</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                </div>
+              <p className="text-slate-300 mb-4 text-sm">
+                Generate report directly with saved data
+              </p>
+                <div className="space-y-2">
+                {[
+                  "Areas affected",
+                  "Observations from technician",
+                  "Equipment deployed",
+                  "Reference to IICRC standards",
+                  "Any obvious hazards flagged",
+                ].map((feature, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 text-sm text-slate-400"
+                  >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </button>
+
+              <button
+                type="button"
+              onClick={() => handleReportTypeChoice("enhanced")}
+              disabled={loading}
+                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50"
+              >
+                <div className="absolute top-4 right-4">
+                  <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
+                    RECOMMENDED
+                  </span>
+                </div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
+                      <Sparkles className="w-6 h-6 text-cyan-300" />
+                    </div>
+                    <div>
+                    <h4 className="text-xl font-semibold text-white">
+                      Enhanced
+                    </h4>
+                    <p className="text-sm text-cyan-400">Basic + Tier 1</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
+                </div>
+              <p className="text-slate-300 mb-4 text-sm">
+                Answer Tier 1 critical questions, then generate report
+              </p>
+                <div className="space-y-2">
+                {[
+                  "All Basic Report features",
+                  "Tier 1: Critical Questions (8 required)",
+                  "Property type & construction year",
+                  "Water source & category",
+                  "Occupancy & hazard assessment",
+                ].map((feature, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 text-sm text-slate-300"
+                  >
+                      <CheckCircle className="w-4 h-4 text-cyan-400" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </button>
+
+          <button
+            type="button"
+              onClick={() => handleReportTypeChoice("optimised")}
+            disabled={loading}
+              className="p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50"
+            >
+              <div className="absolute top-4 right-4">
+                <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                  COMPREHENSIVE
+                </span>
+              </div>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
+                    <CheckCircle className="w-6 h-6 text-green-300" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-semibold text-white">
+                      Optimised
+                    </h4>
+                    <p className="text-sm text-green-400">Enhanced + Tier 2 + Tier 3</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-green-400 group-hover:text-green-300 transition-colors" />
+              </div>
+              <p className="text-slate-300 mb-4 text-sm">
+                Complete all tiers including photo uploads, then generate report
+              </p>
+              <div className="space-y-2">
+                {[
+                  "All Enhanced features",
+                  "Tier 2: Enhancement Questions (7 optional)",
+                  "Tier 3: Optimisation Questions (5 optional)",
+                  "Photo uploads with categorization",
+                  "Most comprehensive report",
+                ].map((feature, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 text-sm text-slate-300"
+                  >
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+          </button>
+        </div>
+    </div>
+      )}
     </div>
   );
 }

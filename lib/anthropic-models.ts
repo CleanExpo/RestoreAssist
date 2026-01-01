@@ -63,6 +63,7 @@ export async function tryClaudeModels(
     } catch (error: any) {
       lastError = error
       const errorType = error.error?.type || error.status
+      const errorMessage = error.error?.message || error.message || ''
       
       // If it's a 404/not_found, try next model
       if (error.status === 404 || errorType === 'not_found_error') {
@@ -74,14 +75,45 @@ export async function tryClaudeModels(
         continue
       }
       
+      // If it's an API usage limit error, throw immediately with clear message
+      if (errorType === 'invalid_request_error' && 
+          (errorMessage.includes('API usage limits') || 
+           errorMessage.includes('usage limits') ||
+           errorMessage.includes('rate limit'))) {
+        throw new Error(`API Usage Limit Reached: ${errorMessage}. Please check your Anthropic API account limits or try again later.`)
+      }
+      
+      // If it's a credit balance error, throw immediately with clear message
+      if (errorType === 'invalid_request_error' && 
+          (errorMessage.includes('credit balance') || 
+           errorMessage.includes('too low') ||
+           errorMessage.includes('upgrade or purchase credits'))) {
+        throw new Error(`Insufficient API Credits: ${errorMessage}. Please go to Plans & Billing in your Anthropic account to upgrade or purchase credits.`)
+      }
+      
+      // If it's a rate limit error (429), throw with clear message
+      if (error.status === 429 || errorType === 'rate_limit_error') {
+        throw new Error(`Rate limit exceeded. Please wait a moment and try again.`)
+      }
+      
       // For other errors, still try next model
       continue
     }
   }
 
-  // All models failed
+  // All models failed - format error message better
+  const lastErrorMessage = lastError?.error?.message || lastError?.message || 'Unknown error'
+  const lastErrorType = lastError?.error?.type || lastError?.status || 'unknown'
+  
+  // If we have a structured error, include it
+  if (lastError?.error) {
+    throw new Error(
+      `All Claude models failed. Last error: ${lastErrorType} - ${lastErrorMessage}`
+    )
+  }
+  
   throw new Error(
-    `All Claude models failed. Last error: ${lastError?.message || lastError?.error?.message || 'Unknown error'}`
+    `All Claude models failed. Last error: ${lastErrorMessage}`
   )
 }
 

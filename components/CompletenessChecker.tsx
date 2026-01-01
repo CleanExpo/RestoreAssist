@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { CheckCircle, AlertCircle, XCircle, RefreshCw, Info } from "lucide-react"
-import toast from "react-hot-toast"
+import { AlertCircle, CheckCircle, Info, RefreshCw, XCircle } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface CompletenessCheckerProps {
   reportId: string

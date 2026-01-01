@@ -1,21 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { 
-  Wind, 
-  Thermometer, 
-  Droplets, 
-  Calculator,
-  Settings,
-  CheckCircle,
+import {
   AlertTriangle,
-  Info,
   BarChart3,
-  Zap,
-  Home,
-  Clock
+  CheckCircle,
+  Droplets,
+  Settings,
+  Thermometer,
+  Wind,
+  Zap
 } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface EquipmentSizingGuidelinesProps {
   waterClass: string

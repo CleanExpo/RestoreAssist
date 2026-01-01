@@ -169,10 +169,62 @@ Be thorough and extract all relevant information. If information is not explicit
       analysis,
       message: 'Technician report analyzed successfully'
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error analyzing technician report:', error)
+    
+    // Check for specific error types and provide user-friendly messages
+    const errorMessage = error?.message || error?.error?.message || 'Unknown error'
+    
+    if (errorMessage.includes('API Usage Limit') || errorMessage.includes('usage limits')) {
+      return NextResponse.json(
+        { 
+          error: 'API Usage Limit Reached',
+          message: 'Your Anthropic API account has reached its usage limit. Please check your API account settings or contact your administrator. The analysis cannot be completed at this time.',
+          details: errorMessage
+        },
+        { status: 429 }
+      )
+    }
+    
+    if (errorMessage.includes('credit balance') || errorMessage.includes('Insufficient API Credits') || errorMessage.includes('too low')) {
+      return NextResponse.json(
+        { 
+          error: 'Insufficient API Credits',
+          message: 'Your Anthropic API account has insufficient credits. Please go to Plans & Billing in your Anthropic account to upgrade or purchase credits. The analysis cannot be completed until credits are available.',
+          details: errorMessage
+        },
+        { status: 402 }
+      )
+    }
+    
+    if (errorMessage.includes('rate limit') || errorMessage.includes('Rate limit')) {
+      return NextResponse.json(
+        { 
+          error: 'Rate Limit Exceeded',
+          message: 'Too many requests. Please wait a moment and try again.',
+          details: errorMessage
+        },
+        { status: 429 }
+      )
+    }
+    
+    if (errorMessage.includes('API key') || errorMessage.includes('authentication')) {
+      return NextResponse.json(
+        { 
+          error: 'API Authentication Error',
+          message: 'There is an issue with your Anthropic API key. Please check your API integration settings.',
+          details: errorMessage
+        },
+        { status: 401 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to analyze technician report' },
+      { 
+        error: 'Failed to analyze technician report',
+        message: 'An error occurred while analyzing the report. Please try again or contact support if the issue persists.',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     )
   }

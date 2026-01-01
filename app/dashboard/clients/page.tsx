@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { Crown, Filter, Plus, Search, Trash2, X, XIcon } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Edit, Trash2, MoreVertical, X, Filter, Download, Eye, Copy, CheckSquare, Square, Crown, XIcon } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import toast from "react-hot-toast"
 
 interface Client {
@@ -12,7 +12,7 @@ interface Client {
   email: string
   phone?: string
   address?: string
-  company?: string
+  company?: string    
   contactPerson?: string
   notes?: string
   status: string

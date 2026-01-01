@@ -5,205 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
-import VisualDashboardReport from "./VisualDashboardReport"
-
-// Convert structured report data to VisualDashboardReport format
-function convertToVisualReportData(structuredData: any): any {
-  console.log('[convertToVisualReportData] 🔍 Input structured data:', {
-    hasData: !!structuredData,
-    type: structuredData?.type,
-    hasEnvironmental: !!structuredData?.environmental,
-    environmental: structuredData?.environmental,
-    hasPsychrometric: !!structuredData?.psychrometric,
-    psychrometric: structuredData?.psychrometric,
-    hasHazards: !!structuredData?.hazards,
-    hazards: structuredData?.hazards,
-    hasTimeline: !!structuredData?.timeline,
-    timeline: structuredData?.timeline,
-    fullData: structuredData
-  })
-  
-  if (!structuredData || structuredData.type !== 'restoration_inspection_report') {
-    console.log('[convertToVisualReportData] ❌ Invalid structured data:', structuredData)
-    return null
-  }
-
-  const { 
-    header = {}, 
-    property = {}, 
-    incident = {}, 
-    environmental = null, 
-    psychrometric = null, 
-    affectedAreas = [], 
-    moistureReadings = [],
-    scopeItems = [],
-    costEstimates = [],
-    summary = {}, 
-    equipment = [], 
-    compliance = {}, 
-    hazards = {},
-    photos = [],
-    technicianNotes = ''
-  } = structuredData
-  
-  console.log('[convertToVisualReportData] 📦 Extracted data:', {
-    environmental,
-    psychrometric,
-    hazards,
-    affectedAreasCount: affectedAreas?.length || 0,
-    moistureReadingsCount: moistureReadings?.length || 0,
-    scopeItemsCount: scopeItems?.length || 0,
-    equipmentCount: equipment?.length || 0,
-    photosCount: photos?.length || 0
-  })
-
-  // Calculate real materials from affected areas and scope items
-  const allMaterials = new Set<string>()
-  if (affectedAreas && Array.isArray(affectedAreas)) {
-    affectedAreas.forEach((area: any) => {
-      if (area.materials && Array.isArray(area.materials)) {
-        area.materials.forEach((m: string) => allMaterials.add(m))
-      }
-    })
-  }
-  const materialsList = Array.from(allMaterials).join(', ') || 'Various'
-
-  // Calculate real average moisture from actual readings
-  let avgMoisture = 0
-  if (moistureReadings && Array.isArray(moistureReadings) && moistureReadings.length > 0) {
-    const total = moistureReadings.reduce((sum: number, r: any) => sum + (r.moistureLevel || 0), 0)
-    avgMoisture = Math.round(total / moistureReadings.length)
-  } else if (summary?.averageMoisture) {
-    avgMoisture = Math.round(summary.averageMoisture)
-  }
-
-  // Build room details from REAL affected areas data
-  const roomDetails = (affectedAreas && Array.isArray(affectedAreas) && affectedAreas.length > 0) ? affectedAreas.map((area: any) => {
-    // Get moisture readings for this area
-    const areaMoistureReadings = area.moistureReadings || []
-    const areaMoisture = areaMoistureReadings.length > 0
-      ? Math.round(areaMoistureReadings.reduce((sum: number, r: any) => sum + r.value, 0) / areaMoistureReadings.length)
-      : avgMoisture
-
-    // Get scope items for this area
-    const areaScopeItems = scopeItems?.filter((item: any) => 
-      item.description?.toLowerCase().includes(area.name?.toLowerCase() || '') ||
-      area.name?.toLowerCase().includes(item.description?.toLowerCase() || '')
-    ) || []
-
-    // Build scope of work from actual scope items
-    const scopeOfWork = areaScopeItems.length > 0
-      ? areaScopeItems.map((item: any) => item.description).join(', ')
-      : scopeItems?.length > 0 
-        ? scopeItems.map((item: any) => item.description).join(', ')
-        : 'Extract water & apply antimicrobial'
-
-    // Get equipment for this area (match by area or use all equipment)
-    const areaEquipment = equipment?.map((e: any) => `${e.quantity}x ${e.name}`) || []
-
-    return {
-      name: area.name || 'Unknown Area',
-      materials: area.materials?.length > 0 ? area.materials.join(', ') : materialsList,
-      moisture: areaMoisture,
-      targetMoisture: 12,
-      status: areaMoisture > 20 ? 'Saturated' : areaMoisture > 15 ? 'Fair' : 'Good',
-      scopeOfWork: scopeOfWork,
-      equipment: areaEquipment.length > 0 ? areaEquipment : []
-    }
-  }) : []
-
-  // Build equipment costs from REAL equipment data
-  const equipmentCosts: any[] = []
-  const lgrEquipment = equipment?.filter((e: any) => e.type === 'LGR_DEHUMIDIFIER' || e.type === 'DESICCANT_DEHUMIDIFIER') || []
-  const airMovers = equipment?.filter((e: any) => e.type === 'AIR_MOVER') || []
-
-  if (lgrEquipment.length > 0) {
-    const totalQty = lgrEquipment.reduce((sum: number, e: any) => sum + (e.quantity || 0), 0)
-    const totalDailyRate = lgrEquipment.reduce((sum: number, e: any) => sum + ((e.dailyRate || 0) * (e.quantity || 0)), 0)
-    const totalCost = lgrEquipment.reduce((sum: number, e: any) => sum + (e.totalCost || 0), 0)
-    if (totalQty > 0) {
-      equipmentCosts.push({
-        type: 'LGR',
-        qty: totalQty,
-        ratePerDay: totalDailyRate,
-        total: totalCost
-      })
-    }
-  }
-
-  if (airMovers.length > 0) {
-    const totalQty = airMovers.reduce((sum: number, e: any) => sum + (e.quantity || 0), 0)
-    const totalDailyRate = airMovers.reduce((sum: number, e: any) => sum + ((e.dailyRate || 0) * (e.quantity || 0)), 0)
-    const totalCost = airMovers.reduce((sum: number, e: any) => sum + (e.totalCost || 0), 0)
-    if (totalQty > 0) {
-      equipmentCosts.push({
-        type: 'Air',
-        qty: totalQty,
-        ratePerDay: totalDailyRate,
-        total: totalCost
-      })
-    }
-  }
-
-  // Calculate total litres extracted from cost estimates or equipment
-  let totalLitresExtracted = '0 L'
-  const extractionItem = costEstimates?.find((item: any) => 
-    item.description?.toLowerCase().includes('extract') || 
-    item.description?.toLowerCase().includes('water removal')
-  )
-  if (extractionItem && extractionItem.quantity) {
-    totalLitresExtracted = `${extractionItem.quantity} L`
-  }
-
-  return {
-    header: {
-      title: header?.businessName || 'Restore Assist',
-      subtitle: 'Water Damage Restoration Overview',
-      claimRef: header?.reportNumber || incident?.claimReferenceNumber || 'N/A',
-      location: property?.state ? `${property.state}` : '',
-      date: header?.dateGenerated ? new Date(header.dateGenerated).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' }) : new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      occupancy: 'Vacant', // Can be enhanced with actual occupancy data
-      occupancyDetails: ''
-    },
-    summaryMetrics: {
-      roomsAffected: summary?.roomsAffected || (Array.isArray(affectedAreas) ? affectedAreas.length : 0) || 0,
-      materialsAffected: materialsList,
-      moistureLevel: avgMoisture,
-      totalCost: summary?.totalCost || (Array.isArray(costEstimates) ? costEstimates.reduce((sum: number, item: any) => sum + (item.total || 0), 0) : 0) || 0,
-      dryingStatus: summary?.dryingStatus || psychrometric?.dryingStatus || 'Fair',
-      totalLitresExtracted: totalLitresExtracted,
-      estimatedDuration: summary?.estimatedDuration || (Array.isArray(equipment) && equipment.length > 0 ? equipment[0]?.estimatedDuration : null) || 4,
-      dryingIndex: psychrometric?.dryingIndex || 33.6
-    },
-    safety: {
-      trafficLight: 'vacant',
-      hasChildren: false,
-      waterCategory: incident?.waterCategory?.replace('Category ', '') || incident?.waterCategory || '1'
-    },
-    roomDetails: roomDetails.length > 0 ? roomDetails : [],
-    complianceStandards: Array.isArray(compliance?.standards) ? compliance.standards : [],
-    equipmentCosts: equipmentCosts,
-    estimatedDays: summary?.estimatedDuration || (Array.isArray(equipment) && equipment.length > 0 ? equipment[0]?.estimatedDuration : null) || 4,
-    businessInfo: {
-      businessName: header?.businessName || null,
-      businessAddress: header?.businessAddress || null,
-      businessLogo: header?.businessLogo || null,
-      businessABN: header?.businessABN || null,
-      businessPhone: header?.businessPhone || null,
-      businessEmail: header?.businessEmail || null
-    },
-    // Add full structured data for detailed pages
-    fullData: {
-      ...structuredData,
-      // Ensure environmental data is passed through
-      environmental: environmental || null,
-      psychrometric: psychrometric || null,
-      classification: structuredData.classification || null,
-      hazards: hazards || {},
-      timeline: structuredData.timeline || null
-    }
-  }
-}
+import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer"
 
 interface InspectionReportViewerProps {
   reportId: string
@@ -577,20 +379,33 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
             Generate your professional inspection report with all 13 sections. The report will include comprehensive analysis based on all collected data.
           </p>
           <div className="flex gap-4">
-            <button
-              onClick={() => handleGenerateReport('basic')}
-              disabled={generating}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              {generating ? 'Generating...' : 'Generate Basic Report'}
-            </button>
-            <button
-              onClick={() => handleGenerateReport('enhanced')}
-              disabled={generating}
-              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              {generating ? 'Generating...' : 'Generate Enhanced Report'}
-            </button>
+            {(!report?.reportDepthLevel || report.reportDepthLevel === 'Basic') && (
+              <button
+                onClick={() => handleGenerateReport('basic')}
+                disabled={generating}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Basic Report'}
+              </button>
+            )}
+            {(!report?.reportDepthLevel || report.reportDepthLevel === 'Enhanced') && (
+              <button
+                onClick={() => handleGenerateReport('enhanced')}
+                disabled={generating}
+                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Enhanced Report'}
+              </button>
+            )}
+            {(report?.reportDepthLevel === 'Optimised' || report?.reportDepthLevel === 'Optimized') && (
+              <button
+                onClick={() => handleGenerateReport('enhanced')}
+                disabled={generating}
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Optimised Report'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -619,6 +434,17 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
   @page {
     size: A4 portrait;
     margin: 20mm;
+    /* Disable browser headers and footers (URL, page numbers, etc.) */
+    marks: none;
+  }
+
+  /* Hide any browser-added URLs or page info */
+  body::after,
+  body::before,
+  html::after,
+  html::before {
+    display: none !important;
+    content: none !important;
   }
 
   html, body {
@@ -722,9 +548,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
 
             <div className="w-full p-0 px-4 space-y-8">
               {isBasicReport && structuredReportData ? (
-                <VisualDashboardReport data={convertToVisualReportData(structuredReportData) || structuredReportData} />
-              ) : isBasicReport && visualData ? (
-                <VisualDashboardReport data={visualData} />
+                <RestorationInspectionReportViewer data={structuredReportData} />
               ) : editing ? (
                 <div className="p-6">
                   <textarea

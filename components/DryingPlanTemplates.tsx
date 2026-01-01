@@ -1,19 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { 
-  Thermometer, 
-  Wind, 
-  Droplets, 
-  Clock, 
-  Calculator,
-  BarChart3,
-  Settings,
-  CheckCircle,
+import {
   AlertTriangle,
-  Info
+  BarChart3,
+  Calculator,
+  CheckCircle,
+  Clock,
+  Settings,
+  Thermometer,
+  Wind
 } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface DryingPlanTemplatesProps {
   waterClass: string

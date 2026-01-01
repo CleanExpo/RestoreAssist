@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
-import { tryClaudeModels } from '@/lib/anthropic-models'
 import { getEquipmentGroupById, getEquipmentDailyRate } from '@/lib/equipment-matrix'
 import { generateVerificationChecklist } from '@/lib/nir-verification-checklist'
+import { getLatestAIIntegration, callAIProvider } from '@/lib/ai-provider'
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -46,9 +45,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get the complete report with all data
+    // Get the complete report with all data, including client information
     const report = await prisma.report.findUnique({
-      where: { id: reportId, userId: user.id }
+      where: { id: reportId, userId: user.id },
+      include: {
+        client: {
+          select: {
+            company: true,
+            name: true
+          }
+        }
+      }
     })
 
     if (!report) {
@@ -85,31 +92,36 @@ export async function POST(request: NextRequest) {
     const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
     const stateInfo = getStateInfo(stateCode)
 
-    // Get user's Anthropic API integration
-    const integrations = await prisma.integration.findMany({
-      where: {
-        userId: user.id,
-        status: 'CONNECTED',
-        apiKey: { not: null }
-      }
-    })
+    // Get user's latest AI integration (OpenAI, Anthropic, or Gemini)
+    const aiIntegration = await getLatestAIIntegration(user.id)
 
-    const integration = integrations.find((i: any) => 
-      i.name === 'Anthropic Claude' || 
-      i.name === 'Anthropic API' ||
-      i.name.toLowerCase().includes('anthropic')
-    )
-
-    if (!integration?.apiKey) {
+    if (!aiIntegration) {
       return NextResponse.json(
-        { error: 'No connected Anthropic API integration found. Please connect an Anthropic API key.' },
+        { error: 'No connected AI integration found. Please connect an OpenAI, Anthropic, or Gemini API key in the Integrations page.' },
         { status: 400 }
       )
     }
 
-    const anthropic = new Anthropic({
-      apiKey: integration.apiKey
+    // For standards retrieval, we still need an API key (prefer Anthropic if available, otherwise use the selected integration)
+    // Standards retrieval might need specific API setup, so we'll try to use Anthropic if available, otherwise use the selected integration
+    let standardsApiKey = aiIntegration.apiKey
+    const anthropicIntegration = await prisma.integration.findFirst({
+      where: {
+        userId: user.id,
+        status: 'CONNECTED',
+        apiKey: { not: null },
+        OR: [
+          { name: { contains: 'Anthropic' } },
+          { name: { contains: 'Claude' } }
+        ]
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
     })
+    if (anthropicIntegration?.apiKey) {
+      standardsApiKey = anthropicIntegration.apiKey
+    }
 
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''
@@ -134,7 +146,7 @@ export async function POST(request: NextRequest) {
         technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
       }
       
-      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, standardsApiKey)
       
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
       
@@ -184,8 +196,8 @@ export async function POST(request: NextRequest) {
       inspectionData = null
     }
 
-    // For basic reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
-    if (reportType === 'basic') {
+    // For basic and enhanced reports, use structured data directly from Report model (no AI - ensures 100% accurate data)
+    if (reportType === 'basic' || reportType === 'enhanced') {
       // Build structured data directly from actual Report model data - NO AI, ensures all real data is used
       const structuredReportData = buildStructuredBasicReport({
         report,
@@ -195,6 +207,9 @@ export async function POST(request: NextRequest) {
         scopeAreas,
         equipmentSelection,
         inspectionData,
+        tier1,
+        tier2,
+        tier3,
         businessInfo: {
           businessName: user.businessName,
           businessAddress: user.businessAddress,
@@ -210,7 +225,7 @@ export async function POST(request: NextRequest) {
         where: { id: reportId },
         data: {
           detailedReport: JSON.stringify(structuredReportData),
-          reportDepthLevel: 'Basic',
+          reportDepthLevel: reportType === 'basic' ? 'Basic' : 'Enhanced',
           status: 'PENDING'
         }
       })
@@ -220,11 +235,11 @@ export async function POST(request: NextRequest) {
           id: reportId,
           structuredData: structuredReportData
         },
-        message: 'Basic inspection report generated successfully'
+        message: `${reportType === 'basic' ? 'Basic' : 'Enhanced'} inspection report generated successfully`
       })
     }
 
-    // For enhanced reports, use AI generation
+    // For optimised reports, use AI generation
     const prompt = buildInspectionReportPrompt({
       report,
       analysis,
@@ -259,28 +274,21 @@ Only include information that is explicitly provided in the REPORT DATA section.
 
 BUSINESS INFORMATION: If business information is provided in the REPORT DATA section (Business Name, Business Address, Business ABN, Business Phone, Business Email), you MUST include this information in the report header/footer and use the business name as the reporting company name throughout the report. The business logo URL can be referenced if needed for document formatting.`
 
-    // Generate report using utility with fallback models
-    const response = await tryClaudeModels(
-      anthropic,
-      {
-        system: systemPrompt,
-        max_tokens: 16000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      }
-    )
-
+    // Generate report using the selected AI provider
     let inspectionReport = ''
-    if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
-      inspectionReport = response.content[0].text
-    } else {
-      console.error('Unexpected response format:', response)
+    try {
+      inspectionReport = await callAIProvider(aiIntegration, {
+        system: systemPrompt,
+        prompt,
+        maxTokens: 16000
+      })
+    } catch (error: any) {
+      console.error('Error calling AI provider:', error)
       return NextResponse.json(
-        { error: 'Failed to generate inspection report: Unexpected response format from AI' },
+        { 
+          error: 'Failed to generate inspection report',
+          details: error.message || 'Unknown error occurred'
+        },
         { status: 500 }
       )
     }
@@ -1933,6 +1941,9 @@ function buildStructuredBasicReport(data: {
   scopeAreas?: any[]
   equipmentSelection?: any[]
   inspectionData?: any
+  tier1?: any
+  tier2?: any
+  tier3?: any
   businessInfo?: {
     businessName?: string | null
     businessAddress?: string | null
@@ -1942,10 +1953,46 @@ function buildStructuredBasicReport(data: {
     businessEmail?: string | null
   }
 }): any {
-  const { report, analysis, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, inspectionData, businessInfo } = data
+  const { report, analysis, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, inspectionData, tier1, tier2, tier3, businessInfo } = data
+  
+  // Debug: Log data sources
+  console.log('[buildStructuredBasicReport] 📊 Data Sources Available:', {
+    hasReport: !!report,
+    hasAnalysis: !!analysis,
+    hasInspectionData: !!inspectionData,
+    hasPsychrometricAssessment: !!psychrometricAssessment,
+    hasScopeAreas: !!scopeAreas && scopeAreas.length > 0,
+    hasEquipmentSelection: !!equipmentSelection && equipmentSelection.length > 0,
+    hasTier1: !!tier1,
+    hasTier2: !!tier2,
+    hasTier3: !!tier3,
+    analysisKeys: analysis ? Object.keys(analysis) : [],
+    inspectionDataKeys: inspectionData ? Object.keys(inspectionData) : []
+  })
+  
+  // Debug: Log all new fields to verify they're being read
+  console.log('[buildStructuredBasicReport] 🔍 Reading new fields from report:', {
+    propertyId: report.propertyId,
+    jobNumber: report.jobNumber,
+    reportInstructions: report.reportInstructions,
+    builderDeveloperCompanyName: report.builderDeveloperCompanyName,
+    builderDeveloperContact: report.builderDeveloperContact,
+    builderDeveloperAddress: report.builderDeveloperAddress,
+    builderDeveloperPhone: report.builderDeveloperPhone,
+    ownerManagementContactName: report.ownerManagementContactName,
+    ownerManagementPhone: report.ownerManagementPhone,
+    ownerManagementEmail: report.ownerManagementEmail,
+    lastInspectionDate: report.lastInspectionDate,
+    buildingChangedSinceLastInspection: report.buildingChangedSinceLastInspection,
+    structureChangesSinceLastInspection: report.structureChangesSinceLastInspection,
+    previousLeakage: report.previousLeakage,
+    emergencyRepairPerformed: report.emergencyRepairPerformed
+  })
 
   // Extract photos from inspection data - ensure we get ALL photos
-  const photos: Array<{ url: string; thumbnailUrl?: string; location?: string; caption?: string }> = []
+  const photos: Array<{ url: string; thumbnailUrl?: string; location?: string; caption?: string; category?: string }> = []
+  
+  // Priority 1: Photos from NIR data (inspectionData)
   if (inspectionData?.photos && Array.isArray(inspectionData.photos)) {
     inspectionData.photos.forEach((photo: any) => {
       // Handle both object format {url, thumbnailUrl, ...} and string format
@@ -1956,7 +2003,26 @@ function buildStructuredBasicReport(data: {
             url: photoUrl,
             thumbnailUrl: photo.thumbnailUrl || photoUrl, // Use main URL as fallback
             location: photo.location || null,
-            caption: photo.caption || photo.location || null
+            caption: photo.caption || photo.location || null,
+            category: photo.category || photo.location || null // Category stored as location or in category field
+          })
+        }
+      }
+    })
+  }
+  
+  // Priority 2: Photos from analysis (PDF upload)
+  if (analysis?.photos && Array.isArray(analysis.photos)) {
+    analysis.photos.forEach((photo: any) => {
+      if (photo.url || (typeof photo === 'string' && photo)) {
+        const photoUrl = photo.url || photo
+        if (photoUrl && !photos.find(p => p.url === photoUrl)) {
+          photos.push({
+            url: photoUrl,
+            thumbnailUrl: photo.thumbnailUrl || photoUrl,
+            location: photo.location || null,
+            caption: photo.caption || photo.location || null,
+            category: photo.category || photo.location || null
           })
         }
       }
@@ -1985,7 +2051,8 @@ function buildStructuredBasicReport(data: {
               url: photo.url || photo.secure_url,
               thumbnailUrl: photo.thumbnailUrl || photo.url || photo.secure_url,
               location: photo.location || null,
-              caption: photo.caption || photo.location || null
+              caption: photo.caption || photo.location || null,
+              category: photo.category || photo.location || null
             })
           }
         })
@@ -2286,6 +2353,7 @@ function buildStructuredBasicReport(data: {
     type: 'restoration_inspection_report',
     version: '1.0',
     generatedAt: new Date().toISOString(),
+    reportDepthLevel: report.reportDepthLevel || null,
     header: {
       reportTitle: 'Restoration Inspection Report',
       businessName: businessInfo?.businessName || 'RestoreAssist',
@@ -2298,24 +2366,27 @@ function buildStructuredBasicReport(data: {
       dateGenerated: new Date().toISOString()
     },
     property: {
-      clientName: report.clientName || null,
-      propertyAddress: report.propertyAddress || null,
-      propertyPostcode: report.propertyPostcode || null,
+      clientName: report.clientName || analysis?.clientName || null,
+      clientCompany: report.client?.company || analysis?.clientCompany || null,
+      propertyAddress: report.propertyAddress || analysis?.propertyAddress || null,
+      propertyPostcode: report.propertyPostcode || analysis?.propertyPostcode || null,
       state: stateInfo?.name || null,
-      buildingAge: report.buildingAge || null,
-      structureType: report.structureType || null,
-      accessNotes: report.accessNotes || null
+      buildingAge: report.buildingAge || analysis?.buildingAge || null,
+      structureType: report.structureType || analysis?.structureType || null,
+      accessNotes: report.accessNotes || analysis?.accessNotes || null,
+      propertyId: report.propertyId || null,
+      jobNumber: report.jobNumber || analysis?.jobNumber || null
     },
     incident: {
-      dateOfLoss: report.incidentDate ? new Date(report.incidentDate).toISOString() : null,
-      technicianAttendanceDate: report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toISOString() : null,
-      technicianName: report.technicianName || null,
-      claimReferenceNumber: report.claimReferenceNumber || null,
-      insurerName: report.insurerName || null,
-      waterSource: analysis?.waterSource || report.sourceOfWater || null,
-      waterCategory: classification?.category || report.waterCategory || null,
-      waterClass: classification?.class || report.waterClass || null,
-      timeSinceLoss: inspectionData?.affectedAreas?.[0]?.timeSinceLoss || null
+      dateOfLoss: report.incidentDate ? new Date(report.incidentDate).toISOString() : (analysis?.incidentDate ? new Date(analysis.incidentDate).toISOString() : null),
+      technicianAttendanceDate: report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toISOString() : (analysis?.technicianAttendanceDate ? new Date(analysis.technicianAttendanceDate).toISOString() : null),
+      technicianName: report.technicianName || analysis?.technicianName || null,
+      claimReferenceNumber: report.claimReferenceNumber || analysis?.claimReferenceNumber || null,
+      insurerName: report.insurerName || analysis?.insurerName || null,
+      waterSource: analysis?.waterSource || analysis?.sourceOfWater || report.sourceOfWater || null,
+      waterCategory: classification?.category || analysis?.waterCategory || report.waterCategory || null,
+      waterClass: classification?.class || analysis?.waterClass || report.waterClass || null,
+      timeSinceLoss: inspectionData?.affectedAreas?.[0]?.timeSinceLoss || analysis?.timeSinceLoss || null
     },
     environmental: (() => {
       const envData = inspectionData?.environmentalData
@@ -2376,13 +2447,43 @@ function buildStructuredBasicReport(data: {
       recommendation: psychrometricAssessment.dryingPotential?.recommendation || null
     } : null,
     affectedAreas: affectedAreasList,
-    moistureReadings: inspectionData?.moistureReadings?.map((r: any) => ({
-      location: r.location || 'Unknown',
-      surfaceType: r.surfaceType || null,
-      moistureLevel: r.moistureLevel || 0,
-      depth: r.depth || null,
-      unit: '%'
-    })) || [],
+    moistureReadings: (() => {
+      const readings: Array<{
+        location: string
+        surfaceType: string | null
+        moistureLevel: number
+        depth: string | null
+        unit: string
+      }> = []
+      
+      // Priority 1: Use NIR data moisture readings
+      if (inspectionData?.moistureReadings && Array.isArray(inspectionData.moistureReadings)) {
+        inspectionData.moistureReadings.forEach((r: any) => {
+          readings.push({
+            location: r.location || 'Unknown',
+            surfaceType: r.surfaceType || null,
+            moistureLevel: r.moistureLevel || 0,
+            depth: r.depth || null,
+            unit: '%'
+          })
+        })
+      }
+      
+      // Priority 2: Use analysis moisture readings if NIR data not available
+      if (readings.length === 0 && analysis?.moistureReadings && Array.isArray(analysis.moistureReadings)) {
+        analysis.moistureReadings.forEach((r: any) => {
+          readings.push({
+            location: r.location || 'Unknown',
+            surfaceType: r.surfaceType || null,
+            moistureLevel: r.moistureLevel || 0,
+            depth: r.depth || null,
+            unit: '%'
+          })
+        })
+      }
+      
+      return readings
+    })(),
     classification: classification ? {
       category: classification.category || null,
       class: classification.class || null,
@@ -2390,12 +2491,12 @@ function buildStructuredBasicReport(data: {
       standardReference: classification.standardReference || null
     } : null,
     hazards: {
-      methamphetamineScreen: report.methamphetamineScreen || null,
-      methamphetamineTestCount: report.methamphetamineTestCount || null,
-      biologicalMouldDetected: report.biologicalMouldDetected || false,
-      biologicalMouldCategory: report.biologicalMouldCategory || null,
-      asbestosRisk: report.buildingAge && parseInt(report.buildingAge) < 1990 ? 'PRE-1990_BUILDING' : null,
-      leadRisk: report.buildingAge && parseInt(report.buildingAge) < 1990 ? 'PRE-1990_BUILDING' : null
+      methamphetamineScreen: report.methamphetamineScreen || analysis?.methamphetamineScreen || null,
+      methamphetamineTestCount: report.methamphetamineTestCount || analysis?.methamphetamineTestCount || null,
+      biologicalMouldDetected: report.biologicalMouldDetected || analysis?.biologicalMouldDetected || false,
+      biologicalMouldCategory: report.biologicalMouldCategory || analysis?.biologicalMouldCategory || null,
+      asbestosRisk: (report.buildingAge && parseInt(report.buildingAge) < 1990) || (analysis?.buildingAge && parseInt(analysis.buildingAge) < 1990) ? 'PRE-1990_BUILDING' : null,
+      leadRisk: (report.buildingAge && parseInt(report.buildingAge) < 1990) || (analysis?.buildingAge && parseInt(analysis.buildingAge) < 1990) ? 'PRE-1990_BUILDING' : null
     },
     scopeItems: scopeItemsList,
     costEstimates: costEstimates,
@@ -2452,6 +2553,28 @@ function buildStructuredBasicReport(data: {
       epaAuthority: stateInfo?.epaAuthority || null
     },
     technicianNotes: report.technicianFieldReport || null,
+    reportInstructions: report.reportInstructions || null,
+    clientContactDetails: report.clientContactDetails || null,
+    // Additional Contact Information
+    builderDeveloper: (report.builderDeveloperCompanyName || report.builderDeveloperContact || report.builderDeveloperAddress || report.builderDeveloperPhone) ? {
+      companyName: report.builderDeveloperCompanyName || null,
+      contact: report.builderDeveloperContact || null,
+      address: report.builderDeveloperAddress || null,
+      phone: report.builderDeveloperPhone || null
+    } : undefined,
+    ownerManagement: (report.ownerManagementContactName || report.ownerManagementPhone || report.ownerManagementEmail) ? {
+      contactName: report.ownerManagementContactName || null,
+      phone: report.ownerManagementPhone || null,
+      email: report.ownerManagementEmail || null
+    } : undefined,
+    // Previous Maintenance & Repair History
+    maintenanceHistory: (report.lastInspectionDate || report.buildingChangedSinceLastInspection || report.structureChangesSinceLastInspection || report.previousLeakage || report.emergencyRepairPerformed) ? {
+      lastInspectionDate: report.lastInspectionDate ? new Date(report.lastInspectionDate).toISOString() : null,
+      buildingChangedSinceLastInspection: report.buildingChangedSinceLastInspection || null,
+      structureChangesSinceLastInspection: report.structureChangesSinceLastInspection || null,
+      previousLeakage: report.previousLeakage || null,
+      emergencyRepairPerformed: report.emergencyRepairPerformed || null
+    } : undefined,
     timeline: {
       phase1: {
         startDate: report.phase1StartDate ? new Date(report.phase1StartDate).toISOString() : null,
@@ -2470,7 +2593,11 @@ function buildStructuredBasicReport(data: {
       }
     },
     recommendations: [],
-    verificationChecklist: null
+    verificationChecklist: null,
+    // Tier data for Enhanced/Optimised reports
+    tier1: tier1 || null,
+    tier2: tier2 || null,
+    tier3: tier3 || null
   }
 }
 
