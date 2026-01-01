@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DollarSign, Download, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { DollarSign, Loader2, AlertCircle, CheckCircle, Printer } from "lucide-react"
 import toast from "react-hot-toast"
 import VisualCostEstimationViewer from "./VisualCostEstimationViewer"
 
@@ -122,7 +122,7 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
   }
 
   // Convert cost data to visual format
-  const convertToVisualCostData = (data: any, businessInfoData: any): any => {
+  const convertToVisualCostData = (data: any, businessInfoData: any, reportData?: any): any => {
     if (!data) return null
 
     // Extract disclaimers, assumptions, and exclusions from document or build defaults
@@ -160,10 +160,23 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
         businessABN: businessInfoData?.businessABN || null,
         businessPhone: businessInfoData?.businessPhone || null,
         businessEmail: businessInfoData?.businessEmail || null,
-        reportNumber: report?.reportNumber || report?.claimReferenceNumber || data.claimReference || 'N/A',
+        reportNumber: reportData?.reportNumber || reportData?.claimReferenceNumber || data.claimReference || 'N/A',
         dateGenerated: data.date || new Date().toLocaleDateString('en-AU'),
-        claimReference: data.claimReference || report?.claimReferenceNumber || 'Reference',
+        claimReference: data.claimReference || reportData?.claimReferenceNumber || 'Reference',
         version: data.version || '1.0'
+      },
+      property: {
+        clientName: reportData?.clientName || null,
+        clientCompany: reportData?.client?.company || null,
+        propertyAddress: reportData?.propertyAddress || null,
+        propertyPostcode: reportData?.propertyPostcode || null,
+        propertyId: reportData?.propertyId || null,
+        jobNumber: reportData?.jobNumber || null
+      },
+      incident: {
+        technicianName: reportData?.technicianName || null,
+        technicianAttendanceDate: reportData?.technicianAttendanceDate || null,
+        claimReferenceNumber: reportData?.claimReferenceNumber || null
       },
       categories: data.categories || {},
       totals: data.totals || {
@@ -184,41 +197,8 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
     }
   }
 
-  const handleDownload = async () => {
-    if (!costDocument) {
-      toast.error('No cost estimation document to download')
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/reports/${reportId}/download-cost-estimation`)
-      
-      if (!response.ok) {
-        const error = await response.json()
-        toast.error(error.error || 'Failed to download PDF')
-        return
-      }
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      
-      // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition')
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
-      const filename = filenameMatch ? filenameMatch[1] : `Cost-Estimation-${reportId}.pdf`
-      
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success('Cost Estimation PDF downloaded')
-    } catch (error) {
-      console.error('Error downloading PDF:', error)
-      toast.error('Failed to download PDF')
-    }
+  const handlePrint = () => {
+    window.print()
   }
 
   if (loading) {
@@ -239,8 +219,19 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
             Cost Estimation
           </h2>
           <p className="text-slate-400">
-            {costDocument ? 'View and download your generated cost estimation document' : 'Generate your comprehensive cost estimation document'}
+            {costDocument ? 'View your generated cost estimation document' : 'Generate your comprehensive cost estimation document'}
           </p>
+        </div>
+        <div className="flex gap-2">
+          {costDocument && (
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+            >
+              <Printer className="w-4 h-4" />
+              Print Report
+            </button>
+          )}
         </div>
       </div>
 
@@ -289,7 +280,7 @@ export default function CostEstimationViewer({ reportId, onEstimationGenerated }
 
           <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
             {costData ? (
-              <VisualCostEstimationViewer data={convertToVisualCostData(costData, businessInfo)} />
+              <VisualCostEstimationViewer data={convertToVisualCostData(costData, businessInfo, report)} />
             ) : (
               <div className="p-6 text-slate-400">No cost data available</div>
             )}
