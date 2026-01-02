@@ -154,8 +154,6 @@ export async function POST(request: NextRequest) {
       } else {
       }
     } catch (error: any) {
-      console.error('[Generate Inspection Report] ❌ Error retrieving standards from Google Drive:', error.message)
-      console.error('[Generate Inspection Report] Error stack:', error.stack)
       // Continue without standards - report will use general knowledge
     }
     
@@ -175,23 +173,8 @@ export async function POST(request: NextRequest) {
           classifications: [],
           costEstimates: []
         }
-        
-        console.log('[Report Generation] ✅ NIR data found in Report:', {
-          hasMoistureReadings: inspectionData.moistureReadings?.length > 0,
-          moistureReadingsCount: inspectionData.moistureReadings?.length || 0,
-          hasAffectedAreas: inspectionData.affectedAreas?.length > 0,
-          affectedAreasCount: inspectionData.affectedAreas?.length || 0,
-          hasScopeItems: inspectionData.scopeItems?.length > 0,
-          scopeItemsCount: inspectionData.scopeItems?.length || 0,
-          hasPhotos: inspectionData.photos?.length > 0,
-          photosCount: inspectionData.photos?.length || 0,
-          photoUrls: inspectionData.photos?.map((p: any) => p.url || p) || []
-        })
-      } else {
-        console.log('[Report Generation] ⚠️ No NIR data found in Report.moistureReadings')
       }
     } catch (error) {
-      console.error('[Report Generation] ❌ Error parsing NIR data from Report:', error)
       // Continue without NIR data - report generation will use other Report model data
       inspectionData = null
     }
@@ -283,7 +266,6 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
         maxTokens: 16000
       })
     } catch (error: any) {
-      console.error('Error calling AI provider:', error)
       return NextResponse.json(
         { 
           error: 'Failed to generate inspection report',
@@ -318,7 +300,6 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
       message: 'Inspection report generated successfully'
     })
   } catch (error) {
-    console.error('Error generating inspection report:', error)
     return NextResponse.json(
       { error: 'Failed to generate inspection report' },
       { status: 500 }
@@ -1955,40 +1936,6 @@ function buildStructuredBasicReport(data: {
 }): any {
   const { report, analysis, stateInfo, psychrometricAssessment, scopeAreas, equipmentSelection, inspectionData, tier1, tier2, tier3, businessInfo } = data
   
-  // Debug: Log data sources
-  console.log('[buildStructuredBasicReport] 📊 Data Sources Available:', {
-    hasReport: !!report,
-    hasAnalysis: !!analysis,
-    hasInspectionData: !!inspectionData,
-    hasPsychrometricAssessment: !!psychrometricAssessment,
-    hasScopeAreas: !!scopeAreas && scopeAreas.length > 0,
-    hasEquipmentSelection: !!equipmentSelection && equipmentSelection.length > 0,
-    hasTier1: !!tier1,
-    hasTier2: !!tier2,
-    hasTier3: !!tier3,
-    analysisKeys: analysis ? Object.keys(analysis) : [],
-    inspectionDataKeys: inspectionData ? Object.keys(inspectionData) : []
-  })
-  
-  // Debug: Log all new fields to verify they're being read
-  console.log('[buildStructuredBasicReport] 🔍 Reading new fields from report:', {
-    propertyId: report.propertyId,
-    jobNumber: report.jobNumber,
-    reportInstructions: report.reportInstructions,
-    builderDeveloperCompanyName: report.builderDeveloperCompanyName,
-    builderDeveloperContact: report.builderDeveloperContact,
-    builderDeveloperAddress: report.builderDeveloperAddress,
-    builderDeveloperPhone: report.builderDeveloperPhone,
-    ownerManagementContactName: report.ownerManagementContactName,
-    ownerManagementPhone: report.ownerManagementPhone,
-    ownerManagementEmail: report.ownerManagementEmail,
-    lastInspectionDate: report.lastInspectionDate,
-    buildingChangedSinceLastInspection: report.buildingChangedSinceLastInspection,
-    structureChangesSinceLastInspection: report.structureChangesSinceLastInspection,
-    previousLeakage: report.previousLeakage,
-    emergencyRepairPerformed: report.emergencyRepairPerformed
-  })
-
   // Extract photos from inspection data - ensure we get ALL photos
   const photos: Array<{ url: string; thumbnailUrl?: string; location?: string; caption?: string; category?: string }> = []
   
@@ -2028,17 +1975,6 @@ function buildStructuredBasicReport(data: {
       }
     })
   }
-  
-  console.log('[buildStructuredBasicReport] Photos extracted from NIR data:', {
-    photosCount: photos.length,
-    photos: photos.map(p => ({ 
-      url: p.url, 
-      thumbnailUrl: p.thumbnailUrl,
-      location: p.location, 
-      caption: p.caption 
-    })),
-    rawInspectionPhotos: inspectionData?.photos
-  })
   
   // Also check if photos are stored in report directly (legacy support)
   if (photos.length === 0 && report.photos) {
@@ -2091,22 +2027,12 @@ function buildStructuredBasicReport(data: {
            area.name.toLowerCase().includes(p.location.toLowerCase()))
         )
         areaPhotos = matchedPhotos.map(p => p.url)
-        
-        console.log(`[buildStructuredBasicReport] Area "${area.name}" photo matching:`, {
-          totalPhotos: photos.length,
-          matchedPhotos: matchedPhotos.length,
-          matchedUrls: areaPhotos
-        })
       }
       
       // If no photos matched, include photos without location or all photos
       if (areaPhotos.length === 0 && photos.length > 0) {
         const photosWithoutLocation = photos.filter(p => !p.location).map(p => p.url)
         areaPhotos = photosWithoutLocation.length > 0 ? photosWithoutLocation : photos.map(p => p.url)
-        console.log(`[buildStructuredBasicReport] Area "${area.name}" using fallback photos:`, {
-          photosWithoutLocation: photosWithoutLocation.length,
-          totalPhotos: areaPhotos.length
-        })
       }
       
       // Get moisture readings for this area
@@ -2392,18 +2318,6 @@ function buildStructuredBasicReport(data: {
       const envData = inspectionData?.environmentalData
       const psychroData = psychrometricAssessment
       
-      console.log('[buildStructuredBasicReport] Environmental Data Check:', {
-        hasInspectionData: !!inspectionData,
-        hasEnvironmentalData: !!envData,
-        environmentalData: envData,
-        hasPsychrometricData: !!psychroData,
-        psychrometricData: psychroData,
-        ambientTemperature: envData?.ambientTemperature,
-        humidityLevel: envData?.humidityLevel,
-        dewPoint: envData?.dewPoint,
-        airCirculation: envData?.airCirculation
-      })
-      
       // Priority 1: Use NIR environmental data if available
       if (envData) {
         return {
@@ -2420,12 +2334,6 @@ function buildStructuredBasicReport(data: {
         const humidity = psychroData.humidity || null
         const dewPoint = temp && humidity ? temp - (100 - humidity) / 5 : null
         
-        console.log('[buildStructuredBasicReport] Using psychrometric data as environmental fallback:', {
-          temperature: temp,
-          humidity: humidity,
-          calculatedDewPoint: dewPoint
-        })
-        
         return {
           ambientTemperature: temp,
           humidityLevel: humidity,
@@ -2434,7 +2342,6 @@ function buildStructuredBasicReport(data: {
         }
       }
       
-      console.log('[buildStructuredBasicReport] ⚠️ No environmental data available')
       return null
     })(),
     psychrometric: psychrometricAssessment ? {
@@ -2519,18 +2426,7 @@ function buildStructuredBasicReport(data: {
         totalCost: totalCost
       }
     }) : [],
-    photos: (() => {
-      console.log('[buildStructuredBasicReport] Final photos array:', {
-        count: photos.length,
-        photos: photos.map(p => ({
-          url: p.url,
-          thumbnailUrl: p.thumbnailUrl,
-          location: p.location,
-          caption: p.caption
-        }))
-      })
-      return photos
-    })(),
+    photos: photos,
     summary: {
       roomsAffected: roomsAffected,
       totalCost: totalCost,

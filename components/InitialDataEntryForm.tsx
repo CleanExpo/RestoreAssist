@@ -440,22 +440,13 @@ export default function InitialDataEntryForm({
         return;
       }
 
-      console.log('[InitialDataEntryForm] Loading data for reportId:', reportId);
-
       try {
         // Load NIR data
         const nirResponse = await fetch(`/api/reports/${reportId}/nir-data`);
         if (nirResponse.ok) {
-          const nirData = await nirResponse.json();
-          console.log('[InitialDataEntryForm] NIR data response:', nirData);
-          
+          const nirData = await nirResponse.json();          
           if (nirData.nirData) {
-            console.log('[InitialDataEntryForm] Loading NIR data:', {
-              moistureReadings: nirData.nirData.moistureReadings,
-              affectedAreas: nirData.nirData.affectedAreas,
-              scopeItems: nirData.nirData.scopeItems,
-              photos: nirData.nirData.photos
-            });
+   
             
             // Load moisture readings
             if (nirData.nirData.moistureReadings && Array.isArray(nirData.nirData.moistureReadings) && nirData.nirData.moistureReadings.length > 0) {
@@ -466,7 +457,6 @@ export default function InitialDataEntryForm({
                 moistureLevel: r.moistureLevel || 0,
                 depth: r.depth || 'Surface' as "Surface" | "Subsurface"
               }));
-              console.log('[InitialDataEntryForm] Setting moisture readings:', readings);
               setNirMoistureReadings(readings);
             } else {
               console.log('[InitialDataEntryForm] No moisture readings to load');
@@ -481,7 +471,6 @@ export default function InitialDataEntryForm({
                 waterSource: a.waterSource || 'Clean Water',
                 timeSinceLoss: a.timeSinceLoss || 0
               }));
-              console.log('[InitialDataEntryForm] Setting affected areas:', areas);
               setNirAffectedAreas(areas);
             } else {
               console.log('[InitialDataEntryForm] No affected areas to load');
@@ -492,20 +481,11 @@ export default function InitialDataEntryForm({
               const selectedItems = new Set<string>(nirData.nirData.scopeItems
                 .filter((item: any) => item.isSelected !== false)
                 .map((item: any) => (item.itemType || item.id) as string));
-              console.log('[InitialDataEntryForm] Setting scope items:', Array.from(selectedItems));
               setNirSelectedScopeItems(selectedItems);
             } else {
               console.log('[InitialDataEntryForm] No scope items to load');
             }
-            
-            // Note: Photos are URLs, not File objects, so we can't reload them as files
-            // But we can display them if needed
-            console.log('[InitialDataEntryForm] ✅ NIR data loaded successfully:', {
-              moistureReadings: nirData.nirData.moistureReadings?.length || 0,
-              affectedAreas: nirData.nirData.affectedAreas?.length || 0,
-              scopeItems: nirData.nirData.scopeItems?.length || 0,
-              photos: nirData.nirData.photos?.length || 0
-            });
+
           } else {
             console.log('[InitialDataEntryForm] ⚠️ No NIR data in response');
           }
@@ -518,7 +498,6 @@ export default function InitialDataEntryForm({
         const equipmentResponse = await fetch(`/api/reports/${reportId}/equipment`);
         if (equipmentResponse.ok) {
           const equipmentData = await equipmentResponse.json();
-          console.log('[InitialDataEntryForm] Loading equipment data:', equipmentData);
           
           if (equipmentData.psychrometricAssessment) {
             const psychro = equipmentData.psychrometricAssessment;
@@ -540,7 +519,6 @@ export default function InitialDataEntryForm({
           }
           
           if (equipmentData.equipmentSelection && Array.isArray(equipmentData.equipmentSelection)) {
-            console.log('[InitialDataEntryForm] Setting equipment selections from API:', equipmentData.equipmentSelection);
             setEquipmentSelections(equipmentData.equipmentSelection);
             hasAutoSelectedEquipment.current = true; // Mark as already set to prevent auto-selection
           }
@@ -560,7 +538,6 @@ export default function InitialDataEntryForm({
   // Populate NIR data from initialData when PDF is uploaded
   useEffect(() => {
     if (initialData?.nirData) {
-      console.log('[InitialDataEntryForm] Populating NIR data from uploaded PDF:', initialData.nirData);
       
       // Populate moisture readings
       if (initialData.nirData.moistureReadings && Array.isArray(initialData.nirData.moistureReadings) && initialData.nirData.moistureReadings.length > 0) {
@@ -571,7 +548,6 @@ export default function InitialDataEntryForm({
           moistureLevel: typeof r.moistureLevel === 'number' ? r.moistureLevel : parseFloat(r.moistureLevel) || 0,
           depth: r.depth === 'Subsurface' ? 'Subsurface' as const : 'Surface' as const
         }));
-        console.log('[InitialDataEntryForm] Setting moisture readings from upload:', readings);
         setNirMoistureReadings(readings);
       }
       
@@ -584,18 +560,14 @@ export default function InitialDataEntryForm({
           waterSource: a.waterSource || 'Clean Water',
           timeSinceLoss: typeof a.timeSinceLoss === 'number' ? a.timeSinceLoss : parseFloat(a.timeSinceLoss) || 0
         }));
-        console.log('[InitialDataEntryForm] Setting affected areas from upload:', areas);
         setNirAffectedAreas(areas);
       }
       
       // Populate scope items
       if (initialData.nirData.scopeItems && Array.isArray(initialData.nirData.scopeItems) && initialData.nirData.scopeItems.length > 0) {
         const selectedItems = new Set<string>(initialData.nirData.scopeItems);
-        console.log('[InitialDataEntryForm] Setting scope items from upload:', Array.from(selectedItems));
         setNirSelectedScopeItems(selectedItems);
       }
-      
-      console.log('[InitialDataEntryForm] ✅ NIR data populated from uploaded PDF');
     }
   }, [initialData?.nirData]);
 
@@ -652,19 +624,15 @@ export default function InitialDataEntryForm({
       // Update Equipment & Tools Selection data - MUST be set before auto-selection
       if (initialData.psychrometricWaterClass) {
         setWaterClass(initialData.psychrometricWaterClass as 1 | 2 | 3 | 4);
-        console.log('[InitialDataEntryForm] Set water class from initialData:', initialData.psychrometricWaterClass);
       }
       if (initialData.psychrometricTemperature !== undefined && initialData.psychrometricTemperature !== null) {
         setTemperature(initialData.psychrometricTemperature);
-        console.log('[InitialDataEntryForm] Set temperature from initialData:', initialData.psychrometricTemperature);
       }
       if (initialData.psychrometricHumidity !== undefined && initialData.psychrometricHumidity !== null) {
         setHumidity(initialData.psychrometricHumidity);
-        console.log('[InitialDataEntryForm] Set humidity from initialData:', initialData.psychrometricHumidity);
       }
       if (initialData.psychrometricSystemType) {
         setSystemType(initialData.psychrometricSystemType);
-        console.log('[InitialDataEntryForm] Set system type from initialData:', initialData.psychrometricSystemType);
       }
       if (initialData.scopeAreas && initialData.scopeAreas.length > 0) {
         const areasToSet = initialData.scopeAreas.map((area, index) => ({
@@ -675,19 +643,10 @@ export default function InitialDataEntryForm({
           height: area.height || 2.7,
           wetPercentage: area.wetPercentage || 100,
         }));
-        console.log('[InitialDataEntryForm] Set scope areas from initialData:', areasToSet);
-        console.log('[InitialDataEntryForm] Areas validation:', areasToSet.map(a => ({
-          name: a.name,
-          hasValidDimensions: a.length > 0 && a.width > 0 && a.height > 0,
-          dimensions: `${a.length}m x ${a.width}m x ${a.height}m`,
-          wetPercentage: a.wetPercentage,
-          volume: a.length * a.width * a.height,
-          affectedArea: a.length * a.width * (a.wetPercentage / 100)
-        })));
+
         setAreas(areasToSet);
         
-        // Also trigger auto-selection after areas are set
-        // This ensures areas state is updated before auto-selection runs
+
         setTimeout(() => {
           if (pricingConfig && !hasAutoSelectedEquipment.current) {
             console.log('[InitialDataEntryForm] Triggering auto-selection after areas set');
@@ -697,15 +656,10 @@ export default function InitialDataEntryForm({
       }
       if (initialData.estimatedDryingDuration) {
         setDurationDays(initialData.estimatedDryingDuration);
-        console.log('[InitialDataEntryForm] Set drying duration from initialData:', initialData.estimatedDryingDuration);
       }
       
       // Populate equipment from extracted equipment deployment data (from PDF)
       if (initialData.equipmentDeployment && Array.isArray(initialData.equipmentDeployment) && initialData.equipmentDeployment.length > 0) {
-        console.log('[InitialDataEntryForm] Setting equipment from PDF extraction:', initialData.equipmentDeployment);
-        
-        // Map extracted equipment to equipment selections
-        // We need to match equipment names to equipment group IDs
         const equipmentSelectionsFromPDF: EquipmentSelection[] = [];
         
         initialData.equipmentDeployment.forEach((eq: any) => {
@@ -774,7 +728,6 @@ export default function InitialDataEntryForm({
         });
         
         if (equipmentSelectionsFromPDF.length > 0) {
-          console.log('[InitialDataEntryForm] Setting equipment selections from PDF:', equipmentSelectionsFromPDF);
           setEquipmentSelections(equipmentSelectionsFromPDF);
           hasAutoSelectedEquipment.current = true; // Prevent auto-selection when using PDF data
         }
@@ -811,30 +764,8 @@ export default function InitialDataEntryForm({
       !hasAutoSelectedEquipment.current &&
       !(initialData?.equipmentDeployment && initialData.equipmentDeployment.length > 0); // Don't auto-select if PDF has equipment data
 
-    console.log('[InitialDataEntryForm] Auto-selection check:', {
-      hasPricingConfig: !!pricingConfig,
-      areasLength: areasToUse.length,
-      waterClass: waterClassToUse,
-      temperature: tempToUse,
-      humidity: humidityToUse,
-      hasAutoSelected: hasAutoSelectedEquipment.current,
-      shouldAutoSelect,
-      areasStateLength: areas.length,
-      initialDataScopeAreasLength: initialData?.scopeAreas?.length || 0
-    });
 
     if (shouldAutoSelect) {
-      console.log('[InitialDataEntryForm] Auto-selecting equipment from uploaded PDF data');
-      console.log('[InitialDataEntryForm] Areas to use for calculation:', areasToUse);
-      console.log('[InitialDataEntryForm] Areas details:', areasToUse.map(a => ({
-        name: a.name,
-        length: a.length,
-        width: a.width,
-        height: a.height,
-        wetPercentage: a.wetPercentage,
-        volume: a.length * a.width * a.height,
-        affectedArea: a.length * a.width * (a.wetPercentage / 100)
-      })));
       
       // Calculate targets based on areas and water class
       const { totalVolume, totalAffectedArea } = calculateTotalVolume(areasToUse);

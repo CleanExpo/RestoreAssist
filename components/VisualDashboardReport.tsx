@@ -561,16 +561,7 @@ function DetailedReportPages({ fullData, businessInfo }: { fullData: any; busine
 
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           {(() => {
-            console.log('[VisualDashboardReport] Environmental Data Check:', {
-              hasEnvironmental: !!fullData.environmental,
-              environmental: fullData.environmental,
-              hasTemperature: fullData.environmental?.ambientTemperature !== null && fullData.environmental?.ambientTemperature !== undefined,
-              hasHumidity: fullData.environmental?.humidityLevel !== null && fullData.environmental?.humidityLevel !== undefined,
-              hasDewPoint: fullData.environmental?.dewPoint !== null && fullData.environmental?.dewPoint !== undefined,
-              temperature: fullData.environmental?.ambientTemperature,
-              humidity: fullData.environmental?.humidityLevel,
-              dewPoint: fullData.environmental?.dewPoint
-            })
+
             const hasEnvData = fullData.environmental && (
               (fullData.environmental.ambientTemperature !== null && fullData.environmental.ambientTemperature !== undefined) ||
               (fullData.environmental.humidityLevel !== null && fullData.environmental.humidityLevel !== undefined) ||
