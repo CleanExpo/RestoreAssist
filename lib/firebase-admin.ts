@@ -35,12 +35,10 @@ async function initializeAdminAuth() {
           projectId: serviceAccount.project_id || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'restore-assist',
         })
         adminAuth = getAuth(adminApp)
-        console.log('✅ Firebase Admin initialized with service account')
       } else {
         const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'restore-assist'
         const adminApp = initializeApp({ projectId })
         adminAuth = getAuth(adminApp)
-        console.log('⚠️  Firebase Admin initialized with default credentials')
       }
     } else {
       const apps = getApps()
