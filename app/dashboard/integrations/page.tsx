@@ -213,6 +213,11 @@ export default function IntegrationsPage() {
   }
 
   const handleAddIntegration = async () => {
+    if (newApiKeyType === 'openai' || newApiKeyType === 'gemini') {
+      toast.error("This integration is coming soon!")
+      return
+    }
+
     if (!newApiKey) {
       toast.error("API key is required")
       return
@@ -435,12 +440,19 @@ export default function IntegrationsPage() {
                 <label className="block text-sm font-medium mb-2">API Key Type</label>
                 <select
                   value={apiKeyType}
-                  onChange={(e) => setApiKeyType(e.target.value as 'openai' | 'anthropic' | 'gemini')}
+                  onChange={(e) => {
+                    const value = e.target.value as 'openai' | 'anthropic' | 'gemini'
+                    if (value === 'openai' || value === 'gemini') {
+                      toast.error('This integration is coming soon!')
+                      return
+                    }
+                    setApiKeyType(value)
+                  }}
                   className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white"
                 >
                   <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="gemini">Google Gemini</option>
+                  <option value="openai" disabled>OpenAI GPT - Coming Soon</option>
+                  <option value="gemini" disabled>Google Gemini - Coming Soon</option>
                 </select>
                 <p className="text-xs text-slate-400 mt-2">
                   Select the type of API key you want to connect
@@ -544,12 +556,19 @@ export default function IntegrationsPage() {
                 <label className="block text-sm font-medium mb-2">API Key Type</label>
                 <select
                   value={newApiKeyType}
-                  onChange={(e) => setNewApiKeyType(e.target.value as 'openai' | 'anthropic' | 'gemini')}
+                  onChange={(e) => {
+                    const value = e.target.value as 'openai' | 'anthropic' | 'gemini'
+                    if (value === 'openai' || value === 'gemini') {
+                      toast.error('This integration is coming soon!')
+                      return
+                    }
+                    setNewApiKeyType(value)
+                  }}
                   className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white"
                 >
                   <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="gemini">Google Gemini</option>
+                  <option value="openai" disabled>OpenAI GPT - Coming Soon</option>
+                  <option value="gemini" disabled>Google Gemini - Coming Soon</option>
                 </select>
                 <p className="text-xs text-slate-400 mt-2">
                   Select the type of API key you want to connect
