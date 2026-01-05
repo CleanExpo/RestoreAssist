@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { prisma } from './prisma'
+import { tryClaudeModels } from './anthropic-models'
 
 export type AIProvider = 'anthropic' | 'openai' | 'gemini'
 
@@ -89,17 +90,15 @@ export async function callAIProvider(
         }
       ]
 
-      const requestOptions: any = {
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: maxTokens,
-        messages
-      }
-
-      if (system) {
-        requestOptions.system = system
-      }
-
-      const response = await anthropic.messages.create(requestOptions)
+      // Use tryClaudeModels for automatic fallback to working models
+      const response = await tryClaudeModels(
+        anthropic,
+        {
+          system,
+          messages,
+          max_tokens: maxTokens
+        }
+      )
       
       if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
         return response.content[0].text
