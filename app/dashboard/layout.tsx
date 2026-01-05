@@ -24,6 +24,7 @@ import {
   FileSearch,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
+import Chatbot from "@/components/Chatbot"
 
 export default function DashboardLayout({
   children,
@@ -84,6 +85,7 @@ const upgradeItem = {
 }
 
   return (
+    <>
     <div className="min-h-screen bg-slate-950 text-slate-50">
                 {/* Sidebar */}
                 <aside
@@ -226,5 +228,8 @@ const upgradeItem = {
           <main className="space-y-6 max-w-9xl mx-auto px-2 sm:px-4 lg:px-6 py-8">{children}</main>
         </div>
       </div>
+      {/* Chatbot */}
+      <Chatbot />
+    </>
   )
 }

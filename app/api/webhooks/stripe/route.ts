@@ -127,14 +127,7 @@ export async function POST(request: NextRequest) {
                   id: true
               }
             })
-            
-              console.log('✅ ADD-ON PROCESSED:', {
-                before: userBefore?.addonReports,
-                increment: addonReports,
-                after: updatedUser.addonReports,
-                userId: updatedUser.id,
-                purchaseRecordId: addonPurchase?.id || 'N/A (using field only)'
-              })
+          
               
             } catch (error: any) {
               console.error('❌ ADD-ON PROCESSING ERROR:', {
@@ -360,12 +353,6 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.created":
         const subscription = event.data.object as Stripe.Subscription
-        console.log('Subscription created:', {
-          id: subscription.id,
-          customer: subscription.customer,
-          status: subscription.status
-        })
-        
         // Update user subscription
         if (subscription.customer) {
           
@@ -448,10 +435,6 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.updated":
         const updatedSubscription = event.data.object as Stripe.Subscription
-        console.log('Subscription updated:', {
-          id: updatedSubscription.id,
-          status: updatedSubscription.status
-        })
         
         const updateResult = await prisma.user.updateMany({
           where: { subscriptionId: updatedSubscription.id },
@@ -505,14 +488,7 @@ export async function POST(request: NextRequest) {
       case "payment_intent.succeeded":
         // Handle add-on purchases via payment intent (backup to checkout.session.completed)
         const paymentIntent = event.data.object as Stripe.PaymentIntent
-        
-        console.log('💳 PAYMENT INTENT SUCCEEDED:', {
-          id: paymentIntent.id,
-          status: paymentIntent.status,
-          amount: paymentIntent.amount,
-          currency: paymentIntent.currency,
-          metadata: paymentIntent.metadata
-        })
+
         
         // Check if this is an add-on purchase
         if (paymentIntent.metadata?.type === 'addon') {
@@ -564,12 +540,6 @@ export async function POST(request: NextRequest) {
                   }
                 })
                 
-                console.log('✅ ADD-ON PROCESSED VIA PAYMENT INTENT:', {
-                  userId,
-                  addonKey,
-                  addonReports,
-                  purchaseId: addonPurchase.id
-                })
               }
             } else {
               console.log('⚠️ ADD-ON ALREADY PROCESSED (payment intent):', paymentIntent.id)
