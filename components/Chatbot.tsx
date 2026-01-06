@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { MessageCircle, X, Send, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
+import ReactMarkdown from "react-markdown"
 
 interface Message {
   id: string
@@ -12,6 +13,11 @@ interface Message {
 }
 
 export default function Chatbot() {
+  useEffect(() => {
+    // Debug: Verify component is rendering
+    console.log('Chatbot component mounted')
+  }, [])
+  
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -108,7 +114,8 @@ export default function Chatbot() {
       {/* Chat Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-50 group"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[100] group"
+        style={{ position: 'fixed' }}
         aria-label="Open chatbot"
       >
         {isOpen ? (
@@ -123,7 +130,7 @@ export default function Chatbot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-slate-800 border border-slate-700 rounded-lg shadow-2xl flex flex-col z-50 animate-fade-in">
+        <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-slate-800 border border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in" style={{ position: 'fixed' }}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-lg">
             <div className="flex items-center gap-3">
@@ -158,7 +165,37 @@ export default function Chatbot() {
                       : "bg-slate-700 text-slate-100"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  {message.role === "assistant" ? (
+                    <div className="text-sm prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="ml-2">{children}</li>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          code: ({ children }) => (
+                            <code className="bg-slate-800/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                              {children}
+                            </code>
+                          ),
+                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{children}</h3>,
+                          blockquote: ({ children }) => (
+                            <blockquote className="border-l-4 border-slate-500 pl-3 my-2 italic">
+                              {children}
+                            </blockquote>
+                          ),
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
                   <p className="text-xs mt-1 opacity-70">
                     {message.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",

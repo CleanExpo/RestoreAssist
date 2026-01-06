@@ -16,18 +16,10 @@ export interface ModelConfig {
  */
 export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
   return [
-    // Start with stable, known-working models
+    // Use stable, widely-available models first to avoid 404s
     { name: 'claude-3-sonnet-20240229', maxTokens }, // Stable 3.0 Sonnet
-    { name: 'claude-3-opus-20240229', maxTokens: Math.min(maxTokens, 4096) }, // Stable 3.0 Opus (4096 max)
-    // Then try newer 3.5 models (may be deprecated but worth trying)
-    { name: 'claude-3-5-sonnet-20241022', maxTokens },
-    { name: 'claude-3-5-sonnet-20240620', maxTokens },
-    // Try newer date patterns (these may not exist)
-    { name: 'claude-3-5-sonnet-20250205', maxTokens },
-    { name: 'claude-3-5-sonnet-20250115', maxTokens },
-    { name: 'claude-3-5-sonnet-20241219', maxTokens },
-    // Generic model name (if API supports latest without date)
-    { name: 'claude-3-5-sonnet', maxTokens },
+    { name: 'claude-3-opus-20240229', maxTokens: Math.min(maxTokens, 4096) }, // Stable 3.0 Opus
+    { name: 'claude-3-haiku-20240307', maxTokens }, // Fast, highly available
   ]
 }
 
