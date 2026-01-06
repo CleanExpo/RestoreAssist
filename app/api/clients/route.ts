@@ -51,7 +51,16 @@ export async function GET(request: NextRequest) {
         propertyAddress: true,
         createdAt: true,
         id: true,
-        totalCost: true
+        totalCost: true,
+        equipmentCostTotal: true,
+        costEstimationData: true,
+        estimates: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+          select: {
+            totalIncGST: true
+          }
+        }
       }
     })
     
@@ -68,7 +77,16 @@ export async function GET(request: NextRequest) {
               title: true,
               status: true,
               totalCost: true,
-              createdAt: true
+              equipmentCostTotal: true,
+              costEstimationData: true,
+              createdAt: true,
+              estimates: {
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  totalIncGST: true
+                }
+              }
             },
             orderBy: { createdAt: "desc" }
           },
@@ -83,9 +101,34 @@ export async function GET(request: NextRequest) {
       prisma.client.count({ where })
     ])
 
+    // Helper to calculate cost with fallbacks
+    const getReportCost = (report: any) => {
+      // Priority: estimates[0].totalIncGST > equipmentCostTotal > totalCost > costEstimationData
+      if (report.estimates?.[0]?.totalIncGST) {
+        return report.estimates[0].totalIncGST
+      }
+      if (report.equipmentCostTotal) {
+        return report.equipmentCostTotal
+      }
+      if (report.totalCost) {
+        return report.totalCost
+      }
+      if (report.costEstimationData) {
+        try {
+          const parsed = typeof report.costEstimationData === 'string'
+            ? JSON.parse(report.costEstimationData)
+            : report.costEstimationData
+          if (parsed?.totals?.totalIncGST) return parsed.totals.totalIncGST
+        } catch (e) {
+          // ignore
+        }
+      }
+      return 0
+    }
+
     // Calculate client statistics
     const clientsWithStats = clients.map(client => {
-      const totalRevenue = client.reports.reduce((sum, report) => sum + (report.totalCost || 0), 0)
+      const totalRevenue = client.reports.reduce((sum, report) => sum + getReportCost(report), 0)
       const lastJob = client.reports.length > 0 ? client.reports[0].createdAt : null
       
       return {
@@ -109,7 +152,16 @@ export async function GET(request: NextRequest) {
         propertyAddress: true,
         createdAt: true,
         id: true,
-        totalCost: true
+        totalCost: true,
+        equipmentCostTotal: true,
+        costEstimationData: true,
+        estimates: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+          select: {
+            totalIncGST: true
+          }
+        }
       }
     })
     
@@ -148,7 +200,7 @@ export async function GET(request: NextRequest) {
 
       // Calculate stats for this client
       const reportCount = reports.length
-      const totalRevenue = reports.reduce((sum, r) => sum + (r.totalCost || 0), 0)
+      const totalRevenue = reports.reduce((sum, r) => sum + getReportCost(r), 0)
       const lastJob = reports[0]?.createdAt || latestReport.createdAt
 
       return {
@@ -310,15 +362,24 @@ export async function POST(request: NextRequest) {
       where: { id: client.id },
       include: {
         reports: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            totalCost: true,
-            createdAt: true
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              totalCost: true,
+              equipmentCostTotal: true,
+              costEstimationData: true,
+              createdAt: true,
+              estimates: {
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  totalIncGST: true
+                }
+              }
+            },
+            orderBy: { createdAt: "desc" }
           },
-          orderBy: { createdAt: "desc" }
-        },
         _count: {
           select: { reports: true }
         }
@@ -334,7 +395,27 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const totalRevenue = updatedClient.reports.reduce((sum, report) => sum + (report.totalCost || 0), 0)
+    const totalRevenue = updatedClient.reports.reduce((sum, report) => {
+      // Priority: estimates[0].totalIncGST > equipmentCostTotal > totalCost > costEstimationData
+      let cost = 0
+      if (report.estimates?.[0]?.totalIncGST) {
+        cost = report.estimates[0].totalIncGST
+      } else if (report.equipmentCostTotal) {
+        cost = report.equipmentCostTotal
+      } else if (report.totalCost) {
+        cost = report.totalCost
+      } else if (report.costEstimationData) {
+        try {
+          const costData = typeof report.costEstimationData === 'string' 
+            ? JSON.parse(report.costEstimationData) 
+            : report.costEstimationData
+          if (costData?.totals?.totalIncGST) cost = costData.totals.totalIncGST
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      return sum + cost
+    }, 0)
     const lastJob = updatedClient.reports.length > 0 ? updatedClient.reports[0].createdAt : null
 
     return NextResponse.json({

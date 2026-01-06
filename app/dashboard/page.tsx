@@ -37,6 +37,7 @@ export default function DashboardPage() {
     totalReports: 0,
     totalClients: 0,
     totalRevenue: 0,
+    avgReportValue: 0,
     recentReports: [],
     recentClients: [],
     loading: true
@@ -116,7 +117,30 @@ export default function DashboardPage() {
       // Calculate metrics
       const totalReports = reports.length
       const totalClients = clients.length
-      const totalRevenue = reports.reduce((sum: number, report: any) => sum + (report.totalCost || 0), 0)
+      
+      // Calculate Total Revenue: Sum of all available cost sources
+      // Priority: estimatedCost (from cost estimation) > equipmentCostTotal > totalCost
+      const reportsWithCost = reports.map((report: any) => {
+        // Try multiple cost sources in priority order
+        if (report.estimatedCost) return report.estimatedCost
+        if (report.equipmentCostTotal) return report.equipmentCostTotal
+        if (report.totalCost) return report.totalCost
+        // Try to parse costEstimationData if available
+        if (report.costEstimationData) {
+          try {
+            const costData = typeof report.costEstimationData === 'string' 
+              ? JSON.parse(report.costEstimationData) 
+              : report.costEstimationData
+            if (costData?.totals?.totalIncGST) return costData.totals.totalIncGST
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+        return 0
+      })
+      
+      const totalRevenue = reportsWithCost.reduce((sum: number, cost: number) => sum + cost, 0)
+      const avgReportValue = totalReports > 0 ? totalRevenue / totalReports : 0
       
       // Get recent reports (last 5)
       const recentReports = reports
@@ -132,6 +156,7 @@ export default function DashboardPage() {
         totalReports,
         totalClients,
         totalRevenue,
+        avgReportValue,
         recentReports,
         recentClients,
         loading: false
@@ -164,8 +189,8 @@ export default function DashboardPage() {
       color: "text-emerald-400" 
     },
     { 
-      label: "Total Revenue", 
-      value: dashboardData.loading ? "..." : `$${dashboardData.totalRevenue.toLocaleString()}`, 
+      label: "Avg Report Value", 
+      value: dashboardData.loading ? "..." : `$${Math.round(dashboardData.avgReportValue || 0).toLocaleString()}`, 
       icon: DollarSign, 
       color: "text-blue-400" 
     },
@@ -520,9 +545,9 @@ export default function DashboardPage() {
                   <DollarSign size={24} className="text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-orange-400 mb-1">
-                  {dashboardData.loading ? "..." : `$${dashboardData.totalRevenue.toLocaleString()}`}
+                  {dashboardData.loading ? "..." : `$${Math.round(dashboardData.totalRevenue || 0).toLocaleString()}`}
                 </h3>
-                <p className="text-slate-400 text-sm">Total Revenue</p>
+                <p className="text-slate-400 text-sm">Total Value</p>
               </div>
         </div>
           </motion.div>
