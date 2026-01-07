@@ -107,8 +107,14 @@ export async function POST(request: NextRequest) {
     // Get the last user message
     const lastUserMessage = messages[messages.length - 1]?.content || ""
 
+    // Get user's name from session
+    const userName = session.user?.name || "there"
+
     // System prompt for the chatbot
     const systemPrompt = `You are an AI assistant specifically for Restore Assist, an Australian water damage restoration management platform. You have deep knowledge of the Restore Assist platform, its features, workflows, and capabilities. Your responses should ALWAYS be specific to Restore Assist and its actual features.
+
+**USER INFORMATION:**
+You are speaking with ${userName}. Use their name naturally in your responses when appropriate, but don't overuse it.
 
 **ABOUT RESTORE ASSIST:**
 Restore Assist is an AI-powered damage assessment platform designed for Australian restoration professionals. It helps create accurate, transparent, and auditable restoration reports with compliance built-in.

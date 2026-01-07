@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, Settings, XIcon, Plus, Trash2, Crown, CheckCircle, ArrowRight } from "lucide-react"
+import { Check, X, XIcon, Plus, Trash2, Crown, CheckCircle, ArrowRight } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
 import OnboardingGuide from "@/components/OnboardingGuide"
@@ -394,21 +394,12 @@ export default function IntegrationsPage() {
 
                   <div className="flex gap-2">
                     {integration.status === "CONNECTED" ? (
-                      <>
-                        <button
-                          onClick={() => handleConnect(integration)}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
-                        >
-                          <Settings size={16} />
-                          Settings
-                        </button>
-                        <button
-                          onClick={() => handleDisconnect(integration.id)}
-                          className="flex-1 px-4 py-2 border border-rose-600 text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm"
-                        >
-                          Disconnect
-                        </button>
-                      </>
+                      <button
+                        onClick={() => handleDisconnect(integration.id)}
+                        className="w-full px-4 py-2 border border-rose-600 text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm"
+                      >
+                        Disconnect
+                      </button>
                     ) : (
                       <button
                         onClick={() => handleConnect(integration)}
