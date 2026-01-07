@@ -2,6 +2,62 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { callAIProvider } from "@/lib/ai-provider"
+import { prisma } from "@/lib/prisma"
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user || !(session.user as any).id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = (session.user as any).id
+    const { searchParams } = new URL(request.url)
+    const limit = parseInt(searchParams.get("limit") || "50")
+
+    // Fetch chat history from database
+    let chatMessages: any[] = []
+    try {
+      // Check if chatMessage model exists on prisma client
+      if (!('chatMessage' in prisma)) {
+        console.warn("ChatMessage model not available. Please restart the dev server after running: npx prisma generate")
+        return NextResponse.json({ messages: [] })
+      }
+      
+      chatMessages = await (prisma as any).chatMessage.findMany({
+        where: {
+          userId,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: limit,
+      })
+    } catch (error: any) {
+      console.error("Error fetching chat messages:", error)
+      return NextResponse.json({ messages: [] })
+    }
+
+    // Format messages for frontend
+    const messages = chatMessages.map((msg) => ({
+      id: msg.id,
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+      timestamp: msg.createdAt,
+    }))
+
+    return NextResponse.json({ messages })
+  } catch (error: any) {
+    console.error("Chatbot GET error:", error)
+    return NextResponse.json(
+      {
+        error: error.message || "Failed to fetch chat history",
+      },
+      { status: 500 }
+    )
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -162,6 +218,43 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
       maxTokens: 4000,
       temperature: 0.7,
     })
+
+    // Save messages to database
+    try {
+      const userId = (session.user as any).id
+      
+      // Check if chatMessage model exists on prisma client
+      if (!('chatMessage' in prisma)) {
+        console.warn("ChatMessage model not available. Please restart the dev server after running: npx prisma generate")
+        // Continue without saving - don't fail the request
+      } else {
+        // Save user message
+        await (prisma as any).chatMessage.create({
+          data: {
+            userId,
+            role: "user",
+            content: lastUserMessage,
+          },
+        })
+
+        // Save assistant response
+        await (prisma as any).chatMessage.create({
+          data: {
+            userId,
+            role: "assistant",
+            content: response,
+          },
+        })
+      }
+    } catch (dbError: any) {
+      console.error("Error saving chat messages:", dbError)
+      // Log the error but don't fail the request
+      if (dbError?.code === 'P2002') {
+        console.error("Unique constraint violation - message may already exist")
+      } else if (dbError?.message?.includes('chatMessage') || dbError?.message?.includes('Cannot read properties')) {
+        console.error("ChatMessage model may not be available. Please restart the dev server after running: npx prisma generate")
+      }
+    }
 
     return NextResponse.json({ response })
   } catch (error: any) {

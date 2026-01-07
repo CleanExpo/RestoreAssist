@@ -73,9 +73,9 @@ export default function HelpPage() {
     },
     {
       icon: MessageSquare,
-      title: "Live Chat (Coming Soon)",
+      title: "Live Chat",
       description: "Available in app",
-      response: "9am-5pm AEST",
+      response: "Available 24/7",
     },
   ]
 

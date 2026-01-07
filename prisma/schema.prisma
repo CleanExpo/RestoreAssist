@@ -87,6 +87,7 @@ model User {
   claimAnalysisBatches ClaimAnalysisBatch[]
   standardTemplates StandardTemplate[]
   inspections   Inspection[]
+  chatMessages  ChatMessage[]
 }
 
 model VerificationToken {
@@ -1190,4 +1191,16 @@ model InspectionPhoto {
   
   @@index([inspectionId])
   @@index([timestamp])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String   // "user" or "assistant"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt])
 }

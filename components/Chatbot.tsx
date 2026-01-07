@@ -13,24 +13,59 @@ interface Message {
 }
 
 export default function Chatbot() {
-  useEffect(() => {
-    // Debug: Verify component is rendering
-    console.log('Chatbot component mounted')
-  }, [])
-  
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Hello! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.",
-      timestamp: new Date(),
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Load chat history from database
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        setIsLoadingHistory(true)
+        const response = await fetch("/api/chatbot")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.messages && data.messages.length > 0) {
+            // Convert timestamp strings to Date objects
+            const formattedMessages = data.messages.map((msg: any) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp),
+            }))
+            setMessages(formattedMessages)
+          } else {
+            // No chat history, show welcome message
+            setMessages([
+              {
+                id: "welcome",
+                role: "assistant",
+                content: "Hello! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.",
+                timestamp: new Date(),
+              },
+            ])
+          }
+        }
+      } catch (error) {
+        console.error("Error loading chat history:", error)
+        // Show welcome message on error
+        setMessages([
+          {
+            id: "welcome",
+            role: "assistant",
+            content: "Hello! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.",
+            timestamp: new Date(),
+          },
+        ])
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+
+    loadChatHistory()
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
