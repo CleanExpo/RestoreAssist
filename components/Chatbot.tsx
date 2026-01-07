@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { MessageCircle, X, Send, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import ReactMarkdown from "react-markdown"
+import { useSession } from "next-auth/react"
 
 interface Message {
   id: string
@@ -12,7 +13,19 @@ interface Message {
   timestamp: Date
 }
 
+const SUGGESTED_QUESTIONS = [
+  "How do I create a new inspection report?",
+  "What is the difference between Scope of Works and Cost Estimation?",
+  "How do I upload a PDF inspection report?",
+  "What standards does Restore Assist use for compliance?",
+  "How do I configure equipment pricing?",
+  "Can you explain the 8-step workflow?",
+  "How do I generate a Scope of Works document?",
+  "What is the NIR system and how does it work?",
+]
+
 export default function Chatbot() {
+  const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -20,6 +33,8 @@ export default function Chatbot() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  const userName = session?.user?.name || "there"
 
   // Load chat history from database
   useEffect(() => {
@@ -37,12 +52,13 @@ export default function Chatbot() {
             }))
             setMessages(formattedMessages)
           } else {
-            // No chat history, show welcome message
+            // No chat history, show welcome message with user's name
+            const welcomeName = session?.user?.name || "there"
             setMessages([
               {
                 id: "welcome",
                 role: "assistant",
-                content: "Hello! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.",
+                content: `Hello ${welcomeName}! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.`,
                 timestamp: new Date(),
               },
             ])
@@ -51,11 +67,12 @@ export default function Chatbot() {
       } catch (error) {
         console.error("Error loading chat history:", error)
         // Show welcome message on error
+        const welcomeName = session?.user?.name || "there"
         setMessages([
           {
             id: "welcome",
             role: "assistant",
-            content: "Hello! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.",
+            content: `Hello ${welcomeName}! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.`,
             timestamp: new Date(),
           },
         ])
@@ -64,8 +81,10 @@ export default function Chatbot() {
       }
     }
 
-    loadChatHistory()
-  }, [])
+    if (session) {
+      loadChatHistory()
+    }
+  }, [session])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -144,6 +163,66 @@ export default function Chatbot() {
     }
   }
 
+  const handleSuggestedQuestion = async (question: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: question,
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
+
+    try {
+      // Get current messages including the new one
+      const currentMessages = [...messages, userMessage]
+      
+      const response = await fetch("/api/chatbot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: currentMessages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to get response")
+      }
+
+      const data = await response.json()
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.response,
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send message")
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Show suggested questions only when there's just the welcome message or no messages
+  const showSuggestedQuestions = messages.length === 0 || (messages.length === 1 && messages[0].id === "welcome")
+
   return (
     <>
       {/* Chat Button */}
@@ -188,6 +267,25 @@ export default function Chatbot() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Suggested Questions - Show when there's only welcome message */}
+            {showSuggestedQuestions && (
+              <div className="space-y-2 mb-4">
+                <p className="text-xs text-slate-400 mb-2">Suggested questions:</p>
+                <div className="flex flex-wrap gap-2">
+                  {SUGGESTED_QUESTIONS.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSuggestedQuestion(question)}
+                      disabled={isLoading}
+                      className="px-3 py-1.5 text-xs bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -205,8 +303,8 @@ export default function Chatbot() {
                       <ReactMarkdown
                         components={{
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                          ul: ({ children }) => <ul className="list-disc flex list-inside mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal flex flex-col list-inside mb-2 space-y-1">{children}</ol>,
                           li: ({ children }) => <li className="ml-2">{children}</li>,
                           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                           em: ({ children }) => <em className="italic">{children}</em>,
