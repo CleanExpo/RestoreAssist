@@ -356,7 +356,7 @@ export default function IntegrationsPage() {
         </div>
       ) : (
         <>
-          {/* Integration Cards */}
+          {/* AI Integration Cards */}
           <div className="grid md:grid-cols-2 gap-6">
             {integrations.length === 0 ? (
               <div className="col-span-2 text-center py-12">
@@ -421,6 +421,70 @@ export default function IntegrationsPage() {
                 </div>
               ))
             )}
+          </div>
+
+          {/* Bookkeeping Integrations - Coming Soon */}
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <span>📊</span>
+              Bookkeeping
+            </h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              {['Xero', 'QuickBooks', 'MYOB'].map((name) => (
+                <div
+                  key={name}
+                  className="p-6 rounded-lg border border-slate-700/30 bg-slate-800/20 opacity-60 cursor-not-allowed relative"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-4">
+                      <div className="text-3xl">📊</div>
+                      <div>
+                        <h3 className="font-semibold">{name}</h3>
+                        <p className="text-sm text-slate-500 mt-1">Coming Soon</p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    disabled
+                    className="w-full px-4 py-2 bg-slate-700/30 border border-slate-600/50 rounded-lg text-slate-500 cursor-not-allowed text-sm"
+                  >
+                    Coming Soon
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Job Management Systems (CRM's) - Coming Soon */}
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <span>📋</span>
+              Job Management Systems (CRM's)
+            </h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              {['ServiceM8', 'ASCORA', 'Ask for additional'].map((name) => (
+                <div
+                  key={name}
+                  className="p-6 rounded-lg border border-slate-700/30 bg-slate-800/20 opacity-60 cursor-not-allowed relative"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-4">
+                      <div className="text-3xl">📋</div>
+                      <div>
+                        <h3 className="font-semibold">{name}</h3>
+                        <p className="text-sm text-slate-500 mt-1">Coming Soon</p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    disabled
+                    className="w-full px-4 py-2 bg-slate-700/30 border border-slate-600/50 rounded-lg text-slate-500 cursor-not-allowed text-sm"
+                  >
+                    Coming Soon
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}
