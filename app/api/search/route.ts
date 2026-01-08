@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC, "updatedAt" DESC
-      LIMIT ${Math.ceil(limit / 3)::integer}
+      LIMIT ${Math.ceil(limit / 3)}
     ` as any[];
 
     // Search clients
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
-      LIMIT ${Math.ceil(limit / 3)::integer}
+      LIMIT ${Math.ceil(limit / 3)}
     ` as any[];
 
     // Search inspections
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
-      LIMIT ${Math.ceil(limit / 3)::integer}
+      LIMIT ${Math.ceil(limit / 3)}
     ` as any[];
 
     const results = {
