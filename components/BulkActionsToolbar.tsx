@@ -12,7 +12,6 @@ import {
   Archive,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { BulkOperationModal } from './BulkOperationModal'
 
 interface BulkActionsToolbarProps {
   selectedCount: number
@@ -22,8 +21,6 @@ interface BulkActionsToolbarProps {
   onRefresh: () => void
 }
 
-type OperationType = 'export-excel' | 'export-zip' | 'duplicate' | 'status-update' | 'delete' | null
-
 export function BulkActionsToolbar({
   selectedCount,
   totalCount,
@@ -31,7 +28,6 @@ export function BulkActionsToolbar({
   selectedIds,
   onRefresh,
 }: BulkActionsToolbarProps) {
-  const [operationType, setOperationType] = useState<OperationType>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   if (selectedCount === 0) {
@@ -39,8 +35,7 @@ export function BulkActionsToolbar({
   }
 
   const handleExportExcel = async () => {
-    setOperationType('export-excel')
-    setIsLoading(true)
+      setIsLoading(true)
 
     try {
       const response = await fetch('/api/reports/bulk-export-excel', {
@@ -80,7 +75,6 @@ export function BulkActionsToolbar({
         },
       })
 
-      setOperationType(null)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Export failed',
@@ -106,7 +100,6 @@ export function BulkActionsToolbar({
       return
     }
 
-    setOperationType('export-zip')
     setIsLoading(true)
 
     try {
@@ -144,7 +137,6 @@ export function BulkActionsToolbar({
         },
       })
 
-      setOperationType(null)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Export failed',
@@ -169,16 +161,22 @@ export function BulkActionsToolbar({
       })
       return
     }
-
-    setOperationType('duplicate')
+    // Trigger modal from parent via custom event
+    window.dispatchEvent(new CustomEvent('bulk-action-request', { 
+      detail: { action: 'duplicate' } 
+    }))
   }
 
   const handleStatusUpdate = () => {
-    setOperationType('status-update')
+    window.dispatchEvent(new CustomEvent('bulk-action-request', { 
+      detail: { action: 'status-update' } 
+    }))
   }
 
   const handleDelete = () => {
-    setOperationType('delete')
+    window.dispatchEvent(new CustomEvent('bulk-action-request', { 
+      detail: { action: 'delete' } 
+    }))
   }
 
   return (
@@ -201,7 +199,7 @@ export function BulkActionsToolbar({
               disabled={isLoading}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-600/50 text-white rounded-lg transition-colors text-sm font-medium"
             >
-              {isLoading && operationType === 'export-excel' ? (
+              {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <FileText className="w-4 h-4" />
@@ -216,7 +214,7 @@ export function BulkActionsToolbar({
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg transition-colors text-sm font-medium"
               title={selectedCount > 25 ? 'Maximum 25 reports for ZIP export' : ''}
             >
-              {isLoading && operationType === 'export-zip' ? (
+              {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Archive className="w-4 h-4" />
@@ -231,11 +229,7 @@ export function BulkActionsToolbar({
               className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-600/50 text-white rounded-lg transition-colors text-sm font-medium"
               title={selectedCount > 50 ? 'Maximum 50 reports for duplication' : ''}
             >
-              {isLoading && operationType === 'duplicate' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
+              <Copy className="w-4 h-4" />
               Duplicate
             </button>
 
@@ -245,11 +239,7 @@ export function BulkActionsToolbar({
               disabled={isLoading}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white rounded-lg transition-colors text-sm font-medium"
             >
-              {isLoading && operationType === 'status-update' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckSquare className="w-4 h-4" />
-              )}
+              <CheckSquare className="w-4 h-4" />
               Update Status
             </button>
 
@@ -259,27 +249,13 @@ export function BulkActionsToolbar({
               disabled={isLoading}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-white rounded-lg transition-colors text-sm font-medium"
             >
-              {isLoading && operationType === 'delete' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4" />
-              )}
+              <Trash2 className="w-4 h-4" />
               Delete
             </button>
           </div>
         </div>
       </div>
 
-      {/* Modal for operation confirmation */}
-      {operationType && (
-        <BulkOperationModal
-          operationType={operationType}
-          selectedCount={selectedCount}
-          selectedIds={selectedIds}
-          onClose={() => setOperationType(null)}
-          onRefresh={onRefresh}
-        />
-      )}
     </>
   )
 }

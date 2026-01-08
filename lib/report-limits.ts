@@ -174,6 +174,51 @@ export async function canCreateReport(userId: string): Promise<{ allowed: boolea
 }
 
 /**
+ * Check if user can create bulk reports
+ */
+export async function canCreateBulkReports(userId: string, count: number): Promise<{ allowed: boolean; reason?: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      subscriptionStatus: true,
+      creditsRemaining: true,
+    }
+  })
+
+  if (!user) {
+    return { allowed: false, reason: "User not found" }
+  }
+
+  // Trial users use credits
+  if (user.subscriptionStatus === 'TRIAL') {
+    if (user.creditsRemaining && user.creditsRemaining >= count) {
+      return { allowed: true }
+    }
+    return { 
+      allowed: false, 
+      reason: `Insufficient credits. You need ${count} credits but only have ${user.creditsRemaining || 0}. Please upgrade your plan to create more reports.` 
+    }
+  }
+
+  // Active subscribers use monthly limits
+  if (user.subscriptionStatus === 'ACTIVE') {
+    const limits = await getUserReportLimits(userId)
+    if (limits.availableReports >= count) {
+      return { allowed: true }
+    }
+    return { 
+      allowed: false, 
+      reason: `Insufficient monthly reports. You need ${count} reports but only have ${limits.availableReports} available. Please purchase an add-on pack to create more reports.` 
+    }
+  }
+
+  return { 
+    allowed: false, 
+    reason: "Active subscription required to create reports." 
+  }
+}
+
+/**
  * Increment monthly report usage
  */
 export async function incrementReportUsage(userId: string): Promise<void> {

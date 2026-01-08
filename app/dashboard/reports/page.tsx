@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X } from "lucide-react"
 import toast from "react-hot-toast"
-import { BulkActionsToolbar } from "@/components/BulkActionsToolbar"
+import { BulkOperationModal } from "@/components/BulkOperationModal"
 
 export default function ReportsPage() {
   const router = useRouter()
@@ -17,7 +17,7 @@ export default function ReportsPage() {
   const [duplicating, setDuplicating] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
   const [selectedReports, setSelectedReports] = useState<string[]>([])
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [bulkActionType, setBulkActionType] = useState<'export-excel' | 'export-zip' | 'duplicate' | 'status-update' | 'delete' | null>(null)
   const [filters, setFilters] = useState({
     status: "all",
     hazard: "all",
@@ -122,31 +122,6 @@ export default function ReportsPage() {
     }
   }
 
-  // Bulk delete functions
-  const handleBulkDelete = async () => {
-    if (selectedReports.length === 0) return
-
-    try {
-      const response = await fetch('/api/reports/bulk-delete', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ids: selectedReports })
-      })
-
-      if (response.ok) {
-        setReports(reports.filter(r => !selectedReports.includes(r.id)))
-        setSelectedReports([])
-        setShowBulkDeleteModal(false)
-        // Show success message
-      } else {
-        console.error('Failed to delete reports')
-      }
-    } catch (error) {
-      console.error('Error deleting reports:', error)
-    }
-  }
 
   const toggleReportSelection = (reportId: string) => {
     setSelectedReports(prev => 
@@ -331,28 +306,118 @@ export default function ReportsPage() {
           <h1 className="text-3xl font-semibold mb-2">Reports</h1>
           <p className="text-slate-400">Manage and view all restoration reports</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {selectedReports.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">{selectedReports.length} selected</span>
-              <button
-                onClick={() => setShowBulkDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
-              >
-                <Trash2 size={16} />
-                Delete Selected
-              </button>
-              <button
-                onClick={clearSelection}
-                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors"
-              >
-                Clear
-              </button>
-            </div>
+            <>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <CheckSquare className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-blue-300">{selectedReports.length} selected</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/reports/bulk-export-excel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          ids: selectedReports,
+                          options: { includeScope: true, includeEstimate: true },
+                        }),
+                      })
+                      if (!response.ok) throw new Error('Export failed')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `RestoreAssist_Export_${new Date().toISOString().slice(0, 10)}.xlsx`
+                      document.body.appendChild(a)
+                      a.click()
+                      window.URL.revokeObjectURL(url)
+                      document.body.removeChild(a)
+                      toast.success(`Exported ${selectedReports.length} report(s) to Excel`)
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Export failed')
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Download size={16} />
+                  Export Excel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (selectedReports.length > 25) {
+                      toast.error('Maximum 25 reports for ZIP export')
+                      return
+                    }
+                    try {
+                      const response = await fetch('/api/reports/bulk-export-zip', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: selectedReports, pdfType: 'enhanced' }),
+                      })
+                      if (!response.ok) throw new Error('Export failed')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `RestoreAssist_PDFs_${new Date().toISOString().slice(0, 10)}.zip`
+                      document.body.appendChild(a)
+                      a.click()
+                      window.URL.revokeObjectURL(url)
+                      document.body.removeChild(a)
+                      toast.success(`Exported ${selectedReports.length} PDF(s) to ZIP`)
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Export failed')
+                    }
+                  }}
+                  disabled={selectedReports.length > 25}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Download size={16} />
+                  Export PDFs
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedReports.length > 50) {
+                      toast.error('Maximum 50 reports for duplication')
+                      return
+                    }
+                    setBulkActionType('duplicate')
+                  }}
+                  disabled={selectedReports.length > 50}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-600/50 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Copy size={16} />
+                  Duplicate
+                </button>
+                <button
+                  onClick={() => setBulkActionType('status-update')}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <CheckSquare size={16} />
+                  Update Status
+                </button>
+                <button
+                  onClick={() => setBulkActionType('delete')}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-1.5 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors text-sm text-slate-300"
+                >
+                  Clear
+                </button>
+              </div>
+            </>
           )}
           <Link
             href="/dashboard/reports/new"
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
           >
             New Report
           </Link>
@@ -698,53 +763,16 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Bulk Delete Modal */}
-      {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-red-400">Delete Selected Reports</h2>
-              <button onClick={() => setShowBulkDeleteModal(false)} className="p-1 hover:bg-slate-700 rounded">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-slate-300">
-                Are you sure you want to delete <span className="font-medium text-white">{selectedReports.length}</span> selected report(s)?
-                This action cannot be undone.
-              </p>
-              <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
-                <p className="text-amber-300 text-sm">
-                  ⚠️ This will permanently delete all selected reports and their associated data.
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowBulkDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all"
-                >
-                  Delete {selectedReports.length} Report(s)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Simple Confirmation Modal */}
+      {bulkActionType && (
+        <BulkOperationModal
+          operationType={bulkActionType}
+          selectedCount={selectedReports.length}
+          selectedIds={selectedReports}
+          onClose={() => setBulkActionType(null)}
+          onRefresh={refreshReports}
+        />
       )}
-
-      {/* Bulk Actions Toolbar */}
-      <BulkActionsToolbar
-        selectedCount={selectedReports.length}
-        totalCount={reports.length}
-        selectedIds={selectedReports}
-        onSelectedIdsChange={setSelectedReports}
-        onRefresh={refreshReports}
-      />
     </div>
   )
 }
