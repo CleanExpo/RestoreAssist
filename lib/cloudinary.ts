@@ -5,23 +5,40 @@ const cloudName = process.env.CLOUDINARY_CLOUD_NAME
 const apiKey = process.env.CLOUDINARY_API_KEY
 const apiSecret = process.env.CLOUDINARY_API_SECRET
 
-// Validate that all required credentials are present
-if (!cloudName || !apiKey || !apiSecret) {
-  console.error('[Cloudinary] ❌ Missing Cloudinary credentials in environment variables:')
-  console.error('  - CLOUDINARY_CLOUD_NAME:', cloudName ? '✅ Set' : '❌ Missing')
-  console.error('  - CLOUDINARY_API_KEY:', apiKey ? '✅ Set' : '❌ Missing')
-  console.error('  - CLOUDINARY_API_SECRET:', apiSecret ? '✅ Set' : '❌ Missing')
-  throw new Error('Cloudinary credentials are not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.')
+// Configure Cloudinary if credentials are available (non-blocking at module load)
+if (cloudName && apiKey && apiSecret) {
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  })
+  console.log('[Cloudinary] ✅ Configuration initialized with cloud_name:', cloudName)
+} else {
+  console.warn('[Cloudinary] ⚠️ Credentials not fully configured at module load - will validate on first use')
 }
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: cloudName,
-  api_key: apiKey,
-  api_secret: apiSecret,
-})
+// Helper function to validate and configure if needed
+function ensureCloudinaryConfigured() {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+  const apiKey = process.env.CLOUDINARY_API_KEY
+  const apiSecret = process.env.CLOUDINARY_API_SECRET
 
-console.log('[Cloudinary] ✅ Configuration initialized with cloud_name:', cloudName)
+  if (!cloudName || !apiKey || !apiSecret) {
+    console.error('[Cloudinary] ❌ Missing Cloudinary credentials in environment variables:')
+    console.error('  - CLOUDINARY_CLOUD_NAME:', cloudName ? '✅ Set' : '❌ Missing')
+    console.error('  - CLOUDINARY_API_KEY:', apiKey ? '✅ Set' : '❌ Missing')
+    console.error('  - CLOUDINARY_API_SECRET:', apiSecret ? '✅ Set' : '❌ Missing')
+    throw new Error('Cloudinary credentials are not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.')
+  }
+
+  if (!cloudinary.config().cloud_name) {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    })
+  }
+}
 
 export { cloudinary }
 
@@ -42,6 +59,7 @@ export async function uploadImage(
   } = {}
 ): Promise<UploadResult> {
   try {
+    ensureCloudinaryConfigured()
     const result = await cloudinary.uploader.upload(file as string, {
       folder,
       resource_type: options.resource_type || 'image',
@@ -64,6 +82,7 @@ export async function uploadImage(
 
 export async function deleteImage(publicId: string): Promise<void> {
   try {
+    ensureCloudinaryConfigured()
     await cloudinary.uploader.destroy(publicId)
   } catch (error: any) {
     console.error('[Cloudinary] ❌ Delete error:', {
@@ -94,10 +113,11 @@ export async function uploadToCloudinary(
   } = {}
 ): Promise<CloudinaryUploadResult> {
   try {
+    ensureCloudinaryConfigured()
     // Convert buffer to base64 data URI
     const base64 = buffer.toString('base64')
     const dataUri = `data:image/jpeg;base64,${base64}`
-    
+
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: options.folder || 'uploads',
       resource_type: options.resource_type || 'image',
