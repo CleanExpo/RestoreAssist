@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X } from "lucide-react"
 import toast from "react-hot-toast"
+import { BulkActionsToolbar } from "@/components/BulkActionsToolbar"
 
 export default function ReportsPage() {
   const router = useRouter()
@@ -161,6 +162,20 @@ export default function ReportsPage() {
 
   const clearSelection = () => {
     setSelectedReports([])
+  }
+
+  // Refresh reports function
+  const refreshReports = async () => {
+    try {
+      const response = await fetch('/api/reports')
+      if (response.ok) {
+        const data = await response.json()
+        setReports(data.reports || [])
+        setSelectedReports([])
+      }
+    } catch (error) {
+      console.error('Error fetching reports:', error)
+    }
   }
 
   // Fetch reports from API
@@ -695,7 +710,7 @@ export default function ReportsPage() {
             </div>
             <div className="space-y-4">
               <p className="text-slate-300">
-                Are you sure you want to delete <span className="font-medium text-white">{selectedReports.length}</span> selected report(s)? 
+                Are you sure you want to delete <span className="font-medium text-white">{selectedReports.length}</span> selected report(s)?
                 This action cannot be undone.
               </p>
               <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
@@ -721,6 +736,15 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Bulk Actions Toolbar */}
+      <BulkActionsToolbar
+        selectedCount={selectedReports.length}
+        totalCount={reports.length}
+        selectedIds={selectedReports}
+        onSelectedIdsChange={setSelectedReports}
+        onRefresh={refreshReports}
+      />
     </div>
   )
 }

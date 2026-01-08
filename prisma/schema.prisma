@@ -113,6 +113,9 @@ model Client {
   userId        String
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   reports       Report[]
+  search_vector Unsupported("tsvector")?
+
+  @@index([search_vector], type: Gin)
 }
 
 model Report {
@@ -278,9 +281,18 @@ model Report {
   // Scoping & Estimation
   scope     Scope?
   estimates Estimate[]
-  
+
   // NIR Integration
   inspection Inspection?
+
+  // Full-Text Search
+  search_vector Unsupported("tsvector")?
+
+  @@index([search_vector], type: Gin)
+  @@index([userId, createdAt])
+  @@index([userId, hazardType])
+  @@index([userId, status])
+  @@index([clientId, createdAt])
 }
 
 enum Role {
@@ -458,6 +470,8 @@ model Estimate {
   variations EstimateVariation[]
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String
+
+  @@index([reportId, createdAt])
 }
 
 model EstimateLineItem {
@@ -882,11 +896,15 @@ model Inspection {
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
+  // Full-Text Search
+  search_vector Unsupported("tsvector")?
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
   @@index([propertyPostcode])
+  @@index([search_vector], type: Gin)
 }
 
 enum InspectionStatus {
