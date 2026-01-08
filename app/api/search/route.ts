@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const tsquery = toPostgresTsquery(query);
 
     // Search reports
-    const reports = await prisma.$queryRaw<any[]>`
+    const reports = await prisma.$queryRaw`
       SELECT
         id,
         reportNumber,
@@ -44,10 +44,10 @@ export async function GET(request: NextRequest) {
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC, "updatedAt" DESC
       LIMIT ${Math.ceil(limit / 3)::integer}
-    `;
+    ` as any[];
 
     // Search clients
-    const clients = await prisma.$queryRaw<any[]>`
+    const clients = await prisma.$queryRaw`
       SELECT
         id,
         name,
@@ -62,10 +62,10 @@ export async function GET(request: NextRequest) {
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
       LIMIT ${Math.ceil(limit / 3)::integer}
-    `;
+    ` as any[];
 
     // Search inspections
-    const inspections = await prisma.$queryRaw<any[]>`
+    const inspections = await prisma.$queryRaw`
       SELECT
         id,
         inspectionNumber,
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
       LIMIT ${Math.ceil(limit / 3)::integer}
-    `;
+    ` as any[];
 
     const results = {
       query,
