@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma'
 
 // Initialize email transporter
 const createTransporter = () => {
+  // Use SMTP if configured (recommended for production)
   if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -21,22 +22,11 @@ const createTransporter = () => {
     })
   }
 
-  // Fallback to SendGrid if configured
-  if (process.env.SENDGRID_API_KEY) {
-    const sgTransport = require('nodemailer-sendgrid-transport')
-    return nodemailer.createTransport(
-      sgTransport({
-        auth: {
-          api_key: process.env.SENDGRID_API_KEY,
-        },
-      }),
-    )
-  }
-
-  // Development mode
+  // Development/testing mode (Mailhog)
   return nodemailer.createTransport({
-    host: 'localhost',
-    port: 1025,
+    host: process.env.SMTP_HOST || 'localhost',
+    port: parseInt(process.env.SMTP_PORT || '1025'),
+    secure: false,
   })
 }
 
