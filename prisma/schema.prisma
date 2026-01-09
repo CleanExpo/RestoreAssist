@@ -66,6 +66,9 @@ model User {
   monthlyResetDate   DateTime? // Date when monthly usage resets
   signupBonusApplied Boolean?  @default(false) // Track if signup bonus has been applied
 
+  // Premium Features
+  hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
+
   // Business Information
   businessName    String?
   businessAddress String?
