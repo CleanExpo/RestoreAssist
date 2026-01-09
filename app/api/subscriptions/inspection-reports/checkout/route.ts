@@ -10,7 +10,7 @@ import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth'
 import { stripe } from '@/lib/stripe'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
   try {
