@@ -13,7 +13,10 @@ export const metadata: Metadata = {
   description:
     "Generate comprehensive, legally defensible inspection reports and cost estimates for property restoration claims backed by IICRC standards and Australian compliance.",
   keywords: "restoration, reports, IICRC, compliance, property damage, insurance",
-    generator: 'v0.app'
+  generator: 'v0.app',
+  icons: {
+    icon: '/favicon.ico',
+  }
 }
 
 export default function RootLayout({
