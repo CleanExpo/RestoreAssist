@@ -1,0 +1,27 @@
+# Development overrides for docker-compose.yml
+# This file is automatically loaded and provides convenience for local development
+
+version: '3.8'
+
+services:
+  postgres:
+    # Make postgres accessible from host for debugging
+    ports:
+      - "5432:5432"
+    environment:
+      # Development credentials
+      POSTGRES_PASSWORD: dev
+    # Keep data between restarts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    # Mount local code for live reload
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    # Run in dev mode with hot reload
+    command: npm run dev
+    ports:
+      - "3000:3000"
