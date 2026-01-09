@@ -171,6 +171,72 @@ Complete guide to all environment variables required for RestoreAssist.
 - SENSITIVE - Keep secret
 - Find in: Cloudinary Dashboard → Settings → API Keys
 
+## Regulatory Citations Feature (Jan 2026)
+
+### Feature Flag Control
+
+**ENABLE_REGULATORY_CITATIONS**
+- Controls visibility and functionality of regulatory citations feature
+- Values: `'true'` or `'false'` (string, case-sensitive)
+- Default: `'false'` (feature hidden from all users)
+- Required for: Regulatory citations, building codes, state regulations
+- Set in: Vercel Environment Variables (production and preview)
+
+**Behavior Matrix:**
+| Value | Toggle Visible | Retrieval Active | Notes |
+|-------|---|---|---|
+| `'false'` | ❌ No | ❌ No | Feature completely hidden; existing behavior preserved |
+| `'true'` | ✅ Yes | ✅ Yes (if user opts in) | Feature available to users |
+
+**Setting in Vercel:**
+```bash
+# Set to false first (default, safe)
+printf "false" | vercel env add ENABLE_REGULATORY_CITATIONS production
+
+# Transition to true when ready for rollout
+printf "true" | vercel env add ENABLE_REGULATORY_CITATIONS production
+```
+
+### Cron Job Authentication
+
+**CRON_SECRET**
+- Secret key for authenticating Vercel cron jobs
+- Minimum: 32+ random characters
+- Generate: `openssl rand -base64 32`
+- SENSITIVE - Keep secret
+- Required for: Monthly regulatory document updates
+- Set in: Vercel Environment Variables (production only)
+
+**Purpose:** Protects `/api/cron/update-regulations` endpoint from unauthorized access
+
+**Vercel Setup:**
+```bash
+# Generate strong random secret
+SECRET=$(openssl rand -base64 32)
+
+# Add to Vercel production environment
+printf "$SECRET" | vercel env add CRON_SECRET production
+```
+
+**Cron Job Details:**
+- Endpoint: `/api/cron/update-regulations`
+- Schedule: Monthly (1st of month at 00:00 UTC)
+- Configuration: `vercel.json`
+- Purpose: Check and update regulatory documents from government sources
+
+### Google Drive Configuration (Optional)
+
+**REGULATORY_DRIVE_FOLDER_ID**
+- Google Drive folder ID for storing regulatory documents
+- Format: Long alphanumeric ID (e.g., `1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p`)
+- Optional - can be set up later
+- Safe to expose (folder is private to service account)
+- Find: Right-click folder in Drive → Get link → Extract ID from URL
+
+**Purpose:** Stores extracted regulatory documents for fallback access
+
+**Note:** Not required for feature to work; regulatory documents are cached in database and updated monthly via cron job.
+
 ## Setting Environment Variables
 
 ### Local Development
