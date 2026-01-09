@@ -7,6 +7,9 @@
     "npm": ">=10.0.0"
   },
   "type": "module",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -14,7 +17,9 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed",
+    "db:seed:regulatory": "ts-node scripts/seed-regulatory-documents.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",

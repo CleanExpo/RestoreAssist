@@ -192,6 +192,42 @@ npx prisma studio
 - **docs/TROUBLESHOOTING.md** - Common issues and fixes
 - **docs/TESTING.md** - Testing strategy and tools
 
+## Regulatory Citations Feature (Jan 2026)
+
+**NEW: Optional regulatory citations for forensic reports**
+
+Completely optional feature allowing clients to include Australian building codes, electrical standards, and consumer protection regulations in their reports. Available via simple "Tick and Flick" toggle per report.
+
+### Key Environment Variables
+- `ENABLE_REGULATORY_CITATIONS` - Feature flag (default: 'false')
+- `CRON_SECRET` - Vercel cron job authentication
+
+### Related Documentation
+- **`docs/REGULATORY-INTEGRATION.md`** - Complete integration guide
+- **`docs/REGULATORY-CITATIONS-FILE-INDEX.md`** - Quick reference
+- **`docs/REGULATORY-CITATIONS-COMPLETE-SUMMARY.md`** - Executive summary
+- **`docs/CLIENT-FACING-FEATURE-MESSAGING.md`** - Customer communication
+
+### Core Components
+- `components/regulatory-citations-toggle.tsx` - 3 UI variants
+- `lib/regulatory-retrieval.ts` - Regulation fetching service
+- `lib/citation-engine.ts` - AI citation generation
+- `lib/citation-formatter.ts` - AGLC4 formatting
+- `lib/generate-forensic-report-pdf.ts` - PDF integration
+- `lib/regulatory-update-service.ts` - Document updates
+- `app/api/cron/update-regulations/route.ts` - Monthly updates
+
+### Feature Characteristics
+✅ Completely optional - users choose per report
+✅ Feature flag controlled - can be disabled globally
+✅ Graceful degradation - PDFs generate without section if retrieval fails
+✅ Zero breaking changes - all changes are additive
+✅ Automatic updates - monthly cron job maintains regulatory documents
+✅ Multi-state support - QLD, NSW, VIC with state-specific requirements
+✅ AGLC4 compliant - Professional Australian legal citation formatting
+
+---
+
 ## Recent Changes (Jan 2026)
 
 - React upgraded to 19.2.0
@@ -200,6 +236,7 @@ npx prisma studio
 - Added chatbot feature (Claude API)
 - Added claims analysis engine
 - Context window optimized (unused MCP servers disabled)
+- Added Regulatory Citations feature (8 phases, 24+ files)
 
 ---
 

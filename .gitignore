@@ -28,4 +28,11 @@ yarn-error.log*
 next-env.d.ts
 /lib/generated/prisma
 
-.vercel
+# temporary directories
+/temp-install/
+/claude-code-agents-wizard-v2/
+/sendgrid-mcp/
+/.playwright-mcp/
+/apps/
+/packages/
+nul
