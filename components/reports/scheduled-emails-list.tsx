@@ -16,7 +16,7 @@ interface ScheduledEmailsListProps {
   reportId: string
 }
 
-export function ScheduledEmailsList({ reportId }: ScheduledEmailsListProps) {
+export default function ScheduledEmailsList({ reportId }: ScheduledEmailsListProps) {
   const [emails, setEmails] = useState<ScheduledEmail[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()

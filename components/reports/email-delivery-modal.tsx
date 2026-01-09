@@ -13,7 +13,7 @@ interface EmailDeliveryModalProps {
   clientEmail?: string
 }
 
-export function EmailDeliveryModal({
+export default function EmailDeliveryModal({
   open,
   onOpenChange,
   reportId,
