@@ -18,14 +18,21 @@ export async function GET() {
       },
       { status: 200 },
     )
-  } catch (error) {
-    console.error('Health check failed:', error)
+  } catch (err) {
+    let errorMessage = 'Unknown error'
+    if (err instanceof Error) {
+      errorMessage = err.message
+    } else if (typeof err === 'string') {
+      errorMessage = err
+    }
+
+    console.error('Health check failed:', errorMessage)
     return NextResponse.json(
       {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
         database: 'disconnected',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       },
       { status: 503 },
     )
