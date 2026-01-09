@@ -31,7 +31,40 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed":
         const session = event.data.object as Stripe.Checkout.Session
-        
+
+        // Handle premium inspection reports subscription
+        if (session.mode === 'subscription' && session.metadata?.type === 'premium_inspection_reports') {
+          const userId = session.metadata?.userId
+
+          if (userId && session.subscription) {
+            try {
+              // Retrieve subscription to get billing dates
+              const stripeSubscription = await stripe.subscriptions.retrieve(
+                session.subscription as string
+              )
+
+              // Activate premium inspection reports feature
+              await prisma.user.update({
+                where: { id: userId },
+                data: {
+                  hasPremiumInspectionReports: true,
+                  subscriptionId: session.subscription as string,
+                  stripeCustomerId: session.customer as string,
+                  subscriptionStatus: 'ACTIVE',
+                  subscriptionEndsAt: new Date(stripeSubscription.current_period_end * 1000),
+                  nextBillingDate: new Date(stripeSubscription.current_period_end * 1000),
+                  lastBillingDate: new Date(stripeSubscription.current_period_start * 1000)
+                }
+              })
+
+              console.log(`✅ Premium inspection reports activated for user ${userId}`)
+            } catch (err) {
+              console.error('Error activating premium inspection reports:', err)
+              throw err
+            }
+          }
+        }
+
         // Handle add-on purchases (one-time payments)
         if (session.mode === 'payment' && session.metadata?.type === 'addon') {
           const userId = session.metadata?.userId
@@ -435,30 +468,69 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.updated":
         const updatedSubscription = event.data.object as Stripe.Subscription
-        
-        const updateResult = await prisma.user.updateMany({
-          where: { subscriptionId: updatedSubscription.id },
-          data: {
-            subscriptionStatus: updatedSubscription.status === 'active' ? 'ACTIVE' : 'CANCELED',
-            subscriptionEndsAt: new Date(updatedSubscription.current_period_end * 1000),
-            nextBillingDate: new Date(updatedSubscription.current_period_end * 1000),
+
+        // Check if this is a premium inspection reports subscription
+        if (updatedSubscription.metadata?.type === 'premium_inspection_reports') {
+          const userId = updatedSubscription.metadata?.userId
+
+          if (userId) {
+            // Update subscription dates for premium feature
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                subscriptionStatus: updatedSubscription.status === 'active' ? 'ACTIVE' : 'CANCELED',
+                subscriptionEndsAt: new Date(updatedSubscription.current_period_end * 1000),
+                nextBillingDate: new Date(updatedSubscription.current_period_end * 1000),
+              }
+            })
+
+            console.log(`✅ Premium inspection reports subscription updated for user ${userId}`)
           }
-        })
-        
+        } else {
+          // Handle regular subscription updates
+          const updateResult = await prisma.user.updateMany({
+            where: { subscriptionId: updatedSubscription.id },
+            data: {
+              subscriptionStatus: updatedSubscription.status === 'active' ? 'ACTIVE' : 'CANCELED',
+              subscriptionEndsAt: new Date(updatedSubscription.current_period_end * 1000),
+              nextBillingDate: new Date(updatedSubscription.current_period_end * 1000),
+            }
+          })
+        }
+
         break
 
       case "customer.subscription.deleted":
         const deletedSubscription = event.data.object as Stripe.Subscription
-        
-        const deletionResult = await prisma.user.updateMany({
-          where: { subscriptionId: deletedSubscription.id },
-          data: {
-            subscriptionStatus: 'EXPIRED',
-            subscriptionEndsAt: new Date(),
-            creditsRemaining: 0,
+
+        // Check if this is a premium inspection reports subscription
+        if (deletedSubscription.metadata?.type === 'premium_inspection_reports') {
+          const userId = deletedSubscription.metadata?.userId
+
+          if (userId) {
+            // Deactivate premium inspection reports feature
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                hasPremiumInspectionReports: false,
+                subscriptionStatus: 'CANCELED'
+              }
+            })
+
+            console.log(`✅ Premium inspection reports deactivated for user ${userId}`)
           }
-        })
-        
+        } else {
+          // Handle regular subscription deletion
+          const deletionResult = await prisma.user.updateMany({
+            where: { subscriptionId: deletedSubscription.id },
+            data: {
+              subscriptionStatus: 'EXPIRED',
+              subscriptionEndsAt: new Date(),
+              creditsRemaining: 0,
+            }
+          })
+        }
+
         break
 
       case "invoice.payment_succeeded":

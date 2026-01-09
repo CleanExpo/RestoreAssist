@@ -2,13 +2,13 @@
  * Cancel Premium Inspection Reports Subscription
  * POST /api/subscriptions/inspection-reports/cancel
  *
- * TODO: Implement actual Stripe subscription cancellation
+ * Cancels subscription at period end (user keeps access until then)
  */
 
 import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth'
-import { disablePremiumInspectionReports } from '@/lib/premium-inspection-access'
+import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
@@ -26,18 +26,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // TODO: Implement actual Stripe subscription cancellation
-    // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-    // const user = await prisma.user.findUnique({ where: { id: session.user.id } })
-    // if (user?.subscriptionId) {
-    //   await stripe.subscriptions.update(user.subscriptionId, {
-    //     cancel_at_period_end: true
-    //   })
-    // }
+    // Get user's subscription ID
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionId: true }
+    })
 
-    // For now, just disable the feature flag
-    // In production, this should happen via Stripe webhook when subscription is actually cancelled
-    await disablePremiumInspectionReports(session.user.id)
+    if (!user?.subscriptionId) {
+      return NextResponse.json(
+        { error: 'No active subscription found' },
+        { status: 404 }
+      )
+    }
+
+    // Cancel subscription at period end (user keeps access until then)
+    await stripe.subscriptions.update(user.subscriptionId, {
+      cancel_at_period_end: true
+    })
 
     return NextResponse.json({
       status: 'success',
