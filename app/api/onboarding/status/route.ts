@@ -63,6 +63,13 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Check if user has configured forms (optional setup step)
+    const formTemplateCount = await prisma.formTemplate.count({
+      where: {
+        userId: session.user.id
+      }
+    })
+
     // Define onboarding steps - subscription is required first
     const steps = {
       subscription: {
@@ -99,6 +106,13 @@ export async function GET(request: NextRequest) {
         title: 'Start First Report',
         description: 'Create your first report to complete setup',
         route: '/dashboard/reports/new'
+      },
+      forms_setup: {
+        completed: formTemplateCount > 0,
+        required: false, // Optional forms setup
+        title: 'Forms Setup',
+        description: 'Create custom forms or access pre-defined forms',
+        route: '/dashboard/forms'
       }
     }
 
