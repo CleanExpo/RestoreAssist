@@ -5,7 +5,7 @@
  * Controls access to the 3-stakeholder PDF generator functionality
  */
 
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Check if user has premium inspection reports subscription

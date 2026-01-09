@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth'
 import { requirePremiumInspectionReports } from '@/lib/premium-inspection-access'
 import { generateAustralianInspectionPDFs, generateSingleInspectionPDF } from '@/lib/pdf'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
   try {
