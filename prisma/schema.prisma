@@ -1127,31 +1127,143 @@ model AuditLog {
 // Building Code Database (State-specific requirements)
 model BuildingCode {
   id            String     @id @default(cuid())
-  
+
+  // Regulatory Document Link (NEW)
+  regulatoryDocumentId  String?    // FK to RegulatoryDocument
+  regulatoryDocument    RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id])
+
   // Location
   state         String     // QLD, NSW, VIC, etc.
   postcode      String?    // Specific postcode if applicable (null = state-wide)
-  
+
   // Requirements
   codeVersion   String     // Building code version
   moistureThreshold Float? // Moisture threshold % that triggers requirements
   dryingTimeStandard String? @db.Text // Drying time standards
   dehumidificationRequired Boolean @default(false)
   certificationRequired Boolean @default(false)
-  
+
   // Specific Requirements (stored as JSON)
   requirements  String?    @db.Text // JSON: detailed requirements
-  
+
   // Additional Context
   notes         String?    @db.Text
   effectiveDate DateTime?
   expiryDate    DateTime?
-  
+
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  
+
   @@index([state])
   @@index([postcode])
+  @@index([regulatoryDocumentId])
+}
+
+// ========================================
+// REGULATORY DATA INTEGRATION MODELS (NEW)
+// ========================================
+
+enum RegulatoryDocumentType {
+  INSURANCE_POLICY
+  INSURANCE_REGULATION
+  BUILDING_CODE_NATIONAL
+  BUILDING_CODE_STATE
+  ELECTRICAL_STANDARD
+  PLUMBING_STANDARD
+  CONSUMER_LAW
+  INDUSTRY_BEST_PRACTICE
+  SAFETY_REGULATION
+}
+
+// Primary regulatory document registry
+model RegulatoryDocument {
+  id                String   @id @default(cuid())
+
+  documentType      RegulatoryDocumentType
+  category          String   // Insurance, Building, Electrical, Consumer
+  jurisdiction      String?  // AU (federal), QLD, NSW, VIC, etc.
+
+  title             String
+  documentCode      String?  // "AS/NZS 3000:2023", "NCC 2025", "QDC 4.5"
+  version           String
+  effectiveDate     DateTime
+  expiryDate        DateTime?
+
+  googleDriveFileId String?
+  extractedText     String?  @db.Text
+  publisher         String
+  sourceUrl         String?
+
+  sections          RegulatorySection[]
+  citations         Citation[]
+  buildingCodes     BuildingCode[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([documentType, jurisdiction])
+  @@index([documentCode])
+}
+
+// Granular section storage for fast retrieval
+model RegulatorySection {
+  id                String   @id @default(cuid())
+  documentId        String
+  document          RegulatoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  sectionNumber     String   // "14.3.2", "Section 4.5.1"
+  sectionTitle      String
+  content           String   @db.Text
+  summary           String?  @db.Text
+
+  topics            String[]
+  keywords          String[]
+
+  applicableToWaterCategory String[]
+  applicableToWaterClass    String[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([documentId, sectionNumber])
+  @@index([topics])
+}
+
+// Enhanced citation system
+model Citation {
+  id                String   @id @default(cuid())
+  documentId        String
+  document          RegulatoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  fullReference     String   // "IICRC S500 Section 14.3.2 (2025)"
+  shortReference    String   // "S500 Sec 14.3.2"
+  citationText      String   @db.Text
+  contextKeywords   String[]
+
+  usageCount        Int      @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([shortReference])
+}
+
+// Insurance-specific requirements
+model InsurancePolicyRequirement {
+  id                String   @id @default(cuid())
+
+  insurerName       String?  // null = all insurers
+  requirementType   String
+  description       String   @db.Text
+  mandatory         Boolean  @default(true)
+
+  applicableStates  String[]
+  standardReference String
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([insurerName])
 }
 
 // Cost Database (National average costs for common items)

@@ -29,6 +29,9 @@ interface ReportData {
   equipmentSelection?: any[]
   standardsContext?: string
   businessInfo?: BusinessInfo
+
+  // NEW: Optional regulatory context (from regulatory-retrieval.ts)
+  regulatoryContext?: any
 }
 
 interface ScopeItem {
@@ -36,6 +39,14 @@ interface ScopeItem {
   description: string
   justification: string
   standardReference: string
+
+  // NEW: Optional regulatory citations (graceful if undefined)
+  regulatoryCitations?: Array<{
+    reference: string
+    text: string
+    type: 'building_code' | 'electrical' | 'consumer_law' | 'insurance' | 'plumbing' | 'hvac'
+  }>
+  stateRequirements?: string
 }
 
 /**
@@ -92,7 +103,8 @@ export async function generateForensicReportPDF(data: ReportData): Promise<Uint8
   const bioMouldCategory = report.biologicalMouldCategory || ''
   
   // Build scope items from data
-  const scopeItems = buildScopeItems(data, standardsContext || '')
+  // NEW: Pass optional regulatory context (if available)
+  const scopeItems = buildScopeItems(data, standardsContext || '', data.regulatoryContext)
   
   // Build moisture and psychrometric data
   const moistureData = buildMoistureData(data)
@@ -1700,8 +1712,13 @@ function addHeaderFooter(
 
 /**
  * Build scope items from report data with proper justification mapping
+ *
+ * BACKWARD COMPATIBLE: regulatoryContext is optional
+ * - If not provided or feature flag is off, function works exactly as before
+ * - If provided, scope items are enhanced with regulatory citations
+ * - All existing IICRC citations remain unchanged
  */
-function buildScopeItems(data: ReportData, standardsContext: string): ScopeItem[] {
+function buildScopeItems(data: ReportData, standardsContext: string, regulatoryContext?: any): ScopeItem[] {
   const { report, tier1, tier2, tier3, scopeAreas } = data
   
   const waterCategory = tier1?.T1_Q3_waterSource 
@@ -1819,7 +1836,84 @@ function buildScopeItems(data: ReportData, standardsContext: string): ScopeItem[
       standardReference: 'AS/NZS 3580'
     })
   }
-  
+
+  // NEW: Enhance scope items with regulatory citations if available
+  // BACKWARD COMPATIBLE: If regulatoryContext is not provided or feature is disabled, items are returned unchanged
+  if (regulatoryContext && regulatoryContext.retrievalSuccess && regulatoryContext.documents && regulatoryContext.documents.length > 0) {
+    try {
+      // Add regulatory citations to scope items
+      items.forEach(item => {
+        // Group relevant citations by item type
+        const relevantCitations: ScopeItem['regulatoryCitations'] = []
+
+        // Add building code citations for all items
+        if (regulatoryContext.buildingCodeRequirements && regulatoryContext.buildingCodeRequirements.length > 0) {
+          regulatoryContext.documents.forEach((doc: any) => {
+            if (doc.documentType && doc.documentType.includes('BUILDING')) {
+              if (doc.citations && doc.citations.length > 0) {
+                doc.citations.slice(0, 1).forEach((citation: any) => {
+                  relevantCitations.push({
+                    reference: citation.reference || citation.shortReference,
+                    text: citation.text || citation.citationText,
+                    type: 'building_code'
+                  })
+                })
+              }
+            }
+          })
+        }
+
+        // Add electrical citations for electrical/HVAC related items
+        if ((item.item.toLowerCase().includes('electrical') || item.item.toLowerCase().includes('hvac')) &&
+            regulatoryContext.electricalRequirements && regulatoryContext.electricalRequirements.length > 0) {
+          regulatoryContext.documents.forEach((doc: any) => {
+            if (doc.documentType && doc.documentType.includes('ELECTRICAL')) {
+              if (doc.citations && doc.citations.length > 0) {
+                doc.citations.slice(0, 1).forEach((citation: any) => {
+                  relevantCitations.push({
+                    reference: citation.reference || citation.shortReference,
+                    text: citation.text || citation.citationText,
+                    type: 'electrical'
+                  })
+                })
+              }
+            }
+          })
+        }
+
+        // Add consumer law citations for all items
+        if (regulatoryContext.consumerProtections && regulatoryContext.consumerProtections.length > 0) {
+          regulatoryContext.documents.forEach((doc: any) => {
+            if (doc.documentType && doc.documentType.includes('CONSUMER')) {
+              if (doc.citations && doc.citations.length > 0) {
+                doc.citations.slice(0, 1).forEach((citation: any) => {
+                  relevantCitations.push({
+                    reference: citation.reference || citation.shortReference,
+                    text: citation.text || citation.citationText,
+                    type: 'consumer_law'
+                  })
+                })
+              }
+            }
+          })
+        }
+
+        // Only add regulatory citations if we found relevant ones
+        if (relevantCitations.length > 0) {
+          item.regulatoryCitations = relevantCitations
+        }
+
+        // Add state requirements if available
+        if (regulatoryContext.stateRequirements) {
+          item.stateRequirements = regulatoryContext.stateRequirements
+        }
+      })
+    } catch (error) {
+      // Graceful degradation: if enhancement fails, return items unchanged
+      console.error('Error enhancing scope items with regulatory citations:', error)
+    }
+  }
+
   return items
 }
 
