@@ -36,3 +36,5 @@ next-env.d.ts
 /apps/
 /packages/
 nul
+
+.env*.local

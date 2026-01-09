@@ -52,8 +52,27 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error("Registration error:", error)
+
+    // Check for specific database errors
+    if (error.message?.includes("hasPremiumInspectionReports")) {
+      console.error("🔴 CRITICAL: Database migration missing - hasPremiumInspectionReports column does not exist")
+      console.error("FIX: Run /api/admin/deploy-migrations endpoint or set DIRECT_URL in Vercel environment")
+      return NextResponse.json(
+        { error: "Database schema is not up to date. Admin action required." },
+        { status: 503 }
+      )
+    }
+
+    if (error.code === "P1000" || error.message?.includes("authentication failed")) {
+      console.error("🔴 Database connection error")
+      return NextResponse.json(
+        { error: "Database connection failed. Please try again later." },
+        { status: 503 }
+      )
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
