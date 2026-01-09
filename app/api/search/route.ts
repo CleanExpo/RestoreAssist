@@ -43,11 +43,11 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC, "updatedAt" DESC
-      LIMIT ${Math.ceil(limit / 3)}
+      LIMIT ${Math.ceil(limit / 3)}::integer
     ` as any[];
 
     // Search clients
-    const clients = await prisma.$queryRaw`
+    const clients = await prisma.$queryRaw<any[]>`
       SELECT
         id,
         name,
@@ -61,11 +61,11 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
-      LIMIT ${Math.ceil(limit / 3)}
-    ` as any[];
+      LIMIT ${Math.ceil(limit / 3)}::integer
+    `;
 
     // Search inspections
-    const inspections = await prisma.$queryRaw`
+    const inspections = await prisma.$queryRaw<any[]>`
       SELECT
         id,
         inspectionNumber,
@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
-      LIMIT ${Math.ceil(limit / 3)}
-    ` as any[];
+      LIMIT ${Math.ceil(limit / 3)}::integer
+    `;
 
     const results = {
       query,

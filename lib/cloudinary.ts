@@ -59,7 +59,6 @@ export async function uploadImage(
   } = {}
 ): Promise<UploadResult> {
   try {
-    ensureCloudinaryConfigured()
     const result = await cloudinary.uploader.upload(file as string, {
       folder,
       resource_type: options.resource_type || 'image',
@@ -82,7 +81,6 @@ export async function uploadImage(
 
 export async function deleteImage(publicId: string): Promise<void> {
   try {
-    ensureCloudinaryConfigured()
     await cloudinary.uploader.destroy(publicId)
   } catch (error: any) {
     console.error('[Cloudinary] ❌ Delete error:', {
@@ -113,11 +111,10 @@ export async function uploadToCloudinary(
   } = {}
 ): Promise<CloudinaryUploadResult> {
   try {
-    ensureCloudinaryConfigured()
     // Convert buffer to base64 data URI
     const base64 = buffer.toString('base64')
     const dataUri = `data:image/jpeg;base64,${base64}`
-
+    
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: options.folder || 'uploads',
       resource_type: options.resource_type || 'image',

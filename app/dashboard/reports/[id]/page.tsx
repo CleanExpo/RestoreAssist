@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign } from "lucide-react"
+import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign, Mail } from "lucide-react"
 import { useRouter } from "next/navigation"
 import InspectionReportViewer from "@/components/InspectionReportViewer"
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer"
 import CostEstimationViewer from "@/components/CostEstimationViewer"
+import EmailDeliveryModal from "@/components/reports/email-delivery-modal"
+import ScheduledEmailsList from "@/components/reports/scheduled-emails-list"
 import toast from "react-hot-toast"
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +17,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'inspection' | 'scope' | 'cost'>('inspection')
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -30,7 +33,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     const fetchReportData = async () => {
       try {
         setLoading(true)
-        
+
         // Fetch report
         const reportResponse = await fetch(`/api/reports/${reportId}`)
         if (reportResponse.ok) {
@@ -112,6 +115,16 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
+
+        {/* Email Report Button */}
+        <button
+          onClick={() => setIsEmailModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+          title="Send report via email"
+        >
+          <Mail className="h-5 w-5" />
+          <span>Email Report</span>
+        </button>
       </div>
 
       {/* Tabs */}
@@ -156,24 +169,48 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {/* Tab Content */}
       <div className="min-h-[400px]">
         {activeTab === 'inspection' && (
-          <InspectionReportViewer 
+          <InspectionReportViewer
             reportId={reportId!}
             onReportGenerated={refreshReport}
           />
         )}
         {activeTab === 'scope' && (
-          <ScopeOfWorksViewer 
+          <ScopeOfWorksViewer
             reportId={reportId!}
             onScopeGenerated={refreshReport}
           />
         )}
         {activeTab === 'cost' && (
-          <CostEstimationViewer 
+          <CostEstimationViewer
             reportId={reportId!}
             onEstimationGenerated={refreshReport}
           />
         )}
       </div>
+
+      {/* Scheduled Deliveries Section */}
+      <div className="border-t border-slate-700 pt-8">
+        <h3 className="text-lg font-semibold text-white mb-4">Scheduled Deliveries</h3>
+        <ScheduledEmailsList
+          reportId={reportId!}
+          onEmailsCancelled={() => {
+            // Optional: refresh or show notification
+          }}
+        />
+      </div>
+
+      {/* Email Delivery Modal */}
+      <EmailDeliveryModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        reportId={reportId!}
+        reportTitle={report.reportNumber || report.title || 'Report'}
+        defaultRecipient={report.client?.email || report.clientEmail}
+        onSuccess={() => {
+          setIsEmailModalOpen(false)
+          refreshReport()
+        }}
+      />
     </div>
   )
 }

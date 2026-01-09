@@ -88,6 +88,9 @@ model User {
   standardTemplates StandardTemplate[]
   inspections   Inspection[]
   chatMessages  ChatMessage[]
+  emailConnection EmailConnection?
+  scheduledEmails ScheduledEmail[]
+  emailAudits EmailAudit[]
 }
 
 model VerificationToken {
@@ -281,6 +284,10 @@ model Report {
   // Scoping & Estimation
   scope     Scope?
   estimates Estimate[]
+
+  // Email Delivery
+  scheduledEmails ScheduledEmail[]
+  emailAudits     EmailAudit[]
 
   // NIR Integration
   inspection Inspection?
@@ -1217,8 +1224,73 @@ model ChatMessage {
   role      String   // "user" or "assistant"
   content   String   @db.Text
   createdAt DateTime @default(now())
-  
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId, createdAt])
+}
+
+// Email Delivery System Models
+
+// OAuth connection for Gmail/Microsoft email
+model EmailConnection {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  provider     String   // "google" or "microsoft"
+  email        String
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([provider])
+}
+
+// Scheduled email delivery
+model ScheduledEmail {
+  id          String   @id @default(cuid())
+  userId      String
+  reportId    String
+  recipient   String   // Email address
+  scheduledAt DateTime // When to send
+  sentAt      DateTime? // When actually sent
+  status      String   @default("pending") // pending, sending, sent, failed, cancelled
+  attempts    Int      @default(0)
+  lastAttempt DateTime?
+  error       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([status, scheduledAt])
+  @@index([scheduledAt])
+}
+
+// Audit trail for all email sends
+model EmailAudit {
+  id           String   @id @default(cuid())
+  userId       String
+  reportId     String
+  recipient    String
+  sentAt       DateTime @default(now())
+  success      Boolean
+  error        String?  @db.Text
+  deliveryType String   // "immediate" or "scheduled"
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([sentAt])
 }
