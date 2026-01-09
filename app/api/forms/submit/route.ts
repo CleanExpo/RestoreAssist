@@ -1,72 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
+import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import prisma from '@/lib/prisma'
+import { submitForm } from '@/lib/forms/form-submission-workflow'
 
 /**
  * POST /api/forms/submit
- * Submit a completed form
+ * Submit a completed form with auto-population, validation, and optional signatures
  */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { templateId, formData, reportId } = await request.json()
+    const body = await request.json()
+    const {
+      templateId,
+      formData,
+      reportId,
+      clientId,
+      requestSignatures,
+      saveDraft,
+    } = body
 
     if (!templateId || !formData) {
       return NextResponse.json(
         { error: 'Missing required fields: templateId, formData' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    // Generate submission number (e.g., WO-2026-001)
-    const templatePrefix = templateId.split('-')[0].toUpperCase()
-    const submissionCount = await prisma.formSubmission.count()
-    const submissionNumber = `${templatePrefix}-${new Date().getFullYear()}-${String(submissionCount + 1).padStart(3, '0')}`
-
-    // Create form submission
-    const submission = await prisma.formSubmission.create({
-      data: {
-        templateId,
-        userId: session.user.id,
-        reportId: reportId || null,
-        submissionNumber,
-        status: 'COMPLETED',
-        formData: JSON.stringify(formData),
-        completenessScore: 100,
-        submittedAt: new Date(),
-        completedAt: new Date(),
-      },
+    // Submit form with full workflow
+    const result = await submitForm({
+      userId: session.user.id,
+      templateId,
+      formData,
+      reportId,
+      clientId,
+      requestSignatures,
+      saveDraft,
     })
 
-    // Log the submission in audit trail
-    await prisma.formAuditLog.create({
-      data: {
-        submissionId: submission.id,
-        action: 'SUBMITTED',
-        userId: session.user.id,
-        newValue: JSON.stringify(formData),
-      },
-    })
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          errors: result.errors,
+          message: result.message,
+        },
+        { status: 400 },
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      submissionId: submission.id,
-      submissionNumber: submission.submissionNumber,
+      submissionId: result.submissionId,
+      message: result.message,
     })
   } catch (error) {
     console.error('Error submitting form:', error)
     return NextResponse.json(
-      { error: 'Failed to submit form' },
-      { status: 500 }
+      { error: 'Failed to submit form', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 },
     )
   }
 }
