@@ -91,6 +91,8 @@ model User {
   emailConnection EmailConnection?
   scheduledEmails ScheduledEmail[]
   emailAudits EmailAudit[]
+  formTemplates FormTemplate[]
+  formSubmissions FormSubmission[]
 }
 
 model VerificationToken {
@@ -288,6 +290,9 @@ model Report {
   // Email Delivery
   scheduledEmails ScheduledEmail[]
   emailAudits     EmailAudit[]
+
+  // Forms System
+  formSubmissions FormSubmission[]
 
   // NIR Integration
   inspection Inspection?
@@ -1409,4 +1414,271 @@ model EmailAudit {
   @@index([userId])
   @@index([reportId])
   @@index([sentAt])
+}
+
+// ============================================
+// Forms Management System Models
+// ============================================
+
+// Form Template - defines structure of forms (pre-defined and custom)
+model FormTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Template Metadata
+  formType    FormType
+  name        String
+  description String?  @db.Text
+  category    FormCategory
+
+  // Template Status
+  status      FormTemplateStatus @default(DRAFT)
+  version     Int      @default(1)
+  isSystemTemplate Boolean @default(false)  // True for pre-defined templates
+  isActive    Boolean  @default(true)
+
+  // Form Structure (JSON Schema for flexibility)
+  formSchema  String   @db.Text  // Complete form definition
+
+  // Signature Requirements
+  requiresSignatures Boolean @default(false)
+  signatureConfig    String? @db.Text
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+
+  // Relations
+  submissions FormSubmission[]
+  versions    FormTemplateVersion[]
+
+  @@index([userId])
+  @@index([formType])
+  @@index([category])
+  @@index([status])
+  @@index([isSystemTemplate])
+}
+
+// Form Submission - instance of completed/in-progress form
+model FormSubmission {
+  id              String   @id @default(cuid())
+  templateId      String
+  template        FormTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Linking to Reports/Jobs
+  reportId        String?
+  report          Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  // Submission Metadata
+  submissionNumber String  @unique  // Auto-generated (e.g., "WO-2026-001")
+  status          FormSubmissionStatus @default(DRAFT)
+
+  // Form Data (stores actual user inputs)
+  formData        String   @db.Text  // JSON: Field values
+
+  // Completion Tracking
+  completenessScore Int?   @default(0)  // 0-100 percentage
+  validationErrors  String? @db.Text
+
+  // Timestamps
+  startedAt       DateTime  @default(now())
+  submittedAt     DateTime?
+  lastSavedAt     DateTime  @default(now())
+  completedAt     DateTime?
+
+  // Relations
+  signatures      FormSignature[]
+  attachments     FormAttachment[]
+  auditLogs       FormAuditLog[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([templateId])
+  @@index([userId])
+  @@index([reportId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+// Form Signature - digital signatures on forms
+model FormSignature {
+  id              String   @id @default(cuid())
+  submissionId    String
+  submission      FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // Signature Details
+  signatureFieldId String
+  signatureType   SignatureType
+
+  // Digital Signature Data (Canvas-based)
+  signatureData   String?  @db.Text  // Base64-encoded PNG
+  signatureUrl    String?              // Cloudinary URL if uploaded
+
+  // Signatory Information
+  signatoryName   String
+  signatoryRole   SignatoryRole
+  signatoryEmail  String?
+
+  // E-signature Workflow
+  signatureRequestSent Boolean @default(false)
+  signatureRequestSentAt DateTime?
+
+  // Verification
+  ipAddress       String?
+  userAgent       String?
+  gpsLocation     String?
+
+  // Timestamps
+  signedAt        DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([submissionId])
+  @@index([signatoryRole])
+}
+
+// Form Attachment - files attached to submissions
+model FormAttachment {
+  id              String   @id @default(cuid())
+  submissionId    String
+  submission      FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // File Details
+  fileName        String
+  fileUrl         String  // Cloudinary URL
+  thumbnailUrl    String?
+  publicId        String  // Cloudinary public ID
+
+  // Metadata
+  fileSize        Int     // Bytes
+  mimeType        String
+  fieldId         String? // If attached to specific field
+
+  // Timestamps
+  uploadedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([submissionId])
+}
+
+// Form Audit Log - track all changes
+model FormAuditLog {
+  id              String   @id @default(cuid())
+  submissionId    String
+  submission      FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // Action Details
+  action          FormAuditAction
+  fieldId         String?
+
+  // Change Data
+  previousValue   String?  @db.Text
+  newValue        String?  @db.Text
+
+  // User Context
+  userId          String
+  ipAddress       String?
+  userAgent       String?
+
+  // Timestamp
+  timestamp       DateTime @default(now())
+
+  @@index([submissionId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+// Form Template Version - track template changes
+model FormTemplateVersion {
+  id              String   @id @default(cuid())
+  templateId      String
+  template        FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Version Details
+  version         Int
+  changeNotes     String?  @db.Text
+  changedBy       String
+
+  // Snapshot
+  schemaSnapshot  String   @db.Text
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+
+  @@unique([templateId, version])
+  @@index([templateId])
+}
+
+// ============================================
+// Forms Management System Enums
+// ============================================
+
+enum FormType {
+  WORK_ORDER
+  AUTHORITY_TO_COMMENCE
+  JSA              // Job Safety Analysis
+  SDS              // Safety Data Sheet
+  SWIMS            // Safe Work Information Management System
+  SITE_INDUCTION
+  CUSTOM
+}
+
+enum FormCategory {
+  SAFETY
+  COMPLIANCE
+  CLIENT_INTAKE
+  JOB_DOCUMENTATION
+  INSURANCE
+  QUALITY_CONTROL
+  CUSTOM
+}
+
+enum FormTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DEPRECATED
+}
+
+enum FormSubmissionStatus {
+  DRAFT
+  IN_PROGRESS
+  AWAITING_SIGNATURE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SignatureType {
+  DIGITAL_CANVAS       // Hand-drawn on device
+  ELECTRONIC_TYPED     // Typed name with consent
+  ESIGNATURE_WORKFLOW  // Email-based e-signature
+  BIOMETRIC            // Future: fingerprint/face
+}
+
+enum SignatoryRole {
+  TECHNICIAN
+  SUPERVISOR
+  CLIENT
+  PROPERTY_OWNER
+  WITNESS
+  CONTRACTOR
+  OTHER
+}
+
+enum FormAuditAction {
+  CREATED
+  FIELD_UPDATED
+  SAVED
+  SUBMITTED
+  SIGNATURE_ADDED
+  ATTACHMENT_ADDED
+  ATTACHMENT_REMOVED
+  STATUS_CHANGED
+  CANCELLED
+  REOPENED
 }
