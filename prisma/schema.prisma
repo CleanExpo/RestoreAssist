@@ -295,11 +295,15 @@ model Report {
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
+  // NEW: Optional Regulatory Citations (Phase 5 - Tick and Flick feature)
+  includeRegulatoryCitations Boolean @default(false) // Client preference for regulatory citations
+
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
   @@index([userId, hazardType])
   @@index([userId, status])
   @@index([clientId, createdAt])
+  @@index([includeRegulatoryCitations]) // Index for efficient filtering
 }
 
 enum Role {

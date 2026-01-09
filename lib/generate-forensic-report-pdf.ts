@@ -180,7 +180,8 @@ export async function generateForensicReportPDF(data: ReportData): Promise<Uint8
     scopeItems,
     report,
     equipmentSelection,
-    pricingConfig: data.report.pricingConfig
+    pricingConfig: data.report.pricingConfig,
+    regulatoryContext: data.regulatoryContext  // NEW: Pass regulatory context for summary section
   })
   
   // PAGE 3: Data Evidence & Project Management
@@ -553,6 +554,7 @@ async function renderPage2(
     report: any
     equipmentSelection?: any[]
     pricingConfig?: any
+    regulatoryContext?: any  // NEW: Optional regulatory context for compliance summary
   }
 ) {
   const { width, height } = page.getSize()
@@ -738,9 +740,22 @@ async function renderPage2(
     
     yPosition -= rowHeight + 2
   })
-  
-  yPosition -= 20
-  
+
+  yPosition -= 30  // Extra space before regulatory section
+
+  // NEW: Render Regulatory Compliance Summary Section (if available and feature enabled)
+  if (options.regulatoryContext && options.regulatoryContext.retrievalSuccess) {
+    yPosition = await renderRegulatoryComplianceSection(page, {
+      helvetica,
+      helveticaBold,
+      colors,
+      margin,
+      yPosition: yPosition,
+      width,
+      regulatoryContext: options.regulatoryContext
+    })
+  }
+
   // Eventual Cost Projection & Variables
   if (yPosition > 150) {
     page.drawText('Eventual Cost Projection & Variables', {
@@ -2539,7 +2554,178 @@ function wrapText(text: string, maxWidth: number, font: PDFFont, fontSize: numbe
   if (currentLine) {
     lines.push(currentLine)
   }
-  
+
   return lines
+}
+
+/**
+ * Render Regulatory Compliance Summary Section
+ *
+ * NEW: Phase 5b - Optional regulatory compliance summary
+ * Only renders if regulatoryContext.retrievalSuccess === true
+ * Returns updated yPosition for continued rendering
+ */
+async function renderRegulatoryComplianceSection(
+  page: PDFPage,
+  options: {
+    helvetica: PDFFont
+    helveticaBold: PDFFont
+    colors: any
+    margin: number
+    yPosition: number
+    width: number
+    regulatoryContext: any
+  }
+): Promise<number> {
+  const { helvetica, helveticaBold, colors, margin, width } = options
+  let yPosition = options.yPosition
+
+  // Graceful degradation: if no regulatory context, return current position
+  if (!options.regulatoryContext || !options.regulatoryContext.retrievalSuccess) {
+    return yPosition
+  }
+
+  try {
+    // Section Header
+    page.drawText('Regulatory Compliance Summary', {
+      x: margin,
+      y: yPosition,
+      size: 13,
+      font: helveticaBold,
+      color: colors.darkBlue
+    })
+
+    yPosition -= 18
+
+    // Section Background
+    const sectionHeight = 110
+    page.drawRectangle({
+      x: margin,
+      y: yPosition - sectionHeight,
+      width: width - 2 * margin,
+      height: sectionHeight,
+      color: colors.lightGray
+    })
+
+    yPosition -= 12
+
+    const contentMargin = margin + 12
+    const contentWidth = width - 2 * contentMargin
+
+    // Building Codes
+    if (options.regulatoryContext.buildingCodeRequirements && options.regulatoryContext.buildingCodeRequirements.length > 0) {
+      page.drawText('Building Codes:', {
+        x: contentMargin,
+        y: yPosition,
+        size: 10,
+        font: helveticaBold,
+        color: colors.darkBlue
+      })
+      yPosition -= 14
+
+      const buildingCodes = options.regulatoryContext.buildingCodeRequirements.slice(0, 2)
+      buildingCodes.forEach((code: string) => {
+        const wrappedLines = wrapText(`• ${code}`, contentWidth, helvetica, 9)
+        wrappedLines.forEach((line: string) => {
+          page.drawText(sanitizeTextForPDF(line), {
+            x: contentMargin,
+            y: yPosition,
+            size: 9,
+            font: helvetica,
+            color: colors.black,
+            maxWidth: contentWidth
+          })
+          yPosition -= 10
+        })
+      })
+    }
+
+    // State-Specific Requirements
+    if (options.regulatoryContext.stateRequirements) {
+      page.drawText('State Requirements:', {
+        x: contentMargin,
+        y: yPosition,
+        size: 10,
+        font: helveticaBold,
+        color: colors.darkBlue
+      })
+      yPosition -= 14
+      const wrappedState = wrapText(`• ${options.regulatoryContext.stateRequirements}`, contentWidth, helvetica, 9)
+      wrappedState.slice(0, 2).forEach((line: string) => {
+        page.drawText(sanitizeTextForPDF(line), {
+          x: contentMargin,
+          y: yPosition,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: contentWidth
+        })
+        yPosition -= 10
+      })
+    }
+
+    // Electrical Standards
+    if (options.regulatoryContext.electricalRequirements && options.regulatoryContext.electricalRequirements.length > 0) {
+      page.drawText('Electrical Standards:', {
+        x: contentMargin,
+        y: yPosition,
+        size: 10,
+        font: helveticaBold,
+        color: colors.darkBlue
+      })
+      yPosition -= 14
+      const electrical = options.regulatoryContext.electricalRequirements.slice(0, 1)
+      electrical.forEach((standard: string) => {
+        const wrappedLines = wrapText(`• ${standard}`, contentWidth, helvetica, 9)
+        wrappedLines.forEach((line: string) => {
+          page.drawText(sanitizeTextForPDF(line), {
+            x: contentMargin,
+            y: yPosition,
+            size: 9,
+            font: helvetica,
+            color: colors.black,
+            maxWidth: contentWidth
+          })
+          yPosition -= 10
+        })
+      })
+    }
+
+    // Consumer Protection
+    if (options.regulatoryContext.consumerProtections && options.regulatoryContext.consumerProtections.length > 0) {
+      page.drawText('Consumer Protection:', {
+        x: contentMargin,
+        y: yPosition,
+        size: 10,
+        font: helveticaBold,
+        color: colors.darkBlue
+      })
+      yPosition -= 14
+      const consumer = options.regulatoryContext.consumerProtections.slice(0, 1)
+      consumer.forEach((protection: string) => {
+        const wrappedLines = wrapText(`• ${protection}`, contentWidth, helvetica, 9)
+        wrappedLines.forEach((line: string) => {
+          page.drawText(sanitizeTextForPDF(line), {
+            x: contentMargin,
+            y: yPosition,
+            size: 9,
+            font: helvetica,
+            color: colors.black,
+            maxWidth: contentWidth
+          })
+          yPosition -= 10
+        })
+      })
+    }
+
+    // Ensure minimum spacing after section
+    yPosition -= 15
+
+  } catch (error) {
+    console.error('Error rendering regulatory compliance section:', error)
+    // Graceful degradation - continue without the section
+  }
+
+  return yPosition
 }
 

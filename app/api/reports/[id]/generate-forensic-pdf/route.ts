@@ -104,13 +104,13 @@ export async function GET(
     if (integration?.apiKey) {
       try {
         const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
-        
+
         // Determine report type
-        const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
-          report.hazardType === 'Mould' ? 'mould' : 
-          report.hazardType === 'Fire' ? 'fire' : 
+        const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' =
+          report.hazardType === 'Mould' ? 'mould' :
+          report.hazardType === 'Fire' ? 'fire' :
           report.hazardType === 'Commercial' ? 'commercial' : 'water'
-        
+
         const retrievalQuery = {
           reportType: retrievalReportType,
           waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
@@ -121,13 +121,46 @@ export async function GET(
           materials: tier1?.T1_Q6_materialsAffected || [],
           technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
         }
-        
+
         const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
-        
+
         standardsContext = buildStandardsContextPrompt(retrievedStandards)
       } catch (error: any) {
         console.error('[Generate Forensic PDF] Error retrieving standards:', error)
         // Continue without standards context - not critical for PDF generation
+      }
+    }
+
+    // NEW: Retrieve regulatory context if user opted in AND feature flag is enabled
+    let regulatoryContext = null
+    if (
+      process.env.ENABLE_REGULATORY_CITATIONS === 'true' &&
+      report.includeRegulatoryCitations === true
+    ) {
+      try {
+        const { retrieveRegulatoryContext } = await import('@/lib/regulatory-retrieval')
+
+        // Determine report type for regulatory retrieval
+        const retrievalReportType: 'water' | 'mould' | 'fire' | 'commercial' =
+          report.hazardType === 'Mould' ? 'mould' :
+          report.hazardType === 'Fire' ? 'fire' :
+          report.hazardType === 'Commercial' ? 'commercial' : 'water'
+
+        const regulatoryQuery = {
+          reportType: retrievalReportType,
+          waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
+          state: stateCode,
+          postcode: report.propertyPostcode,
+          insurerName: report.insurerName || undefined,
+          requiresElectricalWork: tier1?.T1_Q6_materialsAffected?.some((m: string) =>
+            m.toLowerCase().includes('electrical') || m.toLowerCase().includes('appliance')
+          ) || false
+        }
+
+        regulatoryContext = await retrieveRegulatoryContext(regulatoryQuery, integration?.apiKey)
+      } catch (error: any) {
+        console.error('[Generate Forensic PDF] Error retrieving regulatory context:', error)
+        // Continue without regulatory context (graceful degradation)
       }
     }
 
@@ -161,6 +194,7 @@ export async function GET(
       scopeAreas,
       equipmentSelection,
       standardsContext,
+      regulatoryContext,  // NEW: Add regulatory context if available
       businessInfo: {
         businessName: user.businessName,
         businessAddress: user.businessAddress,
