@@ -4,9 +4,13 @@ import { prisma } from "@/lib/prisma"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🟢 [REGISTER] Start registration process")
+
     const { name, email, password } = await request.json()
+    console.log("🟢 [REGISTER] Parsed body - name:", name, "email:", email)
 
     if (!name || !email || !password) {
+      console.log("🔴 [REGISTER] Missing required fields")
       return NextResponse.json(
         { error: "Name, email, and password are required" },
         { status: 400 }
@@ -14,11 +18,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
+    console.log("🟢 [REGISTER] Checking if user exists...")
     const existingUser = await prisma.user.findUnique({
       where: { email }
     })
+    console.log("🟢 [REGISTER] User exists check complete:", existingUser ? "EXISTS" : "NEW")
 
     if (existingUser) {
+      console.log("🔴 [REGISTER] User already exists")
       return NextResponse.json(
         { error: "User with this email already exists" },
         { status: 400 }
@@ -26,9 +33,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash password
+    console.log("🟢 [REGISTER] Hashing password...")
     const hashedPassword = await bcrypt.hash(password, 12)
+    console.log("🟢 [REGISTER] Password hashed successfully")
 
     // Create user with 3 credits and TRIAL status
+    console.log("🟢 [REGISTER] Creating user in database...")
     const user = await prisma.user.create({
       data: {
         name,
@@ -41,6 +51,7 @@ export async function POST(request: NextRequest) {
         trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
       }
     })
+    console.log("🟢 [REGISTER] User created successfully:", user.id)
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user
