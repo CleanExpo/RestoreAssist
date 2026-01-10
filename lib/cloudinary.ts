@@ -168,3 +168,49 @@ export async function uploadToCloudinary(
   }
 }
 
+/**
+ * Upload Excel file to Cloudinary
+ */
+export async function uploadExcelToCloudinary(
+  buffer: Buffer,
+  filename: string,
+  folder: string = 'excel-reports'
+): Promise<string> {
+  try {
+    // Convert buffer to base64 data URI for Excel
+    const base64 = buffer.toString('base64')
+    const dataUri = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
+    
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder,
+      resource_type: 'raw',
+      public_id: filename.replace(/\.xlsx?$/i, ''), // Remove extension, Cloudinary will add it
+      format: 'xlsx',
+    })
+
+    console.log(`[Cloudinary] ✅ Excel upload successful:`, {
+      publicId: result.public_id,
+      secureUrl: result.secure_url,
+      url: result.url,
+      bytes: result.bytes,
+      folder: result.folder,
+    })
+
+    return result.secure_url
+  } catch (error: any) {
+    console.error('[Cloudinary] ❌ Excel upload error:', {
+      message: error?.message,
+      http_code: error?.http_code,
+      name: error?.name,
+      error: error
+    })
+    
+    if (error?.http_code === 401) {
+      throw new Error(`Cloudinary authentication failed. Please check your Cloudinary credentials. Error: ${error?.message}`)
+    } else if (error?.http_code === 400) {
+      throw new Error(`Cloudinary upload failed: ${error?.message}`)
+    } else {
+      throw new Error(`Failed to upload Excel file to Cloudinary: ${error?.message || 'Unknown error'}`)
+    }
+  }
+}

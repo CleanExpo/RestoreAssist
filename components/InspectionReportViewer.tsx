@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, CheckCircle, Download, FileText, Loader2, Printer } from "lucide-react"
+import { AlertCircle, CheckCircle, Download, FileText, Table, Loader2, Printer } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
@@ -16,6 +16,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
   const [editing, setEditing] = useState(false)
   const [report, setReport] = useState<any>(null)
   const [reportContent, setReportContent] = useState<string>('')
@@ -331,6 +332,52 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
     window.print()
   }
 
+  const handleExportExcel = async () => {
+    setExportingExcel(true)
+    try {
+      toast.loading('Generating Excel report...', { id: 'excel-export' })
+      
+      const response = await fetch(`/api/reports/${reportId}/export-excel?includeScope=true&includeEstimate=true`, {
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to generate Excel report', { id: 'excel-export' })
+        return
+      }
+
+      const blob = await response.blob()
+      
+      // Check if blob is valid
+      if (!blob || blob.size === 0) {
+        toast.error('Generated Excel file is empty', { id: 'excel-export' })
+        return
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+      const filename = filenameMatch ? filenameMatch[1] : `Report-${reportId}.xlsx`
+
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('Excel report downloaded successfully!', { id: 'excel-export' })
+    } catch (error) {
+      console.error('Error exporting Excel:', error)
+      toast.error('Failed to generate Excel report', { id: 'excel-export' })
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -363,6 +410,23 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
                   Download PDF
                 </button>
               )}
+              <button
+                onClick={handleExportExcel}
+                disabled={exportingExcel}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-colors print:hidden disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exportingExcel ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Table className="w-4 h-4" />
+                    Generate Excel Report
+                  </>
+                )}
+              </button>
             </>
           )}
         </div>
@@ -378,7 +442,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
           <p className="text-slate-300 mb-4">
             Generate your professional inspection report with all 13 sections. The report will include comprehensive analysis based on all collected data.
           </p>
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             {(!report?.reportDepthLevel || report.reportDepthLevel === 'Basic') && (
               <button
                 onClick={() => handleGenerateReport('basic')}
@@ -404,6 +468,25 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
                 className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {generating ? 'Generating...' : 'Generate Optimised Report'}
+              </button>
+            )}
+            {(reportContent || visualData || structuredReportData) && (
+              <button
+                onClick={handleExportExcel}
+                disabled={exportingExcel}
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {exportingExcel ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating Excel...
+                  </>
+                ) : (
+                  <>
+                    <Table className="w-4 h-4" />
+                    Generate Excel Report
+                  </>
+                )}
               </button>
             )}
           </div>

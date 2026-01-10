@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Loader2, AlertCircle, CheckCircle, Copy, FileCheck, Trash2 } from 'lucide-react'
+import { X, Loader2, AlertCircle, CheckCircle, Copy, FileCheck, Trash2, Table, Download, FileSpreadsheet } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface BulkOperationModalProps {
@@ -37,9 +37,20 @@ export function BulkOperationModal({
   const [appendText, setAppendText] = useState('(Copy)')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [excelReports, setExcelReports] = useState<Array<{
+    id: string
+    reportNumber: string | null
+    title: string
+    clientName: string
+    propertyAddress: string
+    excelUrl: string | null
+  }>>([])
+  const [downloadingZip, setDownloadingZip] = useState(false)
 
   const getOperationTitle = () => {
     switch (operationType) {
+      case 'export-excel':
+        return 'Export Excel Reports'
       case 'duplicate':
         return 'Duplicate Reports'
       case 'status-update':
@@ -53,6 +64,8 @@ export function BulkOperationModal({
 
   const getOperationDescription = () => {
     switch (operationType) {
+      case 'export-excel':
+        return `Export Excel reports for ${selectedCount} report${selectedCount !== 1 ? 's' : ''}?`
       case 'duplicate':
         return `Duplicate ${selectedCount} report${selectedCount !== 1 ? 's' : ''}?`
       case 'status-update':
@@ -133,8 +146,102 @@ export function BulkOperationModal({
     }
   }
 
+  const handleExportExcel = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      // First, get the list of Excel reports to show progress
+      const listResponse = await fetch('/api/reports/bulk-export-excel-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, zip: false }),
+      })
+      const listData = await listResponse.json()
+      
+      if (!listResponse.ok) {
+        throw new Error(listData.message || listData.error || 'Export failed')
+      }
+      
+      if (!listData.reports || listData.reports.length === 0) {
+        throw new Error('No Excel reports found for selected reports. Please generate Excel reports first.')
+      }
+
+      setExcelReports(listData.reports)
+      toast.loading(`Downloading ${listData.count} Excel file(s) and creating ZIP...`, { id: 'excel-export' })
+
+      // Now download the ZIP (which will download all files from Cloudinary and zip them)
+      const zipResponse = await fetch('/api/reports/bulk-export-excel-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, zip: true }),
+      })
+
+      if (!zipResponse.ok) {
+        const error = await zipResponse.json()
+        throw new Error(error.message || error.error || 'Zip download failed')
+      }
+
+      const blob = await zipResponse.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Excel_Reports_${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      setSuccess(true)
+      toast.success(`Successfully downloaded ${listData.count} Excel report(s) as ZIP!`, { id: 'excel-export' })
+      setTimeout(() => { onClose() }, 2000)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      setError(errorMsg)
+      toast.error(errorMsg, { id: 'excel-export' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDownloadZip = async () => {
+    setDownloadingZip(true)
+    try {
+      const response = await fetch('/api/reports/bulk-export-excel-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, zip: true }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || error.error || 'Zip download failed')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Excel_Reports_${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.success('Zip file downloaded successfully!')
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      setError(errorMsg)
+      toast.error(errorMsg)
+    } finally {
+      setDownloadingZip(false)
+    }
+  }
+
   const handleConfirm = async () => {
     switch (operationType) {
+      case 'export-excel':
+        await handleExportExcel()
+        break
       case 'duplicate':
         await handleDuplicate()
         break
@@ -146,6 +253,14 @@ export function BulkOperationModal({
         break
     }
   }
+
+  // Auto-trigger Excel export when modal opens for export-excel
+  useEffect(() => {
+    if (operationType === 'export-excel' && selectedIds.length > 0 && !isLoading && !success) {
+      handleExportExcel()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operationType])
 
   return (
     <div 
@@ -175,6 +290,34 @@ export function BulkOperationModal({
         {/* Body */}
         <div className="p-5 space-y-4">
           <p className="text-sm text-slate-300">{getOperationDescription()}</p>
+
+          {/* Excel Export Results */}
+          {operationType === 'export-excel' && excelReports.length > 0 && success && (
+            <div className="space-y-3">
+              <div className="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
+                <p className="text-sm font-medium text-emerald-300">
+                  ✓ Successfully downloaded {excelReports.length} Excel report(s) as ZIP file
+                </p>
+                <p className="text-xs text-emerald-400 mt-1">
+                  Files downloaded from Cloudinary and packaged into a ZIP archive
+                </p>
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                <p className="text-xs text-slate-400 font-medium">Included files:</p>
+                {excelReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="flex items-center gap-2 p-2 bg-slate-700/30 border border-slate-600 rounded text-xs"
+                  >
+                    <FileSpreadsheet className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span className="text-slate-300 truncate">
+                      {report.reportNumber || report.id} - {report.clientName}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Operation-specific controls */}
           {operationType === 'duplicate' && (
@@ -256,31 +399,52 @@ export function BulkOperationModal({
             >
               Cancel
             </button>
-            <button
-              onClick={handleConfirm}
-              disabled={isLoading}
-              className={`flex-1 px-4 py-2 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 ${
-                operationType === 'delete'
-                  ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-white'
-                  : operationType === 'duplicate'
-                  ? 'bg-amber-600 hover:bg-amber-700 disabled:bg-amber-600/50 text-white'
-                  : 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white'
-              } disabled:opacity-50`}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  {operationType === 'delete' && <Trash2 className="w-4 h-4" />}
-                  {operationType === 'duplicate' && <Copy className="w-4 h-4" />}
-                  {operationType === 'status-update' && <FileCheck className="w-4 h-4" />}
-                  <span>Confirm</span>
-                </>
-              )}
-            </button>
+            {operationType !== 'export-excel' && (
+              <button
+                onClick={handleConfirm}
+                disabled={isLoading}
+                className={`flex-1 px-4 py-2 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 ${
+                  operationType === 'delete'
+                    ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-white'
+                    : operationType === 'duplicate'
+                    ? 'bg-amber-600 hover:bg-amber-700 disabled:bg-amber-600/50 text-white'
+                    : 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white'
+                } disabled:opacity-50`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    {operationType === 'delete' && <Trash2 className="w-4 h-4" />}
+                    {operationType === 'duplicate' && <Copy className="w-4 h-4" />}
+                    {operationType === 'status-update' && <FileCheck className="w-4 h-4" />}
+                    <span>Confirm</span>
+                  </>
+                )}
+              </button>
+            )}
+            {operationType === 'export-excel' && !success && (
+              <button
+                onClick={handleExportExcel}
+                disabled={isLoading}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 text-white rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Downloading & Creating ZIP...</span>
+                  </>
+                ) : (
+                  <>
+                    <Table className="w-4 h-4" />
+                    <span>Download Excel ZIP</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         )}
 
