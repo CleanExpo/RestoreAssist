@@ -191,7 +191,7 @@ Return ONLY a valid JSON object with comprehensive analysis.`
 
   const userPrompt = `Perform comprehensive gap analysis on this completed claim report PDF: ${file.name}
 
-Analyze this report against:
+Analyse this report against:
 1. IICRC Standards (AS-IICRC S500:2025, S520, etc.) - identify ALL missing compliance elements
 2. Australian Standards (AS/NZS 3000, AS 1668, AS/NZS 3666, NCC, state codes) - identify ALL missing compliance
 3. Australian OH&S/WHS Requirements (Work Health and Safety Act, Safe Work Australia) - identify ALL missing safety protocols
@@ -217,11 +217,11 @@ Estimate total missing revenue potential (sum of all missing billable items).
 **Report Structure and Flow Analysis:**
 - Identify all sections present in the report
 - Identify missing standard sections (Executive Summary, Property Information, Incident Details, Inspection Findings, Damage Assessment, Scope of Works, Equipment Requirements, Timeline/Phases, Cost Estimation, Compliance Statements, Monitoring & Documentation, Conclusion & Risk Factors)
-- Analyze the order and flow of sections
+- Analyse the order and flow of sections
 - Identify flow issues (e.g., missing transitions, illogical ordering)
 
 **Technician Pattern Analysis:**
-- Analyze the technician's reporting style and approach
+- Analyse the technician's reporting style and approach
 - Identify common omissions or patterns in what this technician misses
 - Identify strengths (what they do well)
 - Assess standardization level (how well they follow standard formats)
@@ -330,7 +330,7 @@ Return JSON with this exact structure:
     }
 
   } catch (error: any) {
-    throw new Error(`Failed to analyze ${file.name}: ${error.message}`)
+    throw new Error(`Failed to analyse ${file.name}: ${error.message}`)
   }
 }
 

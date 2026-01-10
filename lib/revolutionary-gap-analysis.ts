@@ -243,7 +243,7 @@ export async function performRevolutionaryGapAnalysis(
 
 Your task is to perform the most comprehensive analysis possible by:
 
-1. **Section-by-Section Analysis**: Analyze EVERY section of the report against the standard template
+1. **Section-by-Section Analysis**: Analyse EVERY section of the report against the standard template
 2. **Standards Compliance Matrix**: Check compliance against ALL Australian and IICRC standards
 3. **Rectification Roadmap**: Provide detailed, actionable steps to fix EVERY issue
 4. **Revenue Recovery**: Identify ALL missing billable items with accurate cost estimates
@@ -314,7 +314,7 @@ Return ONLY valid JSON.`
 
   const comprehensiveUserPrompt = `Perform REVOLUTIONARY gap analysis on: ${file.name}
 
-Analyze this document with MINUTE-LEVEL detail:
+Analyse this document with MINUTE-LEVEL detail:
 
 1. **Section-by-Section Analysis**: For each of the ${REQUIRED_REPORT_SECTIONS.length} required sections:
    - Is it present? (yes/no)

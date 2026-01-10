@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         technicianNotes: technicianNotes.substring(0, 1000),
       }
       
-      // Use the user's Anthropic API key to retrieve and analyze standards
+      // Use the user's Anthropic API key to retrieve and analyse standards
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
     } catch (error: any) {

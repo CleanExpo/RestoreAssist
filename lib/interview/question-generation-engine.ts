@@ -66,7 +66,7 @@ export class QuestionGenerationEngine {
   }
 
   /**
-   * Organize questions into 4 tiers based on priority
+   * Organise questions into 4 tiers based on priority
    * Tier 1: Essential (5 questions) - always shown
    * Tier 2: Environmental (3 questions) - always shown
    * Tier 3: Compliance (3-5 questions) - conditional on postcode/job type

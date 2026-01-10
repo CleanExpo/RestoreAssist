@@ -273,7 +273,7 @@ Be thorough but precise. Each extracted section should be directly usable in the
 }
 
 /**
- * Analyze folder structure using Anthropic AI to understand organization
+ * Analyse folder structure using Anthropic AI to understand organization
  */
 async function analyzeFolderStructureWithAI(
   anthropic: Anthropic,
@@ -293,9 +293,9 @@ async function analyzeFolderStructureWithAI(
       id: f.id
     })) || []
     
-    const systemPrompt = `You are an expert in IICRC standards and Australian building codes. Your task is to analyze a Google Drive folder structure and identify the most relevant standards documents for a specific water damage restoration report.
+    const systemPrompt = `You are an expert in IICRC standards and Australian building codes. Your task is to analyse a Google Drive folder structure and identify the most relevant standards documents for a specific water damage restoration report.
 
-Analyze the folder structure and file names to:
+Analyse the folder structure and file names to:
 1. Understand how standards are organized (by standard number, category, type, etc.)
 2. Identify which files are most relevant to the report query
 3. Consider file naming patterns, folder organization, and document types
@@ -330,7 +330,7 @@ ${JSON.stringify(fileList, null, 2)}
 
 ${folderList.length > 0 ? `Subfolders:\n${JSON.stringify(folderList, null, 2)}` : ''}
 
-Analyze this folder structure and identify the most relevant standards documents for generating a professional ${query.reportType} damage restoration report. Consider the report context and prioritize files that contain:
+Analyse this folder structure and identify the most relevant standards documents for generating a professional ${query.reportType} damage restoration report. Consider the report context and prioritize files that contain:
 1. Specific procedures for the water category/class
 2. Material-specific remediation guidelines
 3. Safety and compliance requirements
@@ -438,7 +438,7 @@ export async function retrieveRelevantStandards(
       allFiles = folderItems.files
       folderStructure = folderItems
       
-      // Use AI to analyze folder structure and identify relevant files
+      // Use AI to analyse folder structure and identify relevant files
       const aiAnalysis = await analyzeFolderStructureWithAI(anthropic, folderStructure, query)
       
       // Add AI-identified files to our list (prioritize them)
@@ -620,7 +620,7 @@ export function buildStandardsContextPrompt(standardsContext: StandardsContext):
   
   prompt += 'The following standards documents have been intelligently selected from the Google Drive folder "IICRC Standards" based on AI-powered analysis of folder structure and report context:\n\n'
   
-  // Organize by standard type
+  // Organise by standard type
   let docCounter = 1
   for (const [standardType, docs] of documentsByType.entries()) {
     prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`

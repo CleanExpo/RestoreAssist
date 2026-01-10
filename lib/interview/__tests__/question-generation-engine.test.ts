@@ -43,7 +43,7 @@ describe('QuestionGenerationEngine', () => {
       expect(result.estimatedDurationMinutes).toBeLessThanOrEqual(30)
     })
 
-    it('should organize questions into 4 tiers', () => {
+    it('should organise questions into 4 tiers', () => {
       const result = QuestionGenerationEngine.generateQuestions(mockContext)
       const { tieredQuestions } = result
 

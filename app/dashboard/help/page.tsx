@@ -36,7 +36,7 @@ export default function HelpPage() {
       id: "5",
       question: "How does the Claims Analysis feature work?",
       answer:
-        "The **Claims Analysis** feature (/dashboard/claims-analysis) allows you to analyze Google Drive folders containing completed claim reports. It performs gap analysis to identify: (1) Compliance gaps against IICRC and Australian standards, (2) Missing elements in reports, (3) Revenue recovery opportunities, (4) Standardization issues. The system retrieves standards from Google Drive IICRC Standards folder, analyses each PDF, and provides detailed reports showing what's missing and estimated missing revenue. This helps improve report quality and maximize billing.",
+        "The **Claims Analysis** feature (/dashboard/claims-analysis) allows you to analyse Google Drive folders containing completed claim reports. It performs gap analysis to identify: (1) Compliance gaps against IICRC and Australian standards, (2) Missing elements in reports, (3) Revenue recovery opportunities, (4) Standardization issues. The system retrieves standards from Google Drive IICRC Standards folder, analyses each PDF, and provides detailed reports showing what's missing and estimated missing revenue. This helps improve report quality and maximize billing.",
     },
     {
       id: "6",

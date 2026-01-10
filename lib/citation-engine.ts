@@ -57,7 +57,7 @@ function getAnthropicClient(apiKey?: string): Anthropic {
 }
 
 /**
- * Analyze a scope item and identify relevant regulations
+ * Analyse a scope item and identify relevant regulations
  *
  * Uses Claude to intelligently match scope items to regulatory documents
  */
@@ -73,7 +73,7 @@ async function analyzeAndMatchRegulations(
       .map(d => `${d.documentCode || d.name}: ${d.relevantSections.join(', ')}`)
       .join('\n')
 
-    const systemPrompt = `You are an expert Australian water and mould damage restoration specialist with deep knowledge of regulatory compliance. Your task is to analyze restoration scope items and identify the most relevant regulatory requirements from Australian building codes, electrical standards, insurance regulations, and consumer protection laws.
+    const systemPrompt = `You are an expert Australian water and mould damage restoration specialist with deep knowledge of regulatory compliance. Your task is to analyse restoration scope items and identify the most relevant regulatory requirements from Australian building codes, electrical standards, insurance regulations, and consumer protection laws.
 
 For each scope item, you must:
 1. Identify which regulations are most relevant
@@ -335,7 +335,7 @@ export async function generateCitationsForScopeItem(
     // Get Anthropic client
     const anthropic = getAnthropicClient(apiKey)
 
-    // Analyze scope item and match to regulations
+    // Analyse scope item and match to regulations
     const analysis = await analyzeAndMatchRegulations(
       anthropic,
       scopeItem,
@@ -521,7 +521,7 @@ export function scoreCitationRelevance(
 /**
  * Group citations by type
  *
- * Organize citations for different regulatory categories
+ * Organise citations for different regulatory categories
  */
 export function groupCitationsByType(
   citations: GeneratedCitation[]

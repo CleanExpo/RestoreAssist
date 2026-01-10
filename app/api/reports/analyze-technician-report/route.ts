@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { tryClaudeModels } from '@/lib/anthropic-models'
 
-// POST - Analyze technician report using AI
+// POST - Analyse technician report using AI
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     // Build analysis prompt
     const prompt = `You are an expert water damage restoration specialist analyzing a technician's field report. 
 
-Analyze the following technician field report and extract structured information:
+Analyse the following technician field report and extract structured information:
 
 TECHNICIAN FIELD REPORT:
 ${report.technicianFieldReport}
@@ -108,7 +108,7 @@ Your task is to analyse this report and extract the following information in JSO
 Be thorough and extract all relevant information. If information is not explicitly stated, use "Not specified" or empty arrays as appropriate.`
 
     // Call Anthropic API with fallback models
-    const systemPrompt = `You are an expert water damage restoration specialist. Analyze technician field reports and extract structured information accurately. Always return valid JSON.`
+    const systemPrompt = `You are an expert water damage restoration specialist. Analyse technician field reports and extract structured information accurately. Always return valid JSON.`
 
     // Use the utility function to try multiple models with fallback
     const response = await tryClaudeModels(

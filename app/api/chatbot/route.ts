@@ -128,7 +128,7 @@ Restore Assist is an AI-powered damage assessment platform designed for Australi
 6. **Cost Libraries** (/dashboard/cost-libraries) - Manage regional pricing libraries, equipment rates, and materials
 7. **Integrations** (/dashboard/integrations) - Connect AI API keys (Anthropic Claude, OpenAI, Gemini) and CRM systems
 8. **Analytics** (/dashboard/analytics) - Track reporting performance and metrics
-9. **Claims Analysis** (/dashboard/claims-analysis) - Analyze Google Drive folders for gap analysis and compliance checking
+9. **Claims Analysis** (/dashboard/claims-analysis) - Analyse Google Drive folders for gap analysis and compliance checking
 10. **Subscription** (/dashboard/subscription) - Manage subscription plans and billing
 11. **Settings** (/dashboard/settings) - Configure user preferences and account settings
 12. **Help & Support** (/dashboard/help) - Access FAQs and support resources

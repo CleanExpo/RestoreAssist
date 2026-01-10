@@ -78,7 +78,7 @@ export interface ClaimAnalysisResult {
 }
 
 /**
- * Analyze a single claim PDF
+ * Analyse a single claim PDF
  */
 export async function analyzeClaimPDF(
   pdfBuffer: Buffer,
@@ -103,11 +103,11 @@ export async function analyzeClaimPDF(
   // Convert PDF to base64 for Claude vision (Claude can read PDFs directly)
   const base64Data = pdfBuffer.toString('base64')
   
-  const systemPrompt = `You are an expert water damage restoration consultant and IICRC-certified professional analyzing completed claim reports. Your task is to comprehensively analyze the report to:
+  const systemPrompt = `You are an expert water damage restoration consultant and IICRC-certified professional analyzing completed claim reports. Your task is to comprehensively analyse the report to:
 
 1. **Understand Report Standards**: Evaluate the quality, completeness, and standardization level of the report
 2. **Identify Missing Elements**: Find all missing compliance elements, safety requirements, and billable items
-3. **Analyze Report Flow**: Understand the structure, flow, and technician patterns
+3. **Analyse Report Flow**: Understand the structure, flow, and technician patterns
 
 **IICRC S500 Compliance Requirements to Check:**
 - Water category classification (Category 1, 2, or 3)
@@ -165,7 +165,7 @@ export async function analyzeClaimPDF(
 
 Return a comprehensive JSON analysis with all findings.`
 
-  const userPrompt = `Analyze this completed claim report PDF (filename: ${fileName}) and provide a comprehensive analysis.
+  const userPrompt = `Analyse this completed claim report PDF (filename: ${fileName}) and provide a comprehensive analysis.
 
 **Extract the following information:**
 1. Basic claim information (claim number, property address, technician name, dates, client, insurer)
@@ -176,13 +176,13 @@ Return a comprehensive JSON analysis with all findings.`
    - Documentation: Quality of documentation, photos, evidence
    - Billing Accuracy: Are all billable items included?
 
-3. Analyze report structure:
+3. Analyse report structure:
    - What sections are present?
    - What sections are missing?
    - What is the order/structure?
    - How complete is each section?
 
-4. Analyze report flow:
+4. Analyse report flow:
    - Is the logical flow clear?
    - Are transitions between sections smooth?
    - What issues exist in the flow?
@@ -305,7 +305,7 @@ Return the analysis as a JSON object matching this structure:
 
     return analysisResult
   } catch (error: any) {
-    throw new Error(`Failed to analyze claim PDF: ${error.message}`)
+    throw new Error(`Failed to analyse claim PDF: ${error.message}`)
   }
 }
 

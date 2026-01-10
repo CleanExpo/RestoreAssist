@@ -196,7 +196,7 @@ export default function ClaimsAnalysisPage() {
     setSummary(null)
     
     try {
-      const response = await fetch('/api/claims/analyze-batch', {
+      const response = await fetch('/api/claims/analyse-batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey: anthropicApiKey })
 
-    const systemPrompt = `You are an expert water damage restoration report analysis assistant with deep knowledge of ALL restoration report formats and systems. Your task is to analyze ANY water damage restoration report PDF, regardless of its format, structure, origin, or the system that generated it.
+    const systemPrompt = `You are an expert water damage restoration report analysis assistant with deep knowledge of ALL restoration report formats and systems. Your task is to analyse ANY water damage restoration report PDF, regardless of its format, structure, origin, or the system that generated it.
 
 **CRITICAL ANALYSIS METHODOLOGY:**
 1. **COMPREHENSIVE SCAN**: Read the ENTIRE document from start to finish - every page, every section, every table, every note, header, footer, sidebar, and appendix
@@ -291,7 +291,7 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
 - Use null for missing optional fields, empty string "" for missing required text fields
 - For boolean fields, use true/false or null (never use strings like "yes"/"no")
 - For numeric fields, extract the number or use null (handle decimals, percentages, units)
-- Analyze the document THOROUGHLY - examine every section, table, paragraph, header, footer, note, appendix, and attachment reference
+- Analyse the document THOROUGHLY - examine every section, table, paragraph, header, footer, note, appendix, and attachment reference
 - Look for dates, measurements, test results, phase information, room dimensions, equipment mentions in ANY location
 - If dates are mentioned in text format, convert to YYYY-MM-DD (be extremely flexible with date parsing - try multiple interpretations)
 - For scope areas: Extract EVERY room/area mentioned, even if dimensions are approximate or missing. Don't miss any affected areas.
@@ -348,7 +348,7 @@ CRITICAL INSTRUCTIONS:
 9. Do NOT skip any fields - if information exists anywhere in the document, extract it
 10. Return a complete JSON object with ALL extracted fields - missing fields should be null or empty string as appropriate
 
-Analyze this document thoroughly and extract every piece of available information, regardless of the report format or system that generated it.`
+Analyse this document thoroughly and extract every piece of available information, regardless of the report format or system that generated it.`
               }
             ]
           }
@@ -537,7 +537,7 @@ Analyze this document thoroughly and extract every piece of available informatio
       
       return NextResponse.json(
         { 
-          error: `Failed to analyze PDF: ${claudeError.message || 'Unknown error'}`,
+          error: `Failed to analyse PDF: ${claudeError.message || 'Unknown error'}`,
           details: 'Please ensure the PDF is a valid water damage restoration report and try again.'
         },
         { status: 500 }
