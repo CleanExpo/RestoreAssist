@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
         subscriptionStatus: "TRIAL",
         creditsRemaining: 3,
         totalCreditsUsed: 0,
-        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        hasPremiumInspectionReports: false
       }
     })
     console.log("🟢 [REGISTER] User created successfully:", user.id)
