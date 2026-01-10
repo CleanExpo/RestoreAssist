@@ -53,7 +53,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error: any) {
-    console.error("Registration error:", error)
+    console.error("🔴 Registration error - Full error object:")
+    console.error("Error message:", error?.message)
+    console.error("Error code:", error?.code)
+    console.error("Error name:", error?.name)
+    console.error("Error stack:", error?.stack)
+    console.error("Full error:", JSON.stringify(error, null, 2))
 
     // Check for specific database errors
     if (error.message?.includes("hasPremiumInspectionReports")) {
@@ -69,6 +74,14 @@ export async function POST(request: NextRequest) {
       console.error("🔴 Database connection error")
       return NextResponse.json(
         { error: "Database connection failed. Please try again later." },
+        { status: 503 }
+      )
+    }
+
+    if (error.code === "P1001") {
+      console.error("🔴 Cannot reach database server at:", process.env.DATABASE_URL?.split("@")[1])
+      return NextResponse.json(
+        { error: "Cannot reach database server. Check database connection." },
         { status: 503 }
       )
     }
