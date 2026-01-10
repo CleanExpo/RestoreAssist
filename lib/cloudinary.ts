@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary'
+import { optimizeImage, createThumbnail, ImageOptimizationOptions } from './image-processing'
 
 // Get Cloudinary credentials from environment variables
 const cloudName = process.env.CLOUDINARY_CLOUD_NAME
@@ -76,6 +77,102 @@ export async function uploadImage(
   } catch (error) {
     console.error('Cloudinary upload error:', error)
     throw new Error('Failed to upload image to Cloudinary')
+  }
+}
+
+/**
+ * Upload image with optimization (sharp pre-processing)
+ * Reduces file size before uploading to Cloudinary, saving bandwidth and API costs
+ * @param buffer Image buffer
+ * @param folder Cloudinary folder
+ * @param optimizationOptions Sharp optimization options
+ * @param uploadOptions Cloudinary upload options
+ * @returns Upload result
+ */
+export async function uploadOptimizedImage(
+  buffer: Buffer,
+  folder: string = 'reports',
+  optimizationOptions: ImageOptimizationOptions = { width: 1920, quality: 80 },
+  uploadOptions: {
+    resource_type?: 'image' | 'video' | 'raw' | 'auto'
+    transformation?: any[]
+    public_id?: string
+  } = {}
+): Promise<UploadResult> {
+  try {
+    // Optimize image before upload
+    const optimizedBuffer = await optimizeImage(buffer, optimizationOptions)
+
+    // Convert buffer to base64 data URL
+    const dataUrl = `data:image/webp;base64,${optimizedBuffer.toString('base64')}`
+
+    // Upload optimized image
+    const result = await cloudinary.uploader.upload(dataUrl, {
+      folder,
+      resource_type: uploadOptions.resource_type || 'image',
+      transformation: uploadOptions.transformation,
+      public_id: uploadOptions.public_id,
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    })
+
+    return {
+      secure_url: result.secure_url,
+      public_id: result.public_id,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+    }
+  } catch (error) {
+    console.error('Optimized image upload error:', error)
+    throw new Error('Failed to upload optimized image to Cloudinary')
+  }
+}
+
+/**
+ * Upload image and create thumbnail
+ * @param buffer Image buffer
+ * @param folder Cloudinary folder
+ * @param thumbnailSize Thumbnail size (default: 200x200)
+ * @returns Object with main image and thumbnail URLs
+ */
+export async function uploadImageWithThumbnail(
+  buffer: Buffer,
+  folder: string = 'reports',
+  thumbnailSize: number = 200
+): Promise<{
+  image: UploadResult
+  thumbnail: UploadResult
+}> {
+  try {
+    // Upload main image (optimized)
+    const imageResult = await uploadOptimizedImage(buffer, folder, {
+      width: 1920,
+      quality: 80,
+    })
+
+    // Create and upload thumbnail
+    const thumbnailBuffer = await createThumbnail(buffer, thumbnailSize, 70)
+    const thumbnailDataUrl = `data:image/webp;base64,${thumbnailBuffer.toString('base64')}`
+
+    const thumbnailResult = await cloudinary.uploader.upload(thumbnailDataUrl, {
+      folder: `${folder}/thumbnails`,
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      public_id: `${imageResult.public_id}_thumb`,
+    })
+
+    return {
+      image: imageResult,
+      thumbnail: {
+        secure_url: thumbnailResult.secure_url,
+        public_id: thumbnailResult.public_id,
+        width: thumbnailResult.width,
+        height: thumbnailResult.height,
+        format: thumbnailResult.format,
+      },
+    }
+  } catch (error) {
+    console.error('Image and thumbnail upload error:', error)
+    throw new Error('Failed to upload image and thumbnail to Cloudinary')
   }
 }
 
