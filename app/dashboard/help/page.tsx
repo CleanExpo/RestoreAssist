@@ -12,7 +12,7 @@ export default function HelpPage() {
       id: "1",
       question: "How do I create a new report in Restore Assist?",
       answer:
-        "Click the 'New Report' button in the sidebar (highlighted in blue). This takes you to /dashboard/reports/new where you'll follow the 8-step workflow: (1) Initial Data Entry - Enter client, property, and incident details, (2) Technician Report - Capture measurements, photos, and observations, (3) AI Analysis - System automatically analyzes technician data, (4) Tier 1 Questions - Initial assessment questions, (5) Tier 2 Questions - Detailed technical questions, (6) Tier 3 Questions - Advanced configuration questions, (7) Report Generation - Generate Inspection Report, Scope of Works, and Cost Estimation, (8) Review & Finalize - Review and export reports. You can save drafts at any step and return later.",
+        "Click the 'New Report' button in the sidebar (highlighted in blue). This takes you to /dashboard/reports/new where you'll follow the 8-step workflow: (1) Initial Data Entry - Enter client, property, and incident details, (2) Technician Report - Capture measurements, photos, and observations, (3) AI Analysis - System automatically analyses technician data, (4) Tier 1 Questions - Initial assessment questions, (5) Tier 2 Questions - Detailed technical questions, (6) Tier 3 Questions - Advanced configuration questions, (7) Report Generation - Generate Inspection Report, Scope of Works, and Cost Estimation, (8) Review & Finalize - Review and export reports. You can save drafts at any step and return later.",
     },
     {
       id: "2",
@@ -30,13 +30,13 @@ export default function HelpPage() {
       id: "4",
       question: "How do I configure Cost Libraries and Pricing?",
       answer:
-        "Go to **Pricing Configuration** (/dashboard/pricing-config) to set up your company's pricing structure. Then go to **Cost Libraries** (/dashboard/cost-libraries) to manage regional pricing libraries. You can: (1) Select a library to edit equipment rates, material costs, and labor rates, (2) Modify existing rates for different regions, (3) Add new items to libraries, (4) Create custom libraries for specific regions or job types. These libraries are used automatically when generating Cost Estimations.",
+        "Go to **Pricing Configuration** (/dashboard/pricing-config) to set up your company's pricing structure. Then go to **Cost Libraries** (/dashboard/cost-libraries) to manage regional pricing libraries. You can: (1) Select a library to edit equipment rates, material costs, and labour rates, (2) Modify existing rates for different regions, (3) Add new items to libraries, (4) Create custom libraries for specific regions or job types. These libraries are used automatically when generating Cost Estimations.",
     },
     {
       id: "5",
       question: "How does the Claims Analysis feature work?",
       answer:
-        "The **Claims Analysis** feature (/dashboard/claims-analysis) allows you to analyze Google Drive folders containing completed claim reports. It performs gap analysis to identify: (1) Compliance gaps against IICRC and Australian standards, (2) Missing elements in reports, (3) Revenue recovery opportunities, (4) Standardization issues. The system retrieves standards from Google Drive IICRC Standards folder, analyzes each PDF, and provides detailed reports showing what's missing and estimated missing revenue. This helps improve report quality and maximize billing.",
+        "The **Claims Analysis** feature (/dashboard/claims-analysis) allows you to analyze Google Drive folders containing completed claim reports. It performs gap analysis to identify: (1) Compliance gaps against IICRC and Australian standards, (2) Missing elements in reports, (3) Revenue recovery opportunities, (4) Standardization issues. The system retrieves standards from Google Drive IICRC Standards folder, analyses each PDF, and provides detailed reports showing what's missing and estimated missing revenue. This helps improve report quality and maximize billing.",
     },
     {
       id: "6",

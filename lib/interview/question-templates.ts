@@ -282,17 +282,17 @@ const TIER2_QUESTIONS: Question[] = [
   },
 
   {
-    // Q8: Mold/Microbial Growth
+    // Q8: Mould/Microbial Growth
     id: 'q8_microbial_growth',
     sequenceNumber: 8,
-    text: 'Can you see any visible mold or microbial growth?',
+    text: 'Can you see any visible mould or microbial growth?',
     type: 'multiple_choice',
 
     standardsReference: ['IICRC S500 s8 Microbial Assessment', 'WHS Act 2011 Health Hazards'],
     standardsJustification: 'Visible growth requires antimicrobial treatment and safety protocols',
 
     options: [
-      { label: 'Yes - visible mold growth', value: 'visible_mold' },
+      { label: 'Yes - visible mould growth', value: 'visible_mold' },
       { label: 'No - none visible', value: 'no_mold' },
       { label: 'Unsure - need professional assessment', value: 'unsure' },
     ],

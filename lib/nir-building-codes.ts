@@ -77,7 +77,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND drywall affected, dehumidification is mandatory",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If > 3 days damp: requires mold testing",
+          mouldTesting: "If > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -96,7 +96,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 18,
           dehumidificationRequired: "If moisture > 18% AND structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1987 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -115,7 +115,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND drywall/structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -134,7 +134,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -153,7 +153,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -172,7 +172,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -191,7 +191,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },
@@ -210,7 +210,7 @@ function getStateBuildingCodeRequirements(
           moistureThreshold: 20,
           dehumidificationRequired: "If moisture > 20% AND structural materials affected",
           dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
+          moldTesting: "If visible mould or > 3 days damp: requires mould testing",
           asbestos: "Pre-1990 buildings: Asbestos assessment required",
           lead: "Pre-1970 buildings: Lead paint assessment required"
         },

@@ -38,7 +38,7 @@ export default function FAQPage() {
     },
     {
       question: "How does the AI assessment work?",
-      answer: "Our AI analyzes captured site data including photos, measurements, and damage details to identify damage patterns, compliance requirements, and generate detailed scope of work documents automatically."
+      answer: "Our AI analyses captured site data including photos, measurements, and damage details to identify damage patterns, compliance requirements, and generate detailed scope of work documents automatically."
     },
     {
       question: "What compliance standards does RestoreAssist support?",

@@ -47,7 +47,7 @@ export function WorkOrderForm({ reportId, onComplete }: { reportId?: string; onC
             options: [
               { value: 'water-damage', label: 'Water Damage' },
               { value: 'fire-damage', label: 'Fire Damage' },
-              { value: 'mold-remediation', label: 'Mold Remediation' },
+              { value: 'mold-remediation', label: 'Mould Remediation' },
               { value: 'carpet-cleaning', label: 'Carpet Cleaning' },
               { value: 'construction-cleaning', label: 'Construction Cleaning' },
               { value: 'other', label: 'Other' },

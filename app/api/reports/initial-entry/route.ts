@@ -56,15 +56,15 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now().toString().slice(-6)
     const reportTitle = `WD-${year}-${timestamp}`
 
-    // Helper to sanitize string values (empty strings -> null)
-    const sanitizeString = (value: any): string | null => {
+    // Helper to sanitise string values (empty strings -> null)
+    const sanitiseString = (value: any): string | null => {
       if (value === null || value === undefined) return null
       const str = String(value).trim()
       return str === '' ? null : str
     }
-    
-    // Helper to sanitize integer values
-    const sanitizeInt = (value: any): number | null => {
+
+    // Helper to sanitise integer values
+    const sanitiseInt = (value: any): number | null => {
       if (value === null || value === undefined) return null
       if (typeof value === 'string' && value.trim() === '') return null
       const parsed = parseInt(String(value), 10)
@@ -192,50 +192,50 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         
         // Phase 2: Initial Data Entry Fields
-        clientContactDetails: sanitizeString(data.clientContactDetails),
+        clientContactDetails: sanitiseString(data.clientContactDetails),
         propertyPostcode: data.propertyPostcode.trim(), // Required field, so no null check
-        claimReferenceNumber: sanitizeString(data.claimReferenceNumber),
+        claimReferenceNumber: sanitiseString(data.claimReferenceNumber),
         incidentDate: incidentDate,
         technicianAttendanceDate: technicianAttendanceDate,
-        technicianName: sanitizeString(data.technicianName),
+        technicianName: sanitiseString(data.technicianName),
         technicianFieldReport: data.technicianFieldReport.trim(), // Required field
-        
+
         // New Fields: Property ID and Job Number
-        propertyId: sanitizeString(data.propertyId),
-        jobNumber: sanitizeString(data.jobNumber),
-        
+        propertyId: sanitiseString(data.propertyId),
+        jobNumber: sanitiseString(data.jobNumber),
+
         // Cover Page: Instructions/Standards References
-        reportInstructions: sanitizeString(data.reportInstructions),
-        
+        reportInstructions: sanitiseString(data.reportInstructions),
+
         // Additional Contact Information: Builder/Developer
-        builderDeveloperCompanyName: sanitizeString(data.builderDeveloperCompanyName),
-        builderDeveloperContact: sanitizeString(data.builderDeveloperContact),
-        builderDeveloperAddress: sanitizeString(data.builderDeveloperAddress),
-        builderDeveloperPhone: sanitizeString(data.builderDeveloperPhone),
-        
+        builderDeveloperCompanyName: sanitiseString(data.builderDeveloperCompanyName),
+        builderDeveloperContact: sanitiseString(data.builderDeveloperContact),
+        builderDeveloperAddress: sanitiseString(data.builderDeveloperAddress),
+        builderDeveloperPhone: sanitiseString(data.builderDeveloperPhone),
+
         // Additional Contact Information: Owner/Management
-        ownerManagementContactName: sanitizeString(data.ownerManagementContactName),
-        ownerManagementPhone: sanitizeString(data.ownerManagementPhone),
-        ownerManagementEmail: sanitizeString(data.ownerManagementEmail),
-        
+        ownerManagementContactName: sanitiseString(data.ownerManagementContactName),
+        ownerManagementPhone: sanitiseString(data.ownerManagementPhone),
+        ownerManagementEmail: sanitiseString(data.ownerManagementEmail),
+
         // Previous Maintenance & Repair History
         lastInspectionDate: parseDate(data.lastInspectionDate),
-        buildingChangedSinceLastInspection: sanitizeString(data.buildingChangedSinceLastInspection),
-        structureChangesSinceLastInspection: sanitizeString(data.structureChangesSinceLastInspection),
-        previousLeakage: sanitizeString(data.previousLeakage),
-        emergencyRepairPerformed: sanitizeString(data.emergencyRepairPerformed),
+        buildingChangedSinceLastInspection: sanitiseString(data.buildingChangedSinceLastInspection),
+        structureChangesSinceLastInspection: sanitiseString(data.structureChangesSinceLastInspection),
+        previousLeakage: sanitiseString(data.previousLeakage),
+        emergencyRepairPerformed: sanitiseString(data.emergencyRepairPerformed),
         
         // Property Intelligence (Assessment Report Data Architecture)
-        buildingAge: sanitizeInt(data.buildingAge),
-        structureType: sanitizeString(data.structureType),
-        accessNotes: sanitizeString(data.accessNotes),
+        buildingAge: sanitiseInt(data.buildingAge),
+        structureType: sanitiseString(data.structureType),
+        accessNotes: sanitiseString(data.accessNotes),
         
         // Hazard Profile (Assessment Report Data Architecture)
-        insurerName: sanitizeString(data.insurerName),
-        methamphetamineScreen: sanitizeString(data.methamphetamineScreen),
-        methamphetamineTestCount: sanitizeInt(data.methamphetamineTestCount),
+        insurerName: sanitiseString(data.insurerName),
+        methamphetamineScreen: sanitiseString(data.methamphetamineScreen),
+        methamphetamineTestCount: sanitiseInt(data.methamphetamineTestCount),
         biologicalMouldDetected: data.biologicalMouldDetected === true || data.biologicalMouldDetected === 'true' || data.biologicalMouldDetected === 1,
-        biologicalMouldCategory: sanitizeString(data.biologicalMouldCategory),
+        biologicalMouldCategory: sanitiseString(data.biologicalMouldCategory),
         
         // Timeline Estimation Data (Assessment Report Data Architecture)
         phase1StartDate: parseDate(data.phase1StartDate),

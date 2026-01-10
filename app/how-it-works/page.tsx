@@ -38,7 +38,7 @@ export default function HowItWorksPage() {
     {
       number: "02",
       title: "AI Analysis",
-      description: "Our AI-powered system analyzes the captured data and identifies damage patterns, compliance requirements, and scope of work."
+      description: "Our AI-powered system analyses the captured data and identifies damage patterns, compliance requirements, and scope of work."
     },
     {
       number: "03",

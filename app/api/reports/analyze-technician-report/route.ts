@@ -91,7 +91,7 @@ PROPERTY INFORMATION:
 - Incident Date: ${report.incidentDate ? new Date(report.incidentDate).toLocaleDateString('en-AU') : 'Not provided'}
 - Technician Attendance Date: ${report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU') : 'Not provided'}
 
-Your task is to analyze this report and extract the following information in JSON format:
+Your task is to analyse this report and extract the following information in JSON format:
 
 {
   "affectedAreas": ["List of rooms/areas mentioned (e.g., Kitchen, Master Bedroom, Hallway)"],
@@ -167,7 +167,7 @@ Be thorough and extract all relevant information. If information is not explicit
 
     return NextResponse.json({ 
       analysis,
-      message: 'Technician report analyzed successfully'
+      message: 'Technician report analysed successfully'
     })
   } catch (error: any) {
     console.error('Error analyzing technician report:', error)
@@ -221,7 +221,7 @@ Be thorough and extract all relevant information. If information is not explicit
     
     return NextResponse.json(
       { 
-        error: 'Failed to analyze technician report',
+        error: 'Failed to analyse technician report',
         message: 'An error occurred while analyzing the report. Please try again or contact support if the issue persists.',
         details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
       },

@@ -29,7 +29,7 @@ export const EQUIPMENT_PRICING = {
   thermostat: 15, // Digital thermostat/monitor
 
   // Monitoring
-  moistureMeter: 25, // Hand-held moisture meter
+  moistureMeter: 25, // Hand-held moisture metre
   humidityMeter: 20, // Humidity monitor
 
   // Misc

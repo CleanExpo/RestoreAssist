@@ -46,7 +46,7 @@ const WATER_SOURCES = [
 // Scope item types (checklist/dropdown only)
 const SCOPE_ITEM_TYPES = [
   { id: "remove_carpet", label: "Remove Carpet" },
-  { id: "sanitize_materials", label: "Sanitize Materials" },
+  { id: "sanitize_materials", label: "Sanitise Materials" },
   { id: "install_dehumidification", label: "Install Dehumidification" },
   { id: "install_air_movers", label: "Install Air Movers" },
   { id: "extract_standing_water", label: "Extract Standing Water" },

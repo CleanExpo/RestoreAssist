@@ -617,7 +617,7 @@ export default function DashboardPage() {
                     Now let's create your first client. Clients help you organise and manage all your restoration reports.
                   </p>
                   <p className="text-sm text-slate-400">
-                    Add client details like name, email, phone, and address for better organization.
+                    Add client details like name, email, phone, and address for better organisation.
                   </p>
                   <div className="flex gap-3 pt-4">
                     <button

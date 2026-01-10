@@ -26,7 +26,7 @@ export interface CostEstimateResult {
   total: number
   breakdown: {
     equipment: number
-    labor: number
+    labour: number
     materials: number
     other: number
   }
@@ -66,7 +66,7 @@ export async function estimateCosts(
     equipment: estimateItems
       .filter(item => item.category === "Equipment")
       .reduce((sum, item) => sum + item.subtotal, 0),
-    labor: estimateItems
+    labour: estimateItems
       .filter(item => item.category === "Labor")
       .reduce((sum, item) => sum + item.subtotal, 0),
     materials: estimateItems
@@ -183,7 +183,7 @@ function getDefaultCostDatabase(): Map<string, any> {
   defaults.set("sanitize_materials", {
     itemType: "sanitize_materials",
     category: "Materials",
-    description: "Material Sanitization",
+    description: "Material Sanitisation",
     unit: "sq ft",
     minRate: 0.75,
     maxRate: 1.25,

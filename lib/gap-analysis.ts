@@ -134,13 +134,13 @@ ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${stand
 - Material removal and disposal procedures
 - Structural drying procedures
 - Content handling and restoration
-- Cleaning and sanitization procedures
+- Cleaning and sanitisation procedures
 - Reconstruction and restoration procedures
 - Quality control and verification procedures
 - Timeline and scheduling
 - Equipment requirements with specifications
 - Material requirements and quantities
-- Labor requirements and skill levels
+- Labour requirements and skill levels
 - Subcontractor requirements (if applicable)
 
 **Billing Items Often Missed (with typical Australian rates):**

@@ -114,7 +114,7 @@ export function SiteInductionForm({ reportId, onComplete }: { reportId?: string;
             required: false,
             order: 3,
             options: [
-              { value: 'mold-present', label: 'Mold/fungal contamination present' },
+              { value: 'mold-present', label: 'Mould/fungal contamination present' },
               { value: 'sewage', label: 'Sewage contamination present' },
               { value: 'bloodborne', label: 'Bloodborne pathogens possible' },
               { value: 'other-bio', label: 'Other biological hazards' },
