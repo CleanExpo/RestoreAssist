@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { FormSchema, FormField } from '@/lib/forms/form-types'
-import { SignatureCanvas } from '@/components/forms/signature/SignatureCanvas'
+import { FabricSignatureCanvas } from '@/components/forms/signature/FabricSignatureCanvas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -296,8 +296,13 @@ export function PublicFormView({
         {/* Signature Section */}
         {currentStep === formSchema.sections.length - 1 && (
           <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
-            <h2 className="text-2xl font-semibold text-slate-900 mb-6">Sign the Form</h2>
-            <SignatureCanvas onSignatureSave={handleSignatureCapture} />
+            <h2 className="text-2xl font-semibold text-slate-900 mb-4">Sign the Form</h2>
+            <p className="text-slate-600 mb-6">Please provide your signature below. Use your mouse or touch screen to draw.</p>
+            <FabricSignatureCanvas
+              width={600}
+              height={200}
+              onSign={handleSignatureCapture}
+            />
           </div>
         )}
 
