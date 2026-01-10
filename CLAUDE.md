@@ -2,9 +2,9 @@
 
 ## Project Essentials
 
-**Production**: https://restoreassist.app  
-**Stack**: Next.js 15.0.0 + React 19.2.0 + TypeScript + Prisma + Stripe  
-**Deployment**: Vercel (Sydney region) + Supabase PostgreSQL  
+**Production**: https://restoreassist.app
+**Stack**: Next.js 15.0.0 + React 19.2.0 + TypeScript + Prisma + Stripe
+**Deployment**: Vercel only (Sydney region) + Supabase PostgreSQL
 **Status**: Production-ready
 
 ## Critical Dependency Constraints

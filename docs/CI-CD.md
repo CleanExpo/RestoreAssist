@@ -8,9 +8,8 @@ RestoreAssist uses GitHub Actions for continuous integration and deployment:
 
 | Pipeline | Trigger | Purpose | Deployment |
 |----------|---------|---------|-----------|
-| **CI** | PR + Push to main/develop | Tests & quality checks | None |
-| **Deploy Vercel** | Push to main | Frontend deployment | Production |
-| **Deploy DigitalOcean** | Push to main (backend changes) | Backend deployment | Production |
+| **CI** | PR + Push to main | Tests & quality checks | None |
+| **Deploy Vercel** | Push to main | Full-stack deployment | Production |
 | **Status Checks** | PR opened/updated | Branch protection validation | None |
 | **Maintenance** | Weekly + Daily schedules | Dependency & security checks | None |
 
@@ -117,28 +116,6 @@ VERCEL_PROJECT_ID         # Project ID
 
 **Deployment Time**: 5-10 minutes
 
-### DigitalOcean Deployment (.github/workflows/deploy-digitalocean.yml)
-
-**Trigger**: Push to `main` branch (backend changes)
-
-**Steps**:
-1. Build Docker image
-2. Push to DigitalOcean Registry
-3. Deploy to App Platform
-4. Run database migrations
-5. Run health checks
-6. Notify Slack
-
-**Environment Variables**:
-```
-DIGITALOCEAN_ACCESS_TOKEN    # DigitalOcean API token
-DIGITALOCEAN_REGISTRY_NAME   # Container registry name
-DATABASE_URL                 # Production database URL
-DIRECT_URL                   # Direct database URL
-```
-
-**Deployment Time**: 10-15 minutes
-
 ## Status Checks (.github/workflows/status-checks.yml)
 
 Validates branch protection requirements for pull requests.
@@ -224,25 +201,8 @@ VERCEL_TOKEN: xxx
 VERCEL_ORG_ID: xxx
 VERCEL_PROJECT_ID: xxx
 
-# DigitalOcean
-DIGITALOCEAN_ACCESS_TOKEN: xxx
-DIGITALOCEAN_REGISTRY_NAME: xxx
-
-# Database (Production)
-DATABASE_URL: postgresql://...
-DIRECT_URL: postgresql://...
-
 # Slack Notifications
 SLACK_WEBHOOK: https://hooks.slack.com/...
-```
-
-### Repository Variables
-
-**Settings > Variables > Actions**:
-
-```yaml
-REGISTRY: registry.digitalocean.com
-IMAGE_NAME: restoreassist-backend
 ```
 
 ## Monitoring & Notifications
@@ -286,9 +246,6 @@ gh secret list -R your-org/repo
 ### Deployment Stuck
 
 ```bash
-# Check DigitalOcean App Platform logs
-doctl apps logs <app-id>
-
 # Check Vercel deployment logs
 vercel logs <url>
 ```
@@ -364,7 +321,7 @@ Before merging to main:
 
 ## Rollback Procedures
 
-### Frontend (Vercel)
+### Vercel Rollback
 
 ```bash
 # Revert to previous deployment
@@ -375,22 +332,10 @@ git revert <commit-hash>
 git push origin main
 ```
 
-### Backend (DigitalOcean)
-
-```bash
-# Redeploy previous version
-doctl apps update <app-id> \
-  --spec app.yaml
-
-# Check deployment status
-doctl apps get <app-id>
-```
-
 ## Resources
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Vercel Deployments](https://vercel.com/docs/deployments/overview)
-- [DigitalOcean App Platform](https://docs.digitalocean.com/products/app-platform/)
 - [Husky Documentation](https://typicode.github.io/husky/)
 - [lint-staged](https://github.com/okonet/lint-staged)
 

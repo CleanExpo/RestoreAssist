@@ -248,8 +248,7 @@ Tests run automatically on:
 
 **.github/workflows**:
 - `ci.yml`: Main test pipeline
-- `deploy-vercel.yml`: Frontend deployment
-- `deploy-digitalocean.yml`: Backend deployment
+- `deploy-vercel.yml`: Full-stack deployment
 
 **Pre-commit Configuration**:
 ```bash
