@@ -315,31 +315,7 @@ export default function ReportsPage() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={async () => {
-                    try {
-                      const response = await fetch('/api/reports/bulk-export-excel', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          ids: selectedReports,
-                          options: { includeScope: true, includeEstimate: true },
-                        }),
-                      })
-                      if (!response.ok) throw new Error('Export failed')
-                      const blob = await response.blob()
-                      const url = window.URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = `RestoreAssist_Export_${new Date().toISOString().slice(0, 10)}.xlsx`
-                      document.body.appendChild(a)
-                      a.click()
-                      window.URL.revokeObjectURL(url)
-                      document.body.removeChild(a)
-                      toast.success(`Exported ${selectedReports.length} report(s) to Excel`)
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Export failed')
-                    }
-                  }}
+                  onClick={() => setBulkActionType('export-excel')}
                   className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   <Download size={16} />

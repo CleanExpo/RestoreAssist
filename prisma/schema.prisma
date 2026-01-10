@@ -278,6 +278,10 @@ model Report {
   // AI-Generated Detailed Report
   detailedReport String? @db.Text
 
+  // Document URLs
+  excelReportUrl String? // Cloudinary URL for Excel report
+  inspectionPdfUrl String? // Cloudinary URL for inspection PDF
+
   // Scoping & Estimation
   scope     Scope?
   estimates Estimate[]
