@@ -180,6 +180,48 @@ export async function POST(request: NextRequest) {
               dehumidificationCapacity: report.dehumidificationCapacity,
               airmoversCount: report.airmoversCount,
               targetHumidity: report.targetHumidity,
+              targetTemperature: report.targetTemperature,
+              estimatedDryingTime: report.estimatedDryingTime,
+              equipmentPlacement: report.equipmentPlacement,
+              
+              // Monitoring Data
+              psychrometricReadings: report.psychrometricReadings,
+              moistureReadings: report.moistureReadings,
+              
+              // Psychrometric Assessment Data (Equipment Tools)
+              psychrometricAssessment: report.psychrometricAssessment,
+              scopeAreas: report.scopeAreas,
+              equipmentSelection: report.equipmentSelection,
+              equipmentCostTotal: report.equipmentCostTotal,
+              estimatedDryingDuration: report.estimatedDryingDuration,
+              
+              // Compliance Documentation
+              safetyPlan: report.safetyPlan,
+              containmentSetup: report.containmentSetup,
+              decontaminationProcedures: report.decontaminationProcedures,
+              postRemediationVerification: report.postRemediationVerification,
+              
+              // Insurance Information
+              propertyCover: report.propertyCover,
+              contentsCover: report.contentsCover,
+              liabilityCover: report.liabilityCover,
+              businessInterruption: report.businessInterruption,
+              additionalCover: report.additionalCover,
+              
+              // AI-Generated Detailed Report
+              detailedReport: report.detailedReport,
+              
+              // Timeline Estimation Data
+              phase1StartDate: report.phase1StartDate,
+              phase1EndDate: report.phase1EndDate,
+              phase2StartDate: report.phase2StartDate,
+              phase2EndDate: report.phase2EndDate,
+              phase3StartDate: report.phase3StartDate,
+              phase3EndDate: report.phase3EndDate,
+              
+              // Document URLs - Set to null for duplicates (new reports need new files)
+              excelReportUrl: null,
+              inspectionPdfUrl: null,
 
               // Set new values
               status: newStatus ? (newStatus.toUpperCase() as any) : report.status,
