@@ -22,12 +22,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch reports with Excel URLs
-    const reports = await prisma.report.findMany({
+    // Fetch all selected reports to check which ones have Excel files
+    const allReports = await prisma.report.findMany({
       where: {
         id: { in: ids },
         userId: session.user.id,
-        excelReportUrl: { not: null }
       },
       select: {
         id: true,
@@ -39,12 +38,29 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (reports.length === 0) {
+    // Separate reports with and without Excel files
+    const reportsWithExcel = allReports.filter(r => r.excelReportUrl !== null)
+    const reportsWithoutExcel = allReports.filter(r => r.excelReportUrl === null)
+
+    if (reportsWithExcel.length === 0) {
       return NextResponse.json(
-        { error: 'No Excel reports found', message: 'None of the selected reports have Excel files available' },
+        { 
+          error: 'No Excel reports found', 
+          message: 'None of the selected reports have Excel files available. Please generate Excel reports individually for each report first.',
+          missingReports: reportsWithoutExcel.map(r => ({
+            id: r.id,
+            reportNumber: r.reportNumber,
+            clientName: r.clientName,
+            propertyAddress: r.propertyAddress,
+          })),
+          totalSelected: allReports.length
+        },
         { status: 404 }
       )
     }
+
+    // If some reports are missing Excel files, include that info in the response
+    const reports = reportsWithExcel
 
     // If zip is requested, create a zip file
     if (zip) {
@@ -118,6 +134,13 @@ export async function POST(request: NextRequest) {
         excelUrl: report.excelReportUrl,
       })),
       count: reports.length,
+      missingReports: reportsWithoutExcel.length > 0 ? reportsWithoutExcel.map(r => ({
+        id: r.id,
+        reportNumber: r.reportNumber,
+        clientName: r.clientName,
+        propertyAddress: r.propertyAddress,
+      })) : [],
+      totalSelected: allReports.length,
     })
   } catch (error) {
     console.error('Error in bulk-export-excel-list:', error)
