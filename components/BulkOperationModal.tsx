@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Loader2, AlertCircle, CheckCircle, Copy, FileCheck, Trash2, Table, Download, FileSpreadsheet } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface BulkOperationModalProps {
-  operationType: 'export-excel' | 'export-zip' | 'duplicate' | 'status-update' | 'delete'
+  operationType: 'export-excel' | 'export-pdf' | 'export-zip' | 'duplicate' | 'status-update' | 'delete'
   selectedCount: number
   selectedIds: string[]
   onClose: () => void
@@ -46,6 +46,10 @@ export function BulkOperationModal({
     excelUrl: string | null
   }>>([])
   const [downloadingZip, setDownloadingZip] = useState(false)
+  const hasTriggeredExport = useRef(false)
+  const isDownloading = useRef(false)
+  const downloadLinkRef = useRef<HTMLAnchorElement | null>(null)
+  const downloadSessionId = useRef<string | null>(null)
 
   const getOperationTitle = () => {
     switch (operationType) {
@@ -147,8 +151,20 @@ export function BulkOperationModal({
   }
 
   const handleExportExcel = async () => {
+    // Prevent double-triggering - check and set synchronously
+    if (isLoading || hasTriggeredExport.current || isDownloading.current) {
+      return
+    }
+    // Set flags immediately to prevent race conditions
+    hasTriggeredExport.current = true
+    isDownloading.current = true
     setIsLoading(true)
     setError(null)
+    
+    // Generate unique session ID for this download
+    const sessionId = `excel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    downloadSessionId.current = sessionId
+    
     try {
       // First, get the list of Excel reports to show progress
       const listResponse = await fetch('/api/reports/bulk-export-excel-list', {
@@ -159,11 +175,47 @@ export function BulkOperationModal({
       const listData = await listResponse.json()
       
       if (!listResponse.ok) {
+        // Check if there are missing reports and show customer-centric message
+        if (listData.missingReports && listData.missingReports.length > 0) {
+          const missingCount = listData.missingReports.length
+          const missingList = listData.missingReports
+            .slice(0, 5)
+            .map((r: any) => `• ${r.reportNumber || r.id} - ${r.clientName}`)
+            .join('\n')
+          const moreText = missingCount > 5 ? `\n... and ${missingCount - 5} more report(s)` : ''
+          
+          const errorMessage = `Excel reports not found for ${missingCount} of ${listData.totalSelected || selectedIds.length} selected report(s).\n\nPlease generate Excel reports individually for these reports first:\n\n${missingList}${moreText}\n\nYou can generate Excel reports by opening each report and clicking "Generate Excel Report".`
+          throw new Error(errorMessage)
+        }
         throw new Error(listData.message || listData.error || 'Export failed')
       }
       
       if (!listData.reports || listData.reports.length === 0) {
         throw new Error('No Excel reports found for selected reports. Please generate Excel reports first.')
+      }
+
+      // If some reports are missing Excel files, show a warning but continue with available ones
+      if (listData.missingReports && listData.missingReports.length > 0) {
+        const missingCount = listData.missingReports.length
+        const missingList = listData.missingReports
+          .slice(0, 3)
+          .map((r: any) => `${r.reportNumber || r.id}`)
+          .join(', ')
+        const moreText = missingCount > 3 ? ` and ${missingCount - 3} more` : ''
+        
+        toast(
+          `⚠️ ${missingCount} report(s) missing Excel files (${missingList}${moreText}). Exporting ${listData.count} available report(s).`,
+          { 
+            id: 'excel-export-warning', 
+            duration: 8000,
+            icon: '⚠️',
+            style: {
+              background: '#1e293b',
+              color: '#fbbf24',
+              border: '1px solid #f59e0b'
+            }
+          }
+        )
       }
 
       setExcelReports(listData.reports)
@@ -181,15 +233,59 @@ export function BulkOperationModal({
         throw new Error(error.message || error.error || 'Zip download failed')
       }
 
+      // Verify this is still the active download session
+      if (downloadSessionId.current !== sessionId) {
+        // Another download started, abort this one
+        return
+      }
+
+      // Remove any existing download links before creating a new one
+      if (downloadLinkRef.current && document.body.contains(downloadLinkRef.current)) {
+        try {
+          document.body.removeChild(downloadLinkRef.current)
+        } catch (e) {
+          // Link already removed, ignore
+        }
+      }
+      
       const blob = await zipResponse.blob()
+      
+      // Double-check session is still valid after async operation
+      if (downloadSessionId.current !== sessionId) {
+        window.URL.revokeObjectURL(window.URL.createObjectURL(blob))
+        return
+      }
+      
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `Excel_Reports_${new Date().toISOString().split('T')[0]}.zip`
+      a.style.display = 'none'
+      a.setAttribute('data-download-session', sessionId)
+      
+      // Store reference for cleanup
+      downloadLinkRef.current = a
       document.body.appendChild(a)
+      
+      // Trigger download
       a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      
+      // Clean up after download starts
+      setTimeout(() => {
+        // Only clean up if this is still the active session
+        if (downloadSessionId.current === sessionId) {
+          window.URL.revokeObjectURL(url)
+          if (downloadLinkRef.current && document.body.contains(downloadLinkRef.current)) {
+            try {
+              document.body.removeChild(downloadLinkRef.current)
+            } catch (e) {
+              // Already removed, ignore
+            }
+          }
+          downloadLinkRef.current = null
+          isDownloading.current = false
+        }
+      }, 200)
       
       setSuccess(true)
       toast.success(`Successfully downloaded ${listData.count} Excel report(s) as ZIP!`, { id: 'excel-export' })
@@ -197,7 +293,32 @@ export function BulkOperationModal({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       setError(errorMsg)
-      toast.error(errorMsg, { id: 'excel-export' })
+      // Reset flags on error so user can retry
+      hasTriggeredExport.current = false
+      isDownloading.current = false
+      downloadSessionId.current = null
+      if (downloadLinkRef.current && document.body.contains(downloadLinkRef.current)) {
+        try {
+          document.body.removeChild(downloadLinkRef.current)
+        } catch (e) {
+          // Already removed, ignore
+        }
+      }
+      downloadLinkRef.current = null
+      
+      // Show a concise toast message, detailed info is in the modal
+      if (errorMsg.includes('Excel reports not found')) {
+        const missingCount = errorMsg.match(/(\d+) of (\d+)/)?.[1] || 'some'
+        toast.error(
+          `Excel reports not found for ${missingCount} selected report(s). Please generate Excel reports individually first.`,
+          { 
+            id: 'excel-export',
+            duration: 5000
+          }
+        )
+      } else {
+        toast.error(errorMsg, { id: 'excel-export' })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -217,15 +338,28 @@ export function BulkOperationModal({
         throw new Error(error.message || error.error || 'Zip download failed')
       }
 
+      // Prevent double download
+      if (isDownloading.current) {
+        return
+      }
+      isDownloading.current = true
+      
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `Excel_Reports_${new Date().toISOString().split('T')[0]}.zip`
+      a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      // Clean up immediately
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        if (document.body.contains(a)) {
+          document.body.removeChild(a)
+        }
+        isDownloading.current = false
+      }, 100)
       
       toast.success('Zip file downloaded successfully!')
     } catch (error) {
@@ -254,12 +388,47 @@ export function BulkOperationModal({
     }
   }
 
-  // Auto-trigger Excel export when modal opens for export-excel
+  // Auto-trigger export when modal opens for export-excel
   useEffect(() => {
-    if (operationType === 'export-excel' && selectedIds.length > 0 && !isLoading && !success) {
-      handleExportExcel()
+    // Use a ref to track if we've already set up the effect
+    let mounted = true
+    
+    if (operationType === 'export-excel' && 
+        selectedIds.length > 0 && 
+        !isLoading && 
+        !success && 
+        !hasTriggeredExport.current &&
+        !isDownloading.current) {
+      // Small delay to ensure component is fully mounted and prevent double execution
+      const timeoutId = setTimeout(() => {
+        if (mounted && !hasTriggeredExport.current && !isDownloading.current) {
+          handleExportExcel()
+        }
+      }, 50)
+      
+      return () => {
+        mounted = false
+        clearTimeout(timeoutId)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operationType])
+  
+  // Reset trigger flags when modal closes or operation type changes
+  useEffect(() => {
+    return () => {
+      hasTriggeredExport.current = false
+      isDownloading.current = false
+      downloadSessionId.current = null
+      if (downloadLinkRef.current && document.body.contains(downloadLinkRef.current)) {
+        try {
+          document.body.removeChild(downloadLinkRef.current)
+        } catch (e) {
+          // Already removed, ignore
+        }
+      }
+      downloadLinkRef.current = null
+    }
   }, [operationType])
 
   return (
@@ -366,9 +535,12 @@ export function BulkOperationModal({
 
           {/* Error */}
           {error && (
-            <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-red-300">{error}</p>
+            <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-300 mb-2">Unable to Export Excel Reports</p>
+                <p className="text-xs text-red-300 whitespace-pre-line leading-relaxed">{error}</p>
+              </div>
             </div>
           )}
 
