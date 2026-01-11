@@ -321,7 +321,7 @@ export default function ReportsPage() {
                   <Download size={16} />
                   Export Excel
                 </button>
-                <button
+                {/* <button
                   onClick={async () => {
                     if (selectedReports.length > 25) {
                       toast.error('Maximum 25 reports for ZIP export')
@@ -353,7 +353,7 @@ export default function ReportsPage() {
                 >
                   <Download size={16} />
                   Export PDFs
-                </button>
+                </button> */}
                 <button
                   onClick={() => {
                     if (selectedReports.length > 50) {
