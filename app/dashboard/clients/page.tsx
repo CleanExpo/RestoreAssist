@@ -1,6 +1,6 @@
 "use client"
 
-import { Crown, Filter, Plus, Search, Trash2, X, XIcon } from "lucide-react"
+import { Crown, Filter, Plus, Search, Trash2, X, XIcon, Users, Copy, Edit, Eye } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
@@ -309,14 +309,14 @@ export default function ClientsPage() {
               <span className="text-sm text-slate-400">{selectedClients.length} selected</span>
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-400 border border-red-500/30 rounded-lg hover:from-red-500/30 hover:to-rose-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
               >
-                <Trash2 size={16} />
-                Delete Selected
+                <Trash2 size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                <span>Delete Selected</span>
               </button>
               <button
                 onClick={clearSelection}
-                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors"
+                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
               >
                 Clear
               </button>
@@ -324,10 +324,10 @@ export default function ClientsPage() {
           )}
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group"
           >
-            <Plus size={20} />
-            Add Client
+            <Plus size={20} className="transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
+            <span>Add Client</span>
           </button>
         </div>
       </div>
@@ -505,8 +505,12 @@ export default function ClientsPage() {
           <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Add New Client</h2>
-              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-slate-700 rounded">
-                <X size={20} />
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="p-1 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95"
+                title="Close"
+              >
+                <X size={20} className="transition-transform duration-200" />
               </button>
             </div>
             <div className="space-y-4">
@@ -600,15 +604,16 @@ export default function ClientsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddClient}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                 >
-                  Add Client
+                  <Users className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Add Client</span>
                 </button>
               </div>
             </div>
@@ -717,15 +722,16 @@ export default function ClientsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditClient}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                 >
-                  Update Client
+                  <Edit className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Update Client</span>
                 </button>
               </div>
             </div>
@@ -759,15 +765,16 @@ export default function ClientsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteClient}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                 >
-                  Delete Client
+                  <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Delete Client</span>
                 </button>
               </div>
             </div>
@@ -798,15 +805,16 @@ export default function ClientsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowBulkDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                 >
-                  Delete {selectedClients.length} Client(s)
+                  <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Delete {selectedClients.length} Client(s)</span>
                 </button>
               </div>
             </div>
@@ -839,7 +847,7 @@ export default function ClientsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                 >
                   Cancel
                 </button>
@@ -848,9 +856,10 @@ export default function ClientsPage() {
                     setShowUpgradeModal(false)
                     router.push('/dashboard/pricing')
                   }}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                 >
-                  Upgrade Now
+                  <Crown className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Upgrade Now</span>
                 </button>
               </div>
             </div>

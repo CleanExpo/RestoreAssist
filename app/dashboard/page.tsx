@@ -357,21 +357,21 @@ export default function DashboardPage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.6, delay: 0.3 + index * 0.1 }}
-                      className="group p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg hover:border-slate-500/50 hover:bg-slate-700/50 transition-all duration-300"
+                      className="group p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg hover:border-slate-500/50 hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-cyan-500/10 active:scale-[0.98]"
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center flex-shrink-0`}>
-                          <action.icon size={20} className="text-white" />
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-3`}>
+                          <action.icon size={20} className="text-white transition-transform duration-200 group-hover:scale-110" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-white group-hover:text-cyan-400 transition-colors">
+                          <h3 className="font-medium text-white group-hover:text-cyan-400 transition-colors duration-200">
                             {action.title}
                           </h3>
                           <p className="text-slate-400 text-sm mt-1">
                             {action.description}
                           </p>
                         </div>
-                        <ArrowRight size={16} className="text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0" />
+                        <ArrowRight size={16} className="text-slate-400 group-hover:text-cyan-400 transition-all duration-200 flex-shrink-0 group-hover:translate-x-1 group-hover:scale-110" />
                       </div>
                     </motion.a>
                   ))}
@@ -565,8 +565,12 @@ export default function DashboardPage() {
                 </div>
                 <h2 className="text-xl font-semibold">Welcome! Let's Get Started</h2>
               </div>
-              <button onClick={() => setShowGuidedModal(false)} className="p-1 hover:bg-slate-700 rounded">
-                <XIcon size={20} />
+              <button 
+                onClick={() => setShowGuidedModal(false)} 
+                className="p-1 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95"
+                title="Close"
+              >
+                <XIcon size={20} className="transition-transform duration-200" />
               </button>
             </div>
             <div className="space-y-4">
@@ -585,7 +589,7 @@ export default function DashboardPage() {
                   <div className="flex gap-3 pt-4">
                     <button
                       onClick={() => setShowGuidedModal(false)}
-                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                     >
                       Skip for Now
                     </button>
@@ -594,15 +598,17 @@ export default function DashboardPage() {
                         setShowGuidedModal(false)
                         router.push('/dashboard/integrations')
                       }}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all"
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                     >
-                      Add API Key
+                      <Zap className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                      <span>Add API Key</span>
                     </button>
                     <button
                       onClick={() => setGuidedStep('client')}
-                      className="px-4 py-2 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/10 transition-colors"
+                      className="px-4 py-2 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
                     >
-                      Next →
+                      <span>Next</span>
+                      <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                     </button>
                   </div>
                 </>
@@ -622,13 +628,14 @@ export default function DashboardPage() {
                   <div className="flex gap-3 pt-4">
                     <button
                       onClick={() => setGuidedStep('api')}
-                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
                     >
-                      ← Back
+                      <ArrowRight className="w-4 h-4 rotate-180 transition-transform duration-200 group-hover:-translate-x-1" />
+                      <span>Back</span>
                     </button>
                     <button
                       onClick={() => setShowGuidedModal(false)}
-                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                     >
                       Skip for Now
                     </button>
@@ -637,15 +644,17 @@ export default function DashboardPage() {
                         setShowGuidedModal(false)
                         router.push('/dashboard/clients')
                       }}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg font-medium hover:shadow-lg hover:shadow-emerald-500/50 transition-all"
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg font-medium hover:shadow-lg hover:shadow-emerald-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                     >
-                      Create Client
+                      <Users className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                      <span>Create Client</span>
                     </button>
                     <button
                       onClick={() => setGuidedStep('report')}
-                      className="px-4 py-2 border border-emerald-500/50 text-emerald-400 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                      className="px-4 py-2 border border-emerald-500/50 text-emerald-400 rounded-lg hover:bg-emerald-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
                     >
-                      Next →
+                      <span>Next</span>
+                      <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                     </button>
                   </div>
                 </>
@@ -665,13 +674,14 @@ export default function DashboardPage() {
                   <div className="flex gap-3 pt-4">
                     <button
                       onClick={() => setGuidedStep('client')}
-                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
                     >
-                      ← Back
+                      <ArrowRight className="w-4 h-4 rotate-180 transition-transform duration-200 group-hover:-translate-x-1" />
+                      <span>Back</span>
                     </button>
                     <button
                       onClick={() => setShowGuidedModal(false)}
-                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                     >
                       Skip for Now
                     </button>
@@ -680,9 +690,10 @@ export default function DashboardPage() {
                         setShowGuidedModal(false)
                         router.push('/dashboard/reports/new')
                       }}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                     >
-                      Create Report
+                      <FileText className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                      <span>Create Report</span>
                     </button>
                   </div>
                 </>
@@ -709,8 +720,12 @@ export default function DashboardPage() {
                 </div>
                 <h2 className="text-xl font-semibold">Upgrade Required</h2>
               </div>
-              <button onClick={() => setShowUpgradeModal(false)} className="p-1 hover:bg-slate-700 rounded">
-                <XIcon size={20} />
+              <button 
+                onClick={() => setShowUpgradeModal(false)} 
+                className="p-1 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95"
+                title="Close"
+              >
+                <XIcon size={20} className="transition-transform duration-200" />
               </button>
             </div>
             <div className="space-y-4">
@@ -723,7 +738,7 @@ export default function DashboardPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                 >
                   Maybe Later
                 </button>
@@ -732,9 +747,10 @@ export default function DashboardPage() {
                     setShowUpgradeModal(false)
                     router.push('/dashboard/pricing')
                   }}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
                 >
-                  Upgrade Now
+                  <Crown className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Upgrade Now</span>
                 </button>
               </div>
             </div>

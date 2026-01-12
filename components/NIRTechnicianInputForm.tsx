@@ -12,7 +12,12 @@ import {
   X,
   Save,
   ArrowRight,
-  Loader2
+  Loader2,
+  Sparkles,
+  ClipboardCheck,
+  Trash2,
+  Upload,
+  FileImage
 } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -656,10 +661,10 @@ export default function NIRTechnicianInputForm({
             <button
               type="button"
               onClick={handleAddMoistureReading}
-              className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] group"
             >
-              <Plus className="w-4 h-4" />
-              Add
+              <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
+              <span className="font-medium">Add Reading</span>
             </button>
           </div>
         </div>
@@ -678,9 +683,10 @@ export default function NIRTechnicianInputForm({
                 <button
                   type="button"
                   onClick={() => handleRemoveMoistureReading(reading.id)}
-                  className="p-1 text-red-400 hover:text-red-300"
+                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group"
+                  title="Remove reading"
                 >
-                  <X className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
                 </button>
               </div>
             ))}
@@ -755,10 +761,10 @@ export default function NIRTechnicianInputForm({
             <button
               type="button"
               onClick={handleAddAffectedArea}
-              className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] group"
             >
-              <Plus className="w-4 h-4" />
-              Add
+              <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
+              <span className="font-medium">Add Area</span>
             </button>
           </div>
         </div>
@@ -777,9 +783,10 @@ export default function NIRTechnicianInputForm({
                 <button
                   type="button"
                   onClick={() => handleRemoveAffectedArea(area.id)}
-                  className="p-1 text-red-400 hover:text-red-300"
+                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group"
+                  title="Remove area"
                 >
-                  <X className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
                 </button>
               </div>
             ))}
@@ -790,7 +797,7 @@ export default function NIRTechnicianInputForm({
       {/* Scope Items (Checklist) */}
       <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
-          <CheckCircle className="w-5 h-5" />
+          <ClipboardCheck className="w-5 h-5 text-cyan-400" />
           Scope Items
         </h3>
         <p className="text-sm text-slate-400 mb-4">
@@ -845,17 +852,18 @@ export default function NIRTechnicianInputForm({
               <button
                 type="button"
                 onClick={() => handleRemovePhoto(index)}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 hover:scale-110 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-red-500/30 group"
+                title="Remove photo"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-90" />
               </button>
             </div>
           ))}
           
-          <label className="w-full h-32 border-2 border-dashed border-slate-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-cyan-500 transition-colors bg-slate-900/50">
+          <label className="w-full h-32 border-2 border-dashed border-slate-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-cyan-500 hover:bg-slate-800/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group bg-slate-900/50">
             <div className="text-center">
-              <Camera className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <span className="text-xs text-slate-400">Add Photo</span>
+              <Upload className="w-8 h-8 text-slate-400 group-hover:text-cyan-400 mx-auto mb-2 transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-1" />
+              <span className="text-xs text-slate-400 group-hover:text-cyan-400 transition-colors duration-200 font-medium">Add Photo</span>
             </div>
             <input
               type="file"
@@ -875,7 +883,7 @@ export default function NIRTechnicianInputForm({
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-white"
+            className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 hover:border-slate-500 transition-all duration-200 text-white hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
           >
             Cancel
           </button>
@@ -884,17 +892,18 @@ export default function NIRTechnicianInputForm({
           type="button"
           onClick={handleSubmit}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
         >
           {saving ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Submitting...
+              <span>Submitting...</span>
             </>
           ) : (
             <>
-              Submit for Processing
-              <ArrowRight className="w-4 h-4" />
+              <Sparkles className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+              <span>Submit for Processing</span>
+              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </>
           )}
         </button>

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Loader2, AlertCircle, CheckCircle, Copy, FileCheck, Trash2, Table, Download, FileSpreadsheet } from 'lucide-react'
+import { X, Loader2, AlertCircle, CheckCircle, Copy, FileCheck, Trash2, Table, Download, FileSpreadsheet, Sparkles, Zap, FileX2, Archive } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { cn } from '@/lib/utils'
 
 interface BulkOperationModalProps {
   operationType: 'export-excel' | 'export-pdf' | 'export-zip' | 'duplicate' | 'status-update' | 'delete'
@@ -432,7 +433,7 @@ export function BulkOperationModal({
   }, [operationType])
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isLoading) {
@@ -440,17 +441,34 @@ export function BulkOperationModal({
         }
       }}
     >
-      <div 
-        className="bg-slate-800 rounded-xl shadow-2xl max-w-md w-full border border-slate-700"
+      <div
+        className={cn(
+          "rounded-xl shadow-2xl max-w-md w-full border",
+          "bg-white dark:bg-neutral-900",
+          "border-neutral-200 dark:border-neutral-800"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-100">{getOperationTitle()}</h2>
+        <div className={cn(
+          "flex items-center justify-between p-5 border-b",
+          "border-neutral-200 dark:border-neutral-800"
+        )}>
+          <h2 className={cn(
+            "text-lg font-semibold",
+            "text-neutral-900 dark:text-neutral-50"
+          )}>{getOperationTitle()}</h2>
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="text-slate-400 hover:text-slate-200 disabled:opacity-50"
+            className={cn(
+              "transition-all duration-200 disabled:opacity-50 rounded-md p-1",
+              "text-neutral-600 dark:text-neutral-400",
+              "hover:text-neutral-900 dark:hover:text-neutral-200",
+              "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+              "hover:scale-110 active:scale-95"
+            )}
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -492,13 +510,22 @@ export function BulkOperationModal({
           {operationType === 'duplicate' && (
             <div className="space-y-2">
               <label className="block">
-                <span className="text-xs text-slate-400 mb-1 block">Append text:</span>
+                <span className={cn(
+                  "text-xs mb-1 block",
+                  "text-neutral-600 dark:text-neutral-400"
+                )}>Append text:</span>
                 <input
                   type="text"
                   value={appendText}
                   onChange={e => setAppendText(e.target.value)}
                   disabled={isLoading}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-amber-500 disabled:opacity-50"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-warning-500 focus:ring-1 focus:ring-warning-500/50",
+                    "disabled:opacity-50"
+                  )}
                   placeholder="(Copy)"
                 />
               </label>
@@ -508,12 +535,21 @@ export function BulkOperationModal({
           {operationType === 'status-update' && (
             <div className="space-y-2">
               <label className="block">
-                <span className="text-xs text-slate-400 mb-1 block">New status:</span>
+                <span className={cn(
+                  "text-xs mb-1 block",
+                  "text-neutral-600 dark:text-neutral-400"
+                )}>New status:</span>
                 <select
                   value={selectedStatus}
                   onChange={e => setSelectedStatus(e.target.value)}
                   disabled={isLoading}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 cursor-pointer"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm cursor-pointer",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50",
+                    "disabled:opacity-50"
+                  )}
                 >
                   {STATUS_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>
@@ -526,8 +562,15 @@ export function BulkOperationModal({
           )}
 
           {operationType === 'delete' && (
-            <div className="bg-red-900/20 border border-red-800 rounded-lg p-3">
-              <p className="text-xs text-red-300">
+            <div className={cn(
+              "rounded-lg p-3 border",
+              "bg-error-50 dark:bg-error-950/20",
+              "border-error-200 dark:border-error-800"
+            )}>
+              <p className={cn(
+                "text-xs",
+                "text-error-700 dark:text-error-300"
+              )}>
                 ⚠️ This action cannot be undone. All data will be permanently deleted.
               </p>
             </div>
@@ -546,63 +589,87 @@ export function BulkOperationModal({
 
           {/* Success */}
           {success && (
-            <div className="bg-green-900/20 border border-green-800 rounded-lg p-3 flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-green-300">Operation completed successfully!</p>
+            <div className={cn(
+              "rounded-lg p-3 flex items-start gap-2 border",
+              "bg-success-50 dark:bg-success-950/20",
+              "border-success-200 dark:border-success-800"
+            )}>
+              <CheckCircle className={cn(
+                "w-4 h-4 mt-0.5 shrink-0",
+                "text-success-600 dark:text-success-400"
+              )} />
+              <p className={cn(
+                "text-xs",
+                "text-success-700 dark:text-success-300"
+              )}>Operation completed successfully!</p>
             </div>
           )}
 
           {/* Loading */}
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
-              <span className="text-sm text-slate-400">Processing...</span>
+              <Loader2 className={cn(
+                "w-5 h-5 animate-spin",
+                "text-primary-600 dark:text-primary-400"
+              )} />
+              <span className={cn(
+                "text-sm",
+                "text-neutral-600 dark:text-neutral-400"
+              )}>Processing...</span>
             </div>
           )}
         </div>
 
         {/* Footer */}
         {!success && (
-          <div className="flex gap-3 p-5 border-t border-slate-700">
+          <div className={cn(
+            "flex gap-3 p-5 border-t",
+            "border-neutral-200 dark:border-neutral-800"
+          )}>
             <button
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-700/50 text-slate-200 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+              className={cn(
+                "flex-1 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium",
+                "bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700",
+                "text-neutral-900 dark:text-neutral-100",
+                "disabled:opacity-50 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
+              )}
             >
               Cancel
             </button>
             {operationType !== 'export-excel' && (
-              <button
-                onClick={handleConfirm}
-                disabled={isLoading}
-                className={`flex-1 px-4 py-2 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 ${
-                  operationType === 'delete'
-                    ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-white'
-                    : operationType === 'duplicate'
-                    ? 'bg-amber-600 hover:bg-amber-700 disabled:bg-amber-600/50 text-white'
-                    : 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white'
-                } disabled:opacity-50`}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    {operationType === 'delete' && <Trash2 className="w-4 h-4" />}
-                    {operationType === 'duplicate' && <Copy className="w-4 h-4" />}
-                    {operationType === 'status-update' && <FileCheck className="w-4 h-4" />}
-                    <span>Confirm</span>
-                  </>
-                )}
-              </button>
+            <button
+              onClick={handleConfirm}
+              disabled={isLoading}
+              className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:hover:shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 group ${
+                operationType === 'delete'
+                  ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:bg-red-600/50 text-white hover:shadow-red-500/30'
+                  : operationType === 'duplicate'
+                  ? 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:bg-amber-600/50 text-white hover:shadow-amber-500/30'
+                  : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:bg-purple-600/50 text-white hover:shadow-purple-500/30'
+              } disabled:opacity-50`}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  {operationType === 'delete' && <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />}
+                  {operationType === 'duplicate' && <Copy className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />}
+                  {operationType === 'status-update' && <FileCheck className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6" />}
+                  <span>Confirm</span>
+                </>
+              )}
+            </button>
             )}
             {operationType === 'export-excel' && !success && (
               <button
                 onClick={handleExportExcel}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 text-white rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:bg-emerald-600/50 text-white rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:hover:shadow-md group"
               >
                 {isLoading ? (
                   <>
@@ -611,8 +678,9 @@ export function BulkOperationModal({
                   </>
                 ) : (
                   <>
-                    <Table className="w-4 h-4" />
+                    <Download className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5" />
                     <span>Download Excel ZIP</span>
+                    <Zap className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                   </>
                 )}
               </button>
@@ -622,12 +690,19 @@ export function BulkOperationModal({
 
         {/* Success Footer */}
         {success && (
-          <div className="p-5 border-t border-slate-700">
+          <div className={cn(
+            "p-5 border-t",
+            "border-neutral-200 dark:border-neutral-800"
+          )}>
             <button
               onClick={() => { onRefresh(); onClose() }}
-              className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2"
+              className={cn(
+                "w-full px-4 py-2 rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2",
+                "bg-gradient-to-r from-success-600 to-emerald-600 hover:from-success-700 hover:to-emerald-700",
+                "text-white shadow-md hover:shadow-lg hover:shadow-success-500/30 hover:scale-[1.02] active:scale-[0.98] group"
+              )}
             >
-              <CheckCircle className="w-4 h-4" />
+              <CheckCircle className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
               <span>Done</span>
             </button>
           </div>

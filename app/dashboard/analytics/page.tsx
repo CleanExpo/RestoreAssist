@@ -493,21 +493,23 @@ export default function AnalyticsPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedMetric('revenue')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95 ${
                           selectedMetric === 'revenue'
-                            ? 'bg-indigo-500 text-white'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg hover:shadow-indigo-500/30'
+                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:shadow-md'
                         }`}
+                        title="View revenue metrics"
                       >
                         Revenue
                       </button>
                       <button
                         onClick={() => setSelectedMetric('reports')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95 ${
                           selectedMetric === 'reports'
-                            ? 'bg-indigo-500 text-white'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg hover:shadow-indigo-500/30'
+                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:shadow-md'
                         }`}
+                        title="View report metrics"
                       >
                         Reports
                       </button>

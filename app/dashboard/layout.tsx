@@ -105,9 +105,10 @@ const upgradeItem = {
                     )}
                     <button
                       onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="p-1 hover:bg-slate-800 rounded-lg transition-colors"
+                      className="p-1 hover:bg-slate-800 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                      title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                     >
-                      {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+                      {sidebarOpen ? <X size={20} className="transition-transform duration-200" /> : <Menu size={20} className="transition-transform duration-200" />}
                     </button>
                   </div>
 
@@ -117,14 +118,14 @@ const upgradeItem = {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all ${
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group ${
                           item.highlight
-                            ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium"
-                            : "text-slate-300 hover:bg-slate-800"
+                            ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                            : "text-slate-300 hover:bg-slate-800 hover:scale-[1.02] hover:shadow-md"
                         }`}
                         title={!sidebarOpen ? item.label : ""}
                       >
-                        <item.icon size={20} className="flex-shrink-0" />
+                        <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
                         {sidebarOpen && <span className="text-sm">{item.label}</span>}
                       </Link>
                     ))}
@@ -132,14 +133,14 @@ const upgradeItem = {
                     {/* Upgrade Package - Special styling */}
                     <Link
                       href={upgradeItem.href}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all ${
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group ${
                         upgradeItem.special
-                          ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium shadow-lg hover:shadow-yellow-500/50"
-                          : "text-slate-300 hover:bg-slate-800"
+                          ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium shadow-lg hover:shadow-yellow-500/50 hover:from-yellow-600 hover:to-orange-600 hover:scale-[1.02] hover:shadow-xl"
+                          : "text-slate-300 hover:bg-slate-800 hover:scale-[1.02]"
                       }`}
                       title={!sidebarOpen ? upgradeItem.label : ""}
                     >
-                      <upgradeItem.icon size={20} className="flex-shrink-0" />
+                      <upgradeItem.icon size={20} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                       {sidebarOpen && <span className="text-sm">{upgradeItem.label}</span>}
                     </Link>
                   </nav>
@@ -148,9 +149,10 @@ const upgradeItem = {
                   <div className="border-t border-slate-800 p-4 flex-shrink-0">
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
+                      title="Logout"
                     >
-                      <LogOut size={20} className="flex-shrink-0" />
+                      <LogOut size={20} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                       {sidebarOpen && <span className="text-sm">Logout</span>}
                     </button>
                   </div>
@@ -217,7 +219,7 @@ const upgradeItem = {
                   <p className="text-sm font-medium">{session?.user?.name}</p>
                   <p className="text-xs text-slate-400">{session?.user?.email}</p>
                 </div>
-                <button className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-sm hover:shadow-lg hover:shadow-blue-500/50 transition-all">
+                <button className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-sm hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 active:scale-95 transition-all duration-200">
                   {session?.user?.name?.charAt(0) || "U"}
                 </button>
               </div>
