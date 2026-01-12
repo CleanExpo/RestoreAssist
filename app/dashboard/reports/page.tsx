@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X } from "lucide-react"
+import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X, FileSpreadsheet, Sparkles, Zap, FileCheck, RefreshCw, Plus } from "lucide-react"
 import toast from "react-hot-toast"
 import { BulkOperationModal } from "@/components/BulkOperationModal"
 
@@ -316,10 +316,10 @@ export default function ReportsPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setBulkActionType('export-excel')}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-green-500/30 text-sm font-medium group"
                 >
-                  <Download size={16} />
-                  Export Excel
+                  <FileSpreadsheet size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-3" />
+                  <span>Export Excel</span>
                 </button>
                 {/* <button
                   onClick={async () => {
@@ -363,28 +363,28 @@ export default function ReportsPage() {
                     setBulkActionType('duplicate')
                   }}
                   disabled={selectedReports.length > 50}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-600/50 text-white rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 disabled:bg-amber-600/50 text-white rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-amber-500/30 disabled:hover:scale-100 disabled:hover:shadow-none text-sm font-medium group"
                 >
-                  <Copy size={16} />
-                  Duplicate
+                  <Copy size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Duplicate</span>
                 </button>
                 <button
                   onClick={() => setBulkActionType('status-update')}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-purple-500/30 text-sm font-medium group"
                 >
-                  <CheckSquare size={16} />
-                  Update Status
+                  <FileCheck size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-6" />
+                  <span>Update Status</span>
                 </button>
                 <button
                   onClick={() => setBulkActionType('delete')}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-red-500/30 text-sm font-medium group"
                 >
-                  <Trash2 size={16} />
-                  Delete
+                  <Trash2 size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Delete</span>
                 </button>
                 <button
                   onClick={clearSelection}
-                  className="px-3 py-1.5 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors text-sm text-slate-300"
+                  className="px-3 py-1.5 border border-slate-600 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md text-sm text-slate-300"
                 >
                   Clear
                 </button>
@@ -393,9 +393,10 @@ export default function ReportsPage() {
           )}
           <Link
             href="/dashboard/reports/new"
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-white flex items-center gap-2 group"
           >
-            New Report
+            <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
+            <span>New Report</span>
           </Link>
         </div>
       </div>
@@ -417,18 +418,19 @@ export default function ReportsPage() {
         </div>
         <button
           onClick={() => setFilterOpen(!filterOpen)}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
+          title={filterOpen ? "Hide filters" : "Show filters"}
         >
-          <Filter size={20} />
+          <Filter size={20} className="transition-transform duration-200 group-hover:rotate-90" />
         </button>
         <button 
           onClick={() => {
             // Download all reports as a batch (you can implement this later)
           }}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
           title="Download All Reports"
         >
-          <Download size={20} />
+          <Download size={20} className="transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5" />
         </button>
       </div>
 
@@ -508,7 +510,7 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium text-sm">
+            <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium text-sm hover:from-blue-600 hover:to-cyan-600 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/30">
               Apply Filters
             </button>
             <button
@@ -516,7 +518,7 @@ export default function ReportsPage() {
                 setFilters({ status: "all", hazard: "all", insurance: "all", dateFrom: "", dateTo: "" })
                 setCurrentPage(1)
               }}
-              className="px-4 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-800"
+              className="px-4 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:shadow-md"
             >
               Clear All
             </button>
@@ -539,14 +541,15 @@ export default function ReportsPage() {
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">
                     <button
                       onClick={selectedReports.length === paginatedReports.length ? clearSelection : selectAllReports}
-                      className="flex items-center gap-2 hover:text-white transition-colors"
+                      className="flex items-center gap-2 hover:text-white transition-all duration-200 hover:scale-105 active:scale-95 group"
+                      title={selectedReports.length === paginatedReports.length ? "Deselect all" : "Select all"}
                     >
                       {selectedReports.length === paginatedReports.length ? (
-                        <CheckSquare size={16} />
+                        <CheckSquare size={16} className="transition-transform duration-200 group-hover:scale-110" />
                       ) : (
-                        <Square size={16} />
+                        <Square size={16} className="transition-transform duration-200 group-hover:scale-110" />
                       )}
-                      Select All
+                      <span>Select All</span>
                     </button>
                   </th>
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">Report ID</th>
@@ -572,12 +575,13 @@ export default function ReportsPage() {
                       <td className="py-4 px-6">
                         <button
                           onClick={() => toggleReportSelection(report.id)}
-                          className="flex items-center gap-2 hover:text-white transition-colors"
+                          className="flex items-center gap-2 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 group"
+                          title={selectedReports.includes(report.id) ? "Deselect" : "Select"}
                         >
                           {selectedReports.includes(report.id) ? (
-                            <CheckSquare size={16} className="text-cyan-400" />
+                            <CheckSquare size={16} className="text-cyan-400 transition-transform duration-200 group-hover:scale-110" />
                           ) : (
-                            <Square size={16} />
+                            <Square size={16} className="transition-transform duration-200 group-hover:scale-110" />
                           )}
                         </button>
                       </td>
@@ -646,10 +650,10 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-colors text-slate-300 hover:text-cyan-400"
+                            className="p-1.5 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md text-slate-300 hover:text-cyan-400 group"
                             title="View Report"
                           >
-                            <Eye size={16} />
+                            <Eye size={16} className="transition-transform duration-200 group-hover:scale-110" />
                           </Link>
                           {/* <Link
                             href={`/dashboard/reports/${report.id}/edit`}
@@ -661,13 +665,13 @@ export default function ReportsPage() {
                           <button 
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-colors disabled:opacity-50 text-slate-300 hover:text-green-400"
+                            className="p-1.5 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 text-slate-300 hover:text-green-400 group"
                             title="Duplicate Report"
                           >
                             {duplicating === report.id ? (
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>
                             ) : (
-                              <Copy size={16} />
+                              <Copy size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                             )}
                           </button>
                           {/* <button 
@@ -706,10 +710,11 @@ export default function ReportsPage() {
           <button
             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center gap-1"
+            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1 group"
+            title="Previous page"
           >
-            <ChevronLeft size={16} />
-            Previous
+            <ChevronLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
+            <span>Previous</span>
           </button>
           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
             const pageNum = i + 1
@@ -717,11 +722,12 @@ export default function ReportsPage() {
               <button
                 key={pageNum}
                 onClick={() => setCurrentPage(pageNum)}
-                className={`px-4 py-0 rounded-lg transition-colors text-sm ${
+                className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm hover:scale-110 active:scale-95 ${
                   pageNum === currentPage
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500"
-                    : "border border-slate-700 hover:bg-slate-800"
+                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:shadow-lg hover:shadow-blue-500/30"
+                    : "border border-slate-700 hover:bg-slate-800 hover:shadow-md"
                 }`}
+                title={`Go to page ${pageNum}`}
               >
                 {pageNum}
               </button>
@@ -731,10 +737,11 @@ export default function ReportsPage() {
           <button
             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center gap-1"
+            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1 group"
+            title="Next page"
           >
-            Next
-            <ChevronRight size={16} />
+            <span>Next</span>
+            <ChevronRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
           </button>
         </div>
       </div>

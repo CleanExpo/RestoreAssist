@@ -2806,18 +2806,20 @@ export default function InitialDataEntryForm({
                                 onClick={() =>
                                   handleEquipmentQuantityChange(group.id, -1)
                                 }
-                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
+                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
+                                title="Decrease quantity"
                               >
-                                <Minus className="w-4 h-4" />
+                                <Minus className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleEquipmentQuantityChange(group.id, 1)
                                 }
-                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
+                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
+                                title="Increase quantity"
                               >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
                               </button>
                             </div>
                           </div>
@@ -2836,24 +2838,25 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={() => router.back()}
-            className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+            className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 hover:border-slate-500 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none group"
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Saving...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
               </>
             ) : (
               <>
-                Save & Continue
-                <ArrowRight className="w-4 h-4" />
+                <Save className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                <span>Save & Continue</span>
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
               </>
             )}
           </button>
@@ -2876,7 +2879,7 @@ export default function InitialDataEntryForm({
                 type="button"
               onClick={() => handleReportTypeChoice("basic")}
               disabled={loading}
-                className="p-6 rounded-lg border-2 border-slate-600 hover:border-blue-500 bg-slate-800/30 hover:bg-slate-800/50 transition-all text-left group disabled:opacity-50"
+                className="p-6 rounded-lg border-2 border-slate-600 hover:border-blue-500 bg-slate-800/30 hover:bg-slate-800/50 transition-all duration-200 text-left group disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-blue-500/20"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -2890,7 +2893,7 @@ export default function InitialDataEntryForm({
                       <p className="text-sm text-slate-400">Quick Processing</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-400 transition-all duration-200 group-hover:translate-x-1 group-hover:scale-110" />
                 </div>
               <p className="text-slate-300 mb-4 text-sm">
                 Generate report directly with saved data
@@ -2918,7 +2921,7 @@ export default function InitialDataEntryForm({
                 type="button"
               onClick={() => handleReportTypeChoice("enhanced")}
               disabled={loading}
-                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50"
+                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all duration-200 text-left group relative disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-cyan-500/30"
               >
                 <div className="absolute top-4 right-4">
                   <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
@@ -2937,7 +2940,7 @@ export default function InitialDataEntryForm({
                     <p className="text-sm text-cyan-400">Basic + Tier 1</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
+                  <ArrowRight className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300 transition-all duration-200 group-hover:translate-x-1 group-hover:scale-110" />
                 </div>
               <p className="text-slate-300 mb-4 text-sm">
                 Answer Tier 1 critical questions, then generate report
@@ -2965,7 +2968,7 @@ export default function InitialDataEntryForm({
             type="button"
               onClick={() => handleReportTypeChoice("optimised")}
             disabled={loading}
-              className="p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50"
+              className="p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all duration-200 text-left group relative disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-green-500/30"
             >
               <div className="absolute top-4 right-4">
                 <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
@@ -2984,7 +2987,7 @@ export default function InitialDataEntryForm({
                     <p className="text-sm text-green-400">Enhanced + Tier 2 + Tier 3</p>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-green-400 group-hover:text-green-300 transition-colors" />
+                <ArrowRight className="w-5 h-5 text-green-400 group-hover:text-green-300 transition-all duration-200 group-hover:translate-x-1 group-hover:scale-110" />
               </div>
               <p className="text-slate-300 mb-4 text-sm">
                 Complete all tiers including photo uploads, then generate report
