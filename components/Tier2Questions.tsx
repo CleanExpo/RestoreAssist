@@ -556,7 +556,11 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           <>
             {onSkip && (
               <button
-                onClick={onSkip}
+                onClick={() => {
+                  if (onSkip) {
+                    onSkip()
+                  }
+                }}
                 className="flex items-center gap-2 px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
               >
                 <SkipForward className="w-4 h-4" />
@@ -572,44 +576,64 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
               {loading ? 'Saving...' : 'Save Tier 2 Responses'}
             </button>
           </>
-        ) : reportType === 'enhanced' && (onGenerateOptimised || onContinueToTier3) ? (
-          <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-500/10 space-y-4">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-green-400 mb-2">Tier 2 Completed Successfully!</h3>
-              <p className="text-sm text-slate-300 mb-6">
-                You can now generate an Optimised report with Tier 1 & Tier 2 data, or continue to Tier 3 for photo uploads and final optimization.
-              </p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              {onGenerateOptimised && (
+        ) : saved && reportType === 'enhanced' ? (
+          <div className="w-full space-y-4">
+            {/* Always show skip option even after saving */}
+            {onSkip && (
+              <div className="flex justify-start mb-4">
                 <button
-                  onClick={onGenerateOptimised}
-                  className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
+                  onClick={() => {
+                    if (onSkip) {
+                      onSkip()
+                    }
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
                 >
-                  <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                    <Save className="w-6 h-6 text-green-300" />
-                  </div>
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-white mb-1">Generate Optimised Report</h4>
-                    <p className="text-sm text-slate-300">Generate report with Tier 1 & Tier 2 data</p>
-                  </div>
+                  <SkipForward className="w-4 h-4" />
+                  Skip Tier 2 & Generate Report
                 </button>
-              )}
-              {onContinueToTier3 && (
-                <button
-                  onClick={onContinueToTier3}
-                  className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-full bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                    <ArrowRight className="w-6 h-6 text-cyan-300" />
-                  </div>
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-white mb-1">Continue to Tier 3</h4>
-                    <p className="text-sm text-slate-300">Add photos and final optimization</p>
-                  </div>
-                </button>
-              )}
-            </div>
+              </div>
+            )}
+            {(onGenerateOptimised || onContinueToTier3) ? (
+              <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-500/10 space-y-4">
+                <div className="text-center">
+                  <h3 className="text-xl font-semibold text-green-400 mb-2">Tier 2 Completed Successfully!</h3>
+                  <p className="text-sm text-slate-300 mb-6">
+                    You can now generate an Optimised report with Tier 1 & Tier 2 data, or continue to Tier 3 for photo uploads and final optimization.
+                  </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {onGenerateOptimised && (
+                    <button
+                      onClick={onGenerateOptimised}
+                      className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
+                        <Save className="w-6 h-6 text-green-300" />
+                      </div>
+                      <div className="text-center">
+                        <h4 className="text-lg font-semibold text-white mb-1">Generate Optimised Report</h4>
+                        <p className="text-sm text-slate-300">Generate report with Tier 1 & Tier 2 data</p>
+                      </div>
+                    </button>
+                  )}
+                  {onContinueToTier3 && (
+                    <button
+                      onClick={onContinueToTier3}
+                      className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
+                        <ArrowRight className="w-6 h-6 text-cyan-300" />
+                      </div>
+                      <div className="text-center">
+                        <h4 className="text-lg font-semibold text-white mb-1">Continue to Tier 3</h4>
+                        <p className="text-sm text-slate-300">Add photos and final optimization</p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

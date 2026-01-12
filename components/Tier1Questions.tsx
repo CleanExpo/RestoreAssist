@@ -181,8 +181,12 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
         onComplete(responses)
         // If optimised, automatically continue to Tier 2
         if (reportType === 'optimised' && onContinueToTier2) {
-          onContinueToTier2()
+          // Small delay to ensure state is updated
+          setTimeout(() => {
+            onContinueToTier2()
+          }, 100)
         }
+        // For enhanced, the options will show below (don't auto-navigate)
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to save responses')
@@ -684,7 +688,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             {loading ? 'Saving...' : 'Save Tier 1 Responses'}
           </button>
         </div>
-      ) : reportType === 'enhanced' && (onGenerateEnhanced || onContinueToTier2) ? (
+      ) : saved && reportType === 'enhanced' ? (
         <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-cyan-500/10 space-y-4">
           <div className="text-center">
             <h3 className="text-xl font-semibold text-cyan-400 mb-2">Tier 1 Completed Successfully!</h3>
@@ -693,7 +697,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            {onGenerateEnhanced && (
+            {onGenerateEnhanced ? (
               <button
                 onClick={onGenerateEnhanced}
                 className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
@@ -706,8 +710,8 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                   <p className="text-sm text-slate-300">Generate report with Tier 1 data</p>
                 </div>
               </button>
-            )}
-            {onContinueToTier2 && (
+            ) : null}
+            {onContinueToTier2 ? (
               <button
                 onClick={onContinueToTier2}
                 className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
@@ -720,7 +724,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                   <p className="text-sm text-slate-300">Add more detailed assessment</p>
                 </div>
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       ) : null}
