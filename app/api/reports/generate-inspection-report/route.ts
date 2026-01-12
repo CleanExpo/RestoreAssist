@@ -125,8 +125,13 @@ export async function POST(request: NextRequest) {
 
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''
+    let extractedCitations = ''
+    let standardsContextData: any = null
+    let regulatoryContext = null
+    
     try {
       const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
+      const { extractCitationsFromStandards, formatCitationsForPrompt } = await import('@/lib/citation-extractor')
       
       // Determine report type
       const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
@@ -147,14 +152,53 @@ export async function POST(request: NextRequest) {
       }
       
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, standardsApiKey)
+      standardsContextData = retrievedStandards
       
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
+      
+      // Extract and format citations from standards context
+      if (retrievedStandards && retrievedStandards.documents.length > 0) {
+        const citations = extractCitationsFromStandards(retrievedStandards)
+        if (citations.length > 0) {
+          extractedCitations = formatCitationsForPrompt(citations)
+        }
+      }
       
       if (standardsContext.length > 0) {
       } else {
       }
     } catch (error: any) {
       // Continue without standards - report will use general knowledge
+    }
+    
+    // STAGE 1b: Retrieve regulatory context if user opted in AND feature flag is enabled
+    if (
+      process.env.ENABLE_REGULATORY_CITATIONS === 'true' &&
+      report.includeRegulatoryCitations === true
+    ) {
+      try {
+        const { retrieveRegulatoryContext } = await import('@/lib/regulatory-retrieval')
+        
+        // Determine report type for regulatory retrieval
+        const regulatoryReportType: 'water' | 'mould' | 'fire' | 'commercial' =
+          report.hazardType === 'Mould' ? 'mould' :
+          report.hazardType === 'Fire' ? 'fire' :
+          report.hazardType === 'Commercial' ? 'commercial' : 'water'
+        
+        const regulatoryQuery = {
+          reportType: regulatoryReportType,
+          waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
+          state: detectStateFromPostcode(report.propertyPostcode || ''),
+          postcode: report.propertyPostcode || '',
+          insurerName: report.insurerName || undefined,
+          requiresElectricalWork: report.electricalWorkRequired || false,
+        }
+        
+        regulatoryContext = await retrieveRegulatoryContext(regulatoryQuery, standardsApiKey)
+      } catch (error: any) {
+        console.error('[Generate Inspection Report] Error retrieving regulatory context:', error)
+        // Continue without regulatory context - graceful degradation
+      }
     }
     
     // Get NIR data from Report model (stored in moistureReadings field as JSON)
@@ -232,6 +276,7 @@ export async function POST(request: NextRequest) {
       stateInfo,
       reportType,
       standardsContext,
+      extractedCitations,
       psychrometricAssessment,
       scopeAreas,
       equipmentSelection,
@@ -947,6 +992,7 @@ function buildInspectionReportPrompt(data: {
   stateInfo: any
   reportType: string
   standardsContext?: string
+  extractedCitations?: string
   psychrometricAssessment?: any
   scopeAreas?: any[]
   equipmentSelection?: any[]
@@ -1244,11 +1290,15 @@ ${equipmentSelection.map((sel: any) => {
 ` : ''}
 ` : ''}
 
-${standardsContext ? standardsContext + '\n\n' : ''}
+${data.standardsContext ? data.standardsContext + '\n\n' : ''}
+
+${data.extractedCitations ? data.extractedCitations + '\n\n' : ''}
 
 # REPORT STRUCTURE REQUIREMENTS
 
-${standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
+${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
+
+${data.extractedCitations ? '**CITATION FORMATTING: Use the formatted citations provided above. All citations should follow AGLC4 format (Australian Guide to Legal Citation, 4th edition) for professional legal citation standards. Use the exact citation formats shown in the "Recommended Citations" section above.**\n\n' : ''}
 
 ${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
 
@@ -1469,6 +1519,7 @@ CRITICAL: Do NOT use HTML tags like <p>, <br>, or style attributes. Use plain te
    - Reference building codes with specific requirements (e.g., "NCC", "QDC 4.5")
    - Reference OH&S requirements by name and section (e.g., "Work Health and Safety Act 2011")
    - Use the exact terminology and phrasing from the standards documents
+   - **CITATION FORMATTING**: All citations must follow AGLC4 format (Australian Guide to Legal Citation, 4th edition)${data.extractedCitations ? ' as shown in the "Recommended Citations" section above' : ''}
 
 2. **MARKDOWN FORMATTING IS MANDATORY**: You MUST use proper Markdown heading syntax:
    - Use single hash (#) followed by space for the main title "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
