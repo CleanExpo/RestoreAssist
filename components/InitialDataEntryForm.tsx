@@ -50,7 +50,7 @@ import {
 } from "@/lib/equipment-matrix";
 
 interface InitialDataEntryFormProps {
-  onSuccess?: (reportId: string, reportType?: "basic" | "enhanced") => void;
+  onSuccess?: (reportId: string, reportType?: "basic" | "enhanced" | "optimised") => void;
   initialReportId?: string | null; // Report ID when editing existing report
   initialData?: {
     clientName?: string;
@@ -1033,7 +1033,7 @@ export default function InitialDataEntryForm({
         setShowReportTypeSelection(false);
         toast.success(`Report type set to ${choice}`);
         if (onSuccess) {
-          onSuccess(reportId, choice === "optimised" ? "enhanced" : choice);
+          onSuccess(reportId, choice);
         }
       } else {
         const error = await response.json();

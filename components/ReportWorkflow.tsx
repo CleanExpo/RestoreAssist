@@ -51,8 +51,35 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
   // Fetch report data when in report-generation stage to check Tier 3 completion
   useEffect(() => {
     if (currentStage === 'report-generation' && reportId) {
-      // Always refresh report data when entering report-generation stage
-      loadReportState(reportId)
+      // Refresh report data when entering report-generation stage
+      // But don't auto-redirect - respect the user's explicit choice to generate report
+      const refreshReportData = async () => {
+        try {
+          const response = await fetch(`/api/reports/${reportId}`)
+          if (response.ok) {
+            const reportData = await response.json()
+            setReport(reportData)
+            
+            // Update report type and showTier3 flag if needed, but don't change stage
+            if (reportData.reportDepthLevel) {
+              const depthLevel = reportData.reportDepthLevel.toLowerCase()
+              if (depthLevel === 'optimised' || depthLevel === 'optimized') {
+                setReportType('optimised')
+                if (!reportData.tier3Responses) {
+                  setShowTier3(true)
+                } else {
+                  setShowTier3(false)
+                }
+              } else {
+                setReportType(depthLevel as 'basic' | 'enhanced')
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error refreshing report data:', error)
+        }
+      }
+      refreshReportData()
     }
   }, [currentStage, reportId])
 
@@ -80,8 +107,16 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
           }
         }
         
-        // Determine current stage based on what data exists
+        // Determine current stage based on what data exists and report type
+        const depthLevel = reportData.reportDepthLevel?.toLowerCase() || ''
+        const isBasic = depthLevel === 'basic'
+        const isEnhanced = depthLevel === 'enhanced'
+        const isOptimised = depthLevel === 'optimised' || depthLevel === 'optimized'
+        
         if (reportData.detailedReport) {
+          setCurrentStage('report-generation')
+        } else if (isBasic) {
+          // Basic reports skip all tiers and go directly to report generation
           setCurrentStage('report-generation')
         } else if (reportData.tier3Responses) {
           setCurrentStage('report-generation')
@@ -89,16 +124,40 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
         } else if (reportData.tier2Responses) {
           setCurrentStage('report-generation')
           // Only show Tier 3 option if not already completed and report type is optimised
-          const depthLevel = reportData.reportDepthLevel?.toLowerCase()
-          if (!reportData.tier3Responses && (depthLevel === 'optimised' || depthLevel === 'optimized')) {
+          if (!reportData.tier3Responses && isOptimised) {
             setShowTier3(true)
           } else {
             setShowTier3(false)
           }
         } else if (reportData.tier1Responses) {
-          setCurrentStage('tier2')
+          // For enhanced reports: if tier1 is complete but tier2 is not started, 
+          // go to report generation (user can choose to generate or continue to tier2)
+          if (isEnhanced) {
+            // If tier2 responses exist, go to tier2
+            // Otherwise, go to report generation where user can choose to generate enhanced report
+            if (reportData.tier2Responses) {
+              setCurrentStage('tier2')
+            } else {
+              // Tier 1 complete, but tier 2 not started - go to report generation
+              // User can generate enhanced report or choose to continue to tier 2
+              setCurrentStage('report-generation')
+            }
+          } else if (isOptimised) {
+            // Optimised always goes through all tiers
+            setCurrentStage('tier2')
+          } else {
+            setCurrentStage('report-generation')
+          }
         } else if (reportData.technicianReportAnalysis || reportData.reportDepthLevel) {
-          setCurrentStage('tier1')
+          // Only go to tier1 if enhanced or optimised, not basic
+          if (isEnhanced || isOptimised) {
+            setCurrentStage('tier1')
+          } else if (isBasic) {
+            setCurrentStage('report-generation')
+          } else {
+            // Fallback: if reportDepthLevel is set but not recognized, go to report generation
+            setCurrentStage('report-generation')
+          }
         } else if (reportData.technicianFieldReport) {
           setCurrentStage('initial-entry')
         } else {
