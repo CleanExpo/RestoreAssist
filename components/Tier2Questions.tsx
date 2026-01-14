@@ -556,11 +556,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           <>
             {onSkip && (
               <button
-                onClick={() => {
-                  if (onSkip) {
-                    onSkip()
-                  }
-                }}
+                onClick={onSkip}
                 className="flex items-center gap-2 px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
               >
                 <SkipForward className="w-4 h-4" />
@@ -576,25 +572,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
               {loading ? 'Saving...' : 'Save Tier 2 Responses'}
             </button>
           </>
-        ) : saved && reportType === 'enhanced' ? (
-          <div className="w-full space-y-4">
-            {/* Always show skip option even after saving */}
-            {onSkip && (
-              <div className="flex justify-start mb-4">
-                <button
-                  onClick={() => {
-                    if (onSkip) {
-                      onSkip()
-                    }
-                  }}
-                  className="flex items-center gap-2 px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-                >
-                  <SkipForward className="w-4 h-4" />
-                  Skip Tier 2 & Generate Report
-                </button>
-              </div>
-            )}
-            {(onGenerateOptimised || onContinueToTier3) ? (
+        ) : reportType === 'enhanced' && (onGenerateOptimised || onContinueToTier3) ? (
           <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-500/10 space-y-4">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-green-400 mb-2">Tier 2 Completed Successfully!</h3>
@@ -632,8 +610,6 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                 </button>
               )}
             </div>
-              </div>
-            ) : null}
           </div>
         ) : null}
       </div>

@@ -443,10 +443,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
             Generate your professional inspection report with all 13 sections. The report will include comprehensive analysis based on all collected data.
           </p>
           <div className="flex gap-4 flex-wrap">
-            {(() => {
-              const reportDepthLevel = (report?.reportDepthLevel || '').toLowerCase()
-              if (reportDepthLevel === 'basic') {
-                return (
+            {(!report?.reportDepthLevel || report.reportDepthLevel === 'Basic') && (
               <button
                 onClick={() => handleGenerateReport('basic')}
                 disabled={generating}
@@ -454,9 +451,8 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
               >
                 {generating ? 'Generating...' : 'Generate Basic Report'}
               </button>
-                )
-              } else if (reportDepthLevel === 'enhanced') {
-                return (
+            )}
+            {(!report?.reportDepthLevel || report.reportDepthLevel === 'Enhanced') && (
               <button
                 onClick={() => handleGenerateReport('enhanced')}
                 disabled={generating}
@@ -464,9 +460,8 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
               >
                 {generating ? 'Generating...' : 'Generate Enhanced Report'}
               </button>
-                )
-              } else if (reportDepthLevel === 'optimised' || reportDepthLevel === 'optimized') {
-                return (
+            )}
+            {(report?.reportDepthLevel === 'Optimised' || report?.reportDepthLevel === 'Optimized') && (
               <button
                 onClick={() => handleGenerateReport('enhanced')}
                 disabled={generating}
@@ -474,20 +469,7 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
               >
                 {generating ? 'Generating...' : 'Generate Optimised Report'}
               </button>
-                )
-              } else {
-                // No report type set yet - show basic as default
-                return (
-                  <button
-                    onClick={() => handleGenerateReport('basic')}
-                    disabled={generating}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                  >
-                    {generating ? 'Generating...' : 'Generate Basic Report'}
-                  </button>
-                )
-              }
-            })()}
+            )}
             {(reportContent || visualData || structuredReportData) && (
               <button
                 onClick={handleExportExcel}

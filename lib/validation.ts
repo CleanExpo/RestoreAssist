@@ -363,9 +363,8 @@ export function calculateCompletenessScore(report: any): number {
   // Stage 2: Analysis (10 points)
   if (report.technicianReportAnalysis) score += 10
 
-  // Stage 3: Tier 1 Questions (30 points) - Only for Enhanced/Optimised reports
-  const reportDepthLevel = report.reportDepthLevel?.toLowerCase() || ''
-  if ((reportDepthLevel === 'enhanced' || reportDepthLevel === 'optimised') && report.tier1Responses) {
+  // Stage 3: Tier 1 Questions (30 points)
+  if (report.tier1Responses) {
     const tier1 = JSON.parse(report.tier1Responses)
     const tier1Fields = [
       'T1_Q1_propertyType',
@@ -380,13 +379,10 @@ export function calculateCompletenessScore(report: any): number {
     const answered = tier1Fields.filter(field => tier1[field] && 
       (typeof tier1[field] !== 'object' || (Array.isArray(tier1[field]) && tier1[field].length > 0) || tier1[field].trim?.()))
     score += Math.round((answered.length / tier1Fields.length) * 30)
-  } else if (reportDepthLevel === 'enhanced' || reportDepthLevel === 'optimised') {
-    // For Enhanced/Optimised reports without tier1, don't add points but don't penalize either
-    // The completeness check will handle validation
   }
 
-  // Stage 4: Tier 2 Questions (20 points) - Only for Enhanced/Optimised reports
-  if ((reportDepthLevel === 'enhanced' || reportDepthLevel === 'optimised') && report.tier2Responses) {
+  // Stage 4: Tier 2 Questions (20 points)
+  if (report.tier2Responses) {
     const tier2 = JSON.parse(report.tier2Responses)
     const tier2Fields = [
       'T2_Q1_moistureReadings',
@@ -402,8 +398,8 @@ export function calculateCompletenessScore(report: any): number {
     score += Math.round((answered.length / tier2Fields.length) * 20)
   }
 
-  // Stage 5: Tier 3 Questions (10 points - optional) - Only for Optimised reports
-  if (reportDepthLevel === 'optimised' && report.tier3Responses) {
+  // Stage 5: Tier 3 Questions (10 points - optional)
+  if (report.tier3Responses) {
     const tier3 = JSON.parse(report.tier3Responses)
     const tier3Fields = [
       'T3_Q1_timelineRequirements',
@@ -439,9 +435,8 @@ export function checkCompletenessBeforeGeneration(report: any): {
   if (!report.propertyPostcode) missingItems.push('Property postcode')
   if (!report.technicianFieldReport) missingItems.push('Technician field report')
 
-  // Required for enhanced report - check case-insensitively
-  const reportDepthLevel = (report.reportDepthLevel || '').toLowerCase()
-  if (reportDepthLevel === 'enhanced' || reportDepthLevel === 'optimised') {
+  // Required for enhanced report
+  if (report.reportDepthLevel === 'Enhanced' || report.reportDepthLevel === 'Optimised') {
     if (!report.tier1Responses) {
       missingItems.push('Tier 1 questions (all 8 required)')
     } else {
@@ -464,14 +459,13 @@ export function checkCompletenessBeforeGeneration(report: any): {
       }
     }
   }
-  // For Basic reports, Tier 1 is NOT required - explicitly skip it
 
-  // Warnings for incomplete enhancement - check case-insensitively
-  if (reportDepthLevel === 'enhanced' && !report.tier2Responses) {
+  // Warnings for incomplete enhancement
+  if (report.reportDepthLevel === 'Enhanced' && !report.tier2Responses) {
     warnings.push('Tier 2 questions not completed - report will be less detailed')
   }
 
-  if (reportDepthLevel === 'optimised' && !report.tier3Responses) {
+  if (report.reportDepthLevel === 'Optimised' && !report.tier3Responses) {
     warnings.push('Tier 3 questions not completed - cost estimation may be less precise')
   }
 
