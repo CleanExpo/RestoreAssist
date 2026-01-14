@@ -352,22 +352,24 @@ export default function AnalyticsPage() {
                   
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={data.statePerformance.slice(0, 8)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-300 dark:stroke-slate-700" />
                       <XAxis 
                         dataKey="state" 
-                        stroke="#94a3b8" 
+                        className="text-neutral-600 dark:text-slate-400"
                         style={{ fontSize: "12px" }}
                         angle={-45}
                         textAnchor="end"
                         height={80}
                       />
-                      <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
+                      <YAxis className="text-neutral-600 dark:text-slate-400" style={{ fontSize: "12px" }} />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#1e293b",
-                          border: "1px solid #475569",
+                          backgroundColor: "rgb(255 255 255 / 0.95)",
+                          border: "1px solid rgb(229 231 235)",
                           borderRadius: "8px",
+                          color: "#111827",
                         }}
+                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                         formatter={(value: any) => [`${value} reports`, "Count"]}
                       />
                       <Bar dataKey="value" fill="#f59e0b" radius={[8, 8, 0, 0]}>
@@ -395,10 +397,10 @@ export default function AnalyticsPage() {
                       return (
                         <div key={idx} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-300">{item.hazard}</span>
-                            <span className="text-sm font-bold text-orange-400">{item.hours.toFixed(1)}h</span>
+                            <span className={cn("text-sm font-medium", "text-neutral-700 dark:text-slate-300")}>{item.hazard}</span>
+                            <span className="text-sm font-bold text-orange-500 dark:text-orange-400">{item.hours.toFixed(1)}h</span>
                           </div>
-                          <div className="w-full bg-slate-700/30 rounded-full h-2 overflow-hidden">
+                          <div className={cn("w-full rounded-full h-2 overflow-hidden", "bg-neutral-200 dark:bg-slate-700/30")}>
                             <div 
                               className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-1000"
                               style={{ width: `${percentage}%` }}
@@ -531,10 +533,10 @@ export default function AnalyticsPage() {
                           <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-300 dark:stroke-slate-700" />
                       <XAxis 
                         dataKey="date" 
-                        stroke="#94a3b8" 
+                        className="text-neutral-600 dark:text-slate-400"
                         style={{ fontSize: "12px" }}
                         angle={data.reportTrendData.length > 10 ? -45 : 0}
                         textAnchor={data.reportTrendData.length > 10 ? "end" : "middle"}
@@ -542,23 +544,25 @@ export default function AnalyticsPage() {
                       />
                       <YAxis 
                         yAxisId="left"
-                        stroke="#94a3b8" 
+                        className="text-neutral-600 dark:text-slate-400"
                         style={{ fontSize: "12px" }}
-                        label={selectedMetric === 'revenue' ? { value: 'Revenue ($)', angle: -90, position: 'insideLeft' } : undefined}
+                        label={selectedMetric === 'revenue' ? { value: 'Revenue ($)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'rgb(75 85 99)' } } : undefined}
                       />
                       <YAxis 
                         yAxisId="right" 
                         orientation="right"
-                        stroke="#94a3b8" 
+                        className="text-neutral-600 dark:text-slate-400"
                         style={{ fontSize: "12px" }}
-                        label={selectedMetric === 'reports' ? { value: 'Reports', angle: 90, position: 'insideRight' } : undefined}
+                        label={selectedMetric === 'reports' ? { value: 'Reports', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: 'rgb(75 85 99)' } } : undefined}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#1e293b",
-                          border: "1px solid #475569",
+                          backgroundColor: "rgb(255 255 255 / 0.95)",
+                          border: "1px solid rgb(229 231 235)",
                           borderRadius: "8px",
+                          color: "#111827",
                         }}
+                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                         formatter={(value: any, name?: string) => {
                           if (name === 'revenue') return [`$${value.toLocaleString()}`, 'Revenue']
                           return [value, 'Reports']

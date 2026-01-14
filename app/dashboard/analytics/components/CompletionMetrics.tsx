@@ -14,6 +14,7 @@ import {
   ComposedChart,
 } from "recharts"
 import { Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface HazardMetric {
   hazardType: string
@@ -48,11 +49,11 @@ export default function CompletionMetrics({
 }: CompletionMetricsProps) {
   if (loading) {
     return (
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+      <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
-            <p className="text-slate-400 text-sm">Loading metrics...</p>
+            <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Loading metrics...</p>
           </div>
         </div>
       </div>
@@ -61,10 +62,10 @@ export default function CompletionMetrics({
 
   const trendColor =
     trend === "improving"
-      ? "text-emerald-400"
+      ? "text-emerald-600 dark:text-emerald-400"
       : trend === "declining"
-        ? "text-red-400"
-        : "text-slate-400"
+        ? "text-red-600 dark:text-red-400"
+        : "text-neutral-600 dark:text-slate-400"
 
   const trendIcon =
     trend === "improving" ? (
@@ -77,10 +78,10 @@ export default function CompletionMetrics({
     <div className="space-y-6">
       {/* Overall Metrics */}
       {overall && (
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+        <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Completion Time Overview</h3>
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full bg-slate-700/20 border border-slate-600 ${trendColor}`}>
+            <h3 className={cn("font-semibold text-lg", "text-neutral-900 dark:text-slate-200")}>Completion Time Overview</h3>
+            <div className={cn("flex items-center gap-2 px-3 py-1 rounded-full border", "bg-neutral-100 dark:bg-slate-700/20", "border-neutral-300 dark:border-slate-600", trendColor)}>
               {trendIcon}
               <span className="text-sm font-medium capitalize">
                 {trend === "improving"
@@ -93,28 +94,28 @@ export default function CompletionMetrics({
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600/20">
-              <p className="text-xs text-slate-400 mb-2">Average Days</p>
-              <p className="text-2xl font-semibold">{overall.avgDays.toFixed(1)}</p>
-              <p className="text-xs text-slate-400 mt-1">typical completion</p>
+            <div className={cn("p-4 rounded-lg border", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-600/20")}>
+              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Average Days</p>
+              <p className={cn("text-2xl font-semibold", "text-neutral-900 dark:text-slate-200")}>{overall.avgDays.toFixed(1)}</p>
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>typical completion</p>
             </div>
 
-            <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600/20">
-              <p className="text-xs text-slate-400 mb-2">Median Days</p>
-              <p className="text-2xl font-semibold">{overall.medianDays.toFixed(1)}</p>
-              <p className="text-xs text-slate-400 mt-1">50% complete by</p>
+            <div className={cn("p-4 rounded-lg border", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-600/20")}>
+              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Median Days</p>
+              <p className={cn("text-2xl font-semibold", "text-neutral-900 dark:text-slate-200")}>{overall.medianDays.toFixed(1)}</p>
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>50% complete by</p>
             </div>
 
-            <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600/20">
-              <p className="text-xs text-slate-400 mb-2">95th Percentile</p>
-              <p className="text-2xl font-semibold">{overall.p95Days.toFixed(1)}</p>
-              <p className="text-xs text-slate-400 mt-1">max expected days</p>
+            <div className={cn("p-4 rounded-lg border", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-600/20")}>
+              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>95th Percentile</p>
+              <p className={cn("text-2xl font-semibold", "text-neutral-900 dark:text-slate-200")}>{overall.p95Days.toFixed(1)}</p>
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>max expected days</p>
             </div>
 
-            <div className="p-4 rounded-lg bg-slate-700/20 border border-slate-600/20">
-              <p className="text-xs text-slate-400 mb-2">Reports Analyzed</p>
-              <p className="text-2xl font-semibold">{overall.totalReports}</p>
-              <p className="text-xs text-slate-400 mt-1">in period</p>
+            <div className={cn("p-4 rounded-lg border", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-600/20")}>
+              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Reports Analyzed</p>
+              <p className={cn("text-2xl font-semibold", "text-neutral-900 dark:text-slate-200")}>{overall.totalReports}</p>
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>in period</p>
             </div>
           </div>
         </div>
@@ -122,20 +123,22 @@ export default function CompletionMetrics({
 
       {/* By Hazard Type */}
       {byHazardType && byHazardType.length > 0 && (
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="font-semibold text-lg mb-4">Completion Time by Hazard Type</h3>
+        <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
+          <h3 className={cn("font-semibold text-lg mb-4", "text-neutral-900 dark:text-slate-200")}>Completion Time by Hazard Type</h3>
 
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={byHazardType}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="hazardType" stroke="#94a3b8" style={{ fontSize: "12px" }} />
-              <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} label={{ value: "Days", angle: -90, position: "insideLeft" }} />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-300 dark:stroke-slate-700" />
+              <XAxis dataKey="hazardType" className="text-neutral-600 dark:text-slate-400" style={{ fontSize: "12px" }} />
+              <YAxis className="text-neutral-600 dark:text-slate-400" style={{ fontSize: "12px" }} label={{ value: "Days", angle: -90, position: "insideLeft", style: { textAnchor: 'middle', fill: 'rgb(75 85 99)' } }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #475569",
+                  backgroundColor: "rgb(255 255 255 / 0.95)",
+                  border: "1px solid rgb(229 231 235)",
                   borderRadius: "8px",
+                  color: "#111827",
                 }}
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 formatter={(value: any) => [`${(value as number).toFixed(1)} days`, "Avg Time"]}
               />
               <Legend />
@@ -150,23 +153,23 @@ export default function CompletionMetrics({
               .map((hazard, index) => (
                 <div
                   key={hazard.hazardType}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-700/10 border border-slate-600/20 hover:bg-slate-700/20 transition-colors"
+                  className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", "bg-neutral-50 dark:bg-slate-700/10", "border-neutral-200 dark:border-slate-600/20", "hover:bg-neutral-100 dark:hover:bg-slate-700/20")}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-400 min-w-[2rem]">
+                    <span className={cn("text-sm font-semibold min-w-[2rem]", "text-neutral-600 dark:text-slate-400")}>
                       #{index + 1}
                     </span>
                     <div>
-                      <p className="font-medium text-slate-200">
+                      <p className={cn("font-medium", "text-neutral-900 dark:text-slate-200")}>
                         {hazard.hazardType}
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
                         {hazard.count} reports
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-cyan-400">
+                    <p className="font-semibold text-cyan-600 dark:text-cyan-400">
                       {hazard.avgDays.toFixed(1)} days
                     </p>
                   </div>
@@ -178,31 +181,33 @@ export default function CompletionMetrics({
 
       {/* Time Series Trend */}
       {timeSeries && timeSeries.length > 0 && (
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="font-semibold text-lg mb-4">Completion Time Trend</h3>
+        <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
+          <h3 className={cn("font-semibold text-lg mb-4", "text-neutral-900 dark:text-slate-200")}>Completion Time Trend</h3>
 
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-300 dark:stroke-slate-700" />
               <XAxis
                 dataKey="date"
-                stroke="#94a3b8"
+                className="text-neutral-600 dark:text-slate-400"
                 style={{ fontSize: "12px" }}
                 angle={timeSeries.length > 10 ? -45 : 0}
                 textAnchor={timeSeries.length > 10 ? "end" : "middle"}
                 height={timeSeries.length > 10 ? 80 : 30}
               />
               <YAxis
-                stroke="#94a3b8"
+                className="text-neutral-600 dark:text-slate-400"
                 style={{ fontSize: "12px" }}
-                label={{ value: "Days", angle: -90, position: "insideLeft" }}
+                label={{ value: "Days", angle: -90, position: "insideLeft", style: { textAnchor: 'middle', fill: 'rgb(75 85 99)' } }}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #475569",
+                  backgroundColor: "rgb(255 255 255 / 0.95)",
+                  border: "1px solid rgb(229 231 235)",
                   borderRadius: "8px",
+                  color: "#111827",
                 }}
+                className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 formatter={(value: any) =>
                   `${(value as number).toFixed(1)} days`
                 }
@@ -222,13 +227,13 @@ export default function CompletionMetrics({
 
           {/* Insight */}
           {trend !== "stable" && (
-            <div className={`mt-4 p-3 rounded-lg flex gap-2 ${
+            <div className={cn("mt-4 p-3 rounded-lg flex gap-2 border", 
               trend === "improving"
-                ? "bg-emerald-500/10 border border-emerald-500/20"
-                : "bg-red-500/10 border border-red-500/20"
-            }`}>
-              <AlertCircle size={16} className={trend === "improving" ? "text-emerald-400" : "text-red-400"} />
-              <p className={`text-sm ${trend === "improving" ? "text-emerald-300" : "text-red-300"}`}>
+                ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20"
+            )}>
+              <AlertCircle size={16} className={trend === "improving" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} />
+              <p className={cn("text-sm", trend === "improving" ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300")}>
                 {trend === "improving"
                   ? "Great progress! Your completion times are getting faster."
                   : "Your completion times are increasing. Consider reviewing your workflow."}
