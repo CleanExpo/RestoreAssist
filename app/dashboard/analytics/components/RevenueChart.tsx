@@ -14,6 +14,7 @@ import {
   ComposedChart,
 } from "recharts"
 import { Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface RevenueChartData {
   date: string
@@ -34,11 +35,11 @@ export default function RevenueChart({
 }: RevenueChartProps) {
   if (loading) {
     return (
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+      <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
-            <p className="text-slate-400 text-sm">Loading chart...</p>
+            <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Loading chart...</p>
           </div>
         </div>
       </div>
@@ -47,9 +48,9 @@ export default function RevenueChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="font-semibold mb-4">Revenue Trend</h3>
-        <div className="flex items-center justify-center h-[300px] text-slate-400">
+      <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
+        <h3 className={cn("font-semibold mb-4", "text-neutral-900 dark:text-slate-200")}>Revenue Trend</h3>
+        <div className={cn("flex items-center justify-center h-[300px]", "text-neutral-600 dark:text-slate-400")}>
           No data available for selected period
         </div>
       </div>
@@ -57,10 +58,10 @@ export default function RevenueChart({
   }
 
   return (
-    <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+    <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white/50 dark:bg-slate-800/30")}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-lg">Revenue Trend</h3>
-        <span className="text-xs text-slate-400">{dateRange}</span>
+        <h3 className={cn("font-semibold text-lg", "text-neutral-900 dark:text-slate-200")}>Revenue Trend</h3>
+        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>{dateRange}</span>
       </div>
 
       <ResponsiveContainer width="100%" height={400}>
@@ -71,22 +72,24 @@ export default function RevenueChart({
               <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+          <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-300 dark:stroke-slate-700" />
           <XAxis
             dataKey="date"
-            stroke="#94a3b8"
+            className="text-neutral-600 dark:text-slate-400"
             style={{ fontSize: "12px" }}
             angle={data.length > 10 ? -45 : 0}
             textAnchor={data.length > 10 ? "end" : "middle"}
             height={data.length > 10 ? 80 : 30}
           />
-          <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
+          <YAxis className="text-neutral-600 dark:text-slate-400" style={{ fontSize: "12px" }} />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1e293b",
-              border: "1px solid #475569",
+              backgroundColor: "rgb(255 255 255 / 0.95)",
+              border: "1px solid rgb(229 231 235)",
               borderRadius: "8px",
+              color: "#111827",
             }}
+            className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
             formatter={(value: any) => [
               typeof value === "number" ? `$${value.toLocaleString()}` : value,
               "Revenue",
@@ -111,28 +114,28 @@ export default function RevenueChart({
             />
           )}
           {data[0]?.reports !== undefined && (
-            <YAxis yAxisId="right" stroke="#94a3b8" style={{ fontSize: "12px" }} />
+            <YAxis yAxisId="right" className="text-neutral-600 dark:text-slate-400" style={{ fontSize: "12px" }} />
           )}
         </ComposedChart>
       </ResponsiveContainer>
 
       {/* Stats below chart */}
-      <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-700">
+      <div className={cn("grid grid-cols-3 gap-4 mt-6 pt-6 border-t", "border-neutral-200 dark:border-slate-700")}>
         <div>
-          <p className="text-xs text-slate-400 mb-1">Total Revenue</p>
-          <p className="text-lg font-semibold">
+          <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Total Revenue</p>
+          <p className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>
             ${data.reduce((sum, d) => sum + d.revenue, 0).toLocaleString()}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400 mb-1">Average Daily</p>
-          <p className="text-lg font-semibold">
+          <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Average Daily</p>
+          <p className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>
             ${Math.round(data.reduce((sum, d) => sum + d.revenue, 0) / data.length).toLocaleString()}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400 mb-1">Highest Day</p>
-          <p className="text-lg font-semibold">
+          <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Highest Day</p>
+          <p className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>
             ${Math.max(...data.map((d) => d.revenue)).toLocaleString()}
           </p>
         </div>

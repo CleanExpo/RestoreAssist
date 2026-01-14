@@ -82,6 +82,11 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
         }
         
         // Determine current stage based on what data exists
+        const depthLevel = reportData.reportDepthLevel?.toLowerCase()
+        const isBasic = depthLevel === 'basic'
+        const isEnhanced = depthLevel === 'enhanced'
+        const isOptimised = depthLevel === 'optimised' || depthLevel === 'optimized'
+        
         if (reportData.detailedReport) {
           setCurrentStage('report-generation')
         } else if (reportData.tier3Responses) {
@@ -90,16 +95,31 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
         } else if (reportData.tier2Responses) {
           setCurrentStage('report-generation')
           // Only show Tier 3 option if not already completed and report type is optimised
-          const depthLevel = reportData.reportDepthLevel?.toLowerCase()
-          if (!reportData.tier3Responses && (depthLevel === 'optimised' || depthLevel === 'optimized')) {
+          if (!reportData.tier3Responses && isOptimised) {
             setShowTier3(true)
           } else {
             setShowTier3(false)
           }
         } else if (reportData.tier1Responses) {
-          setCurrentStage('tier2')
+          // If Tier 1 is complete, check report type
+          if (isEnhanced) {
+            // Enhanced: can generate report or continue to Tier 2
+            setCurrentStage('report-generation')
+          } else if (isOptimised) {
+            // Optimised: must continue to Tier 2
+            setCurrentStage('tier2')
+          } else {
+            // Basic: should not have Tier 1, but if it does, go to report generation
+            setCurrentStage('report-generation')
+          }
         } else if (reportData.technicianReportAnalysis || reportData.reportDepthLevel) {
-          setCurrentStage('tier1')
+          // Check if basic report - skip Tier 1
+          if (isBasic) {
+            setCurrentStage('report-generation')
+          } else {
+            // Enhanced or Optimised need Tier 1
+            setCurrentStage('tier1')
+          }
         } else if (reportData.technicianFieldReport) {
           setCurrentStage('initial-entry')
         } else {
