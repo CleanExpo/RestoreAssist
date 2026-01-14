@@ -1404,8 +1404,8 @@ export default function InitialDataEntryForm({
             onClick={handleQuickFill}
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
-              "bg-success-600 hover:bg-success-700 dark:bg-success-600 dark:hover:bg-success-700",
-              "text-white"
+              "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600",
+              "text-white dark:text-white"
             )}
           >
             <Zap className="w-4 h-4" />
