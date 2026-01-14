@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 model Account {
@@ -66,6 +66,9 @@ model User {
   monthlyResetDate   DateTime? // Date when monthly usage resets
   signupBonusApplied Boolean?  @default(false) // Track if signup bonus has been applied
 
+  // Premium Features
+  hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
+
   // Business Information
   businessName    String?
   businessAddress String?
@@ -88,10 +91,23 @@ model User {
   standardTemplates    StandardTemplate[]
   inspections          Inspection[]
   chatMessages         ChatMessage[]
-  interviewSessions    InterviewSession[]
-  subscriptionTier     SubscriptionTier?      @relation(fields: [subscriptionTierId], references: [id])
-  subscriptionTierId   String?
-  interviewTier        SubscriptionTierLevel? @default(STANDARD)
+  usageEvents          UsageEvent[]          @relation("usageEvents")
+  emailConnection      EmailConnection?
+  scheduledEmails      ScheduledEmail[]
+  emailAudits          EmailAudit[]
+  formTemplates        FormTemplate[]
+  formSubmissions      FormSubmission[]
+
+  // AI Assistant Tier (Phase 1 - Metering)
+  monthlyUsageCap Float? // Optional: cap usage to prevent runaway costs
+
+  // Interview System
+  interviewTier                        SubscriptionTierLevel @default(STANDARD)
+  preferredQuestionStyle               String? // verbose, concise, technical
+  autoAcceptSuggestionsAboveConfidence Float? // e.g., 90
+  subscriptionTier                     SubscriptionTier?     @relation(fields: [subscriptionTierId], references: [id], onDelete: SetNull)
+  subscriptionTierId                   String?
+  interviewSessions                    InterviewSession[]
 }
 
 model VerificationToken {
@@ -100,6 +116,18 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+  @@index([email])
 }
 
 model Client {
@@ -290,17 +318,28 @@ model Report {
   scope     Scope?
   estimates Estimate[]
 
+  // Email Delivery
+  scheduledEmails ScheduledEmail[]
+  emailAudits     EmailAudit[]
+
+  // Forms System
+  formSubmissions FormSubmission[]
+
   // NIR Integration
   inspection Inspection?
 
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
+  // NEW: Optional Regulatory Citations (Phase 5 - Tick and Flick feature)
+  includeRegulatoryCitations Boolean @default(false) // Client preference for regulatory citations
+
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
   @@index([userId, hazardType])
   @@index([userId, status])
   @@index([clientId, createdAt])
+  @@index([includeRegulatoryCitations]) // Index for efficient filtering
 }
 
 enum Role {
@@ -325,17 +364,47 @@ enum ReportStatus {
 }
 
 model Integration {
-  id          String            @id @default(cuid())
-  name        String
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Service identification
+  provider    IntegrationProvider
+  name        String // Display name
   description String?
   icon        String?
-  status      IntegrationStatus @default(DISCONNECTED)
-  apiKey      String?           @db.Text
-  config      String?           @db.Text // JSON configuration
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  userId      String
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      IntegrationStatus   @default(DISCONNECTED)
+
+  // Legacy fields (kept for backwards compatibility)
+  apiKey String? @db.Text
+  config String? @db.Text // JSON configuration
+
+  // OAuth tokens (encrypted at application level)
+  accessToken    String?   @db.Text
+  refreshToken   String?   @db.Text
+  tokenExpiresAt DateTime?
+
+  // Service-specific metadata
+  tenantId  String? // Xero, MYOB
+  realmId   String? // QuickBooks
+  companyId String? // ServiceM8, Ascora
+
+  // Sync tracking
+  lastSyncAt DateTime?
+  syncError  String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  externalClients ExternalClient[]
+  externalJobs    ExternalJob[]
+  syncLogs        IntegrationSyncLog[]
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@index([provider])
+  @@index([status])
 }
 
 model CostLibrary {
@@ -367,6 +436,85 @@ enum IntegrationStatus {
   CONNECTED
   DISCONNECTED
   ERROR
+  SYNCING
+}
+
+enum IntegrationProvider {
+  XERO
+  QUICKBOOKS
+  MYOB
+  SERVICEM8
+  ASCORA
+}
+
+// External Client from integration (synced data)
+model ExternalClient {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  externalId String // ID in external system
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  rawData    Json // Full response from external API
+
+  // Link to RestoreAssist contact (optional)
+  contactId String?
+
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([integrationId, externalId])
+  @@index([integrationId])
+  @@index([contactId])
+}
+
+// External Job from integration (synced data)
+model ExternalJob {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  externalId       String // ID in external system
+  title            String
+  status           String?
+  clientExternalId String? // Reference to client in external system
+  address          String?
+  description      String? @db.Text
+  rawData          Json // Full response from external API
+
+  // Link to RestoreAssist claim (optional)
+  claimId String?
+
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([integrationId, externalId])
+  @@index([integrationId])
+  @@index([claimId])
+}
+
+// Integration Sync Log (audit trail)
+model IntegrationSyncLog {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  syncType         String // CLIENTS, JOBS, FULL
+  status           String // SUCCESS, FAILED, PARTIAL
+  recordsProcessed Int     @default(0)
+  recordsFailed    Int     @default(0)
+  errorMessage     String? @db.Text
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([integrationId])
+  @@index([startedAt])
 }
 
 enum SubscriptionStatus {
@@ -901,6 +1049,35 @@ model Inspection {
   costEstimates     CostEstimate[]
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
+  usageEvents       UsageEvent[]       @relation("usageEvents")
+
+  // AI Assistant Tier (Phase 1 - Metering)
+  totalUsageCost Float @default(0) // Cached total cost for this inspection
+
+  // AI Assistant Tier (Phase 3 - LiDAR)
+  lidarScans LidarScan[]
+
+  // AI Assistant Tier (Phase 4 - Voice AI)
+  voiceNotes VoiceNote[]
+
+  // AI Assistant Tier (Phase 5 - Property Data Integration)
+  propertyYearBuilt        Int? // Exact year built
+  propertyWallMaterial     String? // "Brick", "Timber", "Concrete", "Brick Veneer"
+  propertyWallConstruction String? // "Single Brick", "Double Brick", "Cavity", "Veneer"
+  propertyRoofMaterial     String? // "Tiles", "Metal", "Membrane", "Slate"
+  propertyFloorType        String? // "Concrete Slab", "Suspended Timber", "Raised"
+  propertyFloorArea        Float? // Total floor area (sqm)
+  propertyBedrooms         Int? // Number of bedrooms
+  propertyBathrooms        Int? // Number of bathrooms
+  propertyLandArea         Float? // Land area (sqm)
+  propertyStories          Int? // Building height (stories)
+
+  // Lookup metadata
+  propertyDataSource    String? // "CORELOGIC" or "MANUAL"
+  propertyDataFetchedAt DateTime? // Timestamp of fetch
+
+  // Relations
+  propertyLookupCache PropertyLookup?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1129,6 +1306,10 @@ model AuditLog {
 model BuildingCode {
   id String @id @default(cuid())
 
+  // Regulatory Document Link (NEW)
+  regulatoryDocumentId String? // FK to RegulatoryDocument
+  regulatoryDocument   RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id])
+
   // Location
   state    String // QLD, NSW, VIC, etc.
   postcode String? // Specific postcode if applicable (null = state-wide)
@@ -1153,6 +1334,114 @@ model BuildingCode {
 
   @@index([state])
   @@index([postcode])
+  @@index([regulatoryDocumentId])
+}
+
+// ========================================
+// REGULATORY DATA INTEGRATION MODELS (NEW)
+// ========================================
+
+enum RegulatoryDocumentType {
+  INSURANCE_POLICY
+  INSURANCE_REGULATION
+  BUILDING_CODE_NATIONAL
+  BUILDING_CODE_STATE
+  ELECTRICAL_STANDARD
+  PLUMBING_STANDARD
+  CONSUMER_LAW
+  INDUSTRY_BEST_PRACTICE
+  SAFETY_REGULATION
+}
+
+// Primary regulatory document registry
+model RegulatoryDocument {
+  id String @id @default(cuid())
+
+  documentType RegulatoryDocumentType
+  category     String // Insurance, Building, Electrical, Consumer
+  jurisdiction String? // AU (federal), QLD, NSW, VIC, etc.
+
+  title         String
+  documentCode  String? // "AS/NZS 3000:2023", "NCC 2025", "QDC 4.5"
+  version       String
+  effectiveDate DateTime
+  expiryDate    DateTime?
+
+  googleDriveFileId String?
+  extractedText     String? @db.Text
+  publisher         String
+  sourceUrl         String?
+
+  sections      RegulatorySection[]
+  citations     Citation[]
+  buildingCodes BuildingCode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([documentType, jurisdiction])
+  @@index([documentCode])
+}
+
+// Granular section storage for fast retrieval
+model RegulatorySection {
+  id         String             @id @default(cuid())
+  documentId String
+  document   RegulatoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  sectionNumber String // "14.3.2", "Section 4.5.1"
+  sectionTitle  String
+  content       String  @db.Text
+  summary       String? @db.Text
+
+  topics   String[]
+  keywords String[]
+
+  applicableToWaterCategory String[]
+  applicableToWaterClass    String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([documentId, sectionNumber])
+  @@index([topics])
+}
+
+// Enhanced citation system
+model Citation {
+  id         String             @id @default(cuid())
+  documentId String
+  document   RegulatoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  fullReference   String // "IICRC S500 Section 14.3.2 (2025)"
+  shortReference  String // "S500 Sec 14.3.2"
+  citationText    String   @db.Text
+  contextKeywords String[]
+
+  usageCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shortReference])
+}
+
+// Insurance-specific requirements
+model InsurancePolicyRequirement {
+  id String @id @default(cuid())
+
+  insurerName     String? // null = all insurers
+  requirementType String
+  description     String  @db.Text
+  mandatory       Boolean @default(true)
+
+  applicableStates  String[]
+  standardReference String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([insurerName])
 }
 
 // Cost Database (National average costs for common items)
@@ -1229,6 +1518,389 @@ model ChatMessage {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// ============================================
+// AI ASSISTANT USAGE METERING (PHASE 1)
+// ============================================
+
+enum UsageEventType {
+  PROPERTY_LOOKUP
+  VOICE_TRANSCRIPTION
+  VOICE_AI_INTERACTION
+  LIDAR_SCAN
+  FLOOR_PLAN_GENERATION
+  AI_ASSISTANT_QUERY
+}
+
+model UsageEvent {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation("usageEvents", fields: [userId], references: [id], onDelete: Cascade)
+  inspectionId String?
+  inspection   Inspection? @relation("usageEvents", fields: [inspectionId], references: [id], onDelete: SetNull)
+  scanId       String?
+  scan         LidarScan?  @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  voiceNoteId  String? // NEW - links to VoiceNote (Phase 4)
+  voiceNote    VoiceNote?  @relation(fields: [voiceNoteId], references: [id], onDelete: SetNull)
+
+  eventType UsageEventType
+  eventData String         @db.Text // JSON: specific details
+
+  // Cost tracking
+  unitCost  Float // Cost per unit (e.g., $0.0045/min)
+  units     Float // Quantity (e.g., 5.2 minutes)
+  totalCost Float // unitCost × units
+  currency  String @default("AUD")
+
+  // Stripe metering
+  stripeMeterEventId String? // Stripe meter event ID
+  billingStatus      String    @default("pending") // pending, billed, failed
+  billedAt           DateTime?
+
+  // Metadata
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([inspectionId])
+  @@index([scanId])
+  @@index([voiceNoteId])
+  @@index([billingStatus])
+  @@index([eventType])
+}
+
+// Email Delivery System Models
+
+// OAuth connection for Gmail/Microsoft email
+model EmailConnection {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  provider     String // "google" or "microsoft"
+  email        String
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([provider])
+}
+
+// Scheduled email delivery
+model ScheduledEmail {
+  id          String    @id @default(cuid())
+  userId      String
+  reportId    String
+  recipient   String // Email address
+  scheduledAt DateTime // When to send
+  sentAt      DateTime? // When actually sent
+  status      String    @default("pending") // pending, sending, sent, failed, cancelled
+  attempts    Int       @default(0)
+  lastAttempt DateTime?
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([status, scheduledAt])
+  @@index([scheduledAt])
+}
+
+// Audit trail for all email sends
+model EmailAudit {
+  id           String   @id @default(cuid())
+  userId       String
+  reportId     String
+  recipient    String
+  sentAt       DateTime @default(now())
+  success      Boolean
+  error        String?  @db.Text
+  deliveryType String // "immediate" or "scheduled"
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([sentAt])
+}
+
+// ============================================
+// Forms Management System Models
+// ============================================
+
+// Form Template - defines structure of forms (pre-defined and custom)
+model FormTemplate {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Template Metadata
+  formType    FormType
+  name        String
+  description String?      @db.Text
+  category    FormCategory
+
+  // Template Status
+  status           FormTemplateStatus @default(DRAFT)
+  version          Int                @default(1)
+  isSystemTemplate Boolean            @default(false) // True for pre-defined templates
+  isActive         Boolean            @default(true)
+
+  // Form Structure (JSON Schema for flexibility)
+  formSchema String @db.Text // Complete form definition
+
+  // Signature Requirements
+  requiresSignatures Boolean @default(false)
+  signatureConfig    String? @db.Text
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+
+  // Relations
+  submissions       FormSubmission[]
+  versions          FormTemplateVersion[]
+  interviewSessions InterviewSession[]
+
+  @@index([userId])
+  @@index([formType])
+  @@index([category])
+  @@index([status])
+  @@index([isSystemTemplate])
+}
+
+// Form Submission - instance of completed/in-progress form
+model FormSubmission {
+  id         String       @id @default(cuid())
+  templateId String
+  template   FormTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Linking to Reports/Jobs
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  // Submission Metadata
+  submissionNumber String               @unique // Auto-generated (e.g., "WO-2026-001")
+  status           FormSubmissionStatus @default(DRAFT)
+
+  // Form Data (stores actual user inputs)
+  formData String @db.Text // JSON: Field values
+
+  // Completion Tracking
+  completenessScore Int?    @default(0) // 0-100 percentage
+  validationErrors  String? @db.Text
+
+  // Timestamps
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  lastSavedAt DateTime  @default(now())
+  completedAt DateTime?
+
+  // Relations
+  signatures  FormSignature[]
+  attachments FormAttachment[]
+  auditLogs   FormAuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId])
+  @@index([userId])
+  @@index([reportId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+// Form Signature - digital signatures on forms
+model FormSignature {
+  id           String         @id @default(cuid())
+  submissionId String
+  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // Signature Details
+  signatureFieldId String
+  signatureType    SignatureType
+
+  // Digital Signature Data (Canvas-based)
+  signatureData String? @db.Text // Base64-encoded PNG
+  signatureUrl  String? // Cloudinary URL if uploaded
+
+  // Signatory Information
+  signatoryName  String
+  signatoryRole  SignatoryRole
+  signatoryEmail String?
+
+  // E-signature Workflow
+  signatureRequestSent   Boolean   @default(false)
+  signatureRequestSentAt DateTime?
+
+  // Verification
+  ipAddress   String?
+  userAgent   String?
+  gpsLocation String?
+
+  // Timestamps
+  signedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([submissionId])
+  @@index([signatoryRole])
+}
+
+// Form Attachment - files attached to submissions
+model FormAttachment {
+  id           String         @id @default(cuid())
+  submissionId String
+  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // File Details
+  fileName     String
+  fileUrl      String // Cloudinary URL
+  thumbnailUrl String?
+  publicId     String // Cloudinary public ID
+
+  // Metadata
+  fileSize Int // Bytes
+  mimeType String
+  fieldId  String? // If attached to specific field
+
+  // Timestamps
+  uploadedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([submissionId])
+}
+
+// Form Audit Log - track all changes
+model FormAuditLog {
+  id           String         @id @default(cuid())
+  submissionId String
+  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // Action Details
+  action  FormAuditAction
+  fieldId String?
+
+  // Change Data
+  previousValue String? @db.Text
+  newValue      String? @db.Text
+
+  // User Context
+  userId    String
+  ipAddress String?
+  userAgent String?
+
+  // Timestamp
+  timestamp DateTime @default(now())
+
+  @@index([submissionId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+// Form Template Version - track template changes
+model FormTemplateVersion {
+  id         String       @id @default(cuid())
+  templateId String
+  template   FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Version Details
+  version     Int
+  changeNotes String? @db.Text
+  changedBy   String
+
+  // Snapshot
+  schemaSnapshot String @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@unique([templateId, version])
+  @@index([templateId])
+}
+
+// ============================================
+// Forms Management System Enums
+// ============================================
+
+enum FormType {
+  WORK_ORDER
+  AUTHORITY_TO_COMMENCE
+  JSA // Job Safety Analysis
+  SDS // Safety Data Sheet
+  SWIMS // Safe Work Information Management System
+  SITE_INDUCTION
+  CUSTOM
+}
+
+enum FormCategory {
+  SAFETY
+  COMPLIANCE
+  CLIENT_INTAKE
+  JOB_DOCUMENTATION
+  INSURANCE
+  QUALITY_CONTROL
+  CUSTOM
+}
+
+enum FormTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DEPRECATED
+}
+
+enum FormSubmissionStatus {
+  DRAFT
+  IN_PROGRESS
+  AWAITING_SIGNATURE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SignatureType {
+  DIGITAL_CANVAS // Hand-drawn on device
+  ELECTRONIC_TYPED // Typed name with consent
+  ESIGNATURE_WORKFLOW // Email-based e-signature
+  BIOMETRIC // Future: fingerprint/face
+}
+
+enum SignatoryRole {
+  TECHNICIAN
+  SUPERVISOR
+  CLIENT
+  PROPERTY_OWNER
+  WITNESS
+  CONTRACTOR
+  OTHER
+}
+
+enum FormAuditAction {
+  CREATED
+  FIELD_UPDATED
+  SAVED
+  SUBMITTED
+  SIGNATURE_ADDED
+  ATTACHMENT_ADDED
+  ATTACHMENT_REMOVED
+  STATUS_CHANGED
+  CANCELLED
+  REOPENED
 }
 
 // Interview System Enums & Models
@@ -1347,8 +2019,9 @@ model InterviewSession {
   technicianExperience String? // novice, experienced, expert
 
   // Relations
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  responses InterviewResponse[]
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formTemplate FormTemplate        @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
+  responses    InterviewResponse[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1401,4 +2074,168 @@ model InterviewStandardsMapping {
 
   @@index([interviewSessionId])
   @@index([standardCode])
+}
+
+// AI Assistant Tier - Phase 3: LiDAR Integration
+model LidarScan {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // File storage
+  rawDataUrl String // Cloudinary URL to PLY/OBJ file
+  fileFormat String // "ply", "obj", "e57"
+  fileSize   Int // Bytes
+  pointCount Int? // Number of points in cloud
+
+  // Scan metadata
+  roomName     String? // "Living Room", "Kitchen", etc.
+  scanDuration Int? // Seconds spent scanning
+  dimensions   String? @db.Text // JSON: {width, length, height, volume}
+
+  // Processing
+  processingStatus String    @default("pending") // pending, processing, completed, failed
+  processedAt      DateTime?
+  errorMessage     String?   @db.Text
+
+  // Audit
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  floorPlan   FloorPlan?
+  usageEvents UsageEvent[]
+
+  @@index([inspectionId])
+  @@index([processingStatus])
+  @@index([uploadedBy])
+}
+
+model FloorPlan {
+  id     String    @id @default(cuid())
+  scanId String    @unique
+  scan   LidarScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  // Generated floor plan files
+  imageUrl     String // 2D PNG/JPG floor plan
+  svgUrl       String? // SVG vector version
+  thumbnailUrl String? // Thumbnail
+
+  // Floor plan data
+  svgData    String? @db.Text // Raw SVG markup
+  canvasJSON String? @db.Text // Fabric.js JSON for annotations
+
+  // Dimensions
+  scale      Float? // Pixels per meter
+  dimensions String? @db.Text // JSON: {width, length, area, perimeter}
+
+  // Annotations
+  annotations String? @db.Text // JSON array of user annotations
+
+  // Metadata
+  generatedBy String // User or "system"
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([scanId])
+}
+
+// AI Assistant Tier - Phase 4: Voice AI Integration
+model VoiceNote {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Audio file
+  audioUrl    String // Cloudinary URL
+  audioFormat String // "m4a", "wav"
+  fileSize    Int // Bytes
+  duration    Float // Seconds
+
+  // Metadata
+  roomName    String?
+  description String? @db.Text
+
+  // Transcription status
+  transcriptionStatus String    @default("pending") // pending, processing, completed, failed
+  transcribedAt       DateTime?
+  transcriptionError  String?   @db.Text
+
+  // Audit
+  recordedBy String
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  transcript  VoiceTranscript?
+  usageEvents UsageEvent[]
+
+  @@index([inspectionId])
+  @@index([transcriptionStatus])
+  @@index([recordedBy])
+}
+
+model VoiceTranscript {
+  id          String    @id @default(cuid())
+  voiceNoteId String    @unique
+  voiceNote   VoiceNote @relation(fields: [voiceNoteId], references: [id], onDelete: Cascade)
+
+  // Transcript data
+  text       String @db.Text
+  language   String @default("en")
+  confidence Float? // 0-1
+
+  // Advanced features
+  words    Json? // {word, start, end, confidence}[]
+  speakers Json? // Speaker diarization data
+
+  // AI extraction
+  extractedData Json? // Structured data from Claude
+  aiProcessed   Boolean   @default(false)
+  aiProcessedAt DateTime?
+
+  // Metadata
+  transcriptionService String // "deepgram", "whisper"
+  generatedAt          DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([voiceNoteId])
+}
+
+// AI Assistant Tier - Phase 5: Property Data Integration (CoreLogic)
+model PropertyLookup {
+  id String @id @default(cuid())
+
+  // Lookup key (normalized: uppercase, trimmed)
+  propertyAddress  String
+  propertyPostcode String
+
+  // Cache metadata
+  lookupDate        DateTime @default(now())
+  expiresAt         DateTime // lookupDate + 90 days
+  apiResponseStatus Int // HTTP status code (200, 404, etc.)
+
+  // Data source tracking (domain | realestate | onthehouse | corelogic)
+  // Determines if lookup was free or charged
+  dataSource String @default("corelogic") // "domain" | "realestate" | "onthehouse" | "corelogic"
+  lookupCost Float  @default(0) // 0 for scrapers, 2.30 for CoreLogic
+  confidence String @default("medium") // "high" | "medium" | "low"
+
+  // Scraper response data (JSON) - includes both scraped and API data
+  propertyData Json?
+
+  // Relations
+  inspectionId String?     @unique // One property lookup per inspection (one-to-one)
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for performance
+  @@unique([propertyAddress, propertyPostcode], name: "address_postcode_unique")
+  @@index([expiresAt])
+  @@index([inspectionId])
 }
