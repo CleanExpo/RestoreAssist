@@ -125,13 +125,8 @@ export async function POST(request: NextRequest) {
 
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''
-    let extractedCitations = ''
-    let standardsContextData: any = null
-    let regulatoryContext = null
-    
     try {
       const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
-      const { extractCitationsFromStandards, formatCitationsForPrompt } = await import('@/lib/citation-extractor')
       
       // Determine report type
       const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
@@ -152,53 +147,14 @@ export async function POST(request: NextRequest) {
       }
       
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, standardsApiKey)
-      standardsContextData = retrievedStandards
       
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
-      
-      // Extract and format citations from standards context
-      if (retrievedStandards && retrievedStandards.documents.length > 0) {
-        const citations = extractCitationsFromStandards(retrievedStandards)
-        if (citations.length > 0) {
-          extractedCitations = formatCitationsForPrompt(citations)
-        }
-      }
       
       if (standardsContext.length > 0) {
       } else {
       }
     } catch (error: any) {
       // Continue without standards - report will use general knowledge
-    }
-    
-    // STAGE 1b: Retrieve regulatory context if user opted in AND feature flag is enabled
-    if (
-      process.env.ENABLE_REGULATORY_CITATIONS === 'true' &&
-      report.includeRegulatoryCitations === true
-    ) {
-      try {
-        const { retrieveRegulatoryContext } = await import('@/lib/regulatory-retrieval')
-        
-        // Determine report type for regulatory retrieval
-        const regulatoryReportType: 'water' | 'mould' | 'fire' | 'commercial' =
-          report.hazardType === 'Mould' ? 'mould' :
-          report.hazardType === 'Fire' ? 'fire' :
-          report.hazardType === 'Commercial' ? 'commercial' : 'water'
-        
-        const regulatoryQuery = {
-          reportType: regulatoryReportType,
-          waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
-          state: detectStateFromPostcode(report.propertyPostcode || ''),
-          postcode: report.propertyPostcode || '',
-          insurerName: report.insurerName || undefined,
-          requiresElectricalWork: report.electricalWorkRequired || false,
-        }
-        
-        regulatoryContext = await retrieveRegulatoryContext(regulatoryQuery, standardsApiKey)
-      } catch (error: any) {
-        console.error('[Generate Inspection Report] Error retrieving regulatory context:', error)
-        // Continue without regulatory context - graceful degradation
-      }
     }
     
     // Get NIR data from Report model (stored in moistureReadings field as JSON)
@@ -276,7 +232,6 @@ export async function POST(request: NextRequest) {
       stateInfo,
       reportType,
       standardsContext,
-      extractedCitations,
       psychrometricAssessment,
       scopeAreas,
       equipmentSelection,
@@ -992,7 +947,6 @@ function buildInspectionReportPrompt(data: {
   stateInfo: any
   reportType: string
   standardsContext?: string
-  extractedCitations?: string
   psychrometricAssessment?: any
   scopeAreas?: any[]
   equipmentSelection?: any[]
@@ -1290,15 +1244,11 @@ ${equipmentSelection.map((sel: any) => {
 ` : ''}
 ` : ''}
 
-${data.standardsContext ? data.standardsContext + '\n\n' : ''}
-
-${data.extractedCitations ? data.extractedCitations + '\n\n' : ''}
+${standardsContext ? standardsContext + '\n\n' : ''}
 
 # REPORT STRUCTURE REQUIREMENTS
 
-${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
-
-${data.extractedCitations ? '**CITATION FORMATTING: Use the formatted citations provided above. All citations should follow AGLC4 format (Australian Guide to Legal Citation, 4th edition) for professional legal citation standards. Use the exact citation formats shown in the "Recommended Citations" section above.**\n\n' : ''}
+${standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
 
 ${data.standardsContext ? '**IMPORTANT: The standards documents above have been retrieved from the Google Drive "IICRC Standards" folder. You MUST reference and cite specific sections from these documents throughout the report. Use exact standard numbers, section references, and terminology from the retrieved documents.**\n\n' : ''}
 
@@ -1387,34 +1337,11 @@ Detailed room-by-room breakdown with:
 - Progression observed
 
 ## SECTION 5: STANDARDS COMPLIANCE FRAMEWORK
-**CRITICAL: You MUST explicitly reference and cite specific standards throughout this section. Use exact section numbers from the retrieved standards documents.**
-
 ### Subsection A: IICRC Water Damage Standards
-- EXPLICITLY reference AS-IICRC S500:2025 with specific section numbers (e.g., "AS-IICRC S500:2025 Section 14.3.2")
-- Reference IICRC S500 Standard with section citations (e.g., "IICRC S500 Section 5.2")
-- Include water category classification per IICRC S500 standards
-- Reference material-specific drying protocols with section numbers
-
 ### Subsection B: Building Code Compliance (use state-specific building code)
-- EXPLICITLY reference National Construction Code (NCC) with specific requirements
-- Reference state-specific building codes (e.g., "QDC 4.5" for Queensland, "BCA" for other states)
-- Include structural integrity requirements per NCC
-- Reference material standards (AS 1684, AS 2870) where applicable
-
 ### Subsection C: Work Health and Safety (use state-specific WHS Act)
-- EXPLICITLY reference Work Health and Safety Act 2011 (or state-specific WHS Act)
-- Reference Safe Work Australia Guidelines
-- Include PPE requirements per Australian OH&S standards
-- Reference containment and safety protocols with standard citations
-
 ### Subsection D: Environmental Protection (use state-specific EPA Act)
-- Reference state-specific Environmental Protection Acts
-- Include waste disposal requirements per state regulations
-- Reference water discharge regulations where applicable
-
 ### Subsection E: Local Council Requirements (if postcode available)
-- Reference local council bylaws and requirements
-- Include building permit requirements if applicable
 
 ## SECTION 6: HAZARD ASSESSMENT FLAGS
 ${hasHazards ? `For EACH hazard identified, create a STOP WORK FLAG block with:
@@ -1436,15 +1363,11 @@ ${equipmentSelection && equipmentSelection.length > 0 ? `- Equipment Deployed: $
 - Initial PPE & Safety
 
 ## SECTION 8: DRYING PROTOCOL AND METHODOLOGY
-**CRITICAL: For each material type, you MUST reference specific IICRC S500 sections with exact citations.**
-
-For each material type identified, provide specific protocols with standard citations:
-${materials.includes('Yellow tongue particleboard') ? '- Yellow Tongue Particleboard Subfloor (Class 3/4 drying) - Reference: IICRC S500 Section 5.2 (or AS-IICRC S500:2025 Section 5.2). Include specific drying requirements, equipment ratios, and verification protocols per the standard.' : ''}
-${materials.includes('Floating timber floors') ? '- Floating Timber Floors (Class 2/3) - Reference: IICRC S500 Section 5.1 (or AS-IICRC S500:2025 Section 5.1). Include material-specific drying protocols and moisture content requirements per the standard.' : ''}
-${materials.includes('Carpet on concrete slab') ? '- Carpet on Concrete Slab (Class 1) - Reference: IICRC S500 Section 4.2 (or AS-IICRC S500:2025 Section 4.2). Include extraction requirements and drying verification per the standard.' : ''}
-${materials.some((m: string) => m.includes('Plasterboard')) ? '- Plasterboard Walls & Ceilings - Reference: IICRC S500 Section 5.3 (or AS-IICRC S500:2025 Section 5.3). Include removal criteria, drying protocols, and replacement requirements per the standard.' : ''}
-
-For any other materials identified, reference the appropriate IICRC S500 sections with exact section numbers from the retrieved standards documents.
+For each material type identified, provide specific protocols:
+${materials.includes('Yellow tongue particleboard') ? '- Yellow Tongue Particleboard Subfloor (Class 3/4 drying) - IICRC S500 Section 5.2' : ''}
+${materials.includes('Floating timber floors') ? '- Floating Timber Floors (Class 2/3) - IICRC S500 Section 5.1' : ''}
+${materials.includes('Carpet on concrete slab') ? '- Carpet on Concrete Slab (Class 1) - IICRC S500 Section 4.2' : ''}
+${materials.some((m: string) => m.includes('Plasterboard')) ? '- Plasterboard Walls & Ceilings - IICRC S500 Section 5.3' : ''}
 
 ## SECTION 9: OCCUPANCY AND SAFETY CONSIDERATIONS
 ${isOccupied ? 'Include: Access Restrictions, Air Quality, Utilities, Pet/Children Safety' : ''}
@@ -1459,8 +1382,6 @@ ${occupancyStatus && occupancyStatus.includes('Vacant') ? 'Include: Security, Ti
 - Occupant Health Considerations
 
 ## SECTION 11: POWER AND EQUIPMENT REQUIREMENTS
-**CRITICAL: Reference AS/NZS 3000:2018 for electrical safety requirements and circuit protection.**
-
 ${equipmentSelection && equipmentSelection.length > 0 ? `- Power Draw Calculation: ${totalAmpsNumber.toFixed(1)} Amps total (calculated from selected equipment)
 - Equipment Load: ${equipmentSelection.map((sel: any) => {
   const group = getEquipmentGroupById(sel.groupId)
@@ -1470,8 +1391,6 @@ ${equipmentSelection && equipmentSelection.length > 0 ? `- Power Draw Calculatio
   const dailyRate = sel.dailyRate || 0
   return sum + (dailyRate * sel.quantity)
 }, 0).toFixed(2)}` : '- Power Draw Calculation: (calculate from equipment deployed)'}
-- **Electrical Safety Compliance**: Reference AS/NZS 3000:2018 for circuit protection, load distribution, and electrical safety requirements
-- **Equipment Standards**: Reference IICRC S500 equipment ratios and deployment protocols
 - Context and recommendations
 - Alternative options if needed
 
@@ -1510,41 +1429,22 @@ CRITICAL: Do NOT use HTML tags like <p>, <br>, or style attributes. Use plain te
 
 # CRITICAL REQUIREMENTS
 
-1. **STANDARD CITATIONS ARE MANDATORY**: 
-   - You MUST explicitly reference and cite specific standards throughout the report
-   - Use EXACT section numbers from the retrieved standards documents (e.g., "IICRC S500 Section 14.3.2", "AS-IICRC S500:2025 Section 12.4")
-   - Include standard references in ALL procedural recommendations
-   - Reference Australian standards (AS/NZS) with exact numbers (e.g., "AS/NZS 3000:2018")
-   - Reference IICRC standards with section numbers (e.g., "IICRC S500 Section 5.2")
-   - Reference building codes with specific requirements (e.g., "NCC", "QDC 4.5")
-   - Reference OH&S requirements by name and section (e.g., "Work Health and Safety Act 2011")
-   - Use the exact terminology and phrasing from the standards documents
-   - **CITATION FORMATTING**: All citations must follow AGLC4 format (Australian Guide to Legal Citation, 4th edition)${data.extractedCitations ? ' as shown in the "Recommended Citations" section above' : ''}
-
-2. **MARKDOWN FORMATTING IS MANDATORY**: You MUST use proper Markdown heading syntax:
+1. **MARKDOWN FORMATTING IS MANDATORY**: You MUST use proper Markdown heading syntax:
    - Use single hash (#) followed by space for the main title "PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE"
    - Use double hash (##) followed by space for all major section headers like "## SECTION 1: EXECUTIVE SUMMARY"
    - Use triple hash (###) followed by space for all subsection headers like "### KEY PERFORMANCE METRICS"
    - Do NOT use plain text for section titles - they must have markdown heading syntax
    - **CRITICAL: NEVER use HTML tags like <p>, <br>, <div>, or style attributes anywhere in the report. Use plain text and markdown only.**
-
-3. **STANDARDS COMPLIANCE**: 
-   - Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
-   - Reference IICRC S500:2025 and S520 standards explicitly with section numbers
-   - Reference ${stateInfo ? stateInfo.buildingCode : 'NCC'} explicitly with specific requirements
-   - Reference ${stateInfo ? stateInfo.whsAct : 'Work Health and Safety Act 2011'} explicitly
-   - Include a "Standards Compliance" section listing all referenced standards
-
-4. **DATA ACCURACY**: 
-   - Use ONLY the actual data provided in the REPORT DATA section - do not make up information
-   - Do NOT include any placeholder text like "Not provided", "Not specified", "N/A", or "Unknown"
-   - Only include sections and fields for which actual data was provided
-
-5. **REPORT COMPLETENESS**: 
-   - Include all required subsections
-   - Use Australian English spelling
-   - Make it comprehensive and professional
-   - Ensure all recommendations are verifiable and auditable
+2. Use state-specific regulatory information provided (${stateInfo ? stateInfo.name : 'generic Australian'})
+3. Reference IICRC S500:2025 and S520 standards explicitly
+4. Reference ${stateInfo ? stateInfo.buildingCode : 'NCC'} explicitly
+5. Reference ${stateInfo ? stateInfo.whsAct : 'Work Health and Safety Act 2011'} explicitly
+6. Use ONLY the actual data provided in the REPORT DATA section - do not make up information
+7. Do NOT include any placeholder text like "Not provided", "Not specified", "N/A", or "Unknown"
+8. Only include sections and fields for which actual data was provided
+9. Include all required subsections
+10. Use Australian English spelling
+11. Make it comprehensive and professional
 
 Generate the complete report now.`
 }
