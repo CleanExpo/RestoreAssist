@@ -183,7 +183,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
         if (reportType === 'optimised' && onContinueToTier2) {
           // Small delay to ensure state is updated
           setTimeout(() => {
-            onContinueToTier2()
+          onContinueToTier2()
           }, 100)
         }
         // For enhanced, the options will show below (don't auto-navigate)
