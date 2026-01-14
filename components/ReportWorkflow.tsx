@@ -144,14 +144,14 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
             }
           } else if (isOptimised) {
             // Optimised always goes through all tiers
-            setCurrentStage('tier2')
+          setCurrentStage('tier2')
           } else {
             setCurrentStage('report-generation')
           }
         } else if (reportData.technicianReportAnalysis || reportData.reportDepthLevel) {
           // Only go to tier1 if enhanced or optimised, not basic
           if (isEnhanced || isOptimised) {
-            setCurrentStage('tier1')
+          setCurrentStage('tier1')
           } else if (isBasic) {
             setCurrentStage('report-generation')
           } else {

@@ -447,33 +447,33 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
               const reportDepthLevel = (report?.reportDepthLevel || '').toLowerCase()
               if (reportDepthLevel === 'basic') {
                 return (
-                  <button
-                    onClick={() => handleGenerateReport('basic')}
-                    disabled={generating}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                  >
-                    {generating ? 'Generating...' : 'Generate Basic Report'}
-                  </button>
+              <button
+                onClick={() => handleGenerateReport('basic')}
+                disabled={generating}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Basic Report'}
+              </button>
                 )
               } else if (reportDepthLevel === 'enhanced') {
                 return (
-                  <button
-                    onClick={() => handleGenerateReport('enhanced')}
-                    disabled={generating}
-                    className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                  >
-                    {generating ? 'Generating...' : 'Generate Enhanced Report'}
-                  </button>
+              <button
+                onClick={() => handleGenerateReport('enhanced')}
+                disabled={generating}
+                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Enhanced Report'}
+              </button>
                 )
               } else if (reportDepthLevel === 'optimised' || reportDepthLevel === 'optimized') {
                 return (
-                  <button
-                    onClick={() => handleGenerateReport('enhanced')}
-                    disabled={generating}
-                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                  >
-                    {generating ? 'Generating...' : 'Generate Optimised Report'}
-                  </button>
+              <button
+                onClick={() => handleGenerateReport('enhanced')}
+                disabled={generating}
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Optimised Report'}
+              </button>
                 )
               } else {
                 // No report type set yet - show basic as default
