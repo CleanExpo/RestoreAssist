@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import toast from "react-hot-toast"
+import { cn } from "@/lib/utils"
 
 interface Client {
   id: string
@@ -300,23 +301,28 @@ export default function ClientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold mb-2">Clients</h1>
-          <p className="text-slate-400">Manage your restoration clients</p>
+          <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Clients</h1>
+          <p className={cn("text-neutral-600 dark:text-slate-400")}>Manage your restoration clients</p>
         </div>
         <div className="flex items-center gap-3">
           {selectedClients.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">{selectedClients.length} selected</span>
+              <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>{selectedClients.length} selected</span>
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-400 border border-red-500/30 rounded-lg hover:from-red-500/30 hover:to-rose-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-600 dark:text-red-400 border border-red-500/30 rounded-lg hover:from-red-500/30 hover:to-rose-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
               >
                 <Trash2 size={16} className="transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                 <span>Delete Selected</span>
               </button>
               <button
                 onClick={clearSelection}
-                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
+                className={cn(
+                  "px-4 py-2 border rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md",
+                  "border-neutral-300 dark:border-slate-600",
+                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  "text-neutral-700 dark:text-slate-300"
+                )}
               >
                 Clear
               </button>
@@ -335,21 +341,32 @@ export default function ClientsPage() {
       {/* Search & Filter */}
       <div className="flex gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+          <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />
           <input
             type="text"
             placeholder="Search clients by name, email, phone, company..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
+            className={cn(
+              "w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+              "bg-neutral-100 dark:bg-slate-800",
+              "border-neutral-300 dark:border-slate-700",
+              "text-neutral-900 dark:text-white",
+              "placeholder-neutral-500 dark:placeholder-slate-500"
+            )}
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="text-slate-400" size={18} />
+          <Filter className={cn("text-neutral-500 dark:text-slate-400")} size={18} />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 text-white"
+            className={cn(
+              "px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+              "bg-neutral-100 dark:bg-slate-800",
+              "border-neutral-300 dark:border-slate-700",
+              "text-neutral-900 dark:text-white"
+            )}
           >
             <option value="">All Status</option>
             <option value="ACTIVE">Active</option>
@@ -368,11 +385,11 @@ export default function ClientsPage() {
       ) : (
         <>
           {/* Clients Table */}
-          <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+          <div className={cn("rounded-lg border overflow-hidden", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700 bg-slate-900/50">
+                  <tr className={cn("border-b", "border-neutral-200 dark:border-slate-700", "bg-neutral-50 dark:bg-slate-900/50")}>
                     {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">
                       <button
                         onClick={selectedClients.length === filteredClients.length ? clearSelection : selectAllClients}
@@ -386,26 +403,26 @@ export default function ClientsPage() {
                         Select All
                       </button>
                     </th> */}
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Client Name</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Email</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Phone</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Status</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Reports</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Total Revenue</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-medium">Last Job</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Client Name</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Email</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Phone</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Status</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Reports</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Total Revenue</th>
+                    <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Last Job</th>
                     {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th> */}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className={cn("py-12 text-center", "text-neutral-600 dark:text-slate-400")}>
                         {searchTerm || statusFilter ? "No clients found matching your criteria" : "No clients found. Add your first client to get started."}
                       </td>
                     </tr>
                   ) : (
                     filteredClients.map((client) => (
-                      <tr key={client.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                      <tr key={client.id} className={cn("border-b transition-colors", "border-neutral-200 dark:border-slate-700/50", "hover:bg-neutral-50 dark:hover:bg-slate-700/30")}>
                         {/* <td className="py-4 px-6">
                           <button
                             onClick={() => toggleClientSelection(client.id)}
@@ -427,33 +444,33 @@ export default function ClientsPage() {
                             </Link>
                           )}
                           {client.company && (
-                            <div className="text-xs text-slate-500 mt-1">{client.company}</div>
+                            <div className={cn("text-xs mt-1", "text-neutral-500 dark:text-slate-500")}>{client.company}</div>
                           )}
                           {(client as any)._isFromReport && (
                             <div className="text-xs text-amber-400 mt-1">From Report</div>
                           )}
                         </td>
-                        <td className="py-4 px-6 text-slate-400">{client.email}</td>
-                        <td className="py-4 px-6 text-slate-400">{client.phone || "—"}</td>
+                        <td className={cn("py-4 px-6", "text-neutral-600 dark:text-slate-400")}>{client.email}</td>
+                        <td className={cn("py-4 px-6", "text-neutral-600 dark:text-slate-400")}>{client.phone || "—"}</td>
                         <td className="py-4 px-6">
                           <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            client.status === "ACTIVE" ? "bg-emerald-500/20 text-emerald-400" :
-                            client.status === "INACTIVE" ? "bg-amber-500/20 text-amber-400" :
-                            client.status === "PROSPECT" ? "bg-blue-500/20 text-blue-400" :
-                            "bg-slate-500/20 text-slate-400"
+                            client.status === "ACTIVE" ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
+                            client.status === "INACTIVE" ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" :
+                            client.status === "PROSPECT" ? "bg-blue-500/20 text-blue-600 dark:text-blue-400" :
+                            cn("bg-neutral-200 dark:bg-slate-500/20", "text-neutral-600 dark:text-slate-400")
                           }`}>
                             {client.status}
                           </span>
                         </td>
                         <td className="py-4 px-6">
-                          <span className="px-3 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400 font-medium">
+                          <span className="px-3 py-1 rounded-full text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium">
                             {client.reportsCount || 0}
                           </span>
                         </td>
-                        <td className="py-4 px-6 font-medium text-cyan-400">
+                        <td className={cn("py-4 px-6 font-medium", "text-cyan-600 dark:text-cyan-400")}>
                           ${client.totalRevenue ? client.totalRevenue.toLocaleString() : '0'}
                         </td>
-                        <td className="py-4 px-6 text-slate-400">{client.lastJob || "—"}</td>
+                        <td className={cn("py-4 px-6", "text-neutral-600 dark:text-slate-400")}>{client.lastJob || "—"}</td>
                         {/* <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Link href={`/dashboard/clients/${client.id}`}>
@@ -502,12 +519,12 @@ export default function ClientsPage() {
       {/* Add Client Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+          <div className={cn("rounded-lg border max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto", "bg-white dark:bg-slate-800", "border-neutral-200 dark:border-slate-700")}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Add New Client</h2>
+              <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>Add New Client</h2>
               <button 
                 onClick={() => setShowAddModal(false)} 
-                className="p-1 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95"
+                className={cn("p-1 rounded transition-all duration-200 hover:scale-110 active:scale-95", "hover:bg-neutral-100 dark:hover:bg-slate-700", "text-neutral-700 dark:text-slate-300")}
                 title="Close"
               >
                 <X size={20} className="transition-transform duration-200" />
@@ -516,43 +533,66 @@ export default function ClientsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Client Name *</label>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Client Name *</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Enter client name"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Email *</label>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Email *</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="Enter email address"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Phone</label>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="Enter phone number"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Status</label>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white"
+                    )}
                   >
                     <option value="ACTIVE">Active</option>
                     <option value="INACTIVE">Inactive</option>
@@ -562,23 +602,35 @@ export default function ClientsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Company</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Company</label>
                 <input
                   type="text"
                   value={formData.company}
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                   placeholder="Enter company name"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500"
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Contact Person</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Contact Person</label>
                 <input
                   type="text"
                   value={formData.contactPerson}
                   onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
                   placeholder="Enter contact person name"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500"
+                  )}
                 />
               </div>
               <div>

@@ -23,6 +23,7 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
+import { cn } from "@/lib/utils"
 
 interface SubscriptionStatus {
   subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
@@ -281,9 +282,9 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className={cn("min-h-screen", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
       {/* Header */}
-      <div className="border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm">
+      <div className={cn("border-b backdrop-blur-sm", "border-neutral-200 dark:border-slate-800/50", "bg-white/30 dark:bg-slate-900/30")}>
         <div className="px-6 py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -291,12 +292,12 @@ export default function DashboardPage() {
             transition={{ duration: 0.6 }}
           >
             <h1 
-              className="text-3xl font-medium text-white mb-2"
+              className={cn("text-3xl font-medium mb-2", "text-neutral-900 dark:text-white")}
               style={{ fontFamily: 'Titillium Web, sans-serif' }}
             >
               Dashboard Overview
             </h1>
-            <p className="text-slate-400">
+            <p className={cn("text-neutral-600 dark:text-slate-400")}>
               Welcome back, {session?.user?.name?.split(' ')[0]}! Here's what's happening with your restoration reports.
             </p>
           </motion.div>
@@ -319,7 +320,7 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 + index * 0.1 }}
-                className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 hover:border-slate-600/50 transition-all duration-300"
+                className={cn("border rounded-xl p-6 transition-all duration-300", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50", "hover:border-neutral-300 dark:hover:border-slate-600/50")}
               >
                 <div className="flex items-center justify-between mb-4">
                   <stat.icon size={24} className={`${stat.color} opacity-80`} />
@@ -327,7 +328,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-1">
                   <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
-                  <p className="text-slate-400 text-sm font-medium">{stat.label}</p>
+                  <p className={cn("text-sm font-medium", "text-neutral-600 dark:text-slate-400")}>{stat.label}</p>
                 </div>
               </motion.div>
             ))}
@@ -342,9 +343,9 @@ export default function DashboardPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="lg:col-span-2"
             >
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+              <div className={cn("border rounded-xl p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}>
                 <h2 
-                  className="text-xl font-medium text-white mb-6"
+                  className={cn("text-xl font-medium mb-6", "text-neutral-900 dark:text-white")}
                   style={{ fontFamily: 'Titillium Web, sans-serif' }}
                 >
                   Quick Actions
@@ -357,21 +358,27 @@ export default function DashboardPage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.6, delay: 0.3 + index * 0.1 }}
-                      className="group p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg hover:border-slate-500/50 hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-cyan-500/10 active:scale-[0.98]"
+                      className={cn(
+                        "group p-4 border rounded-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-cyan-500/10 active:scale-[0.98]",
+                        "bg-neutral-50 dark:bg-slate-700/30",
+                        "border-neutral-200 dark:border-slate-600/30",
+                        "hover:border-neutral-300 dark:hover:border-slate-500/50",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-700/50"
+                      )}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-3`}>
-                          <action.icon size={20} className="text-white transition-transform duration-200 group-hover:scale-110" />
+                          <action.icon size={20} className={cn("transition-transform duration-200 group-hover:scale-110", "text-neutral-700 dark:text-white")} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-white group-hover:text-cyan-400 transition-colors duration-200">
+                          <h3 className={cn("font-medium transition-colors duration-200", "text-neutral-900 dark:text-white", "group-hover:text-cyan-600 dark:group-hover:text-cyan-400")}>
                             {action.title}
                           </h3>
-                          <p className="text-slate-400 text-sm mt-1">
+                          <p className={cn("text-sm mt-1", "text-neutral-600 dark:text-slate-400")}>
                             {action.description}
                           </p>
                         </div>
-                        <ArrowRight size={16} className="text-slate-400 group-hover:text-cyan-400 transition-all duration-200 flex-shrink-0 group-hover:translate-x-1 group-hover:scale-110" />
+                        <ArrowRight size={16} className={cn("transition-all duration-200 flex-shrink-0 group-hover:translate-x-1 group-hover:scale-110", "text-neutral-600 dark:text-slate-400", "group-hover:text-cyan-600 dark:group-hover:text-cyan-400")} />
                       </div>
                     </motion.a>
                   ))}
@@ -386,9 +393,9 @@ export default function DashboardPage() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="space-y-6"
             >
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+              <div className={cn("border rounded-xl p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}>
                 <h3 
-                  className="text-lg font-medium text-white mb-4"
+                  className={cn("text-lg font-medium mb-4", "text-neutral-900 dark:text-white")}
                   style={{ fontFamily: 'Titillium Web, sans-serif' }}
                 >
                   Recent Activity
@@ -411,88 +418,96 @@ export default function DashboardPage() {
                           activity.status === 'success' ? 'bg-emerald-400' : 'bg-orange-400'
                         }`} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium">{activity.action}</p>
-                          <p className="text-slate-400 text-xs">{activity.time}</p>
+                          <p className={cn("text-sm font-medium", "text-neutral-900 dark:text-white")}>{activity.action}</p>
+                          <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>{activity.time}</p>
                         </div>
                       </motion.div>
                     ))
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-slate-400 text-sm">No recent activity</p>
-                      <p className="text-slate-500 text-xs mt-1">Create your first report to get started</p>
+                      <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>No recent activity</p>
+                      <p className={cn("text-xs mt-1", "text-neutral-500 dark:text-slate-500")}>Create your first report to get started</p>
                     </div>
                   )}
             </div>
       </div>
 
               {/* Getting Started */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+              <div className={cn("border rounded-xl p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}>
                 <h3 
-                  className="text-lg font-medium text-white mb-4"
+                  className={cn("text-lg font-medium mb-4", "text-neutral-900 dark:text-white")}
                   style={{ fontFamily: 'Titillium Web, sans-serif' }}
                 >
                   Getting Started
                 </h3>
                 <div className="space-y-3">
-                  <div className={`flex items-center gap-3 p-3 rounded-lg ${
+                  <div className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg",
                     dashboardData.totalReports > 0 
                       ? 'bg-emerald-500/20 border border-emerald-500/30' 
-                      : 'bg-slate-700/30'
-                  }`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      : cn("bg-neutral-100 dark:bg-slate-700/30", "border border-neutral-200 dark:border-transparent")
+                  )}>
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center",
                       dashboardData.totalReports > 0 
                         ? 'bg-emerald-500/20' 
                         : 'bg-cyan-500/20'
-                    }`}>
-                      <span className={`text-xs font-bold ${
+                    )}>
+                      <span className={cn(
+                        "text-xs font-bold",
                         dashboardData.totalReports > 0 
                           ? 'text-emerald-400' 
                           : 'text-cyan-400'
-                      }`}>1</span>
+                      )}>1</span>
                     </div>
-                    <p className={`text-sm ${
+                    <p className={cn(
+                      "text-sm",
                       dashboardData.totalReports > 0 
-                        ? 'text-emerald-300' 
-                        : 'text-slate-300'
-                    }`}>
+                        ? 'text-emerald-600 dark:text-emerald-300' 
+                        : cn("text-neutral-700 dark:text-slate-300")
+                    )}>
                       {dashboardData.totalReports > 0 
                         ? `Create your first report ✓ (${dashboardData.totalReports} created)` 
                         : 'Create your first report'}
                     </p>
                   </div>
                   
-                  <div className={`flex items-center gap-3 p-3 rounded-lg ${
+                  <div className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg",
                     dashboardData.totalClients > 0 
                       ? 'bg-emerald-500/20 border border-emerald-500/30' 
-                      : 'bg-slate-700/30'
-                  }`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      : cn("bg-neutral-100 dark:bg-slate-700/30", "border border-neutral-200 dark:border-transparent")
+                  )}>
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center",
                       dashboardData.totalClients > 0 
                         ? 'bg-emerald-500/20' 
-                        : 'bg-slate-600/50'
-                    }`}>
-                      <span className={`text-xs font-bold ${
+                        : 'bg-neutral-200 dark:bg-slate-600/50'
+                    )}>
+                      <span className={cn(
+                        "text-xs font-bold",
                         dashboardData.totalClients > 0 
                           ? 'text-emerald-400' 
-                          : 'text-slate-400'
-                      }`}>2</span>
+                          : cn("text-neutral-600 dark:text-slate-400")
+                      )}>2</span>
                     </div>
-                    <p className={`text-sm ${
+                    <p className={cn(
+                      "text-sm",
                       dashboardData.totalClients > 0 
-                        ? 'text-emerald-300' 
-                        : 'text-slate-400'
-                    }`}>
+                        ? 'text-emerald-600 dark:text-emerald-300' 
+                        : cn("text-neutral-600 dark:text-slate-400")
+                    )}>
                       {dashboardData.totalClients > 0 
                         ? `Add clients ✓ (${dashboardData.totalClients} added)` 
                         : 'Add your first client'}
                     </p>
                   </div>
                   
-                  <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                    <div className="w-6 h-6 bg-slate-600/50 rounded-full flex items-center justify-center">
-                      <span className="text-slate-400 text-xs font-bold">3</span>
+                  <div className={cn("flex items-center gap-3 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-700/30", "border border-neutral-200 dark:border-transparent")}>
+                    <div className={cn("w-6 h-6 rounded-full flex items-center justify-center", "bg-neutral-200 dark:bg-slate-600/50")}>
+                      <span className={cn("text-xs font-bold", "text-neutral-600 dark:text-slate-400")}>3</span>
                     </div>
-                    <p className="text-slate-400 text-sm">Explore analytics & insights</p>
+                    <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Explore analytics & insights</p>
                   </div>
                 </div>
             </div>
@@ -504,16 +519,16 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
+            className={cn("border rounded-xl p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}
           >
             <div className="flex items-center justify-between mb-6">
               <h2 
-                className="text-xl font-medium text-white"
+                className={cn("text-xl font-medium", "text-neutral-900 dark:text-white")}
                 style={{ fontFamily: 'Titillium Web, sans-serif' }}
               >
                 Performance Overview
               </h2>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
+              <div className={cn("flex items-center gap-2 text-sm", "text-neutral-600 dark:text-slate-400")}>
                 <Activity size={16} />
                 <span>Last 30 days</span>
         </div>
@@ -527,7 +542,7 @@ export default function DashboardPage() {
                 <h3 className="text-2xl font-bold text-cyan-400 mb-1">
                   {dashboardData.loading ? "..." : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
                 </h3>
-                <p className="text-slate-400 text-sm">Reports per Client</p>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Reports per Client</p>
       </div>
 
               <div className="text-center">
@@ -537,7 +552,7 @@ export default function DashboardPage() {
                 <h3 className="text-2xl font-bold text-emerald-400 mb-1">
                   {dashboardData.loading ? "..." : `${dashboardData.recentReports.filter((r: any) => r.status !== 'Draft').length}/${dashboardData.totalReports || 1}`}
                 </h3>
-                <p className="text-slate-400 text-sm">Completed Reports</p>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Completed Reports</p>
               </div>
 
               <div className="text-center">
@@ -547,7 +562,7 @@ export default function DashboardPage() {
                 <h3 className="text-2xl font-bold text-orange-400 mb-1">
                   {dashboardData.loading ? "..." : `$${Math.round(dashboardData.totalRevenue || 0).toLocaleString()}`}
                 </h3>
-                <p className="text-slate-400 text-sm">Total Value</p>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Total Value</p>
               </div>
         </div>
           </motion.div>

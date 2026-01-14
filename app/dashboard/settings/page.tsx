@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import OnboardingGuide from "@/components/OnboardingGuide"
 import WelcomeScreen from "@/components/WelcomeScreen"
+import { cn } from "@/lib/utils"
 
 interface UserProfile {
   id: string
@@ -295,12 +296,12 @@ export default function SettingsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'text-green-400 bg-green-500/20'
-      case 'TRIAL': return 'text-blue-400 bg-blue-500/20'
-      case 'CANCELED': return 'text-yellow-400 bg-yellow-500/20'
-      case 'EXPIRED': return 'text-red-400 bg-red-500/20'
-      case 'PAST_DUE': return 'text-orange-400 bg-orange-500/20'
-      default: return 'text-slate-400 bg-slate-500/20'
+      case 'ACTIVE': return 'text-green-600 dark:text-green-400 bg-green-500/20'
+      case 'TRIAL': return 'text-blue-600 dark:text-blue-400 bg-blue-500/20'
+      case 'CANCELED': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/20'
+      case 'EXPIRED': return 'text-red-600 dark:text-red-400 bg-red-500/20'
+      case 'PAST_DUE': return 'text-orange-600 dark:text-orange-400 bg-orange-500/20'
+      default: return 'text-neutral-600 dark:text-slate-400 bg-neutral-200 dark:bg-slate-500/20'
     }
   }
 
@@ -360,14 +361,19 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
         <div>
-            <h1 className="text-3xl font-semibold mb-2">Settings & Profile</h1>
-            <p className="text-slate-400">Manage your account settings and subscription</p>
+            <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Settings & Profile</h1>
+            <p className={cn("text-neutral-600 dark:text-slate-400")}>Manage your account settings and subscription</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => fetchProfile(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+              "border-neutral-300 dark:border-slate-600",
+              "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+              "text-neutral-700 dark:text-slate-300"
+            )}
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -386,15 +392,20 @@ export default function SettingsPage() {
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Business Information */}
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
+              <h2 className={cn("text-xl font-semibold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
                 <Building2 className="w-5 h-5" />
                 Business Information
               </h2>
               <button
                 onClick={() => setEditing(!editing)}
-                className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors",
+                  "border-neutral-300 dark:border-slate-600",
+                  "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                  "text-neutral-700 dark:text-slate-300"
+                )}
               >
                 <Edit className="w-4 h-4" />
                 {editing ? 'Cancel' : 'Edit'}
@@ -408,11 +419,11 @@ export default function SettingsPage() {
                   {editing ? (
                     <label className="cursor-pointer block">
                       {uploadingLogo ? (
-                        <div className="w-24 h-24 rounded-lg bg-slate-700/50 border-2 border-slate-600 flex items-center justify-center transition-all">
+                        <div className={cn("w-24 h-24 rounded-lg border-2 flex items-center justify-center transition-all", "bg-neutral-100 dark:bg-slate-700/50", "border-neutral-300 dark:border-slate-600")}>
                           <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
                         </div>
                       ) : (formData.businessLogo || profile?.businessLogo) ? (
-                        <div className="relative w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-600 group-hover:border-cyan-500 transition-all">
+                        <div className={cn("relative w-24 h-24 rounded-lg overflow-hidden border-2 transition-all", "border-neutral-300 dark:border-slate-600", "group-hover:border-cyan-500")}>
                           <img 
                             src={formData.businessLogo || profile?.businessLogo || ''} 
                             alt="Business Logo" 
@@ -431,7 +442,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-slate-600 group-hover:border-cyan-500 flex flex-col items-center justify-center text-white transition-all cursor-pointer">
+                        <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-neutral-300 dark:border-slate-600 group-hover:border-cyan-500 flex flex-col items-center justify-center text-white transition-all cursor-pointer">
                           <Upload className="w-8 h-8 mb-1" />
                           <span className="text-xs font-medium">Upload Logo</span>
                         </div>
@@ -445,7 +456,7 @@ export default function SettingsPage() {
                       />
                     </label>
                   ) : (
-                    <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-slate-600">
+                    <div className={cn("w-24 h-24 rounded-lg overflow-hidden border-2", "border-neutral-300 dark:border-slate-600")}>
                       {profile?.businessLogo ? (
                     <img 
                           src={profile.businessLogo} 
@@ -461,96 +472,126 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-white")}>
                     {profile?.businessName || formData.businessName || 'Business Name'}
                   </h3>
-                  <p className="text-slate-400 text-sm">
+                  <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                     {profile?.businessEmail || formData.businessEmail || 'Business Email'}
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Business Name</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Name</label>
                 {editing ? (
                   <input
                     type="text"
                     value={formData.businessName}
                     onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                     placeholder="Enter business name"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.businessName || 'Not provided'}</p>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.businessName || 'Not provided'}</p>
                 )}
                 </div>
 
                 <div>
-                <label className="block text-sm font-medium mb-2">Business Address</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Address</label>
                 {editing ? (
                   <textarea
                     value={formData.businessAddress}
                     onChange={(e) => setFormData({ ...formData, businessAddress: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                     placeholder="Enter business address"
                     rows={3}
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.businessAddress || 'Not provided'}</p>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.businessAddress || 'Not provided'}</p>
                 )}
                 </div>
 
                 <div>
-                <label className="block text-sm font-medium mb-2">Business ABN</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business ABN</label>
                 {editing ? (
                   <input
                     type="text"
                     value={formData.businessABN}
                     onChange={(e) => setFormData({ ...formData, businessABN: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                     placeholder="Enter ABN"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.businessABN || 'Not provided'}</p>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.businessABN || 'Not provided'}</p>
                 )}
                 </div>
 
                 <div>
-                <label className="block text-sm font-medium mb-2">Business Phone Number</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Phone Number</label>
                 {editing ? (
                   <input
                     type="tel"
                     value={formData.businessPhone}
                     onChange={(e) => setFormData({ ...formData, businessPhone: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                     placeholder="Enter phone number"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.businessPhone || 'Not provided'}</p>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.businessPhone || 'Not provided'}</p>
                 )}
                 </div>
 
                 <div>
-                <label className="block text-sm font-medium mb-2">Business Email Address</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Email Address</label>
                 {editing ? (
                   <input
                     type="email"
                     value={formData.businessEmail}
                     onChange={(e) => setFormData({ ...formData, businessEmail: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className={cn(
+                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                      "bg-white dark:bg-slate-700/50",
+                      "border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
+                      "placeholder-neutral-500 dark:placeholder-slate-500"
+                    )}
                     placeholder="Enter business email"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.businessEmail || 'Not provided'}</p>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.businessEmail || 'Not provided'}</p>
                 )}
                   </div>
 
               {editing && (
-                <div className="flex gap-3 pt-4 border-t border-slate-700/50">
+                <div className={cn("flex gap-3 pt-4 border-t", "border-neutral-200 dark:border-slate-700/50")}>
                   <button
                     onClick={handleUpdateProfile}
                     disabled={uploadingLogo || saving}
-                    className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-white"
                   >
                     {saving ? (
                       <>
@@ -577,7 +618,12 @@ export default function SettingsPage() {
                       setEditing(false)
                     }}
                     disabled={uploadingLogo || saving}
-                    className="px-6 py-2.5 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={cn(
+                      "px-6 py-2.5 border rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                      "border-neutral-300 dark:border-slate-600",
+                      "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                      "text-neutral-700 dark:text-slate-300"
+                    )}
                   >
                     Cancel
                   </button>
@@ -587,18 +633,28 @@ export default function SettingsPage() {
           </div>
 
           {/* Account Actions */}
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
               <Key className="w-5 h-5" />
               Account Actions
             </h2>
 
-              <button className="w-full flex items-center mb-3 gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button className={cn(
+                "w-full flex items-center mb-3 gap-3 px-4 py-3 border rounded-lg transition-colors",
+                "border-neutral-300 dark:border-slate-600",
+                "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                "text-neutral-700 dark:text-slate-300"
+              )}>
                 <Download className="w-4 h-4" />
                 <span>Export Data (Coming Soon)</span>
               </button>
 
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors">
+              <button className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 border rounded-lg transition-colors",
+                "border-red-600",
+                "text-red-600 dark:text-red-400",
+                "hover:bg-red-50 dark:hover:bg-red-600/10"
+              )}>
                 <Trash2 className="w-4 h-4" />
                   <span>Delete Account (Coming Soon)</span>
                   </button>
@@ -608,15 +664,15 @@ export default function SettingsPage() {
         {/* Subscription & Credits Sidebar */}
         <div className="space-y-6">
           {/* Subscription Status */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+            <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
               <Crown className="w-5 h-5" />
               Subscription
             </h2>
 
             <div className="space-y-4">
                 <div>
-                <label className="block text-sm font-medium mb-2">Status</label>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
                 <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || 'TRIAL')}`}>
                   {getStatusText(profile?.subscriptionStatus || 'TRIAL')}
                 </div>
@@ -624,22 +680,22 @@ export default function SettingsPage() {
 
               {profile?.subscriptionPlan && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Plan</label>
-                  <p className="text-slate-300">{profile.subscriptionPlan}</p>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Plan</label>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile.subscriptionPlan}</p>
                 </div>
               )}
 
               {profile?.trialEndsAt && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Trial Ends</label>
-                  <p className="text-slate-300">{formatDate(profile.trialEndsAt)}</p>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Trial Ends</label>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.trialEndsAt)}</p>
                 </div>
               )}
 
               {profile?.nextBillingDate && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Next Billing</label>
-                  <p className="text-slate-300">{formatDate(profile.nextBillingDate)}</p>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Next Billing</label>
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.nextBillingDate)}</p>
                 </div>
               )}
 
@@ -654,8 +710,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Reports / Credits */}
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+            <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
               <Zap className="w-5 h-5" />
               {profile?.subscriptionStatus === 'ACTIVE' ? 'Reports' : 'Credits'}
             </h2>
@@ -664,25 +720,25 @@ export default function SettingsPage() {
                 {profile?.subscriptionStatus === 'ACTIVE' && profile?.reportLimits ? (
                   <>
                     <div>
-                      <label className="block text-sm font-medium mb-2">Available This Month</label>
-                      <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                      <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Available This Month</label>
+                      <div className={cn("text-2xl font-bold flex items-center gap-2", "text-cyan-600 dark:text-cyan-400")}>
                         {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
                         {profile.reportLimits.availableReports} / {profile.reportLimits.baseLimit + profile.reportLimits.addonReports}
                       </div>
-                      <div className="text-sm text-slate-400 mt-1">
+                      <div className={cn("text-sm mt-1", "text-neutral-600 dark:text-slate-400")}>
                         Base: {profile.reportLimits.baseLimit}
                         {profile.reportLimits.addonReports > 0 && ` + Add-ons: ${profile.reportLimits.addonReports}`}
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Used This Month</label>
-                      <div className="text-lg text-slate-300">
+                      <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Used This Month</label>
+                      <div className={cn("text-lg", "text-neutral-700 dark:text-slate-300")}>
                         {profile.reportLimits.monthlyReportsUsed}
                       </div>
                     </div>
 
-                    <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div className={cn("w-full rounded-full h-2", "bg-neutral-200 dark:bg-slate-700")}>
                       <div 
                         className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
                         style={{ 
@@ -702,21 +758,21 @@ export default function SettingsPage() {
                 ) : (
                   <>
                   <div>
-                <label className="block text-sm font-medium mb-2">Remaining</label>
-                <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Remaining</label>
+                <div className={cn("text-2xl font-bold flex items-center gap-2", "text-cyan-600 dark:text-cyan-400")}>
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
                   {profile?.creditsRemaining || 0}
               </div>
             </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Used</label>
-                <div className="text-lg text-slate-300">
+                      <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Used</label>
+                <div className={cn("text-lg", "text-neutral-700 dark:text-slate-300")}>
                   {profile?.totalCreditsUsed || 0}
                 </div>
               </div>
 
-              <div className="w-full bg-slate-700 rounded-full h-2">
+              <div className={cn("w-full rounded-full h-2", "bg-neutral-200 dark:bg-slate-700")}>
                 <div 
                   className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
                   style={{ 

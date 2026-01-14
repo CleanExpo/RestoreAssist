@@ -6,6 +6,7 @@ import { Upload, FileText, Loader2, X, CheckCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
 import OnboardingModal from "@/components/OnboardingModal"
+import { cn } from "@/lib/utils"
 
 export default function NewReportPage() {
   const router = useRouter()
@@ -202,17 +203,22 @@ export default function NewReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+    <div className={cn("min-h-screen p-6", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
       <div className="max-w-8xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Create New Report</h1>
-          <p className="text-slate-400">Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
+          <h1 className={cn("text-3xl font-bold mb-2", "text-neutral-900 dark:text-white")}>Create New Report</h1>
+          <p className={cn("text-neutral-600 dark:text-slate-400")}>Complete the workflow to generate professional inspection reports, scope of works, and cost estimations</p>
           </div>
           {(reportId || uploadedData) && (
             <button
               onClick={handleStartNew}
-              className="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
+              className={cn(
+                "px-4 py-2 border rounded-lg transition-colors",
+                "border-neutral-300 dark:border-slate-600",
+                "text-neutral-700 dark:text-slate-300",
+                "hover:bg-neutral-100 dark:hover:bg-slate-800"
+              )}
             >
               Start Fresh
             </button>
@@ -227,7 +233,7 @@ export default function NewReportPage() {
                 <Upload className="w-6 h-6 text-cyan-400" />
                 <div>
                   <h3 className="text-lg font-semibold text-cyan-400">Upload Existing Report</h3>
-                  <p className="text-sm text-slate-300">Upload a PDF report to extract data and populate the form</p>
+                  <p className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>Upload a PDF report to extract data and populate the form</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -262,7 +268,12 @@ export default function NewReportPage() {
                     </label>
                     <button
                       onClick={() => setShowUpload(false)}
-                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className={cn(
+                        "px-4 py-2 border rounded-lg transition-colors",
+                        "border-neutral-300 dark:border-slate-600",
+                        "text-neutral-700 dark:text-slate-300",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-700/50"
+                      )}
                       disabled={uploading}
                     >
                       Cancel
@@ -282,7 +293,7 @@ export default function NewReportPage() {
                 <CheckCircle className="w-6 h-6 text-green-400" />
                 <div>
                   <h3 className="text-lg font-semibold text-green-400">PDF Data Extracted</h3>
-                  <p className="text-sm text-slate-300">
+                  <p className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>
                     Data from <strong>{fileName}</strong> has been extracted and populated in the form below. 
                     Please review and complete any missing fields before saving.
                   </p>
@@ -303,10 +314,10 @@ export default function NewReportPage() {
         {!uploadedData && (
           <div className="relative mb-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-700"></div>
+              <div className={cn("w-full border-t", "border-neutral-300 dark:border-slate-700")}></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-slate-950 text-slate-400">OR</span>
+              <span className={cn("px-4", "bg-white dark:bg-slate-950", "text-neutral-600 dark:text-slate-400")}>OR</span>
             </div>
           </div>
         )}
@@ -314,8 +325,8 @@ export default function NewReportPage() {
         {/* Create New Report Workflow */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-4">
-            <FileText className="w-5 h-5 text-slate-400" />
-            <h2 className="text-xl font-semibold text-white">
+            <FileText className={cn("w-5 h-5", "text-neutral-600 dark:text-slate-400")} />
+            <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>
               {uploadedData ? 'Review and Complete Report' : 'Create New Report'}
             </h2>
           </div>
@@ -331,8 +342,8 @@ export default function NewReportPage() {
               <div className="inline-flex p-4 bg-amber-500/10 rounded-full mb-4">
                 <FileText className="w-12 h-12 text-amber-400" />
               </div>
-              <h3 className="text-2xl font-semibold text-white mb-2">Complete Onboarding First</h3>
-              <p className="text-slate-400 mb-6">
+              <h3 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Complete Onboarding First</h3>
+              <p className={cn("mb-6", "text-neutral-600 dark:text-slate-400")}>
                 Please complete all required onboarding steps before creating a new report. This ensures your reports are generated with the correct business information and settings.
               </p>
               <button

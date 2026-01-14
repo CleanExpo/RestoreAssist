@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Loader2, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, Clock, DollarSign, FileText, BarChart3, Activity, Zap } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart } from "recharts"
 import toast from "react-hot-toast"
+import { cn } from "@/lib/utils"
 
 import AnalyticsFilters, { AnalyticsFilters as AnalyticsFiltersType } from "./components/AnalyticsFilters"
 import KPICards from "./components/KPICards"
@@ -174,9 +175,9 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className={cn("min-h-screen", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
       {/* Hero Header with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600/20 via-cyan-600/20 to-purple-600/20 border-b border-slate-800/50 p-4 rounded-md">
+      <div className={cn("relative overflow-hidden p-4 rounded-md", "bg-gradient-to-r from-blue-600/20 via-cyan-600/20 to-purple-600/20", "border-b border-neutral-200 dark:border-slate-800/50")}>
         <div className="absolute inset-0 opacity-40" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }}></div>
@@ -193,10 +194,10 @@ export default function AnalyticsPage() {
         {/* Error Alert with Animation */}
         {error && (
           <div className="animate-in slide-in-from-top-4 duration-300">
-            <div className="p-4 rounded-xl bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent border border-red-500/30 backdrop-blur-sm shadow-lg">
+            <div className={cn("p-4 rounded-xl backdrop-blur-sm shadow-lg", "bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent", "border border-red-500/30")}>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <p className="text-red-300 font-medium">{error}</p>
+                <p className={cn("font-medium", "text-red-700 dark:text-red-300")}>{error}</p>
               </div>
             </div>
           </div>
@@ -207,12 +208,12 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-center min-h-[600px]">
             <div className="text-center space-y-6">
               <div className="relative">
-                <div className="w-20 h-20 border-4 border-slate-700 rounded-full"></div>
+                <div className={cn("w-20 h-20 border-4 rounded-full", "border-neutral-300 dark:border-slate-700")}></div>
                 <div className="w-20 h-20 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
               </div>
               <div className="space-y-2">
-                <p className="text-lg font-semibold text-slate-200">Loading Analytics</p>
-                <p className="text-sm text-slate-400">Gathering insights from your data...</p>
+                <p className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>Loading Analytics</p>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Gathering insights from your data...</p>
               </div>
             </div>
           </div>
@@ -222,10 +223,10 @@ export default function AnalyticsPage() {
             {insights && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-4 backdrop-blur-sm">
+                  <div className={cn("bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-4 backdrop-blur-sm")}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Growth Rate</p>
+                        <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Growth Rate</p>
                         <p className={`text-2xl font-bold ${insights.isGrowing ? 'text-emerald-400' : 'text-red-400'}`}>
                           {insights.revenueGrowth > 0 ? '+' : ''}{insights.revenueGrowth.toFixed(1)}%
                         </p>
@@ -241,7 +242,7 @@ export default function AnalyticsPage() {
                   <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Efficiency Score</p>
+                        <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Efficiency Score</p>
                         <p className="text-2xl font-bold text-purple-400">{insights.efficiencyScore}%</p>
                       </div>
                       <Zap className="w-8 h-8 text-purple-400" />
@@ -251,9 +252,9 @@ export default function AnalyticsPage() {
                   <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-4 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Top Hazard Type</p>
+                        <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Top Hazard Type</p>
                         <p className="text-lg font-bold text-amber-400">{insights.topHazard}</p>
-                        <p className="text-xs text-slate-500">{insights.topHazardCount} reports</p>
+                        <p className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>{insights.topHazardCount} reports</p>
                       </div>
                       <Activity className="w-8 h-8 text-amber-400" />
                     </div>
@@ -262,7 +263,7 @@ export default function AnalyticsPage() {
                   <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl p-4 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-slate-400 mb-1">Avg Value/Report</p>
+                        <p className={cn("text-xs mb-1", "text-neutral-600 dark:text-slate-400")}>Avg Value/Report</p>
                         <p className="text-lg font-bold text-emerald-400">
                           ${(insights.avgValuePerReport / 1000).toFixed(1)}K
                         </p>
@@ -281,7 +282,7 @@ export default function AnalyticsPage() {
 
             {/* Main Revenue Chart with Enhanced Styling */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
-              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-2xl p-6 hover:border-cyan-500/30 transition-all duration-300">
+              <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl p-6 transition-all duration-300", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-cyan-500/30")}>
                 <RevenueChart
                   data={data?.reportTrendData || []}
                   dateRange={filters.dateRange}
@@ -292,15 +293,15 @@ export default function AnalyticsPage() {
             {/* Charts Grid with Better Layout */}
             <div className="grid lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-300">
               {/* Damage Types Chart */}
-              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-purple-500/30 transition-all duration-300 overflow-hidden">
+              <div className={cn("backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-purple-500/30")}>
                 <DamageTypesChart data={data?.hazardDistribution || []} />
               </div>
 
               {/* Insurance Type Chart with Visual Bar */}
               {data?.insuranceTypeData && data.insuranceTypeData.length > 0 && (
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-blue-500/30 transition-all duration-300 p-6">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-blue-500/30")}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-slate-200">Insurance Distribution</h3>
+                    <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>Insurance Distribution</h3>
                     <BarChart3 className="w-5 h-5 text-blue-400" />
                   </div>
                   
@@ -312,10 +313,10 @@ export default function AnalyticsPage() {
                       return (
                         <div key={idx} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-300">{item.type || 'Unknown'}</span>
+                            <span className={cn("text-sm font-medium", "text-neutral-700 dark:text-slate-300")}>{item.type || 'Unknown'}</span>
                             <span className="text-sm font-bold text-cyan-400">{item.count}</span>
                           </div>
-                          <div className="w-full bg-slate-700/30 rounded-full h-2.5 overflow-hidden">
+                          <div className={cn("w-full rounded-full h-2.5 overflow-hidden", "bg-neutral-200 dark:bg-slate-700/30")}>
                             <div 
                               className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-1000"
                               style={{ width: `${percentage}%` }}
@@ -327,9 +328,9 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Total Count */}
-                  <div className="pt-4 border-t border-slate-700/50">
+                  <div className={cn("pt-4 border-t", "border-neutral-200 dark:border-slate-700/50")}>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">Total Insurance Types</span>
+                      <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Total Insurance Types</span>
                       <span className="text-lg font-bold text-blue-400">
                         {data.insuranceTypeData.length}
                       </span>
@@ -343,9 +344,9 @@ export default function AnalyticsPage() {
             <div className="grid lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-350">
               {/* State Performance with Chart */}
               {data?.statePerformance && data.statePerformance.length > 0 && (
-                <div className="lg:col-span-2 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-amber-500/30 transition-all duration-300 p-6">
+                <div className={cn("lg:col-span-2 backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-amber-500/30")}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-slate-200">Performance by State</h3>
+                    <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>Performance by State</h3>
                     <Activity className="w-5 h-5 text-amber-400" />
                   </div>
                   
@@ -381,9 +382,9 @@ export default function AnalyticsPage() {
 
               {/* Turnaround Time Summary */}
               {data?.turnaroundTime && data.turnaroundTime.length > 0 && (
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-orange-500/30 transition-all duration-300 p-6">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-orange-500/30")}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-slate-200">Turnaround Time</h3>
+                    <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>Turnaround Time</h3>
                     <Clock className="w-5 h-5 text-orange-400" />
                   </div>
                   
@@ -409,8 +410,8 @@ export default function AnalyticsPage() {
                   </div>
 
                   {data.turnaroundTime.length > 5 && (
-                    <div className="mt-4 pt-4 border-t border-slate-700/50 text-center">
-                      <span className="text-xs text-slate-400">
+                    <div className={cn("mt-4 pt-4 border-t text-center", "border-neutral-200 dark:border-slate-700/50")}>
+                      <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
                         +{data.turnaroundTime.length - 5} more hazard types
                       </span>
                     </div>
@@ -421,7 +422,7 @@ export default function AnalyticsPage() {
 
             {/* Revenue Projection - Full Width with Enhanced Design */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-400">
-              <div className="bg-gradient-to-br from-slate-800/50 via-slate-900/50 to-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-2xl hover:border-cyan-500/30 transition-all duration-300 overflow-hidden">
+              <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-cyan-500/30")}>
                 {projectionData ? (
                   <RevenueProjection
                     historical={projectionData.historical}
@@ -432,7 +433,7 @@ export default function AnalyticsPage() {
                   <div className="p-12 flex items-center justify-center">
                     <div className="text-center space-y-4">
                       <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
-                      <p className="text-slate-400">Calculating revenue forecast...</p>
+                      <p className={cn("text-neutral-600 dark:text-slate-400")}>Calculating revenue forecast...</p>
                     </div>
                   </div>
                 )}
@@ -442,7 +443,7 @@ export default function AnalyticsPage() {
             {/* Additional Metrics Grid */}
             <div className="grid lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-500">
               {/* Top Clients */}
-              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-emerald-500/30 transition-all duration-300 overflow-hidden">
+              <div className={cn("backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-emerald-500/30")}>
                 <TopClientsTable
                   data={
                     data?.topClients?.map((client) => ({
@@ -456,12 +457,12 @@ export default function AnalyticsPage() {
 
               {/* State Performance (if available) */}
               {data?.statePerformance && data.statePerformance.length > 0 && (
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-amber-500/30 transition-all duration-300 p-6">
-                  <h3 className="text-lg font-semibold text-slate-200 mb-4">Performance by State</h3>
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-amber-500/30")}>
+                  <h3 className={cn("text-lg font-semibold mb-4", "text-neutral-900 dark:text-slate-200")}>Performance by State</h3>
                   <div className="space-y-3">
                     {data.statePerformance.slice(0, 5).map((state, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                        <span className="text-slate-300 font-medium">{state.state || 'Unknown'}</span>
+                      <div key={idx} className={cn("flex items-center justify-between p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-700/30")}>
+                        <span className={cn("font-medium", "text-neutral-700 dark:text-slate-300")}>{state.state || 'Unknown'}</span>
                         <span className="text-amber-400 font-semibold">{state.value} reports</span>
                       </div>
                     ))}
@@ -473,7 +474,7 @@ export default function AnalyticsPage() {
             {/* Completion Metrics - Full Width */}
             {completionData && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-600">
-                <div className="bg-gradient-to-br from-slate-800/50 via-slate-900/50 to-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-2xl hover:border-purple-500/30 transition-all duration-300 overflow-hidden">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-purple-500/30")}>
                   <CompletionMetrics
                     overall={completionData.overall}
                     byHazardType={completionData.byHazardType}
@@ -487,28 +488,30 @@ export default function AnalyticsPage() {
             {/* Revenue Trend Analysis */}
             {data?.reportTrendData && data.reportTrendData.length > 0 && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-700">
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-xl hover:border-indigo-500/30 transition-all duration-300 p-6">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 p-6", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-indigo-500/30")}>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-slate-200">Revenue vs Reports Trend</h3>
+                    <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-slate-200")}>Revenue vs Reports Trend</h3>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedMetric('revenue')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95 ${
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
                           selectedMetric === 'revenue'
                             ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg hover:shadow-indigo-500/30'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:shadow-md'
-                        }`}
+                            : cn("text-neutral-700 dark:text-slate-300", "bg-neutral-100 dark:bg-slate-700/50", "hover:bg-neutral-200 dark:hover:bg-slate-700", "hover:shadow-md")
+                        )}
                         title="View revenue metrics"
                       >
                         Revenue
                       </button>
                       <button
                         onClick={() => setSelectedMetric('reports')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95 ${
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
                           selectedMetric === 'reports'
                             ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg hover:shadow-indigo-500/30'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:shadow-md'
-                        }`}
+                            : cn("text-neutral-700 dark:text-slate-300", "bg-neutral-100 dark:bg-slate-700/50", "hover:bg-neutral-200 dark:hover:bg-slate-700", "hover:shadow-md")
+                        )}
                         title="View report metrics"
                       >
                         Reports
@@ -592,38 +595,38 @@ export default function AnalyticsPage() {
             {/* Summary Stats Footer */}
             {data && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-800">
-                <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-sm rounded-2xl border border-slate-700/30 p-6">
+                <div className={cn("backdrop-blur-sm rounded-2xl p-6", "bg-white/50 dark:bg-slate-800/30", "border border-neutral-200 dark:border-slate-700/30")}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10 mb-3">
                         <FileText className="w-6 h-6 text-blue-400" />
                       </div>
-                      <p className="text-2xl font-bold text-slate-200">{data.kpis.totalReports.value}</p>
-                      <p className="text-xs text-slate-400 mt-1">Total Reports</p>
+                      <p className={cn("text-2xl font-bold", "text-neutral-900 dark:text-slate-200")}>{data.kpis.totalReports.value}</p>
+                      <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>Total Reports</p>
                     </div>
                     
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-3">
                         <DollarSign className="w-6 h-6 text-emerald-400" />
                       </div>
-                      <p className="text-2xl font-bold text-slate-200">{data.kpis.totalRevenue.formatted}</p>
-                      <p className="text-xs text-slate-400 mt-1">Total Revenue</p>
+                      <p className={cn("text-2xl font-bold", "text-neutral-900 dark:text-slate-200")}>{data.kpis.totalRevenue.formatted}</p>
+                      <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>Total Revenue</p>
                     </div>
                     
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-500/10 mb-3">
                         <BarChart3 className="w-6 h-6 text-purple-400" />
                       </div>
-                      <p className="text-2xl font-bold text-slate-200">{data.hazardDistribution.length}</p>
-                      <p className="text-xs text-slate-400 mt-1">Hazard Types</p>
+                      <p className={cn("text-2xl font-bold", "text-neutral-900 dark:text-slate-200")}>{data.hazardDistribution.length}</p>
+                      <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>Hazard Types</p>
                     </div>
                     
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-500/10 mb-3">
                         <Clock className="w-6 h-6 text-orange-400" />
                       </div>
-                      <p className="text-2xl font-bold text-slate-200">{data.kpis.avgCompletion.formatted}</p>
-                      <p className="text-xs text-slate-400 mt-1">Avg Completion</p>
+                      <p className={cn("text-2xl font-bold", "text-neutral-900 dark:text-slate-200")}>{data.kpis.avgCompletion.formatted}</p>
+                      <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>Avg Completion</p>
                     </div>
                   </div>
                 </div>
@@ -633,14 +636,14 @@ export default function AnalyticsPage() {
             {/* Empty State */}
             {!data && !loading && (
               <div className="text-center py-16 animate-in fade-in duration-500">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 mb-6">
-                  <BarChart3 className="w-12 h-12 text-slate-400" />
+                <div className={cn("inline-flex items-center justify-center w-24 h-24 rounded-full border mb-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}>
+                  <BarChart3 className={cn("w-12 h-12", "text-neutral-500 dark:text-slate-400")} />
                 </div>
-                <h3 className="text-2xl font-semibold text-slate-300 mb-2">No Analytics Data Available</h3>
-                <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                <h3 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-slate-300")}>No Analytics Data Available</h3>
+                <p className={cn("mb-6 max-w-md mx-auto", "text-neutral-600 dark:text-slate-400")}>
                   Start creating reports to see comprehensive analytics insights, revenue trends, and performance metrics.
                 </p>
-                <div className="flex items-center justify-center gap-4 text-sm text-slate-500">
+                <div className={cn("flex items-center justify-center gap-4 text-sm", "text-neutral-500 dark:text-slate-500")}>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Revenue tracking</span>

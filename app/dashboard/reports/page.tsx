@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X, FileSpreadsheet, Sparkles, Zap, FileCheck, RefreshCw, Plus } from "lucide-react"
 import toast from "react-hot-toast"
 import { BulkOperationModal } from "@/components/BulkOperationModal"
+import { cn } from "@/lib/utils"
 
 export default function ReportsPage() {
   const router = useRouter()
@@ -303,8 +304,8 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-semibold mb-2">Reports</h1>
-          <p className="text-slate-400">Manage and view all restoration reports</p>
+          <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Reports</h1>
+          <p className={cn("text-neutral-600 dark:text-slate-400")}>Manage and view all restoration reports</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {selectedReports.length > 0 && (
@@ -384,7 +385,12 @@ export default function ReportsPage() {
                 </button>
                 <button
                   onClick={clearSelection}
-                  className="px-3 py-1.5 border border-slate-600 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md text-sm text-slate-300"
+                  className={cn(
+                    "px-3 py-1.5 border rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md text-sm",
+                    "border-neutral-300 dark:border-slate-600",
+                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                    "text-neutral-700 dark:text-slate-300"
+                  )}
                 >
                   Clear
                 </button>
@@ -404,7 +410,7 @@ export default function ReportsPage() {
       {/* Filters & Search */}
       <div className="flex gap-4 items-center mb-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+          <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />
           <input
             type="text"
             placeholder="Search by ID, client, address..."
@@ -413,12 +419,22 @@ export default function ReportsPage() {
               setSearchTerm(e.target.value)
               setCurrentPage(1)
             }}
-            className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
+            className={cn(
+              "w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+              "bg-neutral-100 dark:bg-slate-800",
+              "border-neutral-300 dark:border-slate-700",
+              "text-neutral-900 dark:text-white",
+              "placeholder-neutral-500 dark:placeholder-slate-500"
+            )}
           />
         </div>
         <button
           onClick={() => setFilterOpen(!filterOpen)}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
+          className={cn(
+            "p-2 border rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
+            "border-neutral-300 dark:border-slate-700",
+            "hover:bg-neutral-100 dark:hover:bg-slate-800"
+          )}
           title={filterOpen ? "Hide filters" : "Show filters"}
         >
           <Filter size={20} className="transition-transform duration-200 group-hover:rotate-90" />
@@ -427,7 +443,11 @@ export default function ReportsPage() {
           onClick={() => {
             // Download all reports as a batch (you can implement this later)
           }}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
+          className={cn(
+            "p-2 border rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
+            "border-neutral-300 dark:border-slate-700",
+            "hover:bg-neutral-100 dark:hover:bg-slate-800"
+          )}
           title="Download All Reports"
         >
           <Download size={20} className="transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5" />
@@ -436,17 +456,22 @@ export default function ReportsPage() {
 
       {/* Filter Panel */}
       {filterOpen && (
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-4 animate-fade-in">
+        <div className={cn("p-4 rounded-lg border space-y-4 animate-fade-in", "border-neutral-200 dark:border-slate-700/50", "bg-neutral-50 dark:bg-slate-800/30")}>
           <div className="grid md:grid-cols-5 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
               <select
                 value={filters.status}
                 onChange={(e) => {
                   setFilters({ ...filters, status: e.target.value })
                   setCurrentPage(1)
                 }}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className={cn(
+                  "w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                  "bg-white dark:bg-slate-700/50",
+                  "border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white"
+                )}
               >
                 <option value="all">All Status</option>
                 <option value="COMPLETED">Completed</option>
@@ -457,14 +482,19 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Water Category</label>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Water Category</label>
               <select
                 value={filters.hazard}
                 onChange={(e) => {
                   setFilters({ ...filters, hazard: e.target.value })
                   setCurrentPage(1)
                 }}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className={cn(
+                  "w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                  "bg-white dark:bg-slate-700/50",
+                  "border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white"
+                )}
               >
                 <option value="all">All Categories</option>
                 <option value="Category 1">Category 1</option>
@@ -473,14 +503,19 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Insurance Type</label>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Insurance Type</label>
               <select
                 value={filters.insurance}
                 onChange={(e) => {
                   setFilters({ ...filters, insurance: e.target.value })
                   setCurrentPage(1)
                 }}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className={cn(
+                  "w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                  "bg-white dark:bg-slate-700/50",
+                  "border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white"
+                )}
               >
                 <option value="all">All Types</option>
                 <option value="Building & Contents">Building & Contents</option>
@@ -491,21 +526,31 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">From Date</label>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>From Date</label>
               <input
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className={cn(
+                  "w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                  "bg-white dark:bg-slate-700/50",
+                  "border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white"
+                )}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">To Date</label>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>To Date</label>
               <input
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className={cn(
+                  "w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                  "bg-white dark:bg-slate-700/50",
+                  "border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white"
+                )}
               />
             </div>
           </div>
@@ -518,7 +563,12 @@ export default function ReportsPage() {
                 setFilters({ status: "all", hazard: "all", insurance: "all", dateFrom: "", dateTo: "" })
                 setCurrentPage(1)
               }}
-              className="px-4 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:shadow-md"
+              className={cn(
+                "px-4 py-2 border rounded-lg text-sm hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 hover:shadow-md",
+                "border-neutral-300 dark:border-slate-600",
+                "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                "text-neutral-700 dark:text-slate-300"
+              )}
             >
               Clear All
             </button>
@@ -527,21 +577,21 @@ export default function ReportsPage() {
       )}
 
       {/* Reports Table */}
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
+      <div className={cn("rounded-lg border overflow-hidden mb-4", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-            <p className="text-slate-400">Loading reports...</p>
+            <p className={cn("text-neutral-600 dark:text-slate-400")}>Loading reports...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700 bg-slate-900/50">
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                <tr className={cn("border-b", "border-neutral-200 dark:border-slate-700", "bg-neutral-50 dark:bg-slate-900/50")}>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>
                     <button
                       onClick={selectedReports.length === paginatedReports.length ? clearSelection : selectAllReports}
-                      className="flex items-center gap-2 hover:text-white transition-all duration-200 hover:scale-105 active:scale-95 group"
+                      className={cn("flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 group", "text-neutral-700 dark:text-white", "hover:text-neutral-900 dark:hover:text-white")}
                       title={selectedReports.length === paginatedReports.length ? "Deselect all" : "Select all"}
                     >
                       {selectedReports.length === paginatedReports.length ? (
@@ -552,30 +602,30 @@ export default function ReportsPage() {
                       <span>Select All</span>
                     </button>
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Report ID</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Client Name</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Property Address</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Postcode</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Category</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Status</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Updated</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Report ID</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Client Name</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Property Address</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Postcode</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Category</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Status</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Updated</th>
+                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className={cn("py-8 text-center", "text-neutral-600 dark:text-slate-400")}>
                       No reports found. <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">Create your first report</Link>
                     </td>
                   </tr>
                 ) : (
                   paginatedReports.map((report, i) => (
-                    <tr key={report.id || i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                    <tr key={report.id || i} className={cn("border-b transition-colors", "border-neutral-200 dark:border-slate-700/50", "hover:bg-neutral-50 dark:hover:bg-slate-700/30")}>
                       <td className="py-4 px-6">
                         <button
                           onClick={() => toggleReportSelection(report.id)}
-                          className="flex items-center gap-2 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 group"
+                          className={cn("flex items-center gap-2 transition-all duration-200 hover:scale-110 active:scale-95 group", "text-neutral-700 dark:text-white", "hover:text-neutral-900 dark:hover:text-white")}
                           title={selectedReports.includes(report.id) ? "Deselect" : "Select"}
                         >
                           {selectedReports.includes(report.id) ? (
@@ -591,17 +641,17 @@ export default function ReportsPage() {
                         </Link>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-white font-medium" title={getClientName(report)}>
+                        <span className={cn("font-medium", "text-neutral-900 dark:text-white")} title={getClientName(report)}>
                           {truncateText(getClientName(report), 30)}
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-slate-300 text-sm" title={getPropertyAddress(report)}>
+                        <span className={cn("text-sm", "text-neutral-600 dark:text-slate-300")} title={getPropertyAddress(report)}>
                           {truncateText(getPropertyAddress(report), 30)}
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="text-slate-400 text-xs">
+                        <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
                           {report.propertyPostcode || "—"}
                         </span>
                       </td>
@@ -609,12 +659,12 @@ export default function ReportsPage() {
                         <div className="flex flex-col gap-1">
                         <span className="flex items-center gap-2">
                             <span className="text-lg">{hazardIcons[report.hazardType as keyof typeof hazardIcons] || "💧"}</span>
-                            <span className="text-slate-300 text-xs">
+                            <span className={cn("text-xs", "text-neutral-600 dark:text-slate-300")}>
                               {report.hazardType || "Water"}
                             </span>
                           </span>
                           {report.waterCategory && (
-                            <span className="text-slate-500 text-xs ml-6">
+                            <span className={cn("text-xs ml-6", "text-neutral-500 dark:text-slate-500")}>
                               {report.waterCategory}
                         </span>
                           )}
@@ -623,12 +673,12 @@ export default function ReportsPage() {
                       <td className="py-4 px-6">
                         <div className="flex flex-col gap-1">
                         <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${statusColors[report.status as keyof typeof statusColors] || cn("bg-neutral-200 dark:bg-slate-500/20", "text-neutral-600 dark:text-slate-400")}`}
                         >
                           {report.status || "DRAFT"}
                         </span>
                           {report.reportDepthLevel && (
-                            <span className="text-slate-500 text-xs">
+                            <span className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>
                               {report.reportDepthLevel}
                             </span>
                           )}
@@ -636,11 +686,11 @@ export default function ReportsPage() {
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex flex-col gap-1">
-                          <span className="text-slate-300 text-xs">
+                          <span className={cn("text-xs", "text-neutral-600 dark:text-slate-300")}>
                         {formatDateTime(report.updatedAt || report.createdAt)}
                           </span>
                           {report.incidentDate && (
-                            <span className="text-slate-500 text-xs">
+                            <span className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>
                               Incident: {formatDate(report.incidentDate)}
                             </span>
                           )}
@@ -650,7 +700,12 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md text-slate-300 hover:text-cyan-400 group"
+                            className={cn(
+                              "p-1.5 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
+                              "hover:bg-neutral-100 dark:hover:bg-slate-700",
+                              "text-neutral-600 dark:text-slate-300",
+                              "hover:text-cyan-600 dark:hover:text-cyan-400"
+                            )}
                             title="View Report"
                           >
                             <Eye size={16} className="transition-transform duration-200 group-hover:scale-110" />
@@ -665,7 +720,12 @@ export default function ReportsPage() {
                           <button 
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}
-                            className="p-1.5 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 text-slate-300 hover:text-green-400 group"
+                            className={cn(
+                              "p-1.5 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 group",
+                              "hover:bg-neutral-100 dark:hover:bg-slate-700",
+                              "text-neutral-600 dark:text-slate-300",
+                              "hover:text-green-600 dark:hover:text-green-400"
+                            )}
                             title="Duplicate Report"
                           >
                             {duplicating === report.id ? (

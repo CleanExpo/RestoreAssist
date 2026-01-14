@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { PropertyLookupButton } from "@/components/property-lookup-button";
+import { PropertyDataDisplay } from "@/components/property-data-display";
 import { 
   calculateDryingPotential, 
   calculateWaterRemovalTarget, 
@@ -50,7 +53,7 @@ import {
 } from "@/lib/equipment-matrix";
 
 interface InitialDataEntryFormProps {
-  onSuccess?: (reportId: string, reportType?: "basic" | "enhanced" | "optimised") => void;
+  onSuccess?: (reportId: string, reportType?: "basic" | "enhanced") => void;
   initialReportId?: string | null; // Report ID when editing existing report
   initialData?: {
     clientName?: string;
@@ -259,6 +262,22 @@ export default function InitialDataEntryForm({
   const [pricingConfig, setPricingConfig] = useState<any>(null);
   const hasAutoSelectedEquipment = useRef(false);
 
+  // Property Lookup State (Phase 5)
+  const [propertyData, setPropertyData] = useState<{
+    yearBuilt?: number | null
+    wallMaterial?: string | null
+    wallConstruction?: string | null
+    roofMaterial?: string | null
+    floorType?: string | null
+    floorArea?: number | null
+    bedrooms?: number | null
+    bathrooms?: number | null
+    landArea?: number | null
+    stories?: number | null
+  } | null>(null);
+  const [propertyDataFetchedAt, setPropertyDataFetchedAt] = useState<string | null>(null);
+  const [propertyLookupExpiresAt, setPropertyLookupExpiresAt] = useState<string | null>(null);
+
   // Update reportId when initialReportId prop changes
   useEffect(() => {
     if (initialReportId) {
@@ -388,7 +407,7 @@ export default function InitialDataEntryForm({
   const WATER_SOURCES = ["Clean Water", "Grey Water", "Black Water"];
   const SCOPE_ITEM_TYPES = [
     { id: "remove_carpet", label: "Remove Carpet" },
-    { id: "sanitize_materials", label: "Sanitize Materials" },
+    { id: "sanitize_materials", label: "Sanitise Materials" },
     { id: "install_dehumidification", label: "Install Dehumidification" },
     { id: "install_air_movers", label: "Install Air Movers" },
     { id: "extract_standing_water", label: "Extract Standing Water" },
@@ -1033,7 +1052,7 @@ export default function InitialDataEntryForm({
         setShowReportTypeSelection(false);
         toast.success(`Report type set to ${choice}`);
         if (onSuccess) {
-          onSuccess(reportId, choice);
+          onSuccess(reportId, choice === "optimised" ? "enhanced" : choice);
         }
       } else {
         const error = await response.json();
@@ -1374,8 +1393,8 @@ export default function InitialDataEntryForm({
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
-        <h2 className="text-2xl font-semibold mb-2">Initial Data Entry</h2>
-        <p className="text-slate-400">
+            <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-neutral-50")}>Initial Data Entry</h2>
+            <p className={cn("text-neutral-600 dark:text-neutral-400")}>
               Enter the basic information from the technician's field report. All
               fields marked with * are required.
             </p>
@@ -1383,7 +1402,11 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={handleQuickFill}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+            className={cn(
+              "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
+              "bg-success-600 hover:bg-success-700 dark:bg-success-600 dark:hover:bg-success-700",
+              "text-white"
+            )}
           >
             <Zap className="w-4 h-4" />
             Quick Fill Test Data
@@ -1393,16 +1416,20 @@ export default function InitialDataEntryForm({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Client Information Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <div className={cn(
+          "p-4 rounded-lg border",
+          "border-neutral-200 dark:border-neutral-800",
+          "bg-white dark:bg-neutral-900/50"
+        )}>
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <User className="w-4 h-4" />
             Client Information
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Client Name <span className="text-red-400">*</span>
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
+                Client Name <span className={cn("text-error-500 dark:text-error-400")}>*</span>
               </label>
               <input
                 type="text"
@@ -1411,24 +1438,34 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("clientName", e.target.value)
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                 placeholder="Enter client's full name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Client Contact Details
               </label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600 dark:text-neutral-400" />
                 <input
                   type="text"
                   value={formData.clientContactDetails}
                   onChange={(e) =>
                     handleInputChange("clientContactDetails", e.target.value)
                   }
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  className={cn(
+                    "w-full pl-10 pr-4 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                   placeholder="Phone number, email, etc."
                 />
               </div>
@@ -1437,16 +1474,20 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Property Information Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <MapPin className="w-5 h-5" />
+        <div className={cn(
+          "p-6 rounded-lg border",
+          "border-neutral-200 dark:border-neutral-800",
+          "bg-white dark:bg-neutral-900/50"
+        )}>
+          <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
+            <MapPin className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
             Property Information
           </h3>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Property Address <span className="text-red-400">*</span>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
+                Property Address <span className="text-error-500 dark:text-error-400">*</span>
               </label>
               <input
                 type="text"
@@ -1455,14 +1496,19 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("propertyAddress", e.target.value)
                 }
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                 placeholder="Full property address"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Postcode <span className="text-red-400">*</span>
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
+                Postcode <span className="text-error-500 dark:text-error-400">*</span>
               </label>
               <input
                 type="text"
@@ -1475,17 +1521,59 @@ export default function InitialDataEntryForm({
                     e.target.value.replace(/\D/g, "")
                   )
                 }
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                 placeholder="0000"
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-neutral-400")}>
                 Required for state detection and regulatory compliance
               </p>
             </div>
 
+            {/* Phase 5: Property Lookup Button */}
+            {reportId && (
+              <div className="pt-2">
+                <PropertyLookupButton
+                  inspectionId={reportId}
+                  address={formData.propertyAddress}
+                  postcode={formData.propertyPostcode}
+                  label="Lookup Property Data ($2.30)"
+                  onSuccess={(data) => {
+                    setPropertyData(data.data || null);
+                    setPropertyDataFetchedAt(new Date().toISOString());
+                    setPropertyLookupExpiresAt(data.expiresAt);
+
+                    // Update form with fetched data
+                    if (data.data) {
+                      handleInputChange("buildingAge", data.data.yearBuilt?.toString() || "");
+                    }
+                  }}
+                  onError={(error) => {
+                    console.error("Property lookup error:", error);
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Phase 5: Property Data Display */}
+            {propertyData && (
+              <div className={cn("pt-4 border-t", "border-neutral-300 dark:border-neutral-700")}>
+                <PropertyDataDisplay
+                  data={propertyData}
+                  fetchedAt={propertyDataFetchedAt}
+                  source="CORELOGIC"
+                  expiresAt={propertyLookupExpiresAt}
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
                   Property ID
                 </label>
                 <input
@@ -1494,12 +1582,17 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("propertyId", e.target.value)
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                   placeholder="Property identifier"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
                   Job Number
                 </label>
                 <input
@@ -1508,14 +1601,19 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("jobNumber", e.target.value)
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                   placeholder="Job number"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
                   Building Age
                 </label>
                 <input
@@ -1524,13 +1622,18 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("buildingAge", e.target.value)
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                   placeholder="e.g., 2010 or 1985"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
                   Structure Type
                 </label>
                 <select
@@ -1538,7 +1641,12 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("structureType", e.target.value)
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                 >
                   <option value="">Select structure type</option>
                   <option value="Residential - Single Storey">
@@ -1563,7 +1671,7 @@ export default function InitialDataEntryForm({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
                 Access Notes
               </label>
               <textarea
@@ -1571,7 +1679,12 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("accessNotes", e.target.value)
                 }
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                className={cn(
+                "w-full px-4 py-2 rounded-lg",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
                 placeholder="Key under mat, owner present, gate code, etc."
                 rows={2}
               />
@@ -1580,15 +1693,19 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Claim Information Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4" />
+        <div className={cn(
+          "p-4 rounded-lg border",
+          "border-neutral-200 dark:border-neutral-800",
+          "bg-white dark:bg-neutral-900/50"
+        )}>
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
+            <FileText className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             Claim Information
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Claim Reference Number
               </label>
               <input
@@ -1597,13 +1714,18 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("claimReferenceNumber", e.target.value)
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                 placeholder="Claim reference"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Insurer / Client Name
               </label>
               <input
@@ -1612,34 +1734,44 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("insurerName", e.target.value)
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                 placeholder="Insurance company"
               />
             </div>
 
               <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Date of Incident
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600 dark:text-neutral-400" />
                   <input
                     type="date"
                     value={formData.incidentDate}
                   onChange={(e) =>
                     handleInputChange("incidentDate", e.target.value)
                   }
-                  className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  className={cn(
+                    "w-full pl-10 pr-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                   />
                 </div>
               </div>
 
               <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Technician Attendance Date
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600 dark:text-neutral-400" />
                   <input
                     type="date"
                     value={formData.technicianAttendanceDate}
@@ -1649,13 +1781,18 @@ export default function InitialDataEntryForm({
                       e.target.value
                     )
                   }
-                  className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  className={cn(
+                    "w-full pl-10 pr-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                   />
               </div>
             </div>
 
             <div className="md:col-span-2 lg:col-span-4">
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Technician Name
               </label>
               <input
@@ -1664,7 +1801,12 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("technicianName", e.target.value)
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                 placeholder="Name of technician who attended"
               />
             </div>
@@ -1672,14 +1814,18 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Cover Page Information Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4" />
+        <div className={cn(
+          "p-4 rounded-lg border",
+          "border-neutral-200 dark:border-neutral-800",
+          "bg-white dark:bg-neutral-900/50"
+        )}>
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
+            <FileText className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             Cover Page Information
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Report Instructions / Standards References
               </label>
               <textarea
@@ -1687,11 +1833,16 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("reportInstructions", e.target.value)
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                 placeholder="e.g., Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity."
                 rows={3}
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-neutral-400")}>
                 This will appear on the cover page of the report
               </p>
             </div>
@@ -1699,20 +1850,24 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Additional Contact Information Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <User className="w-4 h-4" />
+        <div className={cn(
+          "p-4 rounded-lg border",
+          "border-neutral-200 dark:border-neutral-800",
+          "bg-white dark:bg-neutral-900/50"
+        )}>
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
+            <User className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             Additional Contact Information
           </h3>
           <div className="space-y-4">
             {/* Builder/Developer Information */}
-            <div className="p-3 rounded-lg border border-slate-600/50 bg-slate-900/30">
-              <h4 className="text-sm font-semibold mb-3 text-slate-300">
+            <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-slate-900/30">
+              <h4 className="text-sm font-semibold mb-3 text-neutral-700 dark:text-neutral-300">
                 Builder/Developer Information
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Company Name
                   </label>
                   <input
@@ -1721,12 +1876,17 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("builderDeveloperCompanyName", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Builder/Developer company name"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Contact Person
                   </label>
                   <input
@@ -1735,12 +1895,17 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("builderDeveloperContact", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Contact person name"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Address
                   </label>
                   <input
@@ -1749,12 +1914,17 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("builderDeveloperAddress", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Builder/Developer address"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Phone
                   </label>
                   <input
@@ -1763,7 +1933,12 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("builderDeveloperPhone", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Phone number"
                   />
                 </div>
@@ -1771,13 +1946,13 @@ export default function InitialDataEntryForm({
             </div>
 
             {/* Owner/Management Information */}
-            <div className="p-3 rounded-lg border border-slate-600/50 bg-slate-900/30">
-              <h4 className="text-sm font-semibold mb-3 text-slate-300">
+            <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-slate-900/30">
+              <h4 className="text-sm font-semibold mb-3 text-neutral-700 dark:text-neutral-300">
                 Owner/Management Information
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Contact Name
                   </label>
                   <input
@@ -1786,12 +1961,17 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("ownerManagementContactName", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Owner/Management contact name"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Phone
                   </label>
                   <input
@@ -1800,12 +1980,17 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("ownerManagementPhone", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Phone number"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-slate-400">
+                  <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                     Email
                   </label>
                   <input
@@ -1814,7 +1999,12 @@ export default function InitialDataEntryForm({
                     onChange={(e) =>
                       handleInputChange("ownerManagementEmail", e.target.value)
                     }
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                    className={cn(
+                      "w-full px-3 py-2 rounded-lg text-sm",
+                      "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                      "text-neutral-900 dark:text-neutral-50",
+                      "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                    )}
                     placeholder="Email address"
                   />
                 </div>
@@ -1824,31 +2014,36 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Previous Maintenance & Repair History Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <Clock className="w-4 h-4" />
             Previous Maintenance & Repair History
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Date of Last Inspection
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600 dark:text-neutral-400" />
                 <input
                   type="date"
                   value={formData.lastInspectionDate}
                   onChange={(e) =>
                     handleInputChange("lastInspectionDate", e.target.value)
                   }
-                  className="w-full pl-10 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  className={cn(
+                    "w-full pl-10 pr-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Was building changed since last inspection?
                 </label>
                 <select
@@ -1856,7 +2051,12 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("buildingChangedSinceLastInspection", e.target.value)
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                 >
                   <option value="">Select...</option>
                   <option value="Yes">Yes</option>
@@ -1864,7 +2064,7 @@ export default function InitialDataEntryForm({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Were there changes/additions to structure since last inspection?
                 </label>
                 <select
@@ -1872,7 +2072,12 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("structureChangesSinceLastInspection", e.target.value)
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                 >
                   <option value="">Select...</option>
                   <option value="Yes">Yes</option>
@@ -1880,7 +2085,7 @@ export default function InitialDataEntryForm({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Was there any leakage?
                 </label>
                 <select
@@ -1888,7 +2093,12 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("previousLeakage", e.target.value)
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                 >
                   <option value="">Select...</option>
                   <option value="Yes">Yes</option>
@@ -1896,7 +2106,7 @@ export default function InitialDataEntryForm({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Was emergency repair performed?
                 </label>
                 <select
@@ -1904,7 +2114,12 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("emergencyRepairPerformed", e.target.value)
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-sm"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
                 >
                   <option value="">Select...</option>
                   <option value="Yes">Yes</option>
@@ -1916,15 +2131,15 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Technician Field Report Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <FileText className="w-4 h-4" />
             Technician Field Report
           </h3>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Technician's Field Report <span className="text-red-400">*</span>
+            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
+              Technician's Field Report <span className="text-error-500 dark:text-error-400">*</span>
             </label>
             <textarea
               required
@@ -1933,7 +2148,12 @@ export default function InitialDataEntryForm({
                 handleInputChange("technicianFieldReport", e.target.value)
               }
               rows={6}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 font-mono text-sm"
+              className={cn(
+                "w-full px-3 py-2 rounded-lg font-mono text-sm",
+                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                "text-neutral-900 dark:text-neutral-50",
+                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+              )}
               placeholder="Paste or type the technician's field report here..."
             />
           </div>
@@ -1941,24 +2161,24 @@ export default function InitialDataEntryForm({
 
         {/* NIR Fields - Available for all report types */}
         <div className="p-6 rounded-lg border border-green-500/50 bg-green-500/10 space-y-6">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 text-green-400">
+          <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-green-600 dark:text-green-400")}>
             <CheckCircle className="w-5 h-5" />
             NIR Inspection Data
           </h3>
-          <p className="text-sm text-slate-300 mb-4">
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-4">
             Enter structured inspection data. The system will automatically
             classify and determine scope.
           </p>
 
           {/* Moisture Readings */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
-              <Droplets className="w-4 h-4" />
-              Moisture Readings <span className="text-red-400">*</span>
+          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+            <h4 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
+              <Droplets className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
+              Moisture Readings <span className="text-error-500 dark:text-error-400">*</span>
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 bg-slate-900/50 rounded-lg">
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Location
                 </label>
                 <input
@@ -1970,12 +2190,12 @@ export default function InitialDataEntryForm({
                       location: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                   placeholder="Room/Zone"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Surface
                 </label>
                 <select
@@ -1986,7 +2206,7 @@ export default function InitialDataEntryForm({
                       surfaceType: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                 >
                   {SURFACE_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -1996,7 +2216,7 @@ export default function InitialDataEntryForm({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Moisture (%)
                 </label>
                 <input
@@ -2011,11 +2231,11 @@ export default function InitialDataEntryForm({
                       moistureLevel: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Depth
                 </label>
                 <select
@@ -2026,7 +2246,7 @@ export default function InitialDataEntryForm({
                       depth: e.target.value as "Surface" | "Subsurface",
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                 >
                   <option value="Surface">Surface</option>
                   <option value="Subsurface">Subsurface</option>
@@ -2055,7 +2275,7 @@ export default function InitialDataEntryForm({
                     });
                     toast.success("Moisture reading added");
                   }}
-                  className="w-full px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs flex items-center justify-center gap-1"
+                  className="w-full px-3 py-1.5 bg-success-600 hover:bg-success-700 dark:bg-success-600 dark:hover:bg-success-700 text-white rounded text-xs flex items-center justify-center gap-1"
                 >
                   <Plus className="w-3 h-3" />
                   Add
@@ -2081,7 +2301,7 @@ export default function InitialDataEntryForm({
                         );
                         toast.success("Removed");
                       }}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-error-500 dark:text-error-400 hover:text-red-300"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -2092,14 +2312,14 @@ export default function InitialDataEntryForm({
           </div>
 
           {/* Affected Areas */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
             <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
               <MapPin className="w-4 h-4" />
-              Affected Areas <span className="text-red-400">*</span>
+              Affected Areas <span className="text-error-500 dark:text-error-400">*</span>
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 bg-slate-900/50 rounded-lg">
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Room/Zone
                 </label>
                 <input
@@ -2111,12 +2331,12 @@ export default function InitialDataEntryForm({
                       roomZoneId: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                   placeholder="e.g., Master Bedroom"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Square Footage
                 </label>
                 <input
@@ -2130,11 +2350,11 @@ export default function InitialDataEntryForm({
                       affectedSquareFootage: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Water Source
                 </label>
                 <select
@@ -2145,7 +2365,7 @@ export default function InitialDataEntryForm({
                       waterSource: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                 >
                   {WATER_SOURCES.map((source) => (
                     <option key={source} value={source}>
@@ -2155,7 +2375,7 @@ export default function InitialDataEntryForm({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-slate-400">
+                <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Time Since Loss (hrs)
                 </label>
                 <input
@@ -2169,7 +2389,7 @@ export default function InitialDataEntryForm({
                       timeSinceLoss: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
                 />
               </div>
               <div className="flex items-end">
@@ -2199,7 +2419,7 @@ export default function InitialDataEntryForm({
                     });
                     toast.success("Affected area added");
                   }}
-                  className="w-full px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs flex items-center justify-center gap-1"
+                  className="w-full px-3 py-1.5 bg-success-600 hover:bg-success-700 dark:bg-success-600 dark:hover:bg-success-700 text-white rounded text-xs flex items-center justify-center gap-1"
                 >
                   <Plus className="w-3 h-3" />
                   Add
@@ -2225,7 +2445,7 @@ export default function InitialDataEntryForm({
                         );
                         toast.success("Removed");
                       }}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-error-500 dark:text-error-400 hover:text-red-300"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -2236,7 +2456,7 @@ export default function InitialDataEntryForm({
           </div>
 
           {/* Scope Items */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
             <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
               <CheckCircle className="w-4 h-4" />
               Scope Items
@@ -2259,7 +2479,7 @@ export default function InitialDataEntryForm({
                       }
                       setNirSelectedScopeItems(newSelected);
                     }}
-                    className="w-3 h-3 rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500"
+                    className="w-3 h-3 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-green-500 focus:ring-green-500"
                   />
                   <span className="text-white">{item.label}</span>
                 </label>
@@ -2270,15 +2490,15 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Hazard Profile Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <AlertTriangle className="w-4 h-4" />
             Hazard Profile
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                 Methamphetamine Screen
               </label>
               <select
@@ -2286,7 +2506,12 @@ export default function InitialDataEntryForm({
                 onChange={(e) =>
                   handleInputChange("methamphetamineScreen", e.target.value)
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
               >
                 <option value="NEGATIVE">NEGATIVE</option>
                 <option value="POSITIVE">POSITIVE</option>
@@ -2295,7 +2520,7 @@ export default function InitialDataEntryForm({
 
             {formData.methamphetamineScreen === "POSITIVE" && (
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Test Count
                 </label>
                 <input
@@ -2307,7 +2532,12 @@ export default function InitialDataEntryForm({
                       e.target.value ? parseInt(e.target.value) : ""
                     )
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                   placeholder="Test count"
                   min="1"
                 />
@@ -2325,7 +2555,7 @@ export default function InitialDataEntryForm({
                       e.target.checked
                     )
                   }
-                  className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                  className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
                 />
                 Bio/Mould Detected
               </label>
@@ -2333,7 +2563,7 @@ export default function InitialDataEntryForm({
 
             {formData.biologicalMouldDetected && (
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
                   Mould Category
                 </label>
                 <select
@@ -2341,7 +2571,12 @@ export default function InitialDataEntryForm({
                   onChange={(e) =>
                     handleInputChange("biologicalMouldCategory", e.target.value)
                   }
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+                  className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm",
+                  "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                  "text-neutral-900 dark:text-neutral-50",
+                  "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                )}
                 >
                   <option value="">Select category</option>
                   <option value="CAT 3">CAT 3</option>
@@ -2354,8 +2589,8 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Timeline Estimation Section */}
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <Clock className="w-4 h-4" />
             Timeline Estimation (Optional)
           </h3>
@@ -2363,7 +2598,7 @@ export default function InitialDataEntryForm({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Phase 1 */}
             <div>
-              <h4 className="text-xs font-semibold mb-2 text-slate-300">
+              <h4 className="text-xs font-semibold mb-2 text-neutral-700 dark:text-neutral-300">
                 Phase 1: Make-safe
               </h4>
               <div className="space-y-2">
@@ -2372,28 +2607,28 @@ export default function InitialDataEntryForm({
                     Start
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-600 dark:text-neutral-400" />
                     <input
                       type="date"
                       value={formData.phase1StartDate}
                       onChange={(e) =>
                         handleInputChange("phase1StartDate", e.target.value)
                       }
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                      className="w-full pl-8 pr-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 text-xs"
             />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1">End</label>
                   <div className="relative">
-                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-600 dark:text-neutral-400" />
                     <input
                       type="date"
                       value={formData.phase1EndDate}
                       onChange={(e) =>
                         handleInputChange("phase1EndDate", e.target.value)
                       }
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                      className="w-full pl-8 pr-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 text-xs"
                     />
                   </div>
                 </div>
@@ -2402,7 +2637,7 @@ export default function InitialDataEntryForm({
 
             {/* Phase 2 */}
             <div>
-              <h4 className="text-xs font-semibold mb-2 text-slate-300">
+              <h4 className="text-xs font-semibold mb-2 text-neutral-700 dark:text-neutral-300">
                 Phase 2: Remediation/Drying
               </h4>
               <div className="space-y-2">
@@ -2411,28 +2646,28 @@ export default function InitialDataEntryForm({
                     Start
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-600 dark:text-neutral-400" />
                     <input
                       type="date"
                       value={formData.phase2StartDate}
                       onChange={(e) =>
                         handleInputChange("phase2StartDate", e.target.value)
                       }
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                      className="w-full pl-8 pr-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 text-xs"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1">End</label>
                   <div className="relative">
-                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-600 dark:text-neutral-400" />
                     <input
                       type="date"
                       value={formData.phase2EndDate}
                       onChange={(e) =>
                         handleInputChange("phase2EndDate", e.target.value)
                       }
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                      className="w-full pl-8 pr-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 text-xs"
                     />
                   </div>
                 </div>
@@ -2441,7 +2676,7 @@ export default function InitialDataEntryForm({
 
             {/* Phase 3 */}
             <div>
-              <h4 className="text-xs font-semibold mb-2 text-slate-300">
+              <h4 className="text-xs font-semibold mb-2 text-neutral-700 dark:text-neutral-300">
                 Phase 3: Verification
               </h4>
               <div className="space-y-2">
@@ -2450,28 +2685,28 @@ export default function InitialDataEntryForm({
                     Start
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-600 dark:text-neutral-400" />
                     <input
                       type="date"
                       value={formData.phase3StartDate}
                       onChange={(e) =>
                         handleInputChange("phase3StartDate", e.target.value)
                       }
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                      className="w-full pl-8 pr-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 text-xs"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1">End</label>
                   <div className="relative">
-                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-600 dark:text-neutral-400" />
                     <input
                       type="date"
                       value={formData.phase3EndDate}
                       onChange={(e) =>
                         handleInputChange("phase3EndDate", e.target.value)
                       }
-                      className="w-full pl-8 pr-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-xs"
+                      className="w-full pl-8 pr-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50 text-xs"
                     />
                   </div>
                 </div>
@@ -2481,7 +2716,7 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* Equipment & Tools Selection Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-6">
+        <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 space-y-6">
           <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Wrench className="w-5 h-5" />
             Equipment & Tools Selection
@@ -2496,7 +2731,7 @@ export default function InitialDataEntryForm({
                   <h4 className="font-semibold text-blue-400 mb-1">
                     Drying Potential Assessment
                   </h4>
-                  <p className="text-sm text-slate-300">
+                  <p className="text-sm text-neutral-700 dark:text-neutral-300">
                     Understand the 'Energy' in the air. Temperature and Humidity
                     determine if the air acts like a 'Thirsty Sponge' (Good) or
                     a 'Saturated Sponge' (Bad).
@@ -2506,7 +2741,7 @@ export default function InitialDataEntryForm({
             </div>
             
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-900/30">
+              <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-900/30">
                 <h4 className="text-lg font-semibold mb-4">Water Loss Class</h4>
                 <div className="grid grid-cols-4 gap-2 mb-4">
                   {[1, 2, 3, 4].map((cls) => (
@@ -2516,15 +2751,15 @@ export default function InitialDataEntryForm({
                       onClick={() => setWaterClass(cls as 1 | 2 | 3 | 4)}
                       className={`px-4 py-2 rounded-lg border transition-colors ${
                         waterClass === cls
-                          ? "border-cyan-500 bg-cyan-500/20 text-cyan-400"
-                          : "border-slate-600 bg-slate-700/50 text-slate-400 hover:border-slate-500"
+                          ? "border-cyan-500 bg-cyan-500/20 text-primary-600 dark:text-primary-400"
+                          : "border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-slate-500"
                       }`}
                     >
                       {cls}
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-slate-400 mb-6">
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-6">
                   Class 1 (Least water) to Class 4 (Bound water/Deep saturation)
                 </p>
                 
@@ -2567,7 +2802,7 @@ export default function InitialDataEntryForm({
               
               <div className="p-6 rounded-lg border border-pink-500/50 bg-pink-500/10">
                 <div className="flex items-center justify-center mb-4">
-                  <Zap className="w-8 h-8 text-red-400" />
+                  <Zap className="w-8 h-8 text-error-500 dark:text-error-400" />
                 </div>
                 <h4 className="text-2xl font-bold text-center mb-2">
                   DRYING POTENTIAL
@@ -2588,7 +2823,7 @@ export default function InitialDataEntryForm({
                 >
                   {dryingPotential.status}
                 </div>
-                <p className="text-sm text-slate-300 text-center">
+                <p className="text-sm text-neutral-700 dark:text-neutral-300 text-center">
                   {dryingPotential.recommendation}
                   </p>
                 </div>
@@ -2604,7 +2839,7 @@ export default function InitialDataEntryForm({
                   <h4 className="font-semibold text-green-400 mb-1">
                     Equipment Selection
                   </h4>
-                  <p className="text-sm text-slate-300">
+                  <p className="text-sm text-neutral-700 dark:text-neutral-300">
                     Use 'Auto-Select Best Fit' to instantly load standard
                     equipment, or manually select items.
                   </p>
@@ -2613,7 +2848,7 @@ export default function InitialDataEntryForm({
             </div>
             
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-900/30">
+              <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-900/30">
                 <h4 className="text-lg font-semibold mb-2">Job Manifest</h4>
                 <div className="p-4 bg-slate-800/50 rounded-lg mb-4">
                   <h5 className="font-semibold mb-3">Efficiency Targets</h5>
@@ -2673,11 +2908,11 @@ export default function InitialDataEntryForm({
                       onChange={(e) =>
                         setDurationDays(parseInt(e.target.value) || 1)
                       }
-                      className="w-20 px-2 py-1 bg-slate-700/50 border border-slate-600 rounded text-sm"
+                      className="w-20 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-sm"
                     />
                     <span className="text-sm">Days</span>
                   </div>
-                  <div className="text-sm text-slate-400">
+                  <div className="text-sm text-neutral-600 dark:text-neutral-400">
                     Total Draw: {totalAmps.toFixed(1)} Amps
                   </div>
                 </div>
@@ -2693,7 +2928,7 @@ export default function InitialDataEntryForm({
                   Auto-Select Best Fit
                 </button>
                 
-                <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-900/30 max-h-96 overflow-y-auto">
+                <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-900/30 max-h-96 overflow-y-auto">
                   <h5 className="font-semibold mb-3">LGR DEHUMIDIFIERS</h5>
                   <div className="space-y-2">
                     {lgrDehumidifiers.map((group) => {
@@ -2715,7 +2950,7 @@ export default function InitialDataEntryForm({
                               <div className="font-medium text-sm">
                                 {group.capacity}
                               </div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-neutral-600 dark:text-neutral-400">
                                 $
                                 {(
                                   selection?.dailyRate ||
@@ -2730,7 +2965,7 @@ export default function InitialDataEntryForm({
                               </div>
                             </div>
                             {quantity > 0 && (
-                              <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                              <div className="px-3 py-1 bg-cyan-500/20 text-primary-600 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                 {quantity}
                               </div>
                             )}
@@ -2781,7 +3016,7 @@ export default function InitialDataEntryForm({
                               <div className="font-medium text-sm">
                                 {group.capacity}
                               </div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-neutral-600 dark:text-neutral-400">
                                 $
                                 {(
                                   selection?.dailyRate ||
@@ -2796,7 +3031,7 @@ export default function InitialDataEntryForm({
                               </div>
                             </div>
                             {quantity > 0 && (
-                              <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                              <div className="px-3 py-1 bg-cyan-500/20 text-primary-600 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                 {quantity}
                               </div>
                             )}
@@ -2806,20 +3041,18 @@ export default function InitialDataEntryForm({
                                 onClick={() =>
                                   handleEquipmentQuantityChange(group.id, -1)
                                 }
-                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
-                                title="Decrease quantity"
+                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
                               >
-                                <Minus className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
+                                <Minus className="w-4 h-4" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleEquipmentQuantityChange(group.id, 1)
                                 }
-                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group"
-                                title="Increase quantity"
+                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
                               >
-                                <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
+                                <Plus className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
@@ -2838,25 +3071,24 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={() => router.back()}
-            className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 hover:border-slate-500 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+            className="px-6 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:bg-neutral-100 dark:bg-neutral-800 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none group"
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving...</span>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Saving...
               </>
             ) : (
               <>
-                <Save className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                <span>Save & Continue</span>
-                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                Save & Continue
+                <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -2867,10 +3099,10 @@ export default function InitialDataEntryForm({
       {showReportTypeSelection && (
         <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-cyan-500/10 space-y-6 mt-6">
           <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-cyan-400" />
+            <FileText className="w-6 h-6 text-primary-600 dark:text-primary-400" />
             Select Report Type
           </h3>
-          <p className="text-slate-400 mb-6">
+          <p className="text-neutral-600 dark:text-neutral-400 mb-6">
             Choose the level of detail for your inspection report. Data has been saved successfully.
           </p>
 
@@ -2879,7 +3111,7 @@ export default function InitialDataEntryForm({
                 type="button"
               onClick={() => handleReportTypeChoice("basic")}
               disabled={loading}
-                className="p-6 rounded-lg border-2 border-slate-600 hover:border-blue-500 bg-slate-800/30 hover:bg-slate-800/50 transition-all duration-200 text-left group disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-blue-500/20"
+                className="p-6 rounded-lg border-2 border-neutral-300 dark:border-neutral-700 hover:border-blue-500 bg-white dark:bg-neutral-900/50 hover:bg-slate-800/50 transition-all text-left group disabled:opacity-50"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -2890,12 +3122,12 @@ export default function InitialDataEntryForm({
                     <h4 className="text-xl font-semibold text-white">
                       Basic
                     </h4>
-                      <p className="text-sm text-slate-400">Quick Processing</p>
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">Quick Processing</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-blue-400 transition-all duration-200 group-hover:translate-x-1 group-hover:scale-110" />
+                  <ArrowRight className="w-5 h-5 text-neutral-600 dark:text-neutral-400 group-hover:text-blue-400 transition-colors" />
                 </div>
-              <p className="text-slate-300 mb-4 text-sm">
+              <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
                 Generate report directly with saved data
               </p>
                 <div className="space-y-2">
@@ -2908,7 +3140,7 @@ export default function InitialDataEntryForm({
                 ].map((feature, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 text-sm text-slate-400"
+                    className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"
                   >
                       <CheckCircle className="w-4 h-4" />
                       <span>{feature}</span>
@@ -2921,7 +3153,7 @@ export default function InitialDataEntryForm({
                 type="button"
               onClick={() => handleReportTypeChoice("enhanced")}
               disabled={loading}
-                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all duration-200 text-left group relative disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-cyan-500/30"
+                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50"
               >
                 <div className="absolute top-4 right-4">
                   <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
@@ -2937,12 +3169,12 @@ export default function InitialDataEntryForm({
                     <h4 className="text-xl font-semibold text-white">
                       Enhanced
                     </h4>
-                    <p className="text-sm text-cyan-400">Basic + Tier 1</p>
+                    <p className="text-sm text-primary-600 dark:text-primary-400">Basic + Tier 1</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300 transition-all duration-200 group-hover:translate-x-1 group-hover:scale-110" />
+                  <ArrowRight className="w-5 h-5 text-primary-600 dark:text-primary-400 group-hover:text-cyan-300 transition-colors" />
                 </div>
-              <p className="text-slate-300 mb-4 text-sm">
+              <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
                 Answer Tier 1 critical questions, then generate report
               </p>
                 <div className="space-y-2">
@@ -2955,9 +3187,9 @@ export default function InitialDataEntryForm({
                 ].map((feature, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 text-sm text-slate-300"
+                    className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
                   >
-                      <CheckCircle className="w-4 h-4 text-cyan-400" />
+                      <CheckCircle className="w-4 h-4 text-primary-600 dark:text-primary-400" />
                       <span>{feature}</span>
                     </div>
                   ))}
@@ -2968,7 +3200,7 @@ export default function InitialDataEntryForm({
             type="button"
               onClick={() => handleReportTypeChoice("optimised")}
             disabled={loading}
-              className="p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all duration-200 text-left group relative disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-green-500/30"
+              className="p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50"
             >
               <div className="absolute top-4 right-4">
                 <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
@@ -2987,9 +3219,9 @@ export default function InitialDataEntryForm({
                     <p className="text-sm text-green-400">Enhanced + Tier 2 + Tier 3</p>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-green-400 group-hover:text-green-300 transition-all duration-200 group-hover:translate-x-1 group-hover:scale-110" />
+                <ArrowRight className="w-5 h-5 text-green-400 group-hover:text-green-300 transition-colors" />
               </div>
-              <p className="text-slate-300 mb-4 text-sm">
+              <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
                 Complete all tiers including photo uploads, then generate report
               </p>
               <div className="space-y-2">
@@ -3002,7 +3234,7 @@ export default function InitialDataEntryForm({
                 ].map((feature, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 text-sm text-slate-300"
+                    className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
                   >
                     <CheckCircle className="w-4 h-4 text-green-400" />
                     <span>{feature}</span>
