@@ -6,6 +6,7 @@ import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
 import toast from "react-hot-toast"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 interface Subscription {
   id: string
@@ -354,14 +355,19 @@ export default function SubscriptionPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold mb-2">Subscription</h1>
-          <p className="text-slate-400">Manage your subscription and billing</p>
+          <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Subscription</h1>
+          <p className={cn("text-neutral-600 dark:text-slate-400")}>Manage your subscription and billing</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => fetchSubscription(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+              "border-neutral-300 dark:border-slate-600",
+              "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+              "text-neutral-700 dark:text-slate-300"
+            )}
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -380,15 +386,15 @@ export default function SubscriptionPage() {
       {subscription ? (
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Current Plan */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Current Plan</h2>
+              <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>Current Plan</h2>
               <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                 subscription.status === 'active' 
-                  ? 'bg-green-500/20 text-green-400' 
+                  ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
                   : subscription.status === 'canceled'
-                  ? 'bg-red-500/20 text-red-400'
-                  : 'bg-yellow-500/20 text-yellow-400'
+                  ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+                  : 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
               }`}>
                 {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
               </div>
@@ -396,16 +402,16 @@ export default function SubscriptionPage() {
 
             <div className="space-y-4">
               <div>
-                <h3 className="text-2xl font-bold text-white">{subscription.plan.name}</h3>
-                <p className="text-slate-400">
+                <h3 className={cn("text-2xl font-bold", "text-neutral-900 dark:text-white")}>{subscription.plan.name}</h3>
+                <p className={cn("text-neutral-600 dark:text-slate-400")}>
                   {formatPrice(subscription.plan.amount, subscription.plan.currency)}/{subscription.plan.interval}
                 </p>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-300">
+                  <Calendar className={cn("w-4 h-4", "text-neutral-500 dark:text-slate-400")} />
+                  <span className={cn("text-neutral-700 dark:text-slate-300")}>
                     Current period: {formatDate(subscription.currentPeriodStart)} - {formatDate(subscription.currentPeriodEnd)}
                   </span>
                 </div>
@@ -422,36 +428,36 @@ export default function SubscriptionPage() {
 
           {/* Report Usage */}
           {reportLimits && (
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+              <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
                 <Zap className="w-5 h-5" />
                 Report Usage
               </h2>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-slate-400">Available This Month</label>
-                  <div className="text-3xl font-bold text-cyan-400">
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-600 dark:text-slate-400")}>Available This Month</label>
+                  <div className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
                     {reportLimits.availableReports} / {reportLimits.baseLimit + reportLimits.addonReports}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-slate-400">Base Plan</label>
-                    <div className="text-xl font-semibold text-white">{reportLimits.baseLimit}</div>
+                    <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Base Plan</label>
+                    <div className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>{reportLimits.baseLimit}</div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-slate-400">Add-ons</label>
-                    <div className="text-xl font-semibold text-yellow-400">{reportLimits.addonReports}</div>
+                    <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Add-ons</label>
+                    <div className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">{reportLimits.addonReports}</div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1 text-slate-400">Used</label>
-                    <div className="text-xl font-semibold text-slate-300">{reportLimits.monthlyReportsUsed}</div>
+                    <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Used</label>
+                    <div className={cn("text-xl font-semibold", "text-neutral-700 dark:text-slate-300")}>{reportLimits.monthlyReportsUsed}</div>
                   </div>
                 </div>
 
-                <div className="w-full bg-slate-700 rounded-full h-3">
+                <div className={cn("w-full rounded-full h-3", "bg-neutral-200 dark:bg-slate-700")}>
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-300"
                     style={{ 
@@ -473,17 +479,17 @@ export default function SubscriptionPage() {
 
           {/* Add-on Purchase History */}
           {addonPurchases.length > 0 && (
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+              <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
                 <Crown className="w-5 h-5" />
                 Add-on Purchase History
               </h2>
               <div className="space-y-3">
                 {addonPurchases.map((purchase) => (
-                  <div key={purchase.id} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
+                  <div key={purchase.id} className={cn("flex items-center justify-between p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-700/30")}>
                     <div>
-                      <div className="font-medium text-white">{purchase.addonName}</div>
-                      <div className="text-sm text-slate-400">
+                      <div className={cn("font-medium", "text-neutral-900 dark:text-white")}>{purchase.addonName}</div>
+                      <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                         {new Date(purchase.purchasedAt).toLocaleDateString('en-AU', {
                           year: 'numeric',
                           month: 'long',
@@ -492,8 +498,8 @@ export default function SubscriptionPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-cyan-400">+{purchase.reportLimit} reports</div>
-                      <div className="text-sm text-slate-400">
+                      <div className={cn("font-semibold", "text-cyan-600 dark:text-cyan-400")}>+{purchase.reportLimit} reports</div>
+                      <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                         {formatPricingAmount(purchase.amount, purchase.currency)}
                       </div>
                     </div>
@@ -504,35 +510,35 @@ export default function SubscriptionPage() {
           )}
 
           {/* Plan Features */}
-          <div className={`p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 ${reportLimits ? '' : 'lg:col-span-2'}`}>
-            <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
+          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30", reportLimits ? '' : 'lg:col-span-2')}>
+            <h2 className={cn("text-xl font-semibold mb-4", "text-neutral-900 dark:text-white")}>Plan Features</h2>
             
             <div className="grid md:grid-cols-2 gap-4">
               <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className={cn("text-neutral-700 dark:text-slate-300")}>
                   {subscription?.plan.name === 'Yearly Plan' ? '70' : '50'} reports per month
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">PDF & Excel export</span>
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className={cn("text-neutral-700 dark:text-slate-300")}>PDF & Excel export</span>
               </div>
               <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">Email support</span>
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className={cn("text-neutral-700 dark:text-slate-300")}>Email support</span>
               </div>
               <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">All integrations</span>
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className={cn("text-neutral-700 dark:text-slate-300")}>All integrations</span>
               </div>
               <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">IICRC S500 compliant</span>
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className={cn("text-neutral-700 dark:text-slate-300")}>IICRC S500 compliant</span>
               </div>
               <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-slate-300">Priority processing</span>
+                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className={cn("text-neutral-700 dark:text-slate-300")}>Priority processing</span>
               </div>
             </div>
           </div>
@@ -541,11 +547,11 @@ export default function SubscriptionPage() {
         <div className="space-y-8">
           {/* No Subscription Header */}
           <div className="text-center py-8">
-            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-slate-400" />
+            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", "bg-neutral-200 dark:bg-slate-700")}>
+              <CreditCard className={cn("w-8 h-8", "text-neutral-600 dark:text-slate-400")} />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">No Active Subscription</h2>
-            <p className="text-slate-400">
+            <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>No Active Subscription</h2>
+            <p className={cn("text-neutral-600 dark:text-slate-400")}>
               You're currently on the free trial. Choose a plan below to unlock all features.
             </p>
           </div>
@@ -555,11 +561,13 @@ export default function SubscriptionPage() {
             {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
               <div
                 key={key}
-                className={`relative bg-slate-800/50 rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105 ${
+                className={cn(
+                  "relative rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105",
+                  "bg-white dark:bg-slate-800/50",
                   plan.popular
                     ? 'border-cyan-500 shadow-2xl shadow-cyan-500/20'
-                    : 'border-slate-700 hover:border-slate-600'
-                }`}
+                    : cn("border-neutral-300 dark:border-slate-700", "hover:border-neutral-400 dark:hover:border-slate-600")
+                )}
               >
                 {/* Popular Badge */}
                 {plan.popular && (
@@ -582,28 +590,28 @@ export default function SubscriptionPage() {
                 )}
 
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-white mb-2">
+                  <h3 className={cn("text-xl font-bold mb-2", "text-neutral-900 dark:text-white")}>
                     {plan.displayName}
                   </h3>
                   <div className="mb-4">
-                    <span className="text-3xl font-bold text-cyan-400">
+                    <span className={cn("text-3xl font-bold", "text-cyan-600 dark:text-cyan-400")}>
                       {plan.amount === 0 ? 'Free' : formatPricingAmount(plan.amount, plan.currency)}
                     </span>
                     {plan.interval && (
-                      <span className="text-slate-400">/{plan.interval}</span>
+                      <span className={cn("text-neutral-600 dark:text-slate-400")}>/{plan.interval}</span>
                     )}
                   </div>
                   
                   {/* Discount Display */}
                   {plan.discount && (
-                    <div className="text-sm text-green-400 mb-2">
+                    <div className={cn("text-sm mb-2", "text-green-600 dark:text-green-400")}>
                       {plan.discount} discount - Save ${plan.savings}/year
                     </div>
                   )}
                   
                   {/* Monthly Equivalent */}
                   {plan.monthlyEquivalent && (
-                    <div className="text-sm text-slate-400">
+                    <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                       ${plan.monthlyEquivalent}/month equivalent
                     </div>
                   )}
@@ -613,19 +621,19 @@ export default function SubscriptionPage() {
                 <div className="space-y-3 mb-6">
                   {plan.features.map((feature, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                      <span className="text-slate-300 text-sm">{feature}</span>
+                      <Check className={cn("w-4 h-4 mt-0.5 flex-shrink-0", "text-green-600 dark:text-green-400")} />
+                      <span className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>{feature}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Report Limit */}
-                <div className="mb-6 p-3 bg-slate-700/30 rounded-lg">
+                <div className={cn("mb-6 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-700/30")}>
                   <div className="flex items-center gap-2 mb-1">
-                    <Zap className="w-4 h-4 text-yellow-400" />
-                    <span className="font-semibold text-white text-sm">Report Limit</span>
+                    <Zap className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                    <span className={cn("font-semibold text-sm", "text-neutral-900 dark:text-white")}>Report Limit</span>
                   </div>
-                  <div className="text-lg font-bold text-cyan-400">
+                  <div className={cn("text-lg font-bold", "text-cyan-600 dark:text-cyan-400")}>
                     {plan.reportLimit === 'unlimited' ? 'Unlimited' : plan.reportLimit}
                   </div>
                 </div>
@@ -634,11 +642,12 @@ export default function SubscriptionPage() {
                 <button
                   onClick={() => handleSubscribe(key as PricingPlan)}
                   disabled={pricingLoading === key}
-                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
+                  className={cn(
+                    "w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed",
                     plan.popular
                       ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
-                      : 'bg-slate-700 text-white hover:bg-slate-600'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      : cn("bg-neutral-700 dark:bg-slate-700 text-white", "hover:bg-neutral-600 dark:hover:bg-slate-600")
+                  )}
                 >
                   {pricingLoading === key ? (
                     <div className="flex items-center justify-center gap-2">
@@ -655,35 +664,35 @@ export default function SubscriptionPage() {
 
           {/* Features Comparison */}
           <div className="mt-12 max-w-4xl mx-auto">
-            <h3 className="text-2xl font-bold text-white text-center mb-6">
+            <h3 className={cn("text-2xl font-bold text-center mb-6", "text-neutral-900 dark:text-white")}>
               All Plans Include
             </h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                <Shield className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">IICRC S500 Compliant</h4>
-                <p className="text-slate-400 text-sm">
+              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
+                <Shield className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
+                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>IICRC S500 Compliant</h4>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                   All reports follow IICRC S500 standards
                 </p>
               </div>
-              <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                <Download className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">PDF Export</h4>
-                <p className="text-slate-400 text-sm">
+              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
+                <Download className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
+                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>PDF Export</h4>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                   Professional PDF reports ready for submission
                 </p>
               </div>
-              <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                <Users className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">Client Management</h4>
-                <p className="text-slate-400 text-sm">
+              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
+                <Users className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
+                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>Client Management</h4>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                   Manage clients and track jobs
                 </p>
               </div>
-              <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">24/7 Access</h4>
-                <p className="text-slate-400 text-sm">
+              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
+                <Clock className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
+                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>24/7 Access</h4>
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                   Access your data anytime, anywhere
                 </p>
               </div>
@@ -695,22 +704,22 @@ export default function SubscriptionPage() {
       {/* Add-on Purchase Modal */}
       {showAddonModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className={cn("rounded-lg border max-w-2xl w-full max-h-[90vh] overflow-y-auto", "bg-white dark:bg-slate-800", "border-neutral-200 dark:border-slate-700")}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <h2 className={cn("text-2xl font-bold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
                   <Crown className="w-6 h-6" />
                   Purchase Add-ons
                 </h2>
                 <button
                   onClick={() => setShowAddonModal(false)}
-                  className="text-slate-400 hover:text-white transition-colors"
+                  className={cn("transition-colors", "text-neutral-600 dark:text-slate-400", "hover:text-neutral-900 dark:hover:text-white")}
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <p className="text-slate-400 mb-6">
+              <p className={cn("mb-6", "text-neutral-600 dark:text-slate-400")}>
                 Add more reports to your monthly limit. Add-ons are one-time purchases that add to your current month's available reports.
               </p>
 
@@ -718,11 +727,13 @@ export default function SubscriptionPage() {
                 {Object.entries(PRICING_CONFIG.addons).map(([key, addon]) => (
                   <div
                     key={key}
-                    className={`relative bg-slate-700/30 rounded-lg border-2 p-4 transition-all ${
+                    className={cn(
+                      "relative rounded-lg border-2 p-4 transition-all",
+                      "bg-neutral-50 dark:bg-slate-700/30",
                       addon.popular
                         ? 'border-cyan-500 shadow-lg shadow-cyan-500/20'
-                        : 'border-slate-600 hover:border-slate-500'
-                    }`}
+                        : cn("border-neutral-300 dark:border-slate-600", "hover:border-neutral-400 dark:hover:border-slate-500")
+                    )}
                   >
                     {addon.popular && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -740,13 +751,13 @@ export default function SubscriptionPage() {
                     )}
 
                     <div className="text-center mb-4">
-                      <h3 className="text-lg font-bold text-white mb-2">
+                      <h3 className={cn("text-lg font-bold mb-2", "text-neutral-900 dark:text-white")}>
                         {addon.displayName}
                       </h3>
-                      <div className="text-2xl font-bold text-cyan-400 mb-2">
+                      <div className={cn("text-2xl font-bold mb-2", "text-cyan-600 dark:text-cyan-400")}>
                         {formatPricingAmount(addon.amount, addon.currency)}
                       </div>
-                      <div className="text-sm text-slate-400">
+                      <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                         {addon.reportLimit} additional reports
                       </div>
                     </div>
@@ -754,11 +765,12 @@ export default function SubscriptionPage() {
                     <button
                       onClick={() => handlePurchaseAddon(key)}
                       disabled={addonLoading === key}
-                      className={`w-full py-2 px-4 rounded-lg font-semibold transition-all ${
+                      className={cn(
+                        "w-full py-2 px-4 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                         addon.popular
                           ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
-                          : 'bg-slate-600 text-white hover:bg-slate-500'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          : cn("bg-neutral-600 dark:bg-slate-600 text-white", "hover:bg-neutral-500 dark:hover:bg-slate-500")
+                      )}
                     >
                       {addonLoading === key ? (
                         <div className="flex items-center justify-center gap-2">

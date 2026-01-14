@@ -25,6 +25,8 @@ import {
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import Chatbot from "@/components/Chatbot"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { cn } from "@/lib/utils"
 
 export default function DashboardLayout({
   children,
@@ -44,7 +46,7 @@ export default function DashboardLayout({
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className={cn("min-h-screen flex items-center justify-center", "bg-white dark:bg-slate-950")}>
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
       </div>
     )
@@ -52,7 +54,7 @@ export default function DashboardLayout({
 
   if (status === "unauthenticated") {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className={cn("min-h-screen flex items-center justify-center", "bg-white dark:bg-slate-950")}>
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
       </div>
     )
@@ -86,26 +88,33 @@ const upgradeItem = {
 
   return (
     <>
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className={cn("min-h-screen", "bg-white dark:bg-slate-950", "text-neutral-900 dark:text-slate-50")}>
                 {/* Sidebar */}
                 <aside
-                  className={`fixed left-0 top-0 h-screen bg-slate-900 border-r border-slate-800 transition-all duration-300 z-40 flex flex-col ${
+                  className={cn(
+                    "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
+                    "bg-white dark:bg-slate-900",
+                    "border-r border-neutral-200 dark:border-slate-800",
                     sidebarOpen ? "w-64" : "w-20"
-                  }`}
+                  )}
                 >
                   {/* Logo */}
-                  <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800 flex-shrink-0">
+                  <div className={cn("h-16 flex items-center justify-between px-4 flex-shrink-0", "border-b border-neutral-200 dark:border-slate-800")}>
                     {sidebarOpen && (
                       <Link href="/dashboard/" className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
                           <span className="text-white font-bold text-xs">RA</span>
                         </div>
-                        <span className="font-semibold text-sm">Restore Assist</span>
+                        <span className={cn("font-semibold text-sm", "text-neutral-900 dark:text-slate-50")}>Restore Assist</span>
                       </Link>
                     )}
                     <button
                       onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="p-1 hover:bg-slate-800 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                      className={cn(
+                        "p-1 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                        "text-neutral-700 dark:text-slate-300"
+                      )}
                       title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                     >
                       {sidebarOpen ? <X size={20} className="transition-transform duration-200" /> : <Menu size={20} className="transition-transform duration-200" />}
@@ -118,11 +127,16 @@ const upgradeItem = {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group ${
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
                           item.highlight
                             ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                            : "text-slate-300 hover:bg-slate-800 hover:scale-[1.02] hover:shadow-md"
-                        }`}
+                            : cn(
+                                "text-neutral-700 dark:text-slate-300",
+                                "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                "hover:scale-[1.02] hover:shadow-md"
+                              )
+                        )}
                         title={!sidebarOpen ? item.label : ""}
                       >
                         <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
@@ -133,11 +147,16 @@ const upgradeItem = {
                     {/* Upgrade Package - Special styling */}
                     <Link
                       href={upgradeItem.href}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group ${
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
                         upgradeItem.special
                           ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium shadow-lg hover:shadow-yellow-500/50 hover:from-yellow-600 hover:to-orange-600 hover:scale-[1.02] hover:shadow-xl"
-                          : "text-slate-300 hover:bg-slate-800 hover:scale-[1.02]"
-                      }`}
+                          : cn(
+                              "text-neutral-700 dark:text-slate-300",
+                              "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                              "hover:scale-[1.02]"
+                            )
+                      )}
                       title={!sidebarOpen ? upgradeItem.label : ""}
                     >
                       <upgradeItem.icon size={20} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
@@ -146,10 +165,14 @@ const upgradeItem = {
                   </nav>
 
                   {/* User Section - Fixed at bottom */}
-                  <div className="border-t border-slate-800 p-4 flex-shrink-0">
+                  <div className={cn("border-t p-4 flex-shrink-0", "border-neutral-200 dark:border-slate-800")}>
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group",
+                        "text-neutral-700 dark:text-slate-300",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-800"
+                      )}
                       title="Logout"
                     >
                       <LogOut size={20} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
@@ -161,33 +184,55 @@ const upgradeItem = {
         {/* Main Content */}
         <div className={`transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
           {/* Top Bar */}
-          <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 sticky top-0 z-30">
+          <header className={cn(
+            "h-16 flex items-center justify-between px-6 sticky top-0 z-30",
+            "bg-white dark:bg-slate-900",
+            "border-b border-neutral-200 dark:border-slate-800"
+          )}>
             <div className="flex-1 max-w-md">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />
                 <input
                   type="text"
                   placeholder="Search reports, clients..."
-                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm text-white placeholder-slate-500"
+                  className={cn(
+                    "w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500/50 text-sm",
+                    "bg-neutral-50 dark:bg-slate-800",
+                    "border border-neutral-300 dark:border-slate-700",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                    "focus:border-cyan-500"
+                  )}
                 />
               </div>
             </div>
 
             <div className="flex items-center gap-4 ml-6">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+              
               {/* Notifications */}
               <div className="relative">
                 {/* <button
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors relative"
+                  className={cn(
+                    "p-2 rounded-lg transition-colors relative",
+                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                    "text-neutral-700 dark:text-slate-300"
+                  )}
                 >
                   <Bell size={20} />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
                 </button>
 
                 {notificationsOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50">
-                    <div className="p-4 border-b border-slate-700">
-                      <h3 className="font-semibold">Notifications</h3>
+                  <div className={cn(
+                    "absolute right-0 mt-2 w-80 rounded-lg shadow-xl z-50",
+                    "bg-white dark:bg-slate-800",
+                    "border border-neutral-200 dark:border-slate-700"
+                  )}>
+                    <div className={cn("p-4 border-b", "border-neutral-200 dark:border-slate-700")}>
+                      <h3 className={cn("font-semibold", "text-neutral-900 dark:text-slate-50")}>Notifications</h3>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
                       {[
@@ -201,11 +246,15 @@ const upgradeItem = {
                       ].map((notif, i) => (
                         <div
                           key={i}
-                          className="p-4 border-b border-slate-700 hover:bg-slate-700/50 cursor-pointer transition-colors"
+                          className={cn(
+                            "p-4 cursor-pointer transition-colors",
+                            "border-b border-neutral-200 dark:border-slate-700",
+                            "hover:bg-neutral-50 dark:hover:bg-slate-700/50"
+                          )}
                         >
-                          <p className="font-medium text-sm">{notif.title}</p>
-                          <p className="text-xs text-slate-400 mt-1">{notif.desc}</p>
-                          <p className="text-xs text-slate-500 mt-2">{notif.time}</p>
+                          <p className={cn("font-medium text-sm", "text-neutral-900 dark:text-slate-50")}>{notif.title}</p>
+                          <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>{notif.desc}</p>
+                          <p className={cn("text-xs mt-2", "text-neutral-500 dark:text-slate-500")}>{notif.time}</p>
                         </div>
                       ))}
                     </div>
@@ -214,10 +263,10 @@ const upgradeItem = {
               </div>
 
               {/* User Avatar & Dropdown */}
-              <div className="flex items-center gap-3 pl-4 border-l border-slate-700">
+              <div className={cn("flex items-center gap-3 pl-4", "border-l border-neutral-200 dark:border-slate-700")}>
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium">{session?.user?.name}</p>
-                  <p className="text-xs text-slate-400">{session?.user?.email}</p>
+                  <p className={cn("text-sm font-medium", "text-neutral-900 dark:text-slate-50")}>{session?.user?.name}</p>
+                  <p className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>{session?.user?.email}</p>
                 </div>
                 <button className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-sm hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 active:scale-95 transition-all duration-200">
                   {session?.user?.name?.charAt(0) || "U"}
@@ -227,7 +276,7 @@ const upgradeItem = {
           </header>
 
           {/* Page Content */}
-          <main className="space-y-6 max-w-9xl mx-auto px-2 sm:px-4 lg:px-6 py-8">{children}</main>
+          <main className={cn("space-y-6 max-w-9xl mx-auto px-2 sm:px-4 lg:px-6 py-8", "bg-white dark:bg-slate-950")}>{children}</main>
         </div>
       </div>
       {/* Chatbot */}

@@ -3,6 +3,7 @@
 import { ChevronDown, Mail, Phone, MessageSquare, BookOpen, Video } from "lucide-react"
 import { useState } from "react"
 import ReactMarkdown from "react-markdown"
+import { cn } from "@/lib/utils"
 
 export default function HelpPage() {
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null)
@@ -114,8 +115,8 @@ export default function HelpPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-semibold mb-2">Help & Support</h1>
-        <p className="text-slate-400">Find answers and get support for Restore Assist</p>
+        <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Help & Support</h1>
+        <p className={cn("text-neutral-600 dark:text-slate-400")}>Find answers and get support for Restore Assist</p>
       </div>
 
       {/* Support Channels */}
@@ -125,12 +126,17 @@ export default function HelpPage() {
           return (
             <div
               key={i}
-              className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all"
+              className={cn(
+                "p-6 rounded-lg border transition-all",
+                "border-neutral-200 dark:border-slate-700/50",
+                "bg-white dark:bg-slate-800/30",
+                "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
+              )}
             >
-              <Icon size={24} className="text-cyan-400 mb-3" />
-              <h3 className="font-semibold mb-1">{channel.title}</h3>
-              <p className="text-sm text-slate-400 mb-3">{channel.description}</p>
-              <p className="text-xs text-slate-500">Response: {channel.response}</p>
+              <Icon size={24} className="text-cyan-600 dark:text-cyan-400 mb-3" />
+              <h3 className={cn("font-semibold mb-1", "text-neutral-900 dark:text-white")}>{channel.title}</h3>
+              <p className={cn("text-sm mb-3", "text-neutral-600 dark:text-slate-400")}>{channel.description}</p>
+              <p className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>Response: {channel.response}</p>
             </div>
           )
         })}
@@ -143,13 +149,18 @@ export default function HelpPage() {
           return (
             <button
               key={i}
-              className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all text-left group"
+              className={cn(
+                "p-6 rounded-lg border transition-all text-left group",
+                "border-neutral-200 dark:border-slate-700/50",
+                "bg-white dark:bg-slate-800/30",
+                "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
+              )}
             >
               <div className="flex items-center gap-3">
-                <Icon size={24} className="text-cyan-400 group-hover:scale-110 transition-transform shrink-0" />
+                <Icon size={24} className="text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform shrink-0" />
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <h3 className="font-semibold whitespace-nowrap">{resource.title}</h3>
-                  <p className="text-sm text-slate-400">- {resource.description}</p>
+                  <h3 className={cn("font-semibold whitespace-nowrap", "text-neutral-900 dark:text-white")}>{resource.title}</h3>
+                  <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>- {resource.description}</p>
                 </div>
               </div>
             </button>
@@ -158,14 +169,18 @@ export default function HelpPage() {
       </div>
 
       {/* FAQs */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h2 className="text-2xl font-semibold mb-6">Frequently Asked Questions</h2>
+      <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+        <h2 className={cn("text-2xl font-semibold mb-6", "text-neutral-900 dark:text-white")}>Frequently Asked Questions</h2>
         <div className="space-y-3">
           {faqs.map((faq) => (
-            <div key={faq.id} className="border border-slate-700/50 rounded-lg overflow-hidden">
+            <div key={faq.id} className={cn("border rounded-lg overflow-hidden", "border-neutral-200 dark:border-slate-700/50")}>
               <button
                 onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                className="w-full p-4 flex items-center justify-between hover:bg-slate-700/30 transition-colors text-left"
+                className={cn(
+                  "w-full p-4 flex items-center justify-between transition-colors text-left",
+                  "hover:bg-neutral-50 dark:hover:bg-slate-700/30",
+                  "text-neutral-900 dark:text-white"
+                )}
               >
                 <span className="font-medium">{faq.question}</span>
                 <ChevronDown
@@ -174,12 +189,12 @@ export default function HelpPage() {
                 />
               </button>
               {expandedFaq === faq.id && (
-                <div className="p-4 bg-slate-700/20 border-t border-slate-700/50">
-                  <div className="text-slate-300 prose prose-invert prose-sm max-w-none">
+                <div className={cn("p-4 border-t", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-700/50")}>
+                  <div className={cn("prose prose-sm max-w-none", "text-neutral-700 dark:text-slate-300")}>
                     <ReactMarkdown
                       components={{
                         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                        strong: ({ children }) => <strong className={cn("font-semibold", "text-neutral-900 dark:text-white")}>{children}</strong>,
                         em: ({ children }) => <em className="italic">{children}</em>,
                         ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1 ml-4">{children}</ul>,
                         ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1 ml-4">{children}</ol>,
