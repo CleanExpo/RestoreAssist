@@ -14,6 +14,8 @@ export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [accountType, setAccountType] = useState<"admin" | "technician">("admin")
+  const [inviteToken, setInviteToken] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -30,6 +32,17 @@ export default function SignupPage() {
       return () => clearTimeout(timer)
     }
   }, [shouldRedirect])
+
+  // Support invite links: /signup?invite=TOKEN
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get("invite")
+    if (token) {
+      setAccountType("technician")
+      setInviteToken(token)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,7 +68,13 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          signupType: accountType,
+          inviteToken: accountType === "technician" ? inviteToken.trim() : undefined,
+        }),
       })
 
       const data = await response.json()
@@ -247,6 +266,58 @@ export default function SignupPage() {
           className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Account Type */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Account Type
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountType("admin")}
+                  className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                    accountType === "admin"
+                      ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-300"
+                      : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
+                  }`}
+                >
+                  Admin / Owner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("technician")}
+                  className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                    accountType === "technician"
+                      ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-300"
+                      : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
+                  }`}
+                >
+                  Technician (Invite)
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Admin signs up first. Managers/Technicians join using an invite link.
+              </p>
+            </div>
+
+            {/* Invite Token */}
+            {accountType === "technician" && (
+              <div>
+                <label htmlFor="invite" className="block text-sm font-medium text-slate-300 mb-2">
+                  Invite Code
+                </label>
+                <input
+                  id="invite"
+                  type="text"
+                  value={inviteToken}
+                  onChange={(e) => setInviteToken(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                  placeholder="Paste invite code"
+                  required
+                />
+              </div>
+            )}
+
             {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
