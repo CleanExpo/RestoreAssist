@@ -162,6 +162,20 @@ export const airMovers: EquipmentGroup[] = [
   }
 ]
 
+// Air Filtration Devices (AFD / HEPA Air Scrubbers)
+export const afdUnits: EquipmentGroup[] = [
+  {
+    id: 'afd-500',
+    name: 'AFD 500 CFM Ave',
+    capacity: 'AFD 500 CFM Ave',
+    amps: 2.3,
+    airflow: 500,
+    models: [
+      { name: 'HEPA AFD 500 (Ave)', airflow: 500 }
+    ]
+  }
+]
+
 // Heat Drying Equipment
 export const heatDrying: EquipmentGroup[] = [
   {
@@ -194,6 +208,7 @@ export function getAllEquipmentGroups(): EquipmentGroup[] {
     ...lgrDehumidifiers,
     ...desiccantDehumidifiers,
     ...airMovers,
+    ...afdUnits,
     ...heatDrying
   ]
 }
@@ -227,6 +242,9 @@ export function getEquipmentPricingField(groupId: string): string | null {
     const group = getEquipmentGroupById(groupId)
     // For now, use axial for all air movers (can be refined later)
     return 'airMoverAxialDailyRate'
+  }
+  if (groupId.startsWith('afd-')) {
+    return 'afdUnitLargeDailyRate'
   }
   if (groupId.startsWith('heat-')) {
     // Heat drying uses injectionDryingSystemDailyRate

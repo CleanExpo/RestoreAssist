@@ -14,6 +14,7 @@ import {
   lgrDehumidifiers,
   desiccantDehumidifiers,
   airMovers,
+  afdUnits,
   heatDrying,
   getAllEquipmentGroups,
   getEquipmentGroupById,
@@ -142,11 +143,23 @@ export default function EquipmentToolsSelection({
   }, 0)
   
   const totalAirflow = equipmentSelections.reduce((total, sel) => {
+    // Only count air movers toward "air movement" target (exclude AFD units which also have airflow).
+    if (!sel.groupId.startsWith('airmover-')) return total
     const group = getEquipmentGroupById(sel.groupId)
     if (group && group.airflow) {
       return total + (group.airflow * sel.quantity)
     }
     return total
+  }, 0)
+
+  const totalAirMoverUnits = equipmentSelections.reduce((total, sel) => {
+    if (!sel.groupId.startsWith('airmover-')) return total
+    return total + sel.quantity
+  }, 0)
+
+  const totalAFDUnits = equipmentSelections.reduce((total, sel) => {
+    if (!sel.groupId.startsWith('afd-')) return total
+    return total + sel.quantity
   }, 0)
   
   const handleAddArea = () => {
@@ -229,28 +242,16 @@ export default function EquipmentToolsSelection({
       }
     }
     
-    // Select air movers to meet requirement
-    let remainingAirMovers = airMoversRequired
-    const airMoverGroups = [...airMovers].reverse()
-    for (const group of airMoverGroups) {
-      if (group.airflow) {
-        // Estimate: 1 unit per 1500 CFM needed
-        const needed = Math.ceil(remainingAirMovers / (group.airflow / 1500))
-        if (needed > 0) {
-          const existing = selections.find(s => s.groupId === group.id)
-          if (existing) {
-            existing.quantity += needed
-          } else {
-            const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0
-            selections.push({
-              groupId: group.id,
-              quantity: needed,
-              dailyRate: rate
-            })
-          }
-          remainingAirMovers -= (group.airflow / 1500) * needed
-        }
-      }
+    // Select air movers to meet requirement (S500: "units" based on affected area)
+    if (airMoversRequired > 0) {
+      const preferredAirMover =
+        totalAffectedArea > 80 ? 'airmover-2500' : totalAffectedArea > 30 ? 'airmover-1500' : 'airmover-800'
+      const rate = pricingConfig ? getEquipmentDailyRate(preferredAirMover, pricingConfig) : 0
+      selections.push({
+        groupId: preferredAirMover,
+        quantity: airMoversRequired,
+        dailyRate: rate
+      })
     }
     
     setEquipmentSelections(selections)
@@ -630,22 +631,40 @@ export default function EquipmentToolsSelection({
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
                           className="bg-cyan-500 h-2 rounded-full"
-                          style={{ width: `${Math.min(100, (totalEquipmentCapacity / waterRemovalTarget) * 100)}%` }}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              waterRemovalTarget > 0 ? (totalEquipmentCapacity / waterRemovalTarget) * 100 : 0
+                            )}%`
+                          }}
                         />
                       </div>
                     </div>
                     <div>
                       <div className="flex justify-between text-sm mb-1">
                         <span>Air Movement</span>
-                        <span>{Math.round(totalAirflow / 1500)} / {airMoversRequired} Units</span>
+                        <span>{totalAirMoverUnits} / {airMoversRequired} Units</span>
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
                           className="bg-cyan-500 h-2 rounded-full"
-                          style={{ width: `${Math.min(100, ((totalAirflow / 1500) / airMoversRequired) * 100)}%` }}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              airMoversRequired > 0 ? (totalAirMoverUnits / airMoversRequired) * 100 : 0
+                            )}%`
+                          }}
                         />
                       </div>
                     </div>
+                    {totalAFDUnits > 0 && (
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Air Filtration (AFD)</span>
+                          <span>{totalAFDUnits} Units</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -793,6 +812,64 @@ export default function EquipmentToolsSelection({
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
                               ${(selection?.dailyRate || (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)).toFixed(2)}/day
+                            </div>
+                          </div>
+                          {quantity > 0 && (
+                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                              {quantity}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEquipmentQuantityChange(group.id, -1)}
+                              className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEquipmentQuantityChange(group.id, 1)}
+                              className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* AFD Units */}
+              <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                <h4 className="font-semibold mb-2">AFD / AIR FILTRATION (HEPA)</h4>
+                <p className="text-xs text-slate-400 mb-3">
+                  Use for containment/filtration scenarios (mould, Category 2/3 contamination, demolition dust).
+                </p>
+                <div className="space-y-2">
+                  {afdUnits.map((group) => {
+                    const selection = equipmentSelections.find((s) => s.groupId === group.id)
+                    const quantity = selection?.quantity || 0
+                    return (
+                      <div
+                        key={group.id}
+                        className={`p-3 rounded-lg border ${
+                          quantity > 0 ? 'border-cyan-500/50 bg-cyan-500/10' : 'border-slate-700 bg-slate-900/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium">{group.capacity}</div>
+                            <div className="text-xs text-slate-400">
+                              {group.amps}A | {group.models.length} Models
+                            </div>
+                            <div className="text-xs text-cyan-400 mt-1">
+                              $
+                              {(
+                                selection?.dailyRate ||
+                                (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)
+                              ).toFixed(2)}
+                              /day
                             </div>
                           </div>
                           {quantity > 0 && (
