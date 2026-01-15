@@ -52,6 +52,9 @@ model User {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
+  // Organisations this user owns (Admin/Owner)
+  ownedOrganizations Organization[] @relation("OrganizationOwner")
+
   // If this user is a technician, who manages them (typically a MANAGER; could also be ADMIN)
   managedById String?
   managedBy   User?   @relation("UserManager", fields: [managedById], references: [id], onDelete: SetNull)
@@ -120,6 +123,7 @@ model User {
 
   // Team invites
   createdInvites UserInvite[] @relation("InvitesCreatedBy")
+  managedInvites UserInvite[] @relation("InvitesManagedBy")
 }
 
 model VerificationToken {
