@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description:
     "Generate comprehensive, legally defensible inspection reports and cost estimates for property restoration claims backed by IICRC standards and Australian compliance.",
   keywords: "restoration, reports, IICRC, compliance, property damage, insurance",
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -31,36 +31,34 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>
-            {children}
-          </SessionProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#1e293b',
-              color: '#f1f5f9',
-              border: '1px solid #334155',
-              borderRadius: '12px',
-              padding: '16px',
-              fontSize: '14px',
-              fontWeight: '500',
-            },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#f1f5f9',
+          <SessionProvider>{children}</SessionProvider>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: "#1e293b",
+                color: "#f1f5f9",
+                border: "1px solid #334155",
+                borderRadius: "12px",
+                padding: "16px",
+                fontSize: "14px",
+                fontWeight: "500",
               },
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#f1f5f9',
+              success: {
+                iconTheme: {
+                  primary: "#10b981",
+                  secondary: "#f1f5f9",
+                },
               },
-            },
-          }}
-        />
+              error: {
+                iconTheme: {
+                  primary: "#ef4444",
+                  secondary: "#f1f5f9",
+                },
+              },
+            }}
+          />
         </ThemeProvider>
       </body>
     </html>
