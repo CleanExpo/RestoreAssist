@@ -42,6 +42,7 @@ import {
   calculateDryingPotential, 
   calculateWaterRemovalTarget, 
   calculateAirMoversRequired,
+  calculateAFDUnitsRequired,
   calculateTotalVolume,
   type PsychrometricData,
 } from "@/lib/psychrometric-calculations";
@@ -49,6 +50,7 @@ import {
   lgrDehumidifiers,
   desiccantDehumidifiers,
   airMovers,
+  afdUnits,
   getAllEquipmentGroups,
   getEquipmentGroupById,
   calculateTotalAmps,
@@ -818,48 +820,37 @@ export default function InitialDataEntryForm({
         areasWithValidDimensions: areasToUse.filter(a => a.length > 0 && a.width > 0 && a.height > 0).length
       });
 
-      // Auto-select equipment
+      // Auto-select equipment (S500-aligned targets)
       const selections: EquipmentSelection[] = [];
+
+      // Dehumidification (L/Day target) - choose the smallest number of units by starting with the largest LGR
       let remainingCapacity = waterRemovalTarget;
-      const lgrGroups = [...lgrDehumidifiers].reverse();
-      
+      const lgrGroups = [...lgrDehumidifiers].sort((a, b) => {
+        const aCap = parseInt((a.capacity.match(/(\d+)/) || [])[1] || "0");
+        const bCap = parseInt((b.capacity.match(/(\d+)/) || [])[1] || "0");
+        return bCap - aCap;
+      });
+
       for (const group of lgrGroups) {
+        if (remainingCapacity <= 0) break;
         const capacityMatch = group.capacity.match(/(\d+)/);
-        if (capacityMatch) {
-          const capacity = parseInt(capacityMatch[1]);
-          const needed = Math.ceil(remainingCapacity / capacity);
-          if (needed > 0) {
-            const rate = getEquipmentDailyRate(group.id, pricingConfig);
-            selections.push({
-              groupId: group.id,
-              quantity: needed,
-              dailyRate: rate,
-            });
-            remainingCapacity -= capacity * needed;
-          }
+        const capacity = capacityMatch ? parseInt(capacityMatch[1]) : 0;
+        if (!capacity) continue;
+
+        const needed = Math.ceil(remainingCapacity / capacity);
+        if (needed > 0) {
+          const rate = getEquipmentDailyRate(group.id, pricingConfig);
+          selections.push({ groupId: group.id, quantity: needed, dailyRate: rate });
+          remainingCapacity -= capacity * needed;
         }
       }
-      
-      let remainingAirMovers = airMoversRequired;
-      const airMoverGroups = [...airMovers].reverse();
-      for (const group of airMoverGroups) {
-        if (group.airflow) {
-          const needed = Math.ceil(remainingAirMovers / (group.airflow / 1500));
-          if (needed > 0) {
-            const existing = selections.find((s) => s.groupId === group.id);
-            if (existing) {
-              existing.quantity += needed;
-            } else {
-              const rate = getEquipmentDailyRate(group.id, pricingConfig);
-              selections.push({
-                groupId: group.id,
-                quantity: needed,
-                dailyRate: rate,
-              });
-            }
-            remainingAirMovers -= (group.airflow / 1500) * needed;
-          }
-        }
+
+      // Air movers - S500 count is "units", independent of individual CFM model
+      if (airMoversRequired > 0) {
+        const preferredAirMover =
+          totalAffectedArea > 80 ? "airmover-2500" : totalAffectedArea > 30 ? "airmover-1500" : "airmover-800";
+        const rate = getEquipmentDailyRate(preferredAirMover, pricingConfig);
+        selections.push({ groupId: preferredAirMover, quantity: airMoversRequired, dailyRate: rate });
       }
       
       if (selections.length > 0) {
@@ -905,6 +896,13 @@ export default function InitialDataEntryForm({
     waterClass
   );
 
+  // Determine whether air filtration is required (mould and/or Category 2/3 contamination indicators).
+  const requiresAFD =
+    Boolean(formData.biologicalMouldDetected) ||
+    nirAffectedAreas.some((a) => (a.waterSource || "").toLowerCase() !== "clean water");
+
+  const afdUnitsRequired = calculateAFDUnitsRequired(totalAffectedArea, requiresAFD);
+
   const totalAmps = calculateTotalAmps(equipmentSelections);
   const totalDailyCost = calculateTotalDailyCost(
     equipmentSelections,
@@ -931,11 +929,23 @@ export default function InitialDataEntryForm({
   }, 0);
   
   const totalAirflow = equipmentSelections.reduce((total, sel) => {
+    // Only count air movers toward "air movement" target (exclude AFD units which also have airflow).
+    if (!sel.groupId.startsWith("airmover-")) return total;
     const group = getEquipmentGroupById(sel.groupId);
     if (group && group.airflow) {
       return total + group.airflow * sel.quantity;
     }
     return total;
+  }, 0);
+
+  const totalAirMoverUnits = equipmentSelections.reduce((total, sel) => {
+    if (!sel.groupId.startsWith("airmover-")) return total;
+    return total + sel.quantity;
+  }, 0);
+
+  const totalAFDUnits = equipmentSelections.reduce((total, sel) => {
+    if (!sel.groupId.startsWith("afd-")) return total;
+    return total + sel.quantity;
   }, 0);
 
   // Equipment Helper Functions
@@ -995,48 +1005,41 @@ export default function InitialDataEntryForm({
   
   const handleAutoSelect = () => {
     const selections: EquipmentSelection[] = [];
+    // Dehumidification (L/Day target) - choose the smallest number of units by starting with the largest LGR
     let remainingCapacity = waterRemovalTarget;
-    const lgrGroups = [...lgrDehumidifiers].reverse();
+    const lgrGroups = [...lgrDehumidifiers].sort((a, b) => {
+      const aCap = parseInt((a.capacity.match(/(\d+)/) || [])[1] || "0");
+      const bCap = parseInt((b.capacity.match(/(\d+)/) || [])[1] || "0");
+      return bCap - aCap;
+    });
+
     for (const group of lgrGroups) {
+      if (remainingCapacity <= 0) break;
       const capacityMatch = group.capacity.match(/(\d+)/);
-      if (capacityMatch) {
-        const capacity = parseInt(capacityMatch[1]);
-        const needed = Math.ceil(remainingCapacity / capacity);
-        if (needed > 0) {
-          const rate = pricingConfig
-            ? getEquipmentDailyRate(group.id, pricingConfig)
-            : 0;
-          selections.push({
-            groupId: group.id,
-            quantity: needed,
-            dailyRate: rate,
-          });
-          remainingCapacity -= capacity * needed;
-        }
+      const capacity = capacityMatch ? parseInt(capacityMatch[1]) : 0;
+      if (!capacity) continue;
+
+      const needed = Math.ceil(remainingCapacity / capacity);
+      if (needed > 0) {
+        const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0;
+        selections.push({ groupId: group.id, quantity: needed, dailyRate: rate });
+        remainingCapacity -= capacity * needed;
       }
     }
-    let remainingAirMovers = airMoversRequired;
-    const airMoverGroups = [...airMovers].reverse();
-    for (const group of airMoverGroups) {
-      if (group.airflow) {
-        const needed = Math.ceil(remainingAirMovers / (group.airflow / 1500));
-        if (needed > 0) {
-          const existing = selections.find((s) => s.groupId === group.id);
-          if (existing) {
-            existing.quantity += needed;
-          } else {
-            const rate = pricingConfig
-              ? getEquipmentDailyRate(group.id, pricingConfig)
-              : 0;
-            selections.push({
-              groupId: group.id,
-              quantity: needed,
-              dailyRate: rate,
-            });
-          }
-          remainingAirMovers -= (group.airflow / 1500) * needed;
-        }
-      }
+
+    // Air movers - S500 count is "units", independent of individual CFM model
+    if (airMoversRequired > 0) {
+      const preferredAirMover =
+        totalAffectedArea > 80 ? "airmover-2500" : totalAffectedArea > 30 ? "airmover-1500" : "airmover-800";
+      const rate = pricingConfig ? getEquipmentDailyRate(preferredAirMover, pricingConfig) : 0;
+      selections.push({ groupId: preferredAirMover, quantity: airMoversRequired, dailyRate: rate });
+    }
+
+    // AFD units (HEPA / air scrubbers) - only when contamination/mould indicators require it
+    if (afdUnitsRequired > 0) {
+      const afdGroupId = afdUnits[0]?.id || "afd-500";
+      const rate = pricingConfig ? getEquipmentDailyRate(afdGroupId, pricingConfig) : 0;
+      selections.push({ groupId: afdGroupId, quantity: afdUnitsRequired, dailyRate: rate });
     }
     setEquipmentSelections(selections);
     toast.success("Equipment auto-selected based on targets");
@@ -3564,8 +3567,9 @@ export default function InitialDataEntryForm({
                           style={{
                             width: `${Math.min(
                               100,
-                              (totalEquipmentCapacity / waterRemovalTarget) *
-                                100
+                              waterRemovalTarget > 0
+                                ? (totalEquipmentCapacity / waterRemovalTarget) * 100
+                                : 0
                             )}%`,
                           }}
                         />
@@ -3575,8 +3579,7 @@ export default function InitialDataEntryForm({
                       <div className="flex justify-between text-sm mb-1">
                         <span>Air Movement</span>
                         <span>
-                          {Math.round(totalAirflow / 1500)} /{" "}
-                          {airMoversRequired} Units
+                          {totalAirMoverUnits} / {airMoversRequired} Units
                         </span>
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
@@ -3585,12 +3588,35 @@ export default function InitialDataEntryForm({
                           style={{
                             width: `${Math.min(
                               100,
-                              (totalAirflow / 1500 / airMoversRequired) * 100
+                              airMoversRequired > 0
+                                ? (totalAirMoverUnits / airMoversRequired) * 100
+                                : 0
                             )}%`,
                           }}
                         />
                       </div>
                     </div>
+                    {requiresAFD && (
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Air Filtration (AFD)</span>
+                          <span>
+                            {totalAFDUnits} / {afdUnitsRequired} Units
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div
+                            className="bg-cyan-500 h-2 rounded-full"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                afdUnitsRequired > 0 ? (totalAFDUnits / afdUnitsRequired) * 100 : 0
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="p-4 bg-slate-800/50 rounded-lg">
@@ -3748,6 +3774,62 @@ export default function InitialDataEntryForm({
                                 onClick={() =>
                                   handleEquipmentQuantityChange(group.id, 1)
                                 }
+                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <h5 className="font-semibold mb-3 mt-4">AFD / AIR FILTRATION (HEPA)</h5>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-3">
+                    Use for containment/filtration scenarios (e.g., mould, Category 2/3 contamination, demolition dust).
+                  </p>
+                  <div className="space-y-2">
+                    {afdUnits.map((group) => {
+                      const selection = equipmentSelections.find((s) => s.groupId === group.id);
+                      const quantity = selection?.quantity || 0;
+                      return (
+                        <div
+                          key={group.id}
+                          className={`p-3 rounded-lg border ${
+                            quantity > 0
+                              ? "border-cyan-500/50 bg-cyan-500/10"
+                              : "border-slate-700 bg-slate-800/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{group.capacity}</div>
+                              <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                                $
+                                {(
+                                  selection?.dailyRate ||
+                                  (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)
+                                ).toFixed(2)}
+                                /day
+                              </div>
+                            </div>
+                            {quantity > 0 && (
+                              <div className="px-3 py-1 bg-cyan-500/20 text-primary-600 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                {quantity}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEquipmentQuantityChange(group.id, -1)}
+                                className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleEquipmentQuantityChange(group.id, 1)}
                                 className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-slate-600 rounded"
                               >
                                 <Plus className="w-4 h-4" />

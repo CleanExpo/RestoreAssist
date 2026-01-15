@@ -75,22 +75,37 @@ export function calculateWaterRemovalTarget(
   waterClass: 1 | 2 | 3 | 4,
   affectedArea: number // m²
 ): number {
-  // Base calculation: Volume * Class factor * Evaporation rate
-  const classFactors = {
-    1: 0.5,  // Least water
-    2: 1.0,  // Significant water
-    3: 1.5,  // Greatest amount of water
-    4: 2.0   // Bound water/Deep saturation
+  /**
+   * IICRC S500-aligned rule-of-thumb:
+   * Dehumidification demand scales primarily with the *affected wet surface area* and class,
+   * not the full room air volume. Using totalVolume tends to massively over-allocate DH units.
+   *
+   * Note: This is a planning target for L/Day capacity (AHAM-style ratings). Field conditions
+   * and psychrometrics can change the real-world requirement.
+   */
+  const litresPerM2PerDayByClass: Record<1 | 2 | 3 | 4, number> = {
+    1: 4,  // minimal water load
+    2: 8,  // typical Class 2
+    3: 12, // heavy water load
+    4: 16  // bound water / deep saturation
   }
-  
-  const classFactor = classFactors[waterClass] || 1.0
-  
-  // Estimate: 1-2% of volume per day for Class 2, scaled by class
-  const baseRate = totalVolume * 0.01 // 1% per day base
-  const adjustedRate = baseRate * classFactor
-  
-  // Convert m³ to liters (1 m³ = 1000 L)
-  return Math.round(adjustedRate * 1000)
+
+  const affectedAreaTarget = Math.max(0, affectedArea) * (litresPerM2PerDayByClass[waterClass] || 8)
+
+  // Fallback (legacy): if affected area is unavailable, use a conservative volume-based estimate.
+  if (!isFinite(affectedAreaTarget) || affectedAreaTarget <= 0) {
+    const classFactors: Record<1 | 2 | 3 | 4, number> = {
+      1: 0.5,
+      2: 1.0,
+      3: 1.5,
+      4: 2.0
+    }
+    const classFactor = classFactors[waterClass] || 1.0
+    const baseRate = Math.max(0, totalVolume) * 0.01 // 1% per day base
+    return Math.round(baseRate * classFactor * 1000)
+  }
+
+  return Math.round(affectedAreaTarget)
 }
 
 // Calculate air movers required based on affected area
@@ -108,6 +123,17 @@ export function calculateAirMoversRequired(
   
   const areaPerUnit = areaPerMover[waterClass] || 15
   return Math.ceil(affectedArea / areaPerUnit)
+}
+
+// Calculate AFD (air filtration device / HEPA air scrubber) units for containment/filtration scenarios.
+// Rule-of-thumb: 1 unit per ~50m² when required (mould / Category 2+ / demolition dust), minimum 1.
+export function calculateAFDUnitsRequired(
+  affectedArea: number, // m²
+  requiresAFD: boolean
+): number {
+  if (!requiresAFD) return 0
+  const area = Math.max(0, affectedArea)
+  return Math.max(1, Math.ceil(area / 50))
 }
 
 // Calculate total volume from scope areas
