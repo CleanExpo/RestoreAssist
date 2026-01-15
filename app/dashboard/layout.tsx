@@ -69,6 +69,7 @@ export default function DashboardLayout({
     { icon: Plus, label: "New Report", href: "/dashboard/reports/new", highlight: true },
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
+    { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
