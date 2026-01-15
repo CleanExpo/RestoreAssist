@@ -200,7 +200,7 @@ For each relevant section, provide:
 - Standard Reference (e.g., "IICRC S500 Sec 14.2", "AS/NZS 3000:2018")
 - Application to Report (how this applies to the specific query context)
 
-Prioritize sections that:
+Prioritise sections that:
 - Are directly applicable to the water category/class
 - Address the specific materials mentioned
 - Contain mandatory compliance requirements
@@ -273,7 +273,7 @@ Be thorough but precise. Each extracted section should be directly usable in the
 }
 
 /**
- * Analyze folder structure using Anthropic AI to understand organization
+ * Analyse folder structure using Anthropic AI to understand organisation
  */
 async function analyzeFolderStructureWithAI(
   anthropic: Anthropic,
@@ -296,13 +296,13 @@ async function analyzeFolderStructureWithAI(
     const systemPrompt = `You are an expert in IICRC standards and Australian building codes. Your task is to analyze a Google Drive folder structure and identify the most relevant standards documents for a specific water damage restoration report.
 
 Analyze the folder structure and file names to:
-1. Understand how standards are organized (by standard number, category, type, etc.)
+1. Understand how standards are organised (by standard number, category, type, etc.)
 2. Identify which files are most relevant to the report query
-3. Consider file naming patterns, folder organization, and document types
-4. Prioritize official IICRC standards (S500, S520, S400, etc.) and Australian standards (AS/NZS, NCC, etc.)
+3. Consider file naming patterns, folder organisation, and document types
+4. Prioritise official IICRC standards (S500, S520, S400, etc.) and Australian standards (AS/NZS, NCC, etc.)
 
 Return a JSON object with:
-- relevantFileNames: Array of file names that should be prioritized
+- relevantFileNames: Array of file names that should be prioritised
 - reasoning: Brief explanation of why these files were selected
 - standardTypes: Array of standard types identified (e.g., ["S500", "S520", "AS/NZS 3000"])
 - priority: High/Medium/Low for each file
@@ -330,7 +330,7 @@ ${JSON.stringify(fileList, null, 2)}
 
 ${folderList.length > 0 ? `Subfolders:\n${JSON.stringify(folderList, null, 2)}` : ''}
 
-Analyze this folder structure and identify the most relevant standards documents for generating a professional ${query.reportType} damage restoration report. Consider the report context and prioritize files that contain:
+Analyse this folder structure and identify the most relevant standards documents for generating a professional ${query.reportType} damage restoration report. Consider the report context and prioritise files that contain:
 1. Specific procedures for the water category/class
 2. Material-specific remediation guidelines
 3. Safety and compliance requirements
@@ -441,7 +441,7 @@ export async function retrieveRelevantStandards(
       // Use AI to analyze folder structure and identify relevant files
       const aiAnalysis = await analyzeFolderStructureWithAI(anthropic, folderStructure, query)
       
-      // Add AI-identified files to our list (prioritize them)
+      // Add AI-identified files to our list (prioritise them)
       const aiFileIds = new Set(aiAnalysis.relevantFiles.map(f => f.id))
       const otherFiles = allFiles.filter(f => !aiFileIds.has(f.id))
       allFiles = [...aiAnalysis.relevantFiles, ...otherFiles]
@@ -602,7 +602,7 @@ export function buildStandardsContextPrompt(standardsContext: StandardsContext):
     return ''
   }
   
-  // Group documents by standard type for better organization
+  // Group documents by standard type for better organisation
   const documentsByType = new Map<string, typeof standardsContext.documents>()
   standardsContext.documents.forEach(doc => {
     const type = doc.standardType || 'General'
@@ -620,7 +620,7 @@ export function buildStandardsContextPrompt(standardsContext: StandardsContext):
   
   prompt += 'The following standards documents have been intelligently selected from the Google Drive folder "IICRC Standards" based on AI-powered analysis of folder structure and report context:\n\n'
   
-  // Organize by standard type
+  // Organise by standard type
   let docCounter = 1
   for (const [standardType, docs] of documentsByType.entries()) {
     prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
@@ -682,10 +682,10 @@ export function buildStandardsContextPrompt(standardsContext: StandardsContext):
   prompt += '═══════════════════════════════════════════════════════════════\n\n'
   
   prompt += 'These standards were selected using AI-powered analysis that:\n'
-  prompt += '✓ Analyzed the Google Drive folder structure and organization\n'
+  prompt += '✓ Analysed the Google Drive folder structure and organisation\n'
   prompt += '✓ Matched standards to the specific water category, class, and materials\n'
   prompt += '✓ Extracted the most relevant sections for this specific report context\n'
-  prompt += '✓ Prioritized Australian standards (AS/NZS) and IICRC standards\n'
+  prompt += '✓ Prioritised Australian standards (AS/NZS) and IICRC standards\n'
   prompt += '✓ Considered technician field notes and report-specific requirements\n\n'
   
   prompt += 'Use these standards to generate a PROFESSIONAL, COMPLIANT, and TECHNICALLY ACCURATE forensic restoration report.\n\n'

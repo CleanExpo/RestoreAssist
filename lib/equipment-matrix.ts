@@ -1,5 +1,5 @@
-// Australian Equipment Standardization
-// The "Ave" system automatically groups disparate manufacturer specifications into normalized "Performance Averages"
+// Australian Equipment Standardisation
+// The "Ave" system automatically groups disparate manufacturer specifications into normalised "Performance Averages"
 
 export interface EquipmentModel {
   name: string
@@ -237,7 +237,7 @@ export function getEquipmentPricingField(groupId: string): string | null {
 
 // Get daily rate from pricing config for an equipment group
 export function getEquipmentDailyRate(groupId: string, pricingConfig: any): number {
-  // ALWAYS prioritize pricing config rates when available
+  // ALWAYS prioritise pricing config rates when available
   // Pricing config has one rate per equipment type (e.g., all LGR use dehumidifierLGRDailyRate)
   const pricingField = getEquipmentPricingField(groupId)
   
