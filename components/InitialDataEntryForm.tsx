@@ -1864,7 +1864,7 @@ export default function InitialDataEntryForm({
         incidentDate: "2024-02-28",
         technicianAttendanceDate: "2024-03-01",
         technicianName: "Thomas Wilson",
-        technicianFieldReport: "Attended property at 8:00 AM. Severe flood damage from river overflow. Ground floor completely inundated with contaminated water (Category 3). Water level reached 1.2 meters. Extensive damage to all ground floor areas including kitchen, dining, family room, and garage. Sewage contamination confirmed. Immediate evacuation and extensive remediation required.",
+        technicianFieldReport: "Attended property at 8:00 AM. Severe flood damage from river overflow. Ground floor completely inundated with contaminated water (Category 3). Water level reached 1.2 metres. Extensive damage to all ground floor areas including kitchen, dining, family room, and garage. Sewage contamination confirmed. Immediate evacuation and extensive remediation required.",
         buildingAge: "2015",
         structureType: "Residential - Two Storey",
         accessNotes: "Property accessible, water receded, safety assessment completed",

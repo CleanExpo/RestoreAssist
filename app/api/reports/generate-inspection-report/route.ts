@@ -1281,7 +1281,7 @@ ${psychrometricAssessment ? `Include a comprehensive psychrometric assessment se
 ### KEY PERFORMANCE METRICS
 **CRITICAL: Use ### for subsection headers like this one.**
 ${psychrometricAssessment.dryingPotential?.dryingIndex ? `- Drying Index: ${psychrometricAssessment.dryingPotential.dryingIndex}${psychrometricAssessment.dryingPotential?.status ? ` (Status: ${psychrometricAssessment.dryingPotential.status})` : ''}` : ''}
-${report.dehumidificationCapacity ? `- Liters/Day Target: ${report.dehumidificationCapacity} L/Day` : ''}
+${report.dehumidificationCapacity ? `- Litres/Day Target: ${report.dehumidificationCapacity} L/Day` : ''}
 ${report.airmoversCount ? `- Air Movers Required: ${report.airmoversCount} units` : ''}
 ${scopeAreas && scopeAreas.length > 0 ? `- Total Volume: ${scopeAreas.reduce((sum: number, a: any) => sum + (a.length * a.width * a.height), 0).toFixed(1)} m³` : ''}
 
