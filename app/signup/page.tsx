@@ -226,15 +226,11 @@ export default function SignupPage() {
                   </li>
                   <li>
                     <strong>OpenAI:</strong>{" "}
-                    <a href="https://platform.openai.com/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
-                      Get API key <ExternalLink className="w-3 h-3" />
-                    </a>
+                    <span className="text-slate-500 italic">Coming Soon</span>
                   </li>
                   <li>
                     <strong>Google Gemini:</strong>{" "}
-                    <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
-                      Get API key <ExternalLink className="w-3 h-3" />
-                    </a>
+                    <span className="text-slate-500 italic">Coming Soon</span>
                   </li>
                 </ul>
               </div>
@@ -267,7 +263,7 @@ export default function SignupPage() {
         >
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Account Type */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Account Type
               </label>
@@ -292,31 +288,11 @@ export default function SignupPage() {
                       : "border-slate-600/50 bg-slate-700/30 text-slate-300 hover:bg-slate-700/50"
                   }`}
                 >
-                  Technician (Invite)
+                  Technician
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
-                Admin signs up first. Managers/Technicians join using an invite link.
-              </p>
-            </div>
 
-            {/* Invite Token */}
-            {accountType === "technician" && (
-              <div>
-                <label htmlFor="invite" className="block text-sm font-medium text-slate-300 mb-2">
-                  Invite Code
-                </label>
-                <input
-                  id="invite"
-                  type="text"
-                  value={inviteToken}
-                  onChange={(e) => setInviteToken(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
-                  placeholder="Paste invite code"
-                  required
-                />
-              </div>
-            )}
+            </div> */}
 
             {/* Name Field */}
             <div>

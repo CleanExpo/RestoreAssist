@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         name: name || email.split('@')[0] || 'User',
         image: image,
         emailVerified: emailVerified ? new Date() : null,
-        role: 'USER',
+        role: 'ADMIN', // Default to ADMIN for Google sign-ups (matches signup form default)
         subscriptionStatus: 'TRIAL',
         creditsRemaining: 3,
         totalCreditsUsed: 0,
