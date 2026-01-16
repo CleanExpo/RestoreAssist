@@ -9,8 +9,9 @@
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
+    "prebuild": "npm install --force",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "dev": "next dev",
-    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
