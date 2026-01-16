@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { prisma } from './prisma'
 import { tryClaudeModels } from './anthropic-models'
+import { getOrganizationOwner } from './organization-credits'
 
 export type AIProvider = 'anthropic' | 'openai' | 'gemini'
 
@@ -14,26 +15,59 @@ export interface AIIntegration {
 }
 
 /**
+ * Get the effective user ID for integrations
+ * For Managers/Technicians, returns the Admin's ID
+ * For Admins, returns their own ID
+ */
+export async function getEffectiveUserIdForIntegrations(userId: string): Promise<string> {
+  const ownerId = await getOrganizationOwner(userId)
+  return ownerId || userId
+}
+
+/**
+ * Get integrations for a user (using Admin's integrations for Managers/Technicians)
+ */
+export async function getIntegrationsForUser(userId: string, filters?: {
+  status?: 'CONNECTED' | 'DISCONNECTED'
+  nameContains?: string[]
+}): Promise<any[]> {
+  const effectiveUserId = await getEffectiveUserIdForIntegrations(userId)
+  
+  const whereClause: any = {
+    userId: effectiveUserId,
+    apiKey: { not: null }
+  }
+
+  if (filters?.status) {
+    whereClause.status = filters.status
+  } else {
+    whereClause.status = 'CONNECTED'
+  }
+
+  if (filters?.nameContains && filters.nameContains.length > 0) {
+    whereClause.OR = filters.nameContains.map(name => ({
+      name: { contains: name }
+    }))
+  }
+
+  return await prisma.integration.findMany({
+    where: whereClause,
+    orderBy: {
+      createdAt: 'desc'
+    }
+  })
+}
+
+/**
  * Get the latest connected AI integration (OpenAI, Anthropic, or Gemini)
+ * For Managers/Technicians, uses the Admin's integrations
+ * For Admins, uses their own integrations
  * Returns the most recently connected integration
  */
 export async function getLatestAIIntegration(userId: string): Promise<AIIntegration | null> {
-  const integrations = await prisma.integration.findMany({
-    where: {
-      userId,
-      status: 'CONNECTED',
-      apiKey: { not: null },
-      OR: [
-        { name: { contains: 'Anthropic' } },
-        { name: { contains: 'OpenAI' } },
-        { name: { contains: 'Gemini' } },
-        { name: { contains: 'Claude' } },
-        { name: { contains: 'GPT' } }
-      ]
-    },
-    orderBy: {
-      createdAt: 'desc' // Use most recently connected
-    }
+  const integrations = await getIntegrationsForUser(userId, {
+    status: 'CONNECTED',
+    nameContains: ['Anthropic', 'OpenAI', 'Gemini', 'Claude', 'GPT']
   })
 
   if (integrations.length === 0) {

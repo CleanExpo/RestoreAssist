@@ -69,12 +69,11 @@ export async function POST(request: NextRequest) {
     const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
     const stateInfo = getStateInfo(stateCode)
 
-    const integrations = await prisma.integration.findMany({
-      where: {
-        userId: user.id,
-        status: 'CONNECTED',
-        apiKey: { not: null }
-      }
+    // Get integrations (Admin's for Managers/Technicians, own for Admins)
+    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
+    const integrations = await getIntegrationsForUser(user.id, {
+      status: 'CONNECTED',
+      nameContains: ['Anthropic', 'Claude']
     })
 
     const integration = integrations.find(i => 

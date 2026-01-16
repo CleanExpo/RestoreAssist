@@ -178,22 +178,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create the report with initial data (including NIR and equipment data if provided)
-    const report = await prisma.report.create({
-      data: {
-        title: reportTitle,
-        description: 'Initial data entry - awaiting report generation',
-        status: 'DRAFT',
-        clientName: data.clientName.trim(),
-        clientId: clientId, // Link to client if created/found
-        propertyAddress: data.propertyAddress.trim(),
-        hazardType: 'Water', // Default for water damage restoration
-        insuranceType: 'Building and Contents Insurance', // Default
-        userId: user.id,
-        
-        // Team assignment: For Technicians, assign to a Manager; For Managers, assign to an Admin
-        assignedManagerId: data.assignedManagerId || null,
-        assignedAdminId: data.assignedAdminId || null,
+    // Prepare report data
+    const reportData: any = {
+      title: reportTitle,
+      description: 'Initial data entry - awaiting report generation',
+      status: 'DRAFT',
+      clientName: data.clientName.trim(),
+      clientId: clientId, // Link to client if created/found
+      propertyAddress: data.propertyAddress.trim(),
+      hazardType: 'Water', // Default for water damage restoration
+      insuranceType: 'Building and Contents Insurance', // Default
+      userId: user.id,
         
         // Phase 2: Initial Data Entry Fields
         clientContactDetails: sanitizeString(data.clientContactDetails),
@@ -273,7 +268,20 @@ export async function POST(request: NextRequest) {
         // Set report number
         reportNumber: reportTitle,
         inspectionDate: technicianAttendanceDate || incidentDate || new Date(),
-      }
+    }
+
+    // Conditionally add team assignment fields if they exist in the schema
+    // These fields were added for the team management feature
+    if (data.assignedManagerId) {
+      reportData.assignedManagerId = data.assignedManagerId
+    }
+    if (data.assignedAdminId) {
+      reportData.assignedAdminId = data.assignedAdminId
+    }
+
+    // Create the report with initial data (including NIR and equipment data if provided)
+    const report = await prisma.report.create({
+      data: reportData
     })
 
     // After saving, trigger intelligent standards analysis in background
@@ -281,13 +289,15 @@ export async function POST(request: NextRequest) {
     try {
       const { retrieveRelevantStandards } = await import('@/lib/standards-retrieval')
       
-      // Get user's Anthropic integration
-      const integration = await prisma.integration.findFirst({
-        where: {
-          userId: user.id,
-          name: 'Anthropic'
-        }
+      // Get integrations (Admin's for Managers/Technicians, own for Admins)
+      const { getIntegrationsForUser } = await import('@/lib/ai-provider')
+      const integrations = await getIntegrationsForUser(user.id, {
+        status: 'CONNECTED',
+        nameContains: ['Anthropic', 'Claude']
       })
+      const integration = integrations.find(i => 
+        i.name.toLowerCase().includes('anthropic') || i.name.toLowerCase().includes('claude')
+      )
       
       if (integration?.apiKey) {
         // Build intelligent query from submitted data

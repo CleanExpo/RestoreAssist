@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign } from "lucide-react"
+import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign, FileSignature } from "lucide-react"
 import { useRouter } from "next/navigation"
 import InspectionReportViewer from "@/components/InspectionReportViewer"
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer"
 import CostEstimationViewer from "@/components/CostEstimationViewer"
+import AuthorityFormsViewer from "@/components/AuthorityFormsViewer"
 import toast from "react-hot-toast"
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +15,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'inspection' | 'scope' | 'cost'>('inspection')
+  const [activeTab, setActiveTab] = useState<'inspection' | 'scope' | 'cost' | 'authority'>('inspection')
 
   useEffect(() => {
     const getParams = async () => {
@@ -150,6 +151,17 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <DollarSign size={18} />
             Cost Estimation
           </button>
+          <button
+            onClick={() => setActiveTab('authority')}
+            className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'authority'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <FileSignature size={18} />
+            Authority Forms
+          </button>
         </nav>
       </div>
 
@@ -171,6 +183,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           <CostEstimationViewer 
             reportId={reportId!}
             onEstimationGenerated={refreshReport}
+          />
+        )}
+        {activeTab === 'authority' && (
+          <AuthorityFormsViewer 
+            reportId={reportId!}
           />
         )}
       </div>

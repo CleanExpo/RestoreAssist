@@ -105,20 +105,14 @@ export async function POST(request: NextRequest) {
     // For standards retrieval, we still need an API key (prefer Anthropic if available, otherwise use the selected integration)
     // Standards retrieval might need specific API setup, so we'll try to use Anthropic if available, otherwise use the selected integration
     let standardsApiKey = aiIntegration.apiKey
-    const anthropicIntegration = await prisma.integration.findFirst({
-      where: {
-        userId: user.id,
-        status: 'CONNECTED',
-        apiKey: { not: null },
-        OR: [
-          { name: { contains: 'Anthropic' } },
-          { name: { contains: 'Claude' } }
-        ]
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
+    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
+    const anthropicIntegrations = await getIntegrationsForUser(user.id, {
+      status: 'CONNECTED',
+      nameContains: ['Anthropic', 'Claude']
     })
+    const anthropicIntegration = anthropicIntegrations.find(i => 
+      i.name.toLowerCase().includes('anthropic') || i.name.toLowerCase().includes('claude')
+    )
     if (anthropicIntegration?.apiKey) {
       standardsApiKey = anthropicIntegration.apiKey
     }
