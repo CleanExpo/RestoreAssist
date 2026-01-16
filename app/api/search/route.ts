@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { parseSearchQuery, toPostgresTsquery } from "@/lib/search-utils";
 
 export async function GET(request: NextRequest) {
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     const tsquery = toPostgresTsquery(query);
 
     // Search reports
+    const reportLimit = Math.ceil(limit / 3);
     const reports = await prisma.$queryRaw<any[]>`
       SELECT
         id,
@@ -43,10 +45,11 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC, "updatedAt" DESC
-      LIMIT ${Math.ceil(limit / 3)::integer}
+      LIMIT ${reportLimit}
     `;
 
     // Search clients
+    const clientLimit = Math.ceil(limit / 3);
     const clients = await prisma.$queryRaw<any[]>`
       SELECT
         id,
@@ -61,10 +64,11 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
-      LIMIT ${Math.ceil(limit / 3)::integer}
+      LIMIT ${clientLimit}
     `;
 
     // Search inspections
+    const inspectionLimit = Math.ceil(limit / 3);
     const inspections = await prisma.$queryRaw<any[]>`
       SELECT
         id,
@@ -79,7 +83,7 @@ export async function GET(request: NextRequest) {
         "userId" = ${session.user.id}
         AND search_vector @@ to_tsquery('english', ${tsquery})
       ORDER BY rank DESC
-      LIMIT ${Math.ceil(limit / 3)::integer}
+      LIMIT ${inspectionLimit}
     `;
 
     const results = {
