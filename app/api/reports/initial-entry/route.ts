@@ -279,6 +279,23 @@ export async function POST(request: NextRequest) {
       reportData.assignedAdminId = data.assignedAdminId
     }
 
+    // Check if user can create a report and deduct credits
+    const { canCreateReport, deductCreditsAndTrackUsage } = await import('@/lib/report-limits')
+    const canCreate = await canCreateReport(user.id)
+    
+    if (!canCreate.allowed) {
+      return NextResponse.json(
+        { 
+          error: canCreate.reason || "Cannot create report",
+          upgradeRequired: true,
+        },
+        { status: 402 }
+      )
+    }
+
+    // Deduct credits and track usage for team hierarchy
+    await deductCreditsAndTrackUsage(user.id)
+
     // Create the report with initial data (including NIR and equipment data if provided)
     const report = await prisma.report.create({
       data: reportData

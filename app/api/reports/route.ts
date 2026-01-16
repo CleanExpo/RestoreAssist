@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateDetailedReport } from "@/lib/anthropic"
-import { canCreateReport, incrementReportUsage } from "@/lib/report-limits"
+import { canCreateReport } from "@/lib/report-limits"
 
 export async function GET(request: NextRequest) {
   try {
@@ -139,33 +139,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // For trial users, deduct credits from the organization owner (Admin)
-    if (effectiveSub.subscriptionStatus === 'TRIAL') {
-      const ownerId = await getOrganizationOwner(session.user.id)
-      const targetUserId = ownerId || session.user.id
-      
-      // Get current credits
-      const owner = await prisma.user.findUnique({
-        where: { id: targetUserId },
-        select: {
-          creditsRemaining: true,
-          totalCreditsUsed: true,
-        }
-      })
-      
-      if (owner) {
-        await prisma.user.update({
-          where: { id: targetUserId },
-          data: {
-            creditsRemaining: Math.max(0, (owner.creditsRemaining || 0) - 1),
-            totalCreditsUsed: (owner.totalCreditsUsed || 0) + 1,
-          }
-        })
-      }
-    } else if (effectiveSub.subscriptionStatus === 'ACTIVE') {
-      // Increment monthly usage for active subscribers (on owner's account)
-      await incrementReportUsage(session.user.id)
-    }
+    // Deduct credits and track usage for team hierarchy
+    const { deductCreditsAndTrackUsage } = await import('@/lib/report-limits')
+    await deductCreditsAndTrackUsage(session.user.id)
 
     // Generate report number if not provided
     const reportNumber = body.reportNumber || `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`

@@ -318,21 +318,10 @@ Format the response as a well-structured professional report with clear sections
       )
     }
 
-    // Deduct credits (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL') {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
-          totalCreditsUsed: user.totalCreditsUsed + 1,
-        }
-      })
-    }
-
     // Save or update report
     let savedReport
     if (reportId) {
-      // Update existing report
+      // Update existing report - don't deduct credits
       savedReport = await prisma.report.update({
         where: { id: reportId },
         data: {
@@ -351,7 +340,10 @@ Format the response as a well-structured professional report with clear sections
         }
       })
     } else {
-      // Create new report
+      // Create new report - deduct credits and track usage
+      const { deductCreditsAndTrackUsage } = await import('@/lib/report-limits')
+      await deductCreditsAndTrackUsage(session.user.id)
+      
       savedReport = await prisma.report.create({
         data: {
           title: `WD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,

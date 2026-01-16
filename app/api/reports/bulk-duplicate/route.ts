@@ -239,19 +239,30 @@ export async function POST(request: NextRequest) {
         newReportIds.push(report.id)
       })
 
-      // 11. Deduct credits if trial user
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { subscriptionStatus: true, creditsRemaining: true },
-      })
-
-      let creditsRemaining = user?.creditsRemaining || 0
+      // 11. Deduct credits and track usage for each duplicated report
+      const { getEffectiveSubscription } = await import('@/lib/organization-credits')
+      const effectiveSub = await getEffectiveSubscription(session.user.id)
+      
+      let creditsRemaining = effectiveSub?.creditsRemaining || 0
       let creditsUsed = 0
 
-      if (user?.subscriptionStatus === 'TRIAL') {
-        const creditResult = await deductBulkCredits(session.user.id, ids.length, 'bulk-duplicate')
+      if (effectiveSub?.subscriptionStatus === 'TRIAL') {
+        // Deduct credits from admin
+        const creditResult = await deductBulkCredits(session.user.id, createdReports.length, 'bulk-duplicate')
         creditsRemaining = creditResult.creditsRemaining
-        creditsUsed = ids.length
+        creditsUsed = createdReports.length
+      } else if (effectiveSub?.subscriptionStatus === 'ACTIVE') {
+        // Increment monthly usage on admin's account
+        const { incrementReportUsage } = await import('@/lib/report-limits')
+        for (let i = 0; i < createdReports.length; i++) {
+          await incrementReportUsage(session.user.id)
+        }
+      }
+      
+      // Track usage for manager and creator for each report (without deducting credits again)
+      const { trackUsageOnly } = await import('@/lib/report-limits')
+      for (let i = 0; i < createdReports.length; i++) {
+        await trackUsageOnly(session.user.id)
       }
 
       // 12. Return success response
