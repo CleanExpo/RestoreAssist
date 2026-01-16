@@ -270,3 +270,149 @@ export async function incrementReportUsage(userId: string): Promise<void> {
   }
 }
 
+
+/**
+ * Deduct credits and track usage for team hierarchy
+ * - Deducts credits from Admin's account (for trial users)
+ * - Increments monthly usage on Admin's account (for active subscribers)
+ * - Tracks usage for Manager (if technician is creating)
+ * - Tracks usage for the creator
+ */
+export async function deductCreditsAndTrackUsage(creatorUserId: string): Promise<void> {
+  // Get the organization owner (Admin) - they own the subscription
+  const ownerId = await getOrganizationOwner(creatorUserId)
+  const adminId = ownerId || creatorUserId
+
+  // Get creator's info to check if they have a manager
+  const creator = await prisma.user.findUnique({
+    where: { id: creatorUserId },
+    select: {
+      role: true,
+      managedById: true,
+      totalCreditsUsed: true,
+    }
+  })
+
+  if (!creator) {
+    throw new Error("Creator user not found")
+  }
+
+  // Get admin's subscription info
+  const admin = await prisma.user.findUnique({
+    where: { id: adminId },
+    select: {
+      subscriptionStatus: true,
+      creditsRemaining: true,
+      totalCreditsUsed: true,
+      monthlyReportsUsed: true,
+      monthlyResetDate: true,
+    }
+  })
+
+  if (!admin) {
+    throw new Error("Admin user not found")
+  }
+
+  // Handle trial users - deduct credits from admin
+  if (admin.subscriptionStatus === 'TRIAL') {
+    await prisma.user.update({
+      where: { id: adminId },
+      data: {
+        creditsRemaining: Math.max(0, (admin.creditsRemaining || 0) - 1),
+        totalCreditsUsed: (admin.totalCreditsUsed || 0) + 1,
+      }
+    })
+  } else if (admin.subscriptionStatus === 'ACTIVE') {
+    // Handle active subscribers - increment monthly usage on admin's account
+    const now = new Date()
+    const shouldReset = !admin.monthlyResetDate || 
+      (admin.monthlyResetDate && now > admin.monthlyResetDate)
+
+    if (shouldReset) {
+      const nextReset = new Date(now)
+      nextReset.setMonth(nextReset.getMonth() + 1)
+      nextReset.setDate(1)
+      nextReset.setHours(0, 0, 0, 0)
+
+      await prisma.user.update({
+        where: { id: adminId },
+        data: {
+          monthlyReportsUsed: 1,
+          monthlyResetDate: nextReset,
+        }
+      })
+    } else {
+      await prisma.user.update({
+        where: { id: adminId },
+        data: {
+          monthlyReportsUsed: {
+            increment: 1
+          }
+        }
+      })
+    }
+  }
+
+  // Track usage for manager (if technician is creating and has a manager)
+  if (creator.role === 'USER' && creator.managedById) {
+    await prisma.user.update({
+      where: { id: creator.managedById },
+      data: {
+        totalCreditsUsed: {
+          increment: 1
+        }
+      }
+    })
+  }
+
+  // Track usage for the creator
+  await prisma.user.update({
+    where: { id: creatorUserId },
+    data: {
+      totalCreditsUsed: {
+        increment: 1
+      }
+    }
+  })
+}
+
+/**
+ * Track usage for manager and creator without deducting credits
+ * Used for bulk operations where credits are already deducted
+ */
+export async function trackUsageOnly(creatorUserId: string): Promise<void> {
+  // Get creator's info to check if they have a manager
+  const creator = await prisma.user.findUnique({
+    where: { id: creatorUserId },
+    select: {
+      role: true,
+      managedById: true,
+    }
+  })
+
+  if (!creator) {
+    throw new Error("Creator user not found")
+  }
+
+  // Track usage for manager (if technician is creating and has a manager)
+  if (creator.role === 'USER' && creator.managedById) {
+    await prisma.user.update({
+      where: { id: creator.managedById },
+      data: {
+        totalCreditsUsed: {
+          increment: 1
+        }
+      }
+    })
+  }
+
+  // Track usage for the creator
+  await prisma.user.update({
+    where: { id: creatorUserId },
+    data: {
+      totalCreditsUsed: {
+        increment: 1
+      }
+    }
+  })
+}

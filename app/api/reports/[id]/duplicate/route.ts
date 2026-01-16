@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { canCreateReport, incrementReportUsage } from "@/lib/report-limits"
+import { canCreateReport } from "@/lib/report-limits"
 
 export async function POST(
   request: NextRequest,
@@ -56,18 +56,9 @@ export async function POST(
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    if (user.subscriptionStatus === 'TRIAL') {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          creditsRemaining: Math.max(0, (user.creditsRemaining || 0) - 1),
-          totalCreditsUsed: (user.totalCreditsUsed || 0) + 1,
-        }
-      })
-    } else if (user.subscriptionStatus === 'ACTIVE') {
-      // Increment monthly usage for active subscribers
-      await incrementReportUsage(session.user.id)
-    }
+    // Deduct credits and track usage for team hierarchy
+    const { deductCreditsAndTrackUsage } = await import('@/lib/report-limits')
+    await deductCreditsAndTrackUsage(session.user.id)
 
     // Generate new report number
     const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
