@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { PRICING_CONFIG } from "@/lib/pricing"
+import { getEffectiveSubscription, getOrganizationOwner } from "@/lib/organization-credits"
 
 export interface ReportLimitInfo {
   baseLimit: number
@@ -130,23 +131,19 @@ export async function getUserReportLimits(userId: string): Promise<ReportLimitIn
 
 /**
  * Check if user can create a report
+ * For Managers/Technicians, checks the Admin's organization credits
  */
 export async function canCreateReport(userId: string): Promise<{ allowed: boolean; reason?: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      subscriptionStatus: true,
-      creditsRemaining: true,
-    }
-  })
-
-  if (!user) {
+  // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
+  const effectiveSub = await getEffectiveSubscription(userId)
+  
+  if (!effectiveSub) {
     return { allowed: false, reason: "User not found" }
   }
 
   // Trial users use credits
-  if (user.subscriptionStatus === 'TRIAL') {
-    if (user.creditsRemaining && user.creditsRemaining > 0) {
+  if (effectiveSub.subscriptionStatus === 'TRIAL') {
+    if (effectiveSub.creditsRemaining && effectiveSub.creditsRemaining > 0) {
       return { allowed: true }
     }
     return { 
@@ -156,8 +153,11 @@ export async function canCreateReport(userId: string): Promise<{ allowed: boolea
   }
 
   // Active subscribers use monthly limits
-  if (user.subscriptionStatus === 'ACTIVE') {
-    const limits = await getUserReportLimits(userId)
+  if (effectiveSub.subscriptionStatus === 'ACTIVE') {
+    // For active subscribers, get limits from the owner's account
+    const ownerId = await getOrganizationOwner(userId)
+    const targetUserId = ownerId || userId
+    const limits = await getUserReportLimits(targetUserId)
     if (limits.availableReports > 0) {
       return { allowed: true }
     }
@@ -175,34 +175,33 @@ export async function canCreateReport(userId: string): Promise<{ allowed: boolea
 
 /**
  * Check if user can create bulk reports
+ * For Managers/Technicians, checks the Admin's organization credits
  */
 export async function canCreateBulkReports(userId: string, count: number): Promise<{ allowed: boolean; reason?: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      subscriptionStatus: true,
-      creditsRemaining: true,
-    }
-  })
-
-  if (!user) {
+  // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
+  const effectiveSub = await getEffectiveSubscription(userId)
+  
+  if (!effectiveSub) {
     return { allowed: false, reason: "User not found" }
   }
 
   // Trial users use credits
-  if (user.subscriptionStatus === 'TRIAL') {
-    if (user.creditsRemaining && user.creditsRemaining >= count) {
+  if (effectiveSub.subscriptionStatus === 'TRIAL') {
+    if (effectiveSub.creditsRemaining && effectiveSub.creditsRemaining >= count) {
       return { allowed: true }
     }
     return { 
       allowed: false, 
-      reason: `Insufficient credits. You need ${count} credits but only have ${user.creditsRemaining || 0}. Please upgrade your plan to create more reports.` 
+      reason: `Insufficient credits. You need ${count} credits but only have ${effectiveSub.creditsRemaining || 0}. Please upgrade your plan to create more reports.` 
     }
   }
 
   // Active subscribers use monthly limits
-  if (user.subscriptionStatus === 'ACTIVE') {
-    const limits = await getUserReportLimits(userId)
+  if (effectiveSub.subscriptionStatus === 'ACTIVE') {
+    // For active subscribers, get limits from the owner's account
+    const ownerId = await getOrganizationOwner(userId)
+    const targetUserId = ownerId || userId
+    const limits = await getUserReportLimits(targetUserId)
     if (limits.availableReports >= count) {
       return { allowed: true }
     }
@@ -222,8 +221,12 @@ export async function canCreateBulkReports(userId: string, count: number): Promi
  * Increment monthly report usage
  */
 export async function incrementReportUsage(userId: string): Promise<void> {
+  // Get the organization owner (Admin) - they own the subscription
+  const ownerId = await getOrganizationOwner(userId)
+  const targetUserId = ownerId || userId
+
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: targetUserId },
     select: {
       subscriptionStatus: true,
       monthlyReportsUsed: true,
@@ -248,7 +251,7 @@ export async function incrementReportUsage(userId: string): Promise<void> {
       nextReset.setHours(0, 0, 0, 0)
 
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: targetUserId },
         data: {
           monthlyReportsUsed: 1,
           monthlyResetDate: nextReset,
@@ -256,7 +259,7 @@ export async function incrementReportUsage(userId: string): Promise<void> {
       })
     } else {
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: targetUserId },
         data: {
           monthlyReportsUsed: {
             increment: 1

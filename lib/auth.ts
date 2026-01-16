@@ -27,6 +27,15 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            role: true,
+            password: true,
+            mustChangePassword: true
           }
         })
 
@@ -70,6 +79,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           image: user.image,
           role: user.role,
+          mustChangePassword: user.mustChangePassword || false,
         }
       }
     })
@@ -81,6 +91,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
+        token.mustChangePassword = (user as any).mustChangePassword || false
       }
       return token
     },
@@ -88,6 +99,7 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.sub!
         session.user.role = token.role as string
+        session.user.mustChangePassword = (token.mustChangePassword as boolean) || false
       }
       return session
     },

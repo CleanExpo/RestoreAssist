@@ -14,6 +14,70 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const dateRange = searchParams.get("dateRange") || "90days"
+    const userIdParam = searchParams.get("userId")
+
+    // If userId is provided, validate that the user belongs to the same organization
+    let targetUserId = session.user.id
+    if (userIdParam && userIdParam !== session.user.id) {
+      const isAdmin = session.user.role === "ADMIN"
+      const isManager = session.user.role === "MANAGER"
+      
+      // Only Admins and Managers can view other users' analytics
+      if (!isAdmin && !isManager) {
+        return NextResponse.json(
+          { error: "Only Admins and Managers can view other team members' analytics" },
+          { status: 403 }
+        )
+      }
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { organizationId: true, role: true }
+      })
+
+      if (!currentUser?.organizationId) {
+        return NextResponse.json(
+          { error: "You are not part of an organization" },
+          { status: 400 }
+        )
+      }
+
+      const targetUser = await prisma.user.findUnique({
+        where: { id: userIdParam },
+        select: { id: true, organizationId: true, role: true, managedById: true }
+      })
+
+      if (!targetUser || targetUser.organizationId !== currentUser.organizationId) {
+        return NextResponse.json(
+          { error: "User not found or not in your organization" },
+          { status: 403 }
+        )
+      }
+
+      // Admin: Can view Managers and Technicians (not other Admins)
+      if (isAdmin) {
+        if (targetUser.role === "ADMIN" && targetUser.id !== session.user.id) {
+          return NextResponse.json(
+            { error: "Cannot view other Admin accounts" },
+            { status: 403 }
+          )
+        }
+      }
+      
+      // Manager: Can only view Technicians (all Technicians in the organization)
+      if (isManager) {
+        if (targetUser.role !== "USER") {
+          return NextResponse.json(
+            { error: "Managers can only view Technicians' analytics" },
+            { status: 403 }
+          )
+        }
+        // Managers can view any Technician in their organization (not just the ones they manage)
+        // This allows them to see analytics for all Technicians, similar to how Admins see all team members
+      }
+
+      targetUserId = userIdParam
+    }
 
     // Get date filter
     const now = new Date()
@@ -36,7 +100,7 @@ export async function GET(request: NextRequest) {
     // Fetch completed reports
     const reports = await prisma.report.findMany({
       where: {
-        userId: session.user.id,
+        userId: targetUserId,
         createdAt: {
           gte: startDate,
         },
@@ -46,6 +110,21 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: "asc" },
     })
+
+    // Handle empty data case
+    if (reports.length === 0) {
+      return NextResponse.json({
+        overall: {
+          avgDays: 0,
+          medianDays: 0,
+          p95Days: 0,
+          totalReports: 0,
+        },
+        byHazardType: [],
+        timeSeries: [],
+        trend: "stable",
+      })
+    }
 
     // Calculate completion times (in days)
     const completionTimes: number[] = []

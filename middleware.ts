@@ -17,6 +17,11 @@ export default withAuth(
           return true
         }
         
+        // Allow access to change-password page (requires auth but handled in layout)
+        if (req.nextUrl.pathname.startsWith("/dashboard/change-password")) {
+          return !!token
+        }
+        
         // Require authentication for protected routes
         if (req.nextUrl.pathname.startsWith("/dashboard")) {
           return !!token

@@ -32,6 +32,7 @@ interface UserProfile {
   addonReports?: number
   monthlyReportsUsed?: number
   monthlyResetDate?: string
+  organizationId?: string
   reportLimits?: {
     baseLimit: number
     addonReports: number
@@ -50,6 +51,17 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  
+  // Check user role
+  const isAdmin = session?.user?.role === "ADMIN"
+  const isManager = session?.user?.role === "MANAGER"
+  const isTechnician = session?.user?.role === "USER"
+  const canEditBusinessInfo = isAdmin // Only Admin can edit business info
+  // Check if user is a team member linked to an Admin
+  const isTeamMember = isManager || isTechnician
+  const hasOrganization = !!(profile?.organizationId || (session?.user as any)?.organizationId)
+  const shouldHideSubscription = isTeamMember && hasOrganization
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -169,6 +181,35 @@ export default function SettingsPage() {
     }
   }
 
+  const handleUpdateName = async () => {
+    if (saving) {
+      return // Prevent double submission
+    }
+
+    setSaving(true)
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.name })
+      })
+
+      if (response.ok) {
+        toast.success('Name updated successfully')
+        setEditingName(false)
+        await fetchProfile()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to update name')
+      }
+    } catch (error) {
+      console.error('Error updating name:', error)
+      toast.error('Failed to update name. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleUpdateProfile = async () => {
     if (uploadingLogo) {
       toast.error('Please wait for the logo upload to complete')
@@ -181,14 +222,17 @@ export default function SettingsPage() {
 
     setSaving(true)
     try {
+      // For Managers/Technicians, only save name
+      const updateData = canEditBusinessInfo ? formData : { name: formData.name }
+      
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(updateData)
       })
 
       if (response.ok) {
-        toast.success('Business information saved successfully')
+        toast.success(canEditBusinessInfo ? 'Business information saved successfully' : 'Name updated successfully')
         setEditing(false)
         await fetchProfile()
         
@@ -378,45 +422,144 @@ export default function SettingsPage() {
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
-          <button
-            onClick={() => window.location.href = '/dashboard/subscription'}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-          >
-            <CreditCard className="w-4 h-4" />
-            Manage Subscription
-          </button>
+          {!shouldHideSubscription && (
+            <button
+              onClick={() => window.location.href = '/dashboard/subscription'}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+            >
+              <CreditCard className="w-4 h-4" />
+              Manage Subscription
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Personal Information - Name editing for all users */}
+          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={cn("text-xl font-semibold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+                <User className="w-5 h-5" />
+                Personal Information
+              </h2>
+              {!editingName && (
+                <button
+                  onClick={() => setEditingName(true)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors",
+                    "border-neutral-300 dark:border-slate-600",
+                    "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                    "text-neutral-700 dark:text-slate-300"
+                  )}
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit Name
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Your Name</label>
+                {editingName ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className={cn(
+                        "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                        "bg-white dark:bg-slate-700/50",
+                        "border-neutral-300 dark:border-slate-600",
+                        "text-neutral-900 dark:text-white",
+                        "placeholder-neutral-500 dark:placeholder-slate-500"
+                      )}
+                      placeholder="Enter your name"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleUpdateName}
+                        disabled={saving}
+                        className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-white"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <span>Save</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFormData({ ...formData, name: profile?.name || session?.user?.name || '' })
+                          setEditingName(false)
+                        }}
+                        disabled={saving}
+                        className={cn(
+                          "px-6 py-2.5 border rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                          "border-neutral-300 dark:border-slate-600",
+                          "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                          "text-neutral-700 dark:text-slate-300"
+                        )}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.name || session?.user?.name || 'Not provided'}</p>
+                )}
+              </div>
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Email Address</label>
+                <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile?.email || session?.user?.email || 'Not provided'}</p>
+                <p className={cn("text-xs mt-1", "text-neutral-500 dark:text-slate-500")}>Email cannot be changed</p>
+              </div>
+            </div>
+          </div>
+
           {/* Business Information */}
             <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <div className="flex items-center justify-between mb-6">
               <h2 className={cn("text-xl font-semibold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
                 <Building2 className="w-5 h-5" />
                 Business Information
-              </h2>
-              <button
-                onClick={() => setEditing(!editing)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors",
-                  "border-neutral-300 dark:border-slate-600",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
-                  "text-neutral-700 dark:text-slate-300"
+                {!canEditBusinessInfo && (
+                  <span className={cn("text-xs font-normal px-2 py-1 rounded", "bg-blue-100 dark:bg-blue-900/30", "text-blue-700 dark:text-blue-300")}>
+                    (Company Profile)
+                  </span>
                 )}
-              >
-                <Edit className="w-4 h-4" />
-                {editing ? 'Cancel' : 'Edit'}
-              </button>
+              </h2>
+              {canEditBusinessInfo && (
+                <button
+                  onClick={() => setEditing(!editing)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors",
+                    "border-neutral-300 dark:border-slate-600",
+                    "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                    "text-neutral-700 dark:text-slate-300"
+                  )}
+                >
+                  <Edit className="w-4 h-4" />
+                  {editing ? 'Cancel' : 'Edit'}
+                </button>
+              )}
+              {!canEditBusinessInfo && (
+                <p className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>
+                  Managed by Admin
+                </p>
+              )}
             </div>
 
               <div className="space-y-4">
               {/* Business Logo */}
               <div className="flex items-center gap-4 mb-6">
                 <div className="relative group">
-                  {editing ? (
+                  {editing && canEditBusinessInfo ? (
                     <label className="cursor-pointer block">
                       {uploadingLogo ? (
                         <div className={cn("w-24 h-24 rounded-lg border-2 flex items-center justify-center transition-all", "bg-neutral-100 dark:bg-slate-700/50", "border-neutral-300 dark:border-slate-600")}>
@@ -483,7 +626,7 @@ export default function SettingsPage() {
 
               <div>
                 <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Name</label>
-                {editing ? (
+                {editing && canEditBusinessInfo ? (
                   <input
                     type="text"
                     value={formData.businessName}
@@ -504,7 +647,7 @@ export default function SettingsPage() {
 
                 <div>
                 <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Address</label>
-                {editing ? (
+                {editing && canEditBusinessInfo ? (
                   <textarea
                     value={formData.businessAddress}
                     onChange={(e) => setFormData({ ...formData, businessAddress: e.target.value })}
@@ -525,7 +668,7 @@ export default function SettingsPage() {
 
                 <div>
                 <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business ABN</label>
-                {editing ? (
+                {editing && canEditBusinessInfo ? (
                   <input
                     type="text"
                     value={formData.businessABN}
@@ -546,7 +689,7 @@ export default function SettingsPage() {
 
                 <div>
                 <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Phone Number</label>
-                {editing ? (
+                {editing && canEditBusinessInfo ? (
                   <input
                     type="tel"
                     value={formData.businessPhone}
@@ -567,7 +710,7 @@ export default function SettingsPage() {
 
                 <div>
                 <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Business Email Address</label>
-                {editing ? (
+                {editing && canEditBusinessInfo ? (
                   <input
                     type="email"
                     value={formData.businessEmail}
@@ -586,7 +729,7 @@ export default function SettingsPage() {
                 )}
                   </div>
 
-              {editing && (
+              {editing && canEditBusinessInfo && (
                 <div className={cn("flex gap-3 pt-4 border-t", "border-neutral-200 dark:border-slate-700/50")}>
                   <button
                     onClick={handleUpdateProfile}
@@ -639,6 +782,25 @@ export default function SettingsPage() {
               Account Actions
             </h2>
 
+              <a
+                href="/dashboard/change-password"
+                className={cn(
+                  "w-full flex items-center mb-3 gap-3 px-4 py-3 border rounded-lg transition-colors",
+                  session?.user?.mustChangePassword 
+                    ? "border-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+                    : "border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50 text-neutral-700 dark:text-slate-300"
+                )}
+              >
+                <Key className="w-4 h-4" />
+                <span className="flex-1 text-left">
+                  Change Password
+                  {session?.user?.mustChangePassword && (
+                    <span className="ml-2 text-xs font-semibold">(Required)</span>
+                  )}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+
               <button className={cn(
                 "w-full flex items-center mb-3 gap-3 px-4 py-3 border rounded-lg transition-colors",
                 "border-neutral-300 dark:border-slate-600",
@@ -663,51 +825,53 @@ export default function SettingsPage() {
 
         {/* Subscription & Credits Sidebar */}
         <div className="space-y-6">
-          {/* Subscription Status */}
-          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-            <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
-              <Crown className="w-5 h-5" />
-              Subscription
-            </h2>
+          {/* Subscription Status - Hide for team members linked to Admin */}
+          {!shouldHideSubscription && (
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+              <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+                <Crown className="w-5 h-5" />
+                Subscription
+              </h2>
 
-            <div className="space-y-4">
-                <div>
-                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
-                <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || 'TRIAL')}`}>
-                  {getStatusText(profile?.subscriptionStatus || 'TRIAL')}
+              <div className="space-y-4">
+                  <div>
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || 'TRIAL')}`}>
+                    {getStatusText(profile?.subscriptionStatus || 'TRIAL')}
+                  </div>
                 </div>
+
+                {profile?.subscriptionPlan && (
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Plan</label>
+                    <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile.subscriptionPlan}</p>
+                  </div>
+                )}
+
+                {profile?.trialEndsAt && (
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Trial Ends</label>
+                    <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.trialEndsAt)}</p>
+                  </div>
+                )}
+
+                {profile?.nextBillingDate && (
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Next Billing</label>
+                    <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.nextBillingDate)}</p>
+                  </div>
+                )}
+
+                <a
+                  href="/dashboard/subscription"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Manage Subscription
+                </a>
               </div>
-
-              {profile?.subscriptionPlan && (
-                <div>
-                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Plan</label>
-                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{profile.subscriptionPlan}</p>
-                </div>
-              )}
-
-              {profile?.trialEndsAt && (
-                <div>
-                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Trial Ends</label>
-                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.trialEndsAt)}</p>
-                </div>
-              )}
-
-              {profile?.nextBillingDate && (
-                <div>
-                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Next Billing</label>
-                  <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.nextBillingDate)}</p>
-                </div>
-              )}
-
-              <a
-                href="/dashboard/subscription"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
-              >
-                <CreditCard className="w-4 h-4" />
-                Manage Subscription
-              </a>
             </div>
-          </div>
+          )}
 
           {/* Reports / Credits */}
             <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
@@ -781,13 +945,15 @@ export default function SettingsPage() {
                 ></div>
               </div>
 
-              <a
-                      href="/dashboard/pricing"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-              >
-                <Crown className="w-4 h-4" />
-                Upgrade Package
-              </a>
+              {!shouldHideSubscription && (
+                <a
+                  href="/dashboard/pricing"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                >
+                  <Crown className="w-4 h-4" />
+                  Upgrade Package
+                </a>
+              )}
                   </>
                 )}
             </div>

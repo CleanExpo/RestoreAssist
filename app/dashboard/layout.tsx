@@ -42,7 +42,8 @@ export default function DashboardLayout({
     if (status === "unauthenticated") {
       router.push("/login")
     }
-  }, [status, router])
+    // Removed auto-redirect for password change - users can access it via Settings page
+  }, [status, session, router])
 
   if (status === "loading") {
     return (
@@ -64,6 +65,9 @@ export default function DashboardLayout({
     await signOut({ callbackUrl: "/" })
   }
 
+  // Check if user is a Manager or Technician (they should be linked to an Admin)
+  const isTeamMember = session?.user?.role === "MANAGER" || session?.user?.role === "USER"
+
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: Plus, label: "New Report", href: "/dashboard/reports/new", highlight: true },
@@ -74,7 +78,8 @@ export default function DashboardLayout({
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
-    { icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" },
+    // Hide Subscription for team members (Managers and Technicians)
+    ...(isTeamMember ? [] : [{ icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" }]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
   ]
@@ -145,24 +150,26 @@ const upgradeItem = {
                       </Link>
                     ))}
                     
-                    {/* Upgrade Package - Special styling */}
-                    <Link
-                      href={upgradeItem.href}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
-                        upgradeItem.special
-                          ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium shadow-lg hover:shadow-yellow-500/50 hover:from-yellow-600 hover:to-orange-600 hover:scale-[1.02] hover:shadow-xl"
-                          : cn(
-                              "text-neutral-700 dark:text-slate-300",
-                              "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                              "hover:scale-[1.02]"
-                            )
-                      )}
-                      title={!sidebarOpen ? upgradeItem.label : ""}
-                    >
-                      <upgradeItem.icon size={20} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                      {sidebarOpen && <span className="text-sm">{upgradeItem.label}</span>}
-                    </Link>
+                    {/* Upgrade Package - Special styling - Hide for team members */}
+                    {!isTeamMember && (
+                      <Link
+                        href={upgradeItem.href}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+                          upgradeItem.special
+                            ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-medium shadow-lg hover:shadow-yellow-500/50 hover:from-yellow-600 hover:to-orange-600 hover:scale-[1.02] hover:shadow-xl"
+                            : cn(
+                                "text-neutral-700 dark:text-slate-300",
+                                "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                "hover:scale-[1.02]"
+                              )
+                        )}
+                        title={!sidebarOpen ? upgradeItem.label : ""}
+                      >
+                        <upgradeItem.icon size={20} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                        {sidebarOpen && <span className="text-sm">{upgradeItem.label}</span>}
+                      </Link>
+                    )}
                   </nav>
 
                   {/* User Section - Fixed at bottom */}

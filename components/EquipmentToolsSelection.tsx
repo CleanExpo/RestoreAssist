@@ -247,11 +247,11 @@ export default function EquipmentToolsSelection({
       const preferredAirMover =
         totalAffectedArea > 80 ? 'airmover-2500' : totalAffectedArea > 30 ? 'airmover-1500' : 'airmover-800'
       const rate = pricingConfig ? getEquipmentDailyRate(preferredAirMover, pricingConfig) : 0
-      selections.push({
+            selections.push({
         groupId: preferredAirMover,
         quantity: airMoversRequired,
-        dailyRate: rate
-      })
+              dailyRate: rate
+            })
     }
     
     setEquipmentSelections(selections)

@@ -191,6 +191,10 @@ export async function POST(request: NextRequest) {
         insuranceType: 'Building and Contents Insurance', // Default
         userId: user.id,
         
+        // Team assignment: For Technicians, assign to a Manager; For Managers, assign to an Admin
+        assignedManagerId: data.assignedManagerId || null,
+        assignedAdminId: data.assignedAdminId || null,
+        
         // Phase 2: Initial Data Entry Fields
         clientContactDetails: sanitizeString(data.clientContactDetails),
         propertyPostcode: data.propertyPostcode.trim(), // Required field, so no null check
