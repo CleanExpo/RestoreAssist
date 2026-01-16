@@ -25,9 +25,12 @@ import {
   Box,
   Minus,
   Wrench,
+  UserCog,
+  Crown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { PropertyLookupButton } from "@/components/property-lookup-button";
 import { PropertyDataDisplay } from "@/components/property-data-display";
@@ -215,7 +218,13 @@ export default function InitialDataEntryForm({
   initialData,
 }: InitialDataEntryFormProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  
+  // Assignee selection state (Manager for Technicians, Admin for Managers)
+  const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("");
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [formData, setFormData] = useState({
     clientName: initialData?.clientName || "",
     clientContactDetails: initialData?.clientContactDetails || "",
@@ -462,6 +471,33 @@ export default function InitialDataEntryForm({
     };
     fetchPricingConfig();
   }, []);
+
+  // Fetch assignees (Managers for Technicians, Admins for Managers)
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      const userRole = session?.user?.role;
+      // Only fetch for Technicians (USER) and Managers (MANAGER)
+      if (userRole === "USER" || userRole === "MANAGER") {
+        setLoadingAssignees(true);
+        try {
+          const response = await fetch("/api/team/assignees");
+          if (response.ok) {
+            const data = await response.json();
+            setAssignees(data.assignees || []);
+            // Auto-select if there's only one assignee
+            if (data.assignees?.length === 1) {
+              setSelectedAssigneeId(data.assignees[0].id);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching assignees:", error);
+        } finally {
+          setLoadingAssignees(false);
+        }
+      }
+    };
+    fetchAssignees();
+  }, [session?.user?.role]);
 
   // Load NIR data and equipment data when reportId is available
   useEffect(() => {
@@ -1109,6 +1145,14 @@ export default function InitialDataEntryForm({
       return;
     }
 
+    // Validate assignee selection for Technicians and Managers
+    const userRole = session?.user?.role;
+    if ((userRole === "USER" || userRole === "MANAGER") && !selectedAssigneeId) {
+      toast.error(`Please select a ${userRole === "USER" ? "Manager" : "Admin"} for this report`);
+      setLoading(false);
+      return;
+    }
+
     try {
       // Prepare NIR data
       const nirData = {
@@ -1159,12 +1203,21 @@ export default function InitialDataEntryForm({
         },
       } : null;
 
+      // Prepare assignee data based on user role
+      const assigneeData: { assignedManagerId?: string; assignedAdminId?: string } = {};
+      if (userRole === "USER" && selectedAssigneeId) {
+        assigneeData.assignedManagerId = selectedAssigneeId;
+      } else if (userRole === "MANAGER" && selectedAssigneeId) {
+        assigneeData.assignedAdminId = selectedAssigneeId;
+      }
+
       // Single API call to save all data
       const response = await fetch("/api/reports/initial-entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          ...assigneeData, // Include assignee selection
           incidentDate: formData.incidentDate
             ? new Date(formData.incidentDate).toISOString()
             : null,
@@ -2173,6 +2226,63 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+
+        {/* Assignee Selection Section (for Technicians and Managers) */}
+        {(session?.user?.role === "USER" || session?.user?.role === "MANAGER") && (
+          <div className={cn(
+            "p-4 rounded-lg border",
+            "border-neutral-200 dark:border-neutral-800",
+            "bg-white dark:bg-neutral-900/50"
+          )}>
+            <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
+              {session?.user?.role === "USER" ? (
+                <UserCog className="w-4 h-4" />
+              ) : (
+                <Crown className="w-4 h-4" />
+              )}
+              {session?.user?.role === "USER" ? "Assign to Manager" : "Assign to Admin"}
+            </h3>
+            <div>
+              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
+                {session?.user?.role === "USER" ? "Manager" : "Admin"} <span className={cn("text-error-500 dark:text-error-400")}>*</span>
+              </label>
+              {loadingAssignees ? (
+                <div className={cn("flex items-center gap-2 py-2", "text-neutral-600 dark:text-neutral-400")}>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Loading {session?.user?.role === "USER" ? "managers" : "admins"}...</span>
+                </div>
+              ) : assignees.length === 0 ? (
+                <div className={cn("py-2 text-sm", "text-neutral-600 dark:text-neutral-400")}>
+                  No {session?.user?.role === "USER" ? "managers" : "admins"} available in your organization
+                </div>
+              ) : (
+                <select
+                  required
+                  value={selectedAssigneeId}
+                  onChange={(e) => setSelectedAssigneeId(e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg text-sm",
+                    "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50",
+                    "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
+                  )}
+                >
+                  <option value="">Select {session?.user?.role === "USER" ? "a Manager" : "an Admin"}...</option>
+                  {assignees.map((assignee) => (
+                    <option key={assignee.id} value={assignee.id}>
+                      {assignee.name || assignee.email}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-neutral-400")}>
+                {session?.user?.role === "USER" 
+                  ? "Select the manager who will oversee this report"
+                  : "Select the admin who will oversee this report"}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Property Information Section */}
         <div className={cn(

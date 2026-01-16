@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { getEffectiveSubscription, getOrganizationOwner } from "@/lib/organization-credits"
 
 // In-memory rate limiting store
 // Structure: Map<userId, { count: number, resetTime: number }>
@@ -50,15 +51,10 @@ export async function checkBulkCreateCredits(
   userId: string,
   reportCount: number
 ): Promise<{ allowed: boolean; creditsRequired: number; creditsAvailable: number; reason?: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      creditsRemaining: true,
-      subscriptionStatus: true,
-    },
-  })
-
-  if (!user) {
+  // Get effective subscription (Admin's for Managers/Technicians)
+  const effectiveSub = await getEffectiveSubscription(userId)
+  
+  if (!effectiveSub) {
     return {
       allowed: false,
       creditsRequired: reportCount,
@@ -68,9 +64,9 @@ export async function checkBulkCreateCredits(
   }
 
   // Trial users: 1 credit per duplicate
-  if (user.subscriptionStatus === 'TRIAL') {
+  if (effectiveSub.subscriptionStatus === 'TRIAL') {
     const creditsRequired = reportCount
-    const creditsAvailable = user.creditsRemaining || 0
+    const creditsAvailable = effectiveSub.creditsRemaining || 0
 
     if (creditsAvailable < creditsRequired) {
       return {
@@ -89,7 +85,7 @@ export async function checkBulkCreateCredits(
   }
 
   // Active subscribers don't need credits for bulk operations
-  if (user.subscriptionStatus === 'ACTIVE') {
+  if (effectiveSub.subscriptionStatus === 'ACTIVE') {
     return {
       allowed: true,
       creditsRequired: 0,
@@ -114,8 +110,12 @@ export async function deductBulkCredits(
   reason: string
 ): Promise<{ success: boolean; creditsRemaining: number }> {
   try {
+    // Get the organization owner (Admin) - they own the credits
+    const ownerId = await getOrganizationOwner(userId)
+    const targetUserId = ownerId || userId
+
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: targetUserId },
       data: {
         creditsRemaining: {
           decrement: count,

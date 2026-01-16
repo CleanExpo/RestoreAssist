@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
+import { useSession } from "next-auth/react"
 import AnalyticsFilters, { AnalyticsFilters as AnalyticsFiltersType } from "./components/AnalyticsFilters"
 import KPICards from "./components/KPICards"
 import RevenueChart from "./components/RevenueChart"
@@ -13,6 +14,7 @@ import DamageTypesChart from "./components/DamageTypesChart"
 import RevenueProjection from "./components/RevenueProjection"
 import TopClientsTable from "./components/TopClientsTable"
 import CompletionMetrics from "./components/CompletionMetrics"
+import { Users, UserCog, Wrench } from "lucide-react"
 
 interface AnalyticsData {
   kpis: {
@@ -48,6 +50,7 @@ interface CompletionData {
 }
 
 export default function AnalyticsPage() {
+  const { data: session } = useSession()
   const [filters, setFilters] = useState<AnalyticsFiltersType>({
     dateRange: "30days",
   })
@@ -57,6 +60,43 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'reports'>('revenue')
+  const [selectedMember, setSelectedMember] = useState<{ id: string; name: string | null; email: string; role: string } | null>(null)
+
+  // Fetch selected member info when userId filter changes (for Admin and Manager)
+  useEffect(() => {
+    const isAdmin = session?.user?.role === "ADMIN"
+    const isManager = session?.user?.role === "MANAGER"
+    
+    if (filters.userId && (isAdmin || isManager)) {
+      const fetchMemberInfo = async () => {
+        try {
+          const res = await fetch("/api/team/members")
+          if (res.ok) {
+            const json = await res.json()
+            let members = json.members || []
+            
+            // Manager can only see Technicians
+            if (isManager) {
+              members = members.filter((m: any) => m.role === "USER")
+            }
+            
+            const member = members.find((m: any) => m.id === filters.userId)
+            if (member) {
+              setSelectedMember(member)
+            } else {
+              setSelectedMember(null)
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch member info:", err)
+          setSelectedMember(null)
+        }
+      }
+      fetchMemberInfo()
+    } else {
+      setSelectedMember(null)
+    }
+  }, [filters.userId, session?.user?.role])
 
   // Calculate additional insights
   const insights = useMemo(() => {
@@ -105,11 +145,21 @@ export default function AnalyticsPage() {
         analyticsUrl.searchParams.set("dateRange", filters.dateRange)
         if (filters.customFrom) analyticsUrl.searchParams.set("from", filters.customFrom)
         if (filters.customTo) analyticsUrl.searchParams.set("to", filters.customTo)
+        if (filters.userId) analyticsUrl.searchParams.set("userId", filters.userId)
+
+        // Build URLs for projections and completion metrics
+        const projectionsUrl = new URL("/api/analytics/revenue-projections", window.location.origin)
+        projectionsUrl.searchParams.set("days", "90")
+        if (filters.userId) projectionsUrl.searchParams.set("userId", filters.userId)
+
+        const completionUrl = new URL("/api/analytics/completion-metrics", window.location.origin)
+        completionUrl.searchParams.set("dateRange", filters.dateRange)
+        if (filters.userId) completionUrl.searchParams.set("userId", filters.userId)
 
         const [analyticsRes, projectionsRes, completionRes] = await Promise.all([
           fetch(analyticsUrl),
-          fetch("/api/analytics/revenue-projections?days=90"),
-          fetch(`/api/analytics/completion-metrics?dateRange=${filters.dateRange}`),
+          fetch(projectionsUrl),
+          fetch(completionUrl),
         ])
 
         if (!analyticsRes.ok) throw new Error("Failed to load analytics")
@@ -191,6 +241,38 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Selected Team Member Indicator (Admin and Manager) */}
+        {selectedMember && (session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER") && (
+          <div className={cn(
+            "p-4 rounded-xl border-2 backdrop-blur-sm shadow-lg animate-in slide-in-from-top-4",
+            "bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-purple-500/10",
+            "border-blue-500/30 dark:border-blue-400/30"
+          )}>
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg",
+                selectedMember.role === "MANAGER" 
+                  ? "bg-blue-100 dark:bg-blue-900/30" 
+                  : "bg-cyan-100 dark:bg-cyan-900/30"
+              )}>
+                {selectedMember.role === "MANAGER" ? (
+                  <UserCog className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                ) : (
+                  <Wrench className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                )}
+              </div>
+              <div>
+                <p className={cn("text-sm font-medium", "text-neutral-700 dark:text-neutral-300")}>
+                  Viewing analytics for: <strong>{selectedMember.name || selectedMember.email}</strong>
+                </p>
+                <p className={cn("text-xs mt-0.5", "text-neutral-600 dark:text-neutral-400")}>
+                  {selectedMember.role === "MANAGER" ? "Manager" : "Technician"} • {selectedMember.email}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error Alert with Animation */}
         {error && (
           <div className="animate-in slide-in-from-top-4 duration-300">

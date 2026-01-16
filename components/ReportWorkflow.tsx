@@ -107,7 +107,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
             setCurrentStage('report-generation')
           } else if (isOptimised) {
             // Optimised: must continue to Tier 2
-            setCurrentStage('tier2')
+          setCurrentStage('tier2')
           } else {
             // Basic: should not have Tier 1, but if it does, go to report generation
             setCurrentStage('report-generation')
@@ -118,7 +118,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
             setCurrentStage('report-generation')
           } else {
             // Enhanced or Optimised need Tier 1
-            setCurrentStage('tier1')
+          setCurrentStage('tier1')
           }
         } else if (reportData.technicianFieldReport) {
           setCurrentStage('initial-entry')

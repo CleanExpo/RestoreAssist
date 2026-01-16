@@ -42,8 +42,15 @@ function LoginForm() {
         setError("Invalid email or password")
         toast.error("Invalid email or password")
       } else {
-        toast.success("Login successful! Welcome back!")
-        router.push("/dashboard")
+        // Check if user needs to change password
+        const session = await getSession()
+        if (session?.user?.mustChangePassword) {
+          toast.success("Login successful! Please change your password.")
+          router.push("/dashboard/change-password")
+        } else {
+          toast.success("Login successful! Welcome back!")
+          router.push("/dashboard")
+        }
       }
     } catch (error) {
       setError("An error occurred. Please try again.")

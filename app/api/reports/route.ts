@@ -131,30 +131,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For trial users, deduct credits
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-      }
-    })
-
-    if (!user) {
+    // Get effective subscription (Admin's for Managers/Technicians)
+    const { getEffectiveSubscription, getOrganizationOwner } = await import("@/lib/organization-credits")
+    const effectiveSub = await getEffectiveSubscription(session.user.id)
+    
+    if (!effectiveSub) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    if (user.subscriptionStatus === 'TRIAL') {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          creditsRemaining: Math.max(0, (user.creditsRemaining || 0) - 1),
-          totalCreditsUsed: (user.totalCreditsUsed || 0) + 1,
+    // For trial users, deduct credits from the organization owner (Admin)
+    if (effectiveSub.subscriptionStatus === 'TRIAL') {
+      const ownerId = await getOrganizationOwner(session.user.id)
+      const targetUserId = ownerId || session.user.id
+      
+      // Get current credits
+      const owner = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: {
+          creditsRemaining: true,
+          totalCreditsUsed: true,
         }
       })
-    } else if (user.subscriptionStatus === 'ACTIVE') {
-      // Increment monthly usage for active subscribers
+      
+      if (owner) {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: {
+            creditsRemaining: Math.max(0, (owner.creditsRemaining || 0) - 1),
+            totalCreditsUsed: (owner.totalCreditsUsed || 0) + 1,
+          }
+        })
+      }
+    } else if (effectiveSub.subscriptionStatus === 'ACTIVE') {
+      // Increment monthly usage for active subscribers (on owner's account)
       await incrementReportUsage(session.user.id)
     }
 

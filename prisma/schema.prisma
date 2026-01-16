@@ -71,12 +71,15 @@ model User {
   totalCreditsUsed   Int?
   lastBillingDate    DateTime?
   nextBillingDate    DateTime?
-
+  
   // Add-on tracking
   addonReports       Int?      @default(0) // Additional reports from add-ons
   monthlyReportsUsed Int?      @default(0) // Reports used this month
   monthlyResetDate   DateTime? // Date when monthly usage resets
   signupBonusApplied Boolean?  @default(false) // Track if signup bonus has been applied
+  
+  // Password management
+  mustChangePassword Boolean?  @default(false) // True if user needs to change temporary password
 
   // Premium Features
   hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
@@ -124,6 +127,10 @@ model User {
   // Team invites
   createdInvites UserInvite[] @relation("InvitesCreatedBy")
   managedInvites UserInvite[] @relation("InvitesManagedBy")
+  
+  // Reports assigned to this user (as Manager or Admin)
+  assignedReportsAsManager Report[] @relation("ReportManager")
+  assignedReportsAsAdmin   Report[] @relation("ReportAdmin")
 }
 
 model VerificationToken {
@@ -182,6 +189,12 @@ model Report {
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   clientId        String?
   client          Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  
+  // Team assignment: For Technicians, assign to a Manager; For Managers, assign to an Admin
+  assignedManagerId String? // Manager assigned to this report (for Technicians)
+  assignedManager   User?   @relation("ReportManager", fields: [assignedManagerId], references: [id], onDelete: SetNull)
+  assignedAdminId   String? // Admin assigned to this report (for Managers)
+  assignedAdmin     User?   @relation("ReportAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
 
   // Phase 2: Initial Data Entry Fields
   clientContactDetails     String? // Phone, email, etc.
@@ -191,25 +204,25 @@ model Report {
   technicianAttendanceDate DateTime? // Date when technician attended
   technicianName           String? // Technician's name if available
   technicianFieldReport    String?   @db.Text // The raw technician report text
-
+  
   // New Fields: Property ID and Job Number
   propertyId String? // Property identifier
   jobNumber  String? // Job number/reference
-
+  
   // Cover Page: Instructions/Standards References
   reportInstructions String? @db.Text // Instructions/standards references for report
-
+  
   // Additional Contact Information: Builder/Developer
   builderDeveloperCompanyName String?
   builderDeveloperContact     String?
   builderDeveloperAddress     String?
   builderDeveloperPhone       String?
-
+  
   // Additional Contact Information: Owner/Management
   ownerManagementContactName String?
   ownerManagementPhone       String?
   ownerManagementEmail       String?
-
+  
   // Previous Maintenance & Repair History
   lastInspectionDate                  DateTime?
   buildingChangedSinceLastInspection  String?
@@ -819,28 +832,28 @@ model AddonPurchase {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   // Add-on details
   addonKey    String // e.g., "pack8", "pack25", "pack60"
   addonName   String // Display name
   reportLimit Int // Number of reports in this add-on
   amount      Float // Price paid
   currency    String @default("AUD")
-
+  
   // Stripe details
   stripeSessionId       String? @unique
   stripePaymentIntentId String? @unique
-
+  
   // Status
   status AddonPurchaseStatus @default(PENDING)
-
+  
   // Dates
   purchasedAt DateTime  @default(now())
   expiresAt   DateTime? // When this add-on expires (if applicable)
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([userId])
   @@index([status])
   @@index([purchasedAt])
@@ -858,7 +871,7 @@ model ClaimAnalysisBatch {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   // Batch details
   folderId       String // Google Drive folder ID
   folderName     String?
@@ -866,23 +879,23 @@ model ClaimAnalysisBatch {
   totalFiles     Int                      @default(0)
   processedFiles Int                      @default(0)
   failedFiles    Int                      @default(0)
-
+  
   // Results summary
   averageCompletenessScore Float?
   averageComplianceScore   Float?
   totalMissingElements     Int    @default(0)
   estimatedRevenueRecovery Float? // Estimated additional revenue from missing items
-
+  
   // Metadata
   startedAt    DateTime  @default(now())
   completedAt  DateTime?
   errorMessage String?   @db.Text
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   analyses ClaimAnalysis[]
-
+  
   @@index([userId])
   @@index([status])
 }
@@ -899,13 +912,13 @@ model ClaimAnalysis {
   id      String             @id @default(cuid())
   batchId String
   batch   ClaimAnalysisBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-
+  
   // Source file information
   googleDriveFileId String  @unique
   fileName          String
   fileSize          Int? // Bytes
   fileUrl           String? // Google Drive file URL
-
+  
   // Extracted claim information
   claimNumber     String?
   propertyAddress String?
@@ -914,44 +927,44 @@ model ClaimAnalysis {
   reportDate      DateTime?
   clientName      String?
   insurerName     String?
-
+  
   // Analysis scores (0-100)
   completenessScore    Int? // How complete is the report
   complianceScore      Int? // IICRC compliance score
   standardizationScore Int? // How well it matches standard format
   documentationScore   Int? // Quality of documentation
   billingAccuracyScore Int? // Accuracy of billing items
-
+  
   // Report structure analysis
   reportStructure   String? @db.Text // JSON: sections found, order, completeness
   reportFlow        String? @db.Text // JSON: flow analysis, technician patterns
   technicianPattern String? @db.Text // JSON: technician-specific patterns
-
+  
   // Missing elements summary
   missingIICRCElements Int @default(0)
   missingOHSElements   Int @default(0)
   missingBillingItems  Int @default(0)
   missingDocumentation Int @default(0)
-
+  
   // Estimated impact
   estimatedMissingRevenue Float? // Estimated revenue from missing billable items
   estimatedTimeSavings    Float? // Estimated hours saved with standardization
-
+  
   // Full analysis data
   fullAnalysisData String? @db.Text // JSON: complete analysis results
   extractedText    String? @db.Text // Extracted text from PDF
-
+  
   // Status
   status       ClaimAnalysisStatus @default(PENDING)
   errorMessage String?             @db.Text
-
+  
   // Metadata
   processedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
+  
   missingElements MissingElement[]
-
+  
   @@index([batchId])
   @@index([technicianName])
   @@index([status])
@@ -969,30 +982,30 @@ model MissingElement {
   id         String        @id @default(cuid())
   analysisId String
   analysis   ClaimAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-
+  
   // Element details
   category    MissingElementCategory
   elementType String // e.g., "IICRC S500 Water Category", "OH&S Confined Space Permit"
   elementName String // Specific element name
   description String?                @db.Text
   severity    MissingElementSeverity @default(MEDIUM)
-
+  
   // Standards reference
   standardReference String? // e.g., "IICRC S500 Section 4.2", "OH&S Act 2004"
   requirementText   String? @db.Text // Text of the requirement
-
+  
   // Billing impact (if applicable)
   isBillable        Boolean @default(false)
   estimatedCost     Float? // Estimated cost if this was billed
   estimatedHours    Float? // Estimated hours if this was included
   suggestedLineItem String? @db.Text // Suggested line item description
-
+  
   // Context
   context        String? @db.Text // Where this should appear in the report
   suggestedValue String? @db.Text // Suggested value/content
-
+  
   createdAt DateTime @default(now())
-
+  
   @@index([analysisId])
   @@index([category])
   @@index([severity])
@@ -1027,31 +1040,31 @@ model StandardTemplate {
   id     String  @id @default(cuid())
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
+  
   // Template details
   templateType StandardTemplateType
   name         String
   version      Int                  @default(1)
   description  String?              @db.Text
-
+  
   // Template structure
   structure String  @db.Text // JSON: template structure, sections, fields
   checklist String? @db.Text // JSON: required elements checklist
   lineItems String? @db.Text // JSON: standard line items for billing
-
+  
   // Generation metadata
   generatedFromBatchId String? // Which batch analysis generated this
   basedOnAnalysisCount Int? // How many claims were analyzed to create this
-
+  
   // Status
   isActive  Boolean @default(true)
   isDefault Boolean @default(false) // Default template for this type
-
+  
   // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   createdBy String?
-
+  
   @@index([templateType])
   @@index([isActive])
   @@index([isDefault])
@@ -1074,7 +1087,7 @@ model Inspection {
   id       String  @id @default(cuid())
   reportId String? @unique // Link to existing Report if applicable
   report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
-
+  
   // Inspection Metadata
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
@@ -1082,16 +1095,16 @@ model Inspection {
   inspectionDate   DateTime @default(now())
   technicianName   String?
   technicianId     String? // Link to technician user if available
-
+  
   // Status
   status      InspectionStatus @default(DRAFT)
   submittedAt DateTime?
   processedAt DateTime?
-
+  
   // Relations
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   environmentalData EnvironmentalData?
   moistureReadings  MoistureReading[]
   affectedAreas     AffectedArea[]
@@ -1159,17 +1172,17 @@ model EnvironmentalData {
   id           String     @id @default(cuid())
   inspectionId String     @unique
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Environmental Measurements
   ambientTemperature Float // °F or °C
   humidityLevel      Float // Percentage (0-100)
   dewPoint           Float? // °F or °C
   airCirculation     Boolean @default(false)
-
+  
   // Additional Context
   weatherConditions String? @db.Text
   notes             String? @db.Text
-
+  
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1180,21 +1193,21 @@ model MoistureReading {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Location & Surface
   location      String // Room/Zone identifier
   surfaceType   String // drywall, wood, carpet, concrete, etc.
   moistureLevel Float // Percentage (0-100)
   depth         String // Surface | Subsurface
-
+  
   // Additional Context
   notes    String? @db.Text
   photoUrl String? // Link to photo if available
-
+  
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
+  
   @@index([inspectionId])
   @@index([surfaceType])
 }
@@ -1204,26 +1217,26 @@ model AffectedArea {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Area Identification
   roomZoneId            String // Room/Zone identifier
   affectedSquareFootage Float // Square footage affected
-
+  
   // Water Source & Timing
   waterSource   String // clean water, grey water, black water
   timeSinceLoss Float? // Hours since loss occurred
-
+  
   // IICRC Classification (auto-determined by system)
   category String? // A, B, C, D (or 1, 2, 3, 4)
   class    String? // 1, 2, 3, 4
-
+  
   // Additional Context
   description String? @db.Text
   photos      String? @db.Text // JSON array of photo URLs
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([inspectionId])
   @@index([category])
   @@index([class])
@@ -1234,28 +1247,28 @@ model ScopeItem {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Item Details
   itemType    String // remove_carpet, sanitize_materials, install_dehumidification, etc.
   description String // Human-readable description
   areaId      String? // Link to AffectedArea if applicable
-
+  
   // Quantities & Specifications
   quantity      Float? // Quantity if applicable
   unit          String? // sq ft, days, units, etc.
   specification String? @db.Text // Additional specs (e.g., drywall height)
-
+  
   // System Determination
   autoDetermined Boolean @default(false) // True if system auto-added this
   justification  String? @db.Text // Why this item is required (IICRC/building code reference)
-
+  
   // Status
   isRequired Boolean @default(true)
   isSelected Boolean @default(true) // User can deselect if not needed
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([inspectionId])
   @@index([itemType])
   @@index([autoDetermined])
@@ -1266,7 +1279,7 @@ model CostEstimate {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Cost Item Details
   scopeItemId String? // Link to ScopeItem if applicable
   category    String // Equipment, Labor, Materials, etc.
@@ -1275,18 +1288,18 @@ model CostEstimate {
   unit        String
   rate        Float // Cost per unit
   subtotal    Float // quantity × rate
-
+  
   // Source
   costDatabaseId String? // Link to CostDatabase entry if used
   isEstimated    Boolean @default(true) // True if from database, false if custom
-
+  
   // Totals
   contingency Float? // Contingency percentage applied
   total       Float // Final total including contingency
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([inspectionId])
   @@index([category])
 }
@@ -1296,26 +1309,26 @@ model Classification {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Classification Result
   category String // 1, 2, 3, or 4 (IICRC S500)
   class    String // 1, 2, 3, or 4 (IICRC S500)
-
+  
   // Justification
   justification     String @db.Text // Why this classification was determined
   standardReference String // IICRC S500 Section reference
   confidence        Float? // 0-100 confidence score
-
+  
   // Input Data Used
   inputData String? @db.Text // JSON: data used for classification
-
+  
   // Status
   isFinal    Boolean @default(false)
   reviewedBy String? // User ID if manually reviewed (shouldn't happen per spec)
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([inspectionId])
   @@index([category])
   @@index([class])
@@ -1326,27 +1339,27 @@ model AuditLog {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Action Details
   action     String // Data entered, photo added, form submitted, classification determined, etc.
   entityType String? // EnvironmentalData, MoistureReading, AffectedArea, etc.
   entityId   String? // ID of the entity that was modified
-
+  
   // User & Device
   userId      String
   device      String? // Mobile, Web
   gpsLocation String? // GPS coordinates if available
-
+  
   // Changes
   changes       String? @db.Text // JSON: what was changed
   previousValue String? @db.Text // Previous value if applicable
   newValue      String? @db.Text // New value if applicable
-
+  
   // Metadata
   timestamp DateTime @default(now())
   ipAddress String?
   userAgent String?
-
+  
   @@index([inspectionId])
   @@index([userId])
   @@index([action])
@@ -1360,29 +1373,29 @@ model BuildingCode {
   // Regulatory Document Link (NEW)
   regulatoryDocumentId String? // FK to RegulatoryDocument
   regulatoryDocument   RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id])
-
+  
   // Location
   state    String // QLD, NSW, VIC, etc.
   postcode String? // Specific postcode if applicable (null = state-wide)
-
+  
   // Requirements
   codeVersion              String // Building code version
   moistureThreshold        Float? // Moisture threshold % that triggers requirements
   dryingTimeStandard       String? @db.Text // Drying time standards
   dehumidificationRequired Boolean @default(false)
   certificationRequired    Boolean @default(false)
-
+  
   // Specific Requirements (stored as JSON)
   requirements String? @db.Text // JSON: detailed requirements
-
+  
   // Additional Context
   notes         String?   @db.Text
   effectiveDate DateTime?
   expiryDate    DateTime?
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([state])
   @@index([postcode])
   @@index([regulatoryDocumentId])
@@ -1498,32 +1511,32 @@ model InsurancePolicyRequirement {
 // Cost Database (National average costs for common items)
 model CostDatabase {
   id String @id @default(cuid())
-
+  
   // Item Details
   itemType    String // remove_carpet, drywall_removal, dehumidifier_rental, etc.
   category    String // Equipment, Labor, Materials, etc.
   description String
   unit        String // sq ft, day, unit, etc.
-
+  
   // Cost Range
   minRate     Float // Minimum rate
   maxRate     Float // Maximum rate
   averageRate Float // Average rate (used for estimates)
-
+  
   // Regional Variations
   region String? // National, QLD, NSW, etc. (null = national average)
-
+  
   // Update Tracking
   lastUpdated     DateTime @default(now())
   source          String? // Source of the cost data
   updateFrequency String? // Quarterly, Monthly, etc.
-
+  
   // Status
   isActive Boolean @default(true)
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([itemType])
   @@index([category])
   @@index([region])
@@ -1535,26 +1548,26 @@ model InspectionPhoto {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
+  
   // Photo Details
   url          String // Cloudinary or S3 URL
   thumbnailUrl String? // Thumbnail URL if available
   location     String? // Location where photo was taken
   description  String? @db.Text // Photo description
-
+  
   // Metadata
   timestamp  DateTime @default(now()) // When photo was taken
   uploadedAt DateTime @default(now()) // When photo was uploaded
   fileSize   Int? // File size in bytes
   mimeType   String? // image/jpeg, image/png, etc.
-
+  
   // GPS if available
   gpsLatitude  Float?
   gpsLongitude Float?
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([inspectionId])
   @@index([timestamp])
 }
@@ -1565,9 +1578,9 @@ model ChatMessage {
   role      String // "user" or "assistant"
   content   String   @db.Text
   createdAt DateTime @default(now())
-
+  
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   @@index([userId, createdAt])
 }
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import crypto from "crypto"
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +32,8 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // INVITE-BASED JOIN (Manager/Technician)
+    // Note: With the new invite system, accounts are created immediately when invites are sent.
+    // This flow is kept for backward compatibility and edge cases.
     if (inviteToken) {
       const invite = await prisma.userInvite.findUnique({
         where: { token: inviteToken }
@@ -40,10 +41,6 @@ export async function POST(request: NextRequest) {
 
       if (!invite) {
         return NextResponse.json({ error: "Invalid invite token" }, { status: 400 })
-      }
-
-      if (invite.usedAt) {
-        return NextResponse.json({ error: "Invite token has already been used" }, { status: 400 })
       }
 
       if (invite.expiresAt.getTime() < Date.now()) {
@@ -57,6 +54,41 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Check if account already exists (new invite system creates accounts immediately)
+      const existingUser = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() }
+      })
+
+      if (existingUser) {
+        // Account already exists - user should just log in
+        return NextResponse.json(
+          { 
+            error: "An account with this email already exists. Please log in instead.",
+            accountExists: true
+          },
+          { status: 400 }
+        )
+      }
+
+      // If invite is already used, check if user exists
+      if (invite.usedAt) {
+        const user = await prisma.user.findUnique({
+          where: { email: invite.email.toLowerCase() }
+        })
+        if (user) {
+          return NextResponse.json(
+            { 
+              error: "This invite has already been used. An account exists for this email. Please log in instead.",
+              accountExists: true
+            },
+            { status: 400 }
+          )
+        }
+      }
+
+      // Create user account (legacy flow - should rarely be hit now)
+      // Managers and Technicians don't have their own subscription/credits
+      // They use the Admin's organization credits
       const user = await prisma.user.create({
         data: {
           name,
@@ -65,17 +97,21 @@ export async function POST(request: NextRequest) {
           role: invite.role,
           organizationId: invite.organizationId,
           managedById: invite.managedById,
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: 3,
+          // No subscription/credits - they use the Admin's organization credits
+          subscriptionStatus: null,
+          creditsRemaining: null,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          mustChangePassword: false // User set their own password
         }
       })
 
-      await prisma.userInvite.update({
-        where: { id: invite.id },
-        data: { usedAt: new Date() }
-      })
+      // Mark invite as used if not already
+      if (!invite.usedAt) {
+        await prisma.userInvite.update({
+          where: { id: invite.id },
+          data: { usedAt: new Date() }
+        })
+      }
 
       const { password: _, ...userWithoutPassword } = user
       return NextResponse.json(
@@ -87,37 +123,95 @@ export async function POST(request: NextRequest) {
     // ADMIN SIGNUP (creates organization)
     // If signupType is not provided, default to the existing behaviour (USER).
     if (normalizedSignupType === "admin") {
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: "ADMIN",
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: 3,
-          totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
-      })
+      // If Prisma Client hasn't been regenerated after schema changes, this delegate may be missing.
+      // In that case we still allow signup (so the account is created), and the organisation can be
+      // created later after `prisma generate` + server restart.
+      const canCreateOrganization = Boolean((prisma as any).organization?.create)
 
-      const orgName = `${name}'s Organisation`
-      const org = await prisma.organization.create({
-        data: {
-          name: orgName,
-          ownerId: user.id
-        }
-      })
+      if (!canCreateOrganization) {
+        const user = await prisma.user.create({
+          data: {
+            name,
+            email,
+            password: hashedPassword,
+            role: "ADMIN",
+            subscriptionStatus: "TRIAL",
+            creditsRemaining: 3,
+            totalCreditsUsed: 0,
+            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          }
+        })
 
-      const updatedUser = await prisma.user.update({
-        where: { id: user.id },
-        data: { organizationId: org.id }
-      })
+        const { password: _, ...userWithoutPassword } = user
+        return NextResponse.json(
+          {
+            message: "User created successfully",
+            user: userWithoutPassword,
+            warning:
+              "Organisation setup is pending. Please run `npx prisma generate` and restart the dev server to enable team features."
+          },
+          { status: 201 }
+        )
+      }
 
-      const { password: _, ...userWithoutPassword } = updatedUser
-      return NextResponse.json(
-        { message: "User created successfully", user: userWithoutPassword },
-        { status: 201 }
-      )
+      try {
+        const updatedUser = await prisma.$transaction(async (tx) => {
+          const user = await tx.user.create({
+            data: {
+              name,
+              email,
+              password: hashedPassword,
+              role: "ADMIN",
+              subscriptionStatus: "TRIAL",
+              creditsRemaining: 3,
+              totalCreditsUsed: 0,
+              trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            }
+          })
+
+          const orgName = `${name}'s Organisation`
+          const org = await (tx as any).organization.create({
+            data: { name: orgName, ownerId: user.id }
+          })
+
+          return await tx.user.update({
+            where: { id: user.id },
+            data: { organizationId: org.id }
+          })
+        })
+
+        const { password: _, ...userWithoutPassword } = updatedUser
+        return NextResponse.json(
+          { message: "User created successfully", user: userWithoutPassword },
+          { status: 201 }
+        )
+      } catch (e) {
+        // If the DB migration hasn't been applied yet (e.g., Organization table missing),
+        // fall back to creating just the user so signup still works.
+        const user = await prisma.user.create({
+          data: {
+            name,
+            email,
+            password: hashedPassword,
+            role: "ADMIN",
+            subscriptionStatus: "TRIAL",
+            creditsRemaining: 3,
+            totalCreditsUsed: 0,
+            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          }
+        })
+
+        const { password: _, ...userWithoutPassword } = user
+        return NextResponse.json(
+          {
+            message: "User created successfully",
+            user: userWithoutPassword,
+            warning:
+              "Organisation setup failed (migration/client not applied yet). Run `npx prisma migrate dev` then `npx prisma generate`, and restart the dev server."
+          },
+          { status: 201 }
+        )
+      }
     }
 
     // DEFAULT (legacy): Create user with 3 credits and TRIAL status

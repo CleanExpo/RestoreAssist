@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
 import { getUserReportLimits } from "@/lib/report-limits"
+import { getEffectiveSubscription } from "@/lib/organization-credits"
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
         addonReports: true,
         monthlyReportsUsed: true,
         monthlyResetDate: true,
+        organizationId: true,
       }
     })
 
@@ -110,11 +112,61 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get report limits for active subscribers
+    // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
+    const effectiveSub = await getEffectiveSubscription(user.id)
+    
+    // Get organization owner (Admin) for business information
+    const { getOrganizationOwner } = await import("@/lib/organization-credits")
+    const ownerId = await getOrganizationOwner(user.id)
+    
+    // For Managers/Technicians, get Admin's business information
+    let businessInfo = {
+      businessName: user.businessName,
+      businessAddress: user.businessAddress,
+      businessLogo: user.businessLogo,
+      businessABN: user.businessABN,
+      businessPhone: user.businessPhone,
+      businessEmail: user.businessEmail,
+    }
+    
+    if (ownerId && ownerId !== user.id) {
+      // User is a Manager/Technician - get Admin's business info
+      const owner = await prisma.user.findUnique({
+        where: { id: ownerId },
+        select: {
+          businessName: true,
+          businessAddress: true,
+          businessLogo: true,
+          businessABN: true,
+          businessPhone: true,
+          businessEmail: true,
+        }
+      })
+      
+      if (owner) {
+        businessInfo = {
+          businessName: owner.businessName,
+          businessAddress: owner.businessAddress,
+          businessLogo: owner.businessLogo,
+          businessABN: owner.businessABN,
+          businessPhone: owner.businessPhone,
+          businessEmail: owner.businessEmail,
+        }
+      }
+    }
+    
+    // Use effective subscription data for team members
+    const subscriptionStatus = effectiveSub?.subscriptionStatus || user.subscriptionStatus
+    const subscriptionPlan = effectiveSub?.subscriptionPlan || user.subscriptionPlan
+    const creditsRemaining = effectiveSub?.creditsRemaining ?? user.creditsRemaining
+
+    // Get report limits for active subscribers (use owner's account for team members)
     let reportLimits = null
-    if (user.subscriptionStatus === 'ACTIVE') {
+    if (subscriptionStatus === 'ACTIVE') {
       try {
-        reportLimits = await getUserReportLimits(user.id)
+        // For team members, get limits from owner's account
+        const targetUserId = ownerId || user.id
+        reportLimits = await getUserReportLimits(targetUserId)
       } catch (error: any) {
         // Error fetching report limits
       }
@@ -123,6 +175,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       profile: {
         ...user,
+        // Override with effective subscription for team members
+        subscriptionStatus: subscriptionStatus,
+        subscriptionPlan: subscriptionPlan,
+        creditsRemaining: creditsRemaining,
+        // Override with Admin's business info for team members
+        businessName: businessInfo.businessName,
+        businessAddress: businessInfo.businessAddress,
+        businessLogo: businessInfo.businessLogo,
+        businessABN: businessInfo.businessABN,
+        businessPhone: businessInfo.businessPhone,
+        businessEmail: businessInfo.businessEmail,
+        // Include organizationId to check if user is linked to Admin
+        organizationId: user.organizationId,
         createdAt: user.createdAt.toISOString(),
         trialEndsAt: user.trialEndsAt?.toISOString(),
         subscriptionEndsAt: user.subscriptionEndsAt?.toISOString(),
@@ -146,6 +211,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get user's role to check permissions
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const isAdmin = user.role === "ADMIN"
+
     const body = await request.json()
     const { 
       name, 
@@ -161,29 +238,41 @@ export async function PUT(request: NextRequest) {
     // Build update data object
     const updateData: any = {}
     
+    // All users can update their name
     if (name !== undefined) updateData.name = name
+    
+    // Email updates (if needed in future)
     if (email !== undefined) {
-    // Check if email is already taken by another user
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        email: email,
-        id: { not: session.user.id }
-      }
-    })
+      // Check if email is already taken by another user
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: email,
+          id: { not: session.user.id }
+        }
+      })
 
-    if (existingUser) {
-      return NextResponse.json({ error: "Email already in use" }, { status: 400 })
-    }
+      if (existingUser) {
+        return NextResponse.json({ error: "Email already in use" }, { status: 400 })
+      }
       updateData.email = email
     }
     
-    // Business information fields
-    if (businessName !== undefined) updateData.businessName = businessName
-    if (businessAddress !== undefined) updateData.businessAddress = businessAddress
-    if (businessLogo !== undefined) updateData.businessLogo = businessLogo
-    if (businessABN !== undefined) updateData.businessABN = businessABN
-    if (businessPhone !== undefined) updateData.businessPhone = businessPhone
-    if (businessEmail !== undefined) updateData.businessEmail = businessEmail
+    // Business information fields - only Admins can update
+    if (isAdmin) {
+      if (businessName !== undefined) updateData.businessName = businessName
+      if (businessAddress !== undefined) updateData.businessAddress = businessAddress
+      if (businessLogo !== undefined) updateData.businessLogo = businessLogo
+      if (businessABN !== undefined) updateData.businessABN = businessABN
+      if (businessPhone !== undefined) updateData.businessPhone = businessPhone
+      if (businessEmail !== undefined) updateData.businessEmail = businessEmail
+    } else {
+      // Managers/Technicians cannot update business info
+      // If they try, ignore those fields (they're read-only)
+      if (businessName !== undefined || businessAddress !== undefined || businessLogo !== undefined || 
+          businessABN !== undefined || businessPhone !== undefined || businessEmail !== undefined) {
+        console.log("⚠️ [PROFILE] Non-admin user attempted to update business info. Ignoring.")
+      }
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
@@ -210,12 +299,61 @@ export async function PUT(request: NextRequest) {
         businessABN: true,
         businessPhone: true,
         businessEmail: true,
+        role: true,
+        organizationId: true,
       }
     })
+
+    // For Managers/Technicians, get Admin's business info
+    let businessInfo = {
+      businessName: updatedUser.businessName,
+      businessAddress: updatedUser.businessAddress,
+      businessLogo: updatedUser.businessLogo,
+      businessABN: updatedUser.businessABN,
+      businessPhone: updatedUser.businessPhone,
+      businessEmail: updatedUser.businessEmail,
+    }
+    
+    if (!isAdmin && updatedUser.organizationId) {
+      const { getOrganizationOwner } = await import("@/lib/organization-credits")
+      const ownerId = await getOrganizationOwner(updatedUser.id)
+      
+      if (ownerId && ownerId !== updatedUser.id) {
+        const owner = await prisma.user.findUnique({
+          where: { id: ownerId },
+          select: {
+            businessName: true,
+            businessAddress: true,
+            businessLogo: true,
+            businessABN: true,
+            businessPhone: true,
+            businessEmail: true,
+          }
+        })
+        
+        if (owner) {
+          businessInfo = {
+            businessName: owner.businessName,
+            businessAddress: owner.businessAddress,
+            businessLogo: owner.businessLogo,
+            businessABN: owner.businessABN,
+            businessPhone: owner.businessPhone,
+            businessEmail: owner.businessEmail,
+          }
+        }
+      }
+    }
 
     return NextResponse.json({ 
       profile: {
         ...updatedUser,
+        // Override with Admin's business info for Managers/Technicians
+        businessName: businessInfo.businessName,
+        businessAddress: businessInfo.businessAddress,
+        businessLogo: businessInfo.businessLogo,
+        businessABN: businessInfo.businessABN,
+        businessPhone: businessInfo.businessPhone,
+        businessEmail: businessInfo.businessEmail,
         createdAt: updatedUser.createdAt.toISOString(),
         trialEndsAt: updatedUser.trialEndsAt?.toISOString(),
         subscriptionEndsAt: updatedUser.subscriptionEndsAt?.toISOString(),

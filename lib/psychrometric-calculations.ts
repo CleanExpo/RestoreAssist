@@ -100,7 +100,7 @@ export function calculateWaterRemovalTarget(
       3: 1.5,
       4: 2.0
     }
-    const classFactor = classFactors[waterClass] || 1.0
+  const classFactor = classFactors[waterClass] || 1.0
     const baseRate = Math.max(0, totalVolume) * 0.01 // 1% per day base
     return Math.round(baseRate * classFactor * 1000)
   }

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Download, Loader2, ChevronDown } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { Download, Loader2, ChevronDown, Users } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
@@ -11,6 +12,7 @@ export interface AnalyticsFilters {
   customTo?: string
   hazardType?: string
   status?: string
+  userId?: string // For filtering by specific team member
 }
 
 interface AnalyticsFiltersProps {
@@ -36,18 +38,66 @@ const statuses = [
   { value: "COMPLETED", label: "Completed" },
 ]
 
+type TeamMember = {
+  id: string
+  name: string | null
+  email: string
+  role: "ADMIN" | "MANAGER" | "USER"
+}
+
 export default function AnalyticsFilters({
   onFiltersChange,
   isLoading,
   onExport,
 }: AnalyticsFiltersProps) {
+  const { data: session } = useSession()
   const [dateRange, setDateRange] = useState("30days")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [hazardType, setHazardType] = useState("")
   const [status, setStatus] = useState("")
+  const [selectedUserId, setSelectedUserId] = useState("")
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
+
+  const isAdmin = session?.user?.role === "ADMIN"
+  const isManager = session?.user?.role === "MANAGER"
+  const canFilterByTeamMember = isAdmin || isManager
+
+  // Fetch team members for Admin and Manager
+  useEffect(() => {
+    if (canFilterByTeamMember) {
+      const fetchTeamMembers = async () => {
+        setLoadingMembers(true)
+        try {
+          const res = await fetch("/api/team/members")
+          if (res.ok) {
+            const json = await res.json()
+            let filtered = (json.members || []).filter(
+              (m: TeamMember) => m.id !== session?.user?.id
+            )
+            
+            // Admin: Show Managers and Technicians
+            // Manager: Show only Technicians (their direct reports)
+            if (isManager) {
+              filtered = filtered.filter((m: TeamMember) => m.role === "USER")
+            } else if (isAdmin) {
+              filtered = filtered.filter((m: TeamMember) => m.role !== "ADMIN")
+            }
+            
+            setTeamMembers(filtered)
+          }
+        } catch (err) {
+          console.error("Failed to load team members:", err)
+        } finally {
+          setLoadingMembers(false)
+        }
+      }
+      fetchTeamMembers()
+    }
+  }, [canFilterByTeamMember, isAdmin, isManager, session?.user?.id])
 
   const handleDateRangeChange = (newRange: string) => {
     setDateRange(newRange)
@@ -57,6 +107,7 @@ export default function AnalyticsFilters({
       customTo: newRange === "custom" ? customTo : undefined,
       hazardType: hazardType || undefined,
       status: status || undefined,
+      userId: selectedUserId || undefined,
     })
   }
 
@@ -68,13 +119,15 @@ export default function AnalyticsFilters({
         customTo,
         hazardType: hazardType || undefined,
         status: status || undefined,
+        userId: selectedUserId || undefined,
       })
     }
   }
 
-  const handleFilterChange = (newHazard?: string, newStatus?: string) => {
+  const handleFilterChange = (newHazard?: string, newStatus?: string, newUserId?: string) => {
     if (newHazard !== undefined) setHazardType(newHazard)
     if (newStatus !== undefined) setStatus(newStatus)
+    if (newUserId !== undefined) setSelectedUserId(newUserId)
 
     onFiltersChange({
       dateRange,
@@ -82,6 +135,7 @@ export default function AnalyticsFilters({
       customTo: dateRange === "custom" ? customTo : undefined,
       hazardType: newHazard !== undefined ? (newHazard || undefined) : (hazardType || undefined),
       status: newStatus !== undefined ? (newStatus || undefined) : (status || undefined),
+      userId: newUserId !== undefined ? (newUserId || undefined) : (selectedUserId || undefined),
     })
   }
 
@@ -281,6 +335,42 @@ export default function AnalyticsFilters({
             ))}
           </select>
         </div>
+
+        {/* Team Member Filter (Admin and Manager) */}
+        {canFilterByTeamMember && (
+          <div className="flex items-center gap-2">
+            <label className={cn("text-sm flex items-center gap-1", "text-neutral-700 dark:text-slate-400")}>
+              <Users className="w-4 h-4" />
+              {isManager ? "Technician:" : "Team Member:"}
+            </label>
+            <select
+              value={selectedUserId}
+              onChange={(e) => handleFilterChange(undefined, undefined, e.target.value)}
+              disabled={isLoading || loadingMembers}
+              className={cn(
+                "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50 min-w-[200px]",
+                "bg-white dark:bg-slate-700",
+                "border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-slate-200"
+              )}
+            >
+              <option value="">All {isManager ? "Technicians" : "Team Members"}</option>
+              {loadingMembers ? (
+                <option value="" disabled>Loading...</option>
+              ) : teamMembers.length > 0 ? (
+                teamMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name || member.email} ({member.role === "MANAGER" ? "Manager" : "Technician"})
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled>
+                  No {isManager ? "Technicians" : "Team Members"} available
+                </option>
+              )}
+            </select>
+          </div>
+        )}
 
         {/* Refresh indicator */}
         {isLoading && (
