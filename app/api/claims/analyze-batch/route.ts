@@ -29,24 +29,13 @@ export async function POST(request: NextRequest) {
 
     const userId = (session.user as any).id
 
-    // Get user's connected integration (same logic as onboarding - use saved integration)
-    const integration = await prisma.integration.findFirst({
-      where: {
-        userId,
-        status: 'CONNECTED',
-        apiKey: { not: null },
-        OR: [
-          { name: { contains: 'Anthropic' } },
-          { name: { contains: 'OpenAI' } },
-          { name: { contains: 'Gemini' } },
-          { name: { contains: 'Claude' } },
-          { name: { contains: 'GPT' } }
-        ]
-      },
-      orderBy: {
-        createdAt: 'desc' // Use most recently connected
-      }
+    // Get integrations (Admin's for Managers/Technicians, own for Admins)
+    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
+    const integrations = await getIntegrationsForUser(userId, {
+      status: 'CONNECTED',
+      nameContains: ['Anthropic', 'OpenAI', 'Gemini', 'Claude', 'GPT']
     })
+    const integration = integrations[0] // Get most recently connected (already ordered by createdAt desc)
 
     if (!integration || !integration.apiKey) {
       return NextResponse.json(

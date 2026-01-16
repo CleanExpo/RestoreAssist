@@ -354,6 +354,9 @@ model Report {
   // Forms System
   formSubmissions FormSubmission[]
 
+  // Authority Forms
+  authorityForms AuthorityFormInstance[]
+
   // NIR Integration
   inspection Inspection?
 
@@ -1895,6 +1898,123 @@ model FormTemplateVersion {
 
   @@unique([templateId, version])
   @@index([templateId])
+}
+
+// ============================================
+// Authority Forms System
+// ============================================
+
+// Authority Form Template - defines form structure
+model AuthorityFormTemplate {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Authority to Commence Work"
+  code        String   @unique // e.g., "AUTH_COMMENCE", "AUTH_DISPOSE", "AUTH_NO_REMOVE"
+  description String?  @db.Text
+  formContent String   @db.Text // JSON: Form structure/fields
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  instances   AuthorityFormInstance[]
+  
+  @@index([code])
+  @@index([isActive])
+}
+
+// Authority Form Instance - actual form for a report
+model AuthorityFormInstance {
+  id          String   @id @default(cuid())
+  templateId  String
+  template    AuthorityFormTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  reportId    String
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  
+  // Auto-populated data (from report/client)
+  companyName    String
+  companyLogo    String? // URL
+  companyABN     String?
+  companyPhone   String?
+  companyEmail   String?
+  companyWebsite String?
+  companyAddress String?
+  
+  clientName     String
+  clientAddress  String
+  incidentBrief  String? @db.Text // From report.technicianFieldReport or summary
+  incidentDate   DateTime?
+  
+  // Form-specific authority description
+  authorityDescription String @db.Text // The specific authority being granted
+  
+  // Status
+  status        AuthorityFormStatus @default(DRAFT)
+  
+  // Signatures
+  signatures    AuthorityFormSignature[]
+  
+  // Generated PDF
+  pdfUrl        String? // Cloudinary URL for final signed PDF
+  draftPdfUrl   String? // Cloudinary URL for draft PDF (before signatures)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+  
+  @@index([reportId])
+  @@index([templateId])
+  @@index([status])
+}
+
+// Authority Form Signature - signatures on authority forms
+model AuthorityFormSignature {
+  id          String   @id @default(cuid())
+  instanceId  String
+  instance    AuthorityFormInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  
+  // Signatory Information
+  signatoryName  String
+  signatoryRole  AuthoritySignatoryRole
+  signatoryEmail String?
+  signatoryPhone String?
+  
+  // Signature Data
+  signatureData String? @db.Text // Base64-encoded signature image
+  signatureUrl  String? // Cloudinary URL if uploaded
+  
+  // E-signature Workflow
+  signatureRequestSent   Boolean   @default(false)
+  signatureRequestSentAt DateTime?
+  signatureRequestToken  String?   @unique // Token for email signature link
+  
+  // Verification
+  ipAddress   String?
+  userAgent   String?
+  signedAt    DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([instanceId])
+  @@index([signatoryRole])
+  @@index([signatureRequestToken])
+}
+
+enum AuthorityFormStatus {
+  DRAFT              // Form created, not yet sent for signatures
+  PENDING_SIGNATURES // Sent to parties, awaiting signatures
+  PARTIALLY_SIGNED   // Some signatures received
+  COMPLETED          // All required signatures received
+  CANCELLED
+}
+
+enum AuthoritySignatoryRole {
+  CLIENT          // Property owner/client
+  INSURER         // Insurance company representative
+  CONTRACTOR      // Restoration contractor
+  ADMIN           // Company admin/manager
+  TECHNICIAN      // Field technician
+  MANAGER         // Project manager
+  PROPERTY_OWNER  // Property owner (alias for CLIENT)
 }
 
 // ============================================

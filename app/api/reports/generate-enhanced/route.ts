@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
+import { getIntegrationsForUser } from "@/lib/ai-provider"
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,13 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Technician notes are required" }, { status: 400 })
     }
 
-    // Get user's connected Anthropic API integration
-    const integrations = await prisma.integration.findMany({
-      where: {
-        userId: session.user.id,
-        status: "CONNECTED",
-        apiKey: { not: null }
-      }
+    // Get integrations (Admin's for Managers/Technicians, own for Admins)
+    const integrations = await getIntegrationsForUser(session.user.id, {
+      status: "CONNECTED",
+      nameContains: ["Anthropic", "Claude"]
     })
 
     // Find Anthropic integration (check for both old and new naming conventions)
