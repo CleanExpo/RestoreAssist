@@ -1,26 +1,61 @@
-name: restore-assist
+name: restoreassist
 region: syd
 services:
   - name: web
-    github:
-      repo: CleanExpo/RestoreAssist
-      branch: main
-  build_command: npm install --force --legacy-peer-deps && npm run build
-  run_command: npm start
-  environment_slug: node-js
+    dockerfile_path: Dockerfile
+    http_port: 3000
     instance_count: 1
-  instance_size_slug: basic-xxs
-  http_port: 3000
-    health_check:
-    http_path: /
+    instance_size_slug: basic-xxs
     envs:
       - key: NODE_ENV
         value: production
-  - key: NPM_CONFIG_FORCE
-    value: "true"
-  - key: CI
-    value: "false"
-  - key: USE_NPM_INSTALL
-    value: "true"
-  - key: NPM_CONFIG_LEGACY_PEER_DEPS
-    value: "true"
+      - key: NEXTAUTH_URL
+        scope: RUN_AND_BUILD_TIME
+      - key: NEXTAUTH_SECRET
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: DATABASE_URL
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: DIRECT_URL
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: GOOGLE_CLIENT_ID
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: GOOGLE_CLIENT_SECRET
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: GOOGLE_REDIRECT_URI
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: STRIPE_SECRET_KEY
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: INTEGRATION_ENCRYPTION_KEY
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: CRON_SECRET
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: ENABLE_REGULATORY_CITATIONS
+        scope: RUN_AND_BUILD_TIME
+      - key: UPLOAD_PROVIDER
+        value: spaces
+        scope: RUN_AND_BUILD_TIME
+      - key: LOGO_UPLOAD_PROVIDER
+        value: spaces
+        scope: RUN_AND_BUILD_TIME
+      - key: DIGITALOCEAN_SPACES_REGION
+        scope: RUN_AND_BUILD_TIME
+      - key: DIGITALOCEAN_SPACES_BUCKET
+        scope: RUN_AND_BUILD_TIME
+      - key: DIGITALOCEAN_SPACES_KEY
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: DIGITALOCEAN_SPACES_SECRET
+        type: SECRET
+        scope: RUN_AND_BUILD_TIME
+      - key: DIGITALOCEAN_SPACES_CDN_DOMAIN
+        scope: RUN_AND_BUILD_TIME
+
