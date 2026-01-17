@@ -19,9 +19,19 @@ yarn-error.log*
 
 # env files
 .env*
+production.env
 
 # vercel
 .vercel
+
+# build artifacts
+storybook-static/
+
+# local-only directories
+mobile/
+
+# Windows reserved filenames can appear accidentally
+nul
 
 # typescript
 *.tsbuildinfo
