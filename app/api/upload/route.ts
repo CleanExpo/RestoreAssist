@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { optimizeImage } from '@/lib/image-processing'
 import { isSpacesConfigured, uploadPublicObjectToSpaces } from '@/lib/spaces'
 import { existsSync } from 'fs'
 import { mkdir, writeFile } from 'fs/promises'
@@ -48,14 +47,6 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const originalSize = buffer.length
-
-    const optimizedBuffer = await optimizeImage(buffer, {
-      width: 1920,
-      quality: 80,
-      format: 'webp',
-    })
-    const optimizedSize = optimizedBuffer.length
 
     const shouldUseSpaces =
       process.env.UPLOAD_PROVIDER === 'spaces' ||
@@ -76,10 +67,10 @@ export async function POST(request: NextRequest) {
       }
 
       const uploaded = await uploadPublicObjectToSpaces({
-        buffer: optimizedBuffer,
-        contentType: 'image/webp',
+        buffer,
+        contentType: file.type || 'application/octet-stream',
         keyPrefix: `uploads/${session.user.id}`,
-        extension: 'webp',
+        extension: (file.name.split('.').pop() || '').toLowerCase() || undefined,
         cacheControl: 'public, max-age=31536000, immutable',
       })
 
@@ -90,23 +81,20 @@ export async function POST(request: NextRequest) {
         await mkdir(uploadsDir, { recursive: true })
       }
 
-      const optimizedFilename = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
-      await writeFile(path.join(uploadsDir, optimizedFilename), optimizedBuffer)
-      url = `/uploads/${session.user.id}/${optimizedFilename}`
+      const fileExtension = (file.name.split('.').pop() || '').toLowerCase()
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${
+        fileExtension ? `.${fileExtension}` : ''
+      }`
+      await writeFile(path.join(uploadsDir, filename), buffer)
+      url = `/uploads/${session.user.id}/${filename}`
     }
-
-    const percentReduction = Math.round((1 - optimizedSize / originalSize) * 100)
 
     return NextResponse.json({
       success: true,
       url,
       filename: file.name,
-      optimization: {
-        originalSize,
-        optimizedSize,
-        percentReduction: `${percentReduction}%`,
-        format: 'webp',
-      },
+      size: file.size,
+      type: file.type,
     })
   } catch (error: any) {
     console.error('Error uploading file:', error)
@@ -116,4 +104,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

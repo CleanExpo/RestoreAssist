@@ -26,7 +26,7 @@ Set these env vars in your deployment environment (Vercel / App Platform / Dropl
 - Optional: `DIGITALOCEAN_SPACES_CDN_DOMAIN=restoreassist-prod.sgp1.cdn.digitaloceanspaces.com`
 
 Uploads:
-- `POST /api/upload` stores optimized WebP images in Spaces when `UPLOAD_PROVIDER=spaces` (or in production).
+- `POST /api/upload` stores images in Spaces when `UPLOAD_PROVIDER=spaces` (or in production).
 - `POST /api/upload/logo` stores logos in Spaces when `LOGO_UPLOAD_PROVIDER=spaces` (or `UPLOAD_PROVIDER=spaces`).
 
 ## 2) App Platform (Next.js via Dockerfile)
@@ -49,4 +49,3 @@ If you want full control (and to run additional services/workers), deploy on a D
    - `docker compose --profile prod up -d --build`
 
 To put it on `restoreassist.app`, update the DigitalOcean DNS `A` record to the droplet public IP and add TLS termination (Caddy/Nginx) in front of port `3000`.
-

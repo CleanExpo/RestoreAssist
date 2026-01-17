@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { uploadImage } from '@/lib/cloudinary'
-import { optimizeImage } from '@/lib/image-processing'
 import { isSpacesConfigured, uploadPublicObjectToSpaces } from '@/lib/spaces'
 
 export const runtime = 'nodejs'
@@ -40,19 +39,8 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const originalSize = buffer.length
-
-    const optimizedBuffer = await optimizeImage(buffer, {
-      width: 800,
-      height: 800,
-      quality: 85,
-      format: 'webp',
-    })
-    const optimizedSize = optimizedBuffer.length
-    const percentReduction = Math.round((1 - optimizedSize / originalSize) * 100)
-
-    const base64 = optimizedBuffer.toString('base64')
-    const dataUri = `data:image/webp;base64,${base64}`
+    const base64 = buffer.toString('base64')
+    const dataUri = `data:${file.type};base64,${base64}`
 
     const logoProvider =
       process.env.LOGO_UPLOAD_PROVIDER || process.env.UPLOAD_PROVIDER || 'cloudinary'
@@ -69,10 +57,10 @@ export async function POST(request: NextRequest) {
       }
 
       const uploaded = await uploadPublicObjectToSpaces({
-        buffer: optimizedBuffer,
-        contentType: 'image/webp',
+        buffer,
+        contentType: file.type || 'application/octet-stream',
         keyPrefix: `business-logos/${session.user.id}`,
-        extension: 'webp',
+        extension: (file.name.split('.').pop() || '').toLowerCase() || undefined,
         cacheControl: 'public, max-age=31536000, immutable',
       })
 
@@ -94,16 +82,11 @@ export async function POST(request: NextRequest) {
       success: true,
       url,
       publicId,
-      optimization: {
-        originalSize,
-        optimizedSize,
-        percentReduction: `${percentReduction}%`,
-        format: 'webp',
-      },
+      size: file.size,
+      type: file.type,
     })
   } catch (error) {
     console.error('Error uploading logo:', error)
     return NextResponse.json({ error: 'Failed to upload logo' }, { status: 500 })
   }
 }
-
