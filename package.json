@@ -120,6 +120,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.39.2",
     "postcss": "^8.5",
     "prisma": "^6.1.0",
     "tailwindcss": "^4.1.9",
