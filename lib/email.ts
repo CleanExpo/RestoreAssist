@@ -1,6 +1,12 @@
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    throw new Error("Email service is not configured")
+  }
+  return new Resend(apiKey)
+}
 
 export interface InviteEmailData {
   email: string
@@ -13,6 +19,7 @@ export interface InviteEmailData {
 }
 
 export async function sendInviteEmail(data: InviteEmailData) {
+  const resend = getResendClient()
   console.log("📧 [EMAIL] Starting email send process...")
   console.log("📧 [EMAIL] Recipient:", data.email)
   console.log("📧 [EMAIL] Role:", data.role)
