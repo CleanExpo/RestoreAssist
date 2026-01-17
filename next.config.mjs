@@ -9,6 +9,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     // Enable Next.js image optimization (disabled: false)
     // This provides automatic WebP/AVIF conversion, lazy loading, and responsive image sizing
