@@ -91,7 +91,7 @@ export default function SignupPage() {
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
           // Redirect to pricing page first - subscription is required
-          router.push("/dashboard/pricing?onboarding=true&require_subscription=true")
+          router.push("/dashboard/settings?onboarding=true")
         } else {
           toast.error("Please sign in manually")
           setTimeout(() => {

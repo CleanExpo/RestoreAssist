@@ -227,7 +227,7 @@ export default function PricingPage() {
             className={`text-xl md:text-2xl ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
             style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Choose the plan that fits your needs. All plans include first month signup bonus of 10 additional reports.
+            Start with 3 free reports to try our service. Upgrade to a monthly or yearly plan when you're ready. All plans include first month signup bonus of 10 additional reports.
           </motion.p>
         </div>
       </section>

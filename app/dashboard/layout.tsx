@@ -129,26 +129,70 @@ const upgradeItem = {
 
                   {/* Navigation */}
                   <nav className="flex-1 overflow-y-auto py-4 px-2">
-                    {navItems.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
-                          item.highlight
-                            ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                            : cn(
-                                "text-neutral-700 dark:text-slate-300",
-                                "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                                "hover:scale-[1.02] hover:shadow-md"
-                              )
-                        )}
-                        title={!sidebarOpen ? item.label : ""}
-                      >
-                        <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
-                        {sidebarOpen && <span className="text-sm">{item.label}</span>}
-                      </Link>
-                    ))}
+                    {navItems.map((item) => {
+                      // Special handling for "New Report" to check credits
+                      if (item.label === "New Report") {
+                        return (
+                          <button
+                            key={item.href}
+                            onClick={async () => {
+                              // Check credits before navigating
+                              try {
+                                const response = await fetch('/api/reports/check-credits')
+                                if (response.ok) {
+                                  const data = await response.json()
+                                  if (!data.canCreate) {
+                                    // Show upgrade modal or redirect to pricing
+                                    router.push('/dashboard/pricing')
+                                    return
+                                  }
+                                }
+                                // If credits available, navigate to new report page
+                                router.push(item.href)
+                              } catch (error) {
+                                console.error('Error checking credits:', error)
+                                // On error, still allow navigation (will be checked on the page)
+                                router.push(item.href)
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
+                              item.highlight
+                                ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                                : cn(
+                                    "text-neutral-700 dark:text-slate-300",
+                                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                    "hover:scale-[1.02] hover:shadow-md"
+                                  )
+                            )}
+                            title={!sidebarOpen ? item.label : ""}
+                          >
+                            <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
+                            {sidebarOpen && <span className="text-sm">{item.label}</span>}
+                          </button>
+                        )
+                      }
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+                            item.highlight
+                              ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                              : cn(
+                                  "text-neutral-700 dark:text-slate-300",
+                                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                  "hover:scale-[1.02] hover:shadow-md"
+                                )
+                          )}
+                          title={!sidebarOpen ? item.label : ""}
+                        >
+                          <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
+                          {sidebarOpen && <span className="text-sm">{item.label}</span>}
+                        </Link>
+                      )
+                    })}
                     
                     {/* Upgrade Package - Special styling - Hide for team members */}
                     {!isTeamMember && (

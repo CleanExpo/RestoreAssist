@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Check, Star, Zap, Shield, Download, Users, Clock, Award } from "lucide-react"
 import { PRICING_CONFIG, type PricingPlan, type AddonPack } from "@/lib/pricing"
 import toast from "react-hot-toast"
-import OnboardingGuide from "@/components/OnboardingGuide"
 import { cn } from "@/lib/utils"
 
 export default function PricingPage() {
@@ -15,29 +14,7 @@ export default function PricingPage() {
   const requireSubscription = searchParams.get('require_subscription') === 'true'
   const [loading, setLoading] = useState<string | null>(null)
   
-  // Check if user already has subscription
-  useEffect(() => {
-    if (isOnboarding || requireSubscription) {
-      const checkSubscription = async () => {
-        try {
-          const response = await fetch('/api/subscription')
-          if (response.ok) {
-            const data = await response.json()
-            if (data.subscription?.status === 'active') {
-              // User has active subscription, redirect to next onboarding step
-              toast.success('Subscription active! Redirecting to next step...')
-              setTimeout(() => {
-                router.push('/dashboard/settings?onboarding=true')
-              }, 1500)
-            }
-          }
-        } catch (error) {
-          console.error('Error checking subscription:', error)
-        }
-      }
-      checkSubscription()
-    }
-  }, [isOnboarding, requireSubscription, router])
+  // Note: Subscription is no longer required for onboarding - users get 3 free credits
 
   const handleSubscribe = async (plan: PricingPlan) => {
     setLoading(plan)
@@ -79,24 +56,23 @@ export default function PricingPage() {
   }
 
   return (
-    <OnboardingGuide
-      step={0}
-      totalSteps={5}
-      title="Subscribe to a Plan"
-      description="Choose a monthly or yearly plan to get started. Subscription is required before you can proceed with onboarding."
-      value="Select the plan that best fits your needs. All plans include first month signup bonus of 10 additional reports."
-    >
-      <div className={cn("min-h-screen", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
+    <div className={cn("min-h-screen", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
         <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className={cn("text-4xl font-bold mb-4", "text-neutral-900 dark:text-white")}>
             Choose Your Plan
           </h1>
-          <p className={cn("text-xl max-w-2xl mx-auto", "text-neutral-600 dark:text-slate-400")}>
-            Select the perfect plan for your water damage restoration business. 
+          <p className={cn("text-xl max-w-2xl mx-auto mb-6", "text-neutral-600 dark:text-slate-400")}>
+            Start with 3 free reports to try our service. Upgrade to a monthly or yearly plan when you're ready. 
             All plans include IICRC S500 compliance and professional reporting tools.
           </p>
+          {/* Free Trial Banner */}
+          <div className={cn("inline-block px-6 py-3 rounded-lg mb-4", "bg-green-100 dark:bg-green-900/30 border-2 border-green-500 dark:border-green-400")}>
+            <p className={cn("text-lg font-semibold", "text-green-800 dark:text-green-300")}>
+              🎉 New accounts get 3 free reports to get started!
+            </p>
+          </div>
         </div>
 
         {/* Pricing Cards */}
@@ -395,6 +371,5 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
-    </OnboardingGuide>
   )
 }

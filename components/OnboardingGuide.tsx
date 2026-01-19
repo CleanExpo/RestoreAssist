@@ -65,34 +65,27 @@ export default function OnboardingGuide({
   const steps = [
     { 
       number: 0, 
-      name: 'Subscribe to Plan', 
-      icon: CreditCard,
-      route: '/dashboard/pricing',
-      description: 'Choose a monthly or yearly plan'
-    },
-    { 
-      number: 1, 
       name: 'Business Profile', 
       icon: Building2,
       route: '/dashboard/settings',
       description: 'Set up your business details'
     },
     { 
-      number: 2, 
+      number: 1, 
       name: 'API Integration', 
       icon: KeyRound,
       route: '/dashboard/integrations',
       description: 'Connect AI for reports'
     },
     { 
-      number: 3, 
+      number: 2, 
       name: 'Pricing Setup', 
       icon: DollarSign,
       route: '/dashboard/pricing-config',
       description: 'Configure your rates'
     },
     { 
-      number: 4, 
+      number: 3, 
       name: 'First Report', 
       icon: FileText,
       route: '/dashboard/reports/new',

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Upload, FileText, Loader2, X, CheckCircle } from "lucide-react"
+import { Upload, FileText, Loader2, X, CheckCircle, Crown } from "lucide-react"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
 import OnboardingModal from "@/components/OnboardingModal"
@@ -20,16 +20,55 @@ export default function NewReportPage() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false)
   const [onboardingComplete, setOnboardingComplete] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [hasCheckedCredits, setHasCheckedCredits] = useState(false)
+  const [canCreateReport, setCanCreateReport] = useState(false)
 
-  // Check onboarding status on mount (only for new reports)
+  // Check credits and onboarding status on mount (only for new reports)
   useEffect(() => {
     const urlReportId = searchParams.get('reportId')
-    // Only check onboarding if creating a new report (no reportId)
-    if (!urlReportId && !hasCheckedOnboarding) {
-      checkOnboardingStatus()
+    // Only check if creating a new report (no reportId)
+    if (!urlReportId && !hasCheckedCredits) {
+      checkCreditsAndOnboarding()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount
+
+  const checkCreditsAndOnboarding = async () => {
+    try {
+      // First check if user can create a report (credits check)
+      const canCreateResponse = await fetch('/api/reports/check-credits')
+      if (canCreateResponse.ok) {
+        const canCreateData = await canCreateResponse.json()
+        if (!canCreateData.canCreate) {
+          // No credits available - show upgrade modal
+          setShowUpgradeModal(true)
+          setCanCreateReport(false)
+          setHasCheckedCredits(true)
+          return
+        }
+        setCanCreateReport(true)
+      } else {
+        // If API fails, assume they can't create (show upgrade modal)
+        setShowUpgradeModal(true)
+        setCanCreateReport(false)
+        setHasCheckedCredits(true)
+        return
+      }
+
+      // If credits are available, check onboarding
+      if (!hasCheckedOnboarding) {
+        await checkOnboardingStatus()
+      }
+      setHasCheckedCredits(true)
+    } catch (error) {
+      console.error('Error checking credits:', error)
+      // On error, show upgrade modal to be safe
+      setShowUpgradeModal(true)
+      setCanCreateReport(false)
+      setHasCheckedCredits(true)
+    }
+  }
 
   // Check for reportId in URL only (don't auto-load from localStorage for new reports)
   useEffect(() => {
@@ -336,6 +375,25 @@ export default function NewReportPage() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
           </div>
+        ) : !canCreateReport && hasCheckedCredits ? (
+          <div className="flex flex-col items-center justify-center py-20 px-6">
+            <div className="max-w-md text-center">
+              <div className="inline-flex p-4 bg-amber-500/10 rounded-full mb-4">
+                <Crown className="w-12 h-12 text-amber-400" />
+              </div>
+              <h3 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Upgrade Required</h3>
+              <p className={cn("mb-6", "text-neutral-600 dark:text-slate-400")}>
+                You've used all your free credits. Please upgrade your package to create more reports.
+              </p>
+              <button
+                onClick={() => router.push('/dashboard/pricing')}
+                className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade Package
+              </button>
+            </div>
+          </div>
         ) : !onboardingComplete && hasCheckedOnboarding ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
@@ -354,13 +412,13 @@ export default function NewReportPage() {
               </button>
             </div>
           </div>
-        ) : (
+        ) : canCreateReport && (onboardingComplete || !hasCheckedOnboarding) ? (
           <ReportWorkflow 
             reportId={reportId || undefined}
             onComplete={handleComplete}
             initialFormData={uploadedData || undefined}
           />
-        )}
+        ) : null}
       </div>
 
       {/* Onboarding Modal - Blocks report creation until complete */}
@@ -374,6 +432,61 @@ export default function NewReportPage() {
           toast.success('Onboarding complete! You can now create reports.')
         }}
       />
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-neutral-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                  <Crown className="text-white" size={24} />
+                </div>
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Upgrade Required</h2>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowUpgradeModal(false)
+                  router.push('/dashboard/reports')
+                }} 
+                className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95 text-neutral-600 dark:text-slate-300"
+                title="Close"
+              >
+                <X size={20} className="transition-transform duration-200" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-neutral-700 dark:text-slate-300">
+                You've used all your free credits. To create more reports, you need to upgrade to a Monthly or Yearly plan.
+              </p>
+              <p className="text-sm text-neutral-600 dark:text-slate-400">
+                Upgrade now to unlock unlimited reports, client management, API integrations, and priority support.
+              </p>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    router.push('/dashboard/reports')
+                  }}
+                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-slate-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md text-neutral-700 dark:text-slate-300"
+                >
+                  Maybe Later
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    router.push('/dashboard/pricing')
+                  }}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group text-white"
+                >
+                  <Crown className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                  <span>Upgrade Now</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
