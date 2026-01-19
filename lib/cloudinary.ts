@@ -21,8 +21,6 @@ cloudinary.config({
   api_secret: apiSecret,
 })
 
-console.log('[Cloudinary] ✅ Configuration initialized with cloud_name:', cloudName)
-
 export { cloudinary }
 
 export interface UploadResult {
@@ -116,31 +114,6 @@ export async function uploadToCloudinary(
       ]
     })
 
-    // Console log the full Cloudinary response
-    console.log(`[Cloudinary] ✅ Upload successful:`, {
-      publicId: result.public_id,
-      secureUrl: result.secure_url,
-      url: result.url,
-      thumbnailUrl,
-      width: result.width,
-      height: result.height,
-      format: result.format,
-      bytes: result.bytes,
-      folder: result.folder,
-      createdAt: result.created_at,
-      fullResponse: {
-        public_id: result.public_id,
-        secure_url: result.secure_url,
-        url: result.url,
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        bytes: result.bytes,
-        folder: result.folder,
-        created_at: result.created_at
-      }
-    })
-
     return {
       url: result.secure_url,
       thumbnailUrl,
@@ -186,14 +159,6 @@ export async function uploadExcelToCloudinary(
       resource_type: 'raw',
       public_id: filename.replace(/\.xlsx?$/i, ''), // Remove extension, Cloudinary will add it
       format: 'xlsx',
-    })
-
-    console.log(`[Cloudinary] ✅ Excel upload successful:`, {
-      publicId: result.public_id,
-      secureUrl: result.secure_url,
-      url: result.url,
-      bytes: result.bytes,
-      folder: result.folder,
     })
 
     return result.secure_url
