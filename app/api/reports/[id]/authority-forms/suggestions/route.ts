@@ -61,7 +61,6 @@ export async function GET(
     // Check which forms already exist for this report
     const existingForms = await prisma.authorityFormInstance.findMany({
       where: { reportId },
-      select: { templateId: true },
       include: {
         template: {
           select: { code: true }
