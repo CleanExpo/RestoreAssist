@@ -594,21 +594,21 @@ export default function IntegrationsPage() {
 
       {/* Add Integration Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-neutral-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Add New Integration</h2>
+              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Add New Integration</h2>
               <button onClick={() => {
                 setShowAddModal(false)
                 setNewApiKey("")
                 setNewApiKeyType('anthropic')
-              }} className="p-1 hover:bg-slate-700 rounded">
+              }} className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded text-neutral-600 dark:text-slate-300">
                 <XIcon size={20} />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">API Key Type</label>
+                <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-slate-300">API Key Type</label>
                 <select
                   value={newApiKeyType}
                   onChange={(e) => {
@@ -619,26 +619,26 @@ export default function IntegrationsPage() {
                     }
                     setNewApiKeyType(value)
                   }}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white"
+                  className="w-full px-4 py-2 bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-neutral-900 dark:text-white"
                 >
                   <option value="anthropic">Anthropic Claude</option>
                   <option value="openai" disabled>OpenAI GPT - Coming Soon</option>
                   <option value="gemini" disabled>Google Gemini - Coming Soon</option>
                 </select>
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-neutral-600 dark:text-slate-400 mt-2">
                   Select the type of API key you want to connect
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">API Key</label>
+                <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-slate-300">API Key</label>
                 <input
                   type="password"
                   value={newApiKey}
                   onChange={(e) => setNewApiKey(e.target.value)}
                   placeholder={`Enter your ${newApiKeyType === 'anthropic' ? 'Anthropic' : newApiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-slate-500"
                 />
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-neutral-600 dark:text-slate-400 mt-2">
                   Your API key is encrypted and stored securely. We'll never share it with third parties.
                 </p>
               </div>
@@ -649,13 +649,13 @@ export default function IntegrationsPage() {
                     setNewApiKey("")
                     setNewApiKeyType('anthropic')
                   }}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-slate-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors text-neutral-700 dark:text-slate-300"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddIntegration}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
                 >
                   Add Integration
                 </button>

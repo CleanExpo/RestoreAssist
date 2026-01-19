@@ -78,10 +78,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      // Check subscription status first - redirect if not subscribed
-      if (isOnboarding) {
-        checkSubscriptionAndRedirect()
-      }
       fetchProfile()
       // Show welcome screen on first visit
       if (isOnboarding && !localStorage.getItem('onboarding_welcome_shown')) {
@@ -92,22 +88,6 @@ export default function SettingsPage() {
       setLoading(false)
     }
   }, [status, session, isOnboarding])
-
-  const checkSubscriptionAndRedirect = async () => {
-    try {
-      const response = await fetch('/api/subscription')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.subscription?.status !== 'active') {
-          // No active subscription, redirect to pricing
-          toast.error('Please subscribe to a plan first')
-          router.push('/dashboard/pricing?onboarding=true&require_subscription=true')
-        }
-      }
-    } catch (error) {
-      console.error('Error checking subscription:', error)
-    }
-  }
 
   const fetchProfile = async (isRefresh = false) => {
     if (isRefresh) {
@@ -960,26 +940,26 @@ export default function SettingsPage() {
           </div>
 
           {/* Security */}
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5" />
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50 bg-neutral-50 dark:bg-slate-800/30")}>
+            <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+              <Shield className={cn("w-5 h-5", "text-neutral-700 dark:text-white")} />
               Security
             </h2>
 
               <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Two-Factor Authentication</span>
-                <span className="text-xs text-slate-500">Not enabled</span>
+                <span className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>Two-Factor Authentication</span>
+                <span className={cn("text-xs", "text-neutral-600 dark:text-slate-500")}>Not enabled</span>
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Login Sessions</span>
-                <span className="text-xs text-slate-500">1 active</span>
+                <span className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>Login Sessions</span>
+                <span className={cn("text-xs", "text-cyan-600 dark:text-cyan-400")}>1 active</span>
                     </div>
               
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Last Login</span>
-                <span className="text-xs text-slate-500">Today</span>
+                <span className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>Last Login</span>
+                <span className={cn("text-xs", "text-neutral-600 dark:text-slate-500")}>Today</span>
               </div>
             </div>
           </div>

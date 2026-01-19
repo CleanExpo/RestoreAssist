@@ -270,7 +270,6 @@ export async function incrementReportUsage(userId: string): Promise<void> {
   }
 }
 
-
 /**
  * Deduct credits and track usage for team hierarchy
  * - Deducts credits from Admin's account (for trial users)
@@ -365,39 +364,11 @@ export async function deductCreditsAndTrackUsage(creatorUserId: string): Promise
     })
   }
 
-  // Track usage for the creator
-  await prisma.user.update({
-    where: { id: creatorUserId },
-    data: {
-      totalCreditsUsed: {
-        increment: 1
-      }
-    }
-  })
-}
-
-/**
- * Track usage for manager and creator without deducting credits
- * Used for bulk operations where credits are already deducted
- */
-export async function trackUsageOnly(creatorUserId: string): Promise<void> {
-  // Get creator's info to check if they have a manager
-  const creator = await prisma.user.findUnique({
-    where: { id: creatorUserId },
-    select: {
-      role: true,
-      managedById: true,
-    }
-  })
-
-  if (!creator) {
-    throw new Error("Creator user not found")
-  }
-
-  // Track usage for manager (if technician is creating and has a manager)
-  if (creator.role === 'USER' && creator.managedById) {
+  // Track usage for the creator (only if creator is not the admin)
+  // If creator is admin, their totalCreditsUsed was already incremented when deducting credits
+  if (creatorUserId !== adminId) {
     await prisma.user.update({
-      where: { id: creator.managedById },
+      where: { id: creatorUserId },
       data: {
         totalCreditsUsed: {
           increment: 1
@@ -405,14 +376,4 @@ export async function trackUsageOnly(creatorUserId: string): Promise<void> {
       }
     })
   }
-
-  // Track usage for the creator
-  await prisma.user.update({
-    where: { id: creatorUserId },
-    data: {
-      totalCreditsUsed: {
-        increment: 1
-      }
-    }
-  })
 }
