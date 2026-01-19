@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Printer, X, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { Download, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
@@ -68,8 +68,29 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
     }
   }
 
-  const handlePrint = () => {
-    window.print()
+  const handleDownloadPDF = async () => {
+    if (!form) return
+    
+    try {
+      const response = await fetch(`/api/authority-forms/${formId}/pdf`)
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${form.template.name}-${formId.slice(-6)}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success("PDF downloaded successfully")
+      } else {
+        toast.error("Failed to download PDF")
+      }
+    } catch (error) {
+      console.error("Error downloading PDF:", error)
+      toast.error("Failed to download PDF")
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -98,7 +119,7 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className={cn("flex items-center justify-center py-12 min-h-screen", "bg-neutral-50 dark:bg-slate-900")}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
     )
@@ -107,7 +128,7 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
   if (!form) {
     return (
       <div className="text-center py-12">
-        <p className="text-slate-400">Form not found</p>
+        <p className={cn("text-neutral-600 dark:text-slate-400")}>Form not found</p>
       </div>
     )
   }
@@ -117,30 +138,25 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
 
   return (
     <>
-      <div className="bg-slate-900 min-h-screen print:bg-white">
+      <div className={cn("min-h-screen print:bg-white", "bg-neutral-50 dark:bg-slate-900")}>
         {/* Action Bar - Hidden when printing */}
-        <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 print:hidden">
+        <div className={cn(
+          "sticky top-0 z-10 backdrop-blur-sm border-b print:hidden",
+          "bg-white/95 dark:bg-slate-900/95 border-neutral-200 dark:border-slate-700"
+        )}>
           <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h2 className="text-xl font-semibold">{form.template.name}</h2>
+              <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>{form.template.name}</h2>
               {getStatusBadge(form.status)}
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={handlePrint}
+                onClick={handleDownloadPDF}
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
               >
-                <Printer size={18} />
-                Print
+                <Download size={18} />
+                Download PDF
               </button>
-              {onClose && (
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              )}
             </div>
           </div>
         </div>
