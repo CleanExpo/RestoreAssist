@@ -21,6 +21,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email) {
+          console.log('[Credentials] No email provided')
           return null
         }
 
@@ -40,27 +41,35 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user) {
+          console.log('[Credentials] User not found:', credentials.email)
           return null
         }
 
-        // If no password provided, check if this is a Google user (no password in DB)
-        // Allow Google users to sign in without password
-        if (!credentials.password) {
-          // Check if user was created via Google (no password set)
+        // Handle Google users (no password provided or empty string)
+        // Check if password is missing, empty string, or undefined
+        const isPasswordEmpty = !credentials.password || credentials.password.trim() === ''
+        
+        if (isPasswordEmpty) {
+          // Check if user was created via Google (no password set in DB)
           if (!user.password) {
+            console.log('[Credentials] Google user authenticated:', credentials.email)
             return {
               id: user.id,
               email: user.email,
               name: user.name,
               image: user.image,
               role: user.role,
+              mustChangePassword: user.mustChangePassword || false,
             }
           }
+          // User has password but none provided - invalid
+          console.log('[Credentials] Password required for user:', credentials.email)
           return null
         }
 
         // Regular password check for email/password users
         if (!user.password) {
+          console.log('[Credentials] User has no password but password was provided:', credentials.email)
           return null
         }
 
@@ -70,9 +79,11 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
+          console.log('[Credentials] Invalid password for user:', credentials.email)
           return null
         }
 
+        console.log('[Credentials] User authenticated successfully:', credentials.email)
         return {
           id: user.id,
           email: user.email,

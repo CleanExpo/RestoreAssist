@@ -115,44 +115,39 @@ export default function SignupPage() {
       // Use Firebase Google authentication
       const googleUser = await signInWithGoogleFirebase()
       
-      // After Firebase creates/updates user in DB, sign in with NextAuth
-      // Use NextAuth's signIn with a special token-based approach
-      // Since Google users don't have passwords, we'll use a session token
+      // User is now created/updated in database via /api/auth/google-signin
+      // Sign in with NextAuth using credentials (email only, no password for Google users)
       toast.success("Signing you in...")
       
-      // Create a session by calling our API to verify user exists
-      const sessionResponse = await fetch('/api/auth/google-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: googleUser.email }),
-      })
+      // Small delay to ensure database write is complete
+      await new Promise(resolve => setTimeout(resolve, 100))
       
-      if (sessionResponse.ok) {
-        // Sign in with NextAuth using credentials (email only, no password for Google users)
-        const signInResult = await signIn("credentials", {
-          email: googleUser.email,
-          password: "", // Empty password - our updated CredentialsProvider handles this
-          redirect: false,
-        })
+      // Sign in with NextAuth using credentials (email only, no password for Google users)
+      const signInResult = await signIn("credentials", {
+        email: googleUser.email || "",
+        password: "", // Empty password - our updated CredentialsProvider handles this
+        redirect: false,
+      })
 
-        if (signInResult?.ok) {
-          toast.success("Welcome to Restore Assist!")
-          router.push("/dashboard")
-        } else {
-          toast.error("Failed to create session. Please try logging in manually.")
-          router.push("/login?email=" + encodeURIComponent(googleUser.email || ""))
-        }
+      if (signInResult?.ok) {
+        toast.success("Welcome to Restore Assist!")
+        router.push("/dashboard")
       } else {
-        // Fallback: redirect to login
-        toast.success("Account created! Redirecting to login...")
+        console.error("Sign in result:", signInResult)
+        const errorMsg = signInResult?.error || "Failed to create session"
+        toast.error("Failed to create session. Please try logging in manually.")
+        setError(errorMsg)
+        // Fallback: redirect to login with email pre-filled
         setTimeout(() => {
           router.push("/login?email=" + encodeURIComponent(googleUser.email || ""))
-        }, 1500)
+        }, 2000)
       }
     } catch (error: any) {
+      console.error("Google sign-in error:", error)
       const errorMessage = error.message || "Google sign-in failed. Please try again."
       setError(errorMessage)
       toast.error(errorMessage)
+    } finally {
       setIsLoading(false)
     }
   }
