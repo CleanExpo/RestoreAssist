@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle, Download, FileText, Table, Loader2, Printer }
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
+import { cn } from "@/lib/utils"
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer"
 import RestorationInspectionReportViewer from "./RestorationInspectionReportViewer"
 
@@ -662,24 +663,24 @@ export default function InspectionReportViewer({ reportId, onReportGenerated }: 
 
       {/* Report Info */}
       {report && (
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-sm font-semibold mb-2">Report Information</h3>
+        <div className={cn("p-4 rounded-lg border", "border-neutral-200 dark:border-slate-700/50 bg-neutral-50 dark:bg-slate-800/30")}>
+          <h3 className={cn("text-sm font-semibold mb-2", "text-neutral-900 dark:text-white")}>Report Information</h3>
           <div className="grid md:grid-cols-2 gap-2 text-sm">
             <div>
-              <span className="text-slate-400">Report Depth Level:</span>
-              <span className="text-slate-300 ml-2">{report.reportDepthLevel || 'Not set'}</span>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>Report Depth Level:</span>
+              <span className={cn("ml-2", "text-neutral-900 dark:text-slate-300")}>{report.reportDepthLevel || 'Not set'}</span>
             </div>
             <div>
-              <span className="text-slate-400">Version:</span>
-              <span className="text-slate-300 ml-2">{report.reportVersion || 1}</span>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>Version:</span>
+              <span className={cn("ml-2", "text-neutral-900 dark:text-slate-300")}>{report.reportVersion || 1}</span>
             </div>
             <div>
-              <span className="text-slate-400">Status:</span>
-              <span className="text-slate-300 ml-2">{report.status}</span>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>Status:</span>
+              <span className={cn("ml-2", "text-neutral-900 dark:text-slate-300")}>{report.status}</span>
             </div>
             <div>
-              <span className="text-slate-400">Last Updated:</span>
-              <span className="text-slate-300 ml-2">
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>Last Updated:</span>
+              <span className={cn("ml-2", "text-neutral-900 dark:text-slate-300")}>
                 {new Date(report.updatedAt).toLocaleString('en-AU')}
               </span>
             </div>
