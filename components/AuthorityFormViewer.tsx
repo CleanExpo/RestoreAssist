@@ -116,41 +116,34 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
   const totalSignatures = form.signatures.length
 
   return (
-    <div className="bg-slate-900 min-h-screen">
-      {/* Print Header - Only visible when printing */}
-      <div className="hidden print:block print:mb-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">{form.template.name}</h1>
-          <p className="text-sm text-slate-400">Form ID: {formId}</p>
-        </div>
-      </div>
-
-      {/* Action Bar - Hidden when printing */}
-      <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 print:hidden">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold">{form.template.name}</h2>
-            {getStatusBadge(form.status)}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
-            >
-              <Printer size={18} />
-              Print
-            </button>
-            {onClose && (
+    <>
+      <div className="bg-slate-900 min-h-screen print:bg-white">
+        {/* Action Bar - Hidden when printing */}
+        <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 print:hidden">
+          <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold">{form.template.name}</h2>
+              {getStatusBadge(form.status)}
+            </div>
+            <div className="flex items-center gap-3">
               <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
               >
-                <X size={20} />
+                <Printer size={18} />
+                Print
               </button>
-            )}
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Form Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -291,32 +284,78 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
         </div>
       </div>
 
+      </div>
+
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
-          body {
-            background: white;
+          @page {
+            margin: 0.5in;
+            size: letter;
           }
-          .print\\:hidden {
+          
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          
+          html, body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          
+          body > *:not(.print-content) {
             display: none !important;
           }
+          
+          .print\\:hidden {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          
           .print\\:block {
             display: block !important;
+            visibility: visible !important;
           }
+          
           .print\\:mb-8 {
             margin-bottom: 2rem !important;
           }
+          
           .print\\:shadow-none {
             box-shadow: none !important;
           }
+          
           .print\\:rounded-none {
             border-radius: 0 !important;
           }
+          
           .print\\:h-12 {
             height: 3rem !important;
           }
+          
+          .print\\:bg-white {
+            background: white !important;
+          }
+          
+          /* Ensure form content is visible */
+          [class*="bg-white"] {
+            background: white !important;
+          }
+          
+          [class*="text-black"] {
+            color: black !important;
+          }
+          
+          [class*="text-gray"] {
+            color: #374151 !important;
+          }
         }
       `}</style>
-    </div>
+    </>
   )
 }
