@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { FileText, Plus, Download, CheckCircle, Clock, X, PenTool, AlertCircle, Eye } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
-import AuthorityFormViewer from "./AuthorityFormViewer"
 
 interface AuthorityFormsViewerProps {
   reportId: string
@@ -38,6 +38,7 @@ interface FormInstance {
 }
 
 export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerProps) {
+  const router = useRouter()
   const [suggestions, setSuggestions] = useState<SuggestedForm[]>([])
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; code: string }>>([])
   const [forms, setForms] = useState<FormInstance[]>([])
@@ -46,7 +47,6 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedTemplateCode, setSelectedTemplateCode] = useState<string | null>(null)
   const [authorityDescription, setAuthorityDescription] = useState("")
-  const [viewingFormId, setViewingFormId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -316,7 +316,7 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setViewingFormId(form.id)}
+                        onClick={() => router.push(`/dashboard/reports/${reportId}/authority-forms/${form.id}`)}
                         className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                         title="View Form"
                       >
@@ -449,17 +449,6 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
         </div>
       )}
 
-      {/* Form Viewer Modal */}
-      {viewingFormId && (
-        <div className="fixed inset-0 z-50 bg-black/80">
-          <div className="h-full w-full overflow-auto">
-            <AuthorityFormViewer 
-              formId={viewingFormId}
-              onClose={() => setViewingFormId(null)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }
