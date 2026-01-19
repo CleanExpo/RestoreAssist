@@ -211,8 +211,8 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
       {/* Header with Create Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold mb-1">Authority Forms</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className={cn("text-xl font-semibold mb-1", "text-neutral-900 dark:text-white")}>Authority Forms</h2>
+          <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
             Required authorization forms for this claim
           </p>
         </div>
@@ -227,9 +227,9 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
 
       {/* Suggested Forms */}
       {suggestions.length > 0 && (
-        <div className="bg-slate-800/50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <AlertCircle size={20} className="text-yellow-400" />
+        <div className={cn("rounded-lg p-6", "bg-neutral-100 dark:bg-slate-800/50")}>
+          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+            <AlertCircle size={20} className="text-yellow-500 dark:text-yellow-400" />
             Suggested Forms
           </h3>
           <div className="space-y-3">
@@ -239,22 +239,22 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                 className={cn(
                   "p-4 rounded-lg border",
                   suggestion.alreadyCreated
-                    ? "bg-slate-700/30 border-slate-600"
-                    : "bg-slate-700/50 border-slate-600"
+                    ? "bg-neutral-50 dark:bg-slate-700/30 border-neutral-200 dark:border-slate-600"
+                    : "bg-white dark:bg-slate-700/50 border-neutral-200 dark:border-slate-600"
                 )}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-medium">{suggestion.templateName}</h4>
+                      <h4 className={cn("font-medium", "text-neutral-900 dark:text-white")}>{suggestion.templateName}</h4>
                       {getPriorityBadge(suggestion.priority)}
                       {suggestion.alreadyCreated && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">
+                        <span className={cn("px-2 py-1 rounded-full text-xs", "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400")}>
                           Already Created
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-400">{suggestion.reason}</p>
+                    <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>{suggestion.reason}</p>
                   </div>
                   {!suggestion.alreadyCreated && (
                     <button
@@ -276,12 +276,12 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
 
       {/* Existing Forms */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Existing Forms</h3>
+        <h3 className={cn("text-lg font-semibold mb-4", "text-neutral-900 dark:text-white")}>Existing Forms</h3>
         {forms.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800/30 rounded-lg">
-            <FileText size={48} className="mx-auto text-slate-500 mb-4" />
-            <p className="text-slate-400">No authority forms created yet</p>
-            <p className="text-sm text-slate-500 mt-2">
+          <div className={cn("text-center py-12 rounded-lg", "bg-neutral-100 dark:bg-slate-800/30")}>
+            <FileText size={48} className={cn("mx-auto mb-4", "text-neutral-400 dark:text-slate-500")} />
+            <p className={cn("text-neutral-600 dark:text-slate-400")}>No authority forms created yet</p>
+            <p className={cn("text-sm mt-2", "text-neutral-500 dark:text-slate-500")}>
               Use the suggestions above or create a form manually
             </p>
           </div>
@@ -294,18 +294,18 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
               return (
                 <div
                   key={form.id}
-                  className="bg-slate-800/50 rounded-lg p-4 border border-slate-700"
+                  className={cn("rounded-lg p-4 border", "bg-white dark:bg-slate-800/50 border-neutral-200 dark:border-slate-700")}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h4 className="font-medium">{form.template.name}</h4>
+                        <h4 className={cn("font-medium", "text-neutral-900 dark:text-white")}>{form.template.name}</h4>
                         {getStatusBadge(form.status)}
                       </div>
-                      <p className="text-sm text-slate-400 mb-2 line-clamp-2">
+                      <p className={cn("text-sm mb-2 line-clamp-2", "text-neutral-600 dark:text-slate-400")}>
                         {form.authorityDescription}
                       </p>
-                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                      <div className={cn("flex items-center gap-4 text-xs", "text-neutral-500 dark:text-slate-500")}>
                         <span>
                           Signatures: {signedCount} of {totalSignatures}
                         </span>
@@ -317,17 +317,17 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => router.push(`/dashboard/reports/${reportId}/authority-forms/${form.id}`)}
-                        className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                        className={cn("p-2 rounded-lg transition-colors", "hover:bg-neutral-100 dark:hover:bg-slate-700")}
                         title="View Form"
                       >
-                        <Eye size={18} className="text-slate-400" />
+                        <Eye size={18} className={cn("text-neutral-600 dark:text-slate-400")} />
                       </button>
                       <button
                         onClick={() => handleDownloadPDF(form.id, form.template.name)}
-                        className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                        className={cn("p-2 rounded-lg transition-colors", "hover:bg-neutral-100 dark:hover:bg-slate-700")}
                         title="Download PDF"
                       >
-                        <Download size={18} className="text-slate-400" />
+                        <Download size={18} className={cn("text-neutral-600 dark:text-slate-400")} />
                       </button>
                     </div>
                   </div>
@@ -341,20 +341,24 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-semibold mb-4">Create Authority Form</h3>
+          <div className={cn("rounded-lg p-6 max-w-md w-full mx-4", "bg-white dark:bg-slate-800")}>
+            <h3 className={cn("text-xl font-semibold mb-4", "text-neutral-900 dark:text-white")}>Create Authority Form</h3>
             
             {selectedTemplateCode ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-900 dark:text-white")}>
                     Authority Description
                   </label>
                   <textarea
                     value={authorityDescription}
                     onChange={(e) => setAuthorityDescription(e.target.value)}
                     placeholder="Describe the authority being granted..."
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
+                    className={cn(
+                      "w-full px-3 py-2 border rounded-lg",
+                      "bg-white dark:bg-slate-700 border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-slate-400"
+                    )}
                     rows={4}
                   />
                 </div>
@@ -365,7 +369,11 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                       setSelectedTemplateCode(null)
                       setAuthorityDescription("")
                     }}
-                    className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                    className={cn(
+                      "flex-1 px-4 py-2 rounded-lg transition-colors",
+                      "bg-neutral-200 dark:bg-slate-700 text-neutral-900 dark:text-white",
+                      "hover:bg-neutral-300 dark:hover:bg-slate-600"
+                    )}
                   >
                     Cancel
                   </button>
@@ -380,13 +388,13 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-slate-400 text-sm mb-4">
+                <p className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}>
                   Select a form template to create:
                 </p>
                 {templates.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-slate-400 mb-4">No templates available</p>
-                    <p className="text-xs text-slate-500">
+                    <p className={cn("mb-4", "text-neutral-600 dark:text-slate-400")}>No templates available</p>
+                    <p className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>
                       Please run the seed script to populate templates
                     </p>
                   </div>
@@ -406,28 +414,28 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                           onClick={() => setSelectedTemplateCode(template.code)}
                           disabled={alreadyCreated}
                           className={cn(
-                            "w-full p-3 rounded-lg text-left transition-colors",
+                            "w-full p-3 rounded-lg text-left transition-colors border",
                             alreadyCreated
-                              ? "bg-slate-700/50 border border-slate-600 opacity-60 cursor-not-allowed"
-                              : "bg-slate-700 hover:bg-slate-600 border border-slate-600"
+                              ? "bg-neutral-100 dark:bg-slate-700/50 border-neutral-200 dark:border-slate-600 opacity-60 cursor-not-allowed"
+                              : "bg-neutral-50 dark:bg-slate-700 hover:bg-neutral-100 dark:hover:bg-slate-600 border-neutral-200 dark:border-slate-600"
                           )}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <div className="font-medium">{template.name}</div>
+                              <div className={cn("font-medium", "text-neutral-900 dark:text-white")}>{template.name}</div>
                               {template.description && (
-                                <div className="text-xs text-slate-400 mt-1">
+                                <div className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>
                                   {template.description}
                                 </div>
                               )}
                               {suggestion && (
-                                <div className="text-xs text-yellow-400 mt-1">
+                                <div className={cn("text-xs mt-1", "text-yellow-600 dark:text-yellow-400")}>
                                   {suggestion.reason}
                                 </div>
                               )}
                             </div>
                             {alreadyCreated && (
-                              <span className="text-xs text-green-400 ml-2">
+                              <span className={cn("text-xs ml-2", "text-green-700 dark:text-green-400")}>
                                 Created
                               </span>
                             )}
@@ -439,7 +447,11 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                 )}
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="w-full px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                  className={cn(
+                    "w-full px-4 py-2 rounded-lg transition-colors",
+                    "bg-neutral-200 dark:bg-slate-700 text-neutral-900 dark:text-white",
+                    "hover:bg-neutral-300 dark:hover:bg-slate-600"
+                  )}
                 >
                   Cancel
                 </button>
