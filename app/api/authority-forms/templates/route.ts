@@ -18,8 +18,6 @@ export async function GET() {
       },
       orderBy: { name: "asc" }
     })
-
-    console.log(`[Authority Forms Templates] Found ${templates.length} templates`)
     
     return NextResponse.json({ templates })
   } catch (error) {
