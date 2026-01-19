@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Printer, Download, X, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { Printer, X, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
@@ -72,29 +72,6 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
     window.print()
   }
 
-  const handleDownloadPDF = async () => {
-    try {
-      const response = await fetch(`/api/authority-forms/${formId}/pdf`)
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${form.template.name}-${formId.slice(-6)}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-        toast.success("PDF downloaded successfully")
-      } else {
-        toast.error("Failed to download PDF")
-      }
-    } catch (error) {
-      console.error("Error downloading PDF:", error)
-      toast.error("Failed to download PDF")
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       DRAFT: { label: "Draft", color: "bg-slate-500", icon: Clock },
@@ -156,13 +133,6 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
             {getStatusBadge(form.status)}
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleDownloadPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-            >
-              <Download size={18} />
-              Download PDF
-            </button>
             <button
               onClick={handlePrint}
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
