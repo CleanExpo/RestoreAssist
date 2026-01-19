@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
     const effectiveSub = await getEffectiveSubscription(session.user.id)
     
-    // Check subscription status - REQUIRED before onboarding
+    // Subscription is no longer required for onboarding - users get 3 free credits to start
     // Use effective subscription for team members
     const hasActiveSubscription = effectiveSub?.subscriptionStatus === 'ACTIVE'
 
@@ -122,16 +122,9 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Define onboarding steps - subscription is required first
+    // Define onboarding steps
     // For team members, use Admin's onboarding status; for Admins, use their own
     const steps = {
-      subscription: {
-        completed: hasActiveSubscription,
-        required: true,
-        title: 'Subscribe to a Plan',
-        description: 'Choose a monthly or yearly plan to get started',
-        route: '/dashboard/pricing'
-      },
       business_profile: {
         completed: businessProfileCompleted, // Uses Admin's profile for team members
         required: true,

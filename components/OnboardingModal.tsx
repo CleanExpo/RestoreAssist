@@ -9,7 +9,6 @@ interface OnboardingStatus {
   incompleteSteps: string[]
   nextStep: string | null
   steps: {
-    subscription: { completed: boolean; required: boolean; title: string; description: string; route: string }
     business_profile: { completed: boolean; required: boolean; title: string; description: string; route: string }
     integrations: { completed: boolean; required: boolean; title: string; description: string; route: string }
     pricing_config: { completed: boolean; required: boolean; title: string; description: string; route: string }
@@ -68,14 +67,6 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     const stepData = status.steps[step as keyof typeof status.steps]
     
     switch (step) {
-      case 'subscription':
-        return {
-          title: stepData.title,
-          description: stepData.description,
-          icon: Crown,
-          action: 'Upgrade Package',
-          route: stepData.route
-        }
       case 'business_profile':
         return {
           title: stepData.title,

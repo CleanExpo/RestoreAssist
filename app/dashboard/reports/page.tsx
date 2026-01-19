@@ -397,13 +397,33 @@ export default function ReportsPage() {
               </div>
             </>
           )}
-          <Link
-            href="/dashboard/reports/new"
+          <button
+            onClick={async () => {
+              // Check credits before navigating
+              try {
+                const response = await fetch('/api/reports/check-credits')
+                if (response.ok) {
+                  const data = await response.json()
+                  if (!data.canCreate) {
+                    // Show upgrade modal or redirect to pricing
+                    toast.error('Please upgrade your package to create more reports')
+                    router.push('/dashboard/pricing')
+                    return
+                  }
+                }
+                // If credits available, navigate to new report page
+                router.push('/dashboard/reports/new')
+              } catch (error) {
+                console.error('Error checking credits:', error)
+                // On error, still allow navigation (will be checked on the page)
+                router.push('/dashboard/reports/new')
+              }
+            }}
             className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-white flex items-center gap-2 group"
           >
             <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
             <span>New Report</span>
-          </Link>
+          </button>
         </div>
       </div>
 
