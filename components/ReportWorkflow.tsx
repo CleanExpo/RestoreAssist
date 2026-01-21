@@ -31,9 +31,10 @@ interface ReportWorkflowProps {
     technicianName?: string
     technicianFieldReport?: string
   }
+  subscriptionStatus?: string
 }
 
-export default function ReportWorkflow({ reportId: initialReportId, onComplete, initialFormData }: ReportWorkflowProps) {
+export default function ReportWorkflow({ reportId: initialReportId, onComplete, initialFormData, subscriptionStatus }: ReportWorkflowProps) {
   const router = useRouter()
   const [currentStage, setCurrentStage] = useState<WorkflowStage>(initialReportId ? 'report-generation' : 'initial-entry')
   const [reportId, setReportId] = useState<string | null>(initialReportId || null)
@@ -311,6 +312,7 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
           onSuccess={handleInitialEntryComplete}
           initialReportId={reportId}
           initialData={initialFormData}
+          subscriptionStatus={subscriptionStatus}
         />
       )}
 

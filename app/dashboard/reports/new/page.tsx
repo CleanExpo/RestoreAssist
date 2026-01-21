@@ -23,6 +23,7 @@ export default function NewReportPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [hasCheckedCredits, setHasCheckedCredits] = useState(false)
   const [canCreateReport, setCanCreateReport] = useState(false)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
 
   // Check credits and onboarding status on mount (only for new reports)
   useEffect(() => {
@@ -40,13 +41,16 @@ export default function NewReportPage() {
       const canCreateResponse = await fetch('/api/reports/check-credits')
       if (canCreateResponse.ok) {
         const canCreateData = await canCreateResponse.json()
-        if (!canCreateData.canCreate) {
+        const allowed = typeof canCreateData.allowed === "boolean" ? canCreateData.allowed : !!canCreateData.canCreate
+
+        if (!allowed) {
           // No credits available - show upgrade modal
           setShowUpgradeModal(true)
           setCanCreateReport(false)
           setHasCheckedCredits(true)
           return
         }
+
         setCanCreateReport(true)
       } else {
         // If API fails, assume they can't create (show upgrade modal)
@@ -94,6 +98,16 @@ export default function NewReportPage() {
 
   const checkOnboardingStatus = async () => {
     try {
+      // Also fetch subscription status for feature gating (basic-only for trial)
+      fetch('/api/user/profile')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.subscriptionStatus) {
+            setSubscriptionStatus(data.subscriptionStatus)
+          }
+        })
+        .catch(() => {})
+
       const response = await fetch('/api/onboarding/status')
       if (response.ok) {
         const data = await response.json()
@@ -417,6 +431,7 @@ export default function NewReportPage() {
             reportId={reportId || undefined}
             onComplete={handleComplete}
             initialFormData={uploadedData || undefined}
+            subscriptionStatus={subscriptionStatus || undefined}
           />
         ) : null}
       </div>
