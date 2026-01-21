@@ -2136,12 +2136,12 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={handleQuickFill}
-            // disabled={isTrial}
+            disabled={isTrial}
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
-              // isTrial
-              //   ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
-              //   : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white"
+              isTrial
+                ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white"
             )}
             title={isTrial ? "Upgrade required to use Quick Fill. Free plan supports manual entry only." : "Quick Fill Test Data"}
           >
