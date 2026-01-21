@@ -65,7 +65,7 @@ import {
 } from "@/lib/equipment-matrix";
 
 interface InitialDataEntryFormProps {
-  onSuccess?: (reportId: string, reportType?: "basic" | "enhanced") => void;
+  onSuccess?: (reportId: string, reportType?: "basic" | "enhanced" | "optimised") => void;
   initialReportId?: string | null; // Report ID when editing existing report
   initialData?: {
     clientName?: string;
@@ -151,6 +151,7 @@ interface InitialDataEntryFormProps {
       scopeItems?: string[];
     };
   };
+  subscriptionStatus?: string;
 }
 
 // Helper function to normalize date strings to YYYY-MM-DD format
@@ -216,10 +217,12 @@ export default function InitialDataEntryForm({
   onSuccess,
   initialReportId,
   initialData,
+  subscriptionStatus,
 }: InitialDataEntryFormProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  const isTrial = subscriptionStatus === "TRIAL";
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -1084,6 +1087,11 @@ export default function InitialDataEntryForm({
   const handleReportTypeChoice = async (choice: "basic" | "enhanced" | "optimised") => {
     if (!reportId) return;
 
+    if (isTrial && choice !== "basic") {
+      toast.error("Free plan allows 3 Basic reports only. Upgrade to unlock Enhanced or Optimised.");
+      return;
+    }
+
     setLoading(true);
     try {
       // Update report with reportDepthLevel
@@ -1101,7 +1109,7 @@ export default function InitialDataEntryForm({
         setShowReportTypeSelection(false);
         toast.success(`Report type set to ${choice}`);
         if (onSuccess) {
-          onSuccess(reportId, choice === "optimised" ? "enhanced" : choice);
+          onSuccess(reportId, choice);
         }
       } else {
         const error = await response.json();
@@ -4041,9 +4049,12 @@ export default function InitialDataEntryForm({
 
               <button
                 type="button"
-              onClick={() => handleReportTypeChoice("enhanced")}
-              disabled={loading}
-                className="p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50"
+            onClick={() => handleReportTypeChoice("enhanced")}
+            disabled={loading || isTrial}
+              className={cn(
+                "p-6 rounded-lg border-2 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
+                isTrial ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed" : "border-cyan-500"
+              )}
               >
                 <div className="absolute top-4 right-4">
                   <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
@@ -4064,9 +4075,11 @@ export default function InitialDataEntryForm({
                   </div>
                   <ArrowRight className="w-5 h-5 text-primary-600 dark:text-primary-400 group-hover:text-cyan-300 transition-colors" />
                 </div>
-              <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
-                Answer Tier 1 critical questions, then generate report
-              </p>
+            <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
+              {isTrial
+                ? "Upgrade required: Enhanced reports are available on paid plans."
+                : "Answer Tier 1 critical questions, then generate report"}
+            </p>
                 <div className="space-y-2">
                 {[
                   "All Basic Report features",
@@ -4089,8 +4102,11 @@ export default function InitialDataEntryForm({
           <button
             type="button"
               onClick={() => handleReportTypeChoice("optimised")}
-            disabled={loading}
-              className="p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50"
+          disabled={loading || isTrial}
+            className={cn(
+              "p-6 rounded-lg border-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50",
+              isTrial ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed" : "border-green-500"
+            )}
             >
               <div className="absolute top-4 right-4">
                 <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
@@ -4111,9 +4127,11 @@ export default function InitialDataEntryForm({
                 </div>
                 <ArrowRight className="w-5 h-5 text-green-400 group-hover:text-green-300 transition-colors" />
               </div>
-              <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
-                Complete all tiers including photo uploads, then generate report
-              </p>
+            <p className="text-neutral-700 dark:text-neutral-300 mb-4 text-sm">
+              {isTrial
+                ? "Upgrade required: Optimised reports are available on paid plans."
+                : "Complete all tiers including photo uploads, then generate report"}
+            </p>
               <div className="space-y-2">
                 {[
                   "All Enhanced features",
