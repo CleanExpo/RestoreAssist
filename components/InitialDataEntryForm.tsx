@@ -222,8 +222,7 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
-  const subscriptionFromSession = (session?.user as any)?.subscriptionStatus;
-  const isTrial = (subscriptionStatus ?? subscriptionFromSession) === "TRIAL";
+  const isTrial = subscriptionStatus === "TRIAL";
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -2153,6 +2152,15 @@ export default function InitialDataEntryForm({
       return;
     }
     setShowUseCaseModal(true);
+  };
+
+  // Prevent modal from opening if user is on trial (extra safeguard)
+  const handleModalOpenChange = (open: boolean) => {
+    if (open && isTrial) {
+      toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
+      return;
+    }
+    setShowUseCaseModal(open);
   };
 
   return (
@@ -4233,7 +4241,7 @@ export default function InitialDataEntryForm({
       )}
 
       {/* Use Case Selection Modal */}
-      <Dialog open={showUseCaseModal} onOpenChange={setShowUseCaseModal}>
+      <Dialog open={showUseCaseModal} onOpenChange={handleModalOpenChange}>
         <DialogContent className={cn(
           "max-w-2xl",
           "bg-white dark:bg-neutral-900",
