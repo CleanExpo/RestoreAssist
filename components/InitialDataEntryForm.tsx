@@ -2105,6 +2105,13 @@ export default function InitialDataEntryForm({
 
   // Populate form data based on selected use case
   const populateUseCaseData = (useCase: UseCaseData) => {
+    // Prevent trial users from using Quick Fill
+    if (isTrial) {
+      toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
+      setShowUseCaseModal(false);
+      return;
+    }
+    
     // Set form data
     setFormData(useCase.formData);
 
@@ -2158,6 +2165,7 @@ export default function InitialDataEntryForm({
   const handleModalOpenChange = (open: boolean) => {
     if (open && isTrial) {
       toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
+      setShowUseCaseModal(false);
       return;
     }
     setShowUseCaseModal(open);
