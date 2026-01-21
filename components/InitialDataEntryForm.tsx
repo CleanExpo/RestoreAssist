@@ -222,7 +222,24 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
-  const isTrial = subscriptionStatus === "TRIAL";
+  const [subscriptionStatusState, setSubscriptionStatusState] = useState<string | undefined>(subscriptionStatus);
+  const isTrial = subscriptionStatusState === "TRIAL";
+
+  // Fetch subscription status if not provided
+  useEffect(() => {
+    if (!subscriptionStatus) {
+      fetch('/api/user/profile')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.subscriptionStatus) {
+            setSubscriptionStatusState(data.subscriptionStatus);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setSubscriptionStatusState(subscriptionStatus);
+    }
+  }, [subscriptionStatus]);
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -2105,13 +2122,6 @@ export default function InitialDataEntryForm({
 
   // Populate form data based on selected use case
   const populateUseCaseData = (useCase: UseCaseData) => {
-    // Prevent trial users from using Quick Fill
-    if (isTrial) {
-      toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
-      setShowUseCaseModal(false);
-      return;
-    }
-    
     // Set form data
     setFormData(useCase.formData);
 
@@ -2154,7 +2164,8 @@ export default function InitialDataEntryForm({
 
   // Quick Fill with Test Data - Show Modal
   const handleQuickFill = () => {
-    if (isTrial) {
+    // Check if user is on trial - block access
+    if (subscriptionStatusState === "TRIAL" || isTrial) {
       toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
       return;
     }
