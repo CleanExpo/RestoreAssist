@@ -88,8 +88,13 @@ export default function NewReportPage() {
       const response = await fetch('/api/user/profile')
       if (response.ok) {
         const data = await response.json()
-        if (data?.subscriptionStatus) {
-          setSubscriptionStatus(data.subscriptionStatus)
+        // The API returns subscriptionStatus in data.profile.subscriptionStatus
+        const status = data?.profile?.subscriptionStatus || data?.subscriptionStatus
+        if (status) {
+          console.log('[NewReportPage] Fetched subscription status:', status)
+          setSubscriptionStatus(status)
+        } else {
+          console.warn('[NewReportPage] No subscription status found in response:', data)
         }
       }
     } catch (error) {
@@ -314,8 +319,12 @@ export default function NewReportPage() {
               <div className="flex gap-2">
                 {!showUpload ? (
                   <button
+                    disabled={subscriptionStatus === 'TRIAL'}
                     onClick={() => setShowUpload(true)}
-                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+                    className={cn(
+                      "px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors",
+                      "disabled:bg-neutral-300 disabled:text-neutral-500 disabled:cursor-not-allowed"
+                    )}
                   >
                     Upload PDF
                   </button>

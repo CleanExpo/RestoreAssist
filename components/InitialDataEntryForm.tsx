@@ -1,39 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import {
-  FileText,
-  Calendar,
-  MapPin,
-  User,
-  Phone,
-  Mail,
-  Save,
-  ArrowRight,
-  AlertTriangle,
-  Clock,
-  Info,
-  Thermometer,
-  Droplets,
-  Sparkles,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  X,
-  Plus,
-  Zap,
-  Box,
-  Minus,
-  Wrench,
-  UserCog,
-  Crown,
-} from "lucide-react";
-import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { cn } from "@/lib/utils";
-import { PropertyLookupButton } from "@/components/property-lookup-button";
 import { PropertyDataDisplay } from "@/components/property-data-display";
+import { PropertyLookupButton } from "@/components/property-lookup-button";
 import {
   Dialog,
   DialogContent,
@@ -41,28 +9,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  calculateDryingPotential, 
-  calculateWaterRemovalTarget, 
-  calculateAirMoversRequired,
-  calculateAFDUnitsRequired,
-  calculateTotalVolume,
-  type PsychrometricData,
-} from "@/lib/psychrometric-calculations";
 import {
-  lgrDehumidifiers,
-  desiccantDehumidifiers,
-  airMovers,
   afdUnits,
-  getAllEquipmentGroups,
-  getEquipmentGroupById,
+  airMovers,
   calculateTotalAmps,
-  calculateTotalDailyCost,
   calculateTotalCost,
+  calculateTotalDailyCost,
+  desiccantDehumidifiers,
   getEquipmentDailyRate,
-  type EquipmentSelection,
-  type EquipmentGroup,
+  getEquipmentGroupById,
+  lgrDehumidifiers,
+  type EquipmentSelection
 } from "@/lib/equipment-matrix";
+import {
+  calculateAFDUnitsRequired,
+  calculateAirMoversRequired,
+  calculateDryingPotential,
+  calculateTotalVolume,
+  calculateWaterRemovalTarget
+} from "@/lib/psychrometric-calculations";
+import { cn } from "@/lib/utils";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Crown,
+  Droplets,
+  FileText,
+  Info,
+  Loader2,
+  MapPin,
+  Minus,
+  Phone,
+  Plus,
+  Sparkles,
+  Thermometer,
+  User,
+  UserCog,
+  Wrench,
+  X,
+  Zap
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 interface InitialDataEntryFormProps {
   onSuccess?: (reportId: string, reportType?: "basic" | "enhanced" | "optimised") => void;
@@ -222,24 +215,9 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
-  const [subscriptionStatusState, setSubscriptionStatusState] = useState<string | undefined>(subscriptionStatus);
-  const isTrial = subscriptionStatusState === "TRIAL";
-
-  // Fetch subscription status if not provided
-  useEffect(() => {
-    if (!subscriptionStatus) {
-      fetch('/api/user/profile')
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.subscriptionStatus) {
-            setSubscriptionStatusState(data.subscriptionStatus);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setSubscriptionStatusState(subscriptionStatus);
-    }
-  }, [subscriptionStatus]);
+  console.log('[InitialDataEntryForm] Subscription Status:', subscriptionStatus);
+  const isTrial = subscriptionStatus === "TRIAL" || subscriptionStatus === "trial";
+  console.log('[InitialDataEntryForm] Is Trial:', isTrial);
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -2164,11 +2142,6 @@ export default function InitialDataEntryForm({
 
   // Quick Fill with Test Data - Show Modal
   const handleQuickFill = () => {
-    // Check if user is on trial - block access
-    if (subscriptionStatusState === "TRIAL" || isTrial) {
-      toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
-      return;
-    }
     setShowUseCaseModal(true);
   };
 
@@ -2176,7 +2149,6 @@ export default function InitialDataEntryForm({
   const handleModalOpenChange = (open: boolean) => {
     if (open && isTrial) {
       toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
-      setShowUseCaseModal(false);
       return;
     }
     setShowUseCaseModal(open);
@@ -2196,11 +2168,14 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={handleQuickFill}
+            disabled={isTrial}
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
-              "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600",
-              "text-white dark:text-white"
+              isTrial
+                ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white"
             )}
+            title={isTrial ? "Upgrade required to use Quick Fill. Free plan supports manual entry only." : "Quick Fill Test Data"}
           >
             <Zap className="w-4 h-4" />
             Quick Fill Test Data
@@ -4260,7 +4235,7 @@ export default function InitialDataEntryForm({
       )}
 
       {/* Use Case Selection Modal */}
-      <Dialog open={showUseCaseModal} onOpenChange={handleModalOpenChange}>
+      <Dialog open={showUseCaseModal} onOpenChange={setShowUseCaseModal}>
         <DialogContent className={cn(
           "max-w-2xl",
           "bg-white dark:bg-neutral-900",
