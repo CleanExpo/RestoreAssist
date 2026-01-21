@@ -14,51 +14,128 @@ export interface DryingPotentialResult {
   vaporPressureDifferential: number
 }
 
-// Calculate drying potential (Drying Index)
-// Based on psychrometric principles and IICRC S500 standards
-export function calculateDryingPotential(data: PsychrometricData): DryingPotentialResult {
-  const { temperature, humidity, waterClass } = data
+/**
+ * Calculate Grains Per Pound (GPP) of moisture in air
+ * IICRC S500 standard measurement for moisture content
+ * Formula: GPP = (RH/100) * (7000 / (7000 - RH)) * (0.622 * Pws / (P - Pws))
+ * Simplified for practical use: GPP ≈ (RH/100) * (7000 / (7000 - RH)) * (0.622 * Pws / (P - Pws))
+ */
+function calculateGPP(temperature: number, humidity: number): number {
+  // Atmospheric pressure at sea level (kPa) - adjust for altitude if needed
+  const P = 101.325 // kPa
   
-  // Calculate vapor pressure using Magnus formula approximation
-  // Saturation vapor pressure at given temperature
-  const saturationVaporPressure = 6.112 * Math.exp((17.67 * temperature) / (temperature + 243.5))
+  // Saturation vapor pressure using Magnus formula (IICRC standard)
+  // Pws in kPa = 0.611 * exp((17.27 * T) / (T + 237.3))
+  const Pws = 0.611 * Math.exp((17.27 * temperature) / (temperature + 237.3))
+  
+  // Actual vapor pressure
+  const Pw = Pws * (humidity / 100)
+  
+  // Grains Per Pound calculation (simplified IICRC formula)
+  // 1 grain = 1/7000 pound
+  // GPP = 7000 * (Pw / (P - Pw)) * (0.622 / 0.378)
+  const GPP = 7000 * (Pw / (P - Pw)) * (0.622 / 0.378)
+  
+  return GPP
+}
+
+/**
+ * Calculate drying potential (Drying Index) according to IICRC S500 standards
+ * Based on psychrometric principles: vapor pressure differential and GPP gradient
+ */
+export function calculateDryingPotential(data: PsychrometricData): DryingPotentialResult {
+  const { temperature, humidity, waterClass, systemType = 'closed' } = data
+  
+  // IICRC S500 Target Conditions by Water Class
+  // These represent optimal drying conditions for each class
+  const targetConditions: Record<1 | 2 | 3 | 4, { temp: number; rh: number }> = {
+    1: { temp: 22, rh: 45 },  // Class 1: Moderate conditions
+    2: { temp: 25, rh: 35 },  // Class 2: Standard conditions
+    3: { temp: 28, rh: 30 },  // Class 3: Aggressive conditions
+    4: { temp: 32, rh: 25 }   // Class 4: Maximum conditions
+  }
+  
+  const target = targetConditions[waterClass]
+  
+  // Calculate current GPP
+  const currentGPP = calculateGPP(temperature, humidity)
+  
+  // Calculate target GPP (optimal conditions)
+  const targetGPP = calculateGPP(target.temp, target.rh)
+  
+  // GPP Differential (negative = good drying, positive = poor)
+  // Lower GPP in air = better drying potential
+  const gppDifferential = currentGPP - targetGPP
+  
+  // Calculate vapor pressure using Magnus formula (IICRC standard)
+  // Saturation vapor pressure at given temperature (in kPa)
+  const saturationVaporPressure = 0.611 * Math.exp((17.27 * temperature) / (temperature + 237.3))
   
   // Actual vapor pressure
   const actualVaporPressure = saturationVaporPressure * (humidity / 100)
   
   // Vapor pressure differential (driving force for evaporation)
-  // Higher differential = better drying potential
+  // This is the key metric: difference between saturation and actual vapor pressure
   const vaporPressureDifferential = saturationVaporPressure - actualVaporPressure
   
-  // Drying Index calculation
-  // Factors: temperature, humidity, and water class
-  // Formula: (Temperature factor * Humidity factor * Class factor)
-  const tempFactor = Math.max(0, (temperature - 5) / 30) // Normalize temp (5-35°C range)
-  const humidityFactor = (100 - humidity) / 100 // Inverse humidity
-  const classFactor = 1 + (waterClass - 1) * 0.2 // Class 1 = 1.0, Class 4 = 1.6
+  // Target vapor pressure differential (optimal conditions)
+  const targetSaturationVP = 0.611 * Math.exp((17.27 * target.temp) / (target.temp + 237.3))
+  const targetActualVP = targetSaturationVP * (target.rh / 100)
+  const targetVPDifferential = targetSaturationVP - targetActualVP
   
-  // Drying Index (0-100 scale)
-  const dryingIndex = Math.min(100, Math.max(0, 
-    (tempFactor * humidityFactor * classFactor * 80) + 
-    (vaporPressureDifferential / saturationVaporPressure * 20)
+  // Calculate how close current conditions are to optimal
+  // Factor 1: Temperature proximity to target (0-1 scale)
+  const tempRange = { min: target.temp - 5, max: target.temp + 5 }
+  const tempProximity = temperature >= tempRange.min && temperature <= tempRange.max
+    ? 1 - Math.abs(temperature - target.temp) / 5
+    : Math.max(0, 1 - Math.abs(temperature - target.temp) / 15)
+  
+  // Factor 2: Humidity proximity to target (lower is better for drying)
+  const rhRange = { min: target.rh - 10, max: target.rh + 10 }
+  const rhProximity = humidity >= rhRange.min && humidity <= rhRange.max
+    ? 1 - Math.abs(humidity - target.rh) / 10
+    : humidity < target.rh
+    ? Math.min(1, 1 + (target.rh - humidity) / 20) // Lower RH is better
+    : Math.max(0, 1 - (humidity - target.rh) / 30) // Higher RH is worse
+  
+  // Factor 3: Vapor pressure differential (current vs target)
+  const vpdRatio = vaporPressureDifferential > 0
+    ? Math.min(1, vaporPressureDifferential / targetVPDifferential)
+    : 0
+  
+  // Factor 4: System type adjustment
+  // Closed systems have better control and higher drying potential
+  const systemFactor = systemType === 'closed' ? 1.0 : 0.85
+  
+  // Factor 5: GPP differential (negative = good, positive = bad)
+  // Normalize: -50 to +50 GPP range maps to 0-1 scale
+  const gppFactor = Math.max(0, Math.min(1, 1 - (gppDifferential + 20) / 40))
+  
+  // Calculate Drying Index (0-100 scale)
+  // Weighted combination of all factors
+  const dryingIndex = Math.min(100, Math.max(0,
+    (tempProximity * 25) +           // 25% weight on temperature
+    (rhProximity * 30) +              // 30% weight on humidity
+    (vpdRatio * 30) +                 // 30% weight on vapor pressure differential
+    (gppFactor * 15) * systemFactor   // 15% weight on GPP, adjusted by system type
   ))
   
-  // Determine status
+  // Determine status based on IICRC S500 guidelines
   let status: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT'
   let recommendation: string
   
   if (dryingIndex < 30) {
     status = 'POOR'
-    recommendation = 'Air saturated or cold. Minimal evaporation. Action: Increase heat or dehumidification.'
+    recommendation = `Conditions unfavorable for drying. Current: ${temperature}°C, ${humidity}% RH. Target for Class ${waterClass}: ${target.temp}°C, ${target.rh}% RH. Action: Increase temperature to ${target.temp}°C and reduce humidity to ${target.rh}% RH using dehumidification.`
   } else if (dryingIndex < 50) {
     status = 'FAIR'
-    recommendation = 'Slow evaporation. Action: Add air movement and monitor closely.'
+    recommendation = `Suboptimal drying conditions. Current: ${temperature}°C, ${humidity}% RH. Target for Class ${waterClass}: ${target.temp}°C, ${target.rh}% RH. Action: Adjust temperature and humidity closer to target conditions. Add air movement to enhance evaporation.`
   } else if (dryingIndex < 80) {
     status = 'GOOD'
-    recommendation = 'Optimal range. Action: Maintain current setup.'
+    recommendation = `Good drying conditions. Current: ${temperature}°C, ${humidity}% RH. Target for Class ${waterClass}: ${target.temp}°C, ${target.rh}% RH. Action: Maintain current conditions. Monitor psychrometric readings regularly.`
   } else {
     status = 'EXCELLENT'
-    recommendation = 'Rapid evaporation. Action: Watch for over-drying.'
+    recommendation = `Excellent drying conditions. Current: ${temperature}°C, ${humidity}% RH. Target for Class ${waterClass}: ${target.temp}°C, ${target.rh}% RH. Action: Conditions are optimal. Monitor for over-drying and adjust equipment as needed.`
   }
   
   return {
