@@ -2983,23 +2983,31 @@ export default function InitialDataEntryForm({
         </div>
 
         {/* NIR Fields - Available for all report types */}
-        <div className="p-6 rounded-lg border border-green-500/50 bg-green-500/10 space-y-6">
-          <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-green-600 dark:text-green-400")}>
+        <div className={cn(
+          "p-6 rounded-lg border space-y-6",
+          "border-neutral-200 dark:border-green-500/50",
+          "bg-neutral-50 dark:bg-green-500/10"
+        )}>
+          <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-green-300")}>
             <CheckCircle className="w-5 h-5" />
             NIR Inspection Data
           </h3>
-          <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-4">
+          <p className={cn("text-sm mb-4", "text-neutral-700 dark:text-neutral-300")}>
             Enter structured inspection data. The system will automatically
             classify and determine scope.
           </p>
 
           {/* Moisture Readings */}
-          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+          <div className={cn(
+            "p-4 rounded-lg border",
+            "border-neutral-200 dark:border-neutral-800",
+            "bg-white dark:bg-neutral-900/50"
+          )}>
             <h4 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
               <Droplets className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
               Moisture Readings <span className="text-error-500 dark:text-error-400">*</span>
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 bg-slate-900/50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 rounded-lg bg-neutral-50 dark:bg-slate-900/50">
               <div>
                 <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Location
@@ -3013,7 +3021,12 @@ export default function InitialDataEntryForm({
                       location: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                   placeholder="Room/Zone"
                 />
               </div>
@@ -3029,7 +3042,12 @@ export default function InitialDataEntryForm({
                       surfaceType: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                 >
                   {SURFACE_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -3054,7 +3072,12 @@ export default function InitialDataEntryForm({
                       moistureLevel: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                 />
               </div>
               <div>
@@ -3069,7 +3092,12 @@ export default function InitialDataEntryForm({
                       depth: e.target.value as "Surface" | "Subsurface",
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                 >
                   <option value="Surface">Surface</option>
                   <option value="Subsurface">Subsurface</option>
@@ -3110,9 +3138,13 @@ export default function InitialDataEntryForm({
                 {nirMoistureReadings.map((reading) => (
                   <div
                     key={reading.id}
-                    className="flex items-center justify-between p-2 bg-slate-900/50 rounded text-xs"
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded text-xs",
+                      "bg-neutral-100 dark:bg-slate-900/50",
+                      "text-neutral-800 dark:text-neutral-50"
+                    )}
                   >
-                    <span className="text-white">
+                    <span className={cn("text-sm", "text-neutral-800 dark:text-neutral-50")}>
                       {reading.location} - {reading.surfaceType}:{" "}
                       {reading.moistureLevel}% ({reading.depth})
                     </span>
