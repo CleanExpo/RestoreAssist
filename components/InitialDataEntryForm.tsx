@@ -2148,7 +2148,7 @@ export default function InitialDataEntryForm({
   // Quick Fill with Test Data - Show Modal
   const handleQuickFill = () => {
     if (isTrial) {
-      toast.error("Quick Fill Test Data is available on paid plans. Upgrade to use this feature.");
+      toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
       return;
     }
     setShowUseCaseModal(true);
@@ -2168,13 +2168,10 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={handleQuickFill}
-            disabled={isTrial}
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
-              "text-white dark:text-white",
-              isTrial
-                ? "bg-neutral-400 dark:bg-slate-600 cursor-not-allowed opacity-70"
-                : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+              "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600",
+              "text-white dark:text-white"
             )}
           >
             <Zap className="w-4 h-4" />
