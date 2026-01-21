@@ -215,9 +215,7 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
-  console.log('[InitialDataEntryForm] Subscription Status:', subscriptionStatus);
   const isTrial = subscriptionStatus === "TRIAL" || subscriptionStatus === "trial";
-  console.log('[InitialDataEntryForm] Is Trial:', isTrial);
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -298,7 +296,6 @@ export default function InitialDataEntryForm({
   useEffect(() => {
     if (initialReportId) {
       setReportId(initialReportId);
-      console.log('[InitialDataEntryForm] ReportId set from prop:', initialReportId);
     }
   }, [initialReportId]);
 
@@ -464,7 +461,7 @@ export default function InitialDataEntryForm({
           }
         }
       } catch (error) {
-        console.error("Error fetching pricing config:", error);
+        // Error fetching pricing config
       }
     };
     fetchPricingConfig();
@@ -488,7 +485,7 @@ export default function InitialDataEntryForm({
             }
           }
         } catch (error) {
-          console.error("Error fetching assignees:", error);
+          // Error fetching assignees
         } finally {
           setLoadingAssignees(false);
         }
@@ -501,7 +498,6 @@ export default function InitialDataEntryForm({
   useEffect(() => {
     const loadReportData = async () => {
       if (!reportId) {
-        console.log('[InitialDataEntryForm] No reportId, skipping data load');
         return;
       }
 
@@ -523,8 +519,6 @@ export default function InitialDataEntryForm({
                 depth: r.depth || 'Surface' as "Surface" | "Subsurface"
               }));
               setNirMoistureReadings(readings);
-            } else {
-              console.log('[InitialDataEntryForm] No moisture readings to load');
             }
             
             // Load affected areas
@@ -537,8 +531,6 @@ export default function InitialDataEntryForm({
                 timeSinceLoss: a.timeSinceLoss || 0
               }));
               setNirAffectedAreas(areas);
-            } else {
-              console.log('[InitialDataEntryForm] No affected areas to load');
             }
             
             // Load scope items
@@ -547,16 +539,8 @@ export default function InitialDataEntryForm({
                 .filter((item: any) => item.isSelected !== false)
                 .map((item: any) => (item.itemType || item.id) as string));
               setNirSelectedScopeItems(selectedItems);
-            } else {
-              console.log('[InitialDataEntryForm] No scope items to load');
             }
-
-          } else {
-            console.log('[InitialDataEntryForm] ⚠️ No NIR data in response');
           }
-        } else {
-          const error = await nirResponse.json();
-          console.error('[InitialDataEntryForm] Failed to load NIR data:', error);
         }
 
         // Load equipment data
@@ -593,7 +577,7 @@ export default function InitialDataEntryForm({
           }
         }
       } catch (error) {
-        console.error('[InitialDataEntryForm] Error loading report data:', error);
+        // Error loading report data
       }
     };
 
@@ -714,7 +698,6 @@ export default function InitialDataEntryForm({
 
         setTimeout(() => {
           if (pricingConfig && !hasAutoSelectedEquipment.current) {
-            console.log('[InitialDataEntryForm] Triggering auto-selection after areas set');
             // The auto-selection useEffect will handle this
           }
         }, 100);
@@ -844,16 +827,6 @@ export default function InitialDataEntryForm({
         waterClassToUse
       );
 
-      console.log('[InitialDataEntryForm] Calculation results:', {
-        totalVolume,
-        totalAffectedArea,
-        waterRemovalTarget,
-        airMoversRequired,
-        waterClass: waterClassToUse,
-        areasCount: areasToUse.length,
-        areasWithValidDimensions: areasToUse.filter(a => a.length > 0 && a.width > 0 && a.height > 0).length
-      });
-
       // Auto-select equipment (S500-aligned targets)
       const selections: EquipmentSelection[] = [];
 
@@ -888,11 +861,8 @@ export default function InitialDataEntryForm({
       }
       
       if (selections.length > 0) {
-        console.log('[InitialDataEntryForm] Auto-selected equipment:', selections);
         setEquipmentSelections(selections);
         hasAutoSelectedEquipment.current = true;
-      } else {
-        console.warn('[InitialDataEntryForm] No equipment selected - waterRemovalTarget:', waterRemovalTarget, 'airMoversRequired:', airMoversRequired);
       }
     }
   }, [areas, pricingConfig, waterClass, temperature, humidity, initialData]);
@@ -1111,7 +1081,6 @@ export default function InitialDataEntryForm({
         toast.error(error.error || "Failed to update report type");
       }
     } catch (error) {
-      console.error("Error updating report type:", error);
       toast.error("Failed to update report type");
     } finally {
       setLoading(false);
@@ -1250,7 +1219,6 @@ export default function InitialDataEntryForm({
         toast.error(error.error || "Failed to save data");
             }
           } catch (error) {
-      console.error("Error saving data:", error);
       toast.error("Failed to save data");
     } finally {
       setLoading(false);
@@ -2379,7 +2347,7 @@ export default function InitialDataEntryForm({
                     }
                   }}
                   onError={(error) => {
-                    console.error("Property lookup error:", error);
+                    // Property lookup error
                   }}
                 />
               </div>
