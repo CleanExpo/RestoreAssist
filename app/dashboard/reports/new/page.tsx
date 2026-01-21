@@ -179,6 +179,12 @@ export default function NewReportPage() {
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (subscriptionStatus === 'TRIAL') {
+      toast.error('Upload PDF is available on paid plans. Upgrade to use this feature.')
+      e.target.value = ''
+      return
+    }
+
     const file = e.target.files?.[0]
     if (!file) return
 
