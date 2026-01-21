@@ -222,7 +222,8 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
-  const isTrial = subscriptionStatus === "TRIAL";
+  const subscriptionFromSession = (session?.user as any)?.subscriptionStatus;
+  const isTrial = (subscriptionStatus ?? subscriptionFromSession) === "TRIAL";
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
