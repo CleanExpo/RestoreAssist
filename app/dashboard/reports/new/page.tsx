@@ -25,6 +25,12 @@ export default function NewReportPage() {
   const [canCreateReport, setCanCreateReport] = useState(false)
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
 
+  // Fetch subscription status on mount (always needed for feature gating)
+  useEffect(() => {
+    fetchSubscriptionStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Check credits and onboarding status on mount (only for new reports)
   useEffect(() => {
     const urlReportId = searchParams.get('reportId')
@@ -37,6 +43,9 @@ export default function NewReportPage() {
 
   const checkCreditsAndOnboarding = async () => {
     try {
+      // Fetch subscription status first (needed for feature gating)
+      await fetchSubscriptionStatus()
+
       // First check if user can create a report (credits check)
       const canCreateResponse = await fetch('/api/reports/check-credits')
       if (canCreateResponse.ok) {
@@ -74,6 +83,20 @@ export default function NewReportPage() {
     }
   }
 
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await fetch('/api/user/profile')
+      if (response.ok) {
+        const data = await response.json()
+        if (data?.subscriptionStatus) {
+          setSubscriptionStatus(data.subscriptionStatus)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching subscription status:', error)
+    }
+  }
+
   // Check for reportId in URL only (don't auto-load from localStorage for new reports)
   useEffect(() => {
     const urlReportId = searchParams.get('reportId')
@@ -98,16 +121,6 @@ export default function NewReportPage() {
 
   const checkOnboardingStatus = async () => {
     try {
-      // Also fetch subscription status for feature gating (basic-only for trial)
-      fetch('/api/user/profile')
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.subscriptionStatus) {
-            setSubscriptionStatus(data.subscriptionStatus)
-          }
-        })
-        .catch(() => {})
-
       const response = await fetch('/api/onboarding/status')
       if (response.ok) {
         const data = await response.json()
@@ -140,6 +153,9 @@ export default function NewReportPage() {
   const loadReportData = async (id: string) => {
     setLoadingReport(true)
     try {
+      // Fetch subscription status when loading existing report
+      await fetchSubscriptionStatus()
+
       const response = await fetch(`/api/reports/${id}`)
       if (response.ok) {
         const reportData = await response.json()
