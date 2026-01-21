@@ -3167,12 +3167,16 @@ export default function InitialDataEntryForm({
           </div>
 
           {/* Affected Areas */}
-          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
-            <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
+          <div className={cn(
+            "p-4 rounded-lg border",
+            "border-neutral-200 dark:border-neutral-800",
+            "bg-white dark:bg-neutral-900/50"
+          )}>
+            <h4 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
               <MapPin className="w-4 h-4" />
               Affected Areas <span className="text-error-500 dark:text-error-400">*</span>
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 bg-slate-900/50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3 p-3 rounded-lg bg-neutral-50 dark:bg-slate-900/50">
               <div>
                 <label className="block text-xs font-medium mb-1 text-neutral-600 dark:text-neutral-400">
                   Room/Zone
@@ -3186,7 +3190,12 @@ export default function InitialDataEntryForm({
                       roomZoneId: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                   placeholder="e.g., Master Bedroom"
                 />
               </div>
@@ -3205,7 +3214,12 @@ export default function InitialDataEntryForm({
                       affectedSquareFootage: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                 />
               </div>
               <div>
@@ -3220,7 +3234,12 @@ export default function InitialDataEntryForm({
                       waterSource: e.target.value,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                 >
                   {WATER_SOURCES.map((source) => (
                     <option key={source} value={source}>
@@ -3244,7 +3263,12 @@ export default function InitialDataEntryForm({
                       timeSinceLoss: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-2 py-1.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-white text-xs"
+                  className={cn(
+                    "w-full px-2 py-1.5 rounded text-xs",
+                    "bg-white dark:bg-neutral-800",
+                    "border border-neutral-300 dark:border-neutral-700",
+                    "text-neutral-900 dark:text-neutral-50"
+                  )}
                 />
               </div>
               <div className="flex items-end">
@@ -3286,9 +3310,13 @@ export default function InitialDataEntryForm({
                 {nirAffectedAreas.map((area) => (
                   <div
                     key={area.id}
-                    className="flex items-center justify-between p-2 bg-slate-900/50 rounded text-xs"
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded text-xs",
+                      "bg-neutral-100 dark:bg-slate-900/50",
+                      "text-neutral-800 dark:text-neutral-50"
+                    )}
                   >
-                    <span className="text-white">
+                    <span className={cn("text-sm", "text-neutral-800 dark:text-neutral-50")}>
                       {area.roomZoneId}: {area.affectedSquareFootage} sq ft -{" "}
                       {area.waterSource}
                     </span>
@@ -3311,8 +3339,12 @@ export default function InitialDataEntryForm({
           </div>
 
           {/* Scope Items */}
-          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
-            <h4 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
+          <div className={cn(
+            "p-4 rounded-lg border",
+            "border-neutral-200 dark:border-neutral-800",
+            "bg-white dark:bg-neutral-900/50"
+          )}>
+            <h4 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
               <CheckCircle className="w-4 h-4" />
               Scope Items
             </h4>
@@ -3320,7 +3352,11 @@ export default function InitialDataEntryForm({
               {SCOPE_ITEM_TYPES.map((item) => (
                 <label
                   key={item.id}
-                  className="flex items-center gap-2 p-2 bg-slate-900/50 rounded text-xs cursor-pointer hover:bg-slate-900/70"
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded text-xs cursor-pointer transition-colors",
+                    "bg-neutral-50 dark:bg-slate-900/50",
+                    "hover:bg-neutral-100 dark:hover:bg-slate-900/70"
+                  )}
                 >
                   <input
                     type="checkbox"
@@ -3334,9 +3370,14 @@ export default function InitialDataEntryForm({
                       }
                       setNirSelectedScopeItems(newSelected);
                     }}
-                    className="w-3 h-3 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-green-500 focus:ring-green-500"
+                    className={cn(
+                      "w-3 h-3 rounded focus:ring-green-500",
+                      "border-neutral-300 dark:border-neutral-700",
+                      "bg-white dark:bg-slate-700",
+                      "text-green-500"
+                    )}
                   />
-                  <span className="text-white">{item.label}</span>
+                  <span className={cn("text-sm", "text-neutral-800 dark:text-neutral-50")}>{item.label}</span>
                 </label>
               ))}
             </div>
