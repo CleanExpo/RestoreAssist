@@ -233,48 +233,48 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
 
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-500/10">
+      <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <h2 className="text-xl font-semibold text-red-400">TIER 1: CRITICAL QUESTIONS</h2>
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <h2 className="text-xl font-semibold text-red-700 dark:text-red-400">TIER 1: CRITICAL QUESTIONS</h2>
           </div>
           <button
             type="button"
             onClick={handleQuickFill}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
           >
             <Zap className="w-4 h-4" />
             Quick Fill Tier 1
           </button>
         </div>
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-gray-700 dark:text-slate-300">
           Review and refine the basic information, then answer the advanced critical questions. All advanced questions must be answered.
         </p>
       </div>
 
       {/* Initial Data Entry Form Fields - For Refinement */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-cyan-400">Basic Information Review</h3>
-        <p className="text-sm text-slate-400 mb-4">Review and refine the information entered in the initial data entry form.</p>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-cyan-600 dark:text-cyan-400">Basic Information Review</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">Review and refine the information entered in the initial data entry form.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Client Name</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Client Name</label>
             <input
               type="text"
               value={responses.clientName}
               onChange={(e) => setResponses(prev => ({ ...prev, clientName: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Client Contact Details</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Client Contact Details</label>
             <input
               type="text"
               value={responses.clientContactDetails}
               onChange={(e) => setResponses(prev => ({ ...prev, clientContactDetails: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -283,7 +283,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.propertyAddress}
               onChange={(e) => setResponses(prev => ({ ...prev, propertyAddress: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -292,7 +292,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.propertyPostcode}
               onChange={(e) => setResponses(prev => ({ ...prev, propertyPostcode: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -301,7 +301,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.claimReferenceNumber}
               onChange={(e) => setResponses(prev => ({ ...prev, claimReferenceNumber: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -310,7 +310,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.propertyId}
               onChange={(e) => setResponses(prev => ({ ...prev, propertyId: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -319,7 +319,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.jobNumber}
               onChange={(e) => setResponses(prev => ({ ...prev, jobNumber: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -328,7 +328,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="date"
               value={responses.incidentDate}
               onChange={(e) => setResponses(prev => ({ ...prev, incidentDate: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -337,7 +337,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="date"
               value={responses.technicianAttendanceDate}
               onChange={(e) => setResponses(prev => ({ ...prev, technicianAttendanceDate: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -346,7 +346,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.technicianName}
               onChange={(e) => setResponses(prev => ({ ...prev, technicianName: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -355,7 +355,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.buildingAge}
               onChange={(e) => setResponses(prev => ({ ...prev, buildingAge: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
           <div>
@@ -364,49 +364,49 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               type="text"
               value={responses.structureType}
               onChange={(e) => setResponses(prev => ({ ...prev, structureType: e.target.value }))}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
             />
           </div>
         </div>
         <div className="mt-4">
-          <label className="block text-sm font-medium mb-1">Access Notes</label>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Access Notes</label>
           <textarea
             value={responses.accessNotes}
             onChange={(e) => setResponses(prev => ({ ...prev, accessNotes: e.target.value }))}
             rows={3}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
           />
         </div>
         <div className="mt-4">
-          <label className="block text-sm font-medium mb-1">Technician Field Report</label>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Technician Field Report</label>
           <textarea
             value={responses.technicianFieldReport}
             onChange={(e) => setResponses(prev => ({ ...prev, technicianFieldReport: e.target.value }))}
             rows={4}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
           />
         </div>
         <div className="mt-4">
-          <label className="block text-sm font-medium mb-1">Report Instructions</label>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Report Instructions</label>
           <textarea
             value={responses.reportInstructions}
             onChange={(e) => setResponses(prev => ({ ...prev, reportInstructions: e.target.value }))}
             rows={3}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
             placeholder="Standards references, special requirements, etc."
           />
         </div>
       </div>
 
       {/* Advanced Tier 1 Questions */}
-      <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-500/10">
-        <h3 className="text-lg font-semibold text-red-400 mb-2">Advanced Critical Questions</h3>
-        <p className="text-sm text-slate-300">These advanced questions are required for report integrity and compliance.</p>
+      <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
+        <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">Advanced Critical Questions</h3>
+        <p className="text-sm text-gray-700 dark:text-slate-300">These advanced questions are required for report integrity and compliance.</p>
       </div>
 
       {/* T1_Q1: Property Type */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q1: Property Type <span className="text-red-400">*</span></h3>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q1: Property Type <span className="text-red-600 dark:text-red-400">*</span></h3>
         <div className="space-y-2">
           {[
             'Single-storey residential house',
@@ -419,7 +419,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             'Heritage-listed property',
             'Other'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="radio"
                 name="propertyType"
@@ -428,7 +428,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 onChange={(e) => setResponses(prev => ({ ...prev, T1_Q1_propertyType: e.target.value }))}
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
           {responses.T1_Q1_propertyType === 'Other' && (
@@ -437,15 +437,15 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               value={responses.T1_Q1_propertyTypeOther}
               onChange={(e) => setResponses(prev => ({ ...prev, T1_Q1_propertyTypeOther: e.target.value }))}
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg mt-2"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q2: Construction Year */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q2: Construction Year <span className="text-red-400">*</span></h3>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q2: Construction Year <span className="text-red-600 dark:text-red-400">*</span></h3>
         <div className="space-y-2">
           {[
             'Pre-1970 (likely asbestos, lead paint risk)',
@@ -455,7 +455,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             '2010-present',
             'Unknown'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="radio"
                 name="constructionYear"
@@ -464,15 +464,15 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 onChange={(e) => setResponses(prev => ({ ...prev, T1_Q2_constructionYear: e.target.value }))}
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
         </div>
       </div>
 
       {/* T1_Q3: Water Source */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q3: Water Source <span className="text-red-400">*</span></h3>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q3: Water Source <span className="text-red-600 dark:text-red-400">*</span></h3>
         <div className="space-y-2">
           {[
             'Burst pipe (clean water — Category 1)',
@@ -485,7 +485,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             'Unknown source',
             'Other'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="radio"
                 name="waterSource"
@@ -494,7 +494,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 onChange={(e) => setResponses(prev => ({ ...prev, T1_Q3_waterSource: e.target.value }))}
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
           {responses.T1_Q3_waterSource === 'Other' && (
@@ -503,15 +503,15 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               value={responses.T1_Q3_waterSourceOther}
               onChange={(e) => setResponses(prev => ({ ...prev, T1_Q3_waterSourceOther: e.target.value }))}
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg mt-2"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q4: Occupancy Status */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q4: Occupancy Status <span className="text-red-400">*</span></h3>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q4: Occupancy Status <span className="text-red-600 dark:text-red-400">*</span></h3>
         <div className="space-y-2">
           {[
             'Vacant/no one present',
@@ -523,7 +523,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             'Occupied — multiple vulnerability factors',
             'Unknown'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="radio"
                 name="occupancyStatus"
@@ -532,18 +532,18 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 onChange={(e) => setResponses(prev => ({ ...prev, T1_Q4_occupancyStatus: e.target.value }))}
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
           {responses.T1_Q4_occupancyStatus && responses.T1_Q4_occupancyStatus.includes('Occupied') && (
             <div className="mt-4">
-              <label className="block text-sm font-medium mb-2">Are pets present? (Dogs/Cats/Birds/Exotic/Fish tanks/Other)</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Are pets present? (Dogs/Cats/Birds/Exotic/Fish tanks/Other)</label>
               <input
                 type="text"
                 value={responses.T1_Q4_petsPresent || ''}
                 onChange={(e) => setResponses(prev => ({ ...prev, T1_Q4_petsPresent: e.target.value }))}
                 placeholder="Describe pets if present"
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg"
+                className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
               />
             </div>
           )}
@@ -551,21 +551,21 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
       </div>
 
       {/* T1_Q5: Rooms/Areas Affected */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q5: Rooms/Areas Affected <span className="text-red-400">*</span></h3>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q5: Rooms/Areas Affected <span className="text-red-600 dark:text-red-400">*</span></h3>
         <textarea
           value={responses.T1_Q5_roomsAffected}
           onChange={(e) => setResponses(prev => ({ ...prev, T1_Q5_roomsAffected: e.target.value }))}
           rows={6}
           placeholder="List each room separately (e.g., Kitchen, Master Bedroom, Hallway, Lounge). Specify if water affected: floor only, walls, ceiling, cabinetry, insulation"
-          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T1_Q6: Materials Affected */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q6: Materials Affected <span className="text-red-400">*</span></h3>
-        <p className="text-sm text-slate-400 mb-4">Select all that apply</p>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q6: Materials Affected <span className="text-red-600 dark:text-red-400">*</span></h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">Select all that apply</p>
         <div className="space-y-2">
           {[
             'Carpet on concrete slab',
@@ -582,14 +582,14 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             'Insulation in cavities',
             'Unknown/Other'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="checkbox"
                 checked={responses.T1_Q6_materialsAffected.includes(option)}
                 onChange={() => handleMultiSelect('T1_Q6_materialsAffected', option)}
                 className="w-4 h-4 text-cyan-500 rounded"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
           {responses.T1_Q6_materialsAffected.includes('Unknown/Other') && (
@@ -598,16 +598,16 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               value={responses.T1_Q6_materialsOther}
               onChange={(e) => setResponses(prev => ({ ...prev, T1_Q6_materialsOther: e.target.value }))}
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg mt-2"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q7: Hazard Assessment */}
-      <div className="p-6 rounded-lg border-2 border-red-500/50 bg-red-500/10">
-        <h3 className="text-lg font-semibold mb-4 text-red-400">T1_Q7: Hazard Assessment (CRITICAL) <span className="text-red-400">*</span></h3>
-        <p className="text-sm text-slate-300 mb-4">Select all that apply</p>
+      <div className="p-6 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
+        <h3 className="text-lg font-semibold mb-4 text-red-700 dark:text-red-400">T1_Q7: Hazard Assessment (CRITICAL) <span className="text-red-600 dark:text-red-400">*</span></h3>
+        <p className="text-sm text-gray-700 dark:text-slate-300 mb-4">Select all that apply</p>
         <div className="space-y-2">
           {[
             'None identified',
@@ -622,14 +622,14 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             'Structural damage (cracking, sagging, visible decay)',
             'Other'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-red-300 dark:hover:border-slate-600">
               <input
                 type="checkbox"
                 checked={responses.T1_Q7_hazards.includes(option)}
                 onChange={() => handleMultiSelect('T1_Q7_hazards', option)}
                 className="w-4 h-4 text-red-500 rounded"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
           {responses.T1_Q7_hazards.includes('Other') && (
@@ -638,15 +638,15 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
               value={responses.T1_Q7_hazardsOther}
               onChange={(e) => setResponses(prev => ({ ...prev, T1_Q7_hazardsOther: e.target.value }))}
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg mt-2"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q8: Water Duration */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T1_Q8: Water Duration <span className="text-red-400">*</span></h3>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T1_Q8: Water Duration <span className="text-red-600 dark:text-red-400">*</span></h3>
         <div className="space-y-2">
           {[
             '< 24 hours',
@@ -657,7 +657,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
             '> 2 weeks',
             'Unknown'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="radio"
                 name="waterDuration"
@@ -666,7 +666,7 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 onChange={(e) => setResponses(prev => ({ ...prev, T1_Q8_waterDuration: e.target.value }))}
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
         </div>
@@ -685,10 +685,10 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
           </button>
         </div>
       ) : reportType === 'enhanced' && (onGenerateEnhanced || onContinueToTier2) ? (
-        <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-cyan-500/10 space-y-4">
+        <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-cyan-50 dark:bg-cyan-500/10 space-y-4">
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-cyan-400 mb-2">Tier 1 Completed Successfully!</h3>
-            <p className="text-sm text-slate-300 mb-6">
+            <h3 className="text-xl font-semibold text-cyan-700 dark:text-cyan-400 mb-2">Tier 1 Completed Successfully!</h3>
+            <p className="text-sm text-gray-700 dark:text-slate-300 mb-6">
               You can now generate an Enhanced report with Tier 1 data, or continue to Tier 2 for more detailed information.
             </p>
           </div>
@@ -699,11 +699,11 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
               >
                 <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                  <Save className="w-6 h-6 text-green-300" />
+                  <Save className="w-6 h-6 text-green-600 dark:text-green-300" />
                 </div>
                 <div className="text-center">
-                  <h4 className="text-lg font-semibold text-white mb-1">Generate Enhanced Report</h4>
-                  <p className="text-sm text-slate-300">Generate report with Tier 1 data</p>
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Generate Enhanced Report</h4>
+                  <p className="text-sm text-gray-600 dark:text-slate-300">Generate report with Tier 1 data</p>
                 </div>
               </button>
             )}
@@ -713,11 +713,11 @@ export default function Tier1Questions({ reportId, onComplete, onGenerateEnhance
                 className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
               >
                 <div className="w-12 h-12 rounded-full bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                  <ArrowRight className="w-6 h-6 text-cyan-300" />
+                  <ArrowRight className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
                 </div>
                 <div className="text-center">
-                  <h4 className="text-lg font-semibold text-white mb-1">Continue to Tier 2</h4>
-                  <p className="text-sm text-slate-300">Add more detailed assessment</p>
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Continue to Tier 2</h4>
+                  <p className="text-sm text-gray-600 dark:text-slate-300">Add more detailed assessment</p>
                 </div>
               </button>
             )}
