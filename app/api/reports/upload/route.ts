@@ -14,25 +14,22 @@ export async function POST(request: NextRequest) {
 
     const userId = (session.user as any).id
 
-    // Get integrations (Admin's for Managers/Technicians, own for Admins)
-    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
-    const integrations = await getIntegrationsForUser(userId, {
-      status: 'CONNECTED',
-      nameContains: ['Anthropic', 'OpenAI', 'Gemini', 'Claude', 'GPT']
-    })
-    const integration = integrations[0] // Get most recently connected (already ordered by createdAt desc)
-
-    if (!integration || !integration.apiKey) {
+    // Get appropriate API key based on subscription status
+    // Free users: uses ANTHROPIC_API_KEY from .env
+    // Upgraded users: uses API key from integrations
+    const { getAnthropicApiKey } = await import('@/lib/ai-provider')
+    let anthropicApiKey: string
+    try {
+      anthropicApiKey = await getAnthropicApiKey(userId)
+    } catch (error: any) {
       return NextResponse.json(
         { 
-          error: 'No connected API integration found',
-          details: 'Please connect an Anthropic, OpenAI, or other AI API integration in the Integrations page.'
+          error: error.message || 'Failed to get Anthropic API key',
+          details: 'Please connect an Anthropic API key in the Integrations page or ensure ANTHROPIC_API_KEY is set in environment variables.'
         },
         { status: 400 }
       )
     }
-
-    const anthropicApiKey = integration.apiKey
 
     const formData = await request.formData()
     const file = formData.get('file') as File

@@ -92,28 +92,22 @@ export async function POST(request: NextRequest) {
     const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
     const stateInfo = getStateInfo(stateCode)
 
-    // Get integrations (Admin's for Managers/Technicians, own for Admins)
-    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
-    const integrations = await getIntegrationsForUser(user.id, {
-      status: 'CONNECTED',
-      nameContains: ['Anthropic', 'Claude']
-    })
-
-    const integration = integrations.find(i => 
-      i.name === 'Anthropic Claude' || 
-      i.name === 'Anthropic API' ||
-      i.name.toLowerCase().includes('anthropic')
-    )
-
-    if (!integration?.apiKey) {
+    // Get appropriate API key based on subscription status
+    // Free users: uses ANTHROPIC_API_KEY from .env
+    // Upgraded users: uses API key from integrations
+    const { getAnthropicApiKey } = await import('@/lib/ai-provider')
+    let anthropicApiKey: string
+    try {
+      anthropicApiKey = await getAnthropicApiKey(user.id)
+    } catch (error: any) {
       return NextResponse.json(
-        { error: 'No connected Anthropic API integration found. Please connect an Anthropic API key.' },
+        { error: error.message || 'Failed to get Anthropic API key' },
         { status: 400 }
       )
     }
 
     const anthropic = new Anthropic({
-      apiKey: integration.apiKey
+      apiKey: anthropicApiKey
     })
 
     // Build cost estimation data structure

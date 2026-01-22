@@ -327,8 +327,8 @@ export default function IntegrationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold mb-2">Integrations</h1>
-          <p className="text-slate-400">Connect your tools and services to Restore Assist</p>
+          <h1 className="text-3xl font-semibold mb-2 text-gray-900 dark:text-white">Integrations</h1>
+          <p className="text-gray-600 dark:text-slate-400">Connect your tools and services to Restore Assist</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -350,34 +350,34 @@ export default function IntegrationsPage() {
           <div className="grid md:grid-cols-2 gap-6">
             {integrations.length === 0 ? (
               <div className="col-span-2 text-center py-12">
-                <p className="text-slate-400">No integrations yet. Add your first integration to get started.</p>
+                <p className="text-gray-600 dark:text-slate-400">No integrations yet. Add your first integration to get started.</p>
               </div>
             ) : (
               integrations.map((integration) => (
                 <div
                   key={integration.id}
-                  className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/50 transition-all"
+                  className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/30 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-all"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4">
                       <div className="text-3xl">{integration.icon || "🔗"}</div>
                       <div>
-                        <h3 className="font-semibold">{integration.name}</h3>
-                        <p className="text-sm text-slate-400 mt-1">{integration.description}</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{integration.name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{integration.description}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {integration.status === "CONNECTED" ? (
-                        <Check size={20} className="text-emerald-400 flex-shrink-0" />
+                        <Check size={20} className="text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
                       ) : (
-                        <X size={20} className="text-slate-500 flex-shrink-0" />
+                        <X size={20} className="text-gray-400 dark:text-slate-500 flex-shrink-0" />
                       )}
                       <button
                         onClick={() => handleDeleteIntegration(integration.id)}
-                        className="p-1 hover:bg-slate-700 rounded transition-colors"
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
                         title="Delete"
                       >
-                        <Trash2 size={16} className="text-rose-400" />
+                        <Trash2 size={16} className="text-rose-500 dark:text-rose-400" />
                       </button>
                     </div>
                   </div>
@@ -386,7 +386,7 @@ export default function IntegrationsPage() {
                     {integration.status === "CONNECTED" ? (
                       <button
                         onClick={() => handleDisconnect(integration.id)}
-                        className="w-full px-4 py-2 border border-rose-600 text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm"
+                        className="w-full px-4 py-2 border border-rose-500 dark:border-rose-600 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-sm"
                       >
                         Disconnect
                       </button>
@@ -406,7 +406,7 @@ export default function IntegrationsPage() {
 
           {/* Bookkeeping Integrations - Coming Soon */}
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <span>📊</span>
               Bookkeeping
             </h2>
@@ -414,20 +414,20 @@ export default function IntegrationsPage() {
               {['Xero', 'QuickBooks', 'MYOB'].map((name) => (
                 <div
                   key={name}
-                  className="p-6 rounded-lg border border-slate-700/30 bg-slate-800/20 opacity-60 cursor-not-allowed relative"
+                  className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/30 bg-gray-50 dark:bg-slate-800/20 opacity-60 cursor-not-allowed relative"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4">
                       <div className="text-3xl">📊</div>
                       <div>
-                        <h3 className="font-semibold">{name}</h3>
-                        <p className="text-sm text-slate-500 mt-1">Coming Soon</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-slate-500 mt-1">Coming Soon</p>
                       </div>
                     </div>
                   </div>
                   <button
                     disabled
-                    className="w-full px-4 py-2 bg-slate-700/30 border border-slate-600/50 rounded-lg text-slate-500 cursor-not-allowed text-sm"
+                    className="w-full px-4 py-2 bg-gray-100 dark:bg-slate-700/30 border border-gray-300 dark:border-slate-600/50 rounded-lg text-gray-500 dark:text-slate-500 cursor-not-allowed text-sm"
                   >
                     Coming Soon
                   </button>
@@ -438,7 +438,7 @@ export default function IntegrationsPage() {
 
           {/* Job Management Systems (CRM's) - Coming Soon */}
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <span>📋</span>
               Job Management Systems (CRM's)
             </h2>
@@ -446,20 +446,20 @@ export default function IntegrationsPage() {
               {['ServiceM8', 'ASCORA', 'Ask for additional'].map((name) => (
                 <div
                   key={name}
-                  className="p-6 rounded-lg border border-slate-700/30 bg-slate-800/20 opacity-60 cursor-not-allowed relative"
+                  className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/30 bg-gray-50 dark:bg-slate-800/20 opacity-60 cursor-not-allowed relative"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4">
                       <div className="text-3xl">📋</div>
                       <div>
-                        <h3 className="font-semibold">{name}</h3>
-                        <p className="text-sm text-slate-500 mt-1">Coming Soon</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-slate-500 mt-1">Coming Soon</p>
                       </div>
                     </div>
                   </div>
                   <button
                     disabled
-                    className="w-full px-4 py-2 bg-slate-700/30 border border-slate-600/50 rounded-lg text-slate-500 cursor-not-allowed text-sm"
+                    className="w-full px-4 py-2 bg-gray-100 dark:bg-slate-700/30 border border-gray-300 dark:border-slate-600/50 rounded-lg text-gray-500 dark:text-slate-500 cursor-not-allowed text-sm"
                   >
                     Coming Soon
                   </button>
@@ -473,16 +473,16 @@ export default function IntegrationsPage() {
       {/* API Key Modal */}
       {showApiModal && selectedIntegration && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">{selectedIntegration.name}</h2>
-              <button onClick={() => setShowApiModal(false)} className="p-1 hover:bg-slate-700 rounded">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedIntegration.name}</h2>
+              <button onClick={() => setShowApiModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500 dark:text-slate-400">
                 <XIcon size={20} />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">API Key Type</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key Type</label>
                 <select
                   value={apiKeyType}
                   onChange={(e) => {
@@ -493,42 +493,42 @@ export default function IntegrationsPage() {
                     }
                     setApiKeyType(value)
                   }}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white"
+                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white"
                 >
                   <option value="anthropic">Anthropic Claude</option>
                   <option value="openai" disabled>OpenAI GPT - Coming Soon</option>
                   <option value="gemini" disabled>Google Gemini - Coming Soon</option>
                 </select>
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
                   Select the type of API key you want to connect
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">API Key</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key</label>
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder={`Enter your ${apiKeyType === 'anthropic' ? 'Anthropic' : apiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
                 />
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
                   Your API key is encrypted and stored securely. We'll never share it with third parties.
                 </p>
               </div>
-              <button className="w-full px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm">
+              <button className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-sm text-gray-700 dark:text-slate-300">
                 Test Connection
               </button>
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowApiModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveConnection}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
                 >
                   Save
                 </button>

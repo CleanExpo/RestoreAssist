@@ -265,13 +265,13 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
     const fields = customFields[category] || []
     
     return (
-      <div className="mt-6 pt-6 border-t border-slate-700">
+      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium text-slate-300">Custom {categoryLabel} Fields</h4>
+          <h4 className="font-medium text-gray-700 dark:text-slate-300">Custom {categoryLabel} Fields</h4>
           {canEdit && (
             <button
               onClick={() => addCustomField(category)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
             >
               <Plus className="w-4 h-4" />
               Add Field
@@ -280,7 +280,7 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
         </div>
         
         {fields.length === 0 ? (
-          <p className="text-sm text-slate-500 italic">No custom fields added yet</p>
+          <p className="text-sm text-gray-500 dark:text-slate-500 italic">No custom fields added yet</p>
         ) : (
           <div className="space-y-3">
             {fields.map((field, index) => (
@@ -292,12 +292,12 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
                     value={field.name}
                     onChange={(e) => updateCustomField(category, index, { name: e.target.value })}
                     disabled={!canEdit}
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
                   />
                 </div>
                 <div className="w-32">
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
@@ -305,7 +305,7 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
                       value={field.value || ''}
                       onChange={(e) => updateCustomField(category, index, { value: parseFloat(e.target.value) || 0 })}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
           <Lock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <h3 className="font-semibold text-amber-400 mb-1">Pricing Configuration Locked</h3>
-            <p className="text-sm text-slate-300 mb-3">
+            <p className="text-sm text-gray-700 dark:text-slate-300 mb-3">
               Pricing configuration is locked for free users. Upgrade to unlock this feature and customize your rates.
             </p>
             <button
@@ -361,7 +361,7 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
         <div className="flex gap-2">
           <button
             onClick={fetchPricingConfig}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -382,7 +382,7 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
           <Lock className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-semibold text-blue-400 mb-1">Initial Pricing Setup</h3>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-gray-700 dark:text-slate-300">
               Please configure your pricing to get started. You can modify it anytime.
             </p>
           </div>
@@ -391,53 +391,53 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
 
       <div className="space-y-6">
         {/* Labour Rates Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4">Labour Rates (AUD per hour)</h3>
+        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Labour Rates (AUD per hour)</h3>
           
           <div className="space-y-4">
             {/* Master Qualified Technician */}
             <div className="border-l-4 border-cyan-500 pl-4">
-              <h4 className="font-medium mb-3">Master Qualified Technician</h4>
+              <h4 className="font-medium mb-3 text-gray-800 dark:text-white">Master Qualified Technician</h4>
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Normal Hours</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Normal Hours</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.masterQualifiedNormalHours}
                       onChange={(e) => handleInputChange('masterQualifiedNormalHours', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Saturday</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Saturday</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.masterQualifiedSaturday}
                       onChange={(e) => handleInputChange('masterQualifiedSaturday', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Sunday</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Sunday</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.masterQualifiedSunday}
                       onChange={(e) => handleInputChange('masterQualifiedSunday', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -446,47 +446,47 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
 
             {/* Qualified Technician */}
             <div className="border-l-4 border-blue-500 pl-4">
-              <h4 className="font-medium mb-3">Qualified Technician</h4>
+              <h4 className="font-medium mb-3 text-gray-800 dark:text-white">Qualified Technician</h4>
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Normal Hours</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Normal Hours</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.qualifiedTechnicianNormalHours}
                       onChange={(e) => handleInputChange('qualifiedTechnicianNormalHours', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Saturday</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Saturday</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.qualifiedTechnicianSaturday}
                       onChange={(e) => handleInputChange('qualifiedTechnicianSaturday', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Sunday</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Sunday</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.qualifiedTechnicianSunday}
                       onChange={(e) => handleInputChange('qualifiedTechnicianSunday', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -495,47 +495,47 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
 
             {/* Labourer */}
             <div className="border-l-4 border-green-500 pl-4">
-              <h4 className="font-medium mb-3">Labourer</h4>
+              <h4 className="font-medium mb-3 text-gray-800 dark:text-white">Labourer</h4>
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Normal Hours</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Normal Hours</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.labourerNormalHours}
                       onChange={(e) => handleInputChange('labourerNormalHours', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Saturday</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Saturday</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.labourerSaturday}
                       onChange={(e) => handleInputChange('labourerSaturday', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Sunday</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Sunday</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={formData.labourerSunday}
                       onChange={(e) => handleInputChange('labourerSunday', e.target.value)}
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -546,119 +546,119 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
         </div>
 
         {/* Equipment Rental Rates Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4">Equipment Rental Rates</h3>
+        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Equipment Rental Rates</h3>
           
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Air Mover (Axial) - Daily Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Air Mover (Axial) - Daily Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.airMoverAxialDailyRate}
                   onChange={(e) => handleInputChange('airMoverAxialDailyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Air Mover (Centrifugal) - Daily Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Air Mover (Centrifugal) - Daily Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.airMoverCentrifugalDailyRate}
                   onChange={(e) => handleInputChange('airMoverCentrifugalDailyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Dehumidifier (LGR) - Daily Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Dehumidifier (LGR) - Daily Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.dehumidifierLGRDailyRate}
                   onChange={(e) => handleInputChange('dehumidifierLGRDailyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Dehumidifier (Desiccant) - Daily Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Dehumidifier (Desiccant) - Daily Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.dehumidifierDesiccantDailyRate}
                   onChange={(e) => handleInputChange('dehumidifierDesiccantDailyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">AFD Unit (Large) - Daily Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">AFD Unit (Large) - Daily Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.afdUnitLargeDailyRate}
                   onChange={(e) => handleInputChange('afdUnitLargeDailyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Extraction (Truck-Mounted) - Hourly Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Extraction (Truck-Mounted) - Hourly Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.extractionTruckMountedHourlyRate}
                   onChange={(e) => handleInputChange('extractionTruckMountedHourlyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Extraction (Electric) - Hourly Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Extraction (Electric) - Hourly Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.extractionElectricHourlyRate}
                   onChange={(e) => handleInputChange('extractionElectricHourlyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Injection Drying System - Daily Rate</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Injection Drying System - Daily Rate</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.injectionDryingSystemDailyRate}
                   onChange={(e) => handleInputChange('injectionDryingSystemDailyRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -667,49 +667,49 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
         </div>
 
         {/* Chemical Treatment Rates Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4">Chemical Treatment Rates (AUD per sqm)</h3>
+        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Chemical Treatment Rates (AUD per sqm)</h3>
           
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Antimicrobial Treatment</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Antimicrobial Treatment</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.antimicrobialTreatmentRate}
                   onChange={(e) => handleInputChange('antimicrobialTreatmentRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Mould Remediation Treatment</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Mould Remediation Treatment</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.mouldRemediationTreatmentRate}
                   onChange={(e) => handleInputChange('mouldRemediationTreatmentRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Biohazard Treatment</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Biohazard Treatment</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.biohazardTreatmentRate}
                   onChange={(e) => handleInputChange('biohazardTreatmentRate', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -718,49 +718,49 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
         </div>
 
         {/* Fees Section */}
-        <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4">Fees</h3>
+        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Fees</h3>
           
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Administration Fee</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Administration Fee</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.administrationFee}
                   onChange={(e) => handleInputChange('administrationFee', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Call-Out Fee</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Call-Out Fee</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.callOutFee}
                   onChange={(e) => handleInputChange('callOutFee', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Thermal Camera Use (per assessment)</label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">Thermal Camera Use (per assessment)</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.thermalCameraUseCostPerAssessment}
                   onChange={(e) => handleInputChange('thermalCameraUseCostPerAssessment', e.target.value)}
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>

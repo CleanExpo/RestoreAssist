@@ -92,30 +92,39 @@ export async function POST(request: NextRequest) {
     const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
     const stateInfo = getStateInfo(stateCode)
 
-    // Get user's latest AI integration (OpenAI, Anthropic, or Gemini)
-    const aiIntegration = await getLatestAIIntegration(user.id)
-
+    // Get appropriate API key based on subscription status
+    // Free users: uses ANTHROPIC_API_KEY from .env
+    // Upgraded users: uses API key from integrations
+    const { getAnthropicApiKey, getLatestAIIntegration } = await import('@/lib/ai-provider')
+    
+    // Try to get integration first (for upgraded users)
+    let aiIntegration = await getLatestAIIntegration(user.id)
+    let anthropicApiKey: string
+    
     if (!aiIntegration) {
-      return NextResponse.json(
-        { error: 'No connected AI integration found. Please connect an OpenAI, Anthropic, or Gemini API key in the Integrations page.' },
-        { status: 400 }
-      )
+      // For free users, get API key from .env
+      try {
+        anthropicApiKey = await getAnthropicApiKey(user.id)
+        // Create a synthetic integration object for callAIProvider
+        aiIntegration = {
+          id: 'env-anthropic',
+          name: 'Anthropic Claude (Free Tier)',
+          apiKey: anthropicApiKey,
+          provider: 'anthropic' as const
+        }
+      } catch (error: any) {
+        return NextResponse.json(
+          { error: error.message || 'Failed to get Anthropic API key. Please ensure ANTHROPIC_API_KEY is configured in environment variables.' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // For upgraded users, use the integration's API key
+      anthropicApiKey = aiIntegration.apiKey
     }
 
-    // For standards retrieval, we still need an API key (prefer Anthropic if available, otherwise use the selected integration)
-    // Standards retrieval might need specific API setup, so we'll try to use Anthropic if available, otherwise use the selected integration
-    let standardsApiKey = aiIntegration.apiKey
-    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
-    const anthropicIntegrations = await getIntegrationsForUser(user.id, {
-      status: 'CONNECTED',
-      nameContains: ['Anthropic', 'Claude']
-    })
-    const anthropicIntegration = anthropicIntegrations.find(i => 
-      i.name.toLowerCase().includes('anthropic') || i.name.toLowerCase().includes('claude')
-    )
-    if (anthropicIntegration?.apiKey) {
-      standardsApiKey = anthropicIntegration.apiKey
-    }
+    // Use the API key for standards retrieval
+    const standardsApiKey = anthropicApiKey
 
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''

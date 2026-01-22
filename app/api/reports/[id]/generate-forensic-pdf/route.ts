@@ -84,43 +84,35 @@ export async function GET(
     const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
     const stateInfo = getStateInfo(stateCode)
 
-    // Get integrations (Admin's for Managers/Technicians, own for Admins) for Google Drive standards retrieval
-    const { getIntegrationsForUser } = await import('@/lib/ai-provider')
-    const integrations = await getIntegrationsForUser(user.id, {
-      status: 'CONNECTED',
-      nameContains: ['Anthropic', 'Claude']
-    })
-
-    const integration = integrations.find((i: any) => 
-      i.name === 'Anthropic Claude' || 
-      i.name === 'Anthropic API' ||
-      i.name.toLowerCase().includes('anthropic')
-    )
-
-    // Retrieve standards from Google Drive if integration is available
+    // Get appropriate API key based on subscription status for Google Drive standards retrieval
+    // Free users: uses ANTHROPIC_API_KEY from .env
+    // Upgraded users: uses API key from integrations
+    const { getAnthropicApiKey } = await import('@/lib/ai-provider')
+    
+    // Retrieve standards from Google Drive
     let standardsContext = ''
-    if (integration?.apiKey) {
-      try {
-        const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
-        
-        // Determine report type
-        const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
-          report.hazardType === 'Mould' ? 'mould' : 
-          report.hazardType === 'Fire' ? 'fire' : 
-          report.hazardType === 'Commercial' ? 'commercial' : 'water'
-        
-        const retrievalQuery = {
-          reportType: retrievalReportType,
-          waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
-          keywords: [
-            report.waterCategory ? `Category ${report.waterCategory}` : '',
-            report.waterClass ? `Class ${report.waterClass}` : '',
-          ].filter(Boolean),
-          materials: tier1?.T1_Q6_materialsAffected || [],
-          technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
-        }
-        
-        const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
+    try {
+      const anthropicApiKey = await getAnthropicApiKey(user.id)
+      const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
+      
+      // Determine report type
+      const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
+        report.hazardType === 'Mould' ? 'mould' : 
+        report.hazardType === 'Fire' ? 'fire' : 
+        report.hazardType === 'Commercial' ? 'commercial' : 'water'
+      
+      const retrievalQuery = {
+        reportType: retrievalReportType,
+        waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
+        keywords: [
+          report.waterCategory ? `Category ${report.waterCategory}` : '',
+          report.waterClass ? `Class ${report.waterClass}` : '',
+        ].filter(Boolean),
+        materials: tier1?.T1_Q6_materialsAffected || [],
+        technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
+      }
+      
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
         
         standardsContext = buildStandardsContextPrompt(retrievedStandards)
       } catch (error: any) {

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { getIntegrationsForUser } from "@/lib/ai-provider"
+import { getAnthropicApiKey } from "@/lib/ai-provider"
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,33 +18,6 @@ export async function POST(request: NextRequest) {
 
     if (!technicianNotes || !technicianNotes.trim()) {
       return NextResponse.json({ error: "Technician notes are required" }, { status: 400 })
-    }
-
-    // Get integrations (Admin's for Managers/Technicians, own for Admins)
-    const integrations = await getIntegrationsForUser(session.user.id, {
-      status: "CONNECTED",
-      nameContains: ["Anthropic", "Claude"]
-    })
-
-    // Find Anthropic integration (check for both old and new naming conventions)
-    const integration = integrations.find(i => 
-      i.name === "Anthropic Claude" || 
-      i.name === "Anthropic API" ||
-      i.name.toLowerCase().includes("anthropic")
-    )
-
-    if (!integration) {
-      return NextResponse.json(
-        { error: "No connected Anthropic API integration found. Please connect an Anthropic API key." },
-        { status: 400 }
-      )
-    }
-
-    if (!integration.apiKey) {
-      return NextResponse.json(
-        { error: "No valid API key found" },
-        { status: 400 }
-      )
     }
 
     // Check credits and get user info (including technician name)
@@ -74,8 +47,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get appropriate API key based on subscription status
+    // Free users: uses ANTHROPIC_API_KEY from .env
+    // Upgraded users: uses API key from integrations
+    let anthropicApiKey: string
+    try {
+      anthropicApiKey = await getAnthropicApiKey(session.user.id)
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: error.message || "Failed to get Anthropic API key" },
+        { status: 400 }
+      )
+    }
+
     // Initialize Anthropic API client
-    const anthropic = new Anthropic({ apiKey: integration.apiKey })
+    const anthropic = new Anthropic({ apiKey: anthropicApiKey })
 
     // STAGE 1: Retrieve relevant standards from Google Drive (IICRC Standards folder)
     let standardsContext = ''
@@ -92,8 +78,8 @@ export async function POST(request: NextRequest) {
         technicianNotes: technicianNotes.substring(0, 1000),
       }
       
-      // Use the user's Anthropic API key to retrieve and analyze standards
-      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, integration.apiKey)
+      // Use the appropriate Anthropic API key to retrieve and analyze standards
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
     } catch (error: any) {
       console.error('[Generate Enhanced Report] Error retrieving standards from Google Drive:', error.message)

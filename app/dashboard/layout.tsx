@@ -55,8 +55,15 @@ export default function DashboardLayout({
     }
     if (status === "authenticated") {
       fetchSubscriptionStatus()
+      
+      // Refresh subscription status periodically to catch updates from webhooks
+      const interval = setInterval(() => {
+        fetchSubscriptionStatus()
+      }, 5000) // Check every 5 seconds
+      
+      return () => clearInterval(interval)
     }
-  }, [status])
+  }, [status, session])
 
   useEffect(() => {
     if (status === "unauthenticated") {

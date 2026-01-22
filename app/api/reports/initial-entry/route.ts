@@ -306,40 +306,34 @@ export async function POST(request: NextRequest) {
     try {
       const { retrieveRelevantStandards } = await import('@/lib/standards-retrieval')
       
-      // Get integrations (Admin's for Managers/Technicians, own for Admins)
-      const { getIntegrationsForUser } = await import('@/lib/ai-provider')
-      const integrations = await getIntegrationsForUser(user.id, {
-        status: 'CONNECTED',
-        nameContains: ['Anthropic', 'Claude']
-      })
-      const integration = integrations.find(i => 
-        i.name.toLowerCase().includes('anthropic') || i.name.toLowerCase().includes('claude')
-      )
+      // Get appropriate API key based on subscription status
+      // Free users: uses ANTHROPIC_API_KEY from .env
+      // Upgraded users: uses API key from integrations
+      const { getAnthropicApiKey } = await import('@/lib/ai-provider')
+      const anthropicApiKey = await getAnthropicApiKey(user.id)
       
-      if (integration?.apiKey) {
-        // Build intelligent query from submitted data
-        const retrievalQuery = {
-          reportType: 'water' as const, // Default for water damage
-          waterCategory: report.waterCategory?.replace('Category ', '') as '1' | '2' | '3' | undefined,
-          materials: report.structureType ? [report.structureType] : [],
-          affectedAreas: [],
-          keywords: [
-            report.waterCategory || '',
-            report.waterClass || '',
-            report.biologicalMouldDetected ? 'mould' : '',
-            report.methamphetamineScreen === 'POSITIVE' ? 'methamphetamine' : '',
-          ].filter(Boolean) as string[],
-          technicianNotes: report.technicianFieldReport || ''
-        }
-        
-        // Pre-fetch standards in background (don't await - let it run async)
-        retrieveRelevantStandards(retrievalQuery, integration.apiKey)
-          .then(standards => {
-          })
-          .catch(error => {
-            console.error(`[Initial Entry] Error pre-fetching standards:`, error)
-          })
+      // Build intelligent query from submitted data
+      const retrievalQuery = {
+        reportType: 'water' as const, // Default for water damage
+        waterCategory: report.waterCategory?.replace('Category ', '') as '1' | '2' | '3' | undefined,
+        materials: report.structureType ? [report.structureType] : [],
+        affectedAreas: [],
+        keywords: [
+          report.waterCategory || '',
+          report.waterClass || '',
+          report.biologicalMouldDetected ? 'mould' : '',
+          report.methamphetamineScreen === 'POSITIVE' ? 'methamphetamine' : '',
+        ].filter(Boolean) as string[],
+        technicianNotes: report.technicianFieldReport || ''
       }
+      
+      // Pre-fetch standards in background (don't await - let it run async)
+      retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
+        .then(standards => {
+        })
+        .catch(error => {
+          console.error(`[Initial Entry] Error pre-fetching standards:`, error)
+        })
     } catch (error) {
       // Non-critical - just log the error
       console.error(`[Initial Entry] Error setting up standards pre-fetch:`, error)
