@@ -244,24 +244,24 @@ export default function Chatbot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-slate-800 border border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in" style={{ position: 'fixed' }}>
+        <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in" style={{ position: 'fixed' }}>
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900/50 rounded-t-lg">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 rounded-t-lg">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
                 <MessageCircle className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-white">AI Assistant</h3>
-                <p className="text-xs text-slate-400">Restore Assist Support</p>
+                <h3 className="font-semibold text-gray-900 dark:text-white">AI Assistant</h3>
+                <p className="text-xs text-gray-600 dark:text-slate-400">Restore Assist Support</p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 hover:bg-slate-700 rounded transition-colors"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
               aria-label="Close chatbot"
             >
-              <X size={18} className="text-slate-400" />
+              <X size={18} className="text-gray-600 dark:text-slate-400" />
             </button>
           </div>
 
@@ -270,14 +270,14 @@ export default function Chatbot() {
             {/* Suggested Questions - Show when there's only welcome message */}
             {showSuggestedQuestions && (
               <div className="space-y-2 mb-4">
-                <p className="text-xs text-slate-400 mb-2">Suggested questions:</p>
+                <p className="text-xs text-gray-600 dark:text-slate-400 mb-2">Suggested questions:</p>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTED_QUESTIONS.map((question, index) => (
                     <button
                       key={index}
                       onClick={() => handleSuggestedQuestion(question)}
                       disabled={isLoading}
-                      className="px-3 py-1.5 text-xs bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-slate-700/50 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {question}
                     </button>
@@ -295,29 +295,29 @@ export default function Chatbot() {
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === "user"
                       ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
-                      : "bg-slate-700 text-slate-100"
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                   }`}
                 >
                   {message.role === "assistant" ? (
-                    <div className="text-sm prose prose-invert prose-sm max-w-none">
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
                       <ReactMarkdown
                         components={{
-                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc  list-inside mb-2 space-y-1">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                          li: ({ children }) => <li className="ml-2">{children}</li>,
-                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                          em: ({ children }) => <em className="italic">{children}</em>,
+                          p: ({ children }) => <p className="mb-2 last:mb-0 text-gray-900 dark:text-slate-100">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">{children}</ol>,
+                          li: ({ children }) => <li className="ml-2 text-gray-900 dark:text-slate-100">{children}</li>,
+                          strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-slate-100">{children}</strong>,
+                          em: ({ children }) => <em className="italic text-gray-900 dark:text-slate-100">{children}</em>,
                           code: ({ children }) => (
-                            <code className="bg-slate-800/50 px-1.5 py-0.5 rounded text-xs font-mono">
+                            <code className="bg-gray-200 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-xs font-mono text-gray-900 dark:text-slate-100">
                               {children}
                             </code>
                           ),
-                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{children}</h3>,
+                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 text-gray-900 dark:text-slate-100">{children}</h3>,
                           blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-slate-500 pl-3 my-2 italic">
+                            <blockquote className="border-l-4 border-gray-400 dark:border-slate-500 pl-3 my-2 italic text-gray-800 dark:text-slate-200">
                               {children}
                             </blockquote>
                           ),
@@ -329,7 +329,7 @@ export default function Chatbot() {
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   )}
-                  <p className="text-xs mt-1 opacity-70">
+                  <p className="text-xs mt-1 opacity-70 text-gray-700 dark:text-slate-300">
                     {message.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -340,8 +340,8 @@ export default function Chatbot() {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-slate-700 rounded-lg px-4 py-2">
-                  <Loader2 className="animate-spin text-cyan-400" size={16} />
+                <div className="bg-gray-100 dark:bg-slate-700 rounded-lg px-4 py-2">
+                  <Loader2 className="animate-spin text-cyan-500 dark:text-cyan-400" size={16} />
                 </div>
               </div>
             )}
@@ -349,7 +349,7 @@ export default function Chatbot() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-slate-700 bg-slate-900/50 rounded-b-lg">
+          <div className="p-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 rounded-b-lg">
             <div className="flex gap-2">
               <input
                 ref={inputRef}
@@ -359,7 +359,7 @@ export default function Chatbot() {
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-400 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-400 disabled:opacity-50"
               />
               <button
                 onClick={handleSend}
@@ -373,7 +373,7 @@ export default function Chatbot() {
                 )}
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-xs text-gray-600 dark:text-slate-400 mt-2">
               Press Enter to send, Shift+Enter for new line
             </p>
           </div>
