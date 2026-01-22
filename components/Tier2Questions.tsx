@@ -193,40 +193,40 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
 
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-500/10">
+      <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-500/10">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
-            <h2 className="text-xl font-semibold text-amber-400">TIER 2: ENHANCEMENT QUESTIONS</h2>
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <h2 className="text-xl font-semibold text-amber-700 dark:text-amber-400">TIER 2: ENHANCEMENT QUESTIONS</h2>
           </div>
           <button
             type="button"
             onClick={handleQuickFill}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
           >
             <Zap className="w-4 h-4" />
             Quick Fill Tier 2
           </button>
         </div>
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-gray-700 dark:text-slate-300">
           Review and refine additional information, then answer the advanced enhancement questions. All questions are optional but improve report quality.
         </p>
       </div>
 
       {/* Initial Data Entry Form Fields - For Refinement */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-amber-400">Additional Information Review</h3>
-        <p className="text-sm text-slate-400 mb-4">Review and refine the hazard profile, contacts, and maintenance history.</p>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-amber-600 dark:text-amber-400">Additional Information Review</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">Review and refine the hazard profile, contacts, and maintenance history.</p>
         
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Insurer Name</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Insurer Name</label>
               <input
                 type="text"
                 value={responses.insurerName}
                 onChange={(e) => setResponses(prev => ({ ...prev, insurerName: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
               />
             </div>
             <div>
@@ -234,7 +234,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
               <select
                 value={responses.methamphetamineScreen}
                 onChange={(e) => setResponses(prev => ({ ...prev, methamphetamineScreen: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
               >
                 <option value="NEGATIVE">NEGATIVE</option>
                 <option value="POSITIVE">POSITIVE</option>
@@ -246,7 +246,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                 type="text"
                 value={responses.methamphetamineTestCount}
                 onChange={(e) => setResponses(prev => ({ ...prev, methamphetamineTestCount: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
               />
             </div>
             <div>
@@ -254,7 +254,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
               <select
                 value={responses.biologicalMouldDetected ? 'true' : 'false'}
                 onChange={(e) => setResponses(prev => ({ ...prev, biologicalMouldDetected: e.target.value === 'true' }))}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
               >
                 <option value="false">No</option>
                 <option value="true">Yes</option>
@@ -267,14 +267,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.biologicalMouldCategory}
                   onChange={(e) => setResponses(prev => ({ ...prev, biologicalMouldCategory: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
             )}
           </div>
 
-          <div className="border-t border-slate-600 pt-4">
-            <h4 className="text-md font-semibold mb-3">Builder/Developer Information</h4>
+          <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
+            <h4 className="text-md font-semibold mb-3 text-gray-900 dark:text-white">Builder/Developer Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Company Name</label>
@@ -282,7 +282,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.builderDeveloperCompanyName}
                   onChange={(e) => setResponses(prev => ({ ...prev, builderDeveloperCompanyName: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -291,7 +291,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.builderDeveloperContact}
                   onChange={(e) => setResponses(prev => ({ ...prev, builderDeveloperContact: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -300,7 +300,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.builderDeveloperAddress}
                   onChange={(e) => setResponses(prev => ({ ...prev, builderDeveloperAddress: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -309,14 +309,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.builderDeveloperPhone}
                   onChange={(e) => setResponses(prev => ({ ...prev, builderDeveloperPhone: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-slate-600 pt-4">
-            <h4 className="text-md font-semibold mb-3">Owner/Management Information</h4>
+          <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
+            <h4 className="text-md font-semibold mb-3 text-gray-900 dark:text-white">Owner/Management Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Contact Name</label>
@@ -324,7 +324,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.ownerManagementContactName}
                   onChange={(e) => setResponses(prev => ({ ...prev, ownerManagementContactName: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -333,7 +333,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.ownerManagementPhone}
                   onChange={(e) => setResponses(prev => ({ ...prev, ownerManagementPhone: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -342,14 +342,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="email"
                   value={responses.ownerManagementEmail}
                   onChange={(e) => setResponses(prev => ({ ...prev, ownerManagementEmail: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-slate-600 pt-4">
-            <h4 className="text-md font-semibold mb-3">Previous Maintenance & Repair History</h4>
+          <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
+            <h4 className="text-md font-semibold mb-3 text-gray-900 dark:text-white">Previous Maintenance & Repair History</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Last Inspection Date</label>
@@ -357,7 +357,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="date"
                   value={responses.lastInspectionDate}
                   onChange={(e) => setResponses(prev => ({ ...prev, lastInspectionDate: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -366,7 +366,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.buildingChangedSinceLastInspection}
                   onChange={(e) => setResponses(prev => ({ ...prev, buildingChangedSinceLastInspection: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -375,7 +375,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.structureChangesSinceLastInspection}
                   onChange={(e) => setResponses(prev => ({ ...prev, structureChangesSinceLastInspection: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -384,7 +384,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.previousLeakage}
                   onChange={(e) => setResponses(prev => ({ ...prev, previousLeakage: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
               <div>
@@ -393,7 +393,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   type="text"
                   value={responses.emergencyRepairPerformed}
                   onChange={(e) => setResponses(prev => ({ ...prev, emergencyRepairPerformed: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -402,15 +402,15 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
       </div>
 
       {/* Advanced Tier 2 Questions */}
-      <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-500/10">
-        <h3 className="text-lg font-semibold text-amber-400 mb-2">Advanced Enhancement Questions</h3>
-        <p className="text-sm text-slate-300">These advanced questions enhance scope detail and remediation sequencing.</p>
+      <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-500/10">
+        <h3 className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-2">Advanced Enhancement Questions</h3>
+        <p className="text-sm text-gray-700 dark:text-slate-300">These advanced questions enhance scope detail and remediation sequencing.</p>
       </div>
 
       {/* T2_Q1: Moisture Readings */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q1: Moisture Readings</h3>
-        <p className="text-sm text-slate-400 mb-4">
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q1: Moisture Readings</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
           Enter moisture readings in %MC (moisture content) for each material/location. Example: 'Kitchen tile subfloor 8% MC, Master Bedroom carpet 32% MC, Hallway yellow tongue 22% MC'. Include thermal image references if taken.
         </p>
         <textarea
@@ -418,14 +418,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           onChange={(e) => setResponses(prev => ({ ...prev, T2_Q1_moistureReadings: e.target.value }))}
           rows={6}
           placeholder="Enter moisture readings here..."
-          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q2: Water Migration Pattern */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q2: Water Migration Pattern</h3>
-        <p className="text-sm text-slate-400 mb-4">
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q2: Water Migration Pattern</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
           Example: 'Water emerged from kitchen sink burst pipe, soaked through yellow tongue subfloor, saturated insulation in cavity, dripped through ceiling into two bedrooms below. Wall cavities also saturated on both sides of bathroom wall.' This helps identify hidden moisture and secondary affected areas.
         </p>
         <textarea
@@ -433,14 +433,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           onChange={(e) => setResponses(prev => ({ ...prev, T2_Q2_waterMigrationPattern: e.target.value }))}
           rows={6}
           placeholder="Describe water migration pattern..."
-          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q3: Equipment Deployed */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q3: Equipment Deployed</h3>
-        <p className="text-sm text-slate-400 mb-4">
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q3: Equipment Deployed</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
           Equipment already deployed: 18 air movers (type?), 4 dehumidifiers (LGR or desiccant?), 2 AFD units. If different numbers/types, please specify. Power consumed/available circuits?
         </p>
         <textarea
@@ -448,14 +448,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           onChange={(e) => setResponses(prev => ({ ...prev, T2_Q3_equipmentDeployed: e.target.value }))}
           rows={6}
           placeholder="Describe equipment deployed..."
-          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q4: Affected Contents */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q4: Affected Contents</h3>
-        <p className="text-sm text-slate-400 mb-4">
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q4: Affected Contents</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
           Example: 'Kitchen: wooden cabinets (swollen, door misalignment), tile grout saturated. Lounge: sofa (fabric absorbed water, requires cleaning), coffee table (timber veneer swollen). Bedrooms: beds (wet bedding, mattress saturation). All carpet affected — extent varies by location.'
         </p>
         <textarea
@@ -463,14 +463,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           onChange={(e) => setResponses(prev => ({ ...prev, T2_Q4_affectedContents: e.target.value }))}
           rows={6}
           placeholder="Describe affected contents..."
-          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q5: Structural Concerns */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q5: Structural Concerns</h3>
-        <p className="text-sm text-slate-400 mb-4">Select all that apply</p>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q5: Structural Concerns</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">Select all that apply</p>
         <div className="space-y-2">
           {[
             'None identified',
@@ -484,14 +484,14 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
             'Pest damage observed (rot, termite activity)',
             'Other concerns'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="checkbox"
                 checked={responses.T2_Q5_structuralConcerns.includes(option)}
                 onChange={() => handleMultiSelect('T2_Q5_structuralConcerns', option)}
                 className="w-4 h-4 text-cyan-500 rounded"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
           {responses.T2_Q5_structuralConcerns.includes('Other concerns') && (
@@ -500,16 +500,16 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
               value={responses.T2_Q5_structuralConcernsOther}
               onChange={(e) => setResponses(prev => ({ ...prev, T2_Q5_structuralConcernsOther: e.target.value }))}
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg mt-2"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T2_Q6: Building Services Affected */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q6: Building Services Affected</h3>
-        <p className="text-sm text-slate-400 mb-4">Select all that apply</p>
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q6: Building Services Affected</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">Select all that apply</p>
         <div className="space-y-2">
           {[
             'No services affected',
@@ -522,23 +522,23 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
             'Solar panels/roof-mounted systems affected',
             'Unknown/not assessed'
           ].map(option => (
-            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/30 cursor-pointer">
+            <label key={option} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600">
               <input
                 type="checkbox"
                 checked={responses.T2_Q6_buildingServicesAffected.includes(option)}
                 onChange={() => handleMultiSelect('T2_Q6_buildingServicesAffected', option)}
                 className="w-4 h-4 text-cyan-500 rounded"
               />
-              <span className="text-slate-300">{option}</span>
+              <span className="text-gray-700 dark:text-slate-300">{option}</span>
             </label>
           ))}
         </div>
       </div>
 
       {/* T2_Q7: Insurance Coverage Considerations */}
-      <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4">T2_Q7: Insurance Coverage Considerations</h3>
-        <p className="text-sm text-slate-400 mb-4">
+      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">T2_Q7: Insurance Coverage Considerations</h3>
+        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
           Example: 'Client mentioned 'gradual leak exclusion' in their policy, but this is sudden burst. Confirm with insurer.' Or 'Contents policy has $50K limit; estimated contents damage $60K — may exceed coverage.' This helps flag potential disputes early.
         </p>
         <textarea
@@ -546,7 +546,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
           onChange={(e) => setResponses(prev => ({ ...prev, T2_Q7_insuranceConsiderations: e.target.value }))}
           rows={6}
           placeholder="Enter insurance considerations..."
-          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -557,7 +557,7 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
             {onSkip && (
               <button
                 onClick={onSkip}
-                className="flex items-center gap-2 px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                className="flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
               >
                 <SkipForward className="w-4 h-4" />
                 Skip Tier 2
@@ -573,10 +573,10 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
             </button>
           </>
         ) : reportType === 'enhanced' && (onGenerateOptimised || onContinueToTier3) ? (
-          <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-500/10 space-y-4">
+          <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10 space-y-4">
             <div className="text-center">
-              <h3 className="text-xl font-semibold text-green-400 mb-2">Tier 2 Completed Successfully!</h3>
-              <p className="text-sm text-slate-300 mb-6">
+              <h3 className="text-xl font-semibold text-green-700 dark:text-green-400 mb-2">Tier 2 Completed Successfully!</h3>
+              <p className="text-sm text-gray-700 dark:text-slate-300 mb-6">
                 You can now generate an Optimised report with Tier 1 & Tier 2 data, or continue to Tier 3 for photo uploads and final optimization.
               </p>
             </div>
@@ -587,11 +587,11 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
                 >
                   <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                    <Save className="w-6 h-6 text-green-300" />
+                    <Save className="w-6 h-6 text-green-600 dark:text-green-300" />
                   </div>
                   <div className="text-center">
-                    <h4 className="text-lg font-semibold text-white mb-1">Generate Optimised Report</h4>
-                    <p className="text-sm text-slate-300">Generate report with Tier 1 & Tier 2 data</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Generate Optimised Report</h4>
+                    <p className="text-sm text-gray-600 dark:text-slate-300">Generate report with Tier 1 & Tier 2 data</p>
                   </div>
                 </button>
               )}
@@ -601,11 +601,11 @@ export default function Tier2Questions({ reportId, onComplete, onSkip, onGenerat
                   className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
                 >
                   <div className="w-12 h-12 rounded-full bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                    <ArrowRight className="w-6 h-6 text-cyan-300" />
+                    <ArrowRight className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
                   </div>
                   <div className="text-center">
-                    <h4 className="text-lg font-semibold text-white mb-1">Continue to Tier 3</h4>
-                    <p className="text-sm text-slate-300">Add photos and final optimization</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Continue to Tier 3</h4>
+                    <p className="text-sm text-gray-600 dark:text-slate-300">Add photos and final optimization</p>
                   </div>
                 </button>
               )}
