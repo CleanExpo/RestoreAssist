@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Crown, X, Zap, FileText, Upload, Settings, Sparkles, ArrowRight, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { cn } from "@/lib/utils"
 
 interface UpgradeBannerProps {
   onDismiss?: () => void
@@ -125,10 +126,15 @@ export default function UpgradeBanner({ onDismiss, variant = "inline" }: Upgrade
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-yellow-500/5 to-amber-500/10 p-6"
+      className={cn(
+        "relative overflow-hidden rounded-xl border p-6",
+        "border-amber-500/30 dark:border-amber-500/30",
+        "bg-gradient-to-br from-amber-50 via-yellow-50/50 to-amber-50",
+        "dark:from-amber-500/10 dark:via-yellow-500/5 dark:to-amber-500/10"
+      )}
     >
       {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10 dark:opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: `radial-gradient(circle at 2px 2px, rgba(251, 191, 36, 0.3) 1px, transparent 0)`,
           backgroundSize: '24px 24px'
@@ -139,23 +145,37 @@ export default function UpgradeBanner({ onDismiss, variant = "inline" }: Upgrade
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-start gap-4 flex-1">
-            <div className="p-3 bg-gradient-to-br from-amber-500/20 to-yellow-500/20 rounded-xl border border-amber-500/30">
-              <Crown className="w-6 h-6 text-amber-400" />
+            <div className={cn(
+              "p-3 rounded-xl border flex-shrink-0",
+              "bg-gradient-to-br from-amber-100 to-yellow-100 border-amber-300",
+              "dark:from-amber-500/20 dark:to-yellow-500/20 dark:border-amber-500/30"
+            )}>
+              <Crown className={cn("w-6 h-6 text-amber-600 dark:text-amber-400")} />
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold bg-gradient-to-r from-amber-300 to-yellow-300 bg-clip-text text-transparent mb-2">
+              <h3 className={cn(
+                "text-xl font-bold mb-2",
+                "bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent",
+                "dark:from-amber-300 dark:to-yellow-300"
+              )}>
                 Unlock Premium Features
               </h3>
-              <p className="text-sm text-amber-200/80">
+              <p className={cn(
+                "text-sm",
+                "text-amber-800/80 dark:text-amber-200/80"
+              )}>
                 Upgrade to get access to powerful features that will transform your workflow
               </p>
             </div>
           </div>
           <button
             onClick={handleDismiss}
-            className="p-2 hover:bg-amber-500/20 rounded-lg transition-colors flex-shrink-0"
+            className={cn(
+              "p-2 rounded-lg transition-colors flex-shrink-0",
+              "hover:bg-amber-100 dark:hover:bg-amber-500/20"
+            )}
           >
-            <X className="w-5 h-5 text-amber-300" />
+            <X className={cn("w-5 h-5 text-amber-700 dark:text-amber-300")} />
           </button>
         </div>
 
@@ -167,26 +187,53 @@ export default function UpgradeBanner({ onDismiss, variant = "inline" }: Upgrade
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="flex items-start gap-3 p-4 bg-slate-800/30 rounded-lg border border-slate-700/50 hover:border-amber-500/30 transition-colors"
+              className={cn(
+                "flex items-start gap-3 p-4 rounded-lg border transition-colors",
+                "bg-white/50 border-amber-200/50 hover:border-amber-400/50",
+                "dark:bg-slate-800/30 dark:border-slate-700/50 dark:hover:border-amber-500/30"
+              )}
             >
-              <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20 flex-shrink-0">
-                <feature.icon className="w-5 h-5 text-amber-400" />
+              <div className={cn(
+                "p-2 rounded-lg border flex-shrink-0",
+                "bg-amber-50 border-amber-200",
+                "dark:bg-amber-500/10 dark:border-amber-500/20"
+              )}>
+                <feature.icon className={cn("w-5 h-5 text-amber-600 dark:text-amber-400")} />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-white mb-1 text-sm">{feature.title}</h4>
-                <p className="text-xs text-slate-400">{feature.description}</p>
+                <h4 className={cn(
+                  "font-semibold mb-1 text-sm",
+                  "text-neutral-900 dark:text-white"
+                )}>
+                  {feature.title}
+                </h4>
+                <p className={cn(
+                  "text-xs",
+                  "text-neutral-600 dark:text-slate-400"
+                )}>
+                  {feature.description}
+                </p>
               </div>
             </motion.div>
           ))}
         </div>
 
         {/* CTA */}
-        <div className="flex items-center justify-between gap-4 pt-4 border-t border-amber-500/20">
+        <div className={cn(
+          "flex items-center justify-between gap-4 pt-4 border-t",
+          "border-amber-300/50 dark:border-amber-500/20"
+        )}>
           <div>
-            <p className="text-sm font-medium text-amber-200 mb-1">
+            <p className={cn(
+              "text-sm font-medium mb-1",
+              "text-amber-800 dark:text-amber-200"
+            )}>
               Ready to upgrade?
             </p>
-            <p className="text-xs text-amber-200/70">
+            <p className={cn(
+              "text-xs",
+              "text-amber-700/80 dark:text-amber-200/70"
+            )}>
               Choose a plan that fits your needs and unlock all premium features
             </p>
           </div>
