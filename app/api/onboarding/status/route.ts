@@ -122,26 +122,43 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Define onboarding steps
+    // Check for Deepseek API key (for free users) or regular integrations (for paid users)
+    let hasApiKey = !!(integration?.apiKey)
+    if (!hasApiKey && isAdmin) {
+      // Check for Deepseek API key for free users
+      const adminUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { deepseekApiKey: true }
+      })
+      hasApiKey = !!(adminUser?.deepseekApiKey)
+    } else if (!hasApiKey && isTeamMember) {
+      // For team members, check Admin's Deepseek API key
+      const ownerId = await getOrganizationOwner(session.user.id)
+      if (ownerId) {
+        const owner = await prisma.user.findUnique({
+          where: { id: ownerId },
+          select: { deepseekApiKey: true }
+        })
+        hasApiKey = !!(owner?.deepseekApiKey)
+      }
+    }
+
+    // Check if user is on trial (free user)
+    const isTrial = effectiveSub?.subscriptionStatus === 'TRIAL' || user.subscriptionStatus === 'TRIAL'
+
+    // Define onboarding steps - Simplified for free users
     // For team members, use Admin's onboarding status; for Admins, use their own
     const steps = {
       business_profile: {
         completed: businessProfileCompleted, // Uses Admin's profile for team members
-        required: true,
+        required: !isTrial, // Only required for paid users
         title: 'Settings & Profile',
         description: 'Setup Business Details',
         route: '/dashboard/settings'
       },
-      integrations: {
-        completed: !!(integration?.apiKey), // Uses Admin's integrations for team members
-        required: true,
-        title: 'Integrations',
-        description: 'Configure API key for report generation',
-        route: '/dashboard/integrations'
-      },
       pricing_config: {
         completed: !!pricingConfig, // Uses Admin's pricing config for team members
-        required: true,
+        required: !isTrial, // Only required for paid users (locked for free users)
         title: 'Pricing Configuration',
         description: 'Set up your company pricing rates',
         route: '/dashboard/pricing-config'

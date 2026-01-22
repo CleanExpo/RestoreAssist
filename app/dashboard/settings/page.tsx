@@ -166,6 +166,13 @@ export default function SettingsPage() {
       return // Prevent double submission
     }
 
+    // Lock profile updates for free users
+    if (profile?.subscriptionStatus === 'TRIAL') {
+      toast.error('Profile updates are locked for free users. Upgrade to unlock this feature.')
+      router.push('/dashboard/pricing')
+      return
+    }
+
     setSaving(true)
     try {
       const response = await fetch('/api/user/profile', {
@@ -198,6 +205,13 @@ export default function SettingsPage() {
 
     if (saving) {
       return // Prevent double submission
+    }
+
+    // Lock profile updates for free users
+    if (profile?.subscriptionStatus === 'TRIAL') {
+      toast.error('Profile updates are locked for free users. Upgrade to unlock this feature.')
+      router.push('/dashboard/pricing')
+      return
     }
 
     setSaving(true)
@@ -375,8 +389,8 @@ export default function SettingsPage() {
 
       {/* Onboarding Guide - Contextual Sidebar */}
       <OnboardingGuide
-        step={1}
-        totalSteps={5}
+        step={0}
+        totalSteps={3}
         title="Business Profile Setup"
         description="Add your business information, logo, and contact details. This will appear on all your professional reports."
         value="Your business details will be automatically included in every report you generate, saving you time and ensuring consistency."
@@ -426,13 +440,23 @@ export default function SettingsPage() {
               </h2>
               {!editingName && (
                 <button
-                  onClick={() => setEditingName(true)}
+                  onClick={() => {
+                    if (profile?.subscriptionStatus === 'TRIAL') {
+                      toast.error('Profile updates are locked for free users. Upgrade to unlock this feature.')
+                      router.push('/dashboard/pricing')
+                      return
+                    }
+                    setEditingName(true)
+                  }}
+                  disabled={profile?.subscriptionStatus === 'TRIAL'}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors",
-                    "border-neutral-300 dark:border-slate-600",
-                    "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                    profile?.subscriptionStatus === 'TRIAL'
+                      ? "border-neutral-300 dark:border-slate-600 opacity-50 cursor-not-allowed"
+                      : "border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50",
                     "text-neutral-700 dark:text-slate-300"
                   )}
+                  title={profile?.subscriptionStatus === 'TRIAL' ? 'Upgrade to unlock profile updates' : 'Edit Name'}
                 >
                   <Edit className="w-4 h-4" />
                   Edit Name
@@ -516,13 +540,23 @@ export default function SettingsPage() {
               </h2>
               {canEditBusinessInfo && (
                 <button
-                  onClick={() => setEditing(!editing)}
+                  onClick={() => {
+                    if (profile?.subscriptionStatus === 'TRIAL') {
+                      toast.error('Profile updates are locked for free users. Upgrade to unlock this feature.')
+                      router.push('/dashboard/pricing')
+                      return
+                    }
+                    setEditing(!editing)
+                  }}
+                  disabled={profile?.subscriptionStatus === 'TRIAL'}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors",
-                    "border-neutral-300 dark:border-slate-600",
-                    "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                    profile?.subscriptionStatus === 'TRIAL'
+                      ? "border-neutral-300 dark:border-slate-600 opacity-50 cursor-not-allowed"
+                      : "border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50",
                     "text-neutral-700 dark:text-slate-300"
                   )}
+                  title={profile?.subscriptionStatus === 'TRIAL' ? 'Upgrade to unlock profile updates' : (editing ? 'Cancel' : 'Edit')}
                 >
                   <Edit className="w-4 h-4" />
                   {editing ? 'Cancel' : 'Edit'}

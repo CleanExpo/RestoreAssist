@@ -72,20 +72,13 @@ export default function OnboardingGuide({
     },
     { 
       number: 1, 
-      name: 'API Integration', 
-      icon: KeyRound,
-      route: '/dashboard/integrations',
-      description: 'Connect AI for reports'
-    },
-    { 
-      number: 2, 
       name: 'Pricing Setup', 
       icon: DollarSign,
       route: '/dashboard/pricing-config',
       description: 'Configure your rates'
     },
     { 
-      number: 3, 
+      number: 2, 
       name: 'First Report', 
       icon: FileText,
       route: '/dashboard/reports/new',

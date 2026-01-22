@@ -57,6 +57,7 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
   const [config, setConfig] = useState<PricingConfig | null>(null)
   const [canEdit, setCanEdit] = useState(true)
   const [hasApiKey, setHasApiKey] = useState(false)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const [customFields, setCustomFields] = useState<CustomFields>({
     labour: [],
     equipment: [],
@@ -91,18 +92,41 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
 
   useEffect(() => {
     fetchPricingConfig()
+    fetchSubscriptionStatus()
   }, [])
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await fetch('/api/user/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setSubscriptionStatus(data.profile?.subscriptionStatus || null)
+      }
+    } catch (error) {
+      console.error('Error fetching subscription status:', error)
+    }
+  }
 
   const fetchPricingConfig = async () => {
     setLoading(true)
     try {
+      // Fetch subscription status first
+      const profileResponse = await fetch('/api/user/profile')
+      let currentSubscriptionStatus = subscriptionStatus
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json()
+        currentSubscriptionStatus = profileData.profile?.subscriptionStatus || null
+        setSubscriptionStatus(currentSubscriptionStatus)
+      }
+
       const response = await fetch('/api/pricing-config')
       const data = await response.json()
       
       setHasApiKey(data.hasApiKey ?? false)
       
-      // Users can always edit pricing configuration
-      setCanEdit(true)
+      // Lock pricing configuration for free users
+      const isTrial = currentSubscriptionStatus === 'TRIAL' || currentSubscriptionStatus === 'trial'
+      setCanEdit(!isTrial)
       
       if (data.pricingConfig) {
         setConfig(data.pricingConfig)
@@ -130,7 +154,12 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
 
   const handleSave = async () => {
     if (!canEdit) {
-      toast.error('Pricing configuration cannot be modified after API key is set')
+      if (subscriptionStatus === 'TRIAL') {
+        toast.error('Pricing configuration is locked for free users. Upgrade to unlock this feature.')
+        router.push('/dashboard/pricing')
+      } else {
+        toast.error('Pricing configuration cannot be modified after API key is set')
+      }
       return
     }
 
@@ -306,6 +335,25 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
 
   return (
     <div className="space-y-6">
+      {/* Locked Banner for Free Users */}
+      {subscriptionStatus === 'TRIAL' && (
+        <div className="p-4 rounded-lg border border-amber-500/50 bg-amber-500/10 flex items-start gap-3">
+          <Lock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-amber-400 mb-1">Pricing Configuration Locked</h3>
+            <p className="text-sm text-slate-300 mb-3">
+              Pricing configuration is locked for free users. Upgrade to unlock this feature and customize your rates.
+            </p>
+            <button
+              onClick={() => router.push('/dashboard/pricing')}
+              className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all text-white text-sm"
+            >
+              Upgrade Now
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
          

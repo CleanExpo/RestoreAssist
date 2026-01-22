@@ -83,6 +83,13 @@ model User {
 
   // Premium Features
   hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
+  
+  // Quick Fill Credits (for free users)
+  quickFillCreditsRemaining Int? @default(1) // Free users get 1 Quick Fill credit
+  totalQuickFillUsed Int? @default(0) // Track total Quick Fill usage
+  
+  // Deepseek API Key (for Quick Fill functionality)
+  deepseekApiKey String? @db.Text // Encrypted Deepseek API key for Quick Fill
 
   // Business Information
   businessName    String?
