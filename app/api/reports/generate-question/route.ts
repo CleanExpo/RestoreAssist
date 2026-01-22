@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { getIntegrationsForUser } from "@/lib/ai-provider"
+import { getAnthropicApiKey } from "@/lib/ai-provider"
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,28 +20,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Conversation is required" }, { status: 400 })
     }
 
-    // Get integrations (Admin's for Managers/Technicians, own for Admins)
-    const integrations = await getIntegrationsForUser(session.user.id, {
-      status: "CONNECTED",
-      nameContains: ["Anthropic", "Claude"]
-    })
-
-    const integration = integrations.find(i => 
-      i.name === "Anthropic Claude" || 
-      i.name === "Anthropic API" ||
-      i.name.toLowerCase().includes("anthropic")
-    )
-
-    if (!integration) {
+    // Get appropriate API key based on subscription status
+    // Free users: uses ANTHROPIC_API_KEY from .env
+    // Upgraded users: uses API key from integrations
+    let anthropicApiKey: string
+    try {
+      anthropicApiKey = await getAnthropicApiKey(session.user.id)
+    } catch (error: any) {
       return NextResponse.json(
-        { error: "No connected Anthropic API integration found. Please connect an Anthropic API key." },
-        { status: 400 }
-      )
-    }
-
-    if (!integration.apiKey) {
-      return NextResponse.json(
-        { error: "No valid API key found" },
+        { error: error.message || "Failed to get Anthropic API key" },
         { status: 400 }
       )
     }
@@ -92,7 +79,7 @@ Example responses:
 
     try {
       const anthropic = new Anthropic({
-        apiKey: integration.apiKey
+        apiKey: anthropicApiKey
       })
 
       // Format conversation history for Anthropic

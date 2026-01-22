@@ -415,10 +415,10 @@ export default function SuccessPage() {
 
   if (loading || checking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mx-auto" />
-          <p className="text-slate-300">
+          <p className="text-gray-600 dark:text-slate-300">
             Processing your subscription...
           </p>
         </div>
@@ -427,45 +427,73 @@ export default function SuccessPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-800/50 border border-slate-700/50 rounded-lg p-8 text-center space-y-6">
+    <div className=" overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+      <div className="max-w-lg w-full bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-lg p-6 text-center space-y-5 shadow-lg dark:shadow-none">
         <div className="flex justify-center">
-          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center">
-            <CheckCircle className="w-12 h-12 text-green-400" />
+          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
+            <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
           </div>
         </div>
         
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-white">Payment Successful!</h1>
-          <p className="text-slate-400">
+        <div className="space-y-3">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payment Successful!</h1>
+          <p className="text-sm text-gray-600 dark:text-slate-400">
             {isAddonPurchase 
               ? `Your add-on pack has been added to your account. You can now create additional reports this month.`
               : `Thank you for your subscription. Your account has been upgraded and you now have unlimited access.`
             }
           </p>
+          
+          {!isAddonPurchase && (
+            <div className="bg-gray-50 dark:bg-slate-700/30 border border-gray-200 dark:border-slate-600/50 rounded-lg p-3 text-left space-y-2">
+              <h3 className="text-gray-900 dark:text-white font-semibold text-xs">🎉 Customize Your Dashboard</h3>
+              <p className="text-gray-700 dark:text-slate-300 text-xs">
+                Now that you've upgraded, you can fully customize your dashboard:
+              </p>
+              <ul className="text-gray-600 dark:text-slate-400 text-xs space-y-1 list-disc list-inside">
+                <li>
+                  <strong className="text-gray-900 dark:text-slate-200">Add API Keys:</strong> Go to <strong className="text-cyan-600 dark:text-cyan-400">Integrations</strong> to connect your Anthropic API key
+                </li>
+                <li>
+                  <strong className="text-gray-900 dark:text-slate-200">Configure Pricing:</strong> Set up your pricing structure in <strong className="text-cyan-600 dark:text-cyan-400">Pricing Configuration</strong>
+                </li>
+                <li>
+                  <strong className="text-gray-900 dark:text-slate-200">All Features Unlocked:</strong> All sidebar links are now accessible
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
 
-        <div className="pt-4 space-y-3">
+        <div className="pt-2 space-y-2">
           <button
-            onClick={() => {
+            onClick={async () => {
               if (isAddonPurchase) {
                 router.push('/dashboard/subscription?addon=success')
               } else {
-                // Redirect to onboarding flow after subscription
-                router.push('/dashboard/settings?onboarding=true')
+                // Refresh session to update subscription status
+                await update()
+                // Redirect to integrations first to set up API key
+                router.push('/dashboard/integrations?onboarding=true')
               }
             }}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
           >
-            {isAddonPurchase ? 'View Subscription' : 'Continue Setup'}
-            <ArrowRight className="w-4 h-4" />
+            {isAddonPurchase ? 'View Subscription' : 'Continue Setup →'}
+            {!isAddonPurchase && <ArrowRight className="w-4 h-4" />}
           </button>
           
           <button
-            onClick={() => router.push(isAddonPurchase ? '/dashboard/subscription?addon=success' : '/dashboard/settings')}
-            className="w-full px-6 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-slate-300"
+            onClick={async () => {
+              if (!isAddonPurchase) {
+                // Refresh session to update subscription status
+                await update()
+              }
+              router.push(isAddonPurchase ? '/dashboard/subscription?addon=success' : '/dashboard/subscription')
+            }}
+            className="w-full px-6 py-3 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
           >
-            {isAddonPurchase ? 'View Subscription Details' : 'View Subscription Details'}
+            View Subscription Details
           </button>
         </div>
       </div>
