@@ -48,7 +48,7 @@ export default function DashboardPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const [showGuidedModal, setShowGuidedModal] = useState(false)
-  const [guidedStep, setGuidedStep] = useState<'api' | 'client' | 'report'>('api')
+  const [guidedStep, setGuidedStep] = useState<'api' | 'pricing' | 'client' | 'report'>('api')
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
@@ -575,156 +575,208 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Guided Setup Modal (After Successful Payment) */}
+      {/* Guided Setup Modal (After Successful Payment) - Improved */}
       {showGuidedModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                  <CheckCircle className="text-white" size={24} />
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 max-w-lg w-full shadow-2xl">
+            <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                    <CheckCircle className="text-white" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Welcome! Let's Get Started</h2>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Complete setup in 3 steps</p>
+                  </div>
                 </div>
-                <h2 className="text-xl font-semibold">Welcome! Let's Get Started</h2>
+                <button 
+                  onClick={() => {
+                    setShowGuidedModal(false)
+                    toast.success("Setup skipped! You can complete it anytime from Settings.", { duration: 3000 })
+                  }} 
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-500 dark:text-slate-400"
+                  title="Close"
+                >
+                  <XIcon size={20} />
+                </button>
               </div>
-              <button 
-                onClick={() => setShowGuidedModal(false)} 
-                className="p-1 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 active:scale-95"
-                title="Close"
-              >
-                <XIcon size={20} className="transition-transform duration-200" />
-              </button>
             </div>
-            <div className="space-y-4">
+            
+            <div className="p-6 space-y-4">
               {guidedStep === 'api' && (
                 <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white text-sm font-bold">1</div>
-                    <h3 className="text-lg font-semibold text-white">Add API Key First</h3>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg">
+                      1
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-cyan-500" />
+                        Connect API Key
+                      </h3>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">High Impact</p>
+                    </div>
                   </div>
-                  <p className="text-slate-300">
-                    To unlock all features, start by adding your API key. This allows you to use AI-powered features and integrations.
+                  <p className="text-gray-700 dark:text-slate-300">
+                    Add your Anthropic API key to enable AI-powered report generation and unlock personalized features.
                   </p>
-                  <p className="text-sm text-slate-400">
-                    You can add your Anthropic, OpenAI, or other LLM API keys in the Integrations section.
-                  </p>
-                  <div className="flex gap-3 pt-4">
+                  <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-slate-400">
+                      <strong className="text-gray-900 dark:text-white">Impact:</strong> Personalizes report generation, enables advanced AI features, and improves report quality significantly.
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">⏱️ Est. 2 minutes</p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
                     <button
-                      onClick={() => setShowGuidedModal(false)}
-                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
+                      onClick={() => {
+                        setShowGuidedModal(false)
+                        toast.success("Setup skipped! You can complete it anytime from Settings.", { duration: 3000 })
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 text-sm font-medium"
                     >
-                      Skip for Now
+                      Skip
                     </button>
                     <button
                       onClick={() => {
                         setShowGuidedModal(false)
-                        router.push('/dashboard/integrations')
+                        router.push('/dashboard/integrations?onboarding=true')
                       }}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all text-white text-sm flex items-center justify-center gap-2"
                     >
-                      <Zap className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                      <span>Add API Key</span>
+                      <Zap className="w-4 h-4" />
+                      Add API Key
                     </button>
                     <button
-                      onClick={() => setGuidedStep('client')}
-                      className="px-4 py-2 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
+                      onClick={() => setGuidedStep('pricing')}
+                      className="px-4 py-2 border border-cyan-500/50 text-cyan-600 dark:text-cyan-400 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-500/10 transition-colors text-sm font-medium"
                     >
-                      <span>Next</span>
-                      <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                      Next →
                     </button>
                   </div>
                 </>
               )}
-              {guidedStep === 'client' && (
+              
+              {guidedStep === 'pricing' && (
                 <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-sm font-bold">2</div>
-                    <h3 className="text-lg font-semibold text-white">Create Your First Client</h3>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold shadow-lg">
+                      2
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <DollarSign className="w-5 h-5 text-emerald-500" />
+                        Configure Pricing
+                      </h3>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">High Impact</p>
+                    </div>
                   </div>
-                  <p className="text-slate-300">
-                    Now let's create your first client. Clients help you organise and manage all your restoration reports.
+                  <p className="text-gray-700 dark:text-slate-300">
+                    Set up your business rates for labour, equipment, and services to ensure accurate cost estimations.
                   </p>
-                  <p className="text-sm text-slate-400">
-                    Add client details like name, email, phone, and address for better organization.
-                  </p>
-                  <div className="flex gap-3 pt-4">
+                  <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-slate-400">
+                      <strong className="text-gray-900 dark:text-white">Impact:</strong> Ensures accurate cost estimations and professional quotes for your clients.
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">⏱️ Est. 5 minutes</p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
                     <button
                       onClick={() => setGuidedStep('api')}
-                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
+                      className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 text-sm font-medium"
                     >
-                      <ArrowRight className="w-4 h-4 rotate-180 transition-transform duration-200 group-hover:-translate-x-1" />
-                      <span>Back</span>
-                    </button>
-                    <button
-                      onClick={() => setShowGuidedModal(false)}
-                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                    >
-                      Skip for Now
+                      ← Back
                     </button>
                     <button
                       onClick={() => {
                         setShowGuidedModal(false)
-                        router.push('/dashboard/clients')
+                        toast.success("Setup skipped! You can complete it anytime from Settings.", { duration: 3000 })
                       }}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg font-medium hover:shadow-lg hover:shadow-emerald-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 text-sm font-medium"
                     >
-                      <Users className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                      <span>Create Client</span>
+                      Skip
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowGuidedModal(false)
+                        router.push('/dashboard/pricing-config?onboarding=true')
+                      }}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg font-medium hover:shadow-lg hover:shadow-emerald-500/50 transition-all text-white text-sm flex items-center justify-center gap-2"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      Configure
                     </button>
                     <button
                       onClick={() => setGuidedStep('report')}
-                      className="px-4 py-2 border border-emerald-500/50 text-emerald-400 rounded-lg hover:bg-emerald-500/10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
+                      className="px-4 py-2 border border-emerald-500/50 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors text-sm font-medium"
                     >
-                      <span>Next</span>
-                      <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                      Next →
                     </button>
                   </div>
                 </>
               )}
+              
               {guidedStep === 'report' && (
                 <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold">3</div>
-                    <h3 className="text-lg font-semibold text-white">Create Your First Report</h3>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg">
+                      3
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-500" />
+                        Create First Report
+                      </h3>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">Medium Impact</p>
+                    </div>
                   </div>
-                  <p className="text-slate-300">
-                    Perfect! Now you're ready to create your first restoration report. Generate professional, compliant reports for your clients.
+                  <p className="text-gray-700 dark:text-slate-300">
+                    Generate your first professional restoration report to test the system and see how it works with your settings.
                   </p>
-                  <p className="text-sm text-slate-400">
-                    Create comprehensive reports with inspection, scoping, and estimation data.
-                  </p>
-                  <div className="flex gap-3 pt-4">
+                  <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3">
+                    <p className="text-xs text-gray-600 dark:text-slate-400">
+                      <strong className="text-gray-900 dark:text-white">Impact:</strong> Test the system and see how reports are generated with your configured settings.
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">⏱️ Est. 10 minutes</p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
                     <button
-                      onClick={() => setGuidedStep('client')}
-                      className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md flex items-center gap-2 group"
+                      onClick={() => setGuidedStep('pricing')}
+                      className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 text-sm font-medium"
                     >
-                      <ArrowRight className="w-4 h-4 rotate-180 transition-transform duration-200 group-hover:-translate-x-1" />
-                      <span>Back</span>
-                    </button>
-                    <button
-                      onClick={() => setShowGuidedModal(false)}
-                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                    >
-                      Skip for Now
+                      ← Back
                     </button>
                     <button
                       onClick={() => {
                         setShowGuidedModal(false)
-                        router.push('/dashboard/reports/new')
+                        toast.success("Setup skipped! You can complete it anytime from Settings.", { duration: 3000 })
                       }}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 text-sm font-medium"
                     >
-                      <FileText className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                      <span>Create Report</span>
+                      Skip
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowGuidedModal(false)
+                        router.push('/dashboard/reports/new?onboarding=true')
+                      }}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white text-sm flex items-center justify-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Create Report
                     </button>
                   </div>
                 </>
               )}
             </div>
+            
             {/* Progress Indicator */}
-            <div className="mt-6 flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${guidedStep === 'api' ? 'bg-cyan-500' : 'bg-slate-600'}`}></div>
-              <div className={`w-2 h-2 rounded-full ${guidedStep === 'client' ? 'bg-emerald-500' : 'bg-slate-600'}`}></div>
-              <div className={`w-2 h-2 rounded-full ${guidedStep === 'report' ? 'bg-blue-500' : 'bg-slate-600'}`}></div>
+            <div className="px-6 pb-6">
+              <div className="flex items-center justify-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full transition-all ${guidedStep === 'api' ? 'bg-cyan-500 w-8' : 'bg-gray-300 dark:bg-slate-600'}`}></div>
+                <div className={`w-2.5 h-2.5 rounded-full transition-all ${guidedStep === 'pricing' ? 'bg-emerald-500 w-8' : 'bg-gray-300 dark:bg-slate-600'}`}></div>
+                <div className={`w-2.5 h-2.5 rounded-full transition-all ${guidedStep === 'report' ? 'bg-blue-500 w-8' : 'bg-gray-300 dark:bg-slate-600'}`}></div>
+              </div>
             </div>
           </div>
         </div>
