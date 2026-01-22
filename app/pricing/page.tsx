@@ -33,6 +33,28 @@ export default function PricingPage() {
     }
   }, [])
 
+  // Free Plan (always first)
+  const freePlan = {
+    name: 'Free',
+    price: '$0',
+    period: '',
+    description: 'Perfect for trying out Restore Assist. Start with 3 free reports and basic features.',
+    features: [
+      '3 free inspection reports',
+      'Basic report type only',
+      '1 Quick Fill credit (AI-powered form auto-fill)',
+      'IICRC S500 compliant reports',
+      'PDF & Excel export',
+      'Email support',
+    ],
+    popular: false,
+    badge: null,
+    monthlyEquivalent: null,
+    reportLimit: 3,
+    signupBonus: null,
+    isFree: true
+  }
+
   // Map pricing config to display format
   const plans = Object.values(PRICING_CONFIG.pricing).map((plan) => {
     const price = plan.amount % 1 === 0 
@@ -57,9 +79,13 @@ export default function PricingPage() {
       badge: 'badge' in plan ? plan.badge : null,
       monthlyEquivalent: 'monthlyEquivalent' in plan ? plan.monthlyEquivalent : null,
       reportLimit: plan.reportLimit,
-      signupBonus: 'signupBonus' in plan ? plan.signupBonus : null
+      signupBonus: 'signupBonus' in plan ? plan.signupBonus : null,
+      isFree: false
     }
   })
+
+  // Combine free plan with paid plans
+  const allPlans = [freePlan, ...plans]
 
   // Map addons config to display format
   const addons = Object.values(PRICING_CONFIG.addons).map((addon) => ({
@@ -227,7 +253,7 @@ export default function PricingPage() {
             className={`text-xl md:text-2xl ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
             style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Start with 3 free reports to try our service. Upgrade to a monthly or yearly plan when you're ready. All plans include first month signup bonus of 10 additional reports.
+            Start free with 3 reports and basic features. Upgrade to unlock unlimited Quick Fill, enhanced reports, PDF uploads, and more. All paid plans include first month signup bonus of 10 additional reports.
           </motion.p>
         </div>
       </section>
@@ -240,21 +266,26 @@ export default function PricingPage() {
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-3 gap-8">
-            {plans.map((plan, index) => (
+            {allPlans.map((plan, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-8 rounded-lg relative ${plan.popular ? 'border-2 border-[#8A6B4E]' : ''} ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20'} backdrop-blur-sm border`}
+                className={`p-8 rounded-lg relative ${plan.popular ? 'border-2 border-[#8A6B4E]' : plan.isFree ? 'border-2 border-[#5A6A7B]' : ''} ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20'} backdrop-blur-sm border`}
               >
-                {plan.popular && (
+                {plan.isFree && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#5A6A7B] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                    Free Forever
+                  </div>
+                )}
+                {plan.popular && !plan.isFree && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                     Most Popular
                   </div>
                 )}
-                {plan.badge && !plan.popular && (
+                {plan.badge && !plan.popular && !plan.isFree && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                     {plan.badge}
                   </div>
@@ -280,11 +311,11 @@ export default function PricingPage() {
                     </p>
                   )}
                   {plan.reportLimit && typeof plan.reportLimit === 'number' && (
-                    <div className={`mt-2 p-3 rounded-lg ${darkMode ? 'bg-[#8A6B4E]/20' : 'bg-[#8A6B4E]/10'}`}>
+                    <div className={`mt-2 p-3 rounded-lg ${plan.isFree ? (darkMode ? 'bg-[#5A6A7B]/20' : 'bg-[#5A6A7B]/10') : (darkMode ? 'bg-[#8A6B4E]/20' : 'bg-[#8A6B4E]/10')}`}>
                       <p className={`text-sm font-semibold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}>
-                        {plan.reportLimit} Inspection Reports{plan.period === '/month' ? ' per month' : ''}
+                        {plan.reportLimit} Inspection Reports{plan.period === '/month' ? ' per month' : plan.isFree ? ' (one-time)' : ''}
                       </p>
-                      {plan.signupBonus && (
+                      {plan.signupBonus && !plan.isFree && (
                         <p className={`text-xs mt-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}>
                           +{plan.signupBonus} bonus reports on first month
                         </p>
@@ -295,17 +326,41 @@ export default function PricingPage() {
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                      <span className="text-[#8A6B4E] mt-1">✓</span>
+                      <span className={`mt-1 ${plan.isFree ? 'text-[#5A6A7B]' : 'text-[#8A6B4E]'}`}>✓</span>
                       {feature}
                     </li>
                   ))}
+                  {!plan.isFree && (
+                    <>
+                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span>Unlimited Quick Fill (AI-powered form auto-fill)</span>
+                      </li>
+                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span>Enhanced & Optimized report types</span>
+                      </li>
+                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span>PDF upload & processing</span>
+                      </li>
+                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span>Full profile & pricing configuration</span>
+                      </li>
+                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span>Premium API integrations (Claude, GPT, etc.)</span>
+                      </li>
+                    </>
+                  )}
                 </ul>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.popular ? 'bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90' : 'bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90'}`}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? 'bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90' : plan.popular ? 'bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90' : 'bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90'}`}
                   style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
                 >
-                  Start Free Trial
+                  {plan.isFree ? 'Get Started Free' : 'Start Free Trial'}
                 </Link>
               </motion.div>
             ))}
