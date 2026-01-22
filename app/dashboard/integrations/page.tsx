@@ -37,15 +37,11 @@ export default function IntegrationsPage() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [newApiKeyType, setNewApiKeyType] = useState<'openai' | 'anthropic' | 'gemini'>('anthropic')
   const [newApiKey, setNewApiKey] = useState("")
-  const [deepseekApiKey, setDeepseekApiKey] = useState("")
-  const [hasDeepseekKey, setHasDeepseekKey] = useState(false)
-  const [showDeepseekModal, setShowDeepseekModal] = useState(false)
 
   // Fetch integrations and subscription status from API
   useEffect(() => {
     fetchIntegrations()
     fetchSubscriptionStatus()
-    fetchDeepseekApiKey()
   }, [])
 
   const fetchSubscriptionStatus = async () => {
@@ -65,63 +61,6 @@ export default function IntegrationsPage() {
 
   const hasActiveSubscription = () => {
     return subscription?.subscriptionStatus === 'ACTIVE'
-  }
-
-  const fetchDeepseekApiKey = async () => {
-    try {
-      const response = await fetch("/api/user/deepseek-api-key")
-      if (response.ok) {
-        const data = await response.json()
-        setHasDeepseekKey(data.hasApiKey || false)
-      }
-    } catch (error) {
-      console.error("Error fetching Deepseek API key:", error)
-    }
-  }
-
-  const handleSaveDeepseekKey = async () => {
-    if (!deepseekApiKey.trim()) {
-      toast.error("API key is required")
-      return
-    }
-
-    try {
-      const response = await fetch("/api/user/deepseek-api-key", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: deepseekApiKey.trim() })
-      })
-
-      if (response.ok) {
-        toast.success("Deepseek API key saved successfully")
-        setHasDeepseekKey(true)
-        setDeepseekApiKey("")
-        setShowDeepseekModal(false)
-        
-        // If in onboarding, check status and redirect
-        if (isOnboarding) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          const onboardingResponse = await fetch('/api/onboarding/status')
-          if (onboardingResponse.ok) {
-            const onboardingData = await onboardingResponse.json()
-            if (onboardingData.nextStep) {
-              const nextStepRoute = onboardingData.steps[onboardingData.nextStep]?.route
-              if (nextStepRoute) {
-                toast.success('API key configured! Redirecting...', { duration: 2000 })
-                setTimeout(() => {
-                  router.push(`${nextStepRoute}?onboarding=true`)
-                }, 2000)
-              }
-            }
-          }
-        }
-      } else {
-        toast.error("Failed to save API key")
-      }
-    } catch (error) {
-      console.error("Error saving Deepseek API key:", error)
-      toast.error("Failed to save API key")
-    }
   }
 
   const fetchIntegrations = async () => {
@@ -407,68 +346,6 @@ export default function IntegrationsPage() {
         </div>
       ) : (
         <>
-          {/* Deepseek API Key Section - Available for all users including free */}
-          <div className="mb-8 p-6 rounded-lg border border-cyan-500/30 bg-cyan-500/5">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-start gap-4">
-                <div className="text-3xl">⚡</div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">Deepseek API Key (Quick Fill)</h3>
-                  <p className="text-sm text-slate-400">
-                    Required for Quick Fill functionality. Free users get 1 Quick Fill credit. 
-                    <span className="text-amber-400 ml-1">Note: Demo uses Deepseek API (~$0.01 per use), not the highest tier API connections.</span>
-                  </p>
-                </div>
-              </div>
-              {hasDeepseekKey ? (
-                <Check size={20} className="text-emerald-400 flex-shrink-0" />
-              ) : (
-                <X size={20} className="text-slate-500 flex-shrink-0" />
-              )}
-            </div>
-            <div className="flex gap-2">
-              {hasDeepseekKey ? (
-                <>
-                  <button
-                    onClick={() => setShowDeepseekModal(true)}
-                    className="px-4 py-2 border border-cyan-600 text-cyan-400 rounded-lg hover:bg-cyan-500/10 transition-colors text-sm"
-                  >
-                    Update Key
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (confirm("Are you sure you want to remove your Deepseek API key?")) {
-                        try {
-                          const response = await fetch("/api/user/deepseek-api-key", {
-                            method: "DELETE"
-                          })
-                          if (response.ok) {
-                            toast.success("Deepseek API key removed")
-                            setHasDeepseekKey(false)
-                          } else {
-                            toast.error("Failed to remove API key")
-                          }
-                        } catch (error) {
-                          toast.error("Failed to remove API key")
-                        }
-                      }
-                    }}
-                    className="px-4 py-2 border border-rose-600 text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm"
-                  >
-                    Remove
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setShowDeepseekModal(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all text-sm"
-                >
-                  Add Deepseek API Key
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* AI Integration Cards */}
           <div className="grid md:grid-cols-2 gap-6">
             {integrations.length === 0 ? (
@@ -698,64 +575,6 @@ export default function IntegrationsPage() {
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all text-white"
                 >
                   Upgrade Now
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Deepseek API Key Modal */}
-      {showDeepseekModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-neutral-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Deepseek API Key</h2>
-              <button onClick={() => {
-                setShowDeepseekModal(false)
-                setDeepseekApiKey("")
-              }} className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded text-neutral-600 dark:text-slate-300">
-                <XIcon size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  <strong>Note:</strong> The demo uses Deepseek API (~$0.01 per use), not the highest tier API connections. 
-                  Free users get 1 Quick Fill credit to experience the feature.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-slate-300">API Key</label>
-                <input
-                  type="password"
-                  value={deepseekApiKey}
-                  onChange={(e) => setDeepseekApiKey(e.target.value)}
-                  placeholder="Enter your Deepseek API key"
-                  className="w-full px-4 py-2 bg-white dark:bg-slate-700 border border-neutral-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-neutral-900 dark:text-white"
-                />
-                <p className="text-xs text-neutral-600 dark:text-slate-400 mt-2">
-                  Your API key is encrypted and stored securely. Get your key at{" "}
-                  <a href="https://platform.deepseek.com" target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:underline">
-                    platform.deepseek.com
-                  </a>
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowDeepseekModal(false)
-                    setDeepseekApiKey("")
-                  }}
-                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-slate-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors text-neutral-700 dark:text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveDeepseekKey}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all text-white"
-                >
-                  Save
                 </button>
               </div>
             </div>
