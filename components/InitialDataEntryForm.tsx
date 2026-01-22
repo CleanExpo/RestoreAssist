@@ -458,7 +458,8 @@ export default function InitialDataEntryForm({
         const response = await fetch("/api/pricing-config");
         if (response.ok) {
           const data = await response.json();
-          const config = data.pricingConfig || data;
+          // Use pricingConfig if available, otherwise use defaults (for free users)
+          const config = data.pricingConfig || data.defaults || data;
           if (config) {
             setPricingConfig(config);
           }

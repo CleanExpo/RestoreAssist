@@ -2,22 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Upload, FileText, Loader2, X, CheckCircle, Crown } from "lucide-react"
+import { Upload, FileText, Loader2, X, CheckCircle, Crown, Zap, DollarSign, ArrowRight, Sparkles, TrendingUp } from "lucide-react"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
-import OnboardingModal from "@/components/OnboardingModal"
+import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 
 export default function NewReportPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session, update } = useSession()
   const [uploading, setUploading] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [uploadedData, setUploadedData] = useState<any>(null)
   const [fileName, setFileName] = useState<string>('')
   const [reportId, setReportId] = useState<string | null>(null)
   const [loadingReport, setLoadingReport] = useState(false)
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+  const [showSetupGuide, setShowSetupGuide] = useState(false)
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false)
   const [onboardingComplete, setOnboardingComplete] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -143,9 +144,9 @@ export default function NewReportPage() {
         // If subscription is complete, check other steps
         setOnboardingComplete(data.isComplete)
         if (!data.isComplete) {
-          setShowOnboardingModal(true)
+          setShowSetupGuide(true)
           if (!hasCheckedOnboarding) {
-            toast.error('Please complete onboarding before creating reports')
+            toast.error('Please complete setup before creating reports')
           }
         }
         setHasCheckedOnboarding(true)
@@ -272,15 +273,58 @@ export default function NewReportPage() {
     toast.success('Starting new report')
   }
 
-  const handleOnboardingClose = () => {
-    // Re-check onboarding status - don't allow closing if still incomplete
-    checkOnboardingStatus().then(() => {
-      // Only close if onboarding is now complete
-      if (onboardingComplete) {
-        setShowOnboardingModal(false)
-      }
+  const handleSkipSetup = async () => {
+    setShowSetupGuide(false)
+    await update()
+    toast.success("Setup skipped! You can complete it anytime from Settings or the sidebar.", {
+      duration: 4000,
+      icon: "ℹ️"
     })
   }
+
+  const handleStartSetup = async (route: string) => {
+    await update()
+    router.push(route)
+  }
+
+  const setupSteps = [
+    {
+      number: 1,
+      icon: Zap,
+      title: "Connect API Key",
+      description: "Add your Anthropic API key to enable AI-powered report generation",
+      impact: "High Impact",
+      impactColor: "text-emerald-600 dark:text-emerald-400",
+      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      details: "Personalizes report generation, enables advanced AI features, and improves report quality",
+      route: "/dashboard/integrations?onboarding=true",
+      timeEstimate: "2 min"
+    },
+    {
+      number: 2,
+      icon: DollarSign,
+      title: "Configure Pricing",
+      description: "Set up your business rates for labour, equipment, and services",
+      impact: "High Impact",
+      impactColor: "text-emerald-600 dark:text-emerald-400",
+      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      details: "Ensures accurate cost estimations and professional quotes for your clients",
+      route: "/dashboard/pricing-config?onboarding=true",
+      timeEstimate: "5 min"
+    },
+    {
+      number: 3,
+      icon: FileText,
+      title: "Create First Report",
+      description: "Generate your first professional restoration report",
+      impact: "Medium Impact",
+      impactColor: "text-blue-600 dark:text-blue-400",
+      impactBg: "bg-blue-50 dark:bg-blue-500/10",
+      details: "Test the system and see how reports are generated with your settings",
+      route: "/dashboard/reports/new?onboarding=true",
+      timeEstimate: "10 min"
+    }
+  ]
 
   return (
     <div className={cn("min-h-screen p-6", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
@@ -440,21 +484,14 @@ export default function NewReportPage() {
             </div>
           </div>
         ) : !onboardingComplete && hasCheckedOnboarding ? (
+          // Modal will show automatically, so just show a loading state or empty state
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
-              <div className="inline-flex p-4 bg-amber-500/10 rounded-full mb-4">
-                <FileText className="w-12 h-12 text-amber-400" />
-              </div>
-              <h3 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Complete Onboarding First</h3>
-              <p className={cn("mb-6", "text-neutral-600 dark:text-slate-400")}>
-                Please complete all required onboarding steps before creating a new report. This ensures your reports are generated with the correct business information and settings.
+              <Loader2 className="w-8 h-8 animate-spin text-cyan-500 mx-auto mb-4" />
+              <h3 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Setting up...</h3>
+              <p className={cn("text-neutral-600 dark:text-slate-400")}>
+                Please complete the setup steps to continue.
               </p>
-              <button
-                onClick={() => setShowOnboardingModal(true)}
-                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Complete Onboarding
-              </button>
             </div>
           </div>
         ) : canCreateReport && (onboardingComplete || !hasCheckedOnboarding) ? (
@@ -467,17 +504,125 @@ export default function NewReportPage() {
         ) : null}
       </div>
 
-      {/* Onboarding Modal - Blocks report creation until complete */}
-      <OnboardingModal
-        isOpen={showOnboardingModal}
-        onClose={handleOnboardingClose}
-        onComplete={() => {
-          setShowOnboardingModal(false)
-          setOnboardingComplete(true)
-          setHasCheckedOnboarding(true)
-          toast.success('Onboarding complete! You can now create reports.')
-        }}
-      />
+      {/* Setup Guide Modal - Same as success page */}
+      {showSetupGuide && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="max-w-2xl w-full bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 rounded-t-xl z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                    <Sparkles className="text-white" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Complete Your Setup</h2>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">3 quick steps to get started</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSkipSetup}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-500 dark:text-slate-400"
+                  title="Skip Setup"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-slate-400 text-center">
+                Complete these steps to unlock the full potential of your account. Each step takes just a few minutes.
+              </p>
+
+              {/* Setup Steps */}
+              <div className="space-y-4">
+                {setupSteps.map((step, index) => {
+                  const Icon = step.icon
+                  return (
+                    <div
+                      key={step.number}
+                      className="group relative p-5 rounded-xl border-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex items-start gap-4">
+                        {/* Step Number & Icon */}
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
+                            <Icon className="text-white" size={24} />
+                          </div>
+                          <div className="mt-2 text-center">
+                            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">Step {step.number}</span>
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <h3 className="font-bold text-gray-900 dark:text-white text-lg">{step.title}</h3>
+                              <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{step.description}</p>
+                            </div>
+                            <div className={`px-2.5 py-1 rounded-full text-xs font-semibold ${step.impactBg} ${step.impactColor}`}>
+                              {step.impact}
+                            </div>
+                          </div>
+
+                          {/* Impact Details */}
+                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+                            <TrendingUp size={14} />
+                            <span>{step.details}</span>
+                          </div>
+
+                          {/* Time Estimate */}
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-slate-700">
+                            <span className="text-xs text-gray-500 dark:text-slate-400">
+                              ⏱️ Est. {step.timeEstimate}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                await handleStartSetup(step.route)
+                              }}
+                              className="px-4 py-1.5 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2 group/btn"
+                            >
+                              Start
+                              <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="sticky bottom-0 bg-gray-50 dark:bg-slate-800/80 border-t border-gray-200 dark:border-slate-700 p-6 rounded-b-xl backdrop-blur-sm">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSkipSetup}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
+                >
+                  Skip Setup
+                </button>
+                <button
+                  onClick={async () => {
+                    await update()
+                    router.push('/dashboard/subscription')
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
+                >
+                  View Subscription
+                </button>
+              </div>
+              <p className="text-xs text-center text-gray-500 dark:text-slate-400 mt-3">
+                You can complete setup anytime from Settings or the sidebar
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upgrade Modal */}
       {showUpgradeModal && (
