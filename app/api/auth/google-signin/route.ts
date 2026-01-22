@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
         creditsRemaining: 3,
         totalCreditsUsed: 0,
         trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
+        totalQuickFillUsed: 0
       },
     })
 

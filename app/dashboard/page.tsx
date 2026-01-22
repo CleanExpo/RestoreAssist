@@ -24,6 +24,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import UpgradeBanner from "@/components/UpgradeBanner"
 
 interface SubscriptionStatus {
   subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
@@ -307,6 +308,11 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main>
         <div className=" mx-auto space-y-8">
+          {/* Upgrade Banner for Free Users */}
+          {!hasActiveSubscription() && (
+            <UpgradeBanner variant="inline" />
+          )}
+          
           {/* Stats Grid */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -90,8 +90,8 @@ export default function SignupPage() {
 
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
-          // Redirect to pricing page first - subscription is required
-          router.push("/dashboard/settings?onboarding=true")
+          // Redirect to dashboard with onboarding - simplified flow for free users
+          router.push("/dashboard?onboarding=true")
         } else {
           toast.error("Please sign in manually")
           setTimeout(() => {
@@ -200,44 +200,30 @@ export default function SignupPage() {
               className="mt-4 space-y-3 text-sm text-slate-300"
             >
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">1. Subscribe to a Plan (Required)</p>
-                <p className="text-slate-400">Choose a monthly or yearly plan to get started. Subscription is required before you can create reports.</p>
+                <p className="font-semibold text-cyan-300 mb-1">1. Start Creating Reports (Free Tier Available)</p>
+                <p className="text-slate-400">Get started immediately with 3 free report credits. Create basic reports right away!</p>
               </div>
               
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">2. Setup Business Profile</p>
-                <p className="text-slate-400">Enter your business details including name, address, and contact information.</p>
-              </div>
-              
-              <div>
-                <p className="font-semibold text-cyan-300 mb-1">3. Get an API Key (Required for AI features)</p>
-                <p className="text-slate-400 mb-2">Choose one provider to enable AI-powered report generation:</p>
+                <p className="font-semibold text-cyan-300 mb-1">2. Upgrade for Premium Features</p>
+                <p className="text-slate-400 mb-2">Unlock powerful features when you're ready:</p>
                 <ul className="list-disc list-inside space-y-1 text-slate-400 ml-2">
-                  <li>
-                    <strong>Anthropic (Recommended):</strong>{" "}
-                    <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline inline-flex items-center gap-1">
-                      Get API key <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </li>
-                  <li>
-                    <strong>OpenAI:</strong>{" "}
-                    <span className="text-slate-500 italic">Coming Soon</span>
-                  </li>
-                  <li>
-                    <strong>Google Gemini:</strong>{" "}
-                    <span className="text-slate-500 italic">Coming Soon</span>
-                  </li>
+                  <li>Unlimited Quick Fill (AI-powered form auto-fill)</li>
+                  <li>Enhanced & Optimized report types</li>
+                  <li>PDF upload and processing</li>
+                  <li>Full profile and pricing configuration</li>
+                  <li>Premium API integrations</li>
                 </ul>
               </div>
               
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">4. Configure Pricing</p>
-                <p className="text-slate-400">Set your company's rates for labour, equipment, and services to generate accurate cost estimates.</p>
+                <p className="font-semibold text-cyan-300 mb-1">3. Optional: Setup Business Profile</p>
+                <p className="text-slate-400">Add your business details to personalize your reports (available after upgrade).</p>
               </div>
               
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">5. Create Your First Report</p>
-                <p className="text-slate-400">Once setup is complete, create your first inspection report.</p>
+                <p className="font-semibold text-cyan-300 mb-1">4. Optional: Configure Pricing</p>
+                <p className="text-slate-400">Set your company's rates for accurate cost estimates (available after upgrade).</p>
               </div>
               
               <div className="pt-2 border-t border-cyan-500/20">

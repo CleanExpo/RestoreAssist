@@ -86,7 +86,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Users can always update pricing configuration, even after API key is set
+    // Lock pricing configuration for free users
+    if (user.subscriptionStatus === 'TRIAL') {
+      return NextResponse.json(
+        { error: 'Pricing configuration is locked for free users. Upgrade to unlock this feature.' },
+        { status: 403 }
+      )
+    }
 
     const data = await request.json()
 

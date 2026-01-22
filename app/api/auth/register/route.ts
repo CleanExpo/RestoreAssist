@@ -135,10 +135,12 @@ export async function POST(request: NextRequest) {
             email,
             password: hashedPassword,
             role: "ADMIN",
-            subscriptionStatus: "TRIAL",
-            creditsRemaining: 3,
-            totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          subscriptionStatus: "TRIAL",
+          creditsRemaining: 3,
+          totalCreditsUsed: 0,
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
+          totalQuickFillUsed: 0
           }
         })
 
@@ -162,10 +164,12 @@ export async function POST(request: NextRequest) {
               email,
               password: hashedPassword,
               role: "ADMIN",
-              subscriptionStatus: "TRIAL",
-              creditsRemaining: 3,
-              totalCreditsUsed: 0,
-              trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          subscriptionStatus: "TRIAL",
+          creditsRemaining: 3,
+          totalCreditsUsed: 0,
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
+          totalQuickFillUsed: 0
             }
           })
 
@@ -194,10 +198,12 @@ export async function POST(request: NextRequest) {
             email,
             password: hashedPassword,
             role: "ADMIN",
-            subscriptionStatus: "TRIAL",
-            creditsRemaining: 3,
-            totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          subscriptionStatus: "TRIAL",
+          creditsRemaining: 3,
+          totalCreditsUsed: 0,
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
+          totalQuickFillUsed: 0
           }
         })
 
@@ -221,10 +227,12 @@ export async function POST(request: NextRequest) {
         email,
         password: hashedPassword,
         role: "USER",
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: 3,
-        totalCreditsUsed: 0,
-        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+          subscriptionStatus: "TRIAL",
+          creditsRemaining: 3,
+          totalCreditsUsed: 0,
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
+          totalQuickFillUsed: 0
       }
     })
 

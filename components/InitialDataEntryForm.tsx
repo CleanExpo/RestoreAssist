@@ -216,6 +216,9 @@ export default function InitialDataEntryForm({
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const isTrial = subscriptionStatus === "TRIAL" || subscriptionStatus === "trial";
+  const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null);
+  const [hasUnlimitedQuickFill, setHasUnlimitedQuickFill] = useState(false);
+  const [loadingCredits, setLoadingCredits] = useState(false);
   
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -465,6 +468,23 @@ export default function InitialDataEntryForm({
       }
     };
     fetchPricingConfig();
+  }, []);
+
+  // Fetch Quick Fill credits on mount
+  useEffect(() => {
+    const fetchQuickFillCredits = async () => {
+      try {
+        const response = await fetch("/api/user/quick-fill-credits");
+        if (response.ok) {
+          const data = await response.json();
+          setQuickFillCredits(data.creditsRemaining);
+          setHasUnlimitedQuickFill(data.hasUnlimited || false);
+        }
+      } catch (error) {
+        // Error fetching credits
+      }
+    };
+    fetchQuickFillCredits();
   }, []);
 
   // Fetch assignees (Managers for Technicians, Admins for Managers)
@@ -2108,15 +2128,51 @@ export default function InitialDataEntryForm({
     setShowUseCaseModal(false);
   };
 
-  // Quick Fill with Test Data - Show Modal
-  const handleQuickFill = () => {
-    setShowUseCaseModal(true);
+  // Quick Fill with Test Data - Check credits and show modal
+  const handleQuickFill = async () => {
+    // Check if user has credits or unlimited access
+    if (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0)) {
+      toast.error("No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.");
+      router.push("/dashboard/pricing");
+      return;
+    }
+
+    // Deduct credit if not unlimited
+    if (!hasUnlimitedQuickFill) {
+      setLoadingCredits(true);
+      try {
+        const response = await fetch("/api/user/quick-fill-credits", {
+          method: "POST"
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setQuickFillCredits(data.creditsRemaining);
+          setShowUseCaseModal(true);
+        } else {
+          const error = await response.json();
+          if (error.requiresUpgrade) {
+            toast.error("No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.");
+            router.push("/dashboard/pricing");
+          } else {
+            toast.error(error.error || "Failed to use Quick Fill credit");
+          }
+        }
+      } catch (error) {
+        toast.error("Failed to check Quick Fill credits");
+      } finally {
+        setLoadingCredits(false);
+      }
+    } else {
+      // Unlimited access - just open modal
+      setShowUseCaseModal(true);
+    }
   };
 
-  // Prevent modal from opening if user is on trial (extra safeguard)
+  // Prevent modal from opening if user has no credits (extra safeguard)
   const handleModalOpenChange = (open: boolean) => {
-    if (open && isTrial) {
-      toast.error("Upgrade required to use Quick Fill. Free plan supports manual entry only.");
+    if (open && !hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0)) {
+      toast.error("No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.");
       return;
     }
     setShowUseCaseModal(open);
@@ -2136,17 +2192,26 @@ export default function InitialDataEntryForm({
           <button
             type="button"
             onClick={handleQuickFill}
-            disabled={isTrial}
+            disabled={loadingCredits || (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))}
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
-              isTrial
+              (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))
                 ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white"
             )}
-            title={isTrial ? "Upgrade required to use Quick Fill. Free plan supports manual entry only." : "Quick Fill Test Data"}
+            title={
+              hasUnlimitedQuickFill 
+                ? "Quick Fill Test Data (Unlimited)" 
+                : quickFillCredits !== null && quickFillCredits > 0
+                ? `Quick Fill Test Data (${quickFillCredits} credit${quickFillCredits !== 1 ? 's' : ''} remaining)`
+                : "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access."
+            }
           >
             <Zap className="w-4 h-4" />
             Quick Fill Test Data
+            {!hasUnlimitedQuickFill && quickFillCredits !== null && quickFillCredits > 0 && (
+              <span className="ml-1 text-xs">({quickFillCredits})</span>
+            )}
           </button>
         </div>
       </div>
