@@ -310,6 +310,187 @@ export default function InitialDataEntryForm({
   
   // Use Case Selection Modal State
   const [showUseCaseModal, setShowUseCaseModal] = useState(false);
+
+  // Wizard Step Management
+  const [currentStep, setCurrentStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(
+    () => new Set<number>()
+  );
+  const requiresAssignee =
+    session?.user?.role === "USER" || session?.user?.role === "MANAGER";
+  
+  // Define all steps
+  const steps = [
+    {
+      id: 0,
+      title: "Client Information",
+      icon: User,
+      description: "Enter client details and contact information",
+      requiredFields: ["clientName", "propertyAddress", "propertyPostcode"],
+    },
+    {
+      id: 1,
+      title: "Assignee Selection",
+      icon: UserCog,
+      description: "Assign report to manager or admin",
+      requiredFields: ["selectedAssigneeId"],
+      conditional: requiresAssignee,
+    },
+    {
+      id: 2,
+      title: "Property Information",
+      icon: MapPin,
+      description: "Property address, structure details, and access notes",
+      requiredFields: ["propertyAddress", "propertyPostcode"],
+    },
+    {
+      id: 3,
+      title: "Claim Information",
+      icon: FileText,
+      description: "Insurance claim details and incident information",
+      requiredFields: [],
+    },
+    {
+      id: 4,
+      title: "Cover Page Information",
+      icon: FileText,
+      description: "Report instructions and standards references",
+      requiredFields: [],
+    },
+    {
+      id: 5,
+      title: "Additional Contacts",
+      icon: User,
+      description: "Builder, developer, and owner management contacts",
+      requiredFields: [],
+    },
+    {
+      id: 6,
+      title: "Maintenance History",
+      icon: Clock,
+      description: "Previous inspection and repair history",
+      requiredFields: [],
+    },
+    {
+      id: 7,
+      title: "Technician Report",
+      icon: FileText,
+      description: "Field report from the technician",
+      requiredFields: ["technicianFieldReport"],
+    },
+    {
+      id: 8,
+      title: "NIR Inspection Data",
+      icon: CheckCircle,
+      description: "Moisture readings, affected areas, and scope items",
+      requiredFields: [],
+    },
+    {
+      id: 9,
+      title: "Hazard Profile",
+      icon: AlertTriangle,
+      description: "Methamphetamine screening and biological mould detection",
+      requiredFields: [],
+    },
+    {
+      id: 10,
+      title: "Timeline Estimation",
+      icon: Clock,
+      description: "Phase dates for make-safe, remediation, and verification",
+      requiredFields: [],
+    },
+    {
+      id: 11,
+      title: "Equipment & Tools",
+      icon: Wrench,
+      description: "Psychrometric assessment and equipment selection",
+      requiredFields: [],
+    },
+  ];
+
+  // Filter steps based on conditions
+  const visibleSteps = steps.filter((step) => 
+    !step.conditional || step.conditional === true
+  );
+
+  // Keep current step in bounds when visible steps change
+  useEffect(() => {
+    if (currentStep >= visibleSteps.length) {
+      setCurrentStep(Math.max(0, visibleSteps.length - 1));
+    }
+  }, [currentStep, visibleSteps.length]);
+
+  // Skip assignee step when not required
+  useEffect(() => {
+    if (!requiresAssignee && visibleSteps[currentStep]?.id === 1) {
+      setCurrentStep((prev) => Math.min(prev + 1, visibleSteps.length - 1));
+    }
+  }, [currentStep, requiresAssignee, visibleSteps]);
+
+  // Validate current step
+  const validateStep = (stepIndex: number): boolean => {
+    const step = visibleSteps[stepIndex];
+    if (!step) return false;
+
+    // Special validation for assignee step
+    if (step.id === 1) {
+      if (!requiresAssignee) return true;
+      if (requiresAssignee && !selectedAssigneeId) {
+        return false;
+      }
+      return true;
+    }
+
+    // Validate required fields
+    for (const field of step.requiredFields) {
+      if (field === "selectedAssigneeId") {
+        if (!selectedAssigneeId) return false;
+      } else if (!formData[field as keyof typeof formData] || 
+                 (typeof formData[field as keyof typeof formData] === "string" && 
+                  formData[field as keyof typeof formData].toString().trim() === "")) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Handle next step
+  const handleNext = () => {
+    if (!validateStep(currentStep)) {
+      toast.error("Please complete all required fields before proceeding");
+      return;
+    }
+
+    // Mark current step as completed
+    setCompletedSteps((prev) => new Set([...prev, currentStep]));
+
+    // Move to next step
+    if (currentStep < visibleSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Handle previous step
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Check if step is accessible (all previous steps completed)
+  const isStepAccessible = (stepIndex: number): boolean => {
+    if (stepIndex === 0) return true;
+    for (let i = 0; i < stepIndex; i++) {
+      if (!completedSteps.has(i) && !validateStep(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
   
   // Equipment: Psychrometric Assessment
   const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(
@@ -858,18 +1039,18 @@ export default function InitialDataEntryForm({
         const bCap = parseInt((b.capacity.match(/(\d+)/) || [])[1] || "0");
         return bCap - aCap;
       });
-
+      
       for (const group of lgrGroups) {
         if (remainingCapacity <= 0) break;
         const capacityMatch = group.capacity.match(/(\d+)/);
         const capacity = capacityMatch ? parseInt(capacityMatch[1]) : 0;
         if (!capacity) continue;
 
-        const needed = Math.ceil(remainingCapacity / capacity);
-        if (needed > 0) {
-          const rate = getEquipmentDailyRate(group.id, pricingConfig);
+          const needed = Math.ceil(remainingCapacity / capacity);
+          if (needed > 0) {
+            const rate = getEquipmentDailyRate(group.id, pricingConfig);
           selections.push({ groupId: group.id, quantity: needed, dailyRate: rate });
-          remainingCapacity -= capacity * needed;
+            remainingCapacity -= capacity * needed;
         }
       }
 
@@ -1044,13 +1225,13 @@ export default function InitialDataEntryForm({
       const capacity = capacityMatch ? parseInt(capacityMatch[1]) : 0;
       if (!capacity) continue;
 
-      const needed = Math.ceil(remainingCapacity / capacity);
-      if (needed > 0) {
+        const needed = Math.ceil(remainingCapacity / capacity);
+        if (needed > 0) {
         const rate = pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0;
         selections.push({ groupId: group.id, quantity: needed, dailyRate: rate });
-        remainingCapacity -= capacity * needed;
+          remainingCapacity -= capacity * needed;
+        }
       }
-    }
 
     // Air movers - S500 count is "units", independent of individual CFM model
     if (airMoversRequired > 0) {
@@ -1279,161 +1460,161 @@ export default function InitialDataEntryForm({
       name: "Residential Water Damage",
       description: "Standard residential water damage scenario with burst pipe in master bedroom and ensuite",
       formData: {
-        clientName: "ABC Co.",
-        clientContactDetails: "John Smith - 0401 987 654 - john.smith@abcco.com.au",
-        propertyAddress: "123 Main Street, Suburb, NSW 2000",
-        propertyPostcode: "2000",
-        claimReferenceNumber: "CLM-2024-001234",
-        incidentDate: "2024-01-15",
-        technicianAttendanceDate: "2024-01-16",
-        technicianName: "Mark O'Connor",
-        technicianFieldReport: "Attended site at 10:00 AM. Found significant water damage in master bedroom and ensuite. Water source appears to be burst pipe in wall cavity. Moisture readings elevated throughout affected areas. Immediate extraction required. Containment set up to prevent cross-contamination.",
-        buildingAge: "2010",
-        structureType: "Residential - Two Storey",
-        accessNotes: "Key under mat, owner present during inspection",
-        propertyId: "PROP-2024-001",
-        jobNumber: "JOB-2024-056",
-        reportInstructions: "Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity.",
-        builderDeveloperCompanyName: "Premier Builders Pty Ltd",
-        builderDeveloperContact: "Sarah Johnson",
-        builderDeveloperAddress: "456 Builder Street, Sydney NSW 2000",
-        builderDeveloperPhone: "02 9876 5432",
-        ownerManagementContactName: "Michael Brown",
-        ownerManagementPhone: "0412 345 678",
-        ownerManagementEmail: "michael.brown@management.com.au",
-        lastInspectionDate: "2023-06-15",
-        buildingChangedSinceLastInspection: "No",
-        structureChangesSinceLastInspection: "No",
-        previousLeakage: "No",
-        emergencyRepairPerformed: "Yes",
-        insurerName: "Allianz Insurance",
-        methamphetamineScreen: "NEGATIVE",
-        methamphetamineTestCount: "3",
-        biologicalMouldDetected: false,
-        biologicalMouldCategory: "",
-        phase1StartDate: "2024-01-17",
-        phase1EndDate: "2024-01-19",
-        phase2StartDate: "2024-01-20",
-        phase2EndDate: "2024-01-28",
-        phase3StartDate: "2024-01-29",
-        phase3EndDate: "2024-01-31",
+      clientName: "ABC Co.",
+      clientContactDetails: "John Smith - 0401 987 654 - john.smith@abcco.com.au",
+      propertyAddress: "123 Main Street, Suburb, NSW 2000",
+      propertyPostcode: "2000",
+      claimReferenceNumber: "CLM-2024-001234",
+      incidentDate: "2024-01-15",
+      technicianAttendanceDate: "2024-01-16",
+      technicianName: "Mark O'Connor",
+      technicianFieldReport: "Attended site at 10:00 AM. Found significant water damage in master bedroom and ensuite. Water source appears to be burst pipe in wall cavity. Moisture readings elevated throughout affected areas. Immediate extraction required. Containment set up to prevent cross-contamination.",
+      buildingAge: "2010",
+      structureType: "Residential - Two Storey",
+      accessNotes: "Key under mat, owner present during inspection",
+      propertyId: "PROP-2024-001",
+      jobNumber: "JOB-2024-056",
+      reportInstructions: "Provide a restoration inspection report per IICRC S500, S520, WHS Regulations 2011, NCC, and AS/NZS 3000. Provide recommendations to ensure longevity.",
+      builderDeveloperCompanyName: "Premier Builders Pty Ltd",
+      builderDeveloperContact: "Sarah Johnson",
+      builderDeveloperAddress: "456 Builder Street, Sydney NSW 2000",
+      builderDeveloperPhone: "02 9876 5432",
+      ownerManagementContactName: "Michael Brown",
+      ownerManagementPhone: "0412 345 678",
+      ownerManagementEmail: "michael.brown@management.com.au",
+      lastInspectionDate: "2023-06-15",
+      buildingChangedSinceLastInspection: "No",
+      structureChangesSinceLastInspection: "No",
+      previousLeakage: "No",
+      emergencyRepairPerformed: "Yes",
+      insurerName: "Allianz Insurance",
+      methamphetamineScreen: "NEGATIVE",
+      methamphetamineTestCount: "3",
+      biologicalMouldDetected: false,
+      biologicalMouldCategory: "",
+      phase1StartDate: "2024-01-17",
+      phase1EndDate: "2024-01-19",
+      phase2StartDate: "2024-01-20",
+      phase2EndDate: "2024-01-28",
+      phase3StartDate: "2024-01-29",
+      phase3EndDate: "2024-01-31",
       },
       nirMoistureReadings: [
-        {
-          id: "1",
-          location: "Master Bedroom - Floor",
-          surfaceType: "Carpet",
-          moistureLevel: 45.5,
-          depth: "Surface"
-        },
-        {
-          id: "2",
-          location: "Master Bedroom - Wall",
-          surfaceType: "Drywall",
-          moistureLevel: 38.2,
-          depth: "Subsurface"
-        },
-        {
-          id: "3",
-          location: "Ensuite - Floor",
-          surfaceType: "Tile",
-          moistureLevel: 52.1,
-          depth: "Surface"
-        },
-        {
-          id: "4",
-          location: "Ensuite - Wall",
-          surfaceType: "Drywall",
-          moistureLevel: 41.8,
-          depth: "Subsurface"
-        },
-        {
-          id: "5",
-          location: "Hallway - Floor",
-          surfaceType: "Hardwood",
-          moistureLevel: 28.5,
-          depth: "Surface"
-        }
+      {
+        id: "1",
+        location: "Master Bedroom - Floor",
+        surfaceType: "Carpet",
+        moistureLevel: 45.5,
+        depth: "Surface"
+      },
+      {
+        id: "2",
+        location: "Master Bedroom - Wall",
+        surfaceType: "Drywall",
+        moistureLevel: 38.2,
+        depth: "Subsurface"
+      },
+      {
+        id: "3",
+        location: "Ensuite - Floor",
+        surfaceType: "Tile",
+        moistureLevel: 52.1,
+        depth: "Surface"
+      },
+      {
+        id: "4",
+        location: "Ensuite - Wall",
+        surfaceType: "Drywall",
+        moistureLevel: 41.8,
+        depth: "Subsurface"
+      },
+      {
+        id: "5",
+        location: "Hallway - Floor",
+        surfaceType: "Hardwood",
+        moistureLevel: 28.5,
+        depth: "Surface"
+      }
       ],
       nirAffectedAreas: [
-        {
-          id: "1",
-          roomZoneId: "Master Bedroom",
-          affectedSquareFootage: 180,
-          waterSource: "Clean Water",
-          timeSinceLoss: 24
-        },
-        {
-          id: "2",
-          roomZoneId: "Ensuite",
-          affectedSquareFootage: 45,
-          waterSource: "Clean Water",
-          timeSinceLoss: 24
-        },
-        {
-          id: "3",
-          roomZoneId: "Hallway",
-          affectedSquareFootage: 30,
-          waterSource: "Clean Water",
-          timeSinceLoss: 24
-        }
+      {
+        id: "1",
+        roomZoneId: "Master Bedroom",
+        affectedSquareFootage: 180,
+        waterSource: "Clean Water",
+        timeSinceLoss: 24
+      },
+      {
+        id: "2",
+        roomZoneId: "Ensuite",
+        affectedSquareFootage: 45,
+        waterSource: "Clean Water",
+        timeSinceLoss: 24
+      },
+      {
+        id: "3",
+        roomZoneId: "Hallway",
+        affectedSquareFootage: 30,
+        waterSource: "Clean Water",
+        timeSinceLoss: 24
+      }
       ],
       nirSelectedScopeItems: new Set([
-        "remove_carpet",
-        "extract_standing_water",
-        "install_dehumidification",
-        "install_air_movers",
-        "demolish_drywall",
-        "apply_antimicrobial",
-        "dry_out_structure",
-        "containment_setup"
+      "remove_carpet",
+      "extract_standing_water",
+      "install_dehumidification",
+      "install_air_movers",
+      "demolish_drywall",
+      "apply_antimicrobial",
+      "dry_out_structure",
+      "containment_setup"
       ]),
       nirEnvironmentalData: {
-        ambientTemperature: 22,
-        humidityLevel: 65,
-        dewPoint: 15.2,
-        airCirculation: true
+      ambientTemperature: 22,
+      humidityLevel: 65,
+      dewPoint: 15.2,
+      airCirculation: true
       },
       waterClass: 2,
       temperature: 22,
       humidity: 65,
       systemType: "closed",
       areas: [
-        {
-          id: `area-${Date.now()}-1`,
-          name: "Master Bedroom",
-          length: 5.5,
-          width: 4.0,
-          height: 2.7,
-          wetPercentage: 75
-        },
-        {
-          id: `area-${Date.now()}-2`,
-          name: "Ensuite",
-          length: 3.0,
-          width: 2.5,
-          height: 2.4,
-          wetPercentage: 90
-        },
-        {
-          id: `area-${Date.now()}-3`,
-          name: "Hallway",
-          length: 4.0,
-          width: 1.2,
-          height: 2.7,
-          wetPercentage: 50
-        }
+      {
+        id: `area-${Date.now()}-1`,
+        name: "Master Bedroom",
+        length: 5.5,
+        width: 4.0,
+        height: 2.7,
+        wetPercentage: 75
+      },
+      {
+        id: `area-${Date.now()}-2`,
+        name: "Ensuite",
+        length: 3.0,
+        width: 2.5,
+        height: 2.4,
+        wetPercentage: 90
+      },
+      {
+        id: `area-${Date.now()}-3`,
+        name: "Hallway",
+        length: 4.0,
+        width: 1.2,
+        height: 2.7,
+        wetPercentage: 50
+      }
       ],
       durationDays: 4,
       equipmentSelections: [
-        {
-          groupId: "lgr-55",
-          quantity: 2,
+      {
+        groupId: "lgr-55",
+        quantity: 2,
           dailyRate: 45.00
-        },
-        {
-          groupId: "airmover-800",
-          quantity: 4,
+      },
+      {
+        groupId: "airmover-800",
+        quantity: 4,
           dailyRate: 25.00
         }
       ]
@@ -1622,10 +1803,10 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-003",
         jobNumber: "JOB-2024-112",
         reportInstructions: "Provide mould remediation report per IICRC S520, AS/NZS 3000, and WHS Regulations. Include health and safety recommendations.",
-        builderDeveloperCompanyName: "",
-        builderDeveloperContact: "",
-        builderDeveloperAddress: "",
-        builderDeveloperPhone: "",
+        builderDeveloperCompanyName: "Brisbane Builders Group",
+        builderDeveloperContact: "David Martinez",
+        builderDeveloperAddress: "234 Construction Way, Brisbane QLD 4000",
+        builderDeveloperPhone: "07 3456 7890",
         ownerManagementContactName: "Robert Smith",
         ownerManagementPhone: "0400 123 456",
         ownerManagementEmail: "r.smith@email.com",
@@ -1777,10 +1958,10 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-004",
         jobNumber: "JOB-2024-145",
         reportInstructions: "Provide storm damage assessment report per IICRC S500, NCC, and AS/NZS 3000. Include structural assessment recommendations.",
-        builderDeveloperCompanyName: "",
-        builderDeveloperContact: "",
-        builderDeveloperAddress: "",
-        builderDeveloperPhone: "",
+        builderDeveloperCompanyName: "Sydney Construction Co.",
+        builderDeveloperContact: "Amanda White",
+        builderDeveloperAddress: "567 Builder Avenue, Sydney NSW 2000",
+        builderDeveloperPhone: "02 9123 4567",
         ownerManagementContactName: "Patricia Johnson",
         ownerManagementPhone: "0423 456 789",
         ownerManagementEmail: "p.johnson@email.com",
@@ -1919,10 +2100,10 @@ export default function InitialDataEntryForm({
         propertyId: "PROP-2024-005",
         jobNumber: "JOB-2024-178",
         reportInstructions: "Provide comprehensive flood damage report per IICRC S500, WHS Regulations, and AS/NZS 3000. Include health and safety protocols for Category 3 water.",
-        builderDeveloperCompanyName: "",
-        builderDeveloperContact: "",
-        builderDeveloperAddress: "",
-        builderDeveloperPhone: "",
+        builderDeveloperCompanyName: "Adelaide Property Developers",
+        builderDeveloperContact: "Christopher Taylor",
+        builderDeveloperAddress: "890 Development Road, Adelaide SA 5000",
+        builderDeveloperPhone: "08 7654 3210",
         ownerManagementContactName: "Jennifer Lee",
         ownerManagementPhone: "0434 567 890",
         ownerManagementEmail: "j.lee@email.com",
@@ -2118,7 +2299,7 @@ export default function InitialDataEntryForm({
 
     // Set Equipment Selections with updated rates
     const equipmentSelectionsWithRates = useCase.equipmentSelections.map(sel => ({
-      ...sel,
+        ...sel,
       dailyRate: pricingConfig
         ? getEquipmentDailyRate(sel.groupId, pricingConfig)
         : sel.dailyRate
@@ -2181,13 +2362,13 @@ export default function InitialDataEntryForm({
 
   return (
     <div className="max-w-full mx-auto">
+      {/* Header */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
             <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-neutral-50")}>Initial Data Entry</h2>
             <p className={cn("text-neutral-600 dark:text-neutral-400")}>
-              Enter the basic information from the technician's field report. All
-              fields marked with * are required.
+              Complete each step to build your report. All fields marked with * are required.
             </p>
           </div>
           <button
@@ -2217,13 +2398,112 @@ export default function InitialDataEntryForm({
         </div>
       </div>
 
+      {/* Progress Indicator */}
+      <div
+        className={cn(
+          "mb-6 rounded-xl border",
+          "bg-white dark:bg-neutral-900/60",
+          "border-neutral-200 dark:border-neutral-800"
+        )}
+      >
+        <div className="px-6 pt-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-neutral-50")}>
+                Step {currentStep + 1} of {visibleSteps.length}
+              </h3>
+              <p className={cn("text-sm", "text-neutral-600 dark:text-neutral-400")}>
+                {visibleSteps[currentStep]?.title}
+              </p>
+            </div>
+            <div
+              className={cn(
+                "px-3 py-1.5 rounded-full text-sm font-semibold",
+                "bg-blue-500/10 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-400"
+              )}
+            >
+              {Math.round(((currentStep + 1) / visibleSteps.length) * 100)}%
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 pt-4">
+          <div
+            className={cn(
+              "h-2 rounded-full overflow-hidden",
+              "bg-neutral-200 dark:bg-slate-700"
+            )}
+          >
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500 ease-out",
+                "bg-gradient-to-r from-blue-500 to-cyan-500"
+              )}
+              style={{
+                width: `${((currentStep + 1) / visibleSteps.length) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="px-6 pb-4">
+          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2">
+            {visibleSteps.map((step, index) => {
+              const isCompleted = completedSteps.has(index) || index < currentStep;
+              const isCurrent = index === currentStep;
+              const isAccessible = isStepAccessible(index);
+
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => {
+                    if (isAccessible || isCompleted) {
+                      setCurrentStep(index);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  disabled={!isAccessible && !isCompleted}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                    isCurrent
+                      ? "bg-blue-500 text-white"
+                      : isCompleted
+                      ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                      : isAccessible
+                      ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                      : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-semibold",
+                      isCurrent
+                        ? "bg-white/20 text-white"
+                        : isCompleted
+                        ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                        : "bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400"
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  {step.title}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Client Information Section */}
-        <div className={cn(
-          "p-4 rounded-lg border",
-          "border-neutral-200 dark:border-neutral-800",
-          "bg-white dark:bg-neutral-900/50"
-        )}>
+        {/* Step 0: Client Information Section */}
+        {visibleSteps[currentStep]?.id === 0 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <User className="w-4 h-4" />
             Client Information
@@ -2275,14 +2555,18 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Assignee Selection Section (for Technicians and Managers) */}
-        {(session?.user?.role === "USER" || session?.user?.role === "MANAGER") && (
-          <div className={cn(
-            "p-4 rounded-lg border",
-            "border-neutral-200 dark:border-neutral-800",
-            "bg-white dark:bg-neutral-900/50"
-          )}>
+        {/* Step 1: Assignee Selection Section (for Technicians and Managers) */}
+        {visibleSteps[currentStep]?.id === 1 && requiresAssignee && (
+          <div
+            className={cn(
+              "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+              "border-blue-200 dark:border-blue-800",
+              "bg-white dark:bg-neutral-900/50",
+              "shadow-lg shadow-blue-500/10"
+            )}
+          >
             <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
               {session?.user?.role === "USER" ? (
                 <UserCog className="w-4 h-4" />
@@ -2291,18 +2575,23 @@ export default function InitialDataEntryForm({
               )}
               {session?.user?.role === "USER" ? "Assign to Manager" : "Assign to Admin"}
             </h3>
-            <div>
-              <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
-                {session?.user?.role === "USER" ? "Manager" : "Admin"} <span className={cn("text-error-500 dark:text-error-400")}>*</span>
+
+            <div className="space-y-2">
+              <label className={cn("block text-sm font-medium", "text-neutral-700 dark:text-neutral-300")}>
+                {session?.user?.role === "USER" ? "Manager" : "Admin"}{" "}
+                <span className={cn("text-error-500 dark:text-error-400")}>*</span>
               </label>
+
               {loadingAssignees ? (
                 <div className={cn("flex items-center gap-2 py-2", "text-neutral-600 dark:text-neutral-400")}>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Loading {session?.user?.role === "USER" ? "managers" : "admins"}...</span>
+                  <span className="text-sm">
+                    Loading {session?.user?.role === "USER" ? "managers" : "admins"}...
+                  </span>
                 </div>
               ) : assignees.length === 0 ? (
-                <div className={cn("py-2 text-sm", "text-neutral-600 dark:text-neutral-400")}>
-                  No {session?.user?.role === "USER" ? "managers" : "admins"} available in your organization
+                <div className={cn("p-3 rounded-lg text-sm", "bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400")}>
+                  No {session?.user?.role === "USER" ? "managers" : "admins"} available in your organization.
                 </div>
               ) : (
                 <select
@@ -2324,21 +2613,24 @@ export default function InitialDataEntryForm({
                   ))}
                 </select>
               )}
-              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-neutral-400")}>
-                {session?.user?.role === "USER" 
-                  ? "Select the manager who will oversee this report"
-                  : "Select the admin who will oversee this report"}
+
+              <p className={cn("text-xs", "text-neutral-600 dark:text-neutral-400")}>
+                {session?.user?.role === "USER"
+                  ? "Select the manager who will oversee this report."
+                  : "Select the admin who will oversee this report."}
               </p>
             </div>
           </div>
         )}
 
-        {/* Property Information Section */}
-        <div className={cn(
-          "p-6 rounded-lg border",
-          "border-neutral-200 dark:border-neutral-800",
-          "bg-white dark:bg-neutral-900/50"
-        )}>
+        {/* Step 2: Property Information Section */}
+        {visibleSteps[currentStep]?.id === 2 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <MapPin className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
             Property Information
@@ -2551,13 +2843,16 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Claim Information Section */}
-        <div className={cn(
-          "p-4 rounded-lg border",
-          "border-neutral-200 dark:border-neutral-800",
-          "bg-white dark:bg-neutral-900/50"
-        )}>
+        {/* Step 3: Claim Information Section */}
+        {visibleSteps[currentStep]?.id === 3 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <FileText className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             Claim Information
@@ -2672,13 +2967,16 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Cover Page Information Section */}
-        <div className={cn(
-          "p-4 rounded-lg border",
-          "border-neutral-200 dark:border-neutral-800",
-          "bg-white dark:bg-neutral-900/50"
-        )}>
+        {/* Step 4: Cover Page Information Section */}
+        {visibleSteps[currentStep]?.id === 4 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <FileText className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             Cover Page Information
@@ -2708,13 +3006,16 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Additional Contact Information Section */}
-        <div className={cn(
-          "p-4 rounded-lg border",
-          "border-neutral-200 dark:border-neutral-800",
-          "bg-white dark:bg-neutral-900/50"
-        )}>
+        {/* Step 5: Additional Contact Information Section */}
+        {visibleSteps[currentStep]?.id === 5 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <User className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             Additional Contact Information
@@ -2872,9 +3173,16 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Previous Maintenance & Repair History Section */}
-        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+        {/* Step 6: Previous Maintenance & Repair History Section */}
+        {visibleSteps[currentStep]?.id === 6 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <Clock className="w-4 h-4" />
             Previous Maintenance & Repair History
@@ -2961,8 +3269,13 @@ export default function InitialDataEntryForm({
                   )}
                 >
                   <option value="">Select...</option>
-                  <option value="Yes">Yes</option>
                   <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                  <option value="Yes - Minor leak in 2023">Yes - Minor leak in 2023</option>
+                  <option value="Yes - Ongoing shower leak">Yes - Ongoing shower leak</option>
+                  <option value="Yes - Previous water damage">Yes - Previous water damage</option>
+                  <option value="Yes - Roof leak">Yes - Roof leak</option>
+                  <option value="Yes - Plumbing issue">Yes - Plumbing issue</option>
                 </select>
               </div>
               <div>
@@ -2989,9 +3302,16 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Technician Field Report Section */}
-        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+        {/* Step 7: Technician Field Report Section */}
+        {visibleSteps[currentStep]?.id === 7 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <FileText className="w-4 h-4" />
             Technician Field Report
@@ -3018,13 +3338,16 @@ export default function InitialDataEntryForm({
             />
           </div>
         </div>
+        )}
 
-        {/* NIR Fields - Available for all report types */}
-        <div className={cn(
-          "p-6 rounded-lg border space-y-6",
-          "border-neutral-200 dark:border-green-500/50",
-          "bg-neutral-50 dark:bg-green-500/10"
-        )}>
+        {/* Step 8: NIR Fields - Available for all report types */}
+        {visibleSteps[currentStep]?.id === 8 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-green-200 dark:border-green-500/50",
+            "bg-green-50 dark:bg-green-500/10",
+            "shadow-lg shadow-green-500/10"
+          )}>
           <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-green-300")}>
             <CheckCircle className="w-5 h-5" />
             NIR Inspection Data
@@ -3421,9 +3744,16 @@ export default function InitialDataEntryForm({
           </div>
 
         </div>
+        )}
 
-        {/* Hazard Profile Section */}
-        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+        {/* Step 9: Hazard Profile Section */}
+        {visibleSteps[currentStep]?.id === 9 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <AlertTriangle className="w-4 h-4" />
             Hazard Profile
@@ -3520,9 +3850,16 @@ export default function InitialDataEntryForm({
             )}
           </div>
         </div>
+        )}
 
-        {/* Timeline Estimation Section */}
-        <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50">
+        {/* Step 10: Timeline Estimation Section */}
+        {visibleSteps[currentStep]?.id === 10 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
             <Clock className="w-4 h-4" />
             Timeline Estimation (Optional)
@@ -3647,9 +3984,16 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Equipment & Tools Selection Section */}
-        <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 space-y-6">
+        {/* Step 11: Equipment & Tools Selection Section */}
+        {visibleSteps[currentStep]?.id === 11 && (
+          <div className={cn(
+            "p-6 rounded-xl border-2 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300",
+            "border-blue-200 dark:border-blue-800",
+            "bg-white dark:bg-neutral-900/50",
+            "shadow-lg shadow-blue-500/10"
+          )}>
           <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Wrench className="w-5 h-5" />
             Equipment & Tools Selection
@@ -3835,7 +4179,7 @@ export default function InitialDataEntryForm({
                           <span>
                             {totalAFDUnits} / {afdUnitsRequired} Units
                           </span>
-                        </div>
+                  </div>
                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                           <div
                             className="bg-cyan-500 h-2 rounded-full"
@@ -3846,7 +4190,7 @@ export default function InitialDataEntryForm({
                               )}%`,
                             }}
                           />
-                        </div>
+                </div>
                       </div>
                     )}
                   </div>
@@ -4044,8 +4388,8 @@ export default function InitialDataEntryForm({
                                   (pricingConfig ? getEquipmentDailyRate(group.id, pricingConfig) : 0)
                                 ).toFixed(2)}
                                 /day
-                              </div>
-                            </div>
+                </div>
+              </div>
                             {quantity > 0 && (
                               <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                 {quantity}
@@ -4077,34 +4421,79 @@ export default function InitialDataEntryForm({
             </div>
           </div>
         </div>
+        )}
 
-        {/* Submit Button */}
-        <div className="flex justify-end gap-4">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-6 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:bg-neutral-100 dark:bg-neutral-800 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Saving...
-              </>
+        {/* Navigation Buttons */}
+        <div className={cn(
+          "sticky bottom-0 left-0 right-0 p-6 rounded-t-xl border-t-2",
+          "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm",
+          "border-neutral-200 dark:border-neutral-800",
+          "shadow-2xl shadow-neutral-900/10"
+        )}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={currentStep === 0}
+              className={cn(
+                "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
+                "border-2",
+                currentStep === 0
+                  ? "border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed"
+                  : "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600"
+              )}
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+              Previous
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className={cn("text-sm", "text-neutral-600 dark:text-neutral-400")}>
+                Step {currentStep + 1} of {visibleSteps.length}
+              </span>
+            </div>
+
+            {currentStep === visibleSteps.length - 1 ? (
+              <button
+                type="submit"
+                disabled={loading || !validateStep(currentStep)}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
+                  "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
+                  "hover:shadow-lg hover:shadow-blue-500/50",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Save & Continue
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
             ) : (
-              <>
-                Save & Continue
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!validateStep(currentStep)}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
+                  !validateStep(currentStep)
+                    ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-blue-500/50"
+                )}
+              >
+                Next
                 <ArrowRight className="w-4 h-4" />
-              </>
+              </button>
             )}
-          </button>
-                </div>
+          </div>
+        </div>
       </form>
 
       {/* Report Type Selection - Appears after saving (outside form) */}
@@ -4179,7 +4568,7 @@ export default function InitialDataEntryForm({
 
               <button
                 type="button"
-            onClick={() => handleReportTypeChoice("enhanced")}
+              onClick={() => handleReportTypeChoice("enhanced")}
             disabled={loading || isTrial}
               className={cn(
                 "p-6 rounded-lg border-2 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
@@ -4209,7 +4598,7 @@ export default function InitialDataEntryForm({
               {isTrial
                 ? "Upgrade required: Enhanced reports are available on paid plans."
                 : "Answer Tier 1 critical questions, then generate report"}
-            </p>
+              </p>
                 <div className="space-y-2">
                 {[
                   "All Basic Report features",
@@ -4223,8 +4612,8 @@ export default function InitialDataEntryForm({
                     className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
                   >
                     <CheckCircle className={cn("w-4 h-4", "text-neutral-700 dark:text-primary-400")} />
-                    <span>{feature}</span>
-                  </div>
+                      <span>{feature}</span>
+                    </div>
                   ))}
                 </div>
               </button>
@@ -4261,7 +4650,7 @@ export default function InitialDataEntryForm({
               {isTrial
                 ? "Upgrade required: Optimised reports are available on paid plans."
                 : "Complete all tiers including photo uploads, then generate report"}
-            </p>
+              </p>
               <div className="space-y-2">
                 {[
                   "All Enhanced features",
