@@ -40,6 +40,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type Member = {
   id: string
@@ -128,6 +136,11 @@ export default function TeamPage() {
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
   
+  // Credentials modal state
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null)
+  const [copiedField, setCopiedField] = useState<"email" | "password" | "both" | null>(null)
+  
   // Remove member state
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
   const [removing, setRemoving] = useState(false)
@@ -158,6 +171,15 @@ export default function TeamPage() {
     load()
   }, [])
 
+  // Debug: Log modal state changes
+  useEffect(() => {
+    console.log("Credentials modal state changed:", {
+      showCredentialsModal,
+      hasCredentials: !!credentials,
+      credentials: credentials ? { email: credentials.email, password: "***" } : null
+    })
+  }, [showCredentialsModal, credentials])
+
   const createInvite = async () => {
     if (!inviteEmail.trim()) {
       toast.error("Email is required")
@@ -178,19 +200,73 @@ export default function TeamPage() {
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       })
       const json = await res.json()
+      
+      // Debug logging
+      console.log("Invite response:", { status: res.status, json })
+      
       if (!res.ok) {
         toast.error(json.error || "Failed to create invite")
         return
       }
 
-      if (json.tempPassword && res.status === 207) {
-        toast.success(
-          `Account created for ${json.invite?.email || inviteEmail}. Email sending failed - please share credentials manually.`,
-          { duration: 6000 }
-        )
+      // Show credentials modal if credentials are available
+      // Check multiple possible response formats
+      let credentialsData = null
+      
+      // Check for credentials in response (new users will have password, transferred users will have null password)
+      if (json.credentials && json.credentials.email) {
+        credentialsData = {
+          email: json.credentials.email,
+          password: json.credentials.password || null
+        }
+      } else if (json.tempPassword && (json.invite?.email || json.user?.email || inviteEmail)) {
+        credentialsData = {
+          email: json.invite?.email || json.user?.email || inviteEmail,
+          password: json.tempPassword
+        }
+      } else if (json.user?.email || json.invite?.email) {
+        // For transferred users, show email but no password
+        credentialsData = {
+          email: json.user?.email || json.invite?.email || inviteEmail,
+          password: null
+        }
+      }
+
+      // Show modal if we have at least an email
+      if (credentialsData && credentialsData.email) {
+        console.log("✅ Credentials found, showing modal:", {
+          email: credentialsData.email,
+          hasPassword: !!credentialsData.password
+        })
+        
+        // Set both states together - React will batch these updates
+        setCredentials({
+          email: credentialsData.email,
+          password: credentialsData.password || ""
+        })
+        setShowCredentialsModal(true)
+        
+        if (res.status === 207) {
+          toast.success(
+            `Account created for ${credentialsData.email}. Email sending failed - please share credentials manually.`,
+            { duration: 6000 }
+          )
+        } else if (json.transferred || json.updated) {
+          toast.success(
+            `✨ User ${json.transferred ? 'transferred' : 'updated'} successfully! Notification email sent to ${credentialsData.email}.`,
+            { duration: 5000 }
+          )
+        } else {
+          toast.success(
+            `✨ Account created and invitation email sent to ${credentialsData.email}!`,
+            { duration: 5000 }
+          )
+        }
       } else {
+        console.warn("⚠️ No credentials found in response. Response:", json)
+        const userEmail = json.invite?.email || json.user?.email || inviteEmail
         toast.success(
-          `✨ Account created and invitation email sent to ${json.invite?.email || inviteEmail}!`,
+          `✨ Account created and invitation email sent to ${userEmail}!`,
           { duration: 5000 }
         )
       }
@@ -213,6 +289,32 @@ export default function TeamPage() {
       setTimeout(() => setCopiedInviteId(null), 2000)
     } catch (err) {
       toast.error("Failed to copy link")
+    }
+  }
+
+  const copyCredentials = async (field: "email" | "password" | "both") => {
+    if (!credentials) return
+    
+    try {
+      let textToCopy = ""
+      if (field === "email") {
+        textToCopy = credentials.email
+      } else if (field === "password") {
+        textToCopy = credentials.password
+      } else {
+        textToCopy = `Email: ${credentials.email}\nPassword: ${credentials.password}`
+      }
+      
+      await navigator.clipboard.writeText(textToCopy)
+      setCopiedField(field)
+      toast.success(
+        field === "both" 
+          ? "Credentials copied to clipboard!" 
+          : `${field === "email" ? "Email" : "Password"} copied to clipboard!`
+      )
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (err) {
+      toast.error("Failed to copy to clipboard")
     }
   }
 
@@ -691,6 +793,158 @@ export default function TeamPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Credentials Modal */}
+      <Dialog open={showCredentialsModal} onOpenChange={setShowCredentialsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              {credentials?.password ? "User Account Created" : "User Added to Organization"}
+            </DialogTitle>
+            <DialogDescription>
+              {credentials?.password 
+                ? "Account has been created successfully. Please copy and share these credentials with the user."
+                : "User has been added to your organization. Please share the email address with them."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Email Field */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email / Username
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={credentials?.email || ""}
+                  className={cn(
+                    "flex-1 px-3 py-2 rounded-lg border",
+                    "bg-gray-50 dark:bg-slate-800/50",
+                    "border-gray-300 dark:border-slate-600",
+                    "text-gray-900 dark:text-white",
+                    "font-mono text-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyCredentials("email")}
+                  className="shrink-0"
+                >
+                  {copiedField === "email" ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Password Field - Only show if password exists */}
+            {credentials?.password && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Temporary Password
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={credentials.password}
+                    className={cn(
+                      "flex-1 px-3 py-2 rounded-lg border",
+                      "bg-gray-50 dark:bg-slate-800/50",
+                      "border-gray-300 dark:border-slate-600",
+                      "text-gray-900 dark:text-white",
+                      "font-mono text-sm font-semibold",
+                      "focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyCredentials("password")}
+                    className="shrink-0"
+                  >
+                    {copiedField === "password" ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className={cn(
+              "p-3 rounded-lg border",
+              credentials?.password 
+                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+            )}>
+              <p className={cn(
+                "text-xs",
+                credentials?.password 
+                  ? "text-blue-800 dark:text-blue-200"
+                  : "text-amber-800 dark:text-amber-200"
+              )}>
+                {credentials?.password ? (
+                  <>
+                    <strong>Note:</strong> The user will be required to change their password on first login. 
+                    An invitation email with login credentials has been sent to {credentials?.email || "the user"}.
+                  </>
+                ) : (
+                  <>
+                    <strong>Note:</strong> This user already has an account. They can log in with their existing credentials. 
+                    A notification email has been sent to {credentials?.email || "the user"}.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {credentials?.password && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => copyCredentials("both")}
+                className="w-full sm:w-auto"
+              >
+                {copiedField === "both" ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Both
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={() => {
+                setShowCredentialsModal(false)
+                setCredentials(null)
+                setCopiedField(null)
+              }}
+              className="w-full sm:w-auto"
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Remove Member Confirmation Dialog */}
       <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
