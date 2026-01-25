@@ -214,7 +214,11 @@ export async function POST(req: NextRequest) {
           name: updatedUser.name,
           role: updatedUser.role
         },
-        updated: true
+        updated: true,
+        credentials: {
+          email: updatedUser.email,
+          password: null // No password for existing users - they already have one
+        }
       })
     }
 
@@ -318,7 +322,11 @@ export async function POST(req: NextRequest) {
         name: updatedUser.name,
         role: updatedUser.role
       },
-      transferred: true // Flag to indicate this was a transfer
+      transferred: true, // Flag to indicate this was a transfer
+      credentials: {
+        email: updatedUser.email,
+        password: null // No password for transferred users - they already have one
+      }
     })
   }
 
@@ -428,6 +436,10 @@ export async function POST(req: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role
+      },
+      credentials: {
+        email: user.email,
+        password: tempPassword
       }
     })
   } catch (error: any) {
@@ -436,11 +448,41 @@ export async function POST(req: NextRequest) {
     // If email sending fails, we should still return success but log the error
     // The account is created, so the user can still log in
     if (error.message?.includes("email") || error.message?.includes("Resend")) {
+      // Find the user and invite that were created before email failed
+      const [createdUser, createdInvite] = await Promise.all([
+        prisma.user.findUnique({
+          where: { email: email.toLowerCase() }
+        }),
+        prisma.userInvite.findFirst({
+          where: { 
+            email: email.toLowerCase(),
+            createdById: session.user.id
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+      ])
+      
       return NextResponse.json(
         {
           message: "User account created, but email sending failed. Please contact the user directly.",
           error: "Email sending failed",
-          tempPassword // Include temp password in response as fallback
+          tempPassword, // Include temp password in response as fallback
+          invite: createdInvite ? {
+            id: createdInvite.id,
+            email: createdInvite.email,
+            role: createdInvite.role,
+            usedAt: createdInvite.usedAt
+          } : undefined,
+          user: createdUser ? {
+            id: createdUser.id,
+            email: createdUser.email,
+            name: createdUser.name,
+            role: createdUser.role
+          } : undefined,
+          credentials: createdUser ? {
+            email: createdUser.email,
+            password: tempPassword
+          } : undefined
         },
         { status: 207 } // 207 Multi-Status
       )
