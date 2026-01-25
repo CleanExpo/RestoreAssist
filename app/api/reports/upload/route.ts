@@ -4,6 +4,134 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 
+// Configuration constants
+const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+const REQUEST_TIMEOUT = 180000 // 180 seconds (3 minutes) for large/complex PDFs
+const MAX_RETRIES = 3
+const INITIAL_RETRY_DELAY = 1000 // 1 second
+const MAX_RETRY_DELAY = 10000 // 10 seconds
+
+/**
+ * Validate PDF file
+ */
+function validatePDF(buffer: Buffer, fileName: string): { valid: boolean; error?: string } {
+  // Check file size
+  if (buffer.length > MAX_FILE_SIZE) {
+    return {
+      valid: false,
+      error: `File size (${(buffer.length / 1024 / 1024).toFixed(2)}MB) exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB. Please upload a smaller file.`
+    }
+  }
+
+  // Check minimum size (PDFs should be at least a few bytes)
+  if (buffer.length < 100) {
+    return {
+      valid: false,
+      error: 'File is too small to be a valid PDF. The file may be corrupted.'
+    }
+  }
+
+  // Check PDF header (PDF files start with %PDF)
+  const header = buffer.slice(0, 4).toString('ascii')
+  if (header !== '%PDF') {
+    // Some PDFs might have BOM or whitespace, check first 10 bytes
+    const headerWithPadding = buffer.slice(0, 10).toString('ascii')
+    if (!headerWithPadding.includes('%PDF')) {
+      return {
+        valid: false,
+        error: 'File does not appear to be a valid PDF. Please ensure the file is a PDF document.'
+      }
+    }
+  }
+
+  // Check for PDF footer (PDFs end with %%EOF)
+  const footer = buffer.slice(-6).toString('ascii')
+  if (!footer.includes('%%EOF') && !footer.includes('%%EOF\n') && !footer.includes('%%EOF\r')) {
+    // Some PDFs might have additional data after EOF, check last 100 bytes
+    const footerWithPadding = buffer.slice(-100).toString('ascii')
+    if (!footerWithPadding.includes('%%EOF')) {
+      // This is a warning, not an error - some valid PDFs might not have EOF marker
+      console.warn(`PDF ${fileName} may not have proper EOF marker, but continuing...`)
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Retry function with exponential backoff
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES,
+  initialDelay: number = INITIAL_RETRY_DELAY
+): Promise<T> {
+  let lastError: Error | null = null
+  let delay = initialDelay
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error: any) {
+      lastError = error
+      
+      // Don't retry on certain errors
+      if (
+        error.message?.includes('invalid_api_key') ||
+        error.message?.includes('401') ||
+        error.message?.includes('403') ||
+        error.message?.includes('file') && error.message?.includes('too large') ||
+        error.message?.includes('file') && error.message?.includes('format')
+      ) {
+        throw error
+      }
+
+      // Check if it's a connection error that should be retried
+      const isConnectionError = 
+        error.message?.includes('connection') ||
+        error.message?.includes('network') ||
+        error.message?.includes('timeout') ||
+        error.message?.includes('ECONNREFUSED') ||
+        error.message?.includes('ENOTFOUND') ||
+        error.message?.includes('ETIMEDOUT') ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ENOTFOUND' ||
+        error.code === 'ETIMEDOUT'
+
+      if (!isConnectionError && attempt < maxRetries - 1) {
+        // For non-connection errors, still retry but log it
+        console.warn(`Non-connection error on attempt ${attempt + 1}/${maxRetries}:`, error.message)
+      }
+
+      if (attempt < maxRetries - 1) {
+        console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms delay...`)
+        await sleep(delay)
+        delay = Math.min(delay * 2, MAX_RETRY_DELAY) // Exponential backoff with max cap
+      }
+    }
+  }
+
+  throw lastError || new Error('Max retries exceeded')
+}
+
+/**
+ * Create timeout promise
+ */
+function createTimeoutPromise(timeoutMs: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Request timeout after ${timeoutMs / 1000} seconds. The PDF may be too large or complex. Please try a smaller file or contact support.`))
+    }, timeoutMs)
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -38,14 +166,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'File must be a PDF' }, { status: 400 })
+    // Validate file type
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      return NextResponse.json({ 
+        error: 'File must be a PDF',
+        details: `Received file type: ${file.type || 'unknown'}. Please upload a PDF document.`
+      }, { status: 400 })
     }
 
+    // Read and validate file
     const arrayBuffer = await file.arrayBuffer()
-    const base64Data = Buffer.from(arrayBuffer).toString('base64')
+    const buffer = Buffer.from(arrayBuffer)
+    
+    // Validate PDF
+    const validation = validatePDF(buffer, file.name)
+    if (!validation.valid) {
+      return NextResponse.json({ 
+        error: validation.error || 'Invalid PDF file',
+        details: 'Please ensure the file is a valid, uncorrupted PDF document.'
+      }, { status: 400 })
+    }
 
-    const anthropic = new Anthropic({ apiKey: anthropicApiKey })
+    const base64Data = buffer.toString('base64')
+    const fileSizeMB = (buffer.length / 1024 / 1024).toFixed(2)
+
+    console.log(`Processing PDF: ${file.name} (${fileSizeMB}MB)`)
+
+    const anthropic = new Anthropic({ 
+      apiKey: anthropicApiKey,
+      timeout: REQUEST_TIMEOUT, // Set timeout at client level
+    })
 
     const systemPrompt = `You are an expert water damage restoration report analysis assistant with deep knowledge of ALL restoration report formats and systems. Your task is to analyze ANY water damage restoration report PDF, regardless of its format, structure, origin, or the system that generated it.
 
@@ -302,25 +452,29 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
 **Prioritize accuracy - it's better to extract partial data correctly than to guess or make assumptions.**`
 
     try {
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8192, // Increased for larger/complex reports
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: [
+      // Use retry logic with timeout for the API call
+      const response = await retryWithBackoff(async () => {
+        // Race between the API call and timeout
+        return Promise.race([
+          anthropic.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 8192, // Increased for larger/complex reports
+            system: systemPrompt,
+            messages: [
               {
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: base64Data
-                }
-              },
-              {
-                type: 'text',
-                text: `Extract ALL structured data from this PDF document and return it as a complete JSON object. 
+                role: 'user',
+                content: [
+                  {
+                    type: 'document',
+                    source: {
+                      type: 'base64',
+                      media_type: 'application/pdf',
+                      data: base64Data
+                    }
+                  },
+                  {
+                    type: 'text',
+                    text: `Extract ALL structured data from this PDF document and return it as a complete JSON object. 
 
 CRITICAL INSTRUCTIONS:
 1. Read the ENTIRE document from first page to last page - do not skip any sections
@@ -334,11 +488,23 @@ CRITICAL INSTRUCTIONS:
 9. Do NOT skip any fields - if information exists anywhere in the document, extract it
 10. Return a complete JSON object with ALL extracted fields - missing fields should be null or empty string as appropriate
 
+IMPORTANT: This PDF may be:
+- Text-based (standard PDF with selectable text)
+- Image-based/scanned (PDF created from scanned documents or images)
+- Mixed format (combination of text and images)
+- Complex layout (tables, forms, multi-column layouts)
+- From any restoration system or format
+
+Regardless of the PDF type, extract as much information as possible. For image-based PDFs, use OCR capabilities to read text from images. For complex layouts, carefully analyze table structures and form fields.
+
 Analyze this document thoroughly and extract every piece of available information, regardless of the report format or system that generated it.`
+                  }
+                ]
               }
             ]
-          }
-        ]
+          }),
+          createTimeoutPromise(REQUEST_TIMEOUT)
+        ])
       })
 
       if (!response.content || response.content.length === 0) {
@@ -499,42 +665,136 @@ Analyze this document thoroughly and extract every piece of available informatio
       })
 
     } catch (claudeError: any) {
-      // Provide more helpful error messages
-      if (claudeError.message?.includes('rate_limit') || claudeError.message?.includes('429')) {
+      console.error('PDF analysis error:', {
+        message: claudeError.message,
+        code: claudeError.code,
+        fileName: file.name,
+        fileSize: fileSizeMB + 'MB'
+      })
+
+      // Handle specific error types with helpful messages
+      const errorMessage = claudeError.message || 'Unknown error'
+      const errorCode = claudeError.code || ''
+      
+      // Rate limiting
+      if (errorMessage.includes('rate_limit') || errorMessage.includes('429') || errorCode === 'rate_limit_exceeded') {
         return NextResponse.json(
-          { error: 'API rate limit exceeded. Please try again in a moment.' },
+          { 
+            error: 'API rate limit exceeded',
+            details: 'Too many requests. Please wait a moment and try again.',
+            suggestion: 'If this persists, consider upgrading your plan or reducing the frequency of uploads.'
+          },
           { status: 429 }
         )
       }
       
-      if (claudeError.message?.includes('invalid_api_key') || claudeError.message?.includes('401')) {
+      // Authentication errors
+      if (errorMessage.includes('invalid_api_key') || errorMessage.includes('401') || errorCode === 'authentication_error') {
         return NextResponse.json(
-          { error: 'Invalid API key. Please check your integration settings.' },
+          { 
+            error: 'Invalid API key',
+            details: 'The API key is invalid or expired. Please check your integration settings.',
+            suggestion: 'Go to Settings > Integrations and verify your Anthropic API key is correct and active.'
+          },
           { status: 401 }
         )
       }
-      
-      if (claudeError.message?.includes('file') || claudeError.message?.includes('document')) {
+
+      // Authorization errors
+      if (errorMessage.includes('403') || errorCode === 'permission_denied') {
         return NextResponse.json(
-          { error: 'Failed to process PDF document. The file may be corrupted or in an unsupported format.' },
-          { status: 400 }
+          { 
+            error: 'Access denied',
+            details: 'You do not have permission to use this API key.',
+            suggestion: 'Please check your API key permissions or contact support.'
+          },
+          { status: 403 }
         )
       }
       
+      // Connection errors (after retries)
+      if (
+        errorMessage.includes('connection') ||
+        errorMessage.includes('network') ||
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('ENOTFOUND') ||
+        errorMessage.includes('ETIMEDOUT') ||
+        errorCode === 'connection_error' ||
+        errorCode === 'ECONNREFUSED' ||
+        errorCode === 'ENOTFOUND' ||
+        errorCode === 'ETIMEDOUT'
+      ) {
+        return NextResponse.json(
+          { 
+            error: 'Connection error',
+            details: 'Failed to connect to the analysis service after multiple retry attempts.',
+            suggestion: 'Please check your internet connection and try again. If the problem persists, the service may be temporarily unavailable.',
+            retryable: true
+          },
+          { status: 503 }
+        )
+      }
+
+      // Timeout errors
+      if (errorMessage.includes('timeout') || errorCode === 'timeout') {
+        return NextResponse.json(
+          { 
+            error: 'Request timeout',
+            details: `The PDF analysis took longer than ${REQUEST_TIMEOUT / 1000} seconds to complete.`,
+            suggestion: 'The PDF may be too large or complex. Try uploading a smaller file, or split the document into smaller sections. For very large reports, consider processing sections separately.',
+            fileSize: fileSizeMB + 'MB'
+          },
+          { status: 408 }
+        )
+      }
+      
+      // File/document errors
+      if (errorMessage.includes('file') || errorMessage.includes('document') || errorMessage.includes('format')) {
+        return NextResponse.json(
+          { 
+            error: 'Failed to process PDF document',
+            details: 'The file may be corrupted, password-protected, or in an unsupported format.',
+            suggestion: 'Please ensure the PDF is: (1) Not password-protected, (2) Not corrupted, (3) A valid PDF format. Try opening the PDF in a PDF viewer first to verify it\'s valid.',
+            fileName: file.name
+          },
+          { status: 400 }
+        )
+      }
+
+      // File too large
+      if (errorMessage.includes('too large') || errorMessage.includes('size limit')) {
+        return NextResponse.json(
+          { 
+            error: 'File too large',
+            details: `The PDF (${fileSizeMB}MB) exceeds the maximum processing size.`,
+            suggestion: `Please upload a PDF smaller than ${MAX_FILE_SIZE / 1024 / 1024}MB, or split the document into smaller sections.`,
+            maxSize: `${MAX_FILE_SIZE / 1024 / 1024}MB`
+          },
+          { status: 413 }
+        )
+      }
+      
+      // Generic error with helpful context
       return NextResponse.json(
         { 
-          error: `Failed to analyze PDF: ${claudeError.message || 'Unknown error'}`,
-          details: 'Please ensure the PDF is a valid water damage restoration report and try again.'
+          error: 'Failed to analyze PDF',
+          details: errorMessage || 'An unexpected error occurred while processing the PDF.',
+          suggestion: 'Please ensure the PDF is a valid water damage restoration report. If the problem persists, try: (1) Re-saving the PDF, (2) Converting to a different PDF format, (3) Contacting support with the error details.',
+          fileName: file.name,
+          fileSize: fileSizeMB + 'MB'
         },
         { status: 500 }
       )
     }
 
   } catch (error: any) {
+    console.error('Unexpected error in PDF upload handler:', error)
+    
     return NextResponse.json(
       { 
-        error: `Failed to process PDF: ${error.message || 'Unknown error'}`,
-        details: 'Please check the file format and try again.'
+        error: 'Failed to process PDF upload',
+        details: error.message || 'An unexpected error occurred. Please try again.',
+        suggestion: 'If this problem persists, please contact support with details about the file you\'re trying to upload.'
       },
       { status: 500 }
     )
