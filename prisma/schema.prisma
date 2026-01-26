@@ -178,6 +178,9 @@ model Client {
   search_vector Unsupported("tsvector")?
 
   @@index([search_vector], type: Gin)
+  @@index([userId, name])
+  @@index([userId, email])
+  @@index([userId, createdAt])
 }
 
 model Report {

@@ -140,36 +140,9 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Get all reports for clients that don't have Client records (for accurate counting)
-    // Fetch all reports without clientId and filter for non-null clientName in JavaScript
-    const allReportsForReportClientsRaw = await prisma.report.findMany({
-      where: {
-        userId: session.user.id,
-        clientId: null
-      },
-      select: {
-        clientName: true,
-        clientContactDetails: true,
-        propertyAddress: true,
-        createdAt: true,
-        id: true,
-        totalCost: true,
-        equipmentCostTotal: true,
-        costEstimationData: true,
-        estimates: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          select: {
-            totalIncGST: true
-          }
-        }
-      }
-    })
-    
-    // Filter for reports with non-null clientName
-    const allReportsForReportClients = allReportsForReportClientsRaw.filter(
-      r => r.clientName !== null && r.clientName.trim() !== ''
-    )
+    // Reuse the reports query from above (allReportsWithoutClientId) instead of duplicate query
+    // This was previously a second query fetching the same data - now we reuse the first result
+    const allReportsForReportClients = reportsWithoutClients
 
     // Group reports by client name
     const reportsByClientName = new Map<string, typeof allReportsForReportClients>()

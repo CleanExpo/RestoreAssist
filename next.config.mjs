@@ -33,6 +33,13 @@ const nextConfig = {
   },
   experimental: {
     // optimizeCss: true, // Disabled - requires critters
+    optimizePackageImports: [
+      '@anthropic-ai/sdk',
+      '@google/generative-ai',
+      'pdfjs-dist',
+      'exceljs',
+      'lucide-react',
+    ],
   },
   images: {
     // Enable Next.js image optimization (disabled: false)
