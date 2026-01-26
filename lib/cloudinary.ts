@@ -78,7 +78,7 @@ export async function deleteImage(publicId: string): Promise<void> {
       name: error?.name,
       error: error
     })
-    throw new Error(\`Failed to delete image from Cloudinary: \${error?.message || 'Unknown error'}\`)
+    throw new Error(`Failed to delete image from Cloudinary: ${error?.message || 'Unknown error'}`)
   }
 }
 
@@ -102,7 +102,7 @@ export async function uploadToCloudinary(
   ensureCloudinaryConfigured()
   try {
     const base64 = buffer.toString('base64')
-    const dataUri = \`data:image/jpeg;base64,\${base64}\`
+    const dataUri = `data:image/jpeg;base64,${base64}`
 
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: options.folder || 'uploads',
@@ -132,11 +132,11 @@ export async function uploadToCloudinary(
   } catch (error: any) {
     console.error('[Cloudinary] Upload error:', error)
     if (error?.http_code === 401) {
-      throw new Error(\`Cloudinary authentication failed. Error: \${error?.message}\`)
+      throw new Error(`Cloudinary authentication failed. Error: ${error?.message}`)
     } else if (error?.http_code === 400) {
-      throw new Error(\`Cloudinary upload failed: \${error?.message}\`)
+      throw new Error(`Cloudinary upload failed: ${error?.message}`)
     } else {
-      throw new Error(\`Failed to upload image to Cloudinary: \${error?.message || 'Unknown error'}\`)
+      throw new Error(`Failed to upload image to Cloudinary: ${error?.message || 'Unknown error'}`)
     }
   }
 }
@@ -149,12 +149,12 @@ export async function uploadExcelToCloudinary(
   ensureCloudinaryConfigured()
   try {
     const base64 = buffer.toString('base64')
-    const dataUri = \`data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,\${base64}\`
+    const dataUri = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
 
     const result = await cloudinary.uploader.upload(dataUri, {
       folder,
       resource_type: 'raw',
-      public_id: filename.replace(/\.xlsx?\$/i, ''),
+      public_id: filename.replace(/.xlsx?\$/i, ''),
       format: 'xlsx',
     })
 
@@ -162,11 +162,11 @@ export async function uploadExcelToCloudinary(
   } catch (error: any) {
     console.error('[Cloudinary] Excel upload error:', error)
     if (error?.http_code === 401) {
-      throw new Error(\`Cloudinary authentication failed. Error: \${error?.message}\`)
+      throw new Error(`Cloudinary authentication failed. Error: ${error?.message}`)
     } else if (error?.http_code === 400) {
-      throw new Error(\`Cloudinary upload failed: \${error?.message}\`)
+      throw new Error(`Cloudinary upload failed: ${error?.message}`)
     } else {
-      throw new Error(\`Failed to upload Excel file to Cloudinary: \${error?.message || 'Unknown error'}\`)
+      throw new Error(`Failed to upload Excel file to Cloudinary: ${error?.message || 'Unknown error'}`)
     }
   }
 }
