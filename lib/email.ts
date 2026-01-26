@@ -1,6 +1,15 @@
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let resend: Resend | null = null
+function getResendClient(): Resend {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY is not configured")
+    }
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 // ── Signed Authority Form Email ──
 
@@ -62,7 +71,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
     </html>
   `
 
-  return resend.emails.send({
+  return getResendClient().emails.send({
     from: fromEmail,
     to: data.recipientEmail,
     subject: `Signed: ${data.formName} — ${data.clientName}`,
@@ -267,7 +276,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     console.log("📧 [EMAIL] Sending email via Resend API...")
     const startTime = Date.now()
     
-    const result = await resend.emails.send(emailPayload)
+    const result = await getResendClient().emails.send(emailPayload)
     
     const duration = Date.now() - startTime
     console.log("✅ [EMAIL] Email sent successfully!")
