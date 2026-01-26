@@ -60,7 +60,8 @@ export async function GET(
       signatoryName: sig.signatoryName,
       signatoryRole: sig.signatoryRole,
       signatureData: draft ? null : sig.signatureData, // Don't include signatures in draft
-      signedAt: sig.signedAt
+      signedAt: sig.signedAt,
+      signatoryEmail: sig.signatoryEmail
     }))
 
     // Generate PDF
