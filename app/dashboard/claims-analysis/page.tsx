@@ -7,18 +7,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  AlertTriangle, 
+import {
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CheckCircle2,
   DollarSign,
   Download,
   FileText,
   Loader2,
   Play,
   RefreshCw,
-  Search
+  RotateCcw,
+  FileDown,
+  Search,
+  Copy,
+  ChevronDown,
+  ChevronRight,
+  FolderOpen,
+  X,
+  Clock,
+  FileCheck,
 } from 'lucide-react'
+import { exportClaimsCSV, exportClaimsPDF } from '@/lib/claims-export'
+import { GoogleDriveFolderPicker } from '@/components/claims/GoogleDriveFolderPicker'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useSession } from 'next-auth/react'
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 
 interface GapAnalysisResult {
@@ -116,9 +136,54 @@ export default function ClaimsAnalysisPage() {
   const [processing, setProcessing] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<GapAnalysisResult | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<{
+    total: number
+    completed: number
+    currentFile: string
+    fileStatuses: Array<{ name: string; status: 'pending' | 'processing' | 'done' | 'failed'; error?: string }>
+  } | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const fetchFiles = async () => {
-    if (!folderId.trim()) {
+  // Elapsed time counter during processing
+  useEffect(() => {
+    if (processing) {
+      setElapsedTime(0)
+      timerRef.current = setInterval(() => {
+        setElapsedTime(prev => prev + 1)
+      }, 1000)
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [processing])
+
+  const formatElapsed = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return m > 0 ? `${m}m ${s}s` : `${s}s`
+  }
+
+  const cancelAnalysis = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setProcessing(false)
+    setBatchProgress(null)
+    toast('Analysis cancelled', { icon: '⛔' })
+  }, [])
+
+  const fetchFiles = async (overrideFolderId?: string) => {
+    const targetFolderId = overrideFolderId || folderId
+    if (!targetFolderId.trim()) {
       toast.error('Please enter a Google Drive folder ID first')
       return
     }
@@ -133,7 +198,7 @@ export default function ClaimsAnalysisPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          folderId: folderId.trim(),
+          folderId: targetFolderId.trim(),
         }),
       })
 
@@ -194,32 +259,89 @@ export default function ClaimsAnalysisPage() {
     setProcessing(true)
     setAnalysisResults([])
     setSummary(null)
-    
+    setBatchProgress(null)
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
       const response = await fetch('/api/claims/analyze-batch', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folderId: folderId.trim(),
           maxDocuments: maxDocs,
+          stream: true,
         }),
+        signal: controller.signal,
       })
 
-      const data = await response.json()
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to perform analysis')
+      }
 
-      if (response.ok && data.success) {
-        setAnalysisResults(data.results || [])
-        setSummary(data.summary || null)
-        toast.success(`Analysis completed! Processed ${data.results?.length || 0} file(s)`)
-      } else {
-        toast.error(data.error || 'Failed to perform analysis')
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('Streaming not supported')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+
+            if (event.type === 'start') {
+              setBatchProgress({
+                total: event.total,
+                completed: 0,
+                currentFile: '',
+                fileStatuses: Array.from({ length: event.total }, (_, i) => ({
+                  name: files[i]?.name || `File ${i + 1}`,
+                  status: 'pending' as const,
+                })),
+              })
+            } else if (event.type === 'progress') {
+              setBatchProgress(prev => {
+                if (!prev) return prev
+                const updated = { ...prev, fileStatuses: [...prev.fileStatuses] }
+                if (event.status === 'processing') {
+                  updated.currentFile = event.file
+                  updated.fileStatuses[event.index] = { name: event.file, status: 'processing' }
+                } else if (event.status === 'done') {
+                  updated.completed = prev.completed + 1
+                  updated.fileStatuses[event.index] = { name: event.file, status: 'done' }
+                } else if (event.status === 'failed') {
+                  updated.completed = prev.completed + 1
+                  updated.fileStatuses[event.index] = { name: event.file, status: 'failed', error: event.error }
+                }
+                return updated
+              })
+            } else if (event.type === 'complete') {
+              setAnalysisResults(event.results || [])
+              setSummary(event.summary || null)
+              toast.success(`Analysis completed! Processed ${event.results?.length || 0} file(s)`)
+            }
+          } catch {
+            // skip malformed JSON lines
+          }
+        }
       }
     } catch (error: any) {
+      if (error.name === 'AbortError') return // cancelled by user
       toast.error(error.message || 'Failed to perform analysis')
     } finally {
       setProcessing(false)
+      abortControllerRef.current = null
     }
   }
 
@@ -241,16 +363,50 @@ export default function ClaimsAnalysisPage() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'CRITICAL':
-        return 'bg-red-500'
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800'
       case 'HIGH':
-        return 'bg-orange-500'
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
       case 'MEDIUM':
-        return 'bg-yellow-500'
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
       case 'LOW':
-        return 'bg-blue-500'
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
       default:
-        return 'bg-gray-500'
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
     }
+  }
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'CRITICAL':
+        return <AlertTriangle className="h-3 w-3" />
+      case 'HIGH':
+        return <AlertCircle className="h-3 w-3" />
+      case 'MEDIUM':
+        return <Info className="h-3 w-3" />
+      case 'LOW':
+        return <CheckCircle2 className="h-3 w-3" />
+      default:
+        return null
+    }
+  }
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600 dark:text-green-400'
+    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400'
+    return 'text-red-600 dark:text-red-400'
+  }
+
+  const resetAnalysis = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setAnalysisResults([])
+    setSummary(null)
+    setSelectedDocument(null)
+    setViewMode('list')
+    setBatchProgress(null)
+    setProcessing(false)
   }
 
   return (
@@ -263,9 +419,42 @@ export default function ClaimsAnalysisPage() {
           </p>
         </div>
         {summary && (
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">Total Files</div>
-            <div className="text-2xl font-bold">{summary.totalFiles}</div>
+          <div className="flex items-center gap-3">
+            <div className="text-right mr-4">
+              <div className="text-sm text-muted-foreground">Total Files</div>
+              <div className="text-2xl font-bold">{summary.totalFiles}</div>
+            </div>
+            <Button variant="outline" size="sm" onClick={resetAnalysis}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              New Analysis
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Export
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (summary) exportClaimsCSV(analysisResults, summary)
+                  }}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (summary) exportClaimsPDF(analysisResults, summary, folderName)
+                  }}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Export PDF (Print)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -280,33 +469,74 @@ export default function ClaimsAnalysisPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="folderId">Google Drive Folder ID *</Label>
-              <Input
-                id="folderId"
-                placeholder="11xJ4jowWd2Y9xVjWgJKZjpQOTbbPKzS1"
-                value={folderId}
-                onChange={(e) => {
-                  setFolderId(e.target.value)
-                  setFiles([]) // Clear files when folder ID changes
-                }}
+          {/* Folder selection */}
+          <div className="space-y-3">
+            <div className="flex items-end gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="folderId">Google Drive Folder</Label>
+                {folderId ? (
+                  <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/50">
+                    <FolderOpen className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span className="text-sm font-medium truncate">{folderName || folderId}</span>
+                    <button
+                      onClick={() => { setFolderId(''); setFolderName(''); setFiles([]) }}
+                      className="ml-auto text-muted-foreground hover:text-foreground"
+                      disabled={processing}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-2">No folder selected</p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowFolderPicker(true)}
                 disabled={processing || loadingFiles}
-              />
-              <p className="text-xs text-muted-foreground">
-                Extract from Google Drive folder URL: drive.google.com/drive/folders/[FOLDER_ID]
-              </p>
+                className="shrink-0"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Browse Drive
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="folderName">Folder Name (Optional)</Label>
-              <Input
-                id="folderName"
-                placeholder="Completed Claims Q4 2024"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                disabled={processing || loadingFiles}
-              />
-            </div>
+
+            {/* Manual folder ID fallback */}
+            <details className="text-sm">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                Enter folder ID manually
+              </summary>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="folderId" className="text-xs">Folder ID</Label>
+                  <Input
+                    id="folderId"
+                    placeholder="11xJ4jowWd2Y9xVjWgJKZjpQOTbbPKzS1"
+                    value={folderId}
+                    onChange={(e) => {
+                      setFolderId(e.target.value)
+                      setFiles([])
+                    }}
+                    disabled={processing || loadingFiles}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    From URL: drive.google.com/drive/folders/[ID]
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="folderName" className="text-xs">Folder Name (Optional)</Label>
+                  <Input
+                    id="folderName"
+                    placeholder="Completed Claims Q4 2024"
+                    value={folderName}
+                    onChange={(e) => setFolderName(e.target.value)}
+                    disabled={processing || loadingFiles}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </details>
           </div>
           
           {/* Max Documents Input */}
@@ -472,7 +702,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Avg Completeness</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className={`text-2xl font-bold ${getScoreColor(summary.averageScores.completeness)}`}>
                     {summary.averageScores.completeness.toFixed(1)}%
                   </div>
                 </CardContent>
@@ -482,7 +712,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Avg Compliance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className={`text-2xl font-bold ${getScoreColor(summary.averageScores.compliance)}`}>
                     {summary.averageScores.compliance.toFixed(1)}%
                   </div>
                 </CardContent>
@@ -756,6 +986,32 @@ export default function ClaimsAnalysisPage() {
                   </CardContent>
                 </Card>
 
+                {/* Summary Stats Bar */}
+                <Card>
+                  <CardContent className="py-4">
+                    <div className="flex flex-wrap items-center gap-4">
+                      {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(sev => {
+                        const count = selectedDocument.issues.filter(i => i.severity === sev).length
+                        return (
+                          <div key={sev} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${getSeverityColor(sev)}`}>
+                            {getSeverityIcon(sev)}
+                            <span>{count} {sev.charAt(0) + sev.slice(1).toLowerCase()}</span>
+                          </div>
+                        )
+                      })}
+                      <div className="ml-auto flex items-center gap-2 text-sm">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="font-semibold text-green-600">
+                          ${selectedDocument.issues
+                            .filter(i => i.isBillable && i.estimatedCost)
+                            .reduce((sum, i) => sum + (i.estimatedCost || 0), 0)
+                            .toFixed(2)} billable
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Missing Elements by Category */}
                 <Card>
                   <CardHeader>
@@ -774,51 +1030,99 @@ export default function ClaimsAnalysisPage() {
                         <TabsTrigger value="docs">Docs ({selectedDocument.issues.filter(i => i.category === 'DOCUMENTATION').length})</TabsTrigger>
                       </TabsList>
 
-                      <TabsContent value="all" className="space-y-3">
-                        {selectedDocument.issues.map((issue, idx) => (
-                          <Card key={idx} className="border-l-4" style={{
-                            borderLeftColor: issue.severity === 'CRITICAL' ? '#ef4444' :
-                                            issue.severity === 'HIGH' ? '#f97316' :
-                                            issue.severity === 'MEDIUM' ? '#eab308' : '#3b82f6'
-                          }}>
-                            <CardContent className="pt-4">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge className={getSeverityColor(issue.severity)}>{issue.severity}</Badge>
-                                    <Badge variant="outline">{issue.category.replace(/_/g, ' ')}</Badge>
-                                  </div>
-                                  <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
-                                  {issue.standardReference && (
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                      <strong>Standard:</strong> {issue.standardReference}
-                                    </p>
-                                  )}
-                                  {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
-                                  {issue.suggestedLineItem && (
-                                    <p className="text-sm text-muted-foreground">
-                                      <strong>Line Item:</strong> {issue.suggestedLineItem}
-                                    </p>
-                                  )}
-                                </div>
-                                {issue.isBillable && (
-                                  <div className="text-right">
-                                    {issue.estimatedCost && (
-                                      <div className="text-2xl font-bold text-green-600">
-                                        ${issue.estimatedCost.toFixed(2)}
+                      <TabsContent value="all" className="space-y-4">
+                        {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(severity => {
+                          const sevIssues = selectedDocument.issues.filter(i => i.severity === severity)
+                          if (sevIssues.length === 0) return null
+                          return (
+                            <details key={severity} open={severity === 'CRITICAL' || severity === 'HIGH'}>
+                              <summary className={`cursor-pointer flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors font-medium ${getSeverityColor(severity)}`}>
+                                {getSeverityIcon(severity)}
+                                <span>{severity} ({sevIssues.length})</span>
+                              </summary>
+                              <div className="space-y-3 mt-2 ml-1">
+                                {sevIssues.map((issue, idx) => (
+                                  <Card key={idx} className="border-l-4" style={{
+                                    borderLeftColor: severity === 'CRITICAL' ? '#ef4444' :
+                                                    severity === 'HIGH' ? '#f97316' :
+                                                    severity === 'MEDIUM' ? '#eab308' : '#3b82f6'
+                                  }}>
+                                    <CardContent className="pt-4">
+                                      <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <Badge className={`${getSeverityColor(issue.severity)} flex items-center gap-1`}>{getSeverityIcon(issue.severity)}{issue.severity}</Badge>
+                                            <Badge variant="outline">{issue.category.replace(/_/g, ' ')}</Badge>
+                                            <button
+                                              onClick={() => {
+                                                const text = `${issue.elementName}\n${issue.description || ''}\n${issue.standardReference ? `Standard: ${issue.standardReference}` : ''}`
+                                                navigator.clipboard.writeText(text)
+                                                toast.success('Copied to clipboard')
+                                              }}
+                                              className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                                              title="Copy element details"
+                                            >
+                                              <Copy className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                          <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
+                                          {issue.standardReference && (
+                                            <p className="text-sm mb-2">
+                                              <span className="font-bold text-primary">{issue.standardReference}</span>
+                                            </p>
+                                          )}
+                                          {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
+                                          {issue.suggestedLineItem && (
+                                            <p className="text-sm text-muted-foreground">
+                                              <strong>Line Item:</strong> {issue.suggestedLineItem}
+                                            </p>
+                                          )}
+                                          {/* Why Required section */}
+                                          {issue.standardReference && (
+                                            <details className="mt-3">
+                                              <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors font-medium">
+                                                Why is this required?
+                                              </summary>
+                                              <div className="mt-2 p-3 rounded-md bg-muted/50 text-sm space-y-1.5">
+                                                <p><strong>Reference:</strong> {issue.standardReference}</p>
+                                                {issue.severity === 'CRITICAL' && (
+                                                  <p className="text-red-600 dark:text-red-400">Non-compliance may void insurance claim or create liability exposure.</p>
+                                                )}
+                                                {issue.severity === 'HIGH' && (
+                                                  <p className="text-orange-600 dark:text-orange-400">Required for standards compliance. Omission risks audit failure.</p>
+                                                )}
+                                                {issue.severity === 'MEDIUM' && (
+                                                  <p className="text-yellow-600 dark:text-yellow-400">Recommended per industry standards. Improves report quality.</p>
+                                                )}
+                                                {issue.severity === 'LOW' && (
+                                                  <p className="text-blue-600 dark:text-blue-400">Best practice recommendation for comprehensive documentation.</p>
+                                                )}
+                                              </div>
+                                            </details>
+                                          )}
+                                        </div>
+                                        {issue.isBillable && (
+                                          <div className="text-right shrink-0">
+                                            {issue.estimatedCost && (
+                                              <div className="text-2xl font-bold text-green-600">
+                                                ${issue.estimatedCost.toFixed(2)}
+                                              </div>
+                                            )}
+                                            {issue.estimatedHours && (
+                                              <div className="text-sm text-muted-foreground">
+                                                {issue.estimatedHours.toFixed(1)}h
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
-                                    {issue.estimatedHours && (
-                                      <div className="text-sm text-muted-foreground">
-                                        {issue.estimatedHours.toFixed(1)}h
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                    </CardContent>
+                                  </Card>
+                                ))}
                               </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                            </details>
+                          )
+                        })}
                       </TabsContent>
 
                       {['iicrc', 'australian', 'ohs', 'scope', 'billing', 'docs'].map(category => (
@@ -843,12 +1147,23 @@ export default function ClaimsAnalysisPage() {
                                   <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-2">
-                                        <Badge className={getSeverityColor(issue.severity)}>{issue.severity}</Badge>
+                                        <Badge className={`${getSeverityColor(issue.severity)} flex items-center gap-1`}>{getSeverityIcon(issue.severity)}{issue.severity}</Badge>
+                                        <button
+                                          onClick={() => {
+                                            const text = `${issue.elementName}\n${issue.description || ''}\n${issue.standardReference ? `Standard: ${issue.standardReference}` : ''}`
+                                            navigator.clipboard.writeText(text)
+                                            toast.success('Copied to clipboard')
+                                          }}
+                                          className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                                          title="Copy element details"
+                                        >
+                                          <Copy className="h-3.5 w-3.5" />
+                                        </button>
                                       </div>
                                       <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
                                       {issue.standardReference && (
-                                        <p className="text-sm text-muted-foreground mb-2">
-                                          <strong>Standard:</strong> {issue.standardReference}
+                                        <p className="text-sm mb-2">
+                                          <span className="font-bold text-primary">{issue.standardReference}</span>
                                         </p>
                                       )}
                                       {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
@@ -857,9 +1172,31 @@ export default function ClaimsAnalysisPage() {
                                           <strong>Line Item:</strong> {issue.suggestedLineItem}
                                         </p>
                                       )}
+                                      {issue.standardReference && (
+                                        <details className="mt-3">
+                                          <summary className="text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors font-medium">
+                                            Why is this required?
+                                          </summary>
+                                          <div className="mt-2 p-3 rounded-md bg-muted/50 text-sm space-y-1.5">
+                                            <p><strong>Reference:</strong> {issue.standardReference}</p>
+                                            {issue.severity === 'CRITICAL' && (
+                                              <p className="text-red-600 dark:text-red-400">Non-compliance may void insurance claim or create liability exposure.</p>
+                                            )}
+                                            {issue.severity === 'HIGH' && (
+                                              <p className="text-orange-600 dark:text-orange-400">Required for standards compliance. Omission risks audit failure.</p>
+                                            )}
+                                            {issue.severity === 'MEDIUM' && (
+                                              <p className="text-yellow-600 dark:text-yellow-400">Recommended per industry standards. Improves report quality.</p>
+                                            )}
+                                            {issue.severity === 'LOW' && (
+                                              <p className="text-blue-600 dark:text-blue-400">Best practice recommendation for comprehensive documentation.</p>
+                                            )}
+                                          </div>
+                                        </details>
+                                      )}
                                     </div>
                                     {issue.isBillable && (
-                                      <div className="text-right">
+                                      <div className="text-right shrink-0">
                                         {issue.estimatedCost && (
                                           <div className="text-2xl font-bold text-green-600">
                                             ${issue.estimatedCost.toFixed(2)}
@@ -1005,15 +1342,117 @@ export default function ClaimsAnalysisPage() {
 
       {processing && (
         <Card>
-          <CardContent className="py-8">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-lg font-medium">Analyzing PDFs...</p>
-              <p className="text-sm text-muted-foreground">This may take a few moments</p>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <CardTitle className="text-lg">Analyzing Claims</CardTitle>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  {formatElapsed(elapsedTime)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelAnalysis}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {batchProgress && (
+              <>
+                {/* Progress bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">
+                      {batchProgress.completed} of {batchProgress.total} documents processed
+                    </span>
+                    <span className="text-muted-foreground">
+                      {batchProgress.total > 0
+                        ? Math.round((batchProgress.completed / batchProgress.total) * 100)
+                        : 0}%
+                    </span>
+                  </div>
+                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${batchProgress.total > 0 ? (batchProgress.completed / batchProgress.total) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Current file */}
+                {batchProgress.currentFile && (
+                  <p className="text-sm text-muted-foreground">
+                    Processing: <span className="font-medium text-foreground">{batchProgress.currentFile}</span>
+                  </p>
+                )}
+
+                {/* Per-file status list */}
+                <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-3 bg-muted/30">
+                  {batchProgress.fileStatuses.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${
+                        file.status === 'processing' ? 'bg-blue-50 dark:bg-blue-950/30' : ''
+                      }`}
+                    >
+                      {file.status === 'pending' && (
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      {file.status === 'processing' && (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                      )}
+                      {file.status === 'done' && (
+                        <FileCheck className="h-4 w-4 text-green-500" />
+                      )}
+                      {file.status === 'failed' && (
+                        <X className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className={file.status === 'processing' ? 'font-medium' : ''}>
+                        {file.name}
+                      </span>
+                      {file.status === 'failed' && file.error && (
+                        <span className="text-xs text-red-500 ml-auto truncate max-w-[200px]">
+                          {file.error}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {!batchProgress && (
+              <div className="flex flex-col items-center justify-center py-4 space-y-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Initializing analysis...</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
+
+      {/* Google Drive Folder Picker */}
+      <GoogleDriveFolderPicker
+        open={showFolderPicker}
+        onOpenChange={setShowFolderPicker}
+        onSelect={(selectedId, selectedName) => {
+          setFolderId(selectedId)
+          setFolderName(selectedName)
+          setFiles([])
+          fetchFiles(selectedId)
+        }}
+      />
     </div>
   )
 }
