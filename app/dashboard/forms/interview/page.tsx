@@ -29,6 +29,7 @@ export default function InterviewPage() {
   const reportId = searchParams.get('reportId')
   const jobType = searchParams.get('jobType') || 'WATER_DAMAGE'
   const postcode = searchParams.get('postcode') || undefined
+  const sessionId = searchParams.get('sessionId') || undefined
 
   const [interviewStatus, setInterviewStatus] = useState<'in_progress' | 'completed' | 'error'>(
     'in_progress'
@@ -144,6 +145,7 @@ export default function InterviewPage() {
               formTemplateId={formTemplateId}
               jobType={jobType}
               postcode={postcode}
+              sessionId={sessionId}
               onComplete={handleInterviewComplete}
               onCancel={handleCancel}
               showAutoPopulatedFields={true}

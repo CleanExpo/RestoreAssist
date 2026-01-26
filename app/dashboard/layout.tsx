@@ -23,6 +23,7 @@ import {
   Crown,
   FileSearch,
   ClipboardCheck,
+  MessageSquare,
   Lock,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
@@ -110,6 +111,7 @@ export default function DashboardLayout({
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations", locked: isTrial },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics", locked: isTrial },
     { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis", locked: isTrial },
+    { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews", locked: isTrial },
     // Hide Subscription for team members (Managers and Technicians)
     ...(isTeamMember ? [] : [{ icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" }]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },

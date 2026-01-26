@@ -43,6 +43,7 @@ interface GuidedInterviewPanelProps {
   formTemplateId: string
   jobType?: string
   postcode?: string
+  sessionId?: string
   onComplete?: (autoPopulatedFields: Map<string, any>) => void
   onCancel?: () => void
   showAutoPopulatedFields?: boolean
@@ -55,6 +56,7 @@ export function GuidedInterviewPanel({
   formTemplateId,
   jobType = 'WATER_DAMAGE',
   postcode,
+  sessionId: resumeSessionId,
   onComplete,
   onCancel,
   showAutoPopulatedFields = true,
@@ -83,8 +85,12 @@ export function GuidedInterviewPanel({
    * Initialize interview on mount
    */
   useEffect(() => {
-    initializeInterview()
-  }, [formTemplateId, jobType, postcode])
+    if (resumeSessionId) {
+      restoreSession(resumeSessionId)
+    } else {
+      initializeInterview()
+    }
+  }, [formTemplateId, jobType, postcode, resumeSessionId])
 
   /**
    * Start interview - fetch initial questions
@@ -109,6 +115,13 @@ export function GuidedInterviewPanel({
 
       const data = await response.json()
 
+      // Push sessionId to URL for resume capability
+      if (typeof window !== 'undefined' && data.sessionId) {
+        const url = new URL(window.location.href)
+        url.searchParams.set('sessionId', data.sessionId)
+        window.history.replaceState({}, '', url.toString())
+      }
+
       setInterviewState((prev) => ({
         ...prev,
         sessionId: data.sessionId,
@@ -132,6 +145,99 @@ export function GuidedInterviewPanel({
       }))
     }
   }, [formTemplateId, jobType, postcode])
+
+  /**
+   * Restore session from saved answers
+   */
+  const restoreSession = useCallback(async (sessionId: string) => {
+    try {
+      setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
+
+      // Fetch session data with stored answers
+      const sessionResponse = await fetch(`/api/interviews/${sessionId}`)
+      if (!sessionResponse.ok) {
+        // Session not found — start fresh
+        initializeInterview()
+        return
+      }
+      const { session: savedSession } = await sessionResponse.json()
+
+      // Re-initialize questions via start API
+      const startResponse = await fetch('/api/forms/interview/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formTemplateId: savedSession.formTemplateId,
+          jobType,
+          postcode,
+        }),
+      })
+
+      if (!startResponse.ok) {
+        throw new Error('Failed to restore interview questions')
+      }
+      const startData = await startResponse.json()
+
+      // Rebuild answers map from stored responses
+      const restoredAnswers = new Map<string, any>()
+      if (savedSession.responses) {
+        for (const resp of savedSession.responses) {
+          try {
+            restoredAnswers.set(resp.questionId, JSON.parse(resp.answer))
+          } catch {
+            restoredAnswers.set(resp.questionId, resp.answer)
+          }
+        }
+      }
+
+      // Find the next unanswered question
+      let nextQuestion: Question | null = null
+      for (const q of startData.questions) {
+        if (!restoredAnswers.has(q.id)) {
+          nextQuestion = q
+          break
+        }
+      }
+
+      // Calculate tier
+      let currentTier = 1
+      if (nextQuestion?.sequenceNumber) {
+        if (nextQuestion.sequenceNumber <= 5) currentTier = 1
+        else if (nextQuestion.sequenceNumber <= 8) currentTier = 2
+        else if (nextQuestion.sequenceNumber <= 13) currentTier = 3
+        else currentTier = 4
+      }
+
+      const answeredCount = restoredAnswers.size
+      const totalQ = startData.totalQuestions
+      const isComplete = !nextQuestion || answeredCount >= totalQ
+
+      setInterviewState((prev) => ({
+        ...prev,
+        sessionId: savedSession.id,
+        currentTier,
+        currentQuestion: nextQuestion || startData.questions[startData.questions.length - 1],
+        allQuestions: startData.questions,
+        tieredQuestions: startData.tieredQuestions,
+        answers: restoredAnswers,
+        totalQuestions: totalQ,
+        answeredQuestions: answeredCount,
+        progressPercentage: totalQ > 0 ? Math.round((answeredCount / totalQ) * 100) : 0,
+        estimatedDurationMinutes: startData.estimatedDuration,
+        standardsCovered: startData.standardsCovered,
+        isLoading: false,
+        status: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
+      }))
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to restore session'
+      setInterviewState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+        status: 'ERROR',
+      }))
+    }
+  }, [formTemplateId, jobType, postcode, initializeInterview])
 
   /**
    * Record answer and get next question
