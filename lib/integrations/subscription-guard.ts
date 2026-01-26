@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { isIntegrationDevMode } from './dev-mode'
 
 export interface SubscriptionCheckResult {
   isAllowed: boolean
@@ -21,6 +22,16 @@ export interface SubscriptionCheckResult {
  * @returns SubscriptionCheckResult with access decision and details
  */
 export async function checkIntegrationAccess(userId: string): Promise<SubscriptionCheckResult> {
+  // Bypass subscription check in development mode
+  if (isIntegrationDevMode()) {
+    return {
+      isAllowed: true,
+      userId,
+      subscriptionStatus: 'DEV_MODE',
+      subscriptionPlan: 'development',
+    }
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
