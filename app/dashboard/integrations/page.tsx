@@ -177,6 +177,14 @@ export default function IntegrationsPage() {
         if (data.authUrl) {
           window.location.href = data.authUrl
         }
+      } else if (response.status === 403) {
+        // Subscription required - show upgrade modal
+        const errorData = await response.json()
+        if (errorData.upgradeRequired) {
+          setShowUpgradeModal(true)
+        } else {
+          toast.error(errorData.error || 'Access denied')
+        }
       } else {
         const errorData = await response.json()
         toast.error(errorData.error || 'Failed to initiate connection')
@@ -260,6 +268,14 @@ export default function IntegrationsPage() {
         const jobsCount = data.jobsSynced || 0
         toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`)
         fetchExternalIntegrations()
+      } else if (response.status === 403) {
+        // Subscription required
+        const data = await response.json()
+        if (data.upgradeRequired) {
+          setShowUpgradeModal(true)
+        } else {
+          toast.error(data.error || 'Access denied')
+        }
       } else {
         const data = await response.json()
         toast.error(data.error || 'Sync failed')
