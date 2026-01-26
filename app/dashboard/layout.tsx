@@ -51,7 +51,7 @@ export default function DashboardLayout({
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // Fetch subscription status
+  // Fetch subscription status on mount and window focus only (not polling)
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
       try {
@@ -64,15 +64,15 @@ export default function DashboardLayout({
         console.error("Error fetching subscription status:", error)
       }
     }
+
     if (status === "authenticated") {
       fetchSubscriptionStatus()
-      
-      // Refresh subscription status periodically to catch updates from webhooks
-      const interval = setInterval(() => {
-        fetchSubscriptionStatus()
-      }, 5000) // Check every 5 seconds
-      
-      return () => clearInterval(interval)
+
+      // Refetch on window focus (e.g., after Stripe checkout redirect)
+      const handleFocus = () => fetchSubscriptionStatus()
+      window.addEventListener("focus", handleFocus)
+
+      return () => window.removeEventListener("focus", handleFocus)
     }
   }, [status, session])
 
