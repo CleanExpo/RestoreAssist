@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, CheckCircle, Clock, AlertCircle, XCircle, FileText, PenTool, Eye, Printer, X, Loader2, Send, Users, Mail } from "lucide-react"
+import { Download, CheckCircle, Clock, AlertCircle, XCircle, FileText, PenTool, Eye, X, Loader2, Send, Users, Mail } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
@@ -234,7 +234,7 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
           "sticky top-0 z-10 backdrop-blur-sm border-b print:hidden",
           "bg-white/95 dark:bg-slate-900/95 border-neutral-200 dark:border-slate-700"
         )}>
-          <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="max-w-8xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>{form.template.name}</h2>
               {getStatusBadge(form.status)}
@@ -271,7 +271,7 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
         </div>
 
       {/* Form Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="bg-white text-black rounded-lg shadow-lg p-8 print:shadow-none print:rounded-none">
           {/* Company Header */}
           <div className="border-b-2 border-gray-300 pb-6 mb-6">
@@ -506,6 +506,7 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
           @page {
             margin: 0.5in;
             size: letter;
+            background: white !important;
           }
           
           * {
@@ -516,13 +517,16 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
           
           html, body {
             background: white !important;
+            background-color: white !important;
             margin: 0 !important;
             padding: 0 !important;
             height: auto !important;
             overflow: visible !important;
+            color: black !important;
           }
           
-          body > *:not(.print-content) {
+          /* Hide action bar and other non-printable elements */
+          body > div:first-child > div:first-child {
             display: none !important;
           }
           
@@ -554,19 +558,50 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
           
           .print\\:bg-white {
             background: white !important;
+            background-color: white !important;
           }
           
-          /* Ensure form content is visible */
-          [class*="bg-white"] {
+          /* Force white backgrounds and black text */
+          [class*="bg-white"],
+          [class*="bg-neutral-50"],
+          [class*="bg-slate-900"],
+          [class*="bg-gray-50"],
+          [class*="bg-gray-100"] {
             background: white !important;
+            background-color: white !important;
           }
           
-          [class*="text-black"] {
+          [class*="text-black"],
+          [class*="text-white"],
+          [class*="text-neutral-900"],
+          [class*="text-slate-900"],
+          [class*="text-gray-900"] {
             color: black !important;
           }
           
-          [class*="text-gray"] {
-            color: #374151 !important;
+          [class*="text-gray-600"],
+          [class*="text-gray-500"],
+          [class*="text-slate-400"],
+          [class*="text-neutral-600"] {
+            color: #4b5563 !important;
+          }
+          
+          /* Ensure all text is visible */
+          p, span, div, h1, h2, h3, h4, h5, h6, label {
+            color: black !important;
+          }
+          
+          /* Form container */
+          .max-w-4xl {
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          /* Remove dark mode styles */
+          [class*="dark:"] {
+            background: white !important;
+            color: black !important;
           }
         }
       `}</style>
