@@ -117,29 +117,43 @@ export default function IntegrationsPage() {
     try {
       const results: Record<ProviderSlug, ExternalIntegration> = {} as Record<ProviderSlug, ExternalIntegration>
 
-      await Promise.all(
-        EXTERNAL_INTEGRATIONS.map(async (integration) => {
-          try {
-            const response = await fetch(`/api/integrations/external/${integration.slug}`)
-            if (response.ok) {
-              const data = await response.json()
-              results[integration.slug] = data
-            } else {
-              results[integration.slug] = {
-                provider: integration.name,
-                connected: false,
-                status: 'DISCONNECTED',
-              }
+      // Fetch all integrations from the main API
+      const response = await fetch('/api/integrations')
+      if (response.ok) {
+        const data = await response.json()
+        const allIntegrations = data.integrations || []
+
+        // Map integrations to providers
+        for (const integration of EXTERNAL_INTEGRATIONS) {
+          const found = allIntegrations.find(
+            (i: { provider: string }) => i.provider === integration.slug.toUpperCase()
+          )
+          if (found) {
+            results[integration.slug] = {
+              provider: integration.name,
+              connected: found.status === 'CONNECTED',
+              status: found.status,
+              lastSyncAt: found.lastSyncAt,
+              syncError: found.syncError,
             }
-          } catch {
+          } else {
             results[integration.slug] = {
               provider: integration.name,
               connected: false,
               status: 'DISCONNECTED',
             }
           }
-        })
-      )
+        }
+      } else {
+        // Default all to disconnected
+        for (const integration of EXTERNAL_INTEGRATIONS) {
+          results[integration.slug] = {
+            provider: integration.name,
+            connected: false,
+            status: 'DISCONNECTED',
+          }
+        }
+      }
 
       setExternalIntegrations(results)
     } catch (error) {
@@ -147,12 +161,30 @@ export default function IntegrationsPage() {
     }
   }
 
-  const handleConnectExternal = (slug: ProviderSlug) => {
+  const handleConnectExternal = async (slug: ProviderSlug) => {
     if (slug === 'ascora') {
       setShowAscoraModal(true)
       return
     }
-    window.location.href = `/api/integrations/external/${slug}/connect`
+
+    try {
+      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.authUrl) {
+          window.location.href = data.authUrl
+        }
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to initiate connection')
+      }
+    } catch (error) {
+      console.error("Error connecting:", error)
+      toast.error("Failed to initiate connection")
+    }
   }
 
   const handleConnectAscora = async () => {
@@ -163,17 +195,23 @@ export default function IntegrationsPage() {
 
     setConnectingAscora(true)
     try {
-      const response = await fetch('/api/integrations/external/ascora/apikey', {
+      // For Ascora, use the OAuth connect endpoint which will handle API key auth
+      const response = await fetch('/api/integrations/oauth/ascora/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: ascoraApiKey }),
       })
 
       if (response.ok) {
-        toast.success('Connected to Ascora successfully')
-        setShowAscoraModal(false)
-        setAscoraApiKey("")
-        fetchExternalIntegrations()
+        const data = await response.json()
+        if (data.authUrl) {
+          window.location.href = data.authUrl
+        } else {
+          toast.success('Connected to Ascora successfully')
+          setShowAscoraModal(false)
+          setAscoraApiKey("")
+          fetchExternalIntegrations()
+        }
       } else {
         const data = await response.json()
         toast.error(data.error || 'Failed to connect to Ascora')
@@ -188,8 +226,10 @@ export default function IntegrationsPage() {
 
   const handleDisconnectExternal = async (slug: ProviderSlug) => {
     try {
-      const response = await fetch(`/api/integrations/external/${slug}/disconnect`, {
+      const response = await fetch(`/api/integrations/oauth/${slug}/disconnect`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       })
 
       if (response.ok) {
@@ -208,16 +248,17 @@ export default function IntegrationsPage() {
   const handleSyncExternal = async (slug: ProviderSlug) => {
     setSyncingProvider(slug)
     try {
-      const response = await fetch(`/api/integrations/external/${slug}/sync`, {
+      const response = await fetch(`/api/integrations/oauth/${slug}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ syncType: 'FULL' }),
+        body: JSON.stringify({ syncClients: true, syncJobs: true }),
       })
 
       if (response.ok) {
         const data = await response.json()
-        const totalProcessed = data.summary?.processed || 0
-        toast.success(`Synced ${totalProcessed} records from ${data.provider}`)
+        const clientsCount = data.clientsSynced || 0
+        const jobsCount = data.jobsSynced || 0
+        toast.success(`Synced ${clientsCount} clients and ${jobsCount} jobs`)
         fetchExternalIntegrations()
       } else {
         const data = await response.json()
