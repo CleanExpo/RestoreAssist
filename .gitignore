@@ -34,3 +34,8 @@ next-env.d.ts
 .vercel
 storybook-static/
 nul
+
+# Playwright E2E testing
+/playwright-report/
+/test-results/
+.playwright/
