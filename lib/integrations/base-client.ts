@@ -11,6 +11,9 @@ import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
 } from './oauth-handler'
+import { isIntegrationDevMode, MOCK_CREDENTIALS } from './dev-mode'
+import { MOCK_CLIENTS, MOCK_JOBS } from './mock-data'
+import { prisma } from '@/lib/prisma'
 
 export interface ExternalClientData {
   externalId: string
@@ -18,7 +21,7 @@ export interface ExternalClientData {
   email?: string
   phone?: string
   address?: string
-  rawData: Record<string, unknown>
+  rawData?: Record<string, unknown>
 }
 
 export interface ExternalJobData {
@@ -28,7 +31,7 @@ export interface ExternalJobData {
   clientExternalId?: string
   address?: string
   description?: string
-  rawData: Record<string, unknown>
+  rawData?: Record<string, unknown>
 }
 
 export interface TokenResponse {
@@ -148,12 +151,192 @@ export abstract class BaseIntegrationClient {
     const status = error ? 'FAILED' : failed > 0 ? 'PARTIAL' : 'SUCCESS'
     await logSync(this.integrationId, syncType, status, processed, failed, error)
   }
+
+  /**
+   * Sync clients - with mock data support for development mode
+   */
+  async syncClients(): Promise<number> {
+    if (isIntegrationDevMode()) {
+      return this.syncMockClients()
+    }
+
+    const clients = await this.fetchClients()
+    let processed = 0
+
+    for (const client of clients) {
+      await prisma.externalClient.upsert({
+        where: {
+          integrationId_externalId: {
+            integrationId: this.integrationId,
+            externalId: client.externalId,
+          },
+        },
+        create: {
+          integrationId: this.integrationId,
+          externalId: client.externalId,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
+          rawData: client.rawData || {},
+        },
+        update: {
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
+          rawData: client.rawData || {},
+          lastSyncedAt: new Date(),
+        },
+      })
+      processed++
+    }
+
+    await this.logSyncResult('CLIENTS', processed)
+    return processed
+  }
+
+  /**
+   * Sync jobs - with mock data support for development mode
+   */
+  async syncJobs(): Promise<number> {
+    if (isIntegrationDevMode()) {
+      return this.syncMockJobs()
+    }
+
+    const jobs = await this.fetchJobs()
+    let processed = 0
+
+    for (const job of jobs) {
+      await prisma.externalJob.upsert({
+        where: {
+          integrationId_externalId: {
+            integrationId: this.integrationId,
+            externalId: job.externalId,
+          },
+        },
+        create: {
+          integrationId: this.integrationId,
+          externalId: job.externalId,
+          title: job.title,
+          status: job.status,
+          clientExternalId: job.clientExternalId,
+          address: job.address,
+          description: job.description,
+          rawData: job.rawData || {},
+        },
+        update: {
+          title: job.title,
+          status: job.status,
+          clientExternalId: job.clientExternalId,
+          address: job.address,
+          description: job.description,
+          rawData: job.rawData || {},
+          lastSyncedAt: new Date(),
+        },
+      })
+      processed++
+    }
+
+    await this.logSyncResult('JOBS', processed)
+    return processed
+  }
+
+  /**
+   * Sync mock clients for development mode
+   */
+  private async syncMockClients(): Promise<number> {
+    let processed = 0
+
+    for (const client of MOCK_CLIENTS) {
+      await prisma.externalClient.upsert({
+        where: {
+          integrationId_externalId: {
+            integrationId: this.integrationId,
+            externalId: client.externalId,
+          },
+        },
+        create: {
+          integrationId: this.integrationId,
+          externalId: client.externalId,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
+          rawData: { mock: true, provider: this.provider },
+        },
+        update: {
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
+          rawData: { mock: true, provider: this.provider },
+          lastSyncedAt: new Date(),
+        },
+      })
+      processed++
+    }
+
+    await this.logSyncResult('CLIENTS', processed)
+    return processed
+  }
+
+  /**
+   * Sync mock jobs for development mode
+   */
+  private async syncMockJobs(): Promise<number> {
+    let processed = 0
+
+    for (const job of MOCK_JOBS) {
+      await prisma.externalJob.upsert({
+        where: {
+          integrationId_externalId: {
+            integrationId: this.integrationId,
+            externalId: job.externalId,
+          },
+        },
+        create: {
+          integrationId: this.integrationId,
+          externalId: job.externalId,
+          title: job.title,
+          status: job.status,
+          clientExternalId: job.clientExternalId,
+          address: job.address,
+          description: job.description,
+          rawData: { mock: true, provider: this.provider },
+        },
+        update: {
+          title: job.title,
+          status: job.status,
+          clientExternalId: job.clientExternalId,
+          address: job.address,
+          description: job.description,
+          rawData: { mock: true, provider: this.provider },
+          lastSyncedAt: new Date(),
+        },
+      })
+      processed++
+    }
+
+    await this.logSyncResult('JOBS', processed)
+    return processed
+  }
 }
 
 /**
- * Get provider client ID from environment
+ * Get provider client ID from environment (or mock in dev mode)
  */
 export function getClientId(provider: IntegrationProvider): string {
+  if (isIntegrationDevMode()) {
+    const mockCreds = MOCK_CREDENTIALS[provider as keyof typeof MOCK_CREDENTIALS]
+    if ('clientId' in mockCreds) {
+      return mockCreds.clientId
+    }
+    if ('apiKey' in mockCreds) {
+      return mockCreds.apiKey
+    }
+  }
+
   const envKey = `${provider}_CLIENT_ID`
   const clientId = process.env[envKey]
   if (!clientId) {
@@ -163,9 +346,19 @@ export function getClientId(provider: IntegrationProvider): string {
 }
 
 /**
- * Get provider client secret from environment
+ * Get provider client secret from environment (or mock in dev mode)
  */
 export function getClientSecret(provider: IntegrationProvider): string {
+  if (isIntegrationDevMode()) {
+    const mockCreds = MOCK_CREDENTIALS[provider as keyof typeof MOCK_CREDENTIALS]
+    if ('clientSecret' in mockCreds) {
+      return mockCreds.clientSecret
+    }
+    if ('apiSecret' in mockCreds) {
+      return mockCreds.apiSecret
+    }
+  }
+
   const envKey = `${provider}_CLIENT_SECRET`
   const clientSecret = process.env[envKey]
   if (!clientSecret) {

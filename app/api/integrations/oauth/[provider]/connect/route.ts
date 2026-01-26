@@ -21,6 +21,7 @@ import {
   checkIntegrationAccess,
   createSubscriptionRequiredResponse,
 } from '@/lib/integrations/subscription-guard'
+import { isIntegrationDevMode } from '@/lib/integrations/dev-mode'
 
 export async function POST(
   request: NextRequest,
@@ -112,6 +113,16 @@ export async function POST(
         }),
       },
     })
+
+    // In dev mode, return a mock callback URL that will immediately complete
+    if (isIntegrationDevMode()) {
+      const mockCallbackUrl = `${baseUrl}/api/integrations/oauth/${providerParam.toLowerCase()}/callback?code=mock-auth-code&state=${encodeURIComponent(state)}`
+      return NextResponse.json({
+        authUrl: mockCallbackUrl,
+        integrationId: integration.id,
+        devMode: true,
+      })
+    }
 
     return NextResponse.json({
       authUrl,
