@@ -22,6 +22,7 @@ import {
   CreditCard,
   Crown,
   FileSearch,
+  ClipboardCheck,
   Lock,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
@@ -102,6 +103,7 @@ export default function DashboardLayout({
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: Plus, label: "New Report", href: "/dashboard/reports/new", highlight: true },
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
+    { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections", locked: isTrial },
     { icon: Users, label: "Clients", href: "/dashboard/clients", locked: isTrial },
     { icon: Users, label: "Team", href: "/dashboard/team", locked: isTrial },
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config", locked: isTrial },
