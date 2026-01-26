@@ -112,7 +112,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.9",
+    "@tailwindcss/postcss": "4.1.9",
     "@types/archiver": "^6.0.2",
     "@types/jspdf": "^1.3.3",
     "@types/node": "^22",
@@ -120,7 +120,7 @@
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "prisma": "^6.1.0",
-    "tailwindcss": "^4.1.9",
+    "tailwindcss": "4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
   }
