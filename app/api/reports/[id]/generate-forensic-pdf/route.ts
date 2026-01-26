@@ -38,7 +38,7 @@ export async function GET(
         businessPhone: true,
         businessEmail: true,
         pricingConfig: true
-      }
+    }
     })
 
     if (!user) {
@@ -110,15 +110,14 @@ export async function GET(
         ].filter(Boolean),
         materials: tier1?.T1_Q6_materialsAffected || [],
         technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
-      }
+    }
       
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
         
-        standardsContext = buildStandardsContextPrompt(retrievedStandards)
-      } catch (error: any) {
-        console.error('[Generate Forensic PDF] Error retrieving standards:', error)
-        // Continue without standards context - not critical for PDF generation
-      }
+      standardsContext = buildStandardsContextPrompt(retrievedStandards)
+    } catch (error: any) {
+      console.error('[Generate Forensic PDF] Error retrieving standards:', error)
+      // Continue without standards context - not critical for PDF generation
     }
 
     // Prepare report data with all assessment report fields
@@ -158,7 +157,7 @@ export async function GET(
         businessABN: user.businessABN,
         businessPhone: user.businessPhone,
         businessEmail: user.businessEmail
-      }
+    }
     }
 
     // Generate PDF
@@ -173,7 +172,7 @@ export async function GET(
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': pdfBytes.length.toString()
-      }
+    }
     })
   } catch (error: any) {
     console.error('Error generating forensic PDF:', error)
