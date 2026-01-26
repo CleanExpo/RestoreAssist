@@ -1,9 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, CheckCircle, Clock, AlertCircle,XCircle,FileText,PenTool,Eye,Printer,X } from "lucide-react"
+import { Download, CheckCircle, Clock, AlertCircle, XCircle, FileText, PenTool, Eye, Printer, X, Loader2, Send, Users, Mail } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import { useSession } from "next-auth/react"
+import { SignatureCanvas } from "@/components/authority-forms/SignatureCanvas"
+import { SignatoryManager } from "@/components/authority-forms/SignatoryManager"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface AuthorityFormViewerProps {
   formId: string
@@ -35,16 +45,26 @@ interface FormData {
     id: string
     signatoryName: string
     signatoryRole: string
+    signatoryEmail: string | null
     signatureData: string | null
     signedAt: Date | null
+    signatureRequestSent: boolean
+    signatureRequestSentAt: Date | null
   }>
   createdAt: string
   completedAt: string | null
 }
 
 export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormViewerProps) {
+  const { data: session } = useSession()
   const [form, setForm] = useState<FormData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showSignDialog, setShowSignDialog] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [signatoryName, setSignatoryName] = useState('')
+  const [signatureData, setSignatureData] = useState<string | null>(null)
+  const [signing, setSigning] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   useEffect(() => {
     fetchForm()
@@ -67,6 +87,76 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
       setLoading(false)
     }
   }
+
+  const openSignDialog = () => {
+    setSignatoryName(session?.user?.name || '')
+    setAgreedToTerms(false)
+    setSignatureData(null)
+    setShowSignDialog(true)
+  }
+
+  const handleSignSubmit = async () => {
+    if (!signatureData || !signatoryName.trim() || !agreedToTerms) return
+
+    // Find the first unsigned signature slot for the current user
+    const unsignedSlot = form?.signatures.find(s => !s.signedAt)
+    if (!unsignedSlot) {
+      toast.error('No signature slots available')
+      return
+    }
+
+    setSigning(true)
+    try {
+      const response = await fetch(`/api/authority-forms/${formId}/signatures`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signatureId: unsignedSlot.id,
+          signatureData,
+          signatoryName: signatoryName.trim(),
+        }),
+      })
+
+      if (response.ok) {
+        toast.success('Signature submitted successfully')
+        setShowSignDialog(false)
+        fetchForm() // refresh form data
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.error || 'Failed to submit signature')
+      }
+    } catch (error) {
+      console.error('Error submitting signature:', error)
+      toast.error('Failed to submit signature')
+    } finally {
+      setSigning(false)
+    }
+  }
+
+  const handleEmailAllParties = async () => {
+    if (!form) return
+    setSendingEmail(true)
+    try {
+      const response = await fetch(`/api/authority-forms/${formId}/send-completed`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`Signed PDF emailed to ${data.sent} ${data.sent === 1 ? 'party' : 'parties'}`)
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.error || 'Failed to send emails')
+      }
+    } catch {
+      toast.error('Failed to send emails')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  const canSign = form && ['DRAFT', 'PENDING_SIGNATURES', 'PARTIALLY_SIGNED'].includes(form.status) &&
+    form.signatures.some(s => !s.signedAt)
+  const canEmail = form?.status === 'COMPLETED' && form.signatures.some(s => s.signatoryEmail && s.signedAt)
 
   const handleDownloadPDF = async () => {
     if (!form) return
@@ -150,6 +240,25 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
               {getStatusBadge(form.status)}
             </div>
             <div className="flex items-center gap-3">
+              {canSign && (
+                <button
+                  onClick={openSignDialog}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
+                >
+                  <PenTool size={18} />
+                  Sign Form
+                </button>
+              )}
+              {canEmail && (
+                <button
+                  onClick={handleEmailAllParties}
+                  disabled={sendingEmail}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {sendingEmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+                  Email All Parties
+                </button>
+              )}
               <button
                 onClick={handleDownloadPDF}
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
@@ -283,11 +392,15 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
                 </div>
               ))}
             </div>
-            {totalSignatures > 0 && (
-              <div className="mt-6 text-sm text-gray-600 text-center">
-                Signatures: {signedCount} of {totalSignatures} completed
-              </div>
-            )}
+            {/* Signatory Management (print-hidden) */}
+            <div className="mt-8 print:hidden">
+              <SignatoryManager
+                formId={formId}
+                signatories={form.signatures}
+                formStatus={form.status}
+                onUpdate={fetchForm}
+              />
+            </div>
           </div>
 
           {/* Footer */}
@@ -301,6 +414,91 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
       </div>
 
       </div>
+
+      {/* Signing Dialog */}
+      <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sign Authority Form</DialogTitle>
+            <DialogDescription>
+              {form.template.name} — {form.clientName}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Form summary preview */}
+            <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 text-sm space-y-2">
+              <p><strong>Client:</strong> {form.clientName}</p>
+              <p><strong>Address:</strong> {form.clientAddress}</p>
+              {form.incidentDate && (
+                <p><strong>Incident Date:</strong> {new Date(form.incidentDate).toLocaleDateString('en-AU')}</p>
+              )}
+              <div className="border-t border-gray-200 dark:border-slate-700 pt-2 mt-2">
+                <p className="font-medium mb-1">Authority Granted:</p>
+                <p className="text-muted-foreground text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {form.authorityDescription}
+                </p>
+              </div>
+            </div>
+
+            {/* Agreement checkbox */}
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={e => setAgreedToTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
+              />
+              <span className="text-sm">
+                I have read and agree to the authority described above. I understand this constitutes a legally binding electronic signature.
+              </span>
+            </label>
+
+            {/* Signatory name */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Full Name</label>
+              <input
+                type="text"
+                value={signatoryName}
+                onChange={e => setSignatoryName(e.target.value)}
+                placeholder="Enter your full name"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            {/* Signature canvas */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Signature</label>
+              <SignatureCanvas
+                onSave={setSignatureData}
+                onClear={() => setSignatureData(null)}
+                width={460}
+                height={180}
+                disabled={signing}
+              />
+            </div>
+
+            {/* Submit */}
+            <button
+              onClick={handleSignSubmit}
+              disabled={signing || !agreedToTerms || !signatureData || !signatoryName.trim()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {signing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <PenTool className="h-4 w-4" />
+                  Submit Signature
+                </>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Print Styles */}
       <style jsx global>{`

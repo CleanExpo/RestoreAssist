@@ -2,6 +2,82 @@ import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+// ── Signed Authority Form Email ──
+
+export interface SignedFormEmailData {
+  recipientEmail: string
+  recipientName: string
+  formName: string
+  clientName: string
+  clientAddress: string
+  companyName: string
+  signatories: { name: string; role: string; signedAt: string }[]
+  pdfBase64: string // Base64 encoded PDF
+  pdfFilename: string
+}
+
+export async function sendSignedFormEmail(data: SignedFormEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Email service is not configured")
+  }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+
+  const sigList = data.signatories
+    .map(
+      (s) =>
+        `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.name}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.role.replace(/_/g, " ")}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${new Date(s.signedAt).toLocaleDateString("en-AU")}</td></tr>`
+    )
+    .join("")
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+      <div style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">${data.companyName}</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Signed Authority Form</p>
+      </div>
+      <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+        <p>Hello ${data.recipientName},</p>
+        <p>The following authority form has been <strong style="color:#10b981;">fully signed</strong> by all parties:</p>
+        <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 0 0 8px;"><strong>Form:</strong> ${data.formName}</p>
+          <p style="margin: 0 0 8px;"><strong>Client:</strong> ${data.clientName}</p>
+          <p style="margin: 0;"><strong>Address:</strong> ${data.clientAddress}</p>
+        </div>
+        <p style="font-weight:600;margin:16px 0 8px;">Signatories:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead><tr style="background:#f1f5f9;">
+            <th style="padding:8px 12px;text-align:left;">Name</th>
+            <th style="padding:8px 12px;text-align:left;">Role</th>
+            <th style="padding:8px 12px;text-align:left;">Signed</th>
+          </tr></thead>
+          <tbody>${sigList}</tbody>
+        </table>
+        <p style="margin-top:20px;">The signed PDF is attached to this email for your records.</p>
+        <p style="font-size: 13px; color: #6b7280; margin-top:20px;">This is an automated email from Restore Assist. Please do not reply.</p>
+      </div>
+    </body>
+    </html>
+  `
+
+  return resend.emails.send({
+    from: fromEmail,
+    to: data.recipientEmail,
+    subject: `Signed: ${data.formName} — ${data.clientName}`,
+    html,
+    attachments: [
+      {
+        filename: data.pdfFilename,
+        content: data.pdfBase64,
+      },
+    ],
+  })
+}
+
+// ── Invite Email ──
+
 export interface InviteEmailData {
   email: string
   name: string
