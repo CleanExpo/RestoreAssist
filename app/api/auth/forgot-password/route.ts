@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 // POST - Verify email exists for password reset
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 3 attempts per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 3, prefix: 'forgot-password' })
+    if (rateLimited) return rateLimited
+
     const { email } = await request.json()
 
     if (!email) {
