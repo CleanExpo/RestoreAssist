@@ -321,16 +321,20 @@ export default function TeamPage() {
   const resendEmail = async (invite: Invite) => {
     setResendingEmail(invite.id)
     try {
-      // For now, we'll show a message. In the future, we can add a resend endpoint
-      toast.success(`Resending email to ${invite.email}...`)
-      // TODO: Implement resend email API endpoint
-      setTimeout(() => {
-        setResendingEmail(null)
-        toast.success(`Email resent to ${invite.email}!`)
-      }, 1500)
+      const res = await fetch(`/api/team/invites/${invite.id}/resend`, {
+        method: "POST",
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to resend email")
+      }
+
+      toast.success(`Email resent to ${invite.email}!`)
     } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend email")
+    } finally {
       setResendingEmail(null)
-      toast.error("Failed to resend email")
     }
   }
 
