@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   FileText,
@@ -27,7 +27,9 @@ import {
   Lock,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
-import Chatbot from "@/components/Chatbot"
+import dynamic from "next/dynamic"
+
+const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
@@ -37,10 +39,17 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
 
   // Fetch subscription status
   useEffect(() => {
@@ -129,13 +138,25 @@ const upgradeItem = {
   return (
     <>
     <div className={cn("min-h-screen", "bg-white dark:bg-slate-950", "text-neutral-900 dark:text-slate-50")}>
+                {/* Mobile backdrop */}
+                {mobileMenuOpen && (
+                  <div
+                    className="fixed inset-0 bg-black/50 z-30 md:hidden"
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                )}
+
                 {/* Sidebar */}
                 <aside
                   className={cn(
                     "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
                     "bg-white dark:bg-slate-900",
                     "border-r border-neutral-200 dark:border-slate-800",
-                    sidebarOpen ? "w-64" : "w-20"
+                    // Mobile: slide in/out, always w-64 when visible
+                    mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+                    "md:translate-x-0",
+                    // Desktop: toggle width
+                    sidebarOpen ? "w-64" : "md:w-20 w-64"
                   )}
                 >
                   {/* Logo */}
@@ -293,13 +314,32 @@ const upgradeItem = {
                 </aside>
 
         {/* Main Content */}
-        <div className={`transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
+        <div className={cn(
+          "transition-all duration-300",
+          // Mobile: no margin (sidebar is overlay)
+          "ml-0",
+          // Desktop: margin matches sidebar width
+          sidebarOpen ? "md:ml-64" : "md:ml-20"
+        )}>
           {/* Top Bar */}
           <header className={cn(
-            "h-16 flex items-center justify-between px-6 sticky top-0 z-30",
+            "h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20",
             "bg-white dark:bg-slate-900",
             "border-b border-neutral-200 dark:border-slate-800"
           )}>
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className={cn(
+                "p-2 rounded-lg md:hidden mr-2",
+                "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                "text-neutral-700 dark:text-slate-300"
+              )}
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+
             <div className="flex-1 max-w-md">
               <div className="relative">
                 <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />

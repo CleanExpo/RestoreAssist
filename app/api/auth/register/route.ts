@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, signupType, inviteToken } = await request.json()
+    // Rate limit: 5 registrations per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "register" })
+    if (rateLimited) return rateLimited
+
+    const body = await request.json()
+    const name = sanitizeString(body.name, 200)
+    const email = sanitizeString(body.email, 320)
+    const { password, signupType, inviteToken } = body
 
     if (!name || !email || !password) {
       return NextResponse.json(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { PrismaClient } from "@prisma/client"
+import { sanitizeString } from "@/lib/sanitize"
 
 const prisma = new PrismaClient()
 
@@ -300,7 +301,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email, phone, address, company, contactPerson, notes, status } = body
+    const name = sanitizeString(body.name, 200)
+    const email = sanitizeString(body.email, 320)
+    const phone = sanitizeString(body.phone, 30)
+    const address = sanitizeString(body.address, 500)
+    const company = sanitizeString(body.company, 200)
+    const contactPerson = sanitizeString(body.contactPerson, 200)
+    const notes = sanitizeString(body.notes, 2000)
+    const { status } = body
 
     if (!name || !email) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })

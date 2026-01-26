@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateDetailedReport } from "@/lib/anthropic"
 import { canCreateReport } from "@/lib/report-limits"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,7 +100,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
+
+    // Sanitize user-input strings
+    body.title = sanitizeString(body.title, 200)
+    body.clientName = sanitizeString(body.clientName, 200)
+    body.propertyAddress = sanitizeString(body.propertyAddress, 500)
+    body.description = sanitizeString(body.description, 5000)
+    body.sourceOfWater = sanitizeString(body.sourceOfWater, 500)
+    body.hazardType = sanitizeString(body.hazardType, 100)
+
     // Validate required fields
     const requiredFields = [
       "title",
