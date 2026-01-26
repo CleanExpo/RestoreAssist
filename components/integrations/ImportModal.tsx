@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, Download, Users, Briefcase } from "lucide-react"
+import { Loader2, Download, Users, Briefcase, ChevronRight } from "lucide-react"
 import toast from "react-hot-toast"
 
 interface ExternalClient {
@@ -28,34 +28,88 @@ interface ExternalJob {
   claimId?: string
 }
 
+interface ConnectedIntegration {
+  provider: string
+  name: string
+  status: string
+}
+
 interface ImportModalProps {
   isOpen: boolean
   onClose: () => void
-  provider: string
-  providerName: string
+  onImportComplete?: () => void
 }
 
-export default function ImportModal({ isOpen, onClose, provider, providerName }: ImportModalProps) {
+const PROVIDER_NAMES: Record<string, string> = {
+  XERO: 'Xero',
+  QUICKBOOKS: 'QuickBooks',
+  MYOB: 'MYOB',
+  SERVICEM8: 'ServiceM8',
+  ASCORA: 'Ascora',
+}
+
+export default function ImportModal({ isOpen, onClose, onImportComplete }: ImportModalProps) {
+  const [step, setStep] = useState<'select-provider' | 'select-data'>('select-provider')
+  const [connectedIntegrations, setConnectedIntegrations] = useState<ConnectedIntegration[]>([])
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'clients' | 'jobs'>('clients')
   const [clients, setClients] = useState<ExternalClient[]>([])
   const [jobs, setJobs] = useState<ExternalJob[]>([])
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set())
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(false)
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false)
+  const [loadingData, setLoadingData] = useState(false)
   const [importing, setImporting] = useState(false)
 
   useEffect(() => {
-    if (isOpen && provider) {
-      fetchData()
+    if (isOpen) {
+      fetchConnectedIntegrations()
+      setStep('select-provider')
+      setSelectedProvider(null)
+      setClients([])
+      setJobs([])
+      setSelectedClientIds(new Set())
+      setSelectedJobIds(new Set())
     }
-  }, [isOpen, provider])
+  }, [isOpen])
 
-  const fetchData = async () => {
-    setLoading(true)
+  const fetchConnectedIntegrations = async () => {
+    setLoadingIntegrations(true)
+    try {
+      const response = await fetch('/api/integrations')
+      if (response.ok) {
+        const data = await response.json()
+        const connected = (data.integrations || [])
+          .filter((i: { status: string; provider: string }) =>
+            i.status === 'CONNECTED' && ['XERO', 'QUICKBOOKS', 'MYOB', 'SERVICEM8', 'ASCORA'].includes(i.provider)
+          )
+          .map((i: { provider: string; name: string; status: string }) => ({
+            provider: i.provider,
+            name: PROVIDER_NAMES[i.provider] || i.name,
+            status: i.status,
+          }))
+        setConnectedIntegrations(connected)
+      }
+    } catch (error) {
+      console.error('Error fetching integrations:', error)
+    } finally {
+      setLoadingIntegrations(false)
+    }
+  }
+
+  const handleSelectProvider = async (provider: string) => {
+    setSelectedProvider(provider)
+    setStep('select-data')
+    await fetchData(provider)
+  }
+
+  const fetchData = async (provider: string) => {
+    const slug = provider.toLowerCase()
+    setLoadingData(true)
     try {
       const [clientsRes, jobsRes] = await Promise.all([
-        fetch(`/api/integrations/${provider}/clients`),
-        fetch(`/api/integrations/${provider}/jobs`)
+        fetch(`/api/integrations/oauth/${slug}/clients`),
+        fetch(`/api/integrations/oauth/${slug}/jobs`)
       ])
 
       if (clientsRes.ok) {
@@ -69,13 +123,15 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
       }
     } catch (error) {
       console.error('Error fetching data:', error)
-      toast.error('Failed to fetch data from ' + providerName)
+      toast.error('Failed to fetch data from ' + (PROVIDER_NAMES[provider] || provider))
     } finally {
-      setLoading(false)
+      setLoadingData(false)
     }
   }
 
   const handleImport = async () => {
+    if (!selectedProvider) return
+
     const clientIds = Array.from(selectedClientIds)
     const jobIds = Array.from(selectedJobIds)
 
@@ -84,13 +140,14 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
       return
     }
 
+    const slug = selectedProvider.toLowerCase()
     setImporting(true)
     try {
       const promises = []
 
       if (clientIds.length > 0) {
         promises.push(
-          fetch(`/api/integrations/${provider}/clients`, {
+          fetch(`/api/integrations/oauth/${slug}/clients`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ clientIds })
@@ -100,7 +157,7 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
 
       if (jobIds.length > 0) {
         promises.push(
-          fetch(`/api/integrations/${provider}/jobs`, {
+          fetch(`/api/integrations/oauth/${slug}/jobs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ jobIds })
@@ -115,6 +172,7 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
         toast.success(`Successfully imported ${clientIds.length} clients and ${jobIds.length} jobs`)
         setSelectedClientIds(new Set())
         setSelectedJobIds(new Set())
+        onImportComplete?.()
         onClose()
       } else {
         toast.error('Some imports failed')
@@ -151,7 +209,7 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
     if (selectedClientIds.size === clients.filter(c => !c.contactId).length) {
       setSelectedClientIds(new Set())
     } else {
-      setSelectedClientIds(new Set(clients.filter(c => !c.contactId).map(c => c.id)))
+      setSelectedClientIds(new Set(clients.filter(c => !c.contactId).map(c => c.externalId)))
     }
   }
 
@@ -159,7 +217,7 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
     if (selectedJobIds.size === jobs.filter(j => !j.claimId).length) {
       setSelectedJobIds(new Set())
     } else {
-      setSelectedJobIds(new Set(jobs.filter(j => !j.claimId).map(j => j.id)))
+      setSelectedJobIds(new Set(jobs.filter(j => !j.claimId).map(j => j.externalId)))
     }
   }
 
@@ -170,175 +228,233 @@ export default function ImportModal({ isOpen, onClose, provider, providerName }:
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Import from {providerName}</DialogTitle>
+          <DialogTitle>
+            {step === 'select-provider' ? 'Import Data' : `Import from ${PROVIDER_NAMES[selectedProvider || ''] || selectedProvider}`}
+          </DialogTitle>
           <DialogDescription>
-            Select clients and jobs to import into RestoreAssist
+            {step === 'select-provider'
+              ? 'Select a connected integration to import data from'
+              : 'Select clients and jobs to import into RestoreAssist'
+            }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-          <button
-            onClick={() => setActiveTab('clients')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'clients'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
-            }`}
-          >
-            <Users className="inline-block w-4 h-4 mr-2" />
-            Clients ({unimportedClients.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('jobs')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'jobs'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
-            }`}
-          >
-            <Briefcase className="inline-block w-4 h-4 mr-2" />
-            Jobs ({unimportedJobs.length})
-          </button>
-        </div>
+        {step === 'select-provider' ? (
+          <div className="flex-1 overflow-y-auto min-h-[200px] p-2">
+            {loadingIntegrations ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+              </div>
+            ) : connectedIntegrations.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  No connected integrations found
+                </p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  Connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora to import data
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {connectedIntegrations.map((integration) => (
+                  <button
+                    key={integration.provider}
+                    onClick={() => handleSelectProvider(integration.provider)}
+                    className="w-full p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {integration.provider === 'XERO' || integration.provider === 'QUICKBOOKS' || integration.provider === 'MYOB' ? '📊' : '📋'}
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {integration.name}
+                      </span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setActiveTab('clients')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'clients'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                <Users className="inline-block w-4 h-4 mr-2" />
+                Clients ({unimportedClients.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('jobs')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'jobs'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                <Briefcase className="inline-block w-4 h-4 mr-2" />
+                Jobs ({unimportedJobs.length})
+              </button>
+            </div>
 
-        <div className="flex-1 overflow-y-auto min-h-[300px]">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            </div>
-          ) : activeTab === 'clients' ? (
-            <div className="space-y-2 p-2">
-              {unimportedClients.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No new clients to import
-                </p>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
-                    <button
-                      onClick={selectAllClients}
-                      className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {selectedClientIds.size === unimportedClients.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedClientIds.size} selected
-                    </span>
-                  </div>
-                  {unimportedClients.map((client) => (
-                    <div
-                      key={client.id}
-                      onClick={() => toggleClient(client.id)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedClientIds.has(client.id)
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedClientIds.has(client.id)}
-                          onCheckedChange={() => toggleClient(client.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {client.name}
-                          </p>
-                          {client.email && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                              {client.email}
-                            </p>
-                          )}
-                          {client.phone && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {client.phone}
-                            </p>
-                          )}
-                        </div>
+            <div className="flex-1 overflow-y-auto min-h-[300px]">
+              {loadingData ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : activeTab === 'clients' ? (
+                <div className="space-y-2 p-2">
+                  {unimportedClients.length === 0 ? (
+                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                      No new clients to import. Try syncing first.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
+                        <button
+                          onClick={selectAllClients}
+                          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          {selectedClientIds.size === unimportedClients.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {selectedClientIds.size} selected
+                        </span>
                       </div>
-                    </div>
-                  ))}
-                </>
+                      {unimportedClients.map((client) => (
+                        <div
+                          key={client.id}
+                          onClick={() => toggleClient(client.externalId)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedClientIds.has(client.externalId)
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={selectedClientIds.has(client.externalId)}
+                              onCheckedChange={() => toggleClient(client.externalId)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                                {client.name}
+                              </p>
+                              {client.email && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                  {client.email}
+                                </p>
+                              )}
+                              {client.phone && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  {client.phone}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 p-2">
+                  {unimportedJobs.length === 0 ? (
+                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                      No new jobs to import. Try syncing first.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
+                        <button
+                          onClick={selectAllJobs}
+                          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          {selectedJobIds.size === unimportedJobs.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {selectedJobIds.size} selected
+                        </span>
+                      </div>
+                      {unimportedJobs.map((job) => (
+                        <div
+                          key={job.id}
+                          onClick={() => toggleJob(job.externalId)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedJobIds.has(job.externalId)
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={selectedJobIds.has(job.externalId)}
+                              onCheckedChange={() => toggleJob(job.externalId)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                                {job.title}
+                              </p>
+                              {job.status && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  Status: {job.status}
+                                </p>
+                              )}
+                              {job.address && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                  {job.address}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
               )}
             </div>
-          ) : (
-            <div className="space-y-2 p-2">
-              {unimportedJobs.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No new jobs to import
-                </p>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
-                    <button
-                      onClick={selectAllJobs}
-                      className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {selectedJobIds.size === unimportedJobs.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedJobIds.size} selected
-                    </span>
-                  </div>
-                  {unimportedJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      onClick={() => toggleJob(job.id)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedJobIds.has(job.id)
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedJobIds.has(job.id)}
-                          onCheckedChange={() => toggleJob(job.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {job.title}
-                          </p>
-                          {job.status && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Status: {job.status}
-                            </p>
-                          )}
-                          {job.address && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                              {job.address}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          </>
+        )}
 
         <DialogFooter className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          {step === 'select-data' && (
+            <Button
+              variant="outline"
+              onClick={() => setStep('select-provider')}
+              disabled={importing}
+              className="mr-auto"
+            >
+              Back
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose} disabled={importing}>
             Cancel
           </Button>
-          <Button
-            onClick={handleImport}
-            disabled={importing || (selectedClientIds.size === 0 && selectedJobIds.size === 0)}
-          >
-            {importing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 mr-2" />
-                Import Selected
-              </>
-            )}
-          </Button>
+          {step === 'select-data' && (
+            <Button
+              onClick={handleImport}
+              disabled={importing || (selectedClientIds.size === 0 && selectedJobIds.size === 0)}
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Import Selected
+                </>
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
