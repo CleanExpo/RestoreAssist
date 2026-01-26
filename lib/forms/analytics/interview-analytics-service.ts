@@ -365,6 +365,44 @@ export class InterviewAnalyticsService {
         recommendations.push('Low average fields populated - review field mapping coverage')
       }
 
+      // Calculate most difficult questions based on skip rates and low confidence
+      const questionStats: Map<string, { skipCount: number; lowConfidenceCount: number; totalOccurrences: number }> = new Map()
+
+      sessions.forEach((session) => {
+        session.responses.forEach((response) => {
+          const questionId = response.questionId
+          const stats = questionStats.get(questionId) || { skipCount: 0, lowConfidenceCount: 0, totalOccurrences: 0 }
+          stats.totalOccurrences++
+
+          // Check if question was skipped (null or empty answer)
+          if (!response.answer || response.answer === '') {
+            stats.skipCount++
+          }
+
+          // Check for low confidence (if available in metadata)
+          const metadata = response.metadata as any
+          if (metadata?.confidence && metadata.confidence < 70) {
+            stats.lowConfidenceCount++
+          }
+
+          questionStats.set(questionId, stats)
+        })
+      })
+
+      // Convert to array and sort by difficulty (skip rate + low confidence rate)
+      const mostDifficultQuestions = Array.from(questionStats.entries())
+        .map(([questionId, stats]) => ({
+          questionId,
+          skipRate: Math.round((stats.skipCount / Math.max(stats.totalOccurrences, 1)) * 100),
+          lowConfidenceRate: Math.round((stats.lowConfidenceCount / Math.max(stats.totalOccurrences, 1)) * 100),
+          difficultyScore: Math.round(
+            ((stats.skipCount + stats.lowConfidenceCount) / Math.max(stats.totalOccurrences * 2, 1)) * 100
+          ),
+        }))
+        .filter((q) => q.difficultyScore > 20) // Only include questions with >20% difficulty
+        .sort((a, b) => b.difficultyScore - a.difficultyScore)
+        .slice(0, 5) // Top 5 most difficult questions
+
       return {
         templateId,
         totalSessions: sessions.length,
@@ -376,7 +414,7 @@ export class InterviewAnalyticsService {
           medium: mediumConfidenceCount,
           low: lowConfidenceCount,
         },
-        mostDifficultQuestions: [], // TODO: Implement based on skip rates
+        mostDifficultQuestions,
         recommendedImprovements: recommendations,
       }
     } catch (error) {

@@ -1,6 +1,14 @@
 /**
  * Property Lookup Button Component
- * Stub component for property lookup functionality
+ *
+ * V3 Feature Stub - Property Intelligence (CoreLogic/Domain Integration)
+ * This component is a placeholder for future property data lookup functionality.
+ * Full implementation planned for V3 with CoreLogic/Domain API integration.
+ *
+ * When implemented, this will auto-fill property details from address using:
+ * - CoreLogic RP Data API
+ * - Domain Group Property API
+ * - Australian Property Monitors
  */
 
 'use client'
@@ -27,8 +35,8 @@ export function PropertyLookupButton({
 }: PropertyLookupButtonProps) {
   const handleClick = async () => {
     try {
-      // TODO: Implement property lookup API call
-      // For now, just show a message
+      // V3 Feature: Property Intelligence Integration
+      // This will call /api/property/lookup when CoreLogic/Domain integration is complete
       console.log('Property lookup clicked', { inspectionId, address, postcode })
       if (onSuccess) {
         onSuccess({ data: null, expiresAt: null })
