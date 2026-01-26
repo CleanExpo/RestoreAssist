@@ -19,7 +19,40 @@ export async function POST(
 
     const { id: formId } = await params
     const body = await request.json()
-    const { signatureId, signatureData, signatoryName } = body
+    const { signatureId, signatureData, signatoryName, signatoryEmail, signatoryRole, action } = body
+
+    // Create new signatory slot
+    if (action === 'add_signatory') {
+      if (!signatoryName || !signatoryRole) {
+        return NextResponse.json(
+          { error: "Signatory name and role are required" },
+          { status: 400 }
+        )
+      }
+
+      const newSignature = await prisma.authorityFormSignature.create({
+        data: {
+          instanceId: formId,
+          signatoryName,
+          signatoryRole,
+          signatoryEmail: signatoryEmail || null,
+        },
+      })
+
+      // Update form status to pending if still draft
+      const currentForm = await prisma.authorityFormInstance.findUnique({
+        where: { id: formId },
+        select: { status: true },
+      })
+      if (currentForm?.status === 'DRAFT') {
+        await prisma.authorityFormInstance.update({
+          where: { id: formId },
+          data: { status: 'PENDING_SIGNATURES' },
+        })
+      }
+
+      return NextResponse.json({ signature: newSignature })
+    }
 
     if (!signatureId || !signatureData) {
       return NextResponse.json(
