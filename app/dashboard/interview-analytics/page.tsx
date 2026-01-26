@@ -29,7 +29,8 @@ import type {
  */
 export default function InterviewAnalyticsDashboard() {
   const [aggregateStats, setAggregateStats] = useState<any>(null)
-  const [templateStats, setTemplateStats] = useState<TemplatePerformanceAnalytics[]>([])
+  const [templateStats, setTemplateStats] = useState<any[]>([])
+  const [userStats, setUserStats] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
@@ -55,9 +56,23 @@ export default function InterviewAnalyticsDashboard() {
       const aggregateData = await aggregateResponse.json()
       setAggregateStats(aggregateData)
 
-      // Fetch template-specific analytics
-      // In a real app, you'd fetch all templates from the database first
-      // For now, we'll just use the aggregate data
+      // Fetch template analytics
+      try {
+        const templateResponse = await fetch('/api/forms/interview/analytics?type=template')
+        if (templateResponse.ok) {
+          const templateData = await templateResponse.json()
+          setTemplateStats(templateData.templates || [])
+        }
+      } catch { /* template stats optional */ }
+
+      // Fetch user analytics
+      try {
+        const userResponse = await fetch('/api/forms/interview/analytics?type=user')
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          setUserStats(userData.users || [])
+        }
+      } catch { /* user stats optional */ }
 
       setLastRefresh(new Date())
     } catch (err) {
@@ -335,13 +350,47 @@ export default function InterviewAnalyticsDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Template-specific analytics will show detailed performance metrics for each form
-                  template once interviews have been conducted.
-                </AlertDescription>
-              </Alert>
+              {templateStats.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Template</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Sessions</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Completion Rate</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Avg Duration</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Avg Fields</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {templateStats.map((tpl: any, i: number) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm font-medium">{tpl.templateId || tpl.name || `Template ${i + 1}`}</td>
+                          <td className="py-3 px-4 text-sm text-right">{tpl.sessionCount ?? 0}</td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            <Badge className={
+                              (tpl.completionRate ?? 0) >= 80 ? 'bg-green-100 text-green-800' :
+                              (tpl.completionRate ?? 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }>
+                              {formatPercentage(tpl.completionRate ?? 0)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right">{formatDuration(tpl.averageDuration ?? 0)}</td>
+                          <td className="py-3 px-4 text-sm text-right">{tpl.averageFieldsPopulated ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No template-specific analytics yet. Conduct interviews to see performance metrics per template.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -356,13 +405,45 @@ export default function InterviewAnalyticsDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  User-specific analytics will show individual performance metrics when accessed
-                  from a user profile or admin view.
-                </AlertDescription>
-              </Alert>
+              {userStats.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">User</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Sessions</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Completion Rate</th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Avg Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userStats.map((user: any, i: number) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm font-medium">{user.name || user.userId || `User ${i + 1}`}</td>
+                          <td className="py-3 px-4 text-sm text-right">{user.sessionCount ?? 0}</td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            <Badge className={
+                              (user.completionRate ?? 0) >= 80 ? 'bg-green-100 text-green-800' :
+                              (user.completionRate ?? 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }>
+                              {formatPercentage(user.completionRate ?? 0)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right">{formatPercentage(user.averageConfidence ?? 0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No user-specific analytics yet. Team members will appear here after completing interviews.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

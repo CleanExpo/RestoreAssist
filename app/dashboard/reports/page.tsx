@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X, FileSpreadsheet, Sparkles, Zap, FileCheck, RefreshCw, Plus } from "lucide-react"
+import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X, FileSpreadsheet, Sparkles, Zap, FileCheck, RefreshCw, Plus, MessageSquare } from "lucide-react"
 import toast from "react-hot-toast"
 import { BulkOperationModal } from "@/components/BulkOperationModal"
 import { cn } from "@/lib/utils"
@@ -737,7 +737,28 @@ export default function ReportsPage() {
                           >
                             <Edit size={16} />
                           </Link> */}
-                          <button 
+                          <button
+                            onClick={() => {
+                              const jobType = report.hazardType === 'Fire' ? 'FIRE_DAMAGE'
+                                : report.hazardType === 'Storm' ? 'STORM_DAMAGE'
+                                : report.hazardType === 'Mould' ? 'MOULD_REMEDIATION'
+                                : 'WATER_DAMAGE'
+                              const params = new URLSearchParams({ reportId: report.id })
+                              if (jobType) params.set('jobType', jobType)
+                              if (report.propertyPostcode) params.set('postcode', report.propertyPostcode)
+                              router.push(`/dashboard/interviews/new?${params.toString()}`)
+                            }}
+                            className={cn(
+                              "p-1.5 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
+                              "hover:bg-neutral-100 dark:hover:bg-slate-700",
+                              "text-neutral-600 dark:text-slate-300",
+                              "hover:text-blue-600 dark:hover:text-blue-400"
+                            )}
+                            title="Start Interview"
+                          >
+                            <MessageSquare size={16} className="transition-transform duration-200 group-hover:scale-110" />
+                          </button>
+                          <button
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}
                             className={cn(
