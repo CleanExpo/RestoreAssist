@@ -2,6 +2,8 @@
  * Sync Integration Route
  * POST /api/integrations/oauth/[provider]/sync
  * Triggers data sync for clients and/or jobs
+ *
+ * REQUIRES: Active paid subscription
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -13,6 +15,10 @@ import {
   type IntegrationProvider,
 } from '@/lib/integrations/oauth-handler'
 import { createClientForIntegration } from '@/lib/integrations'
+import {
+  checkIntegrationAccess,
+  createSubscriptionRequiredResponse,
+} from '@/lib/integrations/subscription-guard'
 
 export async function POST(
   request: NextRequest,
@@ -22,6 +28,15 @@ export async function POST(
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check subscription status - external integrations require paid subscription
+    const subscriptionCheck = await checkIntegrationAccess(session.user.id)
+    if (!subscriptionCheck.isAllowed) {
+      return NextResponse.json(
+        createSubscriptionRequiredResponse(subscriptionCheck),
+        { status: 403 }
+      )
     }
 
     const { provider: providerParam } = await params
