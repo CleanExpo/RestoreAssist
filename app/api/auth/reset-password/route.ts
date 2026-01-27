@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { applyRateLimit } from '@/lib/rate-limiter'
 import { sanitizeString } from '@/lib/sanitize'
+import { validateCsrf } from '@/lib/csrf'
 import { verifyResetCode } from '@/lib/password-reset-store'
 
 const MIN_PASSWORD_LENGTH = 8
@@ -10,6 +11,10 @@ const MIN_PASSWORD_LENGTH = 8
 // POST - Reset password with verification code
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     // Rate limit: 5 attempts per 15 minutes per IP
     const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: 'reset-password' })
     if (rateLimited) return rateLimited

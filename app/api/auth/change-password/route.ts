@@ -4,9 +4,14 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { applyRateLimit } from "@/lib/rate-limiter"
+import { validateCsrf } from "@/lib/csrf"
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     // Rate limit: 5 attempts per 15 minutes per IP
     const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "change-password" })
     if (rateLimited) return rateLimited

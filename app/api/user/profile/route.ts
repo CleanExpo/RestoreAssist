@@ -222,6 +222,9 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {

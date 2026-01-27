@@ -80,6 +80,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const csrfError = validateCsrf(req)
+  if (csrfError) return csrfError
+
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canInvite(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
