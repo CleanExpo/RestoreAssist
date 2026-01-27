@@ -27,6 +27,7 @@ export async function createWorkflow(
     reportId?: string
     inspectionId?: string
     config?: Record<string, unknown>
+    scheduledFor?: Date
   }
 ): Promise<{ workflowId: string; taskCount: number }> {
   // Ensure agents are synced to the database
@@ -46,6 +47,7 @@ export async function createWorkflow(
         status: 'PENDING',
         totalTasks: tasks.length,
         config: params.config ? JSON.stringify(params.config) : null,
+        scheduledFor: params.scheduledFor ?? null,
       },
     })
 

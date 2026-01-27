@@ -29,6 +29,21 @@ export async function transitionTask(
     where: { id: taskId, status: from },
     data: { status: to, ...data },
   })
+
+  if (result.count > 0) {
+    // Update workflow lastActivityAt for stale detection
+    const task = await prisma.agentTask.findUnique({
+      where: { id: taskId },
+      select: { workflowId: true },
+    })
+    if (task) {
+      await prisma.agentWorkflow.update({
+        where: { id: task.workflowId },
+        data: { lastActivityAt: new Date() },
+      }).catch(() => {}) // Non-blocking
+    }
+  }
+
   return result.count > 0
 }
 
