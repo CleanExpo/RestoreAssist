@@ -2433,3 +2433,47 @@ model PropertyLookup {
   @@index([expiresAt])
   @@index([inspectionId])
 }
+
+// ============================================
+// STRIPE WEBHOOK EVENT LOGGING
+// ============================================
+
+// Tracks all Stripe webhook events for audit and idempotency
+model StripeWebhookEvent {
+  id String @id @default(cuid())
+
+  // Stripe event identifiers
+  stripeEventId String   @unique // Stripe's event ID for idempotency
+  eventType     String // checkout.session.completed, customer.subscription.created, etc.
+
+  // Event data
+  eventData String @db.Text // Full JSON payload
+
+  // Processing status
+  status       WebhookEventStatus @default(PENDING)
+  processedAt  DateTime?
+  errorMessage String?            @db.Text
+  retryCount   Int                @default(0)
+
+  // Associated user (if determinable)
+  userId String?
+
+  // Timestamps
+  receivedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([stripeEventId])
+  @@index([eventType])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([userId])
+}
+
+enum WebhookEventStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED // For duplicate events
+}
