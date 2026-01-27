@@ -4,10 +4,15 @@ import { applyRateLimit } from '@/lib/rate-limiter'
 import { generateResetCode, storeResetCode } from '@/lib/password-reset-store'
 import { sendPasswordResetEmail } from '@/lib/email'
 import { sanitizeString } from '@/lib/sanitize'
+import { validateCsrf } from '@/lib/csrf'
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     // Rate limit: 3 attempts per 15 minutes per IP
     const rateLimited = applyRateLimit(request, { maxRequests: 3, prefix: 'forgot-password' })
     if (rateLimited) return rateLimited

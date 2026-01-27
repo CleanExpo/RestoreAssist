@@ -3,11 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { getAdminAuth } from '@/lib/firebase-admin'
 import { applyRateLimit } from '@/lib/rate-limiter'
 import { sanitizeString } from '@/lib/sanitize'
+import { validateCsrf } from '@/lib/csrf'
 
 // POST - Handle Google sign-in via Firebase
 // Creates user in database if doesn't exist, otherwise updates and returns user
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     // Rate limit: 10 attempts per 15 minutes per IP
     const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: 'google-signin' })
     if (rateLimited) return rateLimited

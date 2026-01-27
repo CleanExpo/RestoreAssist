@@ -10,6 +10,10 @@ const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     // Rate limit: 5 registrations per 15 minutes per IP
     const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "register" })
     if (rateLimited) return rateLimited

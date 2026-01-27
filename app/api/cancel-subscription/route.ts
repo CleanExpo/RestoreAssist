@@ -6,6 +6,9 @@ import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
