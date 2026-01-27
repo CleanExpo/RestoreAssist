@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, Building, User, Calendar, DollarSign, FileText, AlertTriangle, Eye } from "lucide-react"
 import toast from "react-hot-toast"
+import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection"
 
 interface Client {
   id: string
@@ -234,6 +235,13 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
           <p className="text-slate-300">{client.notes}</p>
         </div>
       )}
+
+      {/* Portal Invitation Section */}
+      <PortalInvitationSection
+        clientId={client.id}
+        clientEmail={client.email}
+        clientName={client.name}
+      />
 
       {/* Reports History */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
