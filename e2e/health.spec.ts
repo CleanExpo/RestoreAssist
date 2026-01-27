@@ -13,8 +13,13 @@ test.describe('API Health', () => {
 
     const data = await response.json()
     expect(data).toHaveProperty('status')
-    expect(data.status).toBe('healthy')
+    expect(data.status).toBe('ok')
     expect(data).toHaveProperty('timestamp')
+    expect(data).toHaveProperty('uptime')
+    expect(data).toHaveProperty('version')
+    expect(data).toHaveProperty('checks')
+    expect(data.checks).toHaveProperty('database')
+    expect(data.checks.database.status).toBe('ok')
   })
 })
 
