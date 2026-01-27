@@ -6,6 +6,7 @@ import { stripe } from "@/lib/stripe"
 import { getUserReportLimits } from "@/lib/report-limits"
 import { getEffectiveSubscription } from "@/lib/organization-credits"
 import { getTrialStatus, checkAndUpdateTrialStatus } from "@/lib/trial-handling"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(request: NextRequest) {
   try {
@@ -240,16 +241,14 @@ export async function PUT(request: NextRequest) {
     const isAdmin = user.role === "ADMIN"
 
     const body = await request.json()
-    const { 
-      name, 
-      email,
-      businessName,
-      businessAddress,
-      businessLogo,
-      businessABN,
-      businessPhone,
-      businessEmail
-    } = body
+    const name = sanitizeString(body.name, 200)
+    const email = body.email ? sanitizeString(body.email, 320).toLowerCase() : undefined
+    const businessName = sanitizeString(body.businessName, 200)
+    const businessAddress = sanitizeString(body.businessAddress, 500)
+    const businessLogo = sanitizeString(body.businessLogo, 2000)
+    const businessABN = sanitizeString(body.businessABN, 20)
+    const businessPhone = sanitizeString(body.businessPhone, 50)
+    const businessEmail = sanitizeString(body.businessEmail, 320)
 
     // Build update data object
     const updateData: any = {}

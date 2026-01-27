@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { applyRateLimit } from '@/lib/rate-limiter'
 import { generateResetCode, storeResetCode } from '@/lib/password-reset-store'
 import { sendPasswordResetEmail } from '@/lib/email'
+import { sanitizeString } from '@/lib/sanitize'
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -11,7 +12,8 @@ export async function POST(request: NextRequest) {
     const rateLimited = applyRateLimit(request, { maxRequests: 3, prefix: 'forgot-password' })
     if (rateLimited) return rateLimited
 
-    const { email } = await request.json()
+    const body = await request.json()
+    const email = sanitizeString(body.email, 320).toLowerCase()
 
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })

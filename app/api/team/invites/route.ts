@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { sendInviteEmail } from "@/lib/email"
 import { notifyTeamMemberJoined } from "@/lib/notifications"
+import { sanitizeString } from "@/lib/sanitize"
 
 function canInvite(role?: string) {
   // Only ADMIN and MANAGER can create invites
@@ -83,7 +84,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!canInvite(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { email, role } = await req.json()
+  const body = await req.json()
+  const email = sanitizeString(body.email, 320)
+  const role = body.role
   if (!email || !role) return NextResponse.json({ error: "Email and role are required" }, { status: 400 })
 
   if (role !== "MANAGER" && role !== "USER") {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,12 +79,12 @@ export async function POST(request: NextRequest) {
       subtotalExGST: body.subtotalExGST || 0,
       gst: body.gst || 0,
       totalIncGST: body.totalIncGST || 0,
-      assumptions: assumptions || null,
-      inclusions: inclusions || null,
-      exclusions: exclusions || null,
-      allowances: allowances || null,
-      complianceStatement: complianceStatement || null,
-      disclaimer: disclaimer || null,
+      assumptions: assumptions ? sanitizeString(assumptions, 5000) : null,
+      inclusions: inclusions ? sanitizeString(inclusions, 5000) : null,
+      exclusions: exclusions ? sanitizeString(exclusions, 5000) : null,
+      allowances: allowances ? sanitizeString(allowances, 5000) : null,
+      complianceStatement: complianceStatement ? sanitizeString(complianceStatement, 5000) : null,
+      disclaimer: disclaimer ? sanitizeString(disclaimer, 5000) : null,
       estimatedDuration: body.estimatedDuration || null,
       updatedBy: session.user.id
     }
