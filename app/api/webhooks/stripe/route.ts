@@ -6,6 +6,7 @@ import Stripe from "stripe"
 import { PRICING_CONFIG } from "@/lib/pricing"
 import { sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/email"
 import { notifyPaymentFailed, notifySubscriptionCancelled } from "@/lib/notifications"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -77,6 +78,10 @@ async function isEventProcessed(stripeEventId: string): Promise<boolean> {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 200 requests per minute per IP (generous to allow Stripe retries)
+  const rateLimited = applyRateLimit(request, { maxRequests: 200, windowMs: 60_000, prefix: "webhook-stripe" })
+  if (rateLimited) return rateLimited
+
   const body = await request.text()
   const headersList = await headers()
   const signature = headersList.get("stripe-signature")

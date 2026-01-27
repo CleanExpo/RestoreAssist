@@ -4,14 +4,19 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { getAnthropicApiKey } from "@/lib/ai-provider"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 10 enhanced report generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-enhanced", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { reportId, technicianNotes, dateOfAttendance, clientContacted, clientName, propertyAddress, clientEmail, clientPhone, photos, conversationHistory } = body

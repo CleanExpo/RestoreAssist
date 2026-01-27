@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { parseSearchQuery, toPostgresTsquery } from "@/lib/search-utils";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,6 +13,10 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Rate limit: 60 searches per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 60, prefix: "search", key: session.user.id });
+    if (rateLimited) return rateLimited;
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q");

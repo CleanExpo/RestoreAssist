@@ -4,10 +4,11 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateForensicReportPDF } from '@/lib/generate-forensic-report-pdf'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 /**
  * GET /api/reports/[id]/generate-forensic-pdf
- * 
+ *
  * Generates a professional forensic inspection report PDF matching the
  * Disaster Recovery QLD format with exact layout and structure.
  */
@@ -17,10 +18,14 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 10 forensic PDF generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-forensic", key: session.user.email })
+    if (rateLimited) return rateLimited
 
     const { id: reportId } = await params
 

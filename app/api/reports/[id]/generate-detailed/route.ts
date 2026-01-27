@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(
   request: NextRequest,
@@ -10,12 +11,16 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || !(session.user as any).id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const userId = (session.user as any).id
+
+    // Rate limit: 10 detailed report generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-detailed", key: userId })
+    if (rateLimited) return rateLimited
     const { id } = await params
 
     // Fetch the report with all related data
