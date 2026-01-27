@@ -4,4 +4,4 @@ Disallow: /dashboard/
 Disallow: /api/
 Disallow: /sign/
 
-Sitemap: https://restoreassist.com/sitemap.xml
+Sitemap: https://restoreassist.com.au/sitemap.xml

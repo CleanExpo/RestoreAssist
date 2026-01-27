@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://restoreassist.com"),
+  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://restoreassist.com.au"),
 }
 
 export default function RootLayout({
