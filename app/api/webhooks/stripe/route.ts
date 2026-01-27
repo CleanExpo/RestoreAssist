@@ -5,6 +5,7 @@ import { headers } from "next/headers"
 import Stripe from "stripe"
 import { PRICING_CONFIG } from "@/lib/pricing"
 import { sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/email"
+import { notifyPaymentFailed, notifySubscriptionCancelled } from "@/lib/notifications"
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -520,6 +521,12 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
       }),
       resubscribeUrl: `${APP_URL}/dashboard/subscription`,
     })
+
+    // In-app notification
+    notifySubscriptionCancelled(
+      user.id,
+      endDate.toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })
+    )
   }
 
   console.log(`✅ SUBSCRIPTION DELETED: ${subscription.id}`)
@@ -671,6 +678,10 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
       failureReason,
       updatePaymentUrl,
     })
+
+    // In-app notification
+    const formattedAmount = `$${((invoice.amount_due || 0) / 100).toFixed(2)} ${(invoice.currency || 'aud').toUpperCase()}`
+    notifyPaymentFailed(user.id, formattedAmount)
   }
 
   console.log(`⚠️ INVOICE PAYMENT FAILED for subscription ${invoice.subscription}`)

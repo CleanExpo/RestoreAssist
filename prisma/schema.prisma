@@ -138,6 +138,9 @@ model User {
   // Reports assigned to this user (as Manager or Admin)
   assignedReportsAsManager Report[] @relation("ReportManager")
   assignedReportsAsAdmin   Report[] @relation("ReportAdmin")
+
+  // In-app notifications
+  notifications Notification[]
 }
 
 model VerificationToken {
@@ -2476,4 +2479,32 @@ enum WebhookEventStatus {
   COMPLETED
   FAILED
   SKIPPED // For duplicate events
+}
+
+// ============================================
+// In-App Notification System
+// ============================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String   @db.Text
+  type      NotificationType @default(INFO)
+  read      Boolean  @default(false)
+  link      String?  // Optional deep link (e.g., /dashboard/reports/abc123)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
 }

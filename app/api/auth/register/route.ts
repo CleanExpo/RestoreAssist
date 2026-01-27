@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { applyRateLimit } from "@/lib/rate-limiter"
 import { sanitizeString } from "@/lib/sanitize"
 import { sendWelcomeEmail } from "@/lib/email"
+import { notifyWelcome } from "@/lib/notifications"
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // Send welcome email (non-blocking)
+        // Send welcome email and in-app notification (non-blocking)
         sendWelcomeEmail({
           recipientEmail: email,
           recipientName: name,
@@ -181,6 +182,7 @@ export async function POST(request: NextRequest) {
           trialDays: 14,
           trialCredits: 3,
         }).catch((err) => console.error("[Register] Welcome email failed:", err))
+        notifyWelcome(user.id)
 
         const { password: _, ...userWithoutPassword } = user
         return NextResponse.json(
@@ -222,7 +224,7 @@ export async function POST(request: NextRequest) {
           })
         })
 
-        // Send welcome email (non-blocking)
+        // Send welcome email and in-app notification (non-blocking)
         sendWelcomeEmail({
           recipientEmail: email,
           recipientName: name,
@@ -230,6 +232,7 @@ export async function POST(request: NextRequest) {
           trialDays: 14,
           trialCredits: 3,
         }).catch((err) => console.error("[Register] Welcome email failed:", err))
+        notifyWelcome(updatedUser.id)
 
         const { password: _, ...userWithoutPassword } = updatedUser
         return NextResponse.json(
@@ -254,7 +257,7 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // Send welcome email (non-blocking)
+        // Send welcome email and in-app notification (non-blocking)
         sendWelcomeEmail({
           recipientEmail: email,
           recipientName: name,
@@ -262,6 +265,7 @@ export async function POST(request: NextRequest) {
           trialDays: 14,
           trialCredits: 3,
         }).catch((err) => console.error("[Register] Welcome email failed:", err))
+        notifyWelcome(user.id)
 
         const { password: _, ...userWithoutPassword } = user
         return NextResponse.json(

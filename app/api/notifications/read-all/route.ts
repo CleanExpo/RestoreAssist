@@ -12,8 +12,7 @@ export async function POST() {
     }
 
     try {
-      // Mark all user's notifications as read
-      await (prisma as any).notification?.updateMany({
+      await prisma.notification.updateMany({
         where: {
           userId: session.user.id,
           read: false,
@@ -23,7 +22,6 @@ export async function POST() {
 
       return NextResponse.json({ success: true })
     } catch {
-      // Model doesn't exist - return success for graceful handling
       return NextResponse.json({ success: true })
     }
   } catch (error) {
