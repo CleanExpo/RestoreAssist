@@ -15,6 +15,7 @@ import RevenueProjection from "./components/RevenueProjection"
 import TopClientsTable from "./components/TopClientsTable"
 import CompletionMetrics from "./components/CompletionMetrics"
 import MonthlyVolumeChart from "./components/MonthlyVolumeChart"
+import BillingOverview from "./components/BillingOverview"
 import { Users, UserCog, Wrench } from "lucide-react"
 
 interface AnalyticsData {
@@ -362,6 +363,15 @@ export default function AnalyticsPage() {
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-100">
               <KPICards data={data?.kpis || null} />
             </div>
+
+            {/* Billing Overview (Admin Only) */}
+            {session?.user?.role === "ADMIN" && (
+              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-150">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-emerald-500/30")}>
+                  <BillingOverview />
+                </div>
+              </div>
+            )}
 
             {/* Main Revenue Chart with Enhanced Styling */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
