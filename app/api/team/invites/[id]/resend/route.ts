@@ -90,7 +90,7 @@ export async function POST(
       email: invite.email,
       name: existingUser?.name || invite.email.split("@")[0],
       role: invite.role,
-      tempPassword: existingUser ? undefined : "dummy123", // Only include password for new accounts
+      tempPassword: undefined, // Password not included on resend — user already has credentials
       loginUrl,
       inviterName,
       isTransfer: !!existingUser
