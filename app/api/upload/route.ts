@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
-import { existsSync } from "fs"
+import { uploadToCloudinary } from "@/lib/cloudinary"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -32,33 +30,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File size exceeds 10MB limit." }, { status: 400 })
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", session.user.id)
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 15)
-    const fileExtension = file.name.split('.').pop()
-    const filename = `${timestamp}-${randomString}.${fileExtension}`
-    const filepath = path.join(uploadsDir, filename)
-
-    // Save file
+    // Convert file to buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
 
-    // Return URL
-    const url = `/uploads/${session.user.id}/${filename}`
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(buffer, {
+      folder: `uploads/${session.user.id}`,
+      resource_type: 'image',
+      transformation: [
+        { quality: 'auto' },
+        { format: 'auto' }
+      ]
+    })
 
     return NextResponse.json({
       success: true,
-      url,
+      url: result.url,
+      thumbnailUrl: result.thumbnailUrl,
+      publicId: result.publicId,
       filename: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
+      width: result.width,
+      height: result.height,
+      format: result.format
     })
   } catch (error: any) {
     console.error("Error uploading file:", error)
