@@ -1,71 +1,76 @@
 import crypto from 'crypto'
-
-interface ResetCodeEntry {
-  code: string
-  expiresAt: number
-  attempts: number
-}
-
-// In-memory store for reset codes
-// In production, use Redis or database table
-const resetCodes = new Map<string, ResetCodeEntry>()
-
-// Clean up expired codes periodically
-let cleanupTimer: ReturnType<typeof setInterval> | null = null
-
-function ensureCleanup() {
-  if (cleanupTimer) return
-  cleanupTimer = setInterval(() => {
-    const now = Date.now()
-    for (const [email, data] of resetCodes) {
-      if (now > data.expiresAt) {
-        resetCodes.delete(email)
-      }
-    }
-  }, 5 * 60 * 1000)
-  if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
-    cleanupTimer.unref()
-  }
-}
+import { prisma } from '@/lib/prisma'
 
 export function generateResetCode(): string {
   return crypto.randomInt(100000, 999999).toString()
 }
 
-export function storeResetCode(email: string, code: string): void {
-  ensureCleanup()
-  resetCodes.set(email.toLowerCase(), {
-    code,
-    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-    attempts: 0
+export async function storeResetCode(email: string, code: string): Promise<void> {
+  const normalizedEmail = email.toLowerCase()
+
+  // Delete any existing unused codes for this email
+  await prisma.passwordResetToken.deleteMany({
+    where: {
+      email: normalizedEmail,
+      usedAt: null,
+    },
+  })
+
+  // Create new reset code
+  await prisma.passwordResetToken.create({
+    data: {
+      token: code,
+      email: normalizedEmail,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0,
+    },
   })
 }
 
-export function verifyResetCode(email: string, code: string): { valid: boolean; error?: string } {
-  const entry = resetCodes.get(email.toLowerCase())
+export async function verifyResetCode(
+  email: string,
+  code: string
+): Promise<{ valid: boolean; error?: string }> {
+  const normalizedEmail = email.toLowerCase()
+
+  const entry = await prisma.passwordResetToken.findFirst({
+    where: {
+      email: normalizedEmail,
+      usedAt: null,
+    },
+    orderBy: { createdAt: 'desc' },
+  })
 
   if (!entry) {
     return { valid: false, error: 'No reset code found. Please request a new one.' }
   }
 
-  if (Date.now() > entry.expiresAt) {
-    resetCodes.delete(email.toLowerCase())
+  if (new Date() > entry.expiresAt) {
+    await prisma.passwordResetToken.delete({ where: { id: entry.id } })
     return { valid: false, error: 'Reset code has expired. Please request a new one.' }
   }
 
   // Max 5 attempts to prevent brute force
   if (entry.attempts >= 5) {
-    resetCodes.delete(email.toLowerCase())
+    await prisma.passwordResetToken.delete({ where: { id: entry.id } })
     return { valid: false, error: 'Too many attempts. Please request a new code.' }
   }
 
-  entry.attempts++
+  // Increment attempts
+  await prisma.passwordResetToken.update({
+    where: { id: entry.id },
+    data: { attempts: entry.attempts + 1 },
+  })
 
-  if (entry.code !== code) {
+  if (entry.token !== code) {
     return { valid: false, error: 'Invalid verification code.' }
   }
 
-  // Code is valid - consume it
-  resetCodes.delete(email.toLowerCase())
+  // Code is valid - mark as used
+  await prisma.passwordResetToken.update({
+    where: { id: entry.id },
+    data: { usedAt: new Date() },
+  })
+
   return { valid: true }
 }

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // But only generate code if user exists and has a password (not Google-only user)
     if (user && user.password) {
       const code = generateResetCode()
-      storeResetCode(email, code)
+      await storeResetCode(email, code)
 
       // Send password reset email
       await sendPasswordResetEmail({
