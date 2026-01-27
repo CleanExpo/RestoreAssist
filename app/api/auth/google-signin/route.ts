@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminAuth } from '@/lib/firebase-admin'
 import { applyRateLimit } from '@/lib/rate-limiter'
+import { sanitizeString } from '@/lib/sanitize'
 
 // POST - Handle Google sign-in via Firebase
 // Creates user in database if doesn't exist, otherwise updates and returns user
@@ -42,7 +43,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, name, image, firebaseUid, emailVerified } = body
+    const email = body.email
+    const name = sanitizeString(body.name, 200)
+    const image = sanitizeString(body.image, 2000)
+    const firebaseUid = body.firebaseUid
+    const emailVerified = body.emailVerified
 
     // Use verified email from token if available, otherwise use body email
     const userEmail = verifiedEmail || email

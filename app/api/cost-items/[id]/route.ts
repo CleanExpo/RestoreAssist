@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function PUT(
   request: NextRequest,
@@ -16,7 +17,10 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { category, description, rate, unit } = body
+    const category = sanitizeString(body.category, 200)
+    const description = sanitizeString(body.description, 1000)
+    const rate = body.rate
+    const unit = sanitizeString(body.unit, 50)
 
     if (!category || !description || rate === undefined || !unit) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { applyRateLimit } from '@/lib/rate-limiter'
+import { sanitizeString } from '@/lib/sanitize'
 import { verifyResetCode } from '@/lib/password-reset-store'
 
 const MIN_PASSWORD_LENGTH = 8
@@ -13,7 +14,10 @@ export async function POST(request: NextRequest) {
     const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: 'reset-password' })
     if (rateLimited) return rateLimited
 
-    const { email, newPassword, code } = await request.json()
+    const body = await request.json()
+    const email = sanitizeString(body.email, 320).toLowerCase()
+    const newPassword = body.newPassword
+    const code = sanitizeString(body.code, 10)
 
     if (!email || !newPassword || !code) {
       return NextResponse.json(

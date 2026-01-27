@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 // GET - Get inspections (optionally filtered by reportId)
 export async function GET(request: NextRequest) {
@@ -139,9 +140,9 @@ export async function POST(request: NextRequest) {
     const inspection = await prisma.inspection.create({
       data: {
         inspectionNumber,
-        propertyAddress: body.propertyAddress.trim(),
-        propertyPostcode: body.propertyPostcode.trim(),
-        technicianName: body.technicianName?.trim() || null,
+        propertyAddress: sanitizeString(body.propertyAddress, 500),
+        propertyPostcode: sanitizeString(body.propertyPostcode, 20),
+        technicianName: body.technicianName ? sanitizeString(body.technicianName, 200) : null,
         reportId: body.reportId || null, // Link to report if provided
         userId: session.user.id,
         status: "DRAFT"
