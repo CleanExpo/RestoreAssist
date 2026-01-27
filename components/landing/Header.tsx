@@ -20,12 +20,13 @@ export default function Header({ darkMode, setDarkMode }: HeaderProps) {
         {/* Logo */}
         <div className="flex items-center gap-3">
           <Link href="/">
-            <Image 
-              src="/logo.png" 
-              alt="Restore Assist Logo" 
-              width={64} 
-              height={64} 
+            <Image
+              src="/logo.png"
+              alt="Restore Assist Logo"
+              width={64}
+              height={64}
               className="object-contain"
+              priority
             />
           </Link>
         </div>
