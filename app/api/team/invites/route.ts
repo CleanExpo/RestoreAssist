@@ -136,11 +136,6 @@ export async function POST(req: NextRequest) {
 
     // Case 1: User is already in the same organization - update their role if needed
     if (existingUser.organizationId === orgId) {
-      console.log("🔄 [INVITE] User already in same organization. Updating role if needed...")
-      console.log("🔄 [INVITE] Existing user ID:", existingUser.id)
-      console.log("🔄 [INVITE] Existing user email:", existingUser.email)
-      console.log("🔄 [INVITE] Existing user role:", existingUser.role)
-      console.log("🔄 [INVITE] Target role:", role)
 
       // Update role if it's different
       const updatedUser = existingUser.role === role 
@@ -178,10 +173,6 @@ export async function POST(req: NextRequest) {
       // Send notification email
       const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`
       
-      console.log("📧 [INVITE] Preparing to send notification email...")
-      console.log("📧 [INVITE] User ID:", updatedUser.id)
-      console.log("📧 [INVITE] Email:", email.toLowerCase())
-      console.log("📧 [INVITE] Login URL:", loginUrl)
 
       try {
         await sendInviteEmail({
@@ -193,7 +184,6 @@ export async function POST(req: NextRequest) {
           inviterName,
           isTransfer: true
         })
-        console.log("✅ [INVITE] Notification email sent successfully")
       } catch (emailError: any) {
         console.error("❌ [INVITE] Email sending failed:", emailError?.message || "Unknown error")
         // Don't fail the request - the user is already updated
@@ -224,21 +214,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Case 2 & 3: User exists but is in a different organization OR has no organization
-    // Transfer them to this organization
-    const isDifferentOrg = existingUser.organizationId && existingUser.organizationId !== orgId
-    const otherOrgName = existingUser.organization?.name || "another organization"
-    
-    console.log("🔄 [INVITE] User exists. Transferring to new organization...")
-    console.log("🔄 [INVITE] Existing user ID:", existingUser.id)
-    console.log("🔄 [INVITE] Existing user email:", existingUser.email)
-    console.log("🔄 [INVITE] Existing user role:", existingUser.role)
-    console.log("🔄 [INVITE] Existing organization ID:", existingUser.organizationId)
-    console.log("🔄 [INVITE] Target organization ID:", orgId)
-    console.log("🔄 [INVITE] Target role:", role)
-    if (isDifferentOrg) {
-      console.log("🔄 [INVITE] Transferring from different organization:", otherOrgName)
-    }
-
     // Update the existing user to join this organization
     const updatedUser = await prisma.user.update({
       where: { id: existingUser.id },
@@ -251,9 +226,6 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    console.log("✅ [INVITE] User transferred to organization successfully")
-    console.log("✅ [INVITE] Updated user ID:", updatedUser.id)
-    console.log("✅ [INVITE] Updated user role:", updatedUser.role)
 
     // Create invite record for tracking
     const token = crypto.randomBytes(24).toString("hex")
@@ -272,8 +244,6 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    console.log("✅ [INVITE] Invite record created for transferred user")
-    console.log("✅ [INVITE] Invite ID:", invite.id)
 
     // Get inviter's name
     const inviter = await prisma.user.findUnique({
@@ -286,10 +256,6 @@ export async function POST(req: NextRequest) {
     // Send notification email (without password since they already have one)
     const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`
     
-    console.log("📧 [INVITE] Preparing to send transfer notification email...")
-    console.log("📧 [INVITE] User ID:", updatedUser.id)
-    console.log("📧 [INVITE] Email:", email.toLowerCase())
-    console.log("📧 [INVITE] Login URL:", loginUrl)
 
     try {
       // Send a different email for transferred users (they already have an account)
@@ -302,7 +268,6 @@ export async function POST(req: NextRequest) {
         inviterName,
         isTransfer: true // Flag to indicate this is a transfer, not a new account
       })
-      console.log("✅ [INVITE] Transfer notification email sent successfully")
     } catch (emailError: any) {
       console.error("❌ [INVITE] Email sending failed for transferred user:", updatedUser.id)
       console.error("❌ [INVITE] Email error:", emailError?.message || "Unknown error")
@@ -339,12 +304,8 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Use fixed temporary password for all invites
-  const tempPassword = "dummy123"
-
-  console.log("🔑 [INVITE] Using temporary password: dummy123")
-  console.log("🔑 [INVITE] Password length:", tempPassword.length, "characters")
-  console.log("🔑 [INVITE] Password format: Fixed temporary password")
+  // Generate cryptographically random temporary password
+  const tempPassword = crypto.randomBytes(12).toString("base64url").slice(0, 12)
 
   const hashedPassword = await bcrypt.hash(tempPassword, 12)
 
@@ -357,10 +318,6 @@ export async function POST(req: NextRequest) {
   const inviterName = inviter?.name || "Administrator"
 
   try {
-    console.log("👤 [INVITE] Creating user account...")
-    console.log("👤 [INVITE] Email:", email.toLowerCase())
-    console.log("👤 [INVITE] Role:", role)
-    console.log("👤 [INVITE] Organization ID:", orgId)
     
     // Create user account immediately with temporary password
     // Managers and Technicians don't have their own subscription/credits
@@ -381,12 +338,8 @@ export async function POST(req: NextRequest) {
       }
     })
     
-    console.log("✅ [INVITE] User account created successfully")
-    console.log("✅ [INVITE] User ID:", user.id)
-    console.log("✅ [INVITE] User name:", user.name)
 
     // Create invite record (marked as used since account is already created)
-    console.log("📝 [INVITE] Creating invite record...")
     const token = crypto.randomBytes(24).toString("hex")
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
@@ -403,17 +356,10 @@ export async function POST(req: NextRequest) {
       }
     })
     
-    console.log("✅ [INVITE] Invite record created")
-    console.log("✅ [INVITE] Invite ID:", invite.id)
-    console.log("✅ [INVITE] Invite token:", token.substring(0, 8) + "...")
 
     // Send email with credentials
     const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`
     
-    console.log("📧 [INVITE] Preparing to send email...")
-    console.log("📧 [INVITE] User created:", user.id)
-    console.log("📧 [INVITE] Email:", email.toLowerCase())
-    console.log("📧 [INVITE] Login URL:", loginUrl)
     
     try {
       await sendInviteEmail({
@@ -424,7 +370,6 @@ export async function POST(req: NextRequest) {
         loginUrl,
         inviterName
       })
-      console.log("✅ [INVITE] Email sent successfully for user:", user.id)
     } catch (emailError: any) {
       console.error("❌ [INVITE] Email sending failed for user:", user.id)
       console.error("❌ [INVITE] Email error:", emailError?.message || "Unknown error")

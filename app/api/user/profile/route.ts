@@ -286,7 +286,6 @@ export async function PUT(request: NextRequest) {
       // If they try, ignore those fields (they're read-only)
       if (businessName !== undefined || businessAddress !== undefined || businessLogo !== undefined || 
           businessABN !== undefined || businessPhone !== undefined || businessEmail !== undefined) {
-        console.log("⚠️ [PROFILE] Non-admin user attempted to update business info. Ignoring.")
       }
     }
 
