@@ -3,9 +3,14 @@ import { getServerSession } from "next-auth"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 attempts per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "change-password" })
+    if (rateLimited) return rateLimited
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -33,51 +38,24 @@ export async function POST(request: NextRequest) {
       select: { password: true, mustChangePassword: true }
     })
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!user || !user.password) {
+      return NextResponse.json(
+        { error: "Password not set. Please contact support." },
+        { status: 400 }
+      )
     }
 
-    // Verify current password (unless this is a forced password change from temp password)
-    if (user.mustChangePassword) {
-      // If mustChangePassword is true, we still verify the temp password
-      if (!user.password) {
-        return NextResponse.json(
-          { error: "Password not set. Please contact support." },
-          { status: 400 }
-        )
-      }
+    // Verify current password (works for both regular and forced password change)
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    )
 
-      const isCurrentPasswordValid = await bcrypt.compare(
-        currentPassword,
-        user.password
+    if (!isCurrentPasswordValid) {
+      return NextResponse.json(
+        { error: "Current password is incorrect" },
+        { status: 400 }
       )
-
-      if (!isCurrentPasswordValid) {
-        return NextResponse.json(
-          { error: "Current password is incorrect" },
-          { status: 400 }
-        )
-      }
-    } else {
-      // Regular password change - verify current password
-      if (!user.password) {
-        return NextResponse.json(
-          { error: "Password not set. Please contact support." },
-          { status: 400 }
-        )
-      }
-
-      const isCurrentPasswordValid = await bcrypt.compare(
-        currentPassword,
-        user.password
-      )
-
-      if (!isCurrentPasswordValid) {
-        return NextResponse.json(
-          { error: "Current password is incorrect" },
-          { status: 400 }
-        )
-      }
     }
 
     // Hash new password
