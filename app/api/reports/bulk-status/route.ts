@@ -11,6 +11,7 @@ import {
   getUnauthorizedReportIds,
 } from '@/lib/bulk-operations'
 import { sendReportCompletedEmail } from '@/lib/email'
+import { notifyReportCompleted } from '@/lib/notifications'
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -197,7 +198,7 @@ async function notifyAdminOfCompletedReports(userId: string, reportIds: string[]
   // Find the org admin
   const admin = await prisma.user.findFirst({
     where: { organizationId: user.organizationId, role: 'ADMIN' },
-    select: { name: true, email: true },
+    select: { id: true, name: true, email: true },
   })
 
   if (!admin?.email) return
@@ -209,15 +210,22 @@ async function notifyAdminOfCompletedReports(userId: string, reportIds: string[]
   })
 
   for (const report of reports) {
-    await sendReportCompletedEmail({
+    const jobNum = report.jobNumber || report.id.slice(0, 8)
+    const actorName = user.name || user.email
+
+    // Email notification
+    sendReportCompletedEmail({
       recipientEmail: admin.email,
       recipientName: admin.name || 'Admin',
-      reportJobNumber: report.jobNumber || report.id.slice(0, 8),
+      reportJobNumber: jobNum,
       reportType: report.hazardType || 'Water Damage',
-      completedByName: user.name || user.email,
+      completedByName: actorName,
       viewReportUrl: `${APP_URL}/dashboard/reports/${report.id}`,
     }).catch(err => {
       console.error(`Failed to send report completion email for ${report.id}:`, err)
     })
+
+    // In-app notification
+    notifyReportCompleted(admin.id, actorName, jobNum, report.id)
   }
 }

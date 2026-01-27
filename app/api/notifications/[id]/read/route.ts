@@ -16,14 +16,13 @@ export async function POST(
 
     const { id } = await params
 
-    // Handle static welcome notification - just return success
+    // Handle static welcome notification
     if (id === 'welcome') {
       return NextResponse.json({ success: true })
     }
 
     try {
-      // Verify notification belongs to user
-      const notification = await (prisma as any).notification?.findFirst({
+      const notification = await prisma.notification.findFirst({
         where: {
           id,
           userId: session.user.id,
@@ -34,15 +33,13 @@ export async function POST(
         return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
       }
 
-      // Mark as read
-      const updated = await (prisma as any).notification?.update({
+      const updated = await prisma.notification.update({
         where: { id },
         data: { read: true },
       })
 
       return NextResponse.json({ notification: updated })
     } catch {
-      // Model doesn't exist - return success for graceful handling
       return NextResponse.json({ success: true })
     }
   } catch (error) {

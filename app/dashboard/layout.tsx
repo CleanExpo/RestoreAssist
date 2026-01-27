@@ -16,7 +16,6 @@ import {
   Menu,
   X,
   Plus,
-  Bell,
   Search,
   HelpCircle,
   CreditCard,
@@ -28,6 +27,7 @@ import {
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
+import { NotificationBell } from "@/components/notifications"
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -40,7 +40,7 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  // NotificationBell manages its own open/close state
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -363,55 +363,7 @@ const upgradeItem = {
               <ThemeToggle />
               
               {/* Notifications */}
-              <div className="relative">
-                {/* <button
-                  onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  className={cn(
-                    "p-2 rounded-lg transition-colors relative",
-                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                    "text-neutral-700 dark:text-slate-300"
-                  )}
-                >
-                  <Bell size={20} />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
-                </button>
-
-                {notificationsOpen && (
-                  <div className={cn(
-                    "absolute right-0 mt-2 w-80 rounded-lg shadow-xl z-50",
-                    "bg-white dark:bg-slate-800",
-                    "border border-neutral-200 dark:border-slate-700"
-                  )}>
-                    <div className={cn("p-4 border-b", "border-neutral-200 dark:border-slate-700")}>
-                      <h3 className={cn("font-semibold", "text-neutral-900 dark:text-slate-50")}>Notifications</h3>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {[
-                        {
-                          title: "Report Approved",
-                          desc: "Water damage report #WD-2025-001 approved",
-                          time: "2 hours ago",
-                        },
-                        { title: "New Client", desc: "Advanced Property Restoration added", time: "5 hours ago" },
-                        { title: "System Update", desc: "NCC 2022 compliance library updated", time: "1 day ago" },
-                      ].map((notif, i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            "p-4 cursor-pointer transition-colors",
-                            "border-b border-neutral-200 dark:border-slate-700",
-                            "hover:bg-neutral-50 dark:hover:bg-slate-700/50"
-                          )}
-                        >
-                          <p className={cn("font-medium text-sm", "text-neutral-900 dark:text-slate-50")}>{notif.title}</p>
-                          <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>{notif.desc}</p>
-                          <p className={cn("text-xs mt-2", "text-neutral-500 dark:text-slate-500")}>{notif.time}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )} */}
-              </div>
+              <NotificationBell />
 
               {/* User Avatar & Dropdown */}
               <div className={cn("flex items-center gap-3 pl-4", "border-l border-neutral-200 dark:border-slate-700")}>

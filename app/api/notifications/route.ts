@@ -3,6 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+const TYPE_MAP: Record<string, string> = {
+  INFO: 'info',
+  SUCCESS: 'success',
+  WARNING: 'warning',
+  ERROR: 'error',
+}
+
+const REVERSE_TYPE_MAP: Record<string, string> = {
+  info: 'INFO',
+  success: 'SUCCESS',
+  warning: 'WARNING',
+  error: 'ERROR',
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -11,18 +25,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if Notification model exists, otherwise return empty
-    // This gracefully handles if the migration hasn't been run
     try {
-      const notifications = await (prisma as any).notification?.findMany({
+      const notifications = await prisma.notification.findMany({
         where: { userId: session.user.id },
         orderBy: { createdAt: 'desc' },
         take: 20,
       })
 
-      return NextResponse.json({ notifications: notifications || [] })
+      return NextResponse.json({
+        notifications: notifications.map((n) => ({
+          ...n,
+          type: TYPE_MAP[n.type] || 'info',
+        })),
+      })
     } catch {
-      // Notification model doesn't exist yet - return sample notifications for now
+      // Notification table doesn't exist yet — return welcome notification
       return NextResponse.json({
         notifications: [
           {
@@ -63,19 +80,20 @@ export async function POST(request: Request) {
     }
 
     try {
-      const notification = await (prisma as any).notification?.create({
+      const notification = await prisma.notification.create({
         data: {
           userId: session.user.id,
           title,
           message,
-          type,
+          type: (REVERSE_TYPE_MAP[type] || 'INFO') as any,
           link,
         },
       })
 
-      return NextResponse.json({ notification })
+      return NextResponse.json({
+        notification: { ...notification, type: TYPE_MAP[notification.type] || 'info' },
+      })
     } catch {
-      // Notification model doesn't exist
       return NextResponse.json(
         { error: 'Notifications not available' },
         { status: 503 }

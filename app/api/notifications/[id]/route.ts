@@ -3,6 +3,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+const TYPE_MAP: Record<string, string> = {
+  INFO: 'info',
+  SUCCESS: 'success',
+  WARNING: 'warning',
+  ERROR: 'error',
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,7 +36,7 @@ export async function GET(
     }
 
     try {
-      const notification = await (prisma as any).notification?.findFirst({
+      const notification = await prisma.notification.findFirst({
         where: {
           id,
           userId: session.user.id,
@@ -40,7 +47,10 @@ export async function GET(
         return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
       }
 
-      return NextResponse.json(notification)
+      return NextResponse.json({
+        ...notification,
+        type: TYPE_MAP[notification.type] || 'info',
+      })
     } catch {
       return NextResponse.json({ error: 'Notifications not available' }, { status: 503 })
     }
@@ -66,14 +76,13 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Handle static welcome notification - just return success
+    // Handle static welcome notification
     if (id === 'welcome') {
       return NextResponse.json({ success: true })
     }
 
     try {
-      // Verify notification belongs to user before deleting
-      const notification = await (prisma as any).notification?.findFirst({
+      const notification = await prisma.notification.findFirst({
         where: {
           id,
           userId: session.user.id,
@@ -84,13 +93,12 @@ export async function DELETE(
         return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
       }
 
-      await (prisma as any).notification?.delete({
+      await prisma.notification.delete({
         where: { id },
       })
 
       return NextResponse.json({ success: true })
     } catch {
-      // Model doesn't exist - return success for graceful handling
       return NextResponse.json({ success: true })
     }
   } catch (error) {

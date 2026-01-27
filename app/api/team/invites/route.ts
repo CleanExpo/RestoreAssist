@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { sendInviteEmail } from "@/lib/email"
+import { notifyTeamMemberJoined } from "@/lib/notifications"
 
 function canInvite(role?: string) {
   // Only ADMIN and MANAGER can create invites
@@ -308,6 +309,14 @@ export async function POST(req: NextRequest) {
       // Don't fail the request - the user is already transferred
     }
 
+    // In-app notification for org admin (non-blocking)
+    const transferRoleName = role === "USER" ? "Technician" : "Manager"
+    prisma.organization.findUnique({ where: { id: orgId }, select: { ownerId: true } })
+      .then(org => {
+        if (org?.ownerId) notifyTeamMemberJoined(org.ownerId, updatedUser.name || email.split("@")[0], transferRoleName)
+      })
+      .catch(() => {})
+
     return NextResponse.json({
       message: "User has been successfully added to your organization",
       invite: {
@@ -422,6 +431,14 @@ export async function POST(req: NextRequest) {
       // Re-throw to be caught by outer catch block
       throw emailError
     }
+
+    // In-app notification for org admin (non-blocking)
+    const roleName = role === "USER" ? "Technician" : "Manager"
+    prisma.organization.findUnique({ where: { id: orgId }, select: { ownerId: true } })
+      .then(org => {
+        if (org?.ownerId) notifyTeamMemberJoined(org.ownerId, user.name || email.split("@")[0], roleName)
+      })
+      .catch(() => {})
 
     return NextResponse.json({
       message: "User account created and invite email sent successfully",
