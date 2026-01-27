@@ -477,7 +477,7 @@ export default function ReportsPage() {
       {/* Filter Panel */}
       {filterOpen && (
         <div className={cn("p-4 rounded-lg border space-y-4 animate-fade-in", "border-neutral-200 dark:border-slate-700/50", "bg-neutral-50 dark:bg-slate-800/30")}>
-          <div className="grid md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
               <select

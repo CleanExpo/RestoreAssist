@@ -340,7 +340,7 @@ const upgradeItem = {
               <Menu size={22} />
             </button>
 
-            <div className="flex-1 max-w-md">
+            <div className="flex-1 max-w-xs sm:max-w-md">
               <div className="relative">
                 <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />
                 <input
