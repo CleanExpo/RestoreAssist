@@ -531,7 +531,7 @@ export default function ClientsPage() {
               </button>
             </div>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Client Name *</label>
                   <input
@@ -565,7 +565,7 @@ export default function ClientsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Phone</label>
                   <input
@@ -684,7 +684,7 @@ export default function ClientsPage() {
               </button>
             </div>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Client Name *</label>
                   <input
@@ -706,7 +706,7 @@ export default function ClientsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Phone</label>
                   <input
