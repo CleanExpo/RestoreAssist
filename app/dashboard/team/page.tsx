@@ -436,20 +436,20 @@ export default function TeamPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className={cn("text-3xl font-bold", "text-neutral-900 dark:text-neutral-50")}>Team Management</h1>
-          <p className={cn("text-sm mt-1", "text-neutral-600 dark:text-neutral-400")}>
-            {isTechnician 
+          <h1 className={cn("text-2xl sm:text-3xl font-bold", "text-neutral-900 dark:text-neutral-50")}>Team Management</h1>
+          <p className={cn("text-xs sm:text-sm mt-1", "text-neutral-600 dark:text-neutral-400")}>
+            {isTechnician
               ? "View your organization's team members and hierarchy."
-              : "Manage your team members and invitations. Admin can invite Managers. Managers can invite Technicians."
+              : "Manage your team members and invitations."
             }
           </p>
         </div>
         {canInvite && (
           <Button
             onClick={() => setShowInviteForm(!showInviteForm)}
-            className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg shadow-cyan-500/20"
+            className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg shadow-cyan-500/20 w-full sm:w-auto"
           >
             <UserPlus className="w-4 h-4" />
             {showInviteForm ? "Cancel" : "Invite Member"}
@@ -458,14 +458,14 @@ export default function TeamPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
           <Card className={cn("border-2", "border-neutral-200 dark:border-neutral-800", "bg-white dark:bg-neutral-900/50")}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className={cn("text-sm font-medium", "text-neutral-600 dark:text-neutral-400")}>Total Members</p>
@@ -488,7 +488,7 @@ export default function TeamPage() {
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card className={cn("border-2", "border-neutral-200 dark:border-neutral-800", "bg-white dark:bg-neutral-900/50")}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className={cn("text-sm font-medium", "text-neutral-600 dark:text-neutral-400")}>Active Invites</p>
@@ -511,7 +511,7 @@ export default function TeamPage() {
           transition={{ duration: 0.3, delay: 0.2 }}
         >
           <Card className={cn("border-2", "border-neutral-200 dark:border-neutral-800", "bg-white dark:bg-neutral-900/50")}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className={cn("text-sm font-medium", "text-neutral-600 dark:text-neutral-400")}>Managers</p>
@@ -533,7 +533,7 @@ export default function TeamPage() {
           transition={{ duration: 0.3, delay: 0.3 }}
         >
           <Card className={cn("border-2", "border-neutral-200 dark:border-neutral-800", "bg-white dark:bg-neutral-900/50")}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className={cn("text-sm font-medium", "text-neutral-600 dark:text-neutral-400")}>Technicians</p>

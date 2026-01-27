@@ -286,19 +286,19 @@ export default function DashboardPage() {
     <div className={cn("min-h-screen", "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950")}>
       {/* Header */}
       <div className={cn("border-b backdrop-blur-sm", "border-neutral-200 dark:border-slate-800/50", "bg-white/30 dark:bg-slate-900/30")}>
-        <div className="px-6 py-6">
+        <div className="px-4 sm:px-6 py-4 sm:py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 
-              className={cn("text-3xl font-medium mb-2", "text-neutral-900 dark:text-white")}
+            <h1
+              className={cn("text-2xl sm:text-3xl font-medium mb-1 sm:mb-2", "text-neutral-900 dark:text-white")}
               style={{ fontFamily: 'Titillium Web, sans-serif' }}
             >
               Dashboard Overview
             </h1>
-            <p className={cn("text-neutral-600 dark:text-slate-400")}>
+            <p className={cn("text-sm sm:text-base text-neutral-600 dark:text-slate-400")}>
               Welcome back, {session?.user?.name?.split(' ')[0]}! Here's what's happening with your restoration reports.
             </p>
           </motion.div>
@@ -318,7 +318,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6"
           >
             {stats.map((stat, index) => (
               <motion.div
@@ -326,22 +326,22 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 + index * 0.1 }}
-                className={cn("border rounded-xl p-6 transition-all duration-300", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50", "hover:border-neutral-300 dark:hover:border-slate-600/50")}
+                className={cn("border rounded-xl p-4 sm:p-6 transition-all duration-300", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50", "hover:border-neutral-300 dark:hover:border-slate-600/50")}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <stat.icon size={24} className={`${stat.color} opacity-80`} />
+                <div className="flex items-center justify-between mb-2 sm:mb-4">
+                  <stat.icon size={20} className={`${stat.color} opacity-80 sm:w-6 sm:h-6`} />
                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                 </div>
                 <div className="space-y-1">
-                  <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
-                  <p className={cn("text-sm font-medium", "text-neutral-600 dark:text-slate-400")}>{stat.label}</p>
+                  <p className={`text-xl sm:text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className={cn("text-xs sm:text-sm font-medium", "text-neutral-600 dark:text-slate-400")}>{stat.label}</p>
                 </div>
               </motion.div>
             ))}
           </motion.div>
 
           {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid lg:grid-cols-3 gap-4 sm:gap-8">
             {/* Quick Actions */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -349,14 +349,14 @@ export default function DashboardPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="lg:col-span-2"
             >
-              <div className={cn("border rounded-xl p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}>
-                <h2 
-                  className={cn("text-xl font-medium mb-6", "text-neutral-900 dark:text-white")}
+              <div className={cn("border rounded-xl p-4 sm:p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}>
+                <h2
+                  className={cn("text-lg sm:text-xl font-medium mb-4 sm:mb-6", "text-neutral-900 dark:text-white")}
                   style={{ fontFamily: 'Titillium Web, sans-serif' }}
                 >
                   Quick Actions
                 </h2>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                   {quickActions.map((action, index) => (
                     <motion.a
                       key={action.title}
