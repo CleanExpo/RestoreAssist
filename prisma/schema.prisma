@@ -157,6 +157,7 @@ model PasswordResetToken {
   email     String
   expiresAt DateTime
   usedAt    DateTime?
+  attempts  Int       @default(0)
   createdAt DateTime  @default(now())
 
   @@index([token])

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the reset code
-    const codeResult = verifyResetCode(email, code)
+    const codeResult = await verifyResetCode(email, code)
     if (!codeResult.valid) {
       return NextResponse.json(
         { error: codeResult.error },
