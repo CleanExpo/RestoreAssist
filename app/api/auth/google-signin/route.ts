@@ -4,6 +4,7 @@ import { getAdminAuth } from '@/lib/firebase-admin'
 import { applyRateLimit } from '@/lib/rate-limiter'
 import { sanitizeString } from '@/lib/sanitize'
 import { validateCsrf } from '@/lib/csrf'
+import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
 
 // POST - Handle Google sign-in via Firebase
 // Creates user in database if doesn't exist, otherwise updates and returns user
@@ -91,6 +92,15 @@ export async function POST(request: NextRequest) {
         }
       })
 
+      const reqCtx = extractRequestContext(request)
+      logSecurityEvent({
+        eventType: 'GOOGLE_SIGNIN',
+        userId: updatedUser.id,
+        email: updatedUser.email,
+        ...reqCtx,
+        details: { isNewUser: false },
+      }).catch(() => {})
+
       return NextResponse.json(updatedUser)
     }
 
@@ -117,6 +127,15 @@ export async function POST(request: NextRequest) {
         role: true,
       }
     })
+
+    const reqCtx = extractRequestContext(request)
+    logSecurityEvent({
+      eventType: 'GOOGLE_SIGNIN',
+      userId: newUser.id,
+      email: newUser.email,
+      ...reqCtx,
+      details: { isNewUser: true },
+    }).catch(() => {})
 
     return NextResponse.json(newUser)
   } catch (error: any) {

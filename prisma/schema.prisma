@@ -2510,3 +2510,25 @@ enum NotificationType {
   WARNING
   ERROR
 }
+
+// ============================================
+// Security Event Audit Log
+// ============================================
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  eventType String   // LOGIN_SUCCESS, LOGIN_FAILED, PASSWORD_CHANGED, etc.
+  severity  String   @default("INFO") // INFO, WARNING, CRITICAL
+  userId    String?
+  email     String?
+  ipAddress String?
+  userAgent String?
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([email])
+  @@index([createdAt])
+  @@index([severity])
+}

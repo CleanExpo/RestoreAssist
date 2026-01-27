@@ -5,70 +5,20 @@
 
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
-
-// Encryption settings
-const ALGORITHM = 'aes-256-gcm'
-const IV_LENGTH = 16
-const AUTH_TAG_LENGTH = 16
+import { encrypt, decrypt } from '@/lib/credential-vault'
 
 /**
- * Get encryption key from environment
- */
-function getEncryptionKey(): Buffer {
-  const key = process.env.INTEGRATION_ENCRYPTION_KEY
-  if (!key) {
-    throw new Error('INTEGRATION_ENCRYPTION_KEY is not configured')
-  }
-  // Key should be 32 bytes (256 bits) for AES-256
-  // If key is hex-encoded (64 chars), decode it
-  if (key.length === 64) {
-    return Buffer.from(key, 'hex')
-  }
-  // If key is base64-encoded, decode it
-  if (key.length === 44) {
-    return Buffer.from(key, 'base64')
-  }
-  // Otherwise, hash the key to get 32 bytes
-  return crypto.createHash('sha256').update(key).digest()
-}
-
-/**
- * Encrypt a token for secure storage
+ * Encrypt a token for secure storage (delegates to credential vault)
  */
 export function encryptToken(token: string): string {
-  const key = getEncryptionKey()
-  const iv = crypto.randomBytes(IV_LENGTH)
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
-
-  let encrypted = cipher.update(token, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-
-  const authTag = cipher.getAuthTag()
-
-  // Format: iv:authTag:encrypted
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
+  return encrypt(token)
 }
 
 /**
- * Decrypt a stored token
+ * Decrypt a stored token (delegates to credential vault)
  */
 export function decryptToken(encryptedToken: string): string {
-  const key = getEncryptionKey()
-  const [ivHex, authTagHex, encrypted] = encryptedToken.split(':')
-
-  if (!ivHex || !authTagHex || !encrypted) {
-    throw new Error('Invalid encrypted token format')
-  }
-
-  const iv = Buffer.from(ivHex, 'hex')
-  const authTag = Buffer.from(authTagHex, 'hex')
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
-  decipher.setAuthTag(authTag)
-
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
-
-  return decrypted
+  return decrypt(encryptedToken)
 }
 
 /**

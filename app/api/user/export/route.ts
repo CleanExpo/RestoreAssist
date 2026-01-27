@@ -1,19 +1,24 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 /**
  * Export user data as JSON
  * Includes all reports, clients, and settings
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 3 data exports per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 3, prefix: 'user-export' })
+    if (rateLimited) return rateLimited
 
     // Fetch all user data in parallel
     const [user, reports, clients, inspections, estimates] = await Promise.all([

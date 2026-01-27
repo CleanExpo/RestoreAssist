@@ -5,6 +5,7 @@ import { generateResetCode, storeResetCode } from '@/lib/password-reset-store'
 import { sendPasswordResetEmail } from '@/lib/email'
 import { sanitizeString } from '@/lib/sanitize'
 import { validateCsrf } from '@/lib/csrf'
+import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -35,6 +36,14 @@ export async function POST(request: NextRequest) {
     if (user && user.password) {
       const code = generateResetCode()
       await storeResetCode(email, code)
+
+      const reqCtx = extractRequestContext(request)
+      logSecurityEvent({
+        eventType: 'PASSWORD_RESET_REQUESTED',
+        userId: user.id,
+        email,
+        ...reqCtx,
+      }).catch(() => {})
 
       // Send password reset email
       await sendPasswordResetEmail({

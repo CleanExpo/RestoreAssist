@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import { logSecurityEvent } from '@/lib/security-audit'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -43,6 +44,12 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) {
           console.log('[Credentials] User not found:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            email: credentials.email,
+            details: { reason: 'user_not_found' },
+          }).catch(() => {})
           return null
         }
 
@@ -54,6 +61,12 @@ export const authOptions: NextAuthOptions = {
           // Check if user was created via Google (no password set in DB)
           if (!user.password) {
             console.log('[Credentials] Google user authenticated:', credentials.email)
+            logSecurityEvent({
+              eventType: 'LOGIN_SUCCESS',
+              userId: user.id,
+              email: user.email!,
+              details: { method: 'google_passthrough' },
+            }).catch(() => {})
             return {
               id: user.id,
               email: user.email,
@@ -82,10 +95,22 @@ export const authOptions: NextAuthOptions = {
 
         if (!isPasswordValid) {
           console.log('[Credentials] Invalid password for user:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            userId: user.id,
+            email: credentials.email,
+            details: { reason: 'invalid_password' },
+          }).catch(() => {})
           return null
         }
 
         console.log('[Credentials] User authenticated successfully:', credentials.email)
+        logSecurityEvent({
+          eventType: 'LOGIN_SUCCESS',
+          userId: user.id,
+          email: user.email!,
+        }).catch(() => {})
         return {
           id: user.id,
           email: user.email,
