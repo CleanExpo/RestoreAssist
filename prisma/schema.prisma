@@ -142,6 +142,9 @@ model User {
 
   // In-app notifications
   notifications Notification[]
+
+  // Client Portal - Invitations sent by this contractor
+  portalInvitations PortalInvitation[]
 }
 
 model VerificationToken {
@@ -180,12 +183,68 @@ model Client {
   userId        String
   user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reports       Report[]
+  clientUser    ClientUser?
+  invitations   PortalInvitation[]
   search_vector Unsupported("tsvector")?
 
   @@index([search_vector], type: Gin)
   @@index([userId, name])
   @@index([userId, email])
   @@index([userId, createdAt])
+}
+
+model ClientUser {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  name              String
+  phone             String?
+  clientId          String   @unique
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lastLoginAt       DateTime?
+  mustChangePassword Boolean @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([email])
+  @@index([clientId])
+}
+
+model PortalInvitation {
+  id            String              @id @default(cuid())
+  email         String
+  token         String              @unique @default(cuid())
+  clientId      String
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId        String              // Contractor who sent the invitation
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        InvitationStatus    @default(PENDING)
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  createdAt     DateTime            @default(now())
+
+  @@index([token])
+  @@index([email])
+  @@index([clientId])
+  @@index([userId])
+  @@index([status, expiresAt])
+}
+
+model ReportApproval {
+  id              String           @id @default(cuid())
+  reportId        String
+  report          Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  approvalType    ApprovalType     // SCOPE_OF_WORK, COST_ESTIMATE
+  status          ApprovalStatus   @default(PENDING)
+  requestedAt     DateTime         @default(now())
+  respondedAt     DateTime?
+  clientComments  String?          @db.Text
+  amount          Float?           // For cost estimate approvals
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([reportId, approvalType])
+  @@index([status])
 }
 
 model Report {
@@ -375,6 +434,9 @@ model Report {
   // NIR Integration
   inspection Inspection?
 
+  // Client Portal - Approvals
+  approvals ReportApproval[]
+
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
@@ -443,6 +505,25 @@ enum ReportStatus {
   APPROVED
   COMPLETED
   ARCHIVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum ApprovalType {
+  SCOPE_OF_WORK
+  COST_ESTIMATE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
 }
 
 model Integration {
