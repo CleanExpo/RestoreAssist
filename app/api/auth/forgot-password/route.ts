@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyRateLimit } from '@/lib/rate-limiter'
 import { generateResetCode, storeResetCode } from '@/lib/password-reset-store'
+import { sendPasswordResetEmail } from '@/lib/email'
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Check if user exists
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, password: true }
+      select: { id: true, email: true, name: true, password: true }
     })
 
     // Always return success to prevent email enumeration
@@ -28,11 +29,15 @@ export async function POST(request: NextRequest) {
       const code = generateResetCode()
       storeResetCode(email, code)
 
-      // Log the code for development (in production, send via email)
-      console.log(`[Password Reset] Code for ${email}: ${code}`)
-
-      // TODO: Send email with reset code
-      // await sendResetEmail(email, code)
+      // Send password reset email
+      await sendPasswordResetEmail({
+        recipientEmail: email,
+        recipientName: user.name || user.email.split('@')[0],
+        resetCode: code,
+      }).catch((err) => {
+        // Log but don't fail the request if email fails
+        console.error('[Password Reset] Failed to send email:', err)
+      })
     }
 
     // Always return the same response regardless of whether user exists
