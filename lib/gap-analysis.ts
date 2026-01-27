@@ -58,6 +58,7 @@ export interface GapAnalysisResult {
     strengths: string[]
     standardizationLevel: 'LOW' | 'MEDIUM' | 'HIGH'
   }
+  revolutionaryAnalysis?: unknown
 }
 
 /**
@@ -383,7 +384,7 @@ export async function performGapAnalysis(
         technicianPattern: revResult.technicianPattern,
         // Add revolutionary data as additional fields
         revolutionaryAnalysis: revResult
-      } as any
+      }
     } else {
       // Return error result
       return {

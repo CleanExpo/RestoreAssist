@@ -101,7 +101,7 @@ export async function PATCH(request: NextRequest) {
           userId: session.user.id, // Double-check user ownership
         },
         data: {
-          status: status.toUpperCase() as any,
+          status: status.toUpperCase() as ReportStatus,
           lastEditedBy: session.user.id,
           lastEditedAt: new Date(),
         },

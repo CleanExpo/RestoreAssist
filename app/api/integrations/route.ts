@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         apiKey,
         config: config ? JSON.stringify(config) : null,
         status: apiKey ? "CONNECTED" : "DISCONNECTED",
-        provider: integrationProvider as any,
+        provider: integrationProvider as IntegrationProvider,
         userId: session.user.id
       }
     })

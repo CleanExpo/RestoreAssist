@@ -16,7 +16,7 @@ let _webhookModelAvailable: boolean | null = null
 async function hasWebhookEventModel(): Promise<boolean> {
   if (_webhookModelAvailable !== null) return _webhookModelAvailable
   try {
-    if (prisma.stripeWebhookEvent && typeof (prisma.stripeWebhookEvent as any).findFirst === 'function') {
+    if (prisma.stripeWebhookEvent && typeof prisma.stripeWebhookEvent.findFirst === 'function') {
       _webhookModelAvailable = true
       return true
     }
@@ -38,7 +38,7 @@ async function logWebhookEvent(
 ) {
   try {
     if (await hasWebhookEventModel()) {
-      await (prisma.stripeWebhookEvent as any).upsert({
+      await prisma.stripeWebhookEvent.upsert({
         where: { stripeEventId },
         create: {
           stripeEventId,
@@ -66,7 +66,7 @@ async function logWebhookEvent(
 async function isEventProcessed(stripeEventId: string): Promise<boolean> {
   try {
     if (await hasWebhookEventModel()) {
-      const existing = await (prisma.stripeWebhookEvent as any).findUnique({
+      const existing = await prisma.stripeWebhookEvent.findUnique({
         where: { stripeEventId }
       })
       return existing?.status === 'COMPLETED'
@@ -205,9 +205,9 @@ async function processAddonPurchase(session: Stripe.Checkout.Session) {
   let canUsePurchaseTable = false
 
   try {
-    if (prisma.addonPurchase && typeof (prisma.addonPurchase as any).findUnique === 'function') {
+    if (prisma.addonPurchase && typeof prisma.addonPurchase.findUnique === 'function') {
       canUsePurchaseTable = true
-      const existingPurchase = await (prisma.addonPurchase as any).findUnique({
+      const existingPurchase = await prisma.addonPurchase.findUnique({
         where: { stripeSessionId: session.id }
       })
       if (existingPurchase) {
@@ -226,7 +226,7 @@ async function processAddonPurchase(session: Stripe.Checkout.Session) {
   // Create purchase record if table is available
   if (canUsePurchaseTable) {
     try {
-      await (prisma.addonPurchase as any).create({
+      await prisma.addonPurchase.create({
         data: {
           userId: userId,
           addonKey: addonKey,

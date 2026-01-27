@@ -12,11 +12,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user || !(session.user as any).id) {
+    if (!session?.user || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = (session.user as any).id
+    const userId = session.user.id
 
     // Rate limit: 10 detailed report generations per 15 minutes per user
     const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-detailed", key: userId })
@@ -986,7 +986,7 @@ export async function POST(
     const pdfBytes = await pdfDoc.save()
 
     // Return PDF as response (pdfBytes is Uint8Array which NextResponse accepts)
-    return new NextResponse(pdfBytes as any, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="initial-assessment-report-${report.reportNumber || report.id}.pdf"`,

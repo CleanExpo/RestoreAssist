@@ -6,6 +6,21 @@
 
 import { prisma } from '@/lib/prisma'
 
+interface SessionMetadata {
+  totalDurationSeconds?: number
+  averageConfidence?: number
+  autoPopulatedFieldsCount?: number
+  conflictCount?: number
+}
+
+interface ResponseMetadata {
+  confidence?: number
+  timeToAnswerSeconds?: number
+  fieldsMappedCount?: number
+  averageFieldConfidence?: number
+}
+
+
 /**
  * Interview Session Metrics
  */
@@ -243,7 +258,7 @@ export class InterviewAnalyticsService {
       let confidenceCount = 0
 
       sessions.forEach((session) => {
-        const metadata = session.metadata as any
+        const metadata = (session as unknown as { metadata?: SessionMetadata }).metadata
         if (metadata?.totalDurationSeconds) {
           totalDuration += metadata.totalDurationSeconds
         }
@@ -340,7 +355,7 @@ export class InterviewAnalyticsService {
       let lowConfidenceCount = 0
 
       sessions.forEach((session) => {
-        const metadata = session.metadata as any
+        const metadata = (session as unknown as { metadata?: SessionMetadata }).metadata
         if (metadata?.totalDurationSeconds) {
           totalDuration += metadata.totalDurationSeconds
         }
@@ -380,7 +395,7 @@ export class InterviewAnalyticsService {
           }
 
           // Check for low confidence (if available in metadata)
-          const metadata = response.metadata as any
+          const metadata = (response as unknown as { metadata?: ResponseMetadata }).metadata
           if (metadata?.confidence && metadata.confidence < 70) {
             stats.lowConfidenceCount++
           }
@@ -462,7 +477,7 @@ export class InterviewAnalyticsService {
       let confidenceCount = 0
 
       sessions.forEach((session) => {
-        const metadata = session.metadata as any
+        const metadata = (session as unknown as { metadata?: SessionMetadata }).metadata
         if (metadata?.totalDurationSeconds) totalDuration += metadata.totalDurationSeconds
         if (metadata?.autoPopulatedFieldsCount) totalFieldsPopulated += metadata.autoPopulatedFieldsCount
         if (metadata?.averageConfidence) {

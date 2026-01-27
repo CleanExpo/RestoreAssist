@@ -201,7 +201,7 @@ export async function POST(
       const signatureData = signatoryRoles.map((role: string, index: number) => ({
         instanceId: formInstance.id,
         signatoryName: role === "CLIENT" ? report.clientName : "",
-        signatoryRole: role as any,
+        signatoryRole: role as AuthoritySignatoryRole,
         signatoryEmail: role === "CLIENT" ? report.clientContactDetails?.match(/[\w\.-]+@[\w\.-]+\.\w+/)?.[0] || null : null
       }))
 

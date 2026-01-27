@@ -60,7 +60,7 @@ export default function SettingsPage() {
   const canEditBusinessInfo = isAdmin // Only Admin can edit business info
   // Check if user is a team member linked to an Admin
   const isTeamMember = isManager || isTechnician
-  const hasOrganization = !!(profile?.organizationId || (session?.user as any)?.organizationId)
+  const hasOrganization = !!(profile?.organizationId || session?.user?.organizationId)
   const shouldHideSubscription = isTeamMember && hasOrganization
   const [formData, setFormData] = useState({
     name: '',
@@ -112,7 +112,7 @@ export default function SettingsPage() {
       } else {
         // Fallback to session data
         setProfile({
-          id: (session?.user as any)?.id || 'current-user',
+          id: session?.user?.id || 'current-user',
           name: session?.user?.name || 'User Name',
           email: session?.user?.email || 'user@example.com',
           image: session?.user?.image || undefined,

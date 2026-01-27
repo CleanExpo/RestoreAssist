@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       // If Prisma Client hasn't been regenerated after schema changes, this delegate may be missing.
       // In that case we still allow signup (so the account is created), and the organisation can be
       // created later after `prisma generate` + server restart.
-      const canCreateOrganization = Boolean((prisma as any).organization?.create)
+      const canCreateOrganization = Boolean(prisma.organization?.create)
 
       if (!canCreateOrganization) {
         const user = await prisma.user.create({
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
           })
 
           const orgName = `${name}'s Organisation`
-          const org = await (tx as any).organization.create({
+          const org = await tx.organization.create({
             data: { name: orgName, ownerId: user.id }
           })
 

@@ -85,7 +85,7 @@ export async function POST(request: Request) {
           userId: session.user.id,
           title,
           message,
-          type: (REVERSE_TYPE_MAP[type] || 'INFO') as any,
+          type: (REVERSE_TYPE_MAP[type] || 'INFO') as NotificationType,
           link,
         },
       })
