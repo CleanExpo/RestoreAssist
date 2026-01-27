@@ -2532,3 +2532,136 @@ model SecurityEvent {
   @@index([createdAt])
   @@index([severity])
 }
+
+// ============================================
+// Agent Orchestration Framework
+// ============================================
+
+enum WorkflowStatus {
+  PENDING
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  PARTIALLY_FAILED
+  CANCELLED
+}
+
+enum TaskStatus {
+  PENDING
+  READY
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+  CANCELLED
+  DEAD_LETTER
+}
+
+/// Registry of all available agents and their capabilities
+model AgentDefinition {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String?  @db.Text
+  version         String   @default("1.0.0")
+  capabilities    String   @db.Text   // JSON: AgentCapability[]
+  inputSchema     String   @db.Text   // JSON Schema defining required inputs
+  outputSchema    String   @db.Text   // JSON Schema defining output shape
+  defaultProvider String   @default("anthropic")
+  defaultModel    String?
+  maxTokens       Int      @default(8000)
+  temperature     Float    @default(0.7)
+  timeoutMs       Int      @default(120000)
+  maxRetries      Int      @default(3)
+  dependsOn       String[]
+  isActive        Boolean  @default(true)
+  isSystem        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tasks           AgentTask[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+/// A workflow is a coordinated set of agent tasks forming a DAG
+model AgentWorkflow {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?        @db.Text
+  userId         String
+  reportId       String?
+  inspectionId   String?
+  taskGraph      String         @db.Text   // JSON: TaskGraphJSON { nodes, edges }
+  status         WorkflowStatus @default(PENDING)
+  priority       Int            @default(5)
+  totalTasks     Int            @default(0)
+  completedTasks Int            @default(0)
+  failedTasks    Int            @default(0)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  errorMessage   String?        @db.Text
+  config         String?        @db.Text   // JSON: workflow-level config overrides
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  tasks          AgentTask[]
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Individual task assigned to an agent within a workflow
+model AgentTask {
+  id               String           @id @default(cuid())
+  workflowId       String
+  workflow         AgentWorkflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  agentSlug        String
+  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug])
+  taskType         String
+  displayName      String
+  sequenceOrder    Int              @default(0)
+  parallelGroup    Int              @default(0)
+  dependsOnTaskIds String[]
+  input            String           @db.Text   // JSON: agent-specific input payload
+  output           String?          @db.Text   // JSON: agent output (set on completion)
+  status           TaskStatus       @default(PENDING)
+  priority         Int              @default(5)
+  attempts         Int              @default(0)
+  maxRetries       Int              @default(3)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  lastAttemptAt    DateTime?
+  durationMs       Int?
+  errorMessage     String?          @db.Text
+  errorCode        String?
+  provider         String?
+  model            String?
+  tokensUsed       Int?
+  idempotencyKey   String?          @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  logs             AgentTaskLog[]
+
+  @@index([workflowId])
+  @@index([agentSlug])
+  @@index([status])
+  @@index([workflowId, status])
+  @@index([workflowId, parallelGroup, sequenceOrder])
+}
+
+/// Log entries for agent task execution (audit trail)
+model AgentTaskLog {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      AgentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  level     String    // "info", "warn", "error", "debug"
+  message   String    @db.Text
+  data      String?   @db.Text   // JSON: structured log data
+  timestamp DateTime  @default(now())
+
+  @@index([taskId])
+  @@index([taskId, timestamp])
+}
