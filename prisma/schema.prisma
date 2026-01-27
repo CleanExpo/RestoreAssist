@@ -1680,6 +1680,9 @@ model ScheduledEmail {
   recipient   String // Email address
   scheduledAt DateTime // When to send
   sentAt      DateTime? // When actually sent
+  subject     String?      // Email subject line
+  htmlBody    String? @db.Text  // Pre-rendered HTML body
+  textBody    String? @db.Text  // Plain text fallback
   status      String    @default("pending") // pending, sending, sent, failed, cancelled
   attempts    Int       @default(0)
   lastAttempt DateTime?
@@ -2603,6 +2606,8 @@ model AgentWorkflow {
   completedAt    DateTime?
   errorMessage   String?        @db.Text
   config         String?        @db.Text   // JSON: workflow-level config overrides
+  scheduledFor   DateTime?      // If set, workflow should not execute until this time
+  lastActivityAt DateTime?      // Tracks when last task activity occurred (for stale detection)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   tasks          AgentTask[]
@@ -2664,4 +2669,20 @@ model AgentTaskLog {
 
   @@index([taskId])
   @@index([taskId, timestamp])
+}
+
+/// Tracks each cron job execution for idempotency and observability
+model CronJobRun {
+  id             String   @id @default(cuid())
+  jobName        String   // "process-emails", "advance-workflows", "dead-letter-review", "cleanup"
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  status         String   @default("running") // running, completed, failed
+  itemsProcessed Int      @default(0)
+  errorMessage   String?  @db.Text
+  durationMs     Int?
+  metadata       String?  @db.Text // JSON: additional context
+
+  @@index([jobName, startedAt])
+  @@index([status])
 }
