@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { applyRateLimit } from "@/lib/rate-limiter"
 import { validateCsrf } from "@/lib/csrf"
+import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,6 +58,15 @@ export async function POST(request: NextRequest) {
     )
 
     if (!isCurrentPasswordValid) {
+      const reqCtx = extractRequestContext(request)
+      logSecurityEvent({
+        eventType: 'LOGIN_FAILED',
+        severity: 'WARNING',
+        userId: session.user.id,
+        email: session.user.email ?? undefined,
+        ...reqCtx,
+        details: { reason: 'incorrect_current_password', context: 'change_password' },
+      }).catch(() => {})
       return NextResponse.json(
         { error: "Current password is incorrect" },
         { status: 400 }
@@ -74,6 +84,14 @@ export async function POST(request: NextRequest) {
         mustChangePassword: false
       }
     })
+
+    const reqCtx = extractRequestContext(request)
+    logSecurityEvent({
+      eventType: 'PASSWORD_CHANGED',
+      userId: session.user.id,
+      email: session.user.email ?? undefined,
+      ...reqCtx,
+    }).catch(() => {})
 
     return NextResponse.json(
       { message: "Password changed successfully" },

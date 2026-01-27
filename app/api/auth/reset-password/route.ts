@@ -5,6 +5,7 @@ import { applyRateLimit } from '@/lib/rate-limiter'
 import { sanitizeString } from '@/lib/sanitize'
 import { validateCsrf } from '@/lib/csrf'
 import { verifyResetCode } from '@/lib/password-reset-store'
+import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -67,6 +68,14 @@ export async function POST(request: NextRequest) {
         mustChangePassword: false
       },
     })
+
+    const reqCtx = extractRequestContext(request)
+    logSecurityEvent({
+      eventType: 'PASSWORD_RESET_COMPLETED',
+      userId: user.id,
+      email,
+      ...reqCtx,
+    }).catch(() => {})
 
     return NextResponse.json({
       success: true,

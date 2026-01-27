@@ -3,8 +3,10 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { applyRateLimit } from "@/lib/rate-limiter"
 import { sanitizeString } from "@/lib/sanitize"
+import { validateCsrf } from "@/lib/csrf"
 import { sendWelcomeEmail } from "@/lib/email"
 import { notifyWelcome } from "@/lib/notifications"
+import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -147,6 +149,15 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      const reqCtx = extractRequestContext(request)
+      logSecurityEvent({
+        eventType: 'ACCOUNT_REGISTERED',
+        userId: user.id,
+        email: user.email,
+        ...reqCtx,
+        details: { signupType: 'invite', role: invite.role },
+      }).catch(() => {})
+
       const { password: _, ...userWithoutPassword } = user
       return NextResponse.json(
         { message: "User created successfully", user: userWithoutPassword },
@@ -238,6 +249,15 @@ export async function POST(request: NextRequest) {
         }).catch((err) => console.error("[Register] Welcome email failed:", err))
         notifyWelcome(updatedUser.id)
 
+        const reqCtx = extractRequestContext(request)
+        logSecurityEvent({
+          eventType: 'ACCOUNT_REGISTERED',
+          userId: updatedUser.id,
+          email: updatedUser.email,
+          ...reqCtx,
+          details: { signupType: 'admin', hasOrganization: true },
+        }).catch(() => {})
+
         const { password: _, ...userWithoutPassword } = updatedUser
         return NextResponse.json(
           { message: "User created successfully", user: userWithoutPassword },
@@ -300,13 +320,22 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    const reqCtx = extractRequestContext(request)
+    logSecurityEvent({
+      eventType: 'ACCOUNT_REGISTERED',
+      userId: user.id,
+      email: user.email,
+      ...reqCtx,
+      details: { signupType: 'user' },
+    }).catch(() => {})
+
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user
 
     return NextResponse.json(
-      { 
+      {
         message: "User created successfully",
-        user: userWithoutPassword 
+        user: userWithoutPassword
       },
       { status: 201 }
     )
