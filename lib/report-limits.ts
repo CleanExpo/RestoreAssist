@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { PRICING_CONFIG } from "@/lib/pricing"
 import { getEffectiveSubscription, getOrganizationOwner } from "@/lib/organization-credits"
+import { checkAndUpdateTrialStatus } from "@/lib/trial-handling"
 
 export interface ReportLimitInfo {
   baseLimit: number
@@ -136,19 +137,36 @@ export async function getUserReportLimits(userId: string): Promise<ReportLimitIn
 export async function canCreateReport(userId: string): Promise<{ allowed: boolean; reason?: string }> {
   // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
   const effectiveSub = await getEffectiveSubscription(userId)
-  
+
   if (!effectiveSub) {
     return { allowed: false, reason: "User not found" }
   }
 
   // Trial users use credits
   if (effectiveSub.subscriptionStatus === 'TRIAL') {
+    // Check if trial has expired
+    const trialExpired = await checkAndUpdateTrialStatus(effectiveSub.id)
+    if (trialExpired) {
+      return {
+        allowed: false,
+        reason: "Your 14-day free trial has expired. Please subscribe to continue using RestoreAssist."
+      }
+    }
+
+    // Check trial end date
+    if (effectiveSub.trialEndsAt && new Date() > new Date(effectiveSub.trialEndsAt)) {
+      return {
+        allowed: false,
+        reason: "Your 14-day free trial has expired. Please subscribe to continue using RestoreAssist."
+      }
+    }
+
     if (effectiveSub.creditsRemaining && effectiveSub.creditsRemaining > 0) {
       return { allowed: true }
     }
-    return { 
-      allowed: false, 
-      reason: "Insufficient credits. Please upgrade your plan to create more reports." 
+    return {
+      allowed: false,
+      reason: "You've used all your trial credits. Subscribe now to continue creating reports."
     }
   }
 

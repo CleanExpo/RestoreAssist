@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
           }
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
             }
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
           }
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial // 30 days from now
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
       }

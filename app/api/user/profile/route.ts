@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
 import { getUserReportLimits } from "@/lib/report-limits"
 import { getEffectiveSubscription } from "@/lib/organization-credits"
+import { getTrialStatus, checkAndUpdateTrialStatus } from "@/lib/trial-handling"
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
           subscriptionStatus: 'TRIAL',
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           stripeCustomerId: stripeCustomerId,
         },
         select: {
@@ -172,11 +173,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    // Get trial status for trial users
+    let trialStatus = null
+    if (subscriptionStatus === 'TRIAL') {
+      // Check and update trial status if expired
+      await checkAndUpdateTrialStatus(user.id)
+      trialStatus = await getTrialStatus(user.id)
+    }
+
+    return NextResponse.json({
       profile: {
         ...user,
         // Override with effective subscription for team members
-        subscriptionStatus: subscriptionStatus,
+        subscriptionStatus: trialStatus?.hasTrialExpired ? 'EXPIRED' : subscriptionStatus,
         subscriptionPlan: subscriptionPlan,
         creditsRemaining: creditsRemaining,
         // Override with Admin's business info for team members
@@ -195,6 +204,13 @@ export async function GET(request: NextRequest) {
         nextBillingDate: user.nextBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
+        // Trial status info
+        trialStatus: trialStatus ? {
+          isTrialActive: trialStatus.isTrialActive,
+          daysRemaining: trialStatus.daysRemaining,
+          hasTrialExpired: trialStatus.hasTrialExpired,
+          creditsRemaining: trialStatus.creditsRemaining,
+        } : null,
       }
     })
   } catch (error) {

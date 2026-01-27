@@ -14,6 +14,7 @@ import DamageTypesChart from "./components/DamageTypesChart"
 import RevenueProjection from "./components/RevenueProjection"
 import TopClientsTable from "./components/TopClientsTable"
 import CompletionMetrics from "./components/CompletionMetrics"
+import MonthlyVolumeChart from "./components/MonthlyVolumeChart"
 import { Users, UserCog, Wrench } from "lucide-react"
 
 interface AnalyticsData {
@@ -553,6 +554,13 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Monthly Volume Chart */}
+            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-550">
+              <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-cyan-500/30")}>
+                <MonthlyVolumeChart userId={filters.userId} months={12} />
+              </div>
             </div>
 
             {/* Completion Metrics - Full Width */}
