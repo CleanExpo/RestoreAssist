@@ -41,6 +41,27 @@ import { useSession } from 'next-auth/react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 
+interface MissingElementsSummary {
+  iicrc: number
+  australianStandards: number
+  ohs: number
+  whs: number
+  scopeOfWorks: number
+  billing: number
+  documentation: number
+  equipment: number
+  monitoring: number
+}
+
+interface ScoresSummary {
+  completeness: number
+  compliance: number
+  standardization: number
+  scopeAccuracy: number
+  billingAccuracy: number
+}
+
+
 interface GapAnalysisResult {
   fileName: string
   fileId: string
@@ -751,7 +772,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing AU Standards</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).australianStandards || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as MissingElementsSummary).australianStandards || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -759,7 +780,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing OH&S/WHS</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements.ohs || 0) + ((summary.totalMissingElements as any).whs || 0)}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements.ohs || 0) + ((summary.totalMissingElements as MissingElementsSummary).whs || 0)}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -767,7 +788,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Scope</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).scopeOfWorks || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as MissingElementsSummary).scopeOfWorks || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -793,7 +814,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Equipment</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).equipment || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as MissingElementsSummary).equipment || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -801,7 +822,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Missing Monitoring</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).monitoring || 0}</div>
+                  <div className="text-2xl font-bold">{(summary.totalMissingElements as MissingElementsSummary).monitoring || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -809,7 +830,7 @@ export default function ClaimsAnalysisPage() {
                   <CardTitle className="text-sm font-medium">Avg Scope Accuracy</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{((summary.averageScores as any).scopeAccuracy?.toFixed(1)) || 'N/A'}%</div>
+                  <div className="text-2xl font-bold">{((summary.averageScores as ScoresSummary).scopeAccuracy?.toFixed(1)) || 'N/A'}%</div>
                 </CardContent>
               </Card>
             </div>

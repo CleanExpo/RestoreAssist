@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ReportStatus } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest) {
               inspectionPdfUrl: null,
 
               // Set new values
-              status: newStatus ? (newStatus.toUpperCase() as any) : report.status,
+              status: newStatus ? (newStatus.toUpperCase() as ReportStatus) : report.status,
               inspectionDate: newInspectionDate || report.inspectionDate,
               reportNumber: `${report.reportNumber || 'WD'} ${appendText}`,
               userId: session.user.id,

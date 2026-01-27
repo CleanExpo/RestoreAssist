@@ -10,12 +10,14 @@ declare module "next-auth" {
       image?: string | null
       role: string
       mustChangePassword?: boolean
+      organizationId?: string | null
     }
   }
 
   interface User {
     role: string
     mustChangePassword?: boolean
+    organizationId?: string | null
   }
 }
 
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: string
     mustChangePassword?: boolean
+    organizationId?: string | null
   }
 }

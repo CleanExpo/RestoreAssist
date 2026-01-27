@@ -36,7 +36,8 @@ export const authOptions: NextAuthOptions = {
             image: true,
             role: true,
             password: true,
-            mustChangePassword: true
+            mustChangePassword: true,
+            organizationId: true
           }
         })
 
@@ -60,6 +61,7 @@ export const authOptions: NextAuthOptions = {
               image: user.image,
               role: user.role,
               mustChangePassword: user.mustChangePassword || false,
+              organizationId: user.organizationId || null,
             }
           }
           // User has password but none provided - invalid
@@ -91,6 +93,7 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           role: user.role,
           mustChangePassword: user.mustChangePassword || false,
+          organizationId: user.organizationId || null,
         }
       }
     })
@@ -102,7 +105,8 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
-        token.mustChangePassword = (user as any).mustChangePassword || false
+        token.mustChangePassword = user.mustChangePassword || false
+        token.organizationId = user.organizationId || null
       }
       return token
     },
@@ -111,6 +115,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub!
         session.user.role = token.role as string
         session.user.mustChangePassword = (token.mustChangePassword as boolean) || false
+        session.user.organizationId = (token.organizationId as string) || null
       }
       return session
     },
