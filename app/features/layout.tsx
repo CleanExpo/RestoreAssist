@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { SoftwareApplicationSchema } from '@/components/seo/JsonLd'
 
 export const metadata: Metadata = {
   title: 'Features - AI-Powered Restoration Software',
@@ -24,5 +25,10 @@ export default function FeaturesLayout({
 }: {
   children: React.ReactNode
 }) {
-  return children
+  return (
+    <>
+      <SoftwareApplicationSchema />
+      {children}
+    </>
+  )
 }
