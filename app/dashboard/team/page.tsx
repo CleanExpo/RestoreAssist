@@ -40,6 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import TeamActivityFeed from "./components/TeamActivityFeed"
 import {
   Dialog,
   DialogContent,
@@ -1148,6 +1149,9 @@ export default function TeamPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Team Activity Feed */}
+      <TeamActivityFeed />
     </div>
   )
 }
