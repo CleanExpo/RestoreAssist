@@ -603,3 +603,326 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
     return null
   }
 }
+
+// ── Password Reset Email ──
+
+export interface PasswordResetEmailData {
+  recipientEmail: string
+  recipientName: string
+  resetCode: string
+}
+
+export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ [EMAIL] Email service is not configured, skipping password reset email")
+    return null
+  }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset Code</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700;">Password Reset</h1>
+          <p style="color: rgba(255, 255, 255, 0.95); margin: 10px 0 0; font-size: 16px;">Use the code below to reset your password</p>
+        </div>
+
+        <!-- Main content card -->
+        <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
+            We received a request to reset your password. Enter the verification code below on the password reset page:
+          </p>
+
+          <!-- Code box -->
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="display: inline-block; background: #f1f5f9; border: 2px solid #06b6d4; border-radius: 12px; padding: 20px 40px;">
+              <code style="font-family: 'Monaco', 'Menlo', monospace; font-size: 36px; font-weight: 700; color: #0c4a6e; letter-spacing: 8px;">${data.resetCode}</code>
+            </div>
+          </div>
+
+          <!-- Expiry notice -->
+          <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px 20px; border-radius: 8px; margin: 25px 0;">
+            <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+              This code expires in <strong>15 minutes</strong>. If you didn't request a password reset, you can safely ignore this email.
+            </p>
+          </div>
+
+          <!-- Footer note -->
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0;">
+              If you didn't request this reset, no action is needed. Your password will remain unchanged.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
+          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 10px 0 0 0; color: #cbd5e1;">&copy; ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `
+
+  const text = `Password Reset Code
+
+Hi ${data.recipientName},
+
+We received a request to reset your password. Your verification code is:
+
+${data.resetCode}
+
+This code expires in 15 minutes.
+
+If you didn't request this reset, you can safely ignore this email.
+
+---
+This is an automated email from Restore Assist. Please do not reply to this email.`
+
+  try {
+    console.log("📧 [EMAIL] Sending password reset email to:", data.recipientEmail)
+
+    const result = await getResendClient().emails.send({
+      from: fromEmail,
+      to: data.recipientEmail,
+      subject: "Your RestoreAssist Password Reset Code",
+      html,
+      text,
+    })
+
+    console.log("✅ [EMAIL] Password reset email sent successfully:", result.id)
+    return result
+  } catch (error: any) {
+    console.error("❌ [EMAIL] Failed to send password reset email:", error?.message)
+    return null
+  }
+}
+
+// ── Welcome Email (Admin Signup) ──
+
+export interface WelcomeEmailData {
+  recipientEmail: string
+  recipientName: string
+  loginUrl: string
+  trialDays: number
+  trialCredits: number
+}
+
+export async function sendWelcomeEmail(data: WelcomeEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ [EMAIL] Email service is not configured, skipping welcome email")
+    return null
+  }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to Restore Assist</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%); padding: 50px 30px; border-radius: 16px 16px 0 0; text-align: center; box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);">
+          <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; display: inline-block; margin-bottom: 20px;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">Restore Assist</h1>
+          </div>
+          <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 18px; font-weight: 500;">Welcome aboard!</p>
+        </div>
+
+        <!-- Main content card -->
+        <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
+            Thanks for signing up to Restore Assist! Your account is ready to go with a <strong>${data.trialDays}-day free trial</strong> and <strong>${data.trialCredits} report credits</strong> to get you started.
+          </p>
+
+          <!-- Getting started -->
+          <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; padding: 24px; margin: 24px 0;">
+            <p style="margin: 0 0 12px; font-weight: 600; color: #166534; font-size: 16px;">Get started in 3 steps:</p>
+            <ol style="margin: 0; padding-left: 20px; color: #166534;">
+              <li style="margin-bottom: 8px;">Create your first water damage report</li>
+              <li style="margin-bottom: 8px;">Invite your team members (Managers &amp; Technicians)</li>
+              <li>Connect your accounting software (Xero, MYOB, QuickBooks)</li>
+            </ol>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 35px 0;">
+            <a href="${data.loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 16px rgba(6, 182, 212, 0.4);">
+              Go to Dashboard
+            </a>
+          </div>
+
+          <!-- Footer note -->
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0;">
+              Need help getting started? Check out our documentation or contact support — we're here to help!
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
+          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 10px 0 0 0; color: #cbd5e1;">&copy; ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `
+
+  const text = `Welcome to Restore Assist!
+
+Hi ${data.recipientName},
+
+Thanks for signing up! Your account is ready with a ${data.trialDays}-day free trial and ${data.trialCredits} report credits.
+
+Get started:
+1. Create your first water damage report
+2. Invite your team members (Managers & Technicians)
+3. Connect your accounting software (Xero, MYOB, QuickBooks)
+
+Log in here: ${data.loginUrl}
+
+Need help? Contact our support team — we're here to help!
+
+---
+This is an automated email from Restore Assist. Please do not reply to this email.`
+
+  try {
+    console.log("📧 [EMAIL] Sending welcome email to:", data.recipientEmail)
+
+    const result = await getResendClient().emails.send({
+      from: fromEmail,
+      to: data.recipientEmail,
+      subject: "Welcome to Restore Assist — Your Account is Ready!",
+      html,
+      text,
+    })
+
+    console.log("✅ [EMAIL] Welcome email sent successfully:", result.id)
+    return result
+  } catch (error: any) {
+    console.error("❌ [EMAIL] Failed to send welcome email:", error?.message)
+    return null
+  }
+}
+
+// ── Report Completed Notification Email ──
+
+export interface ReportCompletedEmailData {
+  recipientEmail: string
+  recipientName: string
+  reportJobNumber: string
+  reportType: string
+  completedByName: string
+  viewReportUrl: string
+}
+
+export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ [EMAIL] Email service is not configured, skipping report completed email")
+    return null
+  }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Report Completed</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700;">Report Completed</h1>
+          <p style="color: rgba(255, 255, 255, 0.95); margin: 10px 0 0; font-size: 16px;">A report has been finalised and is ready for review</p>
+        </div>
+
+        <!-- Main content card -->
+        <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
+            A report has been completed by <strong>${data.completedByName}</strong> and is ready for your review.
+          </p>
+
+          <!-- Report details -->
+          <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <p style="margin: 0 0 8px;"><strong>Job Number:</strong> ${data.reportJobNumber}</p>
+            <p style="margin: 0;"><strong>Type:</strong> ${data.reportType}</p>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 35px 0;">
+            <a href="${data.viewReportUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 16px rgba(6, 182, 212, 0.4);">
+              View Report
+            </a>
+          </div>
+
+          <!-- Footer note -->
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0;">
+              This notification was sent because a team member completed a report in your organisation.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
+          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 10px 0 0 0; color: #cbd5e1;">&copy; ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `
+
+  const text = `Report Completed
+
+Hi ${data.recipientName},
+
+A report has been completed by ${data.completedByName} and is ready for your review.
+
+Job Number: ${data.reportJobNumber}
+Type: ${data.reportType}
+
+View the report: ${data.viewReportUrl}
+
+---
+This is an automated email from Restore Assist. Please do not reply to this email.`
+
+  try {
+    console.log("📧 [EMAIL] Sending report completed email to:", data.recipientEmail)
+
+    const result = await getResendClient().emails.send({
+      from: fromEmail,
+      to: data.recipientEmail,
+      subject: `Report Completed: ${data.reportJobNumber} — ${data.reportType}`,
+      html,
+      text,
+    })
+
+    console.log("✅ [EMAIL] Report completed email sent:", result.id)
+    return result
+  } catch (error: any) {
+    console.error("❌ [EMAIL] Failed to send report completed email:", error?.message)
+    return null
+  }
+}

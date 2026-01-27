@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { applyRateLimit } from "@/lib/rate-limiter"
 import { sanitizeString } from "@/lib/sanitize"
+import { sendWelcomeEmail } from "@/lib/email"
+
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
 export async function POST(request: NextRequest) {
   try {
@@ -170,6 +173,15 @@ export async function POST(request: NextRequest) {
           }
         })
 
+        // Send welcome email (non-blocking)
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 14,
+          trialCredits: 3,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err))
+
         const { password: _, ...userWithoutPassword } = user
         return NextResponse.json(
           {
@@ -210,6 +222,15 @@ export async function POST(request: NextRequest) {
           })
         })
 
+        // Send welcome email (non-blocking)
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 14,
+          trialCredits: 3,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err))
+
         const { password: _, ...userWithoutPassword } = updatedUser
         return NextResponse.json(
           { message: "User created successfully", user: userWithoutPassword },
@@ -232,6 +253,15 @@ export async function POST(request: NextRequest) {
           totalQuickFillUsed: 0
           }
         })
+
+        // Send welcome email (non-blocking)
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 14,
+          trialCredits: 3,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err))
 
         const { password: _, ...userWithoutPassword } = user
         return NextResponse.json(
