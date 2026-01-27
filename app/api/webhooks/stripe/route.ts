@@ -8,15 +8,20 @@ import { sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/em
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
-// Helper to check if StripeWebhookEvent model exists
+// Cache the model availability check to avoid repeated reflection
+let _webhookModelAvailable: boolean | null = null
+
 async function hasWebhookEventModel(): Promise<boolean> {
+  if (_webhookModelAvailable !== null) return _webhookModelAvailable
   try {
     if (prisma.stripeWebhookEvent && typeof (prisma.stripeWebhookEvent as any).findFirst === 'function') {
+      _webhookModelAvailable = true
       return true
     }
   } catch {
-    // Model doesn't exist
+    // Model doesn't exist in this Prisma client generation
   }
+  _webhookModelAvailable = false
   return false
 }
 
@@ -72,7 +77,8 @@ async function isEventProcessed(stripeEventId: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
-  const signature = headers().get("stripe-signature")
+  const headersList = await headers()
+  const signature = headersList.get("stripe-signature")
 
   if (!signature) {
     console.error('No signature provided')
@@ -323,6 +329,7 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
 
     if (isFirstSubscription) {
       updateData.addonReports = (userBefore?.addonReports || 0) + 10
+      updateData.signupBonusApplied = true
     }
 
     await prisma.user.update({
@@ -330,7 +337,7 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
       data: updateData
     })
 
-    console.log(`✅ SUBSCRIPTION ACTIVATED for user ${userId}`)
+    console.log(`✅ SUBSCRIPTION ACTIVATED for user ${userId}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
   } else if (session.customer_email) {
     const userByEmail = await prisma.user.findFirst({
       where: { email: session.customer_email },
@@ -354,6 +361,7 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
 
       if (isFirstSubscription) {
         updateData.addonReports = (userByEmail.addonReports || 0) + 10
+        updateData.signupBonusApplied = true
       }
 
       await prisma.user.updateMany({
@@ -361,7 +369,7 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
         data: updateData
       })
 
-      console.log(`✅ SUBSCRIPTION ACTIVATED for email ${session.customer_email}`)
+      console.log(`✅ SUBSCRIPTION ACTIVATED for email ${session.customer_email}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
     }
   }
 }
@@ -418,6 +426,7 @@ async function handleSubscriptionCreated(event: Stripe.Event) {
 
   if (isFirstSubscription) {
     updateData.addonReports = (userByCustomer.addonReports || 0) + 10
+    updateData.signupBonusApplied = true
   }
 
   await prisma.user.updateMany({
@@ -425,23 +434,45 @@ async function handleSubscriptionCreated(event: Stripe.Event) {
     data: updateData
   })
 
-  console.log(`✅ SUBSCRIPTION CREATED for customer ${subscription.customer}`)
+  console.log(`✅ SUBSCRIPTION CREATED for customer ${subscription.customer}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
+}
+
+// Map Stripe subscription status to our SubscriptionStatus enum
+function mapStripeStatus(stripeStatus: string): 'ACTIVE' | 'TRIAL' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED' {
+  switch (stripeStatus) {
+    case 'active':
+      return 'ACTIVE'
+    case 'trialing':
+      return 'TRIAL'
+    case 'past_due':
+    case 'unpaid':
+      return 'PAST_DUE'
+    case 'canceled':
+    case 'incomplete_expired':
+      return 'CANCELED'
+    case 'incomplete':
+    case 'paused':
+      return 'EXPIRED'
+    default:
+      return 'CANCELED'
+  }
 }
 
 // Handler: customer.subscription.updated
 async function handleSubscriptionUpdated(event: Stripe.Event) {
   const subscription = event.data.object as Stripe.Subscription
+  const mappedStatus = mapStripeStatus(subscription.status)
 
   await prisma.user.updateMany({
     where: { subscriptionId: subscription.id },
     data: {
-      subscriptionStatus: subscription.status === 'active' ? 'ACTIVE' : 'CANCELED',
+      subscriptionStatus: mappedStatus,
       subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
       nextBillingDate: new Date(subscription.current_period_end * 1000),
     }
   })
 
-  console.log(`✅ SUBSCRIPTION UPDATED: ${subscription.id} -> ${subscription.status}`)
+  console.log(`✅ SUBSCRIPTION UPDATED: ${subscription.id} -> ${subscription.status} (mapped to ${mappedStatus})`)
 }
 
 // Handler: customer.subscription.deleted
@@ -459,13 +490,20 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
     }
   })
 
+  // Use the subscription's period end (user paid through this date) or ended_at timestamp
+  const endDate = subscription.ended_at
+    ? new Date(subscription.ended_at * 1000)
+    : subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : new Date()
+
   // Update user status
   await prisma.user.updateMany({
     where: { subscriptionId: subscription.id },
     data: {
-      subscriptionStatus: 'EXPIRED',
-      subscriptionEndsAt: new Date(),
-      creditsRemaining: 0,
+      subscriptionStatus: 'CANCELED',
+      subscriptionEndsAt: endDate,
+      // Don't zero credits immediately — user paid through the period
     }
   })
 
@@ -475,7 +513,7 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
       recipientEmail: user.email,
       recipientName: user.name || 'Valued Customer',
       subscriptionPlan: user.subscriptionPlan || 'Subscription',
-      expiresAt: new Date().toLocaleDateString('en-AU', {
+      expiresAt: endDate.toLocaleDateString('en-AU', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
