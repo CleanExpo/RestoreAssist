@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
+import { OrganizationSchema } from "@/components/seo/JsonLd"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -56,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <OrganizationSchema />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
