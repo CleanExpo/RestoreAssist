@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { callAIProvider } from "@/lib/ai-provider"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +14,10 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = (session.user as any).id
+
+    // Rate limit: 60 chat history fetches per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 60, prefix: "chatbot-get", key: userId })
+    if (rateLimited) return rateLimited
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get("limit") || "50")
 
@@ -66,6 +71,10 @@ export async function POST(request: NextRequest) {
     if (!session?.user || !(session.user as any).id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 20 AI chat messages per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "chatbot", key: (session.user as any).id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { messages } = body

@@ -13,6 +13,7 @@ import { performGapAnalysis } from '@/lib/gap-analysis'
 import { performRevolutionaryGapAnalysis } from '@/lib/revolutionary-gap-analysis'
 import { retrieveRelevantStandards, buildStandardsContextPrompt } from '@/lib/standards-retrieval'
 import type { GapAnalysisResult } from '@/lib/gap-analysis'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +22,10 @@ export async function POST(request: NextRequest) {
     if (!session?.user || !(session.user as any).id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 5 batch analyses per 15 minutes per user (heavy operation)
+    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "analyze-batch", key: (session.user as any).id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { folderId, maxDocuments, stream } = body

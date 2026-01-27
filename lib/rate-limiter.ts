@@ -72,12 +72,11 @@ export function getClientIp(req: NextRequest): string {
  */
 export function applyRateLimit(
   req: NextRequest,
-  opts: { windowMs?: number; maxRequests?: number; prefix?: string } = {}
+  opts: { windowMs?: number; maxRequests?: number; prefix?: string; key?: string } = {}
 ): NextResponse | null {
-  const { windowMs = 15 * 60 * 1000, maxRequests = 5, prefix = "api" } = opts
-  const ip = getClientIp(req)
-  const key = `${prefix}:${ip}`
-  const result = rateLimit(key, { windowMs, maxRequests })
+  const { windowMs = 15 * 60 * 1000, maxRequests = 5, prefix = "api", key: customKey } = opts
+  const rateLimitKey = customKey ? `${prefix}:${customKey}` : `${prefix}:${getClientIp(req)}`
+  const result = rateLimit(rateLimitKey, { windowMs, maxRequests })
 
   if (!result.success) {
     const retryAfterSec = Math.ceil((result.retryAfterMs || 0) / 1000)

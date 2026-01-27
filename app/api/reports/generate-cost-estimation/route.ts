@@ -6,15 +6,20 @@ import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { tryClaudeModels } from '@/lib/anthropic-models'
 import { getEquipmentGroupById, calculateTotalDailyCost, calculateTotalCost, getEquipmentDailyRate } from '@/lib/equipment-matrix'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 10 cost estimation generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-cost", key: session.user.email })
+    if (rateLimited) return rateLimited
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },

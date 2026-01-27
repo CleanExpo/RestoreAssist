@@ -6,14 +6,19 @@ import Anthropic from '@anthropic-ai/sdk'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { getEquipmentGroupById, getEquipmentDailyRate } from '@/lib/equipment-matrix'
 import { tryClaudeModels } from '@/lib/anthropic-models'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 10 scope of works generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-scope", key: session.user.email })
+    if (rateLimited) return rateLimited
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },

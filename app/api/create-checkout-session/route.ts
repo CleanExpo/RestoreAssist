@@ -3,14 +3,19 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 10 checkout sessions per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "checkout", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     // Get the base URL from the request headers (works in both dev and production)
     // Priority: NEXTAUTH_URL env var > origin header > host header with protocol

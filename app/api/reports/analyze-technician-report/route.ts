@@ -4,15 +4,20 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { tryClaudeModels } from '@/lib/anthropic-models'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 // POST - Analyze technician report using AI
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 10 technician report analyses per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "analyze-tech", key: session.user.email })
+    if (rateLimited) return rateLimited
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email }

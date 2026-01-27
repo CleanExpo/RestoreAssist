@@ -4,14 +4,19 @@ import { authOptions } from "@/lib/auth"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { PRICING_CONFIG } from "@/lib/pricing"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 10 addon purchases per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "addon-checkout", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     // Get the base URL from the request headers
     let baseUrl = process.env.NEXTAUTH_URL
