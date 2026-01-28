@@ -4,18 +4,18 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { sanitizeString } from "@/lib/sanitize"
 
-// GET - Get inspections (optionally filtered by reportId)
+// GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    
+
     const { searchParams } = new URL(request.url)
     const reportId = searchParams.get("reportId")
-    
+
     if (reportId) {
       // Note: reportId column doesn't exist, so find by property address instead
       // First get the report to find property address
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         where: { id: reportId },
         select: { propertyAddress: true, propertyPostcode: true }
       })
-      
+
       if (report) {
         const inspection = await prisma.inspection.findFirst({
           where: {
@@ -42,18 +42,57 @@ export async function GET(request: NextRequest) {
           },
           orderBy: { createdAt: 'desc' }
         })
-        
+
         if (inspection) {
           return NextResponse.json({ inspection })
         }
       }
-      
+
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
     }
-    
-    // Get all inspections for user
+
+    // Get pagination parameters
+    const page = parseInt(searchParams.get("page") || "1")
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100) // Max 100
+    const skip = (page - 1) * limit
+
+    // Get search and filter parameters
+    const search = searchParams.get("search")
+    const status = searchParams.get("status")
+    const sortBy = searchParams.get("sortBy") || "createdAt"
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc"
+
+    // Build where clause
+    const where: any = { userId: session.user.id }
+
+    // Add status filter
+    if (status) {
+      where.status = status
+    }
+
+    // Add search filter (inspection number, property address, technician name)
+    if (search && search.trim()) {
+      where.OR = [
+        { inspectionNumber: { contains: search, mode: "insensitive" } },
+        { propertyAddress: { contains: search, mode: "insensitive" } },
+        { technicianName: { contains: search, mode: "insensitive" } }
+      ]
+    }
+
+    // Build orderBy clause
+    const orderBy: any = {}
+    if (sortBy === "createdAt" || sortBy === "submittedAt" || sortBy === "processedAt") {
+      orderBy[sortBy] = sortOrder
+    } else {
+      orderBy.createdAt = "desc" // Default
+    }
+
+    // Get total count for pagination
+    const total = await prisma.inspection.count({ where })
+
+    // Get inspections with pagination
     const inspections = await prisma.inspection.findMany({
-      where: { userId: session.user.id },
+      where,
       include: {
         environmentalData: true,
         moistureReadings: true,
@@ -62,12 +101,23 @@ export async function GET(request: NextRequest) {
         classifications: {
           orderBy: { createdAt: "desc" },
           take: 1
-        }
+        },
+        photos: true
       },
-      orderBy: { createdAt: "desc" }
+      orderBy,
+      skip,
+      take: limit
     })
-    
-    return NextResponse.json({ inspections })
+
+    return NextResponse.json({
+      inspections,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    })
   } catch (error) {
     console.error("Error fetching inspections:", error)
     return NextResponse.json(
