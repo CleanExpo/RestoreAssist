@@ -763,6 +763,7 @@ model Integration {
   externalClients ExternalClient[]
   externalJobs    ExternalJob[]
   syncLogs        IntegrationSyncLog[]
+  webhookEvents   WebhookEvent[]
 
   @@unique([userId, provider])
   @@index([userId])
@@ -874,6 +875,30 @@ model IntegrationSyncLog {
 
   @@index([integrationId])
   @@index([startedAt])
+}
+
+// Webhook Event (two-way sync from accounting systems)
+model WebhookEvent {
+  id            String              @id @default(cuid())
+  provider      IntegrationProvider
+  integrationId String
+  integration   Integration         @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  eventType String // invoice.paid, invoice.updated, customer.created, payment.created, etc.
+  payload   Json // Full webhook payload
+  signature String? // Webhook signature for verification
+
+  status       WebhookEventStatus @default(PENDING)
+  processedAt  DateTime?
+  errorMessage String?
+  retryCount   Int                @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provider, eventType])
+  @@index([status, createdAt])
+  @@index([integrationId, status])
 }
 
 enum SubscriptionStatus {
@@ -3291,33 +3316,33 @@ model InvoiceTemplate {
   logoPosition   String? @default("left") // "left", "center", "right"
 
   // Typography
-  fontFamily    String? @default("Inter") // "Inter", "Roboto", "Helvetica"
-  fontSize      String? @default("medium") // "small", "medium", "large"
-  headerFont    String? @default("bold") // "regular", "bold"
+  fontFamily String? @default("Inter") // "Inter", "Roboto", "Helvetica"
+  fontSize   String? @default("medium") // "small", "medium", "large"
+  headerFont String? @default("bold") // "regular", "bold"
 
   // Layout
-  pageSize       String? @default("A4") // "A4", "Letter"
-  marginTop      Int?    @default(50) // pixels
-  marginBottom   Int?    @default(50)
-  marginLeft     Int?    @default(40)
-  marginRight    Int?    @default(40)
+  pageSize     String? @default("A4") // "A4", "Letter"
+  marginTop    Int?    @default(50) // pixels
+  marginBottom Int?    @default(50)
+  marginLeft   Int?    @default(40)
+  marginRight  Int?    @default(40)
 
   // Header content
-  showLogo            Boolean @default(true)
-  showCompanyName     Boolean @default(true)
-  showCompanyAddress  Boolean @default(true)
-  showCompanyPhone    Boolean @default(true)
-  showCompanyEmail    Boolean @default(true)
-  showCompanyABN      Boolean @default(true)
+  showLogo           Boolean @default(true)
+  showCompanyName    Boolean @default(true)
+  showCompanyAddress Boolean @default(true)
+  showCompanyPhone   Boolean @default(true)
+  showCompanyEmail   Boolean @default(true)
+  showCompanyABN     Boolean @default(true)
 
-  headerText          String? @db.Text // Custom header text
-  footerText          String? @db.Text // Custom footer text
+  headerText String? @db.Text // Custom header text
+  footerText String? @db.Text // Custom footer text
 
   // Invoice details display
-  showInvoiceNumber   Boolean @default(true)
-  showInvoiceDate     Boolean @default(true)
-  showDueDate         Boolean @default(true)
-  showPaymentTerms    Boolean @default(true)
+  showInvoiceNumber Boolean @default(true)
+  showInvoiceDate   Boolean @default(true)
+  showDueDate       Boolean @default(true)
+  showPaymentTerms  Boolean @default(true)
 
   // Line items display
   showLineItemImages  Boolean @default(false)
@@ -3328,10 +3353,10 @@ model InvoiceTemplate {
   showGST             Boolean @default(true)
 
   // Financial display
-  showSubtotal        Boolean @default(true)
-  showDiscount        Boolean @default(true)
-  showShipping        Boolean @default(true)
-  showGSTBreakdown    Boolean @default(true)
+  showSubtotal     Boolean @default(true)
+  showDiscount     Boolean @default(true)
+  showShipping     Boolean @default(true)
+  showGSTBreakdown Boolean @default(true)
 
   // Payment information
   paymentInstructions String? @db.Text
@@ -3341,8 +3366,8 @@ model InvoiceTemplate {
   paymentQRCode       String? // URL to QR code image
 
   // Additional customization
-  customCSS           String? @db.Text // Custom CSS for advanced users
-  customHTML          String? @db.Text // Custom HTML blocks
+  customCSS  String? @db.Text // Custom CSS for advanced users
+  customHTML String? @db.Text // Custom HTML blocks
 
   // Owner
   userId String
@@ -3353,7 +3378,7 @@ model InvoiceTemplate {
   updatedAt DateTime @updatedAt
 
   // Usage tracking
-  usageCount Int @default(0)
+  usageCount Int       @default(0)
   lastUsedAt DateTime?
 
   // Relations
