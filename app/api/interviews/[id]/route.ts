@@ -78,3 +78,49 @@ export async function GET(
     )
   }
 }
+
+// DELETE - Delete single interview session (user must own it)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const { id } = await params
+
+    if (!id) {
+      return NextResponse.json({ error: "Interview ID is required" }, { status: 400 })
+    }
+
+    const interviewSession = await prisma.interviewSession.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true },
+    })
+
+    if (!interviewSession) {
+      return NextResponse.json({ error: "Interview session not found" }, { status: 404 })
+    }
+
+    await prisma.interviewSession.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting interview session:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
