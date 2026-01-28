@@ -259,7 +259,7 @@ body {
 
   /* Hide buttons and footer in print */
   button,
-  .print\\:hidden {
+  [class*="print:hidden"] {
     display: none !important;
   }
 

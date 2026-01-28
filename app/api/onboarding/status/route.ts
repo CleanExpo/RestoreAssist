@@ -124,6 +124,9 @@ export async function GET(request: NextRequest) {
 
     // Check for Deepseek API key (for free users) or regular integrations (for paid users)
     let hasApiKey = !!(integration?.apiKey)
+    // Skip deepseekApiKey check if column doesn't exist (temporary fix for schema mismatch)
+    // TODO: Re-enable after database migration
+    /*
     if (!hasApiKey && isAdmin) {
       // Check for Deepseek API key for free users
       const adminUser = await prisma.user.findUnique({
@@ -142,6 +145,7 @@ export async function GET(request: NextRequest) {
         hasApiKey = !!(owner?.deepseekApiKey)
       }
     }
+    */
 
     // Check if user is on trial (free user)
     const isTrial = effectiveSub?.subscriptionStatus === 'TRIAL' || user.subscriptionStatus === 'TRIAL'

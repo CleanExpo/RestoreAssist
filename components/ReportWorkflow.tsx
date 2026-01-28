@@ -241,14 +241,39 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
 
   // Progress indicator
   const stages = [
-    { id: 'initial-entry', label: 'Initial Entry', completed: currentStage !== 'initial-entry' },
-    { id: 'tier1', label: 'Tier 1', completed: reportType === 'enhanced' && currentStage !== 'tier1' && currentStage !== 'initial-entry' },
-    { id: 'tier2', label: 'Tier 2', completed: reportType === 'enhanced' && (currentStage === 'tier3' || currentStage === 'report-generation') },
-    { id: 'tier3', label: 'Tier 3', completed: reportType === 'enhanced' && currentStage === 'report-generation' && showTier3 },
-    { id: 'report-generation', label: 'Report', completed: false }
+    {
+      id: 'initial-entry',
+      label: 'Initial Entry',
+      description: 'Complete all required sections',
+      completed: currentStage !== 'initial-entry'
+    },
+    {
+      id: 'tier1',
+      label: 'Tier 1 Questions',
+      description: 'Answer clarifying questions',
+      completed: reportType === 'enhanced' && currentStage !== 'tier1' && currentStage !== 'initial-entry'
+    },
+    {
+      id: 'tier2',
+      label: 'Tier 2 Questions',
+      description: 'Enhanced analysis',
+      completed: reportType === 'enhanced' && (currentStage === 'tier3' || currentStage === 'report-generation')
+    },
+    {
+      id: 'tier3',
+      label: 'Tier 3 Questions',
+      description: 'Cost & timeline optimization',
+      completed: reportType === 'enhanced' && currentStage === 'report-generation' && showTier3
+    },
+    {
+      id: 'report-generation',
+      label: 'Generate Report',
+      description: 'Review and generate',
+      completed: false
+    }
   ]
 
-  const visibleStages = reportType === 'basic' 
+  const visibleStages = reportType === 'basic'
     ? stages.filter(s => s.id === 'initial-entry' || s.id === 'report-generation')
     : reportType === 'enhanced'
     ? stages.filter(s => s.id !== 'tier3' || showTier3)
@@ -265,41 +290,68 @@ export default function ReportWorkflow({ reportId: initialReportId, onComplete, 
   return (
     <div className="space-y-6">
       {/* Progress Indicator */}
-      <div className={cn("p-4 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-neutral-50 dark:bg-slate-800/30")}>
+      <div className={cn(
+        "p-6 rounded-xl border-2",
+        "border-neutral-200 dark:border-neutral-800",
+        "bg-white dark:bg-neutral-900/60"
+      )}>
+        <div className="mb-4">
+          <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-neutral-50")}>
+            Report Workflow Progress
+          </h3>
+          <p className={cn("text-sm mt-1", "text-neutral-600 dark:text-neutral-400")}>
+            {currentStage === 'initial-entry' && 'Complete all required sections in any order'}
+            {currentStage === 'tier1' && 'Answer clarifying questions to enhance your report'}
+            {currentStage === 'tier2' && 'Provide additional details for enhanced analysis'}
+            {currentStage === 'tier3' && 'Optimize cost estimation and timeline predictions'}
+            {currentStage === 'report-generation' && 'Review data and generate your report'}
+          </p>
+        </div>
         <div className="flex items-center justify-between">
           {visibleStages.map((stage, index) => (
             <div key={stage.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
                 <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+                  "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
                   stage.completed
-                    ? 'bg-green-500 text-white'
+                    ? 'bg-green-500 text-white ring-2 ring-green-500/30'
                     : currentStage === stage.id
-                    ? 'bg-cyan-500 text-white'
-                    : cn("bg-neutral-300 dark:bg-slate-700", "text-neutral-600 dark:text-slate-400")
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white ring-2 ring-cyan-500/30 shadow-lg'
+                    : cn("bg-neutral-200 dark:bg-neutral-800", "text-neutral-500 dark:text-neutral-500")
                 )}>
                   {stage.completed ? (
-                    <CheckCircle className="w-5 h-5" />
+                    <CheckCircle className="w-6 h-6" />
                   ) : (
-                    <span className="text-sm font-semibold">{index + 1}</span>
+                    <span className="text-sm font-bold">{index + 1}</span>
                   )}
                 </div>
-                <span className={cn(
-                  "text-xs mt-2 text-center",
-                  currentStage === stage.id 
-                    ? 'text-cyan-600 dark:text-cyan-400 font-medium' 
-                    : cn("text-neutral-600 dark:text-slate-400")
-                )}>
-                  {stage.label}
-                </span>
+                <div className="mt-2 text-center max-w-[120px]">
+                  <span className={cn(
+                    "text-sm font-medium block",
+                    currentStage === stage.id
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : stage.completed
+                      ? 'text-green-600 dark:text-green-400'
+                      : cn("text-neutral-600 dark:text-neutral-400")
+                  )}>
+                    {stage.label}
+                  </span>
+                  {currentStage === stage.id && (
+                    <span className={cn("text-xs mt-1 block", "text-neutral-500 dark:text-neutral-500")}>
+                      {stage.description}
+                    </span>
+                  )}
+                </div>
               </div>
               {index < visibleStages.length - 1 && (
-                <div className={cn(
-                  "flex-1 h-1 mx-2",
-                  stage.completed 
-                    ? 'bg-green-500' 
-                    : cn("bg-neutral-300 dark:bg-slate-700")
-                )} />
+                <div className="flex-1 mx-2 relative" style={{ height: '2px' }}>
+                  <div className={cn(
+                    "absolute inset-0 rounded-full transition-all duration-300",
+                    stage.completed
+                      ? 'bg-green-500'
+                      : cn("bg-neutral-300 dark:bg-neutral-700")
+                  )} />
+                </div>
               )}
             </div>
           ))}

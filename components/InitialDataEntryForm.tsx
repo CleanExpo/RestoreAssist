@@ -10,6 +10,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AccordionFormSection,
+  AccordionFormContainer,
+} from "@/components/ui/accordion-form-section";
+import { useAutoSave, type AutoSaveStatus, type FormDraft } from "@/lib/form/auto-save";
+import { DraftRecoveryModal } from "@/components/ui/draft-recovery-modal";
+import {
   afdUnits,
   airMovers,
   calculateTotalAmps,
@@ -219,7 +225,11 @@ export default function InitialDataEntryForm({
   const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null);
   const [hasUnlimitedQuickFill, setHasUnlimitedQuickFill] = useState(false);
   const [loadingCredits, setLoadingCredits] = useState(false);
-  
+
+  // Auto-save and draft recovery
+  const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
+  const [showDraftModal, setShowDraftModal] = useState(false);
+
   // Assignee selection state (Manager for Technicians, Admin for Managers)
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("");
@@ -279,6 +289,108 @@ export default function InitialDataEntryForm({
   const [pricingConfig, setPricingConfig] = useState<any>(null);
   const hasAutoSelectedEquipment = useRef(false);
 
+  // Equipment: Psychrometric Assessment (moved before useAutoSave to avoid temporal dead zone)
+  const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(
+    (initialData?.psychrometricWaterClass as 1 | 2 | 3 | 4) || 2
+  );
+  const [temperature, setTemperature] = useState(
+    initialData?.psychrometricTemperature || 25
+  );
+  const [humidity, setHumidity] = useState(
+    initialData?.psychrometricHumidity || 60
+  );
+  const [systemType, setSystemType] = useState<"open" | "closed">(
+    initialData?.psychrometricSystemType || "closed"
+  );
+
+  // Equipment: Scope Areas (moved before useAutoSave)
+  interface ScopeArea {
+    id: string;
+    name: string;
+    length: number;
+    width: number;
+    height: number;
+    wetPercentage: number;
+  }
+  const [areas, setAreas] = useState<ScopeArea[]>(() => {
+    if (initialData?.scopeAreas && initialData.scopeAreas.length > 0) {
+      return initialData.scopeAreas.map((area, index) => ({
+        id: `area-${Date.now()}-${index}`,
+        name: area.name,
+        length: area.length,
+        width: area.width,
+        height: area.height,
+        wetPercentage: area.wetPercentage,
+      }));
+    }
+    return [];
+  });
+  const [newArea, setNewArea] = useState<Omit<ScopeArea, "id">>({
+    name: "",
+    length: 4,
+    width: 4,
+    height: 2.7,
+    wetPercentage: 100,
+  });
+
+  const [equipmentSelections, setEquipmentSelections] = useState<
+    EquipmentSelection[]
+  >([]);
+  const [durationDays, setDurationDays] = useState(
+    initialData?.estimatedDryingDuration || 4
+  );
+
+  // Auto-save: Initialize with form data
+  const draftId = reportId || `draft-${session?.user?.id || 'temp'}-${Date.now()}`;
+  const { status: autoSaveStatusValue, scheduleSave, forceSave } = useAutoSave(
+    draftId,
+    {
+      ...formData,
+      userId: session?.user?.id,
+      type: 'report',
+      // Include other relevant state
+      assigneeId: selectedAssigneeId,
+      waterClass,
+      temperature,
+      humidity,
+      systemType,
+      areas,
+      durationDays,
+      nirMoistureReadings,
+      nirAffectedAreas,
+      nirSelectedScopeItems: Array.from(nirSelectedScopeItems),
+      equipmentSelections,
+    },
+    {
+      debounceMs: 2000, // 2 seconds after typing stops
+      periodicSaveMs: 10000, // Every 10 seconds
+      onSave: async (data) => {
+        // Save to server (call API to save draft)
+        if (reportId) {
+          // Update existing report
+          await fetch(`/api/reports/${reportId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+        }
+        // Note: For new reports, we save on submit, not on auto-save
+      },
+      onError: (error) => {
+        console.error('[Auto-Save] Error:', error);
+        // Don't show error to user for auto-save failures
+      },
+      onStatusChange: (status) => {
+        setAutoSaveStatus(status);
+      },
+    }
+  );
+
+  // Trigger auto-save when form data changes
+  useEffect(() => {
+    scheduleSave();
+  }, [formData, selectedAssigneeId, areas, equipmentSelections, nirMoistureReadings, nirAffectedAreas]);
+
   // Property Lookup State (Phase 5)
   const [propertyData, setPropertyData] = useState<{
     yearBuilt?: number | null
@@ -311,15 +423,15 @@ export default function InitialDataEntryForm({
   // Use Case Selection Modal State
   const [showUseCaseModal, setShowUseCaseModal] = useState(false);
 
-  // Wizard Step Management
-  const [currentStep, setCurrentStep] = useState(0);
+  // Accordion Section Management (replaces wizard step management)
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(() => new Set([0])); // Start with first section expanded
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(
     () => new Set<number>()
   );
   const requiresAssignee =
     session?.user?.role === "USER" || session?.user?.role === "MANAGER";
-  
-  // Define all steps
+
+  // Define all sections (was: steps)
   const steps = [
     {
       id: 0,
@@ -454,95 +566,104 @@ export default function InitialDataEntryForm({
     return true;
   };
 
-  // Handle next step
-  const handleNext = () => {
-    if (!validateStep(currentStep)) {
-      toast.error("Please complete all required fields before proceeding");
-      return;
-    }
-
-    // Mark current step as completed
-    setCompletedSteps((prev) => new Set([...prev, currentStep]));
-
-    // Move to next step
-    if (currentStep < visibleSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+  // Accordion: Toggle section expansion
+  const toggleSection = (sectionIndex: number) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionIndex)) {
+        newSet.delete(sectionIndex);
+      } else {
+        newSet.add(sectionIndex);
+      }
+      return newSet;
+    });
   };
 
-  // Handle previous step
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
+  // Accordion: Calculate completion percentage for a section
+  const calculateSectionCompletion = (sectionIndex: number): number => {
+    const step = visibleSteps[sectionIndex];
+    if (!step) return 0;
 
-  // Check if step is accessible (all previous steps completed)
-  const isStepAccessible = (stepIndex: number): boolean => {
-    if (stepIndex === 0) return true;
-    for (let i = 0; i < stepIndex; i++) {
-      if (!completedSteps.has(i) && !validateStep(i)) {
-        return false;
+    // Count total fields and filled fields
+    let totalFields = step.requiredFields.length;
+    let filledFields = 0;
+
+    // Special handling for assignee step
+    if (step.id === 1) {
+      if (!requiresAssignee) return 100;
+      return selectedAssigneeId ? 100 : 0;
+    }
+
+    // NIR Inspection step (step 8) - check array data
+    if (step.id === 8) {
+      totalFields += 3; // moisture readings, affected areas, scope items
+      if (nirMoistureReadings.length > 0) filledFields++;
+      if (nirAffectedAreas.length > 0) filledFields++;
+      if (nirSelectedScopeItems.size > 0) filledFields++;
+    }
+
+    // Equipment step (step 11) - check arrays
+    if (step.id === 11) {
+      totalFields += 2; // areas, equipment selections
+      if (areas.length > 0) filledFields++;
+      if (equipmentSelections.length > 0) filledFields++;
+    }
+
+    // Check required fields
+    for (const field of step.requiredFields) {
+      if (field === "selectedAssigneeId") {
+        if (selectedAssigneeId) filledFields++;
+      } else if (formData[field as keyof typeof formData] &&
+                 formData[field as keyof typeof formData].toString().trim() !== "") {
+        filledFields++;
       }
     }
+
+    if (totalFields === 0) return 100; // No required fields = 100% complete
+    return Math.round((filledFields / totalFields) * 100);
+  };
+
+  // Check if section has validation errors
+  const sectionHasErrors = (sectionIndex: number): boolean => {
+    const step = visibleSteps[sectionIndex];
+    if (!step) return false;
+
+    // Check required fields
+    for (const field of step.requiredFields) {
+      if (field === "selectedAssigneeId") {
+        if (requiresAssignee && !selectedAssigneeId) return true;
+      } else if (!formData[field as keyof typeof formData] ||
+                 (typeof formData[field as keyof typeof formData] === "string" &&
+                  formData[field as keyof typeof formData].toString().trim() === "")) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Legacy: Keep for backward compatibility with existing code
+  const handleNext = () => {
+    // Accordion mode: expand next incomplete section
+    const currentIndex = Array.from(expandedSections)[0] || 0;
+    if (currentIndex < visibleSteps.length - 1) {
+      toggleSection(currentIndex); // Collapse current
+      toggleSection(currentIndex + 1); // Expand next
+    }
+  };
+
+  const handlePrevious = () => {
+    // Accordion mode: expand previous section
+    const currentIndex = Array.from(expandedSections)[0] || 0;
+    if (currentIndex > 0) {
+      toggleSection(currentIndex); // Collapse current
+      toggleSection(currentIndex - 1); // Expand previous
+    }
+  };
+
+  const isStepAccessible = (stepIndex: number): boolean => {
+    // In accordion mode, all steps are always accessible
     return true;
   };
-  
-  // Equipment: Psychrometric Assessment
-  const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(
-    (initialData?.psychrometricWaterClass as 1 | 2 | 3 | 4) || 2
-  );
-  const [temperature, setTemperature] = useState(
-    initialData?.psychrometricTemperature || 25
-  );
-  const [humidity, setHumidity] = useState(
-    initialData?.psychrometricHumidity || 60
-  );
-  const [systemType, setSystemType] = useState<"open" | "closed">(
-    initialData?.psychrometricSystemType || "closed"
-  );
-  
-  // Equipment: Scope Areas
-  interface ScopeArea {
-    id: string;
-    name: string;
-    length: number;
-    width: number;
-    height: number;
-    wetPercentage: number;
-  }
-  const [areas, setAreas] = useState<ScopeArea[]>(() => {
-    if (initialData?.scopeAreas && initialData.scopeAreas.length > 0) {
-      return initialData.scopeAreas.map((area, index) => ({
-        id: `area-${Date.now()}-${index}`,
-        name: area.name,
-        length: area.length,
-        width: area.width,
-        height: area.height,
-        wetPercentage: area.wetPercentage,
-      }));
-    }
-    return [];
-  });
-  const [newArea, setNewArea] = useState<Omit<ScopeArea, "id">>({
-    name: "",
-    length: 4,
-    width: 4,
-    height: 2.7,
-    wetPercentage: 100,
-  });
-  
-  // Equipment: Equipment Selection
-  const [equipmentSelections, setEquipmentSelections] = useState<
-    EquipmentSelection[]
-  >([]);
-  const [durationDays, setDurationDays] = useState(
-    initialData?.estimatedDryingDuration || 4
-  );
 
   // NIR State (only used when reportType is 'nir')
   const [nirEnvironmentalData, setNirEnvironmentalData] = useState({
@@ -1287,6 +1408,39 @@ export default function InitialDataEntryForm({
     } finally {
       setLoading(false);
     }
+  };
+
+  // Draft recovery handlers
+  const handleRestoreDraft = (draft: FormDraft) => {
+    const draftData = draft.data;
+
+    // Restore form data
+    if (draftData.clientName) setFormData(prev => ({ ...prev, clientName: draftData.clientName }));
+    if (draftData.clientContactDetails) setFormData(prev => ({ ...prev, clientContactDetails: draftData.clientContactDetails }));
+    if (draftData.propertyAddress) setFormData(prev => ({ ...prev, propertyAddress: draftData.propertyAddress }));
+    if (draftData.propertyPostcode) setFormData(prev => ({ ...prev, propertyPostcode: draftData.propertyPostcode }));
+    if (draftData.technicianFieldReport) setFormData(prev => ({ ...prev, technicianFieldReport: draftData.technicianFieldReport }));
+    // ... restore all other formData fields
+    setFormData(prev => ({ ...prev, ...draftData }));
+
+    // Restore other state
+    if (draftData.assigneeId) setSelectedAssigneeId(draftData.assigneeId);
+    if (draftData.waterClass) setWaterClass(draftData.waterClass);
+    if (draftData.temperature !== undefined) setTemperature(draftData.temperature);
+    if (draftData.humidity !== undefined) setHumidity(draftData.humidity);
+    if (draftData.systemType) setSystemType(draftData.systemType);
+    if (draftData.areas) setAreas(draftData.areas);
+    if (draftData.durationDays) setDurationDays(draftData.durationDays);
+    if (draftData.nirMoistureReadings) setNirMoistureReadings(draftData.nirMoistureReadings);
+    if (draftData.nirAffectedAreas) setNirAffectedAreas(draftData.nirAffectedAreas);
+    if (draftData.nirSelectedScopeItems) setNirSelectedScopeItems(new Set(draftData.nirSelectedScopeItems));
+    if (draftData.equipmentSelections) setEquipmentSelections(draftData.equipmentSelections);
+
+    toast.success("Draft restored successfully!");
+  };
+
+  const handleDiscardDrafts = () => {
+    toast.success("Starting with a fresh form");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2362,152 +2516,87 @@ export default function InitialDataEntryForm({
 
   return (
     <div className="max-w-full mx-auto">
+      {/* Draft Recovery Modal */}
+      {session?.user?.id && !initialReportId && (
+        <DraftRecoveryModal
+          userId={session.user.id}
+          onRestore={handleRestoreDraft}
+          onDiscard={handleDiscardDrafts}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
             <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-neutral-50")}>Initial Data Entry</h2>
             <p className={cn("text-neutral-600 dark:text-neutral-400")}>
-              Complete each step to build your report. All fields marked with * are required.
+              Complete each section to build your report. Click sections to expand/collapse.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleQuickFill}
-            disabled={loadingCredits || (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))}
-            className={cn(
-              "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
-              (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))
-                ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white"
+          <div className="flex items-center gap-3">
+            {/* Auto-save status indicator */}
+            {autoSaveStatus === 'saving' && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </div>
             )}
-            title={
-              hasUnlimitedQuickFill 
-                ? "Quick Fill Test Data (Unlimited)" 
-                : quickFillCredits !== null && quickFillCredits > 0
-                ? `Quick Fill Test Data (${quickFillCredits} credit${quickFillCredits !== 1 ? 's' : ''} remaining)`
-                : "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access."
-            }
-          >
-            <Zap className="w-4 h-4" />
-            Quick Fill Test Data
-            {!hasUnlimitedQuickFill && quickFillCredits !== null && quickFillCredits > 0 && (
-              <span className="ml-1 text-xs">({quickFillCredits})</span>
+            {autoSaveStatus === 'saved' && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle className="w-4 h-4" />
+                <span>All changes saved</span>
+              </div>
             )}
-          </button>
-        </div>
-      </div>
+            {autoSaveStatus === 'error' && (
+              <div className="flex items-center gap-2 text-sm text-red-600">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Failed to save</span>
+              </div>
+            )}
 
-      {/* Progress Indicator */}
-      <div
-        className={cn(
-          "mb-6 rounded-xl border",
-          "bg-white dark:bg-neutral-900/60",
-          "border-neutral-200 dark:border-neutral-800"
-        )}
-      >
-        <div className="px-6 pt-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className={cn("text-lg font-semibold", "text-neutral-900 dark:text-neutral-50")}>
-                Step {currentStep + 1} of {visibleSteps.length}
-              </h3>
-              <p className={cn("text-sm", "text-neutral-600 dark:text-neutral-400")}>
-                {visibleSteps[currentStep]?.title}
-              </p>
-            </div>
-            <div
+            {/* Quick Fill button */}
+            <button
+              type="button"
+              onClick={handleQuickFill}
+              disabled={loadingCredits || (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))}
               className={cn(
-                "px-3 py-1.5 rounded-full text-sm font-semibold",
-                "bg-blue-500/10 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-400"
+                "flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap",
+                (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))
+                  ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white"
               )}
+              title={
+                hasUnlimitedQuickFill
+                  ? "Quick Fill Test Data (Unlimited)"
+                  : quickFillCredits !== null && quickFillCredits > 0
+                  ? `Quick Fill Test Data (${quickFillCredits} credit${quickFillCredits !== 1 ? 's' : ''} remaining)`
+                  : "No Quick Fill credits remaining. Upgrade to unlimited Quick Fill access."
+              }
             >
-              {Math.round(((currentStep + 1) / visibleSteps.length) * 100)}%
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pt-4">
-          <div
-            className={cn(
-              "h-2 rounded-full overflow-hidden",
-              "bg-neutral-200 dark:bg-slate-700"
-            )}
-          >
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500 ease-out",
-                "bg-gradient-to-r from-blue-500 to-cyan-500"
+              <Zap className="w-4 h-4" />
+              Quick Fill
+              {!hasUnlimitedQuickFill && quickFillCredits !== null && quickFillCredits > 0 && (
+                <span className="ml-1 text-xs">({quickFillCredits})</span>
               )}
-              style={{
-                width: `${((currentStep + 1) / visibleSteps.length) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="px-6 pb-4">
-          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2">
-            {visibleSteps.map((step, index) => {
-              const isCompleted = completedSteps.has(index) || index < currentStep;
-              const isCurrent = index === currentStep;
-              const isAccessible = isStepAccessible(index);
-
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => {
-                    if (isAccessible || isCompleted) {
-                      setCurrentStep(index);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }
-                  }}
-                  disabled={!isAccessible && !isCompleted}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
-                    isCurrent
-                      ? "bg-blue-500 text-white"
-                      : isCompleted
-                      ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                      : isAccessible
-                      ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                      : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-semibold",
-                      isCurrent
-                        ? "bg-white/20 text-white"
-                        : isCompleted
-                        ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                        : "bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400"
-                    )}
-                  >
-                    {index + 1}
-                  </span>
-                  {step.title}
-                </button>
-              );
-            })}
+            </button>
           </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <AccordionFormContainer>
         {/* Step 0: Client Information Section */}
-        {visibleSteps[currentStep]?.id === 0 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <User className="w-4 h-4" />
-            Client Information
-          </h3>
+        <AccordionFormSection
+          title="Client Information"
+          description="Enter the client's basic information"
+          completionPercentage={calculateSectionCompletion(0)}
+          hasErrors={sectionHasErrors(0)}
+          isExpanded={expandedSections.has(0)}
+          onToggle={() => toggleSection(0)}
+          sectionNumber={1}
+          totalSections={visibleSteps.length}
+        >
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -2554,29 +2643,21 @@ export default function InitialDataEntryForm({
               </div>
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 1: Assignee Selection Section (for Technicians and Managers) */}
-        {visibleSteps[currentStep]?.id === 1 && requiresAssignee && (
-          <div
-            className={cn(
-              "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-              "border-blue-200 dark:border-blue-800",
-              "bg-white dark:bg-neutral-900/50",
-              "shadow-lg shadow-blue-500/10"
-            )}
-          >
-            <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-              {session?.user?.role === "USER" ? (
-                <UserCog className="w-4 h-4" />
-              ) : (
-                <Crown className="w-4 h-4" />
-              )}
-              {session?.user?.role === "USER" ? "Assign to Manager" : "Assign to Admin"}
-            </h3>
-
-            <div className="space-y-2">
+        {requiresAssignee && (
+        <AccordionFormSection
+          title="Assignee Selection"
+          description="Select who will handle this report"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 1))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 1))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 1))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 1))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 1) + 1}
+          totalSections={visibleSteps.length}
+        >
+          <div className="space-y-2">
               <label className={cn("block text-sm font-medium", "text-neutral-700 dark:text-neutral-300")}>
                 {session?.user?.role === "USER" ? "Manager" : "Admin"}{" "}
                 <span className={cn("text-error-500 dark:text-error-400")}>*</span>
@@ -2620,22 +2701,20 @@ export default function InitialDataEntryForm({
                   : "Select the admin who will oversee this report."}
               </p>
             </div>
-          </div>
+        </AccordionFormSection>
         )}
 
         {/* Step 2: Property Information Section */}
-        {visibleSteps[currentStep]?.id === 2 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <MapPin className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-            Property Information
-          </h3>
-
+        <AccordionFormSection
+          title="Property Information"
+          description="Enter the property address and details"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 2))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 2))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 2))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 2))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 2) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="space-y-4">
             <div>
               <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
@@ -2842,22 +2921,19 @@ export default function InitialDataEntryForm({
               />
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 3: Claim Information Section */}
-        {visibleSteps[currentStep]?.id === 3 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <FileText className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-            Claim Information
-          </h3>
-
+        <AccordionFormSection
+          title="Claim Information"
+          description="Enter claim and insurer details"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 3))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 3))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 3))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 3))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 3) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
@@ -2966,21 +3042,19 @@ export default function InitialDataEntryForm({
               />
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 4: Cover Page Information Section */}
-        {visibleSteps[currentStep]?.id === 4 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <FileText className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-            Cover Page Information
-          </h3>
+        <AccordionFormSection
+          title="Cover Page Information"
+          description="Add report instructions and standards"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 4))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 4))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 4))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 4))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 4) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="space-y-4">
             <div>
               <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
@@ -3005,21 +3079,19 @@ export default function InitialDataEntryForm({
               </p>
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 5: Additional Contact Information Section */}
-        {visibleSteps[currentStep]?.id === 5 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <User className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-            Additional Contact Information
-          </h3>
+        <AccordionFormSection
+          title="Additional Contact Information"
+          description="Add insurer, builder, and body corporate contacts"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 5))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 5))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 5))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 5))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 5) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="space-y-4">
             {/* Builder/Developer Information */}
             <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-gray-50 dark:bg-slate-900/30">
@@ -3172,21 +3244,19 @@ export default function InitialDataEntryForm({
               </div>
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 6: Previous Maintenance & Repair History Section */}
-        {visibleSteps[currentStep]?.id === 6 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <Clock className="w-4 h-4" />
-            Previous Maintenance & Repair History
-          </h3>
+        <AccordionFormSection
+          title="Previous Maintenance & Repair History"
+          description="Document inspection and maintenance history"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 6))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 6))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 6))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 6))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 6) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="space-y-4">
             <div>
               <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
@@ -3301,22 +3371,19 @@ export default function InitialDataEntryForm({
               </div>
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 7: Technician Field Report Section */}
-        {visibleSteps[currentStep]?.id === 7 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <FileText className="w-4 h-4" />
-            Technician Field Report
-          </h3>
-
+        <AccordionFormSection
+          title="Technician Field Report"
+          description="Enter technician's on-site observations"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 7))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 7))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 7))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 7))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 7) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div>
             <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
               Technician's Field Report <span className="text-error-500 dark:text-error-400">*</span>
@@ -3337,26 +3404,19 @@ export default function InitialDataEntryForm({
               placeholder="Paste or type the technician's field report here..."
             />
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 8: NIR Fields - Available for all report types */}
-        {visibleSteps[currentStep]?.id === 8 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-green-200 dark:border-green-500/50",
-            "bg-green-50 dark:bg-green-500/10",
-            "shadow-lg shadow-green-500/10"
-          )}>
-          <h3 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-green-300")}>
-            <CheckCircle className="w-5 h-5" />
-            NIR Inspection Data
-          </h3>
-          <p className={cn("text-sm mb-4", "text-neutral-700 dark:text-neutral-300")}>
-            Enter structured inspection data. The system will automatically
-            classify and determine scope.
-          </p>
-
+        <AccordionFormSection
+          title="NIR Inspection Data"
+          description="Enter moisture readings, affected areas, and scope items"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 8))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 8))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 8))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 8))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 8) + 1}
+          totalSections={visibleSteps.length}
+        >
           {/* Moisture Readings */}
           <div className={cn(
             "p-4 rounded-lg border",
@@ -3743,22 +3803,19 @@ export default function InitialDataEntryForm({
             </div>
           </div>
 
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 9: Hazard Profile Section */}
-        {visibleSteps[currentStep]?.id === 9 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <AlertTriangle className="w-4 h-4" />
-            Hazard Profile
-          </h3>
-
+        <AccordionFormSection
+          title="Hazard Profile"
+          description="Document potential hazards and safety concerns"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 9))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 9))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 9))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 9))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 9) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-neutral-300")}>
@@ -3849,22 +3906,19 @@ export default function InitialDataEntryForm({
               </div>
             )}
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 10: Timeline Estimation Section */}
-        {visibleSteps[currentStep]?.id === 10 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className={cn("text-lg font-semibold mb-3 flex items-center gap-2", "text-neutral-900 dark:text-neutral-50")}>
-            <Clock className="w-4 h-4" />
-            Timeline Estimation (Optional)
-          </h3>
-
+        <AccordionFormSection
+          title="Timeline Estimation (Optional)"
+          description="Estimate project timeline across phases"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 10))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 10))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 10))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 10))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 10) + 1}
+          totalSections={visibleSteps.length}
+        >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Phase 1 */}
             <div>
@@ -3983,22 +4037,19 @@ export default function InitialDataEntryForm({
               </div>
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
         {/* Step 11: Equipment & Tools Selection Section */}
-        {visibleSteps[currentStep]?.id === 11 && (
-          <div className={cn(
-            "p-6 rounded-xl border-2 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300",
-            "border-blue-200 dark:border-blue-800",
-            "bg-white dark:bg-neutral-900/50",
-            "shadow-lg shadow-blue-500/10"
-          )}>
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Wrench className="w-5 h-5" />
-            Equipment & Tools Selection
-          </h3>
-
+        <AccordionFormSection
+          title="Equipment & Tools Selection"
+          description="Configure psychrometric assessment and equipment"
+          completionPercentage={calculateSectionCompletion(visibleSteps.findIndex(s => s.id === 11))}
+          hasErrors={sectionHasErrors(visibleSteps.findIndex(s => s.id === 11))}
+          isExpanded={expandedSections.has(visibleSteps.findIndex(s => s.id === 11))}
+          onToggle={() => toggleSection(visibleSteps.findIndex(s => s.id === 11))}
+          sectionNumber={visibleSteps.findIndex(s => s.id === 11) + 1}
+          totalSections={visibleSteps.length}
+        >
           {/* Psychrometric Assessment */}
           <div className="space-y-4">
             <div className="p-4 rounded-lg border border-blue-500/50 bg-blue-500/10">
@@ -4420,78 +4471,40 @@ export default function InitialDataEntryForm({
               </div>
             </div>
           </div>
-        </div>
-        )}
+        </AccordionFormSection>
 
-        {/* Navigation Buttons */}
+        </AccordionFormContainer>
+
+        {/* Submit Button */}
         <div className={cn(
-          "sticky bottom-0 left-0 right-0 p-6 rounded-t-xl border-t-2",
+          "sticky bottom-0 left-0 right-0 p-6 rounded-t-xl border-t-2 mt-6",
           "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm",
           "border-neutral-200 dark:border-neutral-800",
           "shadow-2xl shadow-neutral-900/10"
         )}>
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-end gap-4">
             <button
-              type="button"
-              onClick={handlePrevious}
-              disabled={currentStep === 0}
+              type="submit"
+              disabled={loading}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
-                "border-2",
-                currentStep === 0
-                  ? "border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed"
-                  : "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-600"
+                "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
+                "hover:shadow-lg hover:shadow-blue-500/50",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
-              <ArrowRight className="w-4 h-4 rotate-180" />
-              Previous
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Save & Continue
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
-
-            <div className="flex items-center gap-2">
-              <span className={cn("text-sm", "text-neutral-600 dark:text-neutral-400")}>
-                Step {currentStep + 1} of {visibleSteps.length}
-              </span>
-            </div>
-
-            {currentStep === visibleSteps.length - 1 ? (
-              <button
-                type="submit"
-                disabled={loading || !validateStep(currentStep)}
-                className={cn(
-                  "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
-                  "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
-                  "hover:shadow-lg hover:shadow-blue-500/50",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    Save & Continue
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!validateStep(currentStep)}
-                className={cn(
-                  "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
-                  !validateStep(currentStep)
-                    ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-blue-500/50"
-                )}
-              >
-                Next
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            )}
           </div>
         </div>
       </form>
