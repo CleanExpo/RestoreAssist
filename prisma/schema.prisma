@@ -147,19 +147,6 @@ model User {
   // Client Portal - Invitations sent by this contractor
   portalInvitations PortalInvitation[]
 
-  // CRM relationships
-  companies     Company[]
-  contacts      Contact[]     @relation("UserContacts")
-  activities    Activity[]    @relation("UserActivities")
-  crmNotes      CrmNote[]     @relation("UserCrmNotes")
-  tags          Tag[]         @relation("UserTags")
-  opportunities Opportunity[] @relation("UserOpportunities")
-
-  // CRM Tasks
-  assignedCrmTasks  CrmTask[] @relation("AssignedCrmTasks")
-  createdCrmTasks   CrmTask[] @relation("CreatedCrmTasks")
-  completedCrmTasks CrmTask[] @relation("CompletedCrmTasks")
-
   // Invoice relationships
   invoices          Invoice[]          @relation("UserInvoices")
   invoiceTemplates  InvoiceTemplate[]  @relation("UserInvoiceTemplates")
@@ -210,11 +197,6 @@ model Client {
   invitations   PortalInvitation[]
   search_vector Unsupported("tsvector")?
 
-  // Migration tracking
-  migratedToContactId String?  @unique
-  migratedToContact   Contact? @relation("ClientMigration", fields: [migratedToContactId], references: [id], onDelete: SetNull)
-  migrationCompleted  Boolean  @default(false)
-
   // Invoice relationships
   invoices          Invoice[]          @relation("ClientInvoices")
   recurringInvoices RecurringInvoice[] @relation("ClientRecurringInvoices")
@@ -223,8 +205,6 @@ model Client {
   @@index([userId, name])
   @@index([userId, email])
   @@index([userId, createdAt])
-  @@index([migratedToContactId])
-  @@index([migrationCompleted])
 }
 
 model ClientUser {
@@ -240,15 +220,10 @@ model ClientUser {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  // CRM Contact support (for post-migration)
-  contactId String?  @unique
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
   contractorReviews ContractorReview[]
 
   @@index([email])
   @@index([clientId])
-  @@index([contactId])
 }
 
 model PortalInvitation {
@@ -257,10 +232,6 @@ model PortalInvitation {
   token    String @unique @default(cuid())
   clientId String
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  // CRM Contact support (optional for backward compatibility)
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   userId     String // Contractor who sent the invitation
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -272,7 +243,6 @@ model PortalInvitation {
   @@index([token])
   @@index([email])
   @@index([clientId])
-  @@index([contactId])
   @@index([userId])
   @@index([status, expiresAt])
 }
@@ -623,16 +593,6 @@ model Report {
   // Contractor Reviews
   contractorReviews ContractorReview[]
 
-  // CRM relationships
-  companyId   String?
-  company     Company?     @relation("CompanyReports", fields: [companyId], references: [id], onDelete: SetNull)
-  contactId   String?
-  contact     Contact?     @relation("ContactReports", fields: [contactId], references: [id], onDelete: SetNull)
-  activities  Activity[]
-  tasks       CrmTask[]
-  crmNotes    CrmNote[]
-  opportunity Opportunity?
-
   // Invoice relationships
   invoices Invoice[] @relation("InvoiceReport")
 
@@ -648,399 +608,6 @@ model Report {
   @@index([userId, status])
   @@index([clientId, createdAt])
   @@index([includeRegulatoryCitations]) // Index for efficient filtering
-  @@index([companyId])
-  @@index([contactId])
-}
-
-// ============================================
-// CRM MODULE
-// ============================================
-
-// CRM Company (replaces Client.company string field)
-model Company {
-  id          String       @id @default(cuid())
-  name        String
-  industry    String?
-  companySize CompanySize?
-  website     String?
-  logoUrl     String? // Cloudinary URL
-
-  // Address
-  addressLine1 String?
-  addressLine2 String?
-  city         String?
-  state        String?
-  postcode     String?
-  country      String? @default("Australia")
-
-  // Business info
-  abn         String?
-  acn         String?
-  description String? @db.Text
-
-  // Relationship tracking
-  status            CompanyStatus         @default(ACTIVE)
-  lifecycleStage    CompanyLifecycleStage @default(LEAD)
-  relationshipScore Int?                  @default(0) // 0-100
-  potentialRevenue  Float?
-
-  // Metadata
-  source String? // "Referral", "Website", "Cold Outreach"
-  notes  String? @db.Text
-
-  // User relationship
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  contacts      Contact[]
-  activities    Activity[]
-  tasks         CrmTask[]
-  crmNotes      CrmNote[]
-  companyTags   CompanyTag[]
-  opportunities Opportunity[]
-  reports       Report[]      @relation("CompanyReports")
-
-  // Invoice relationships
-  invoices          Invoice[]          @relation("CompanyInvoices")
-  recurringInvoices RecurringInvoice[] @relation("CompanyRecurringInvoices")
-
-  // Full-text search
-  search_vector Unsupported("tsvector")?
-
-  @@index([userId, name])
-  @@index([userId, status])
-  @@index([userId, lifecycleStage])
-  @@index([userId, createdAt])
-  @@index([search_vector], type: Gin)
-}
-
-// CRM Contact (evolution of Client model)
-model Contact {
-  id String @id @default(cuid())
-
-  // Personal information
-  firstName   String
-  lastName    String
-  fullName    String // Computed: "${firstName} ${lastName}"
-  email       String
-  phone       String?
-  mobilePhone String?
-  title       String? // Job title
-
-  // Company relationship
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  // Standalone fields (for contacts without company)
-  addressLine1 String?
-  addressLine2 String?
-  city         String?
-  state        String?
-  postcode     String?
-  country      String? @default("Australia")
-
-  // Contact preferences
-  preferredContactMethod ContactMethod? @default(EMAIL)
-  doNotEmail             Boolean        @default(false)
-  doNotCall              Boolean        @default(false)
-
-  // Relationship tracking
-  status            ContactStatus         @default(ACTIVE)
-  lifecycleStage    ContactLifecycleStage @default(LEAD)
-  isPrimaryContact  Boolean               @default(false)
-  relationshipScore Int?                  @default(0) // 0-100
-
-  // Metadata
-  source String?
-  notes  String? @db.Text
-
-  // Legacy compatibility
-  legacyClientId String? @unique
-
-  // User relationship
-  userId String
-  user   User   @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  activities    Activity[]
-  tasks         CrmTask[]
-  crmNotes      CrmNote[]
-  contactTags   ContactTag[]
-  opportunities Opportunity[]
-
-  // Portal authentication (preserved)
-  clientUser ClientUser?
-
-  // Portal invitations (preserved)
-  invitations PortalInvitation[]
-
-  // Reports (jobs) - for backward compatibility
-  reports Report[] @relation("ContactReports")
-
-  // Invoice relationships
-  invoices          Invoice[]          @relation("ContactInvoices")
-  recurringInvoices RecurringInvoice[] @relation("ContactRecurringInvoices")
-
-  // Migration tracking - reverse relation
-  migratedFromClient Client? @relation("ClientMigration")
-
-  // Full-text search
-  search_vector Unsupported("tsvector")?
-
-  @@index([userId, fullName])
-  @@index([userId, email])
-  @@index([userId, status])
-  @@index([userId, companyId])
-  @@index([companyId, isPrimaryContact])
-  @@index([userId, createdAt])
-  @@index([legacyClientId])
-  @@index([search_vector], type: Gin)
-}
-
-// CRM Activity (track all interactions)
-model Activity {
-  id String @id @default(cuid())
-
-  // Activity details
-  type        ActivityType
-  subject     String
-  description String?      @db.Text
-  outcome     String?
-
-  // Date/time
-  activityDate DateTime @default(now())
-  duration     Int? // Minutes
-
-  // Relationships
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  opportunityId String?
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-
-  reportId String?
-  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
-
-  // User who performed the activity
-  userId String
-  user   User   @relation("UserActivities", fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, activityDate])
-  @@index([contactId, activityDate])
-  @@index([companyId, activityDate])
-  @@index([opportunityId, activityDate])
-  @@index([type, activityDate])
-  @@index([userId, type])
-}
-
-// CRM Task (user-facing tasks, separate from AgentTask)
-model CrmTask {
-  id String @id @default(cuid())
-
-  // Task details
-  title       String
-  description String?       @db.Text
-  dueDate     DateTime?
-  priority    TaskPriority  @default(MEDIUM)
-  status      CrmTaskStatus @default(TODO)
-
-  // Related entities
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  opportunityId String?
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-
-  reportId String?
-  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
-
-  // Assignment
-  assignedToId String?
-  assignedTo   User?   @relation("AssignedCrmTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
-
-  // Creator
-  createdById String
-  createdBy   User   @relation("CreatedCrmTasks", fields: [createdById], references: [id], onDelete: Cascade)
-
-  // Reminder
-  reminderDate DateTime?
-  reminderSent Boolean   @default(false)
-
-  // Completion
-  completedAt   DateTime?
-  completedById String?
-  completedBy   User?     @relation("CompletedCrmTasks", fields: [completedById], references: [id], onDelete: SetNull)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([assignedToId, status])
-  @@index([assignedToId, dueDate])
-  @@index([createdById, status])
-  @@index([contactId, status])
-  @@index([companyId, status])
-  @@index([opportunityId, status])
-  @@index([status, dueDate])
-  @@index([reminderDate, reminderSent])
-}
-
-// CRM Note
-model CrmNote {
-  id String @id @default(cuid())
-
-  // Note content
-  content  String  @db.Text
-  isPinned Boolean @default(false)
-
-  // Related entities
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  opportunityId String?
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-
-  reportId String?
-  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
-
-  // Author
-  userId String
-  user   User   @relation("UserCrmNotes", fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, createdAt])
-  @@index([contactId, createdAt])
-  @@index([companyId, createdAt])
-  @@index([opportunityId, createdAt])
-  @@index([isPinned, createdAt])
-}
-
-// Tag System
-model Tag {
-  id String @id @default(cuid())
-
-  name        String
-  color       String  @default("#3B82F6") // Tailwind blue-500
-  category    String?
-  description String?
-
-  // Owner
-  userId String
-  user   User   @relation("UserTags", fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  contactTags ContactTag[]
-  companyTags CompanyTag[]
-
-  @@unique([userId, name])
-  @@index([userId, category])
-}
-
-// Many-to-many: Contact <-> Tag
-model ContactTag {
-  id        String   @id @default(cuid())
-  contactId String
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  tagId     String
-  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@unique([contactId, tagId])
-  @@index([contactId])
-  @@index([tagId])
-}
-
-// Many-to-many: Company <-> Tag
-model CompanyTag {
-  id        String   @id @default(cuid())
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  tagId     String
-  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@unique([companyId, tagId])
-  @@index([companyId])
-  @@index([tagId])
-}
-
-// Opportunity (Sales Pipeline)
-model Opportunity {
-  id String @id @default(cuid())
-
-  // Opportunity details
-  title       String
-  description String?          @db.Text
-  value       Float?
-  probability Int?             @default(50) // 0-100%
-  stage       OpportunityStage @default(QUALIFICATION)
-
-  // Dates
-  expectedCloseDate DateTime?
-  actualCloseDate   DateTime?
-
-  // Relationships
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  primaryContactId String?
-  primaryContact   Contact? @relation(fields: [primaryContactId], references: [id], onDelete: SetNull)
-
-  // Owner
-  userId String
-  user   User   @relation("UserOpportunities", fields: [userId], references: [id], onDelete: Cascade)
-
-  // Linked report (when opportunity converts to job)
-  reportId String? @unique
-  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
-
-  // Loss/win reason
-  lostReason String?
-  wonDetails String? @db.Text
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  activities Activity[]
-  tasks      CrmTask[]
-  crmNotes   CrmNote[]
-
-  @@index([userId, stage])
-  @@index([userId, expectedCloseDate])
-  @@index([companyId, stage])
-  @@index([primaryContactId])
-  @@index([stage, expectedCloseDate])
 }
 
 enum Role {
@@ -1256,16 +823,12 @@ model ExternalClient {
   address    String?
   rawData    Json // Full response from external API
 
-  // Link to RestoreAssist contact (optional)
-  contactId String?
-
   lastSyncedAt DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@unique([integrationId, externalId])
   @@index([integrationId])
-  @@index([contactId])
 }
 
 // External Job from integration (synced data)
@@ -3405,101 +2968,6 @@ model CronJobRun {
 }
 
 // ============================================
-// CRM ENUMS
-// ============================================
-
-enum CompanySize {
-  SOLE_TRADER
-  SMALL // 2-10
-  MEDIUM // 11-50
-  LARGE // 51-200
-  ENTERPRISE // 200+
-}
-
-enum CompanyStatus {
-  ACTIVE
-  INACTIVE
-  PROSPECT
-  ARCHIVED
-  DO_NOT_CONTACT
-}
-
-enum CompanyLifecycleStage {
-  LEAD
-  QUALIFIED_LEAD
-  OPPORTUNITY
-  CUSTOMER
-  REPEAT_CUSTOMER
-  VIP_CUSTOMER
-  CHURNED
-  PARTNER
-}
-
-enum ContactMethod {
-  EMAIL
-  PHONE
-  SMS
-  MOBILE
-  ANY
-}
-
-enum ContactStatus {
-  ACTIVE
-  INACTIVE
-  PROSPECT
-  ARCHIVED
-  DO_NOT_CONTACT
-}
-
-enum ContactLifecycleStage {
-  LEAD
-  QUALIFIED_LEAD
-  CUSTOMER
-  REPEAT_CUSTOMER
-  VIP_CUSTOMER
-  CHURNED
-}
-
-enum ActivityType {
-  CALL
-  EMAIL
-  MEETING
-  SITE_VISIT
-  NOTE
-  QUOTE_SENT
-  FOLLOW_UP
-  PORTAL_ACCESS
-  APPROVAL
-  OTHER
-}
-
-enum TaskPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum CrmTaskStatus {
-  TODO
-  IN_PROGRESS
-  WAITING
-  COMPLETED
-  CANCELLED
-}
-
-enum OpportunityStage {
-  LEAD
-  QUALIFICATION
-  NEEDS_ANALYSIS
-  QUOTE_SENT
-  NEGOTIATION
-  WON
-  LOST
-  ABANDONED
-}
-
-// ============================================
 // INVOICING MODULE
 // ============================================
 
@@ -3571,16 +3039,9 @@ model Invoice {
   estimateId String?
   estimate   Estimate? @relation("InvoiceEstimate", fields: [estimateId], references: [id], onDelete: SetNull)
 
-  // Client relationship (will migrate to Contact after UNI-171)
+  // Client relationship
   clientId String?
   client   Client? @relation("ClientInvoices", fields: [clientId], references: [id], onDelete: SetNull)
-
-  // CRM relationships (post UNI-171 migration)
-  contactId String?
-  contact   Contact? @relation("ContactInvoices", fields: [contactId], references: [id], onDelete: SetNull)
-
-  companyId String?
-  company   Company? @relation("CompanyInvoices", fields: [companyId], references: [id], onDelete: SetNull)
 
   // Owner
   userId String
@@ -3636,8 +3097,6 @@ model Invoice {
   @@index([userId, invoiceDate])
   @@index([userId, dueDate])
   @@index([clientId])
-  @@index([contactId])
-  @@index([companyId])
   @@index([reportId])
   @@index([estimateId])
   @@index([status, dueDate])
@@ -3946,12 +3405,6 @@ model RecurringInvoice {
   clientId String?
   client   Client? @relation("ClientRecurringInvoices", fields: [clientId], references: [id], onDelete: SetNull)
 
-  contactId String?
-  contact   Contact? @relation("ContactRecurringInvoices", fields: [contactId], references: [id], onDelete: SetNull)
-
-  companyId String?
-  company   Company? @relation("CompanyRecurringInvoices", fields: [companyId], references: [id], onDelete: SetNull)
-
   // Owner
   userId String
   user   User   @relation("UserRecurringInvoices", fields: [userId], references: [id], onDelete: Cascade)
@@ -3966,8 +3419,6 @@ model RecurringInvoice {
   @@index([userId, status])
   @@index([status, nextInvoiceDate])
   @@index([clientId])
-  @@index([contactId])
-  @@index([companyId])
 }
 
 // Invoice Audit Log (track all changes)
