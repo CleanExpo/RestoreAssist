@@ -132,24 +132,30 @@ async function handlePaymentCreated(event: any): Promise<void> {
   const payload = event.payload
 
   let externalInvoiceId: string | null = null
+  let externalPaymentId: string | null = null
   let paymentAmount: number = 0
   let paymentDate: Date = new Date()
+  let paymentReference: string | null = null
 
   // Extract payment details based on provider
   if (event.provider === 'XERO') {
     externalInvoiceId = payload.resourceId // Invoice ID
-    // Fetch full invoice details from Xero to get payment info
-    // For now, we'll assume the invoice is fully paid
-    paymentAmount = 0 // Will be updated when we fetch full details
+    externalPaymentId = payload.resourceId // Payment ID (would be different in real implementation)
+    paymentAmount = payload.Amount || 0
     paymentDate = new Date(payload.eventDateUtc || Date.now())
+    paymentReference = payload.Reference
   } else if (event.provider === 'QUICKBOOKS') {
-    externalInvoiceId = payload.id
+    externalInvoiceId = payload.LinkedTxn?.[0]?.TxnId // Invoice ID from linked transaction
+    externalPaymentId = payload.Id
     paymentAmount = payload.TotalAmt || 0
     paymentDate = new Date(payload.TxnDate || Date.now())
+    paymentReference = payload.PaymentRefNum
   } else if (event.provider === 'MYOB') {
-    externalInvoiceId = payload.ResourceUID
+    externalInvoiceId = payload.InvoiceUID || payload.ResourceUID
+    externalPaymentId = payload.UID
     paymentAmount = payload.Amount || 0
     paymentDate = new Date(payload.Date || Date.now())
+    paymentReference = payload.Memo
   }
 
   if (!externalInvoiceId) {
@@ -160,7 +166,7 @@ async function handlePaymentCreated(event: any): Promise<void> {
   const invoice = await prisma.invoice.findFirst({
     where: {
       externalInvoiceId,
-      externalProvider: event.provider
+      externalSyncProvider: event.provider
     }
   })
 
@@ -172,16 +178,49 @@ async function handlePaymentCreated(event: any): Promise<void> {
   // Convert payment amount to cents
   const paymentAmountCents = Math.round(paymentAmount * 100)
 
-  // Create payment record (will be implemented in Phase 6)
-  // For now, just update invoice status
-  const amountDue = invoice.amountDue - paymentAmountCents
+  // Check if payment already exists (prevent duplicates)
+  const existingPayment = await prisma.invoicePayment.findFirst({
+    where: {
+      externalPaymentId,
+      externalProvider: event.provider
+    }
+  })
+
+  if (existingPayment) {
+    console.log(`[Webhook Processor] Payment already exists: ${externalPaymentId}`)
+    return
+  }
+
+  // Create payment record
+  const payment = await prisma.invoicePayment.create({
+    data: {
+      amount: paymentAmountCents,
+      currency: invoice.currency,
+      paymentMethod: 'EXTERNAL', // Add EXTERNAL to PaymentMethod enum
+      paymentDate,
+      reference: paymentReference || `Payment from ${event.provider}`,
+      notes: `Automatically recorded from ${event.provider} webhook`,
+      externalPaymentId,
+      externalProvider: event.provider,
+      webhookEventId: event.id,
+      invoiceId: invoice.id,
+      userId: invoice.userId,
+      reconciled: true, // Auto-reconcile external payments
+      reconciledAt: new Date()
+    }
+  })
+
+  // Update invoice amounts
+  const newAmountPaid = invoice.amountPaid + paymentAmountCents
+  const newAmountDue = invoice.totalIncGST - newAmountPaid
 
   await prisma.invoice.update({
     where: { id: invoice.id },
     data: {
-      status: amountDue <= 0 ? 'PAID' : 'PARTIAL',
-      amountDue: Math.max(0, amountDue),
-      paidAt: amountDue <= 0 ? new Date() : null
+      amountPaid: newAmountPaid,
+      amountDue: Math.max(0, newAmountDue),
+      status: newAmountDue <= 0 ? 'PAID' : 'PARTIAL',
+      paidDate: newAmountDue <= 0 ? new Date() : invoice.paidDate
     }
   })
 
@@ -191,17 +230,19 @@ async function handlePaymentCreated(event: any): Promise<void> {
       invoiceId: invoice.id,
       userId: invoice.userId,
       action: 'payment_received',
-      description: `Payment received from ${event.provider}: ${paymentAmountCents / 100}`,
+      description: `Payment received from ${event.provider}: $${(paymentAmountCents / 100).toFixed(2)}`,
       metadata: {
         provider: event.provider,
         externalInvoiceId,
+        externalPaymentId,
+        paymentId: payment.id,
         paymentAmount: paymentAmountCents,
         webhookEventId: event.id
       }
     }
   })
 
-  console.log(`[Webhook Processor] Updated invoice ${invoice.id} with payment from ${event.provider}`)
+  console.log(`[Webhook Processor] Created payment ${payment.id} for invoice ${invoice.id} from ${event.provider}`)
 }
 
 /**
