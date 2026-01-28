@@ -373,25 +373,25 @@ export function InterviewCompletionSummary({
         </Card>
       )}
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Enhanced */}
       {showActions && (
-        <div className="flex gap-4 justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border/70">
           <Button 
             variant="outline" 
             onClick={onExport || (() => console.warn('Export handler not provided'))} 
-            className="gap-2"
+            className="gap-2 h-12 text-base font-semibold border-2 hover:bg-accent transition-all duration-200 hover:scale-105 active:scale-95"
             disabled={!onExport}
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-5 w-5" />
             Export Summary
           </Button>
           <Button 
             onClick={onContinue || (() => console.warn('Continue handler not provided'))} 
-            className="gap-2"
+            className="gap-2 h-12 text-base font-semibold flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
             disabled={!onContinue}
           >
-            <CheckCircle2 className="h-4 w-4" />
-            Continue to Form
+            <CheckCircle2 className="h-5 w-5" />
+            Create New Report with Auto-Populated Data
           </Button>
         </div>
       )}
