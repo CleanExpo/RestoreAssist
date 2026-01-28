@@ -111,8 +111,6 @@ export function GuidedInterviewPanel({
     }
 
     console.log('[INIT] Starting initialization...')
-    hasInitializedRef.current = true
-    isInitializingRef.current = true
 
     const init = async () => {
       try {
@@ -844,87 +842,167 @@ export function GuidedInterviewPanel({
   // Render active interview
   return (
     <div className="w-full h-full flex flex-col">
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <CardTitle>Guided Interview - Tier {interviewState.currentTier}</CardTitle>
-              <CardDescription>
-                {interviewState.answeredQuestions} of {interviewState.totalQuestions} questions
-                answered (~{interviewState.estimatedDurationMinutes} min total)
-              </CardDescription>
-            </div>
-            <ProgressRing
-              current={interviewState.answeredQuestions}
-              total={interviewState.totalQuestions}
-              tier={interviewState.currentTier}
-              onQuestionSelect={handleJumpToQuestion}
-              allQuestions={interviewState.allQuestions}
-              userTierLevel={interviewState.currentTier <= 1 ? 'STANDARD' : interviewState.currentTier <= 2 ? 'PREMIUM' : 'ENTERPRISE'}
-              onUpgrade={(tier) => {
-                setLockedTier(tier)
-                setShowUpgradePrompt(true)
-              }}
-            />
+      <div className="flex-1 flex flex-col">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)] items-start">
+          {/* Left: Hero question area */}
+          <div className="space-y-4">
+            {/* Tier + progress header */}
+            <Card className="border border-border/70 bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-slate-900 dark:to-slate-950 shadow-sm">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-sky-100/80 px-3 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
+                    Tier {interviewState.currentTier} · Essential flow
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl tracking-tight text-gray-900 dark:text-gray-50">
+                      Guided Interview
+                    </CardTitle>
+                    <CardDescription className="text-sm text-gray-600 dark:text-slate-400">
+                      {interviewState.answeredQuestions} of {interviewState.totalQuestions} questions
+                      {' '}answered · ~{interviewState.estimatedDurationMinutes} min total
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="mt-3 sm:mt-0 flex items-center gap-4">
+                  <div className="hidden sm:block text-right">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Overall progress
+                    </p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {interviewState.progressPercentage}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {interviewState.answeredQuestions} / {interviewState.totalQuestions}
+                    </p>
+                  </div>
+                  <ProgressRing
+                    current={interviewState.answeredQuestions}
+                    total={interviewState.totalQuestions}
+                    tier={interviewState.currentTier}
+                    onQuestionSelect={handleJumpToQuestion}
+                    allQuestions={interviewState.allQuestions}
+                    userTierLevel={
+                      interviewState.currentTier <= 1
+                        ? 'STANDARD'
+                        : interviewState.currentTier <= 2
+                        ? 'PREMIUM'
+                        : 'ENTERPRISE'
+                    }
+                    onUpgrade={(tier) => {
+                      setLockedTier(tier)
+                      setShowUpgradePrompt(true)
+                    }}
+                  />
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Current question */}
+            {interviewState.currentQuestion && (
+              <QuestionCard
+                question={interviewState.currentQuestion}
+                onAnswer={handleAnswer}
+                isLoading={interviewState.isLoading}
+                answeredQuestions={interviewState.answeredQuestions}
+                totalQuestions={interviewState.totalQuestions}
+              />
+            )}
           </div>
 
-          {/* Progress bar */}
-          <div className="mt-4">
-            <Progress value={interviewState.progressPercentage} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-1">
-              {interviewState.progressPercentage}% complete
-            </p>
+          {/* Right: Context & standards sidebar */}
+          <div className="space-y-4">
+            {/* Snapshot metrics */}
+            <Card className="border border-border/70 bg-card/80 backdrop-blur-sm shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground">
+                  Interview snapshot
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Answered</p>
+                  <p className="mt-0.5 text-base font-semibold text-foreground">
+                    {interviewState.answeredQuestions} / {interviewState.totalQuestions}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tier</p>
+                  <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800/70 dark:text-slate-100">
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Tier {interviewState.currentTier}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Estimated time</p>
+                  <p className="mt-0.5 text-base font-semibold text-foreground">
+                    ~{interviewState.estimatedDurationMinutes} min
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Completion</p>
+                  <p className="mt-0.5 text-base font-semibold text-foreground">
+                    {interviewState.progressPercentage}%
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Auto-populated fields display */}
+            {showAutoPopulatedFields && interviewState.autoPopulatedFields.size > 0 && (
+              <Card className="border border-emerald-200/80 dark:border-emerald-800/70 bg-emerald-50/80 dark:bg-emerald-900/20 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                    Auto-populated fields
+                  </CardTitle>
+                  <CardDescription className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                    Review which report fields will be filled automatically as you answer.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="max-h-64 overflow-y-auto pr-1">
+                  <AutoPopulatedFieldsDisplay fields={interviewState.autoPopulatedFields} />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Standards coverage */}
+            {interviewState.standardsCovered.length > 0 && (
+              <Card className="border border-blue-200/80 dark:border-blue-900/70 bg-blue-50/80 dark:bg-blue-950/40 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    Standards coverage
+                  </CardTitle>
+                  <CardDescription className="text-xs text-blue-800/80 dark:text-blue-300/80">
+                    Live view of IICRC / NCC / AS references touched by this interview.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {interviewState.standardsCovered.map((std) => (
+                      <span
+                        key={std}
+                        className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-medium text-blue-800 dark:bg-blue-900/70 dark:text-blue-100"
+                      >
+                        {std}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        </CardHeader>
-
-        <CardContent className="flex-1 overflow-y-auto space-y-6">
-          {/* Current question */}
-          {interviewState.currentQuestion && (
-            <QuestionCard
-              question={interviewState.currentQuestion}
-              onAnswer={handleAnswer}
-              isLoading={interviewState.isLoading}
-              answeredQuestions={interviewState.answeredQuestions}
-              totalQuestions={interviewState.totalQuestions}
-            />
-          )}
-
-          {/* Auto-populated fields display */}
-          {showAutoPopulatedFields && interviewState.autoPopulatedFields.size > 0 && (
-            <div className="border-t pt-4">
-              <AutoPopulatedFieldsDisplay fields={interviewState.autoPopulatedFields} />
-            </div>
-          )}
-
-          {/* Standards coverage */}
-          {interviewState.standardsCovered.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm font-semibold text-blue-900 mb-2">Standards Covered:</p>
-              <div className="flex flex-wrap gap-2">
-                {interviewState.standardsCovered.map((std) => (
-                  <span
-                    key={std}
-                    className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded"
-                  >
-                    {std}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Bottom navigation */}
       <BottomActionBar
         onPrevious={handlePrevious}
         onNext={() => {}} // Handled by QuestionCard
-        onComplete={
-          interviewState.status === 'COMPLETED' ? handleComplete : undefined
-        }
+        onComplete={interviewState.status === 'COMPLETED' ? handleComplete : undefined}
         canGoPrevious={
-          interviewState.allQuestions.findIndex((q) => q.id === interviewState.currentQuestion?.id) >
-          0
+          interviewState.allQuestions.findIndex(
+            (q) => q.id === interviewState.currentQuestion?.id
+          ) > 0
         }
         canGoNext={!!interviewState.currentQuestion}
         isComplete={interviewState.status === 'COMPLETED'}

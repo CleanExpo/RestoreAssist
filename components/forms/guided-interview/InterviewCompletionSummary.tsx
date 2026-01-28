@@ -66,8 +66,8 @@ export function InterviewCompletionSummary({
   /**
    * Get field categories
    */
-  const getFieldCategories = (): Record<string, (typeof mergedFields)[string][]> => {
-    const categories: Record<string, (typeof mergedFields)[string][]> = {
+  const getFieldCategories = (): Record<string, FormField[]> => {
+    const categories: Record<string, FormField[]> = {
       'Property Information': [],
       'Technician Details': [],
       'Environmental Conditions': [],
@@ -76,12 +76,37 @@ export function InterviewCompletionSummary({
       'Other': [],
     }
 
+    // Process mergedFields
     Object.entries(mergedFields).forEach(([fieldId, field]) => {
       const category = categorizeField(fieldId)
       if (!categories[category]) {
         categories[category] = []
       }
-      categories[category].push(field)
+      // Ensure field has id property
+      const fieldWithId: FormField = {
+        ...field,
+        id: fieldId,
+      }
+      categories[category].push(fieldWithId)
+    })
+
+    // Also include addedFields that might not be in mergedFields yet
+    addedFields.forEach((fieldId) => {
+      if (!mergedFields[fieldId]) {
+        const category = categorizeField(fieldId)
+        if (!categories[category]) {
+          categories[category] = []
+        }
+        // Create a field entry for added fields
+        categories[category].push({
+          id: fieldId,
+          value: 'Auto-populated from interview',
+          source: 'interview',
+          metadata: {
+            interviewConfidence: statistics.averageConfidence,
+          },
+        })
+      }
     })
 
     return categories
@@ -93,36 +118,66 @@ export function InterviewCompletionSummary({
   const categorizeField = (fieldId: string): string => {
     const lowerFieldId = fieldId.toLowerCase()
 
+    // Property Information
     if (
       lowerFieldId.includes('property') ||
       lowerFieldId.includes('address') ||
-      lowerFieldId.includes('postcode')
+      lowerFieldId.includes('postcode') ||
+      lowerFieldId.includes('location') ||
+      lowerFieldId.includes('site') ||
+      lowerFieldId.includes('client')
     ) {
       return 'Property Information'
     }
+    
+    // Technician Details
     if (
       lowerFieldId.includes('technician') ||
-      lowerFieldId.includes('name') ||
-      lowerFieldId.includes('date')
+      lowerFieldId.includes('inspector') ||
+      lowerFieldId.includes('inspectedby') ||
+      lowerFieldId.includes('inspected_by') ||
+      (lowerFieldId.includes('name') && !lowerFieldId.includes('property')) ||
+      (lowerFieldId.includes('date') && !lowerFieldId.includes('damage'))
     ) {
       return 'Technician Details'
     }
+    
+    // Environmental Conditions
     if (
       lowerFieldId.includes('temperature') ||
       lowerFieldId.includes('humidity') ||
-      lowerFieldId.includes('environment')
+      lowerFieldId.includes('environment') ||
+      lowerFieldId.includes('ambient') ||
+      lowerFieldId.includes('relative') ||
+      lowerFieldId.includes('rh') ||
+      lowerFieldId.includes('temp')
     ) {
       return 'Environmental Conditions'
     }
+    
+    // Damage Assessment
     if (
       lowerFieldId.includes('damage') ||
       lowerFieldId.includes('area') ||
       lowerFieldId.includes('material') ||
-      lowerFieldId.includes('moisture')
+      lowerFieldId.includes('moisture') ||
+      lowerFieldId.includes('affected') ||
+      lowerFieldId.includes('scope') ||
+      lowerFieldId.includes('extent')
     ) {
       return 'Damage Assessment'
     }
-    if (lowerFieldId.includes('iicrc') || lowerFieldId.includes('category') || lowerFieldId.includes('class')) {
+    
+    // IICRC Classification
+    if (
+      lowerFieldId.includes('iicrc') ||
+      lowerFieldId.includes('category') ||
+      lowerFieldId.includes('class') ||
+      lowerFieldId.includes('watercategory') ||
+      lowerFieldId.includes('water_category') ||
+      lowerFieldId.includes('classcategory') ||
+      lowerFieldId.includes('class_category')
+    ) {
       return 'IICRC Classification'
     }
 
@@ -151,21 +206,21 @@ export function InterviewCompletionSummary({
         <CardContent className="space-y-6">
           {/* Completion Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-600">Fields Merged</p>
-              <p className="text-2xl font-bold text-blue-600">{statistics.totalFieldsMerged}</p>
+            <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Fields Merged</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{statistics.totalFieldsMerged}</p>
             </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-600">New Fields Added</p>
-              <p className="text-2xl font-bold text-green-600">{statistics.newFieldsAdded}</p>
+            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">New Fields Added</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{statistics.newFieldsAdded}</p>
             </div>
-            <div className="bg-amber-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-600">Fields Updated</p>
-              <p className="text-2xl font-bold text-amber-600">{statistics.fieldsUpdated}</p>
+            <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 border border-amber-200 dark:border-amber-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Fields Updated</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{statistics.fieldsUpdated}</p>
             </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <p className="text-sm font-medium text-gray-600">Avg. Confidence</p>
-              <p className="text-2xl font-bold text-purple-600">
+            <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-900">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg. Confidence</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {formatConfidence(statistics.averageConfidence)}
               </p>
             </div>
@@ -174,8 +229,8 @@ export function InterviewCompletionSummary({
           {/* Completion Progress */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <p className="text-sm font-medium text-gray-700">Form Completion</p>
-              <p className="text-sm font-bold text-gray-900">{completionPercentage}%</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Form Completion</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{completionPercentage}%</p>
             </div>
             <Progress value={completionPercentage} className="h-2" />
           </div>
@@ -208,10 +263,18 @@ export function InterviewCompletionSummary({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue={Object.keys(categories)[0]} className="w-full">
+          <Tabs 
+            defaultValue={Object.entries(categories).find(([_, fields]) => fields.length > 0)?.[0] || Object.keys(categories)[0]} 
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-4">
               {Object.entries(categories).map(([category, fields]) => (
-                <TabsTrigger key={category} value={category} className="text-xs">
+                <TabsTrigger 
+                  key={category} 
+                  value={category} 
+                  className="text-xs"
+                  disabled={fields.length === 0}
+                >
                   <span className="hidden sm:inline">{category}</span>
                   <span className="sm:hidden">{category.split(' ')[0]}</span>
                   <Badge variant="secondary" className="ml-1 text-xs">
@@ -224,19 +287,25 @@ export function InterviewCompletionSummary({
             {Object.entries(categories).map(([category, fields]) => (
               <TabsContent key={category} value={category} className="space-y-3">
                 {fields.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-4">No fields in this category</p>
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">No fields in this category</p>
+                  </div>
                 ) : (
                   fields.map((field) => (
                     <div
                       key={field.id}
-                      className="flex items-start justify-between gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
+                      className="flex items-start justify-between gap-4 p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 break-words">{field.id}</p>
-                        <p className="text-sm text-gray-600 mt-1 break-words">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 break-words">
+                          {field.id}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 break-words">
                           {typeof field.value === 'string'
                             ? field.value
-                            : JSON.stringify(field.value)}
+                            : typeof field.value === 'object' && field.value !== null
+                            ? JSON.stringify(field.value, null, 2)
+                            : String(field.value ?? 'N/A')}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
