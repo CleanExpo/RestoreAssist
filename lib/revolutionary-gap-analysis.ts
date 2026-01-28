@@ -11,6 +11,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { extractTextFromPDF } from './file-extraction'
 import { retrieveRelevantStandards, buildStandardsContextPrompt, RetrievalQuery } from './standards-retrieval'
+import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
 
 export interface RevolutionaryGapAnalysisResult {
   fileName: string
@@ -490,10 +491,11 @@ Return JSON with this EXACT structure:
 }`
 
   try {
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 16384, // Maximum tokens for comprehensive analysis
-      system: comprehensiveSystemPrompt,
+      system: [createCachedSystemPrompt(comprehensiveSystemPrompt)],
       messages: [
         {
           role: 'user',
@@ -514,6 +516,10 @@ Return JSON with this EXACT structure:
         }
       ]
     })
+
+    // Log cache metrics
+    const metrics = extractCacheMetrics(response)
+    logCacheMetrics('RevolutionaryGapAnalyzer', metrics, response.id)
 
     if (!response.content || response.content.length === 0) {
       throw new Error('Claude returned empty response')

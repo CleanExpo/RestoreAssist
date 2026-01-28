@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
 import { tryClaudeModels } from '@/lib/anthropic-models'
 import { applyRateLimit } from '@/lib/rate-limiter'
+import { createCachedSystemPrompt } from '@/lib/anthropic/features/prompt-cache'
 
 // POST - Analyze technician report using AI
 export async function POST(request: NextRequest) {
@@ -105,13 +106,14 @@ Your task is to analyze this report and extract the following information in JSO
 Be thorough and extract all relevant information. If information is not explicitly stated, use "Not specified" or empty arrays as appropriate.`
 
     // Call Anthropic API with fallback models
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const systemPrompt = `You are an expert water damage restoration specialist. Analyze technician field reports and extract structured information accurately. Always return valid JSON.`
 
     // Use the utility function to try multiple models with fallback
     const response = await tryClaudeModels(
       anthropic,
       {
-        system: systemPrompt,
+        system: [createCachedSystemPrompt(systemPrompt)],
         max_tokens: 2000,
         messages: [
           {
@@ -119,6 +121,11 @@ Be thorough and extract all relevant information. If information is not explicit
             content: prompt
           }
         ]
+      },
+      undefined, // use default models
+      {
+        agentName: 'TechnicianReportAnalyzer',
+        enableCacheMetrics: true
       }
     )
 

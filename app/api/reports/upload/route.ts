@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Anthropic from '@anthropic-ai/sdk'
+import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from '@/lib/anthropic/features/prompt-cache'
 
 // Configuration constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
@@ -456,10 +457,11 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
       const response = await retryWithBackoff(async () => {
         // Race between the API call and timeout
         return Promise.race([
+          // Use prompt caching for cost optimization (90% savings on cache hits)
           anthropic.messages.create({
             model: 'claude-sonnet-4-20250514',
             max_tokens: 8192, // Increased for larger/complex reports
-            system: systemPrompt,
+            system: [createCachedSystemPrompt(systemPrompt)],
             messages: [
               {
                 role: 'user',
@@ -506,6 +508,10 @@ Analyze this document thoroughly and extract every piece of available informatio
           createTimeoutPromise(REQUEST_TIMEOUT)
         ])
       })
+
+      // Log cache metrics
+      const metrics = extractCacheMetrics(response)
+      logCacheMetrics('ReportUploadParser', metrics, response.id)
 
       if (!response.content || response.content.length === 0) {
         return NextResponse.json(
