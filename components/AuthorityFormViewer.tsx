@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { SignatureCanvas } from "@/components/authority-forms/SignatureCanvas"
 import { SignatoryManager } from "@/components/authority-forms/SignatoryManager"
+import { FormPreviewModal } from "@/components/authority-forms/FormPreviewModal"
+import { SignatoryFlowTimeline, SignatoryFlowSummary } from "@/components/authority-forms/SignatoryFlowTimeline"
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,7 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
   const { data: session } = useSession()
   const [form, setForm] = useState<FormData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showPreview, setShowPreview] = useState(false)
   const [showSignDialog, setShowSignDialog] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [signatoryName, setSignatoryName] = useState('')
@@ -239,7 +242,14 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
               <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>{form.template.name}</h2>
               {getStatusBadge(form.status)}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => setShowPreview(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              >
+                <Eye size={18} />
+                Preview Form
+              </button>
               {canSign && (
                 <button
                   onClick={openSignDialog}
@@ -360,6 +370,12 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
           {/* Signatures Section */}
           <div className="mt-12 border-t-2 border-gray-300 pt-8">
             <h3 className="text-lg font-semibold mb-6">Signatures</h3>
+
+            {/* Signatory Flow Timeline */}
+            <div className="mb-8 print:hidden">
+              <SignatoryFlowTimeline signatories={form.signatures} />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {form.signatures.map((signature, index) => (
                 <div key={signature.id} className="border-2 border-gray-300 rounded-lg p-6">
@@ -499,6 +515,18 @@ export default function AuthorityFormViewer({ formId, onClose }: AuthorityFormVi
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Form Preview Modal */}
+      <FormPreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        form={form}
+        onSign={() => {
+          setShowPreview(false)
+          openSignDialog()
+        }}
+        onDownload={handleDownloadPDF}
+      />
 
       {/* Print Styles */}
       <style jsx global>{`
