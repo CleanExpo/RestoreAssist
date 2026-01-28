@@ -3,12 +3,11 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-type RouteContext = {
-  params: Promise<{ id: string }>
-}
-
 // GET - Get single interview session by ID
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
@@ -25,8 +24,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    const { id } = await context.params
+    const { id } = await params
 
+    if (!id) {
+      return NextResponse.json({ error: "Interview ID is required" }, { status: 400 })
+    }
+
+    // First check if session exists
     const interviewSession = await prisma.interviewSession.findFirst({
       where: {
         id,
@@ -39,9 +43,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         responses: {
           orderBy: { createdAt: "asc" },
           select: {
+            id: true,
             questionId: true,
             answer: true,
             confidence: true,
+            createdAt: true,
           },
         },
       },
@@ -54,10 +60,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ session: interviewSession })
   } catch (error) {
     console.error("Error fetching interview session:", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    console.error("Error details:", {
+      message: errorMessage,
+      stack: errorStack,
+    })
+    
     return NextResponse.json(
       { 
         error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error)
+        details: errorMessage
       },
       { status: 500 }
     )
