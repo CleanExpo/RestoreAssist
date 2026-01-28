@@ -162,6 +162,7 @@ model User {
 
   // Invoice relationships
   invoices          Invoice[]          @relation("UserInvoices")
+  invoiceTemplates  InvoiceTemplate[]  @relation("UserInvoiceTemplates")
   invoicePayments   InvoicePayment[]   @relation("UserInvoicePayments")
   creditNotes       CreditNote[]       @relation("UserCreditNotes")
   recurringInvoices RecurringInvoice[] @relation("UserRecurringInvoices")
@@ -3594,6 +3595,10 @@ model Invoice {
   recurringInvoiceId String?
   recurringInvoice   RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id], onDelete: SetNull)
 
+  // Invoice template (for PDF generation)
+  templateId String?
+  template   InvoiceTemplate? @relation("InvoiceTemplate", fields: [templateId], references: [id], onDelete: SetNull)
+
   // External sync (accounting software)
   externalInvoiceId    String? // Xero/QuickBooks invoice ID
   externalSyncProvider String? // "xero", "quickbooks", "myob"
@@ -3808,6 +3813,95 @@ model CreditNoteLineItem {
   createdAt DateTime @default(now())
 
   @@index([creditNoteId, sortOrder])
+}
+
+// Invoice Templates (for customizable PDF generation)
+model InvoiceTemplate {
+  id String @id @default(cuid())
+
+  // Template details
+  name        String
+  description String? @db.Text
+  isDefault   Boolean @default(false)
+
+  // Branding
+  primaryColor   String? @default("#0EA5E9") // Tailwind cyan-500
+  secondaryColor String? @default("#1E293B") // Tailwind slate-800
+  accentColor    String? @default("#10B981") // Tailwind emerald-500
+  logoUrl        String? // Cloudinary URL
+  logoPosition   String? @default("left") // "left", "center", "right"
+
+  // Typography
+  fontFamily    String? @default("Inter") // "Inter", "Roboto", "Helvetica"
+  fontSize      String? @default("medium") // "small", "medium", "large"
+  headerFont    String? @default("bold") // "regular", "bold"
+
+  // Layout
+  pageSize       String? @default("A4") // "A4", "Letter"
+  marginTop      Int?    @default(50) // pixels
+  marginBottom   Int?    @default(50)
+  marginLeft     Int?    @default(40)
+  marginRight    Int?    @default(40)
+
+  // Header content
+  showLogo            Boolean @default(true)
+  showCompanyName     Boolean @default(true)
+  showCompanyAddress  Boolean @default(true)
+  showCompanyPhone    Boolean @default(true)
+  showCompanyEmail    Boolean @default(true)
+  showCompanyABN      Boolean @default(true)
+
+  headerText          String? @db.Text // Custom header text
+  footerText          String? @db.Text // Custom footer text
+
+  // Invoice details display
+  showInvoiceNumber   Boolean @default(true)
+  showInvoiceDate     Boolean @default(true)
+  showDueDate         Boolean @default(true)
+  showPaymentTerms    Boolean @default(true)
+
+  // Line items display
+  showLineItemImages  Boolean @default(false)
+  showItemCategory    Boolean @default(true)
+  showItemDescription Boolean @default(true)
+  showQuantity        Boolean @default(true)
+  showUnitPrice       Boolean @default(true)
+  showGST             Boolean @default(true)
+
+  // Financial display
+  showSubtotal        Boolean @default(true)
+  showDiscount        Boolean @default(true)
+  showShipping        Boolean @default(true)
+  showGSTBreakdown    Boolean @default(true)
+
+  // Payment information
+  paymentInstructions String? @db.Text
+  bankAccountName     String?
+  bankAccountBSB      String?
+  bankAccountNumber   String?
+  paymentQRCode       String? // URL to QR code image
+
+  // Additional customization
+  customCSS           String? @db.Text // Custom CSS for advanced users
+  customHTML          String? @db.Text // Custom HTML blocks
+
+  // Owner
+  userId String
+  user   User   @relation("UserInvoiceTemplates", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Usage tracking
+  usageCount Int @default(0)
+  lastUsedAt DateTime?
+
+  // Relations
+  invoices Invoice[] @relation("InvoiceTemplate")
+
+  @@index([userId, isDefault])
+  @@index([userId, createdAt])
 }
 
 // Recurring Invoice Templates

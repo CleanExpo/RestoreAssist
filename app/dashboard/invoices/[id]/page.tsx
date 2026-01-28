@@ -16,7 +16,10 @@ import {
   Calendar,
   Building2,
   User,
-  CreditCard
+  CreditCard,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -81,6 +84,13 @@ interface Invoice {
   terms?: string
   footer?: string
 
+  // External sync fields
+  externalInvoiceId?: string
+  externalSyncProvider?: string
+  externalSyncStatus?: string
+  externalSyncedAt?: string
+  externalSyncError?: string
+
   lineItems: LineItem[]
   payments: Payment[]
   auditLogs: AuditLog[]
@@ -111,6 +121,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [paymentNotes, setPaymentNotes] = useState('')
   const [recordingPayment, setRecordingPayment] = useState(false)
   const [creatingCheckout, setCreatingCheckout] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [showSyncMenu, setShowSyncMenu] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -237,6 +249,35 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       toast.error('An error occurred while recording the payment')
     } finally {
       setRecordingPayment(false)
+    }
+  }
+
+  const handleSyncToAccounting = async (provider: string) => {
+    if (!invoiceId) return
+
+    try {
+      setSyncing(true)
+      setShowSyncMenu(false)
+
+      const response = await fetch(`/api/invoices/${invoiceId}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: provider.toLowerCase() })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`Invoice synced successfully to ${provider}`)
+        fetchInvoice()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || `Failed to sync to ${provider}`)
+      }
+    } catch (error) {
+      console.error('Failed to sync invoice:', error)
+      toast.error('An error occurred while syncing the invoice')
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -373,6 +414,42 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               </button>
             </>
           )}
+          {!isDraft && (
+            <div className="relative">
+              <button
+                onClick={() => setShowSyncMenu(!showSyncMenu)}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? 'Syncing...' : 'Sync to Accounting'}</span>
+              </button>
+              {showSyncMenu && !syncing && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10">
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleSyncToAccounting('xero')}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Sync to Xero
+                    </button>
+                    <button
+                      onClick={() => handleSyncToAccounting('quickbooks')}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Sync to QuickBooks
+                    </button>
+                    <button
+                      onClick={() => handleSyncToAccounting('myob')}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Sync to MYOB
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <button
             onClick={downloadPDF}
             className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
@@ -401,7 +478,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Status Badge */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         {getStatusBadge(invoice.status)}
         {invoice.sentDate && (
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
@@ -415,7 +492,48 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <span>Paid {new Date(invoice.paidDate).toLocaleDateString()}</span>
           </div>
         )}
+        {/* External Sync Status */}
+        {invoice.externalSyncStatus === 'SYNCED' && invoice.externalSyncProvider && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              Synced to {invoice.externalSyncProvider.charAt(0).toUpperCase() + invoice.externalSyncProvider.slice(1)}
+            </span>
+            {invoice.externalInvoiceId && (
+              <ExternalLink className="h-3 w-3" />
+            )}
+          </div>
+        )}
+        {invoice.externalSyncStatus === 'PENDING' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span className="text-sm font-medium">Syncing...</span>
+          </div>
+        )}
+        {invoice.externalSyncStatus === 'FAILED' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="text-sm font-medium">Sync Failed</span>
+          </div>
+        )}
       </div>
+
+      {/* Sync Error Display */}
+      {invoice.externalSyncStatus === 'FAILED' && invoice.externalSyncError && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-medium text-red-600 dark:text-red-400 mb-1">
+                Sync Error
+              </h3>
+              <p className="text-sm text-red-600/80 dark:text-red-400/80">
+                {invoice.externalSyncError}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
