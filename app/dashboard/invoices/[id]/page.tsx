@@ -110,6 +110,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [paymentReference, setPaymentReference] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
   const [recordingPayment, setRecordingPayment] = useState(false)
+  const [creatingCheckout, setCreatingCheckout] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -163,6 +164,31 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     } catch (error) {
       console.error('Failed to send invoice:', error)
       toast.error('An error occurred while sending the invoice')
+    }
+  }
+
+  const handlePayOnline = async () => {
+    if (!invoiceId) return
+
+    try {
+      setCreatingCheckout(true)
+      const response = await fetch(`/api/invoices/${invoiceId}/checkout`, {
+        method: 'POST'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Redirect to Stripe Checkout
+        window.location.href = data.url
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to create checkout session')
+        setCreatingCheckout(false)
+      }
+    } catch (error) {
+      console.error('Failed to create checkout:', error)
+      toast.error('An error occurred while creating the checkout session')
+      setCreatingCheckout(false)
     }
   }
 
@@ -329,13 +355,23 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </button>
           )}
           {canRecordPayment && (
-            <button
-              onClick={() => setShowRecordPayment(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
-            >
-              <DollarSign className="h-4 w-4" />
-              <span>Record Payment</span>
-            </button>
+            <>
+              <button
+                onClick={handlePayOnline}
+                disabled={creatingCheckout}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                <CreditCard className="h-4 w-4" />
+                <span>{creatingCheckout ? 'Loading...' : 'Pay Online'}</span>
+              </button>
+              <button
+                onClick={() => setShowRecordPayment(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
+              >
+                <DollarSign className="h-4 w-4" />
+                <span>Record Payment</span>
+              </button>
+            </>
           )}
           <button
             onClick={downloadPDF}
