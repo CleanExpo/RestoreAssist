@@ -119,27 +119,47 @@ export default function NewReportPage() {
         console.log('Loading interview data into new report:', { interviewData, interviewMetadata })
         
         // Convert interview data to report form format
-        const formData = {
+        // Map interview field IDs to report form field names
+        const formData: Record<string, any> = {
           clientName: interviewData.clientName || '',
           clientContactDetails: interviewData.clientContactDetails || '',
           propertyAddress: interviewData.propertyAddress || '',
           propertyPostcode: interviewData.propertyPostcode || '',
           claimReferenceNumber: interviewData.claimReferenceNumber || '',
-          incidentDate: interviewData.incidentDate || '',
-          technicianAttendanceDate: interviewData.technicianAttendanceDate || '',
+          incidentDate: interviewData.incidentDate || interviewData.incidentDate || '',
+          technicianAttendanceDate: interviewData.technicianAttendanceDate || interviewData.technicianAttendanceDate || '',
           technicianName: interviewData.technicianName || '',
           technicianFieldReport: interviewData.technicianFieldReport || '',
           // IICRC fields
           sourceOfWater: interviewData.sourceOfWater || '',
           waterCategory: interviewData.waterCategory || '',
           waterClass: interviewData.waterClass || '',
-          affectedArea: interviewData.affectedArea || '',
+          affectedArea: interviewData.affectedArea || interviewData.affectedAreaPercentage || '',
           // Additional fields
           buildingAge: interviewData.buildingAge || '',
           structureType: interviewData.structureType || '',
           hazardType: interviewData.hazardType || 'WATER_DAMAGE',
           insuranceType: interviewData.insuranceType || '',
         }
+        
+        // Handle any additional mapped fields
+        Object.keys(interviewData).forEach((key) => {
+          // Skip already mapped fields
+          if (!formData.hasOwnProperty(key) && interviewData[key] !== null && interviewData[key] !== undefined) {
+            // Map common field name variations
+            const fieldMapping: Record<string, string> = {
+              'timeSinceLoss': 'timeSinceLoss',
+              'affectedAreaPercentage': 'affectedArea',
+              'propertyId': 'propertyId',
+              'jobNumber': 'jobNumber',
+            }
+            
+            const mappedKey = fieldMapping[key] || key
+            if (!formData.hasOwnProperty(mappedKey)) {
+              formData[mappedKey] = interviewData[key]
+            }
+          }
+        })
         
         setUploadedData(formData)
         toast.success(`Interview data loaded! ${interviewMetadata.fieldsCount} fields auto-populated.`, {

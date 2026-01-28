@@ -57,10 +57,17 @@ export function QuestionCard({
 
     try {
       setIsSubmitting(true)
+      
+      // Add a small delay for better UX (shows the button loading state)
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
       await onAnswer(answer)
-      // Reset for next question
-      setAnswer(null)
-      setSelectedItems(new Set())
+      
+      // Reset for next question with a brief delay for smooth transition
+      setTimeout(() => {
+        setAnswer(null)
+        setSelectedItems(new Set())
+      }, 200)
     } catch (error) {
       console.error('Error submitting answer:', error)
     } finally {
