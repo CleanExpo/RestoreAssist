@@ -11,8 +11,18 @@ type RouteContext = {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Get user from database to get userId
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     const { id } = await context.params
@@ -20,7 +30,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const interviewSession = await prisma.interviewSession.findFirst({
       where: {
         id,
-        userId: session.user.id,
+        userId: user.id,
       },
       include: {
         formTemplate: {
@@ -44,6 +54,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ session: interviewSession })
   } catch (error) {
     console.error("Error fetching interview session:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { 
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error)
+      },
+      { status: 500 }
+    )
   }
 }

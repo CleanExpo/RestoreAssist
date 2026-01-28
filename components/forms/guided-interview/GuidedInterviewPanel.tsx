@@ -505,12 +505,10 @@ export function GuidedInterviewPanel({
   // Render loading state
   if (interviewState.isLoading && !interviewState.currentQuestion) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-8">
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Starting interview...</p>
-          </div>
+      <Card className="w-full h-full flex flex-col">
+        <CardContent className="flex-1 flex flex-col items-center justify-center py-12 gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Starting interview...</p>
         </CardContent>
       </Card>
     )
@@ -519,8 +517,8 @@ export function GuidedInterviewPanel({
   // Render error state
   if (interviewState.status === 'ERROR') {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-8">
+      <Card className="w-full h-full flex flex-col">
+        <CardContent className="flex-1 flex flex-col pt-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{interviewState.error}</AlertDescription>
@@ -536,14 +534,14 @@ export function GuidedInterviewPanel({
   // Render completion state
   if (interviewState.status === 'COMPLETED') {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
+      <Card className="w-full h-full flex flex-col">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-6 w-6 text-green-600" />
-            <CardTitle>Interview Complete</CardTitle>
+            <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            <CardTitle className="text-gray-900 dark:text-white">Interview Complete</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="flex-1 overflow-y-auto space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Questions Answered</p>
@@ -594,8 +592,8 @@ export function GuidedInterviewPanel({
 
   // Render active interview
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4">
-      <Card>
+    <div className="w-full h-full flex flex-col">
+      <Card className="flex-1 flex flex-col overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -628,7 +626,7 @@ export function GuidedInterviewPanel({
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="flex-1 overflow-y-auto space-y-6">
           {/* Current question */}
           {interviewState.currentQuestion && (
             <QuestionCard

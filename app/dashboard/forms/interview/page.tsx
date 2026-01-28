@@ -124,85 +124,97 @@ export default function InterviewPage() {
   }
 
   return (
-    <div className="py-8">
+    <div className="min-h-screen h-full w-full flex flex-col bg-white dark:bg-slate-900">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Guided Interview</h1>
-        <p className="mt-2 text-gray-600">
+      <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Guided Interview</h1>
+        <p className="mt-2 text-gray-600 dark:text-slate-400">
           Answer quick questions to auto-populate your form fields in seconds
         </p>
         {reportId && (
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-slate-500">
             Linked to Report: <span className="font-medium">{reportId}</span>
           </p>
         )}
       </div>
 
-      {/* Interview In Progress */}
+      {/* Interview In Progress - Full Height Content */}
       {interviewStatus === 'in_progress' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow">
-            <GuidedInterviewPanel
-              formTemplateId={formTemplateId}
-              jobType={jobType}
-              postcode={postcode}
-              experienceLevel={experienceLevel as "novice" | "experienced" | "expert" | undefined}
-              sessionId={sessionId}
-              onComplete={handleInterviewComplete}
-              onCancel={handleCancel}
-              showAutoPopulatedFields={true}
-            />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-6xl mx-auto">
+              <GuidedInterviewPanel
+                formTemplateId={formTemplateId}
+                jobType={jobType}
+                postcode={postcode}
+                experienceLevel={experienceLevel as "novice" | "experienced" | "expert" | undefined}
+                sessionId={sessionId}
+                onComplete={handleInterviewComplete}
+                onCancel={handleCancel}
+                showAutoPopulatedFields={true}
+              />
+            </div>
           </div>
 
-          {/* Skip Interview Option */}
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              onClick={handleSkipInterview}
-              className="text-gray-600"
-            >
-              Skip Interview
-            </Button>
+          {/* Skip Interview Option - Fixed at bottom */}
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <div className="max-w-6xl mx-auto flex justify-center">
+              <Button
+                variant="outline"
+                onClick={handleSkipInterview}
+                className="text-gray-600 dark:text-slate-400 border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800"
+              >
+                Skip Interview
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Interview Completed */}
+      {/* Interview Completed - Full Height Content */}
       {interviewStatus === 'completed' && autoPopulatedFields && showSummary && mergeResult && (
-        <div className="space-y-6">
-          {/* Success Banner */}
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              <strong>Interview completed successfully!</strong> Your form has been auto-populated
-              with {autoPopulatedFields.size} fields.
-            </AlertDescription>
-          </Alert>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-6xl mx-auto space-y-6">
+              {/* Success Banner */}
+              <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-300">
+                  <strong>Interview completed successfully!</strong> Your form has been auto-populated
+                  with {autoPopulatedFields.size} fields.
+                </AlertDescription>
+              </Alert>
 
-          {/* Completion Summary with Merge Details */}
-          <InterviewCompletionSummary
-            mergeResult={mergeResult}
-            onContinue={handleSubmitData}
-            showActions={true}
-          />
+              {/* Completion Summary with Merge Details */}
+              <InterviewCompletionSummary
+                mergeResult={mergeResult}
+                onContinue={handleSubmitData}
+                showActions={true}
+              />
 
-          {submitError && (
+              {submitError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error State - Full Height */}
+      {interviewStatus === 'error' && (
+        <div className="flex-1 flex items-center justify-center px-6 py-6">
+          <div className="max-w-2xl w-full">
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{submitError}</AlertDescription>
+              <AlertDescription>
+                An error occurred during the interview. Please try again.
+              </AlertDescription>
             </Alert>
-          )}
+          </div>
         </div>
-      )}
-
-      {/* Error State */}
-      {interviewStatus === 'error' && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            An error occurred during the interview. Please try again.
-          </AlertDescription>
-        </Alert>
       )}
     </div>
   )
