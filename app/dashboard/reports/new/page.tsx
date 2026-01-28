@@ -424,12 +424,12 @@ export default function NewReportPage() {
 
         {/* Upload Option */}
         {!uploadedData && (
-          <div className="mb-6 p-6 rounded-lg border border-cyan-500/50 bg-cyan-500/10">
+          <div className="mb-6 p-6 rounded-lg border border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/10 dark:bg-cyan-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Upload className="w-6 h-6 text-cyan-400" />
+                <Upload className="w-6 h-6 text-cyan-400 dark:text-cyan-300" />
                 <div>
-                  <h3 className="text-lg font-semibold text-cyan-400">Upload Existing Report</h3>
+                  <h3 className="text-lg font-semibold text-cyan-400 dark:text-cyan-300">Upload Existing Report</h3>
                   <p className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>Upload a PDF report to extract data and populate the form</p>
                 </div>
               </div>
@@ -440,7 +440,7 @@ export default function NewReportPage() {
                     onClick={() => setShowUpload(true)}
                     className={cn(
                       "px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors",
-                      "disabled:bg-neutral-300 disabled:text-neutral-500 disabled:cursor-not-allowed"
+                      "disabled:bg-neutral-300 dark:disabled:bg-neutral-600 disabled:text-neutral-500 dark:disabled:text-neutral-400 disabled:cursor-not-allowed"
                     )}
                   >
                     Upload PDF
@@ -488,21 +488,21 @@ export default function NewReportPage() {
 
         {/* Uploaded Data Notification */}
         {uploadedData && fileName && (
-          <div className="mb-6 p-6 rounded-lg border border-green-500/50 bg-green-500/10">
+          <div className="mb-6 p-6 rounded-lg border border-green-500/50 dark:border-green-500/30 bg-green-500/10 dark:bg-green-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-400" />
+                <CheckCircle className="w-6 h-6 text-green-400 dark:text-green-300" />
                 <div>
-                  <h3 className="text-lg font-semibold text-green-400">PDF Data Extracted</h3>
+                  <h3 className="text-lg font-semibold text-green-400 dark:text-green-300">PDF Data Extracted</h3>
                   <p className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>
-                    Data from <strong>{fileName}</strong> has been extracted and populated in the form below. 
+                    Data from <strong className="text-neutral-900 dark:text-white">{fileName}</strong> has been extracted and populated in the form below. 
                     Please review and complete any missing fields before saving.
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleDiscardUpload}
-                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 dark:border-red-600/30 text-red-400 dark:text-red-300 rounded-lg hover:bg-red-600/10 dark:hover:bg-red-600/20 transition-colors"
               >
                 <X className="w-4 h-4" />
                 Discard
