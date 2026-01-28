@@ -97,19 +97,34 @@ export async function GET(request: NextRequest) {
         startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
     }
 
-    // Fetch completed reports
-    const reports = await prisma.report.findMany({
+    // Fetch all reports (for completion rate calculation)
+    const allReports = await prisma.report.findMany({
       where: {
         userId: targetUserId,
         createdAt: {
           gte: startDate,
         },
-        status: {
-          in: ["COMPLETED", "APPROVED"],
-        },
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        completionDate: true,
+        hazardType: true,
       },
       orderBy: { createdAt: "asc" },
     })
+
+    // Filter completed reports for time calculations
+    const reports = allReports.filter(
+      (r) => r.status === "COMPLETED" || r.status === "APPROVED" || r.completionDate
+    )
+
+    // Calculate completion rate
+    const totalReports = allReports.length
+    const completedReports = reports.length
+    const completionRate = totalReports > 0 ? Math.round((completedReports / totalReports) * 100) : 0
 
     // Handle empty data case
     if (reports.length === 0) {
@@ -229,7 +244,9 @@ export async function GET(request: NextRequest) {
         avgDays: Math.round(avgDays * 10) / 10,
         medianDays: Math.round(medianDays * 10) / 10,
         p95Days: Math.round(p95Days * 10) / 10,
-        totalReports: reports.length,
+        totalReports: totalReports,
+        completedReports: completedReports,
+        completionRate: completionRate,
       },
       byHazardType,
       timeSeries,

@@ -14,6 +14,9 @@ import DamageTypesChart from "./components/DamageTypesChart"
 import RevenueProjection from "./components/RevenueProjection"
 import TopClientsTable from "./components/TopClientsTable"
 import CompletionMetrics from "./components/CompletionMetrics"
+import MonthlyVolumeChart from "./components/MonthlyVolumeChart"
+import BillingOverview from "./components/BillingOverview"
+import ActivityFeed from "./components/ActivityFeed"
 import { Users, UserCog, Wrench } from "lucide-react"
 
 interface AnalyticsData {
@@ -43,10 +46,53 @@ interface CompletionData {
     medianDays: number
     p95Days: number
     totalReports: number
+    completedReports?: number
+    completionRate?: number
   }
   byHazardType: Array<{ hazardType: string; avgDays: number; count: number }>
   timeSeries: Array<{ date: string; avgCompletionDays: number }>
   trend: "improving" | "stable" | "declining"
+}
+
+interface MonthlyVolumeData {
+  data: Array<{ month: string; monthKey: string; total: number; completed: number; inProgress: number }>
+  summary: {
+    totalReports: number
+    totalCompleted: number
+    completionRate: number
+    averagePerMonth: number
+  }
+}
+
+interface BillingOverviewData {
+  summary: {
+    totalRevenue: number
+    totalReports: number
+    averageRevenuePerReport: number
+    averageRevenuePerMonth: number
+  }
+  chartData: Array<{ month: string; monthKey: string; revenue: number; reports: number }>
+  revenueByRole: Array<{ role: string; revenue: number; reports: number }>
+  topGenerators: Array<{
+    userId: string
+    userName: string
+    userEmail: string
+    userRole: string
+    revenue: number
+    reports: number
+  }>
+}
+
+interface ActivityFeedData {
+  activities: Array<{
+    id: string
+    type: "created" | "updated" | "completed"
+    description: string
+    timestamp: string
+    user: { id: string; name: string | null; email: string; role: string }
+    report: { id: string; title: string; clientName: string; status: string }
+  }>
+  total: number
 }
 
 export default function AnalyticsPage() {
@@ -57,10 +103,14 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [projectionData, setProjectionData] = useState<ProjectionData | null>(null)
   const [completionData, setCompletionData] = useState<CompletionData | null>(null)
+  const [monthlyVolumeData, setMonthlyVolumeData] = useState<MonthlyVolumeData | null>(null)
+  const [billingData, setBillingData] = useState<BillingOverviewData | null>(null)
+  const [activityFeedData, setActivityFeedData] = useState<ActivityFeedData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'reports'>('revenue')
   const [selectedMember, setSelectedMember] = useState<{ id: string; name: string | null; email: string; role: string } | null>(null)
+  const isAdmin = session?.user?.role === "ADMIN"
 
   // Fetch selected member info when userId filter changes (for Admin and Manager)
   useEffect(() => {
@@ -156,11 +206,31 @@ export default function AnalyticsPage() {
         completionUrl.searchParams.set("dateRange", filters.dateRange)
         if (filters.userId) completionUrl.searchParams.set("userId", filters.userId)
 
-        const [analyticsRes, projectionsRes, completionRes] = await Promise.all([
+        const monthlyVolumeUrl = new URL("/api/analytics/monthly-volume", window.location.origin)
+        monthlyVolumeUrl.searchParams.set("months", "12")
+        if (filters.userId) monthlyVolumeUrl.searchParams.set("userId", filters.userId)
+
+        const activityFeedUrl = new URL("/api/analytics/activity-feed", window.location.origin)
+        activityFeedUrl.searchParams.set("limit", "50")
+        if (filters.userId) activityFeedUrl.searchParams.set("userId", filters.userId)
+
+        const billingUrl = new URL("/api/analytics/billing-overview", window.location.origin)
+        billingUrl.searchParams.set("months", "12")
+
+        const fetchPromises: Promise<Response>[] = [
           fetch(analyticsUrl),
           fetch(projectionsUrl),
           fetch(completionUrl),
-        ])
+          fetch(monthlyVolumeUrl),
+          fetch(activityFeedUrl),
+        ]
+
+        if (isAdmin) {
+          fetchPromises.push(fetch(billingUrl))
+        }
+
+        const results = await Promise.all(fetchPromises)
+        const [analyticsRes, projectionsRes, completionRes, monthlyVolumeRes, activityFeedRes, billingRes] = results
 
         if (!analyticsRes.ok) throw new Error("Failed to load analytics")
 
@@ -176,6 +246,21 @@ export default function AnalyticsPage() {
           const completionJson = await completionRes.json()
           setCompletionData(completionJson)
         }
+
+        if (monthlyVolumeRes.ok) {
+          const monthlyVolumeJson = await monthlyVolumeRes.json()
+          setMonthlyVolumeData(monthlyVolumeJson)
+        }
+
+        if (activityFeedRes.ok) {
+          const activityFeedJson = await activityFeedRes.json()
+          setActivityFeedData(activityFeedJson)
+        }
+
+        if (isAdmin && billingRes && billingRes.ok) {
+          const billingJson = await billingRes.json()
+          setBillingData(billingJson)
+        }
       } catch (err) {
         console.error("Error fetching analytics:", err)
         setError(err instanceof Error ? err.message : "Failed to load analytics")
@@ -186,7 +271,7 @@ export default function AnalyticsPage() {
     }
 
     fetchAnalytics()
-  }, [filters])
+  }, [filters, isAdmin])
 
   const handleExport = async (format: "csv" | "excel" | "pdf") => {
     try {
@@ -565,6 +650,41 @@ export default function AnalyticsPage() {
                     timeSeries={completionData.timeSeries}
                     trend={completionData.trend}
                   />
+                </div>
+              </div>
+            )}
+
+            {/* Monthly Report Volume Chart - Full Width */}
+            {monthlyVolumeData && (
+              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-700">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-blue-500/30")}>
+                  <MonthlyVolumeChart
+                    data={monthlyVolumeData.data}
+                    summary={monthlyVolumeData.summary}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Billing Overview - Admin Only */}
+            {isAdmin && billingData && (
+              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-800">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-emerald-500/30")}>
+                  <BillingOverview
+                    summary={billingData.summary}
+                    chartData={billingData.chartData}
+                    revenueByRole={billingData.revenueByRole}
+                    topGenerators={billingData.topGenerators}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Team Activity Feed - Full Width */}
+            {activityFeedData && (
+              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-900">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-cyan-500/30")}>
+                  <ActivityFeed activities={activityFeedData.activities} />
                 </div>
               </div>
             )}
