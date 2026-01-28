@@ -94,7 +94,13 @@ export function GuidedInterviewPanel({
    */
   useEffect(() => {
     // Prevent multiple initializations
-    if (hasInitializedRef.current || isInitializingRef.current || interviewState.sessionId) {
+    if (hasInitializedRef.current || isInitializingRef.current) {
+      return
+    }
+
+    // If we already have a sessionId, don't re-initialize
+    if (interviewState.sessionId) {
+      hasInitializedRef.current = true
       return
     }
 
@@ -110,8 +116,15 @@ export function GuidedInterviewPanel({
         }
       } catch (error) {
         console.error('Error initializing interview:', error)
+        // Reset refs on error so user can retry
         hasInitializedRef.current = false
         isInitializingRef.current = false
+        setInterviewState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error.message : 'Failed to initialize interview',
+          status: 'ERROR',
+        }))
       }
     }
 
@@ -133,6 +146,10 @@ export function GuidedInterviewPanel({
     try {
       setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
       const response = await fetch('/api/forms/interview/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,13 +159,27 @@ export function GuidedInterviewPanel({
           postcode,
           experienceLevel,
         }),
+        signal: controller.signal,
       })
 
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
-        throw new Error(`Failed to start interview: ${response.statusText}`)
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.error || errorData.details || response.statusText
+        throw new Error(`Failed to start interview: ${errorMessage}`)
       }
 
       const data = await response.json()
+
+      // Validate response data
+      if (!data || !data.sessionId) {
+        throw new Error('Invalid response from server: missing sessionId')
+      }
+
+      if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error('No questions returned from server. Please check your subscription tier.')
+      }
 
       // Push sessionId to URL for resume capability
       if (typeof window !== 'undefined' && data.sessionId) {
@@ -157,21 +188,41 @@ export function GuidedInterviewPanel({
         window.history.replaceState({}, '', url.toString())
       }
 
+      // Flatten all questions from all tiers for allQuestions
+      const allQuestionsFlat = [
+        ...(data.tieredQuestions?.tier1 || []),
+        ...(data.tieredQuestions?.tier2 || []),
+        ...(data.tieredQuestions?.tier3 || []),
+        ...(data.tieredQuestions?.tier4 || []),
+      ]
+
       setInterviewState((prev) => ({
         ...prev,
         sessionId: data.sessionId,
-        currentTier: 1,
-        currentQuestion: data.questions[0],
-        allQuestions: data.questions,
-        tieredQuestions: data.tieredQuestions,
-        totalQuestions: data.totalQuestions,
-        estimatedDurationMinutes: data.estimatedDuration,
-        standardsCovered: data.standardsCovered,
+        currentTier: data.currentTier || 1,
+        currentQuestion: data.questions[0] || allQuestionsFlat[0] || null,
+        allQuestions: allQuestionsFlat.length > 0 ? allQuestionsFlat : data.questions,
+        tieredQuestions: data.tieredQuestions || { tier1: [], tier2: [], tier3: [], tier4: [] },
+        totalQuestions: data.totalQuestions || allQuestionsFlat.length || data.questions.length,
+        estimatedDurationMinutes: data.estimatedDuration || 10,
+        standardsCovered: data.standardsCovered || [],
         isLoading: false,
         status: 'IN_PROGRESS',
       }))
+      
+      isInitializingRef.current = false
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to start interview'
+      let errorMessage = 'Failed to start interview'
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please try again.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      console.error('Error starting interview:', error)
       setInterviewState((prev) => ({
         ...prev,
         isLoading: false,
@@ -566,6 +617,24 @@ export function GuidedInterviewPanel({
         <CardContent className="flex-1 flex flex-col items-center justify-center py-12 gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Starting interview...</p>
+          {interviewState.error && (
+            <div className="mt-4 max-w-md">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{interviewState.error}</AlertDescription>
+              </Alert>
+              <Button 
+                onClick={() => {
+                  isInitializingRef.current = false
+                  hasInitializedRef.current = false
+                  initializeInterview()
+                }} 
+                className="mt-4 w-full"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     )
