@@ -1150,6 +1150,9 @@ model Inspection {
   propertyDataSource    String? // "CORELOGIC" or "MANUAL"
   propertyDataFetchedAt DateTime? // Timestamp of fetch
 
+  // Visual Moisture Mapping
+  floorPlanImageUrl String? // URL to uploaded floor plan image
+
   // Relations
   propertyLookupCache PropertyLookup?
 
@@ -1209,6 +1212,10 @@ model MoistureReading {
   surfaceType   String // drywall, wood, carpet, concrete, etc.
   moistureLevel Float // Percentage (0-100)
   depth         String // Surface | Subsurface
+  
+  // Visual Mapping Coordinates (for floor plan overlay)
+  mapX Float? // X coordinate on floor plan (0-800)
+  mapY Float? // Y coordinate on floor plan (0-600)
   
   // Additional Context
   notes    String? @db.Text

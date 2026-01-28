@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { Droplets, ZoomIn, ZoomOut, RotateCcw, Download, Upload } from "lucide-react"
+import { Droplets, ZoomIn, ZoomOut, RotateCcw, Download, Upload, Loader2 } from "lucide-react"
 
 interface MoistureReading {
   id: string
@@ -23,6 +23,12 @@ interface MoisturePoint {
 interface MoistureMappingCanvasProps {
   readings: MoistureReading[]
   className?: string
+  initialPoints?: MoisturePoint[]
+  initialBackgroundImage?: string | null
+  onPointsChange?: (points: MoisturePoint[]) => void
+  onBackgroundImageChange?: (imageUrl: string | null) => void
+  onImageUpload?: (file: File) => Promise<string>
+  readonly?: boolean
 }
 
 function getMoistureColor(level: number): string {
@@ -39,21 +45,35 @@ function getMoistureLabel(level: number): string {
   return "Saturated"
 }
 
-export default function MoistureMappingCanvas({ readings, className }: MoistureMappingCanvasProps) {
+export default function MoistureMappingCanvas({ 
+  readings, 
+  className,
+  initialPoints = [],
+  initialBackgroundImage = null,
+  onPointsChange,
+  onBackgroundImageChange,
+  onImageUpload,
+  readonly = false
+}: MoistureMappingCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const [points, setPoints] = useState<MoisturePoint[]>([])
+  const [points, setPoints] = useState<MoisturePoint[]>(initialPoints)
   const [selectedPoint, setSelectedPoint] = useState<MoisturePoint | null>(null)
-  const [unplacedReadings, setUnplacedReadings] = useState<MoistureReading[]>(readings)
+  const [unplacedReadings, setUnplacedReadings] = useState<MoistureReading[]>(() => {
+    // Filter out readings that are already placed
+    const placedIds = new Set(initialPoints.map(p => p.id))
+    return readings.filter(r => !placedIds.has(r.id))
+  })
   const [placingReading, setPlacingReading] = useState<MoistureReading | null>(null)
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(initialBackgroundImage)
   const [zoom, setZoom] = useState(1)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const CANVAS_WIDTH = 800
   const CANVAS_HEIGHT = 600
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
-      if (!placingReading) return
+      if (!placingReading || readonly) return
 
       const svg = svgRef.current
       if (!svg) return
@@ -69,21 +89,50 @@ export default function MoistureMappingCanvas({ readings, className }: MoistureM
         reading: placingReading,
       }
 
-      setPoints((prev) => [...prev, newPoint])
+      const updatedPoints = [...points, newPoint]
+      setPoints(updatedPoints)
       setUnplacedReadings((prev) => prev.filter((r) => r.id !== placingReading.id))
       setPlacingReading(null)
+      
+      // Notify parent of changes
+      if (onPointsChange) {
+        onPointsChange(updatedPoints)
+      }
     },
-    [placingReading]
+    [placingReading, readonly, points, onPointsChange]
   )
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setBackgroundImage(ev.target?.result as string)
+    if (!file || readonly) return
+    
+    setUploadingImage(true)
+    
+    try {
+      if (onImageUpload) {
+        // Upload via callback (e.g., to API)
+        const imageUrl = await onImageUpload(file)
+        setBackgroundImage(imageUrl)
+        if (onBackgroundImageChange) {
+          onBackgroundImageChange(imageUrl)
+        }
+      } else {
+        // Fallback to local preview
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string
+          setBackgroundImage(dataUrl)
+          if (onBackgroundImageChange) {
+            onBackgroundImageChange(dataUrl)
+          }
+        }
+        reader.readAsDataURL(file)
+      }
+    } catch (error) {
+      console.error("Error uploading floor plan:", error)
+    } finally {
+      setUploadingImage(false)
     }
-    reader.readAsDataURL(file)
   }
 
   const handleExport = () => {
@@ -110,21 +159,62 @@ export default function MoistureMappingCanvas({ readings, className }: MoistureM
   }
 
   const resetMap = () => {
+    if (readonly) return
     setPoints([])
     setUnplacedReadings(readings)
     setPlacingReading(null)
     setSelectedPoint(null)
+    if (onPointsChange) {
+      onPointsChange([])
+    }
   }
+  
+  // Update points when readings change
+  useEffect(() => {
+    if (initialPoints.length > 0) {
+      setPoints(initialPoints)
+      const placedIds = new Set(initialPoints.map(p => p.id))
+      setUnplacedReadings(readings.filter(r => !placedIds.has(r.id)))
+    } else {
+      setPoints([])
+      setUnplacedReadings(readings)
+    }
+  }, [readings, initialPoints])
+  
+  // Update background image when prop changes
+  useEffect(() => {
+    if (initialBackgroundImage !== undefined) {
+      setBackgroundImage(initialBackgroundImage)
+    }
+  }, [initialBackgroundImage])
 
   return (
     <div className={cn("space-y-4", className)}>
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-slate-800 rounded-lg text-sm cursor-pointer hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors">
-            <Upload size={14} />
-            Upload Floor Plan
-            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+          <label className={cn(
+            "flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-slate-800 rounded-lg text-sm transition-colors",
+            readonly ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-neutral-200 dark:hover:bg-slate-700"
+          )}>
+            {uploadingImage ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload size={14} />
+                Upload Floor Plan
+              </>
+            )}
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageUpload} 
+              className="hidden" 
+              disabled={readonly || uploadingImage}
+            />
           </label>
           <button
             onClick={() => setZoom((z) => Math.min(z + 0.25, 2))}
@@ -221,9 +311,11 @@ export default function MoistureMappingCanvas({ readings, className }: MoistureM
                   key={point.id}
                   onClick={(e) => {
                     e.stopPropagation()
-                    setSelectedPoint(isSelected ? null : point)
+                    if (!readonly) {
+                      setSelectedPoint(isSelected ? null : point)
+                    }
                   }}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: readonly ? "default" : "pointer" }}
                 >
                   {/* Glow ring */}
                   <circle cx={point.x} cy={point.y} r={isSelected ? 28 : 22} fill={color} opacity={0.15} />
