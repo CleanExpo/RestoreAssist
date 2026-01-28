@@ -537,21 +537,29 @@ export function GuidedInterviewPanel({
             value = 'Grey water (washing machine, dishwasher, toilet)'
           } else if (answer === 'black_water') {
             value = 'Black water (sewage backup, highly contaminated)'
+          } else if (typeof answer === 'string') {
+            // Keep original if already formatted
+            value = answer
           }
         }
         
         // Map waterCategory values properly
         if (mapping.formFieldId === 'waterCategory') {
           // Ensure proper format: Category 1, Category 2, Category 3
-          if (typeof value === 'string' && !value.startsWith('Category')) {
-            if (value.includes('1') || value === 'Category 1') {
+          if (typeof value === 'string') {
+            if (value.includes('Category 1') || value === '1' || value.toLowerCase().includes('category 1')) {
               value = 'Category 1'
-            } else if (value.includes('2') || value === 'Category 2') {
+            } else if (value.includes('Category 2') || value === '2' || value.toLowerCase().includes('category 2')) {
               value = 'Category 2'
-            } else if (value.includes('3') || value === 'Category 3') {
+            } else if (value.includes('Category 3') || value === '3' || value.toLowerCase().includes('category 3')) {
               value = 'Category 3'
             }
           }
+        }
+        
+        // Map hazardType if needed
+        if (mapping.formFieldId === 'hazardType' && !value) {
+          value = 'WATER_DAMAGE' // Default for water damage interviews
         }
 
         newAutoPopulated.set(mapping.formFieldId, {
@@ -935,15 +943,17 @@ export function GuidedInterviewPanel({
               </CardHeader>
             </Card>
 
-            {/* Current question */}
+            {/* Current question - with smooth transitions */}
             {interviewState.currentQuestion && (
-              <QuestionCard
-                question={interviewState.currentQuestion}
-                onAnswer={handleAnswer}
-                isLoading={interviewState.isLoading}
-                answeredQuestions={interviewState.answeredQuestions}
-                totalQuestions={interviewState.totalQuestions}
-              />
+              <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                <QuestionCard
+                  question={interviewState.currentQuestion}
+                  onAnswer={handleAnswer}
+                  isLoading={interviewState.isLoading}
+                  answeredQuestions={interviewState.answeredQuestions}
+                  totalQuestions={interviewState.totalQuestions}
+                />
+              </div>
             )}
           </div>
 
