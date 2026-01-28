@@ -6,7 +6,6 @@ import toast from "react-hot-toast"
 import {
   Plus,
   Search,
-  Filter,
   ClipboardCheck,
   MapPin,
   Calendar,
@@ -16,6 +15,7 @@ import {
   Thermometer,
   Camera,
   AlertTriangle,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -53,6 +53,8 @@ export default function InspectionsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetchInspections()
@@ -95,6 +97,73 @@ export default function InspectionsPage() {
     })
     return counts
   }, [inspections])
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filtered.map((i) => i.id)))
+    }
+  }
+
+  const handleDeleteOne = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm("Delete this inspection? This cannot be undone.")) return
+    try {
+      setDeleting(true)
+      const res = await fetch(`/api/inspections/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setInspections((prev) => prev.filter((i) => i.id !== id))
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        toast.success("Inspection deleted")
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to delete inspection")
+      }
+    } catch {
+      toast.error("Failed to delete inspection")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Delete ${selectedIds.size} inspection(s)? This cannot be undone.`)) return
+    try {
+      setDeleting(true)
+      const res = await fetch("/api/inspections/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)))
+        setSelectedIds(new Set())
+        toast.success(`${data.deletedCount ?? selectedIds.size} inspection(s) deleted`)
+      } else {
+        toast.error(data.error || "Failed to delete inspections")
+      }
+    } catch {
+      toast.error("Failed to delete inspections")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -161,6 +230,32 @@ export default function InspectionsPage() {
         />
       </div>
 
+      {/* Bulk actions */}
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-600 dark:text-slate-400">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === filtered.length && filtered.length > 0}
+              onChange={toggleSelectAll}
+              className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+            />
+            Select all ({filtered.length})
+          </label>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+            >
+              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              Delete selected ({selectedIds.size})
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Results */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -193,13 +288,24 @@ export default function InspectionsPage() {
             const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT
             const classification = insp.classifications?.[0]
             return (
-              <button
+              <div
                 key={insp.id}
                 onClick={() => router.push(`/dashboard/inspections/${insp.id}`)}
-                className="w-full text-left p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md transition-all duration-200 group"
+                className={cn(
+                  "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
+                  selectedIds.has(insp.id)
+                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md"
+                )}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(insp.id)}
+                  onChange={() => toggleSelect(insp.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+                />
+                <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                       <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
                         {insp.inspectionNumber}
@@ -246,9 +352,19 @@ export default function InspectionsPage() {
                       )}
                     </div>
                   </div>
-                  <ChevronRight size={20} className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors flex-shrink-0 mt-1" />
+                <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteOne(e, insp.id)}
+                    disabled={deleting}
+                    className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    title="Delete inspection"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <ChevronRight size={20} className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1" />
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>

@@ -15,8 +15,8 @@ import {
   PlayCircle,
   BarChart3,
   ChevronRight,
-  AlertTriangle,
   FileText,
+  Trash2,
 } from "lucide-react"
 
 interface InterviewSession {
@@ -56,6 +56,8 @@ export default function InterviewsPage() {
   const [stats, setStats] = useState<any>(null)
   const [templates, setTemplates] = useState<any[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetchSessions()
@@ -134,11 +136,78 @@ export default function InterviewsPage() {
 
   const handleSessionClick = (s: InterviewSession) => {
     if (s.status === "IN_PROGRESS" || s.status === "STARTED") {
-      // Resume — navigate to interview with sessionId
       router.push(`/dashboard/forms/interview?formTemplateId=${s.formTemplate.id}&sessionId=${s.id}`)
     } else if (s.status === "COMPLETED") {
-      // View summary — for now just navigate to analytics
       router.push("/dashboard/interview-analytics")
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filtered.map((s) => s.id)))
+    }
+  }
+
+  const handleDeleteOne = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm("Delete this interview session? This cannot be undone.")) return
+    try {
+      setDeleting(true)
+      const res = await fetch(`/api/interviews/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setSessions((prev) => prev.filter((s) => s.id !== id))
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        toast.success("Interview session deleted")
+        fetchStats()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to delete session")
+      }
+    } catch {
+      toast.error("Failed to delete session")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Delete ${selectedIds.size} interview session(s)? This cannot be undone.`)) return
+    try {
+      setDeleting(true)
+      const res = await fetch("/api/interviews/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        setSessions((prev) => prev.filter((s) => !selectedIds.has(s.id)))
+        setSelectedIds(new Set())
+        toast.success(`${data.deletedCount ?? selectedIds.size} session(s) deleted`)
+        fetchStats()
+      } else {
+        toast.error(data.error || "Failed to delete sessions")
+      }
+    } catch {
+      toast.error("Failed to delete sessions")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -289,6 +358,32 @@ export default function InterviewsPage() {
         />
       </div>
 
+      {/* Bulk actions */}
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-600 dark:text-slate-400">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === filtered.length && filtered.length > 0}
+              onChange={toggleSelectAll}
+              className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+            />
+            Select all ({filtered.length})
+          </label>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+            >
+              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              Delete selected ({selectedIds.size})
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Results */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -323,13 +418,24 @@ export default function InterviewsPage() {
             const StatusIcon = cfg.icon
             const isResumable = s.status === "IN_PROGRESS" || s.status === "STARTED"
             return (
-              <button
+              <div
                 key={s.id}
                 onClick={() => handleSessionClick(s)}
-                className="w-full text-left p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md transition-all duration-200 group"
+                className={cn(
+                  "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
+                  selectedIds.has(s.id)
+                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md"
+                )}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(s.id)}
+                  onChange={() => toggleSelect(s.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+                />
+                <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                       <span className="font-medium text-neutral-900 dark:text-white">
                         {s.formTemplate.name}
@@ -372,9 +478,19 @@ export default function InterviewsPage() {
                       </div>
                     )}
                   </div>
-                  <ChevronRight size={20} className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors flex-shrink-0 mt-1" />
+                <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteOne(e, s.id)}
+                    disabled={deleting}
+                    className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    title="Delete session"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <ChevronRight size={20} className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1" />
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
