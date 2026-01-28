@@ -5,21 +5,13 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2, User, Building2, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-interface Contact {
-  id: string
-  fullName: string
-  email: string
-  phone?: string
-  company?: {
-    id: string
-    name: string
-  }
-}
-
-interface Company {
+interface Client {
   id: string
   name: string
-  email?: string
+  email: string
+  phone?: string
+  address?: string
+  company?: string
 }
 
 interface LineItem {
@@ -34,15 +26,12 @@ interface LineItem {
 export default function NewInvoicePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [loadingContacts, setLoadingContacts] = useState(false)
-  const [loadingCompanies, setLoadingCompanies] = useState(false)
+  const [loadingClients, setLoadingClients] = useState(false)
 
   // Customer selection
-  const [customerType, setCustomerType] = useState<'contact' | 'company' | 'manual'>('manual')
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [selectedContactId, setSelectedContactId] = useState('')
-  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [customerType, setCustomerType] = useState<'client' | 'manual'>('manual')
+  const [clients, setClients] = useState<Client[]>([])
+  const [selectedClientId, setSelectedClientId] = useState('')
 
   // Manual customer details
   const [customerName, setCustomerName] = useState('')
@@ -86,8 +75,7 @@ export default function NewInvoicePage() {
   const [footer, setFooter] = useState('Thank you for your business!')
 
   useEffect(() => {
-    fetchContacts()
-    fetchCompanies()
+    fetchClients()
   }, [])
 
   useEffect(() => {
@@ -98,55 +86,30 @@ export default function NewInvoicePage() {
   }, [invoiceDate, dueInDays])
 
   useEffect(() => {
-    // Auto-fill customer details when contact is selected
-    if (selectedContactId) {
-      const contact = contacts.find((c) => c.id === selectedContactId)
-      if (contact) {
-        setCustomerName(contact.company ? contact.company.name : contact.fullName)
-        setCustomerEmail(contact.email)
-        setCustomerPhone(contact.phone || '')
+    // Auto-fill customer details when client is selected
+    if (selectedClientId) {
+      const client = clients.find((c) => c.id === selectedClientId)
+      if (client) {
+        setCustomerName(client.name)
+        setCustomerEmail(client.email)
+        setCustomerPhone(client.phone || '')
+        setCustomerAddress(client.address || '')
       }
     }
-  }, [selectedContactId, contacts])
+  }, [selectedClientId, clients])
 
-  useEffect(() => {
-    // Auto-fill customer details when company is selected
-    if (selectedCompanyId) {
-      const company = companies.find((c) => c.id === selectedCompanyId)
-      if (company) {
-        setCustomerName(company.name)
-        setCustomerEmail(company.email || '')
-      }
-    }
-  }, [selectedCompanyId, companies])
-
-  const fetchContacts = async () => {
-    setLoadingContacts(true)
+  const fetchClients = async () => {
+    setLoadingClients(true)
     try {
-      const response = await fetch('/api/crm/contacts?limit=100')
+      const response = await fetch('/api/clients?limit=100')
       if (response.ok) {
         const data = await response.json()
-        setContacts(data.contacts || [])
+        setClients(data.clients || [])
       }
     } catch (error) {
-      console.error('Failed to fetch contacts:', error)
+      console.error('Failed to fetch clients:', error)
     } finally {
-      setLoadingContacts(false)
-    }
-  }
-
-  const fetchCompanies = async () => {
-    setLoadingCompanies(true)
-    try {
-      const response = await fetch('/api/crm/companies?limit=100')
-      if (response.ok) {
-        const data = await response.json()
-        setCompanies(data.companies || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch companies:', error)
-    } finally {
-      setLoadingCompanies(false)
+      setLoadingClients(false)
     }
   }
 
@@ -258,15 +221,9 @@ export default function NewInvoicePage() {
         footer: footer.trim() || null
       }
 
-      // Add CRM relationships
-      if (customerType === 'contact' && selectedContactId) {
-        const contact = contacts.find((c) => c.id === selectedContactId)
-        payload.contactId = selectedContactId
-        if (contact?.company) {
-          payload.companyId = contact.company.id
-        }
-      } else if (customerType === 'company' && selectedCompanyId) {
-        payload.companyId = selectedCompanyId
+      // Add client relationship
+      if (customerType === 'client' && selectedClientId) {
+        payload.clientId = selectedClientId
       }
 
       // Add discounts
@@ -342,27 +299,15 @@ export default function NewInvoicePage() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setCustomerType('contact')}
+                  onClick={() => setCustomerType('client')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    customerType === 'contact'
+                    customerType === 'client'
                       ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
                       : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
                   }`}
                 >
                   <User className="h-4 w-4" />
-                  <span>Contact</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCustomerType('company')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    customerType === 'company'
-                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
-                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
-                  }`}
-                >
-                  <Building2 className="h-4 w-4" />
-                  <span>Company</span>
+                  <span>Existing Client</span>
                 </button>
                 <button
                   type="button"
@@ -379,48 +324,24 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            {/* Contact Selection */}
-            {customerType === 'contact' && (
+            {/* Client Selection */}
+            {customerType === 'client' && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Select Contact *
+                    Select Client *
                   </label>
                   <select
-                    value={selectedContactId}
-                    onChange={(e) => setSelectedContactId(e.target.value)}
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
                     required
                     className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
-                    <option value="">Choose a contact...</option>
-                    {contacts.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {contact.fullName}
-                        {contact.company && ` (${contact.company.name})`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Company Selection */}
-            {customerType === 'company' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Select Company *
-                  </label>
-                  <select
-                    value={selectedCompanyId}
-                    onChange={(e) => setSelectedCompanyId(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  >
-                    <option value="">Choose a company...</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.name}
+                    <option value="">Choose a client...</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name}
+                        {client.company && ` (${client.company})`}
                       </option>
                     ))}
                   </select>
@@ -429,7 +350,7 @@ export default function NewInvoicePage() {
             )}
 
             {/* Manual Entry or Auto-filled Fields */}
-            {(customerType === 'manual' || selectedContactId || selectedCompanyId) && (
+            {(customerType === 'manual' || selectedClientId) && (
               <div className="space-y-4 mt-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
