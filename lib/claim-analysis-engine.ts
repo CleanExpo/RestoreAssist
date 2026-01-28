@@ -1,6 +1,6 @@
 /**
  * Claim Analysis Engine
- * 
+ *
  * Analyzes completed claim PDFs to:
  * 1. Understand report standards and quality
  * 2. Identify missing elements (IICRC, OH&S, billing)
@@ -10,6 +10,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { extractTextFromPDF } from './file-extraction'
+import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
 
 export interface ClaimAnalysisResult {
   // Extracted claim information
@@ -252,10 +253,11 @@ Return the analysis as a JSON object matching this structure:
 }`
 
   try {
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 8192,
-      system: systemPrompt,
+      system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
           role: 'user',
@@ -276,6 +278,10 @@ Return the analysis as a JSON object matching this structure:
         }
       ]
     })
+
+    // Log cache metrics
+    const metrics = extractCacheMetrics(response)
+    logCacheMetrics('ClaimAnalyzer', metrics, response.id)
 
     if (!response.content || response.content.length === 0) {
       throw new Error('Claude returned empty response')
@@ -371,10 +377,11 @@ Create a comprehensive template structure with:
 Return as JSON with structure, checklist, and line items.`
 
   try {
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      system: systemPrompt,
+      system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
           role: 'user',
@@ -382,6 +389,10 @@ Return as JSON with structure, checklist, and line items.`
         }
       ]
     })
+
+    // Log cache metrics
+    const metrics = extractCacheMetrics(response)
+    logCacheMetrics('ClaimTemplateGenerator', metrics, response.id)
 
     if (!response.content || response.content.length === 0) {
       throw new Error('Claude returned empty response')

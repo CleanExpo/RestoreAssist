@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { tryClaudeModels } from './anthropic-models'
+import { createCachedSystemPrompt } from './anthropic/features/prompt-cache'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -29,9 +31,11 @@ export async function generateDetailedReport(data: ReportGenerationRequest): Pro
     
     const prompt = createReportPrompt(data)
     
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await tryClaudeModels(
       anthropic,
       {
+      system: [createCachedSystemPrompt('You are an expert IICRC S500 certified water damage restoration specialist generating comprehensive, professional reports.')],
       max_tokens: 4000,
       temperature: 0.7,
       messages: [
@@ -40,6 +44,11 @@ export async function generateDetailedReport(data: ReportGenerationRequest): Pro
           content: prompt
         }
       ]
+      },
+      undefined, // use default models
+      {
+        agentName: 'DetailedReportGenerator',
+        enableCacheMetrics: true
       }
     )
 

@@ -8,6 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getAnthropicApiKey } from '@/lib/ai-provider'
 import { tryClaudeModels, getClaudeModels } from '@/lib/anthropic-models'
+import { createCachedSystemPrompt } from '@/lib/anthropic/features/prompt-cache'
 import type { AgentSlug, AIProviderType } from './types'
 
 export interface AIBridgeParams {
@@ -52,11 +53,15 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
     ? [{ name: overrides.model, maxTokens }]
     : getClaudeModels(maxTokens)
 
+  // Use prompt caching for cost optimization (90% savings on cache hits)
   const response = await tryClaudeModels(client, {
-    system: systemPrompt,
+    system: [createCachedSystemPrompt(systemPrompt)],
     messages: [{ role: 'user', content: userPrompt }],
     max_tokens: maxTokens,
-  }, models)
+  }, models, {
+    agentName: `Agent-${params.agentSlug}`,
+    enableCacheMetrics: true
+  })
 
   const text =
     response.content?.[0]?.type === 'text'
