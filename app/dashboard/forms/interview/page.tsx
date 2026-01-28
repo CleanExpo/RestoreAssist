@@ -29,6 +29,7 @@ export default function InterviewPage() {
   const reportId = searchParams.get('reportId')
   const jobType = searchParams.get('jobType') || 'WATER_DAMAGE'
   const postcode = searchParams.get('postcode') || undefined
+  const experienceLevel = searchParams.get('experienceLevel') || undefined
   const sessionId = searchParams.get('sessionId') || undefined
 
   const [interviewStatus, setInterviewStatus] = useState<'in_progress' | 'completed' | 'error'>(
@@ -145,6 +146,7 @@ export default function InterviewPage() {
               formTemplateId={formTemplateId}
               jobType={jobType}
               postcode={postcode}
+              experienceLevel={experienceLevel as "novice" | "experienced" | "expert" | undefined}
               sessionId={sessionId}
               onComplete={handleInterviewComplete}
               onCancel={handleCancel}
