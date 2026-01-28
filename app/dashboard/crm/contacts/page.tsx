@@ -13,6 +13,7 @@ import {
   Building2,
   CheckSquare
 } from 'lucide-react'
+import { ContactFormModal } from '@/components/crm/ContactFormModal'
 
 interface Contact {
   id: string
@@ -51,6 +52,7 @@ export default function ContactsPage() {
   const [search, setSearch] = useState('')
   const [stage, setStage] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -84,7 +86,10 @@ export default function ContactsPage() {
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
           Contacts
         </h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:scale-[1.02] transition-transform">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:scale-[1.02] transition-transform"
+        >
           <Plus className="h-5 w-5" />
           Add Contact
         </button>
@@ -234,6 +239,16 @@ export default function ContactsPage() {
           ))}
         </div>
       )}
+
+      {/* Create Contact Modal */}
+      <ContactFormModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false)
+          fetchContacts()
+        }}
+      />
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { ActivityTimeline } from '@/components/crm/ActivityTimeline'
 import { TaskList } from '@/components/crm/TaskList'
+import { ContactFormModal } from '@/components/crm/ContactFormModal'
 import toast from 'react-hot-toast'
 
 interface Contact {
@@ -65,6 +66,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [error, setError] = useState<string | null>(null)
   const [contactId, setContactId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'activities' | 'tasks'>('overview')
+  const [showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -208,7 +210,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
         <button
-          onClick={() => router.push(`/dashboard/crm/contacts/${contactId}/edit`)}
+          onClick={() => setShowEditModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
         >
           <Edit className="h-4 w-4" />
@@ -412,6 +414,17 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
+
+      {/* Edit Contact Modal */}
+      <ContactFormModal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSuccess={() => {
+          setShowEditModal(false)
+          fetchContactData()
+        }}
+        contactId={contactId}
+      />
     </div>
   )
 }
