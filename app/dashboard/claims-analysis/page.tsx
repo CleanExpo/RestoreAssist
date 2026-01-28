@@ -182,8 +182,8 @@ export default function ClaimsAnalysisPage() {
   }, [])
 
   const fetchFiles = async (overrideFolderId?: string) => {
-    const targetFolderId = overrideFolderId || folderId
-    if (!targetFolderId.trim()) {
+    const targetFolderId = String(overrideFolderId || folderId || '').trim()
+    if (!targetFolderId) {
       toast.error('Please enter a Google Drive folder ID first')
       return
     }
@@ -198,7 +198,7 @@ export default function ClaimsAnalysisPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          folderId: targetFolderId.trim(),
+          folderId: targetFolderId,
         }),
       })
 
@@ -240,7 +240,8 @@ export default function ClaimsAnalysisPage() {
   }
 
   const startAnalysis = async () => {
-    if (!folderId.trim()) {
+    const trimmedFolderId = String(folderId || '').trim()
+    if (!trimmedFolderId) {
       toast.error('Please enter a Google Drive folder ID')
       return
     }
@@ -269,7 +270,7 @@ export default function ClaimsAnalysisPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          folderId: folderId.trim(),
+          folderId: trimmedFolderId,
           maxDocuments: maxDocs,
           stream: true,
         }),
@@ -410,7 +411,7 @@ export default function ClaimsAnalysisPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className=" mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Claim Manager Dashboard</h1>
@@ -566,8 +567,8 @@ export default function ClaimsAnalysisPage() {
 
           <div className="flex gap-2">
             <Button 
-              onClick={fetchFiles} 
-              disabled={loadingFiles || processing || !folderId.trim()}
+              onClick={() => fetchFiles()} 
+              disabled={loadingFiles || processing || !String(folderId || '').trim()}
               variant="outline"
               className="flex-1"
             >
@@ -585,7 +586,7 @@ export default function ClaimsAnalysisPage() {
             </Button>
             <Button 
               onClick={startAnalysis} 
-              disabled={processing || loadingFiles || !folderId.trim() || files.length === 0}
+              disabled={processing || loadingFiles || !String(folderId || '').trim() || files.length === 0}
               className="flex-1"
             >
               {processing ? (
@@ -641,7 +642,7 @@ export default function ClaimsAnalysisPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={fetchFiles}
+                  onClick={() => fetchFiles()}
                   disabled={loadingFiles}
                 >
                   <RefreshCw className={`h-4 w-4 ${loadingFiles ? 'animate-spin' : ''}`} />
