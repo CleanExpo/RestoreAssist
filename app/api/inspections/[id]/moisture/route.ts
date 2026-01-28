@@ -61,7 +61,9 @@ export async function POST(
         moistureLevel: body.moistureLevel,
         depth: body.depth || "Surface",
         notes: body.notes || null,
-        photoUrl: body.photoUrl || null
+        photoUrl: body.photoUrl || null,
+        mapX: body.mapX !== undefined && body.mapX !== null ? parseFloat(body.mapX) : null,
+        mapY: body.mapY !== undefined && body.mapY !== null ? parseFloat(body.mapY) : null
       }
     })
     

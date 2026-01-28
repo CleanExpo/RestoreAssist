@@ -7,7 +7,7 @@
 
 ---
 
-## Current State Assessment
+## Current State Assessment/
 
 | Area | Completion | Status |
 |------|-----------|--------|
@@ -354,7 +354,7 @@ Backend interview engine works, but the guided interview UX is missing.
 
 ---
 
-## Version Summary
+e## Version Summary
 
 | Version | Theme | Focus Areas | Dependencies |
 |---------|-------|-------------|--------------|
