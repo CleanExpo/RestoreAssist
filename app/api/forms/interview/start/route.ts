@@ -90,16 +90,30 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Flatten all questions for the questions array
+    const allQuestions = Object.values(filteredTieredQuestions).flat()
+    
+    // Ensure we have at least some questions
+    if (allQuestions.length === 0) {
+      return NextResponse.json(
+        { 
+          error: 'No questions available for your subscription tier',
+          details: 'Please upgrade your subscription to access interview questions'
+        },
+        { status: 403 }
+      )
+    }
+
     // Return response with Tier 1 questions (always shown first)
     return NextResponse.json({
       success: true,
       sessionId: interviewSession.id,
       estimatedDuration: questionResponse.estimatedDurationMinutes,
-      totalQuestions: Object.values(filteredTieredQuestions).flat().length,
+      totalQuestions: allQuestions.length,
       currentTier: 1,
-      questions: filteredTieredQuestions.tier1,
+      questions: filteredTieredQuestions.tier1.length > 0 ? filteredTieredQuestions.tier1 : allQuestions.slice(0, 5),
       tieredQuestions: filteredTieredQuestions,
-      standardsCovered: questionResponse.standardsCovered,
+      standardsCovered: questionResponse.standardsCovered || [],
       message: `Starting guided interview. Tier 1: ${filteredTieredQuestions.tier1.length} essential questions. Estimated time: ${questionResponse.estimatedDurationMinutes} minutes.`,
     })
   } catch (error) {
