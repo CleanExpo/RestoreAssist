@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { QuestionGenerationEngine, INTERVIEW_QUESTION_LIBRARY, getQuestionsForSubscriptionTier } from '@/lib/interview'
+import { QuestionGenerationEngine } from '@/lib/interview'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
@@ -56,25 +56,25 @@ export async function POST(request: NextRequest) {
       userTierLevel: (user.interviewTier || 'standard') as any,
     }
 
-    // Generate questions
+    // Generate questions (already filtered by tier in QuestionGenerationEngine)
     const questionResponse = QuestionGenerationEngine.generateQuestions(context)
-
-    // Filter questions by subscription tier (normalize to lowercase)
-    const userTier = (user.interviewTier || 'STANDARD').toLowerCase() as 'standard' | 'premium' | 'enterprise'
-    const accessibleQuestions = getQuestionsForSubscriptionTier(userTier)
-    const filteredTieredQuestions = {
-      tier1: questionResponse.tieredQuestions.tier1.filter((q) =>
-        accessibleQuestions.some((aq) => aq.id === q.id)
-      ),
-      tier2: questionResponse.tieredQuestions.tier2.filter((q) =>
-        accessibleQuestions.some((aq) => aq.id === q.id)
-      ),
-      tier3: questionResponse.tieredQuestions.tier3.filter((q) =>
-        accessibleQuestions.some((aq) => aq.id === q.id)
-      ),
-      tier4: questionResponse.tieredQuestions.tier4.filter((q) =>
-        accessibleQuestions.some((aq) => aq.id === q.id)
-      ),
+    
+    // Use the tiered questions directly - they're already filtered by userTierLevel
+    const filteredTieredQuestions = questionResponse.tieredQuestions
+    
+    // Flatten all questions for the questions array
+    const allQuestions = Object.values(filteredTieredQuestions).flat()
+    
+    // Ensure we have at least some questions
+    if (allQuestions.length === 0) {
+      console.error('No questions generated for user tier:', user.interviewTier)
+      return NextResponse.json(
+        { 
+          error: 'No questions available for your subscription tier',
+          details: 'Please upgrade your subscription to access interview questions'
+        },
+        { status: 403 }
+      )
     }
 
     // Create interview session in database
@@ -104,18 +104,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Ensure tier1 has questions, otherwise use first questions from all tiers
+    const tier1Questions = filteredTieredQuestions.tier1.length > 0 
+      ? filteredTieredQuestions.tier1 
+      : allQuestions.slice(0, Math.min(5, allQuestions.length))
+
     // Return response with Tier 1 questions (always shown first)
-    return NextResponse.json({
+    const response = {
       success: true,
       sessionId: interviewSession.id,
       estimatedDuration: questionResponse.estimatedDurationMinutes,
       totalQuestions: allQuestions.length,
       currentTier: 1,
-      questions: filteredTieredQuestions.tier1.length > 0 ? filteredTieredQuestions.tier1 : allQuestions.slice(0, 5),
+      questions: tier1Questions,
       tieredQuestions: filteredTieredQuestions,
       standardsCovered: questionResponse.standardsCovered || [],
-      message: `Starting guided interview. Tier 1: ${filteredTieredQuestions.tier1.length} essential questions. Estimated time: ${questionResponse.estimatedDurationMinutes} minutes.`,
+      message: `Starting guided interview. Tier 1: ${tier1Questions.length} essential questions. Estimated time: ${questionResponse.estimatedDurationMinutes} minutes.`,
+    }
+
+    console.log('Interview start response:', {
+      sessionId: response.sessionId,
+      questionsCount: response.questions.length,
+      totalQuestions: response.totalQuestions,
+      tier1Count: filteredTieredQuestions.tier1.length,
+      allQuestionsCount: allQuestions.length,
     })
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error('Interview start error:', error)
     return NextResponse.json(
