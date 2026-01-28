@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   MessageSquare,
   Lock,
+  Building2,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -115,6 +116,7 @@ export default function DashboardLayout({
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
     { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections", locked: isTrial },
     { icon: Users, label: "Clients", href: "/dashboard/clients", locked: isTrial },
+    { icon: Building2, label: "CRM", href: "/dashboard/crm", locked: isTrial },
     { icon: Users, label: "Team", href: "/dashboard/team", locked: isTrial },
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config", locked: isTrial },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations", locked: isTrial },
