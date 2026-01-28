@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -86,22 +86,50 @@ export function GuidedInterviewPanel({
   })
 
   const [startTime] = useState(Date.now())
+  const isInitializingRef = useRef(false)
+  const hasInitializedRef = useRef(false)
 
   /**
-   * Initialize interview on mount
+   * Initialize interview on mount - only once
    */
   useEffect(() => {
-    if (resumeSessionId) {
-      restoreSession(resumeSessionId)
-    } else {
-      initializeInterview()
+    // Prevent multiple initializations
+    if (hasInitializedRef.current || isInitializingRef.current || interviewState.sessionId) {
+      return
     }
-  }, [formTemplateId, jobType, postcode, resumeSessionId])
+
+    hasInitializedRef.current = true
+    isInitializingRef.current = true
+
+    const init = async () => {
+      try {
+        if (resumeSessionId) {
+          await restoreSession(resumeSessionId)
+        } else {
+          await initializeInterview()
+        }
+      } catch (error) {
+        console.error('Error initializing interview:', error)
+        hasInitializedRef.current = false
+        isInitializingRef.current = false
+      }
+    }
+
+    init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
 
   /**
    * Start interview - fetch initial questions
    */
   const initializeInterview = useCallback(async () => {
+    // Prevent multiple calls
+    if (isInitializingRef.current || interviewState.isLoading || interviewState.sessionId) {
+      return
+    }
+
+    isInitializingRef.current = true
+
     try {
       setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
 
@@ -150,13 +178,21 @@ export function GuidedInterviewPanel({
         error: errorMessage,
         status: 'ERROR',
       }))
+      isInitializingRef.current = false
     }
-  }, [formTemplateId, jobType, postcode])
+  }, [formTemplateId, jobType, postcode, experienceLevel])
 
   /**
    * Restore session from saved answers
    */
   const restoreSession = useCallback(async (sessionId: string) => {
+    // Prevent multiple calls
+    if (isInitializingRef.current || interviewState.isLoading || interviewState.sessionId) {
+      return
+    }
+
+    isInitializingRef.current = true
+
     try {
       setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
 
@@ -164,10 +200,21 @@ export function GuidedInterviewPanel({
       const sessionResponse = await fetch(`/api/interviews/${sessionId}`)
       if (!sessionResponse.ok) {
         // Session not found — start fresh
-        initializeInterview()
+        console.warn(`Session ${sessionId} not found, starting fresh interview`)
+        isInitializingRef.current = false
+        await initializeInterview()
         return
       }
-      const { session: savedSession } = await sessionResponse.json()
+      
+      const responseData = await sessionResponse.json()
+      if (!responseData || !responseData.session) {
+        console.warn(`Session ${sessionId} data invalid, starting fresh interview`)
+        isInitializingRef.current = false
+        await initializeInterview()
+        return
+      }
+      
+      const { session: savedSession } = responseData
 
       // Re-initialize questions via start API
       const startResponse = await fetch('/api/forms/interview/start', {
@@ -187,12 +234,20 @@ export function GuidedInterviewPanel({
 
       // Rebuild answers map from stored responses
       const restoredAnswers = new Map<string, any>()
-      if (savedSession.responses) {
+      if (savedSession.responses && Array.isArray(savedSession.responses)) {
         for (const resp of savedSession.responses) {
           try {
-            restoredAnswers.set(resp.questionId, JSON.parse(resp.answer))
-          } catch {
-            restoredAnswers.set(resp.questionId, resp.answer)
+            // Try to parse answerValue (JSON) or use answer directly
+            const answerData = resp.answerValue || resp.answer
+            if (answerData) {
+              try {
+                restoredAnswers.set(resp.questionId, JSON.parse(answerData))
+              } catch {
+                restoredAnswers.set(resp.questionId, answerData)
+              }
+            }
+          } catch (err) {
+            console.warn('Error parsing response:', resp, err)
           }
         }
       }
@@ -237,12 +292,14 @@ export function GuidedInterviewPanel({
       }))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to restore session'
+      console.error('Error restoring session:', error)
       setInterviewState((prev) => ({
         ...prev,
         isLoading: false,
         error: errorMessage,
         status: 'ERROR',
       }))
+      isInitializingRef.current = false
     }
   }, [formTemplateId, jobType, postcode, initializeInterview])
 
