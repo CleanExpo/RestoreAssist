@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { prisma } from '@/lib/prisma'
 import { InterviewAnalyticsService } from '@/lib/forms/analytics'
 
 /**
@@ -19,8 +20,18 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user from database to get userId
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -37,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Get user-specific analytics
     if (userId) {
       // Security: Users can only see their own analytics unless they're admin
-      if (userId !== session.user.id && session.user.role !== 'ADMIN') {
+      if (userId !== user.id && user.role !== 'ADMIN') {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
@@ -54,9 +65,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: Get current user analytics
-    const userAnalytics = await InterviewAnalyticsService.getUserAnalyticsSummary(
-      session.user.id
-    )
+    const userAnalytics = await InterviewAnalyticsService.getUserAnalyticsSummary(user.id)
     return NextResponse.json(userAnalytics)
   } catch (error) {
     console.error('Error fetching analytics:', error)
