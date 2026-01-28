@@ -35,45 +35,45 @@ export function BottomActionBar({
   disabled = false,
 }: BottomActionBarProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <div className="fixed bottom-0 left-0 right-0 border-t-2 border-border/70 bg-background/95 backdrop-blur-md shadow-2xl z-40">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
         {/* Left section - Back button */}
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
             variant="outline"
-            size="sm"
+            size="lg"
             onClick={onPrevious}
             disabled={!canGoPrevious || disabled}
-            className="gap-2"
+            className="gap-2 border-2 hover:bg-accent transition-all duration-200 hover:scale-105 active:scale-95"
           >
-            <ChevronLeft className="h-4 w-4" />
-            Back
+            <ChevronLeft className="h-5 w-5" />
+            <span className="font-medium">Back</span>
           </Button>
 
           {onCancel && (
             <Button
               variant="ghost"
-              size="sm"
+              size="lg"
               onClick={onCancel}
               disabled={disabled}
-              className="text-destructive hover:text-destructive"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
             >
-              <X className="h-4 w-4 mr-1" />
-              Cancel
+              <X className="h-5 w-5 mr-1" />
+              <span className="font-medium">Cancel</span>
             </Button>
           )}
         </div>
 
         {/* Right section - Next/Complete button */}
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           {!isComplete && (
             <Button
               onClick={onNext}
               disabled={!canGoNext || disabled}
-              className="gap-2"
+              className="gap-2 h-11 px-6 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
             >
-              Next
-              <ChevronRight className="h-4 w-4" />
+              <span>Next</span>
+              <ChevronRight className="h-5 w-5" />
             </Button>
           )}
 
@@ -81,17 +81,17 @@ export function BottomActionBar({
             <Button
               onClick={onComplete}
               disabled={disabled}
-              className="gap-2 bg-green-600 hover:bg-green-700"
+              className="gap-2 h-11 px-6 text-base font-semibold bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
             >
-              <Check className="h-4 w-4" />
-              Complete
+              <Check className="h-5 w-5" />
+              <span>Complete Interview</span>
             </Button>
           )}
         </div>
       </div>
 
       {/* Safe area for mobile (notch, etc.) */}
-      <div className="h-safe-area-inset-bottom" />
+      <div className="h-safe-area-inset-bottom bg-background/95" />
     </div>
   )
 }

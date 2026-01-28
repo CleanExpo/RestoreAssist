@@ -15,7 +15,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { HelpCircle, Loader2 } from 'lucide-react'
+import { HelpCircle, Loader2, ArrowRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   Tooltip,
   TooltipContent,
@@ -118,16 +119,40 @@ export function QuestionCard({
           <RadioGroup value={answer} onValueChange={setAnswer}>
             <div className="space-y-3">
               {question.options?.map((option) => (
-                <div key={option.value} className="flex items-start space-x-2">
-                  <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor={option.value} className="cursor-pointer font-normal">
+                <div 
+                  key={option.value} 
+                  className={cn(
+                    "group relative flex items-start space-x-3 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer",
+                    "hover:border-primary/50 hover:shadow-md hover:bg-accent/30",
+                    answer === option.value 
+                      ? "border-primary bg-primary/5 shadow-sm dark:bg-primary/10" 
+                      : "border-border bg-card/50 hover:bg-accent/20"
+                  )}
+                  onClick={() => setAnswer(option.value)}
+                >
+                  <RadioGroupItem 
+                    value={option.value} 
+                    id={option.value} 
+                    className="mt-0.5" 
+                  />
+                  <div className="flex-1 min-w-0">
+                    <Label 
+                      htmlFor={option.value} 
+                      className="cursor-pointer font-medium text-base text-foreground group-hover:text-primary transition-colors"
+                    >
                       {option.label}
                     </Label>
                     {option.helperText && (
-                      <p className="text-xs text-muted-foreground mt-1">{option.helperText}</p>
+                      <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                        {option.helperText}
+                      </p>
                     )}
                   </div>
+                  {answer === option.value && (
+                    <div className="absolute top-3 right-3">
+                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -252,108 +277,140 @@ export function QuestionCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-2 border-border/70 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-card via-card to-card/95">
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-lg">{question.text}</CardTitle>
-              {question.helperText && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs">
+          <div className="flex-1 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-1">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
+                  <span className="text-sm font-bold text-primary">
+                    {answeredQuestions + 1}
+                  </span>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-xl sm:text-2xl font-bold leading-tight text-foreground mb-2">
+                  {question.text}
+                </CardTitle>
+                {question.helperText && (
+                  <div className="flex items-start gap-2 mt-2">
+                    <HelpCircle className="h-4 w-4 text-muted-foreground/70 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       {question.helperText}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+                    </p>
+                  </div>
+                )}
+                {question.standardsJustification && (
+                  <CardDescription className="text-sm mt-2 text-muted-foreground/90 italic">
+                    {question.standardsJustification}
+                  </CardDescription>
+                )}
+              </div>
             </div>
 
-            {question.standardsJustification && (
-              <CardDescription className="text-xs">{question.standardsJustification}</CardDescription>
-            )}
-          </div>
-
-          {/* Standards badges - Enhanced inline display */}
-          <div className="flex flex-wrap gap-1 justify-end">
-            {question.standardsReference?.slice(0, 3).map((std) => (
-              <Badge key={std} variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                {std}
-              </Badge>
-            ))}
-            {question.standardsReference && question.standardsReference.length > 3 && (
-              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                +{question.standardsReference.length - 3} more
-              </Badge>
+            {/* Standards badges - Enhanced display */}
+            {question.standardsReference && question.standardsReference.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {question.standardsReference.map((std) => (
+                  <Badge 
+                    key={std} 
+                    variant="secondary" 
+                    className="text-xs font-medium bg-blue-100/80 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 px-2.5 py-1 hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+                  >
+                    {std}
+                  </Badge>
+                ))}
+              </div>
             )}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Standards References - Enhanced inline display */}
-        {question.standardsReference && question.standardsReference.length > 0 && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-2 flex items-center gap-1">
-              <HelpCircle className="h-3 w-3" />
-              Standards References:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {question.standardsReference.map((std, idx) => (
-                <span key={idx} className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">
-                  {std}
-                </span>
-              ))}
-            </div>
-            {question.standardsJustification && (
-              <p className="text-xs text-blue-700 dark:text-blue-400 mt-2 italic">
-                {question.standardsJustification}
-              </p>
-            )}
-          </div>
-        )}
-
+      <CardContent className="space-y-6 pt-2">
         {/* Input field */}
-        <div className="space-y-3">{renderInput()}</div>
+        <div className="space-y-4">
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {renderInput()}
+          </div>
+        </div>
 
-        {/* Field mappings info */}
+        {/* Field mappings info - Enhanced */}
         {question.fieldMappings && question.fieldMappings.length > 0 && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-            <p className="text-xs font-semibold text-green-900 dark:text-green-300 mb-2">
-              Will auto-populate {question.fieldMappings.length} field
-              {question.fieldMappings.length > 1 ? 's' : ''}:
-            </p>
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-2 border-emerald-200/80 dark:border-emerald-800/60 rounded-xl p-4 shadow-sm">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">
+                  Auto-population Preview
+                </p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+                  Answering this question will automatically fill {question.fieldMappings.length} field{question.fieldMappings.length > 1 ? 's' : ''} in your report
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">
               {question.fieldMappings.map((mapping, idx) => (
-                <span key={idx} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-1 rounded border border-green-200 dark:border-green-800">
-                  {mapping.formFieldId}
-                  {mapping.confidence < 100 && ` (${mapping.confidence}% confidence)`}
-                </span>
+                <div
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+                >
+                  <span className="text-xs font-medium">{mapping.formFieldId}</span>
+                  {mapping.confidence < 100 && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                      {mapping.confidence}%
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Submit button */}
-        <div className="flex gap-2 pt-4">
+        {/* Submit button - Enhanced */}
+        <div className="flex gap-3 pt-2">
           <Button
             onClick={handleSubmit}
             disabled={answer === null || answer === undefined || answer === '' || isSubmitting}
-            className="flex-1"
+            className={cn(
+              "flex-1 h-12 text-base font-semibold shadow-lg transition-all duration-200",
+              "bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80",
+              "hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            )}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isSubmitting ? 'Submitting...' : 'Next Question'}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
           </Button>
         </div>
 
-        {/* Progress indicator */}
+        {/* Progress indicator - Enhanced */}
         {answeredQuestions > 0 && totalQuestions > 0 && (
-          <p className="text-xs text-muted-foreground text-center">
-            Question {answeredQuestions} of {totalQuestions}
-          </p>
+          <div className="pt-2 border-t border-border/50">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Question {answeredQuestions + 1} of {totalQuestions}</span>
+              <span className="font-medium">
+                {Math.round(((answeredQuestions + 1) / totalQuestions) * 100)}% complete
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${((answeredQuestions + 1) / totalQuestions) * 100}%` }}
+              />
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

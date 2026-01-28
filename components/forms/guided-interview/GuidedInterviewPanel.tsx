@@ -511,25 +511,54 @@ export function GuidedInterviewPanel({
 
         const progressData = await response.json()
 
-        // Process field mappings from this question
-        const newAutoPopulated = new Map(interviewState.autoPopulatedFields)
-        interviewState.currentQuestion.fieldMappings?.forEach((mapping) => {
-          let value = mapping.value
-          if (mapping.transformer) {
-            try {
-              value = mapping.transformer(answer, {})
-            } catch (e) {
-              console.error('Transformer error:', e)
-            }
-          } else if (value === undefined) {
-            value = answer
+      // Process field mappings from this question
+      const newAutoPopulated = new Map(interviewState.autoPopulatedFields)
+      interviewState.currentQuestion.fieldMappings?.forEach((mapping) => {
+        let value = mapping.value
+        if (mapping.transformer) {
+          try {
+            // Pass current auto-populated fields as context for transformers
+            const context = Object.fromEntries(newAutoPopulated)
+            value = mapping.transformer(answer, context)
+          } catch (e) {
+            console.error('Transformer error:', e)
+            value = answer // Fallback to direct answer
           }
+        } else if (value === undefined) {
+          value = answer
+        }
 
-          newAutoPopulated.set(mapping.formFieldId, {
-            value,
-            confidence: mapping.confidence,
-          })
+        // Handle special field mappings for better report field population
+        if (mapping.formFieldId === 'sourceOfWater') {
+          // Map clean_water, grey_water, black_water to readable descriptions
+          if (answer === 'clean_water') {
+            value = 'Clean water (supply line burst, roof leak)'
+          } else if (answer === 'grey_water') {
+            value = 'Grey water (washing machine, dishwasher, toilet)'
+          } else if (answer === 'black_water') {
+            value = 'Black water (sewage backup, highly contaminated)'
+          }
+        }
+        
+        // Map waterCategory values properly
+        if (mapping.formFieldId === 'waterCategory') {
+          // Ensure proper format: Category 1, Category 2, Category 3
+          if (typeof value === 'string' && !value.startsWith('Category')) {
+            if (value.includes('1') || value === 'Category 1') {
+              value = 'Category 1'
+            } else if (value.includes('2') || value === 'Category 2') {
+              value = 'Category 2'
+            } else if (value.includes('3') || value === 'Category 3') {
+              value = 'Category 3'
+            }
+          }
+        }
+
+        newAutoPopulated.set(mapping.formFieldId, {
+          value,
+          confidence: mapping.confidence,
         })
+      })
 
         // Find next question
         let nextQuestion: Question | null = null
@@ -736,15 +765,23 @@ export function GuidedInterviewPanel({
   // Render loading state
   if (interviewState.isLoading && !interviewState.currentQuestion) {
     return (
-      <Card className="w-full h-full flex flex-col">
-        <CardContent className="flex-1 flex flex-col items-center justify-center py-12 gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Starting interview...</p>
+      <Card className="w-full h-full flex flex-col border-2 border-border/70 shadow-xl bg-gradient-to-br from-card via-card to-card/95">
+        <CardContent className="flex-1 flex flex-col items-center justify-center py-16 gap-6">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border-2 border-primary/30">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-lg font-semibold text-foreground">Starting interview...</p>
+            <p className="text-sm text-muted-foreground">Preparing your personalized questions</p>
+          </div>
           {interviewState.error && (
-            <div className="mt-4 max-w-md">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{interviewState.error}</AlertDescription>
+            <div className="mt-4 max-w-md animate-in fade-in slide-in-from-bottom-4">
+              <Alert variant="destructive" className="border-2">
+                <AlertCircle className="h-5 w-5" />
+                <AlertDescription className="font-medium">{interviewState.error}</AlertDescription>
               </Alert>
               <Button 
                 onClick={() => {
@@ -752,7 +789,7 @@ export function GuidedInterviewPanel({
                   hasInitializedRef.current = false
                   initializeInterview()
                 }} 
-                className="mt-4 w-full"
+                className="mt-4 w-full h-11 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 Retry
               </Button>

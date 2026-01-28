@@ -88,7 +88,56 @@ export default function InterviewPage() {
   }, [router])
 
   /**
-   * Submit interview data and auto-populated fields
+   * Convert interview fields to report form data format
+   */
+  const convertInterviewFieldsToReportData = useCallback((fields: Map<string, InterviewPopulatedField>) => {
+    const reportData: Record<string, any> = {}
+    
+    // Map interview field IDs to report field names
+    const fieldMapping: Record<string, string> = {
+      'sourceOfWater': 'sourceOfWater',
+      'waterCategory': 'waterCategory',
+      'waterClass': 'waterClass',
+      'propertyAddress': 'propertyAddress',
+      'propertyPostcode': 'propertyPostcode',
+      'clientName': 'clientName',
+      'clientContactDetails': 'clientContactDetails',
+      'incidentDate': 'incidentDate',
+      'technicianAttendanceDate': 'technicianAttendanceDate',
+      'technicianName': 'technicianName',
+      'affectedArea': 'affectedArea',
+      'claimReferenceNumber': 'claimReferenceNumber',
+      'buildingAge': 'buildingAge',
+      'structureType': 'structureType',
+      'hazardType': 'hazardType',
+      'insuranceType': 'insuranceType',
+    }
+
+    fields.forEach((field, fieldId) => {
+      const reportFieldName = fieldMapping[fieldId] || fieldId
+      
+      // Handle date fields - convert to YYYY-MM-DD format if needed
+      if (reportFieldName.includes('Date') && field.value) {
+        try {
+          const date = new Date(field.value)
+          if (!isNaN(date.getTime())) {
+            reportData[reportFieldName] = date.toISOString().split('T')[0]
+          } else {
+            reportData[reportFieldName] = field.value
+          }
+        } catch {
+          reportData[reportFieldName] = field.value
+        }
+      } else {
+        reportData[reportFieldName] = field.value
+      }
+    })
+
+    return reportData
+  }, [])
+
+  /**
+   * Submit interview data and auto-populated fields - redirects to NEW report creation
    */
   const handleSubmitData = useCallback(async () => {
     if (!autoPopulatedFields) {
@@ -97,37 +146,34 @@ export default function InterviewPage() {
     }
 
     try {
-      console.log('Submitting interview data...', { 
+      console.log('Preparing to create new report with interview data...', { 
         fieldsCount: autoPopulatedFields.size,
-        reportId,
         formTemplateId 
       })
       
-      const result = await submitForm(autoPopulatedFields)
+      // Convert interview fields to report data format
+      const reportData = convertInterviewFieldsToReportData(autoPopulatedFields)
       
-      console.log('Submit result:', result)
+      // Encode the data as URL params for the new report page
+      const encodedData = encodeURIComponent(JSON.stringify(reportData))
+      const encodedMetadata = encodeURIComponent(JSON.stringify({
+        fromInterview: true,
+        interviewSessionId: searchParams.get('sessionId'),
+        fieldsCount: autoPopulatedFields.size,
+        averageConfidence: mergeResult?.statistics.averageConfidence || 85,
+        timestamp: new Date().toISOString(),
+      }))
 
-      if (result.success && result.submissionId) {
-        // Redirect back to the linked report form with pre-filled data
-        if (reportId) {
-          console.log('Redirecting to report edit page:', `/dashboard/reports/${reportId}/edit?submissionId=${result.submissionId}`)
-          router.push(
-            `/dashboard/reports/${reportId}/edit?submissionId=${result.submissionId}`
-          )
-        } else {
-          // Fallback: go to reports list if no report context
-          console.log('No reportId, redirecting to reports list')
-          router.push('/dashboard/reports')
-        }
-      } else {
-        console.error('Form submission failed:', result.error)
-        alert(`Failed to submit form: ${result.error || 'Unknown error'}`)
-      }
+      // Redirect to NEW report page with auto-populated data
+      console.log('Redirecting to new report page with interview data')
+      router.push(
+        `/dashboard/reports/new?interviewData=${encodedData}&interviewMetadata=${encodedMetadata}`
+      )
     } catch (error) {
-      console.error('Error submitting form:', error)
-      alert(`Error submitting form: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error preparing interview data:', error)
+      alert(`Error preparing data: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }, [autoPopulatedFields, submitForm, formTemplateId, reportId, router])
+  }, [autoPopulatedFields, convertInterviewFieldsToReportData, formTemplateId, router, searchParams, mergeResult])
 
   /**
    * Export interview summary

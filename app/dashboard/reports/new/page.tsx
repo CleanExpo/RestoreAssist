@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Upload, FileText, Loader2, X, CheckCircle, Crown, Zap, DollarSign, ArrowRight, Sparkles, TrendingUp } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
 import { useSession } from "next-auth/react"
@@ -103,9 +104,59 @@ export default function NewReportPage() {
     }
   }
 
-  // Check for reportId in URL only (don't auto-load from localStorage for new reports)
+  // Check for reportId or interview data in URL
   useEffect(() => {
     const urlReportId = searchParams.get('reportId')
+    const interviewDataParam = searchParams.get('interviewData')
+    const interviewMetadataParam = searchParams.get('interviewMetadata')
+    
+    // Handle interview data from guided interview
+    if (interviewDataParam && interviewMetadataParam) {
+      try {
+        const interviewData = JSON.parse(decodeURIComponent(interviewDataParam))
+        const interviewMetadata = JSON.parse(decodeURIComponent(interviewMetadataParam))
+        
+        console.log('Loading interview data into new report:', { interviewData, interviewMetadata })
+        
+        // Convert interview data to report form format
+        const formData = {
+          clientName: interviewData.clientName || '',
+          clientContactDetails: interviewData.clientContactDetails || '',
+          propertyAddress: interviewData.propertyAddress || '',
+          propertyPostcode: interviewData.propertyPostcode || '',
+          claimReferenceNumber: interviewData.claimReferenceNumber || '',
+          incidentDate: interviewData.incidentDate || '',
+          technicianAttendanceDate: interviewData.technicianAttendanceDate || '',
+          technicianName: interviewData.technicianName || '',
+          technicianFieldReport: interviewData.technicianFieldReport || '',
+          // IICRC fields
+          sourceOfWater: interviewData.sourceOfWater || '',
+          waterCategory: interviewData.waterCategory || '',
+          waterClass: interviewData.waterClass || '',
+          affectedArea: interviewData.affectedArea || '',
+          // Additional fields
+          buildingAge: interviewData.buildingAge || '',
+          structureType: interviewData.structureType || '',
+          hazardType: interviewData.hazardType || 'WATER_DAMAGE',
+          insuranceType: interviewData.insuranceType || '',
+        }
+        
+        setUploadedData(formData)
+        toast.success(`Interview data loaded! ${interviewMetadata.fieldsCount} fields auto-populated.`, {
+          duration: 5000,
+          icon: '✨',
+        })
+        
+        // Clear interview params from URL after loading
+        const newUrl = new URL(window.location.href)
+        newUrl.searchParams.delete('interviewData')
+        newUrl.searchParams.delete('interviewMetadata')
+        window.history.replaceState({}, '', newUrl.toString())
+      } catch (error) {
+        console.error('Error parsing interview data:', error)
+        toast.error('Failed to load interview data')
+      }
+    }
     
     // Only load if there's an explicit reportId in the URL
     if (urlReportId) {
@@ -119,9 +170,12 @@ export default function NewReportPage() {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentReportId')
       }
-      setReportId(null)
-      setUploadedData(null)
-      setFileName('')
+      if (!interviewDataParam) {
+        // Only clear if not loading interview data
+        setReportId(null)
+        setUploadedData(null)
+        setFileName('')
+      }
     }
   }, [searchParams])
 
@@ -414,7 +468,7 @@ export default function NewReportPage() {
         )}
 
         {/* Uploaded Data Notification */}
-        {uploadedData && (
+        {uploadedData && fileName && (
           <div className="mb-6 p-6 rounded-lg border border-green-500/50 bg-green-500/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -433,6 +487,44 @@ export default function NewReportPage() {
               >
                 <X className="w-4 h-4" />
                 Discard
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Interview Data Notification */}
+        {uploadedData && !fileName && searchParams.get('interviewData') && (
+          <div className="mb-6 p-6 rounded-xl border-2 border-emerald-500/60 bg-gradient-to-r from-emerald-500/10 to-green-500/10 shadow-lg animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mb-1">
+                    Interview Data Loaded Successfully! ✨
+                  </h3>
+                  <p className={cn("text-sm leading-relaxed", "text-neutral-700 dark:text-slate-300")}>
+                    Your guided interview responses have been automatically populated into the form below. 
+                    Review the pre-filled fields and complete any remaining information before creating your report.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 text-xs font-medium">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Auto-populated from interview
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setUploadedData(null)
+                  router.replace('/dashboard/reports/new')
+                }}
+                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+                Clear
               </button>
             </div>
           </div>
