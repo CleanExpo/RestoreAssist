@@ -146,9 +146,14 @@ export function GuidedInterviewPanel({
     try {
       setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
 
+      console.log('Starting interview with:', { formTemplateId, jobType, postcode, experienceLevel })
+
       // Add timeout to prevent hanging
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        console.error('Interview start request timed out after 30 seconds')
+        controller.abort()
+      }, 30000) // 30 second timeout
 
       const response = await fetch('/api/forms/interview/start', {
         method: 'POST',
@@ -163,6 +168,8 @@ export function GuidedInterviewPanel({
       })
 
       clearTimeout(timeoutId)
+      
+      console.log('Interview start response status:', response.status, response.statusText)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -171,13 +178,22 @@ export function GuidedInterviewPanel({
       }
 
       const data = await response.json()
+      
+      console.log('Interview start response data:', {
+        hasSessionId: !!data.sessionId,
+        questionsCount: data.questions?.length || 0,
+        totalQuestions: data.totalQuestions,
+        hasTieredQuestions: !!data.tieredQuestions,
+      })
 
       // Validate response data
       if (!data || !data.sessionId) {
+        console.error('Invalid response: missing sessionId', data)
         throw new Error('Invalid response from server: missing sessionId')
       }
 
       if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        console.error('No questions in response:', data)
         throw new Error('No questions returned from server. Please check your subscription tier.')
       }
 
