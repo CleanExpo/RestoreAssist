@@ -61,21 +61,6 @@ export async function POST(request: NextRequest) {
     
     // Use the tiered questions directly - they're already filtered by userTierLevel
     const filteredTieredQuestions = questionResponse.tieredQuestions
-    
-    // Flatten all questions for the questions array
-    const allQuestions = Object.values(filteredTieredQuestions).flat()
-    
-    // Ensure we have at least some questions
-    if (allQuestions.length === 0) {
-      console.error('No questions generated for user tier:', user.interviewTier)
-      return NextResponse.json(
-        { 
-          error: 'No questions available for your subscription tier',
-          details: 'Please upgrade your subscription to access interview questions'
-        },
-        { status: 403 }
-      )
-    }
 
     // Create interview session in database
     const interviewSession = await prisma.interviewSession.create({
@@ -92,17 +77,6 @@ export async function POST(request: NextRequest) {
 
     // Flatten all questions for the questions array
     const allQuestions = Object.values(filteredTieredQuestions).flat()
-    
-    // Ensure we have at least some questions
-    if (allQuestions.length === 0) {
-      return NextResponse.json(
-        { 
-          error: 'No questions available for your subscription tier',
-          details: 'Please upgrade your subscription to access interview questions'
-        },
-        { status: 403 }
-      )
-    }
 
     // Ensure tier1 has questions, otherwise use first questions from all tiers
     const tier1Questions = filteredTieredQuestions.tier1.length > 0 
