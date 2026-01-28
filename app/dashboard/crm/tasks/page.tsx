@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { Plus, LayoutGrid, List as ListIcon, CheckSquare } from 'lucide-react'
 import { TaskKanban } from '@/components/crm/TaskKanban'
 import { TaskList } from '@/components/crm/TaskList'
+import { TaskFormModal } from '@/components/crm/TaskFormModal'
 import toast from 'react-hot-toast'
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     fetchTasks()
@@ -99,10 +101,7 @@ export default function TasksPage() {
           </div>
 
           <button
-            onClick={() => {
-              // TODO: Open create task modal
-              console.log('Create task')
-            }}
+            onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -169,6 +168,16 @@ export default function TasksPage() {
           )}
         </div>
       )}
+
+      {/* Create Task Modal */}
+      <TaskFormModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false)
+          fetchTasks()
+        }}
+      />
     </div>
   )
 }

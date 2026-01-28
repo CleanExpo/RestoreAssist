@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { Activity as ActivityIcon, Plus, Filter } from 'lucide-react'
 import { ActivityTimeline } from '@/components/crm/ActivityTimeline'
+import { ActivityFormModal } from '@/components/crm/ActivityFormModal'
 
 export default function ActivitiesPage() {
   const [activities, setActivities] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     fetchActivities()
@@ -43,10 +45,7 @@ export default function ActivitiesPage() {
           <p className="text-slate-600 dark:text-slate-400">View all interactions across companies and contacts</p>
         </div>
         <button
-          onClick={() => {
-            // TODO: Open create activity modal
-            console.log('Create activity')
-          }}
+          onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
         >
           <Plus className="h-4 w-4" />
@@ -124,6 +123,16 @@ export default function ActivitiesPage() {
           </div>
         )}
       </div>
+
+      {/* Create Activity Modal */}
+      <ActivityFormModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false)
+          fetchActivities()
+        }}
+      />
     </div>
   )
 }

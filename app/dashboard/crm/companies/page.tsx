@@ -13,6 +13,7 @@ import {
   CheckSquare,
   TrendingUp
 } from 'lucide-react'
+import { CompanyFormModal } from '@/components/crm/CompanyFormModal'
 
 interface Company {
   id: string
@@ -45,6 +46,7 @@ export default function CompaniesPage() {
   const [search, setSearch] = useState('')
   const [stage, setStage] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -78,7 +80,10 @@ export default function CompaniesPage() {
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
           Companies
         </h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:scale-[1.02] transition-transform">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:scale-[1.02] transition-transform"
+        >
           <Plus className="h-5 w-5" />
           Add Company
         </button>
@@ -202,6 +207,16 @@ export default function CompaniesPage() {
           ))}
         </div>
       )}
+
+      {/* Create Company Modal */}
+      <CompanyFormModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false)
+          fetchCompanies()
+        }}
+      />
     </div>
   )
 }
