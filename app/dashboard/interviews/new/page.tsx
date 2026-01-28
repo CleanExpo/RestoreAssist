@@ -14,6 +14,9 @@ import {
   Loader2,
   ChevronRight,
   MapPin,
+  GraduationCap,
+  User,
+  Award,
 } from "lucide-react"
 
 interface FormTemplate {
@@ -31,6 +34,12 @@ const JOB_TYPES = [
   { value: "STORM_DAMAGE", label: "Storm Damage", icon: CloudLightning, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800", activeBg: "bg-amber-100 dark:bg-amber-900/40", activeRing: "ring-amber-500/30" },
 ]
 
+const EXPERIENCE_LEVELS = [
+  { value: "novice", label: "Novice", description: "New to restoration work", icon: GraduationCap, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800", activeBg: "bg-blue-100 dark:bg-blue-900/40", activeRing: "ring-blue-500/30" },
+  { value: "experienced", label: "Experienced", description: "2+ years in restoration", icon: User, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200 dark:border-emerald-800", activeBg: "bg-emerald-100 dark:bg-emerald-900/40", activeRing: "ring-emerald-500/30" },
+  { value: "expert", label: "Expert", description: "5+ years, IICRC certified", icon: Award, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200 dark:border-purple-800", activeBg: "bg-purple-100 dark:bg-purple-900/40", activeRing: "ring-purple-500/30" },
+]
+
 export default function NewInterviewPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -40,6 +49,7 @@ export default function NewInterviewPage() {
 
   const [jobType, setJobType] = useState(initialJobType)
   const [postcode, setPostcode] = useState(initialPostcode)
+  const [experienceLevel, setExperienceLevel] = useState<"novice" | "experienced" | "expert">("experienced")
   const [templates, setTemplates] = useState<FormTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [loading, setLoading] = useState(true)
@@ -78,6 +88,7 @@ export default function NewInterviewPage() {
     const params = new URLSearchParams({
       formTemplateId: selectedTemplate,
       jobType,
+      experienceLevel,
     })
     if (postcode) params.set("postcode", postcode)
     if (reportId) params.set("reportId", reportId)
@@ -158,6 +169,41 @@ export default function NewInterviewPage() {
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
             maxLength={4}
           />
+        </div>
+      </div>
+
+      {/* Experience Level Selection */}
+      <div className="space-y-3">
+        <label className="text-sm font-semibold text-neutral-700 dark:text-slate-300 uppercase tracking-wider">
+          Experience Level
+        </label>
+        <div className="grid grid-cols-3 gap-3">
+          {EXPERIENCE_LEVELS.map((level) => {
+            const isActive = experienceLevel === level.value
+            const Icon = level.icon
+            return (
+              <button
+                key={level.value}
+                onClick={() => setExperienceLevel(level.value as "novice" | "experienced" | "expert")}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all duration-200",
+                  isActive
+                    ? cn(level.activeBg, level.border, "ring-2", level.activeRing)
+                    : cn(level.bg, "border-neutral-200 dark:border-slate-700", "hover:border-cyan-300 dark:hover:border-cyan-800")
+                )}
+              >
+                <Icon size={24} className={level.color} />
+                <div className="flex-1">
+                  <div className={cn("font-medium text-sm mb-0.5", isActive ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-slate-300")}>
+                    {level.label}
+                  </div>
+                  <div className={cn("text-xs", isActive ? "text-neutral-600 dark:text-slate-400" : "text-neutral-500 dark:text-slate-500")}>
+                    {level.description}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
 

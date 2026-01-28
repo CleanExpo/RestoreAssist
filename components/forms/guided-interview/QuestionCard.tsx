@@ -277,16 +277,16 @@ export function QuestionCard({
             )}
           </div>
 
-          {/* Standards badges */}
+          {/* Standards badges - Enhanced inline display */}
           <div className="flex flex-wrap gap-1 justify-end">
-            {question.standardsReference?.slice(0, 2).map((std) => (
-              <Badge key={std} variant="secondary" className="text-xs">
-                {std.split(' ')[0]}
+            {question.standardsReference?.slice(0, 3).map((std) => (
+              <Badge key={std} variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                {std}
               </Badge>
             ))}
-            {question.standardsReference && question.standardsReference.length > 2 && (
-              <Badge variant="secondary" className="text-xs">
-                +{question.standardsReference.length - 2}
+            {question.standardsReference && question.standardsReference.length > 3 && (
+              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                +{question.standardsReference.length - 3} more
               </Badge>
             )}
           </div>
@@ -294,19 +294,41 @@ export function QuestionCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Standards References - Enhanced inline display */}
+        {question.standardsReference && question.standardsReference.length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-2 flex items-center gap-1">
+              <HelpCircle className="h-3 w-3" />
+              Standards References:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {question.standardsReference.map((std, idx) => (
+                <span key={idx} className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">
+                  {std}
+                </span>
+              ))}
+            </div>
+            {question.standardsJustification && (
+              <p className="text-xs text-blue-700 dark:text-blue-400 mt-2 italic">
+                {question.standardsJustification}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Input field */}
         <div className="space-y-3">{renderInput()}</div>
 
         {/* Field mappings info */}
         {question.fieldMappings && question.fieldMappings.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded p-3">
-            <p className="text-xs font-semibold text-green-900 mb-2">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+            <p className="text-xs font-semibold text-green-900 dark:text-green-300 mb-2">
               Will auto-populate {question.fieldMappings.length} field
               {question.fieldMappings.length > 1 ? 's' : ''}:
             </p>
             <div className="flex flex-wrap gap-2">
               {question.fieldMappings.map((mapping, idx) => (
-                <span key={idx} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                <span key={idx} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-1 rounded border border-green-200 dark:border-green-800">
                   {mapping.formFieldId}
                   {mapping.confidence < 100 && ` (${mapping.confidence}% confidence)`}
                 </span>

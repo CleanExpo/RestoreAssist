@@ -7,10 +7,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { AlertCircle, Loader2, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, Loader2, CheckCircle2, Lock, Crown } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { QuestionCard } from './QuestionCard'
 import { ProgressRing } from './ProgressRing'
@@ -43,6 +44,7 @@ interface GuidedInterviewPanelProps {
   formTemplateId: string
   jobType?: string
   postcode?: string
+  experienceLevel?: "novice" | "experienced" | "expert"
   sessionId?: string
   onComplete?: (autoPopulatedFields: Map<string, any>) => void
   onCancel?: () => void
@@ -56,11 +58,15 @@ export function GuidedInterviewPanel({
   formTemplateId,
   jobType = 'WATER_DAMAGE',
   postcode,
+  experienceLevel,
   sessionId: resumeSessionId,
   onComplete,
   onCancel,
   showAutoPopulatedFields = true,
 }: GuidedInterviewPanelProps) {
+  const router = useRouter()
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
+  const [lockedTier, setLockedTier] = useState<number | null>(null)
   const [interviewState, setInterviewState] = useState<InterviewState>({
     sessionId: '',
     currentTier: 1,
@@ -106,6 +112,7 @@ export function GuidedInterviewPanel({
           formTemplateId,
           jobType,
           postcode,
+          experienceLevel,
         }),
       })
 
@@ -604,6 +611,11 @@ export function GuidedInterviewPanel({
               tier={interviewState.currentTier}
               onQuestionSelect={handleJumpToQuestion}
               allQuestions={interviewState.allQuestions}
+              userTierLevel={interviewState.currentTier <= 1 ? 'STANDARD' : interviewState.currentTier <= 2 ? 'PREMIUM' : 'ENTERPRISE'}
+              onUpgrade={(tier) => {
+                setLockedTier(tier)
+                setShowUpgradePrompt(true)
+              }}
             />
           </div>
 
@@ -669,6 +681,55 @@ export function GuidedInterviewPanel({
         isComplete={interviewState.status === 'COMPLETED'}
         onCancel={onCancel}
       />
+
+      {/* Tier Gating - Upgrade Prompt */}
+      {showUpgradePrompt && lockedTier && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
+                  <Lock className="text-white" size={24} />
+                </div>
+                <div>
+                  <CardTitle>Upgrade Required</CardTitle>
+                  <CardDescription>Tier {lockedTier} questions are locked</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Crown className="h-4 w-4" />
+                <AlertDescription>
+                  To access Tier {lockedTier} questions, you need to upgrade to{' '}
+                  {lockedTier <= 2 ? 'Premium' : 'Enterprise'} plan.
+                </AlertDescription>
+              </Alert>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowUpgradePrompt(false)
+                    setLockedTier(null)
+                  }}
+                  className="flex-1"
+                >
+                  Continue with Current Tier
+                </Button>
+                <Button
+                  onClick={() => {
+                    router.push('/dashboard/pricing?upgrade=true')
+                  }}
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

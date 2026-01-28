@@ -16,6 +16,7 @@ import {
   BarChart3,
   ChevronRight,
   AlertTriangle,
+  FileText,
 } from "lucide-react"
 
 interface InterviewSession {
@@ -151,6 +152,19 @@ export default function InterviewsPage() {
             <Plus size={18} />
             New Interview
           </button>
+        </div>
+      </div>
+
+      {/* Form Template Status */}
+      <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
+        <div className="flex items-start gap-3">
+          <FileText className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">Form Template</h3>
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              No form templates available. Create a form template first, or the interview will use the default question set for all users.
+            </p>
+          </div>
         </div>
       </div>
 

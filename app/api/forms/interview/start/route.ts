@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { formTemplateId, jobType, postcode } = body
+    const { formTemplateId, jobType, postcode, experienceLevel } = body
 
     if (!formTemplateId) {
       return NextResponse.json({ error: 'formTemplateId is required' }, { status: 400 })
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         formTemplateId,
         status: 'STARTED',
         userTierLevel: user.interviewTier || 'STANDARD',
-        technicianExperience: 'experienced',
+        technicianExperience: experienceLevel || 'experienced',
         estimatedTimeMinutes: questionResponse.estimatedDurationMinutes,
         totalQuestionsAsked: Object.values(filteredTieredQuestions).flat().length,
       },
