@@ -212,14 +212,32 @@ export function GuidedInterviewPanel({
         ...(data.tieredQuestions?.tier4 || []),
       ]
 
+      // Use questions from response, or fallback to flattened questions
+      const questionsToUse = data.questions && data.questions.length > 0 
+        ? data.questions 
+        : allQuestionsFlat
+
+      const firstQuestion = questionsToUse[0] || allQuestionsFlat[0] || null
+
+      if (!firstQuestion) {
+        throw new Error('No questions available to start the interview')
+      }
+
+      console.log('Setting interview state:', {
+        sessionId: data.sessionId,
+        firstQuestionId: firstQuestion.id,
+        totalQuestions: data.totalQuestions || allQuestionsFlat.length,
+        questionsCount: questionsToUse.length,
+      })
+
       setInterviewState((prev) => ({
         ...prev,
         sessionId: data.sessionId,
         currentTier: data.currentTier || 1,
-        currentQuestion: data.questions[0] || allQuestionsFlat[0] || null,
-        allQuestions: allQuestionsFlat.length > 0 ? allQuestionsFlat : data.questions,
+        currentQuestion: firstQuestion,
+        allQuestions: allQuestionsFlat.length > 0 ? allQuestionsFlat : questionsToUse,
         tieredQuestions: data.tieredQuestions || { tier1: [], tier2: [], tier3: [], tier4: [] },
-        totalQuestions: data.totalQuestions || allQuestionsFlat.length || data.questions.length,
+        totalQuestions: data.totalQuestions || allQuestionsFlat.length || questionsToUse.length,
         estimatedDurationMinutes: data.estimatedDuration || 10,
         standardsCovered: data.standardsCovered || [],
         isLoading: false,
@@ -227,6 +245,7 @@ export function GuidedInterviewPanel({
       }))
       
       isInitializingRef.current = false
+      console.log('Interview initialized successfully')
     } catch (error) {
       let errorMessage = 'Failed to start interview'
       
