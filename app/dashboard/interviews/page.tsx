@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog"
 import {
   Plus,
   Search,
@@ -58,6 +59,8 @@ export default function InterviewsPage() {
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "single" | "bulk"; id?: string } | null>(null)
 
   useEffect(() => {
     fetchSessions()
@@ -159,55 +162,59 @@ export default function InterviewsPage() {
     }
   }
 
-  const handleDeleteOne = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteOne = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    if (!confirm("Delete this interview session? This cannot be undone.")) return
-    try {
-      setDeleting(true)
-      const res = await fetch(`/api/interviews/${id}`, { method: "DELETE" })
-      if (res.ok) {
-        setSessions((prev) => prev.filter((s) => s.id !== id))
-        setSelectedIds((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-        toast.success("Interview session deleted")
-        fetchStats()
-      } else {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.error || "Failed to delete session")
-      }
-    } catch {
-      toast.error("Failed to delete session")
-    } finally {
-      setDeleting(false)
-    }
+    setDeleteTarget({ type: "single", id })
+    setDeleteDialogOpen(true)
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (selectedIds.size === 0) return
-    if (!confirm(`Delete ${selectedIds.size} interview session(s)? This cannot be undone.`)) return
+    setDeleteTarget({ type: "bulk" })
+    setDeleteDialogOpen(true)
+  }
+
+  const performDelete = async () => {
+    if (!deleteTarget) return
+
     try {
       setDeleting(true)
-      const res = await fetch("/api/interviews/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data.success) {
-        setSessions((prev) => prev.filter((s) => !selectedIds.has(s.id)))
-        setSelectedIds(new Set())
-        toast.success(`${data.deletedCount ?? selectedIds.size} session(s) deleted`)
-        fetchStats()
-      } else {
-        toast.error(data.error || "Failed to delete sessions")
+      if (deleteTarget.type === "single" && deleteTarget.id) {
+        const res = await fetch(`/api/interviews/${deleteTarget.id}`, { method: "DELETE" })
+        if (res.ok) {
+          setSessions((prev) => prev.filter((s) => s.id !== deleteTarget.id))
+          setSelectedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(deleteTarget.id!)
+            return next
+          })
+          toast.success("Interview session deleted")
+          fetchStats()
+        } else {
+          const data = await res.json().catch(() => ({}))
+          toast.error(data.error || "Failed to delete session")
+        }
+      } else if (deleteTarget.type === "bulk") {
+        const res = await fetch("/api/interviews/bulk-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.success) {
+          setSessions((prev) => prev.filter((s) => !selectedIds.has(s.id)))
+          setSelectedIds(new Set())
+          toast.success(`${data.deletedCount ?? selectedIds.size} session(s) deleted`)
+          fetchStats()
+        } else {
+          toast.error(data.error || "Failed to delete sessions")
+        }
       }
     } catch {
-      toast.error("Failed to delete sessions")
+      toast.error("Failed to delete session(s)")
     } finally {
       setDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -495,6 +502,25 @@ export default function InterviewsPage() {
           })}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={performDelete}
+        title={
+          deleteTarget?.type === "bulk"
+            ? "Delete Multiple Interview Sessions"
+            : "Delete Interview Session"
+        }
+        description={
+          deleteTarget?.type === "bulk"
+            ? "Are you sure you want to delete the selected interview sessions? This will permanently remove all selected sessions and their responses."
+            : "Are you sure you want to delete this interview session? This will permanently remove the session and all its responses."
+        }
+        itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
+        isLoading={deleting}
+      />
     </div>
   )
 }
