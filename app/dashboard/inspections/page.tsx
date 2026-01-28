@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog"
 
 interface Inspection {
   id: string
@@ -55,6 +56,8 @@ export default function InspectionsPage() {
   const [statusFilter, setStatusFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "single" | "bulk"; id?: string } | null>(null)
 
   useEffect(() => {
     fetchInspections()
@@ -115,53 +118,57 @@ export default function InspectionsPage() {
     }
   }
 
-  const handleDeleteOne = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteOne = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    if (!confirm("Delete this inspection? This cannot be undone.")) return
-    try {
-      setDeleting(true)
-      const res = await fetch(`/api/inspections/${id}`, { method: "DELETE" })
-      if (res.ok) {
-        setInspections((prev) => prev.filter((i) => i.id !== id))
-        setSelectedIds((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-        toast.success("Inspection deleted")
-      } else {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.error || "Failed to delete inspection")
-      }
-    } catch {
-      toast.error("Failed to delete inspection")
-    } finally {
-      setDeleting(false)
-    }
+    setDeleteTarget({ type: "single", id })
+    setDeleteDialogOpen(true)
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (selectedIds.size === 0) return
-    if (!confirm(`Delete ${selectedIds.size} inspection(s)? This cannot be undone.`)) return
+    setDeleteTarget({ type: "bulk" })
+    setDeleteDialogOpen(true)
+  }
+
+  const performDelete = async () => {
+    if (!deleteTarget) return
+
     try {
       setDeleting(true)
-      const res = await fetch("/api/inspections/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data.success) {
-        setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)))
-        setSelectedIds(new Set())
-        toast.success(`${data.deletedCount ?? selectedIds.size} inspection(s) deleted`)
-      } else {
-        toast.error(data.error || "Failed to delete inspections")
+      if (deleteTarget.type === "single" && deleteTarget.id) {
+        const res = await fetch(`/api/inspections/${deleteTarget.id}`, { method: "DELETE" })
+        if (res.ok) {
+          setInspections((prev) => prev.filter((i) => i.id !== deleteTarget.id))
+          setSelectedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(deleteTarget.id!)
+            return next
+          })
+          toast.success("Inspection deleted")
+        } else {
+          const data = await res.json().catch(() => ({}))
+          toast.error(data.error || "Failed to delete inspection")
+        }
+      } else if (deleteTarget.type === "bulk") {
+        const res = await fetch("/api/inspections/bulk-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.success) {
+          setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)))
+          setSelectedIds(new Set())
+          toast.success(`${data.deletedCount ?? selectedIds.size} inspection(s) deleted`)
+        } else {
+          toast.error(data.error || "Failed to delete inspections")
+        }
       }
     } catch {
-      toast.error("Failed to delete inspections")
+      toast.error("Failed to delete inspection(s)")
     } finally {
       setDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -369,6 +376,25 @@ export default function InspectionsPage() {
           })}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={performDelete}
+        title={
+          deleteTarget?.type === "bulk"
+            ? "Delete Multiple Inspections"
+            : "Delete Inspection"
+        }
+        description={
+          deleteTarget?.type === "bulk"
+            ? "Are you sure you want to delete the selected inspections? This will permanently remove all selected inspections and their associated data."
+            : "Are you sure you want to delete this inspection? This will permanently remove the inspection and all its associated data."
+        }
+        itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
+        isLoading={deleting}
+      />
     </div>
   )
 }
