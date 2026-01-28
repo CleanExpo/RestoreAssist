@@ -93,29 +93,40 @@ export function GuidedInterviewPanel({
    * Initialize interview on mount - only once
    */
   useEffect(() => {
-    // Prevent multiple initializations
-    if (hasInitializedRef.current || isInitializingRef.current) {
+    console.log('[INIT] useEffect triggered', {
+      hasInitialized: hasInitializedRef.current,
+      isInitializing: isInitializingRef.current,
+      resumeSessionId,
+    })
+
+    // Prevent multiple initializations - only check refs (not state, which is stale in closure)
+    if (hasInitializedRef.current) {
+      console.log('[INIT] Already initialized, skipping')
       return
     }
 
-    // If we already have a sessionId, don't re-initialize
-    if (interviewState.sessionId) {
-      hasInitializedRef.current = true
+    if (isInitializingRef.current) {
+      console.log('[INIT] Already initializing, skipping')
       return
     }
 
+    console.log('[INIT] Starting initialization...')
     hasInitializedRef.current = true
     isInitializingRef.current = true
 
     const init = async () => {
       try {
+        console.log('[INIT] Init function called', { resumeSessionId })
         if (resumeSessionId) {
+          console.log('[INIT] Restoring session:', resumeSessionId)
           await restoreSession(resumeSessionId)
         } else {
+          console.log('[INIT] Starting new interview')
           await initializeInterview()
         }
       } catch (error) {
-        console.error('Error initializing interview:', error)
+        console.error('[INIT] Error initializing interview:', error)
+        console.error('[INIT] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
         // Reset refs on error so user can retry
         hasInitializedRef.current = false
         isInitializingRef.current = false
@@ -130,23 +141,39 @@ export function GuidedInterviewPanel({
 
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount
+  }, []) // Only run once on mount - don't include state or callbacks to prevent re-runs
 
   /**
    * Start interview - fetch initial questions
    */
   const initializeInterview = useCallback(async () => {
-    // Prevent multiple calls
-    if (isInitializingRef.current || interviewState.isLoading || interviewState.sessionId) {
+    console.log('[INIT_INTERVIEW] Called', {
+      isInitializing: isInitializingRef.current,
+      hasInitialized: hasInitializedRef.current,
+    })
+
+    // Prevent multiple calls - only check refs, not state (state causes re-renders)
+    if (isInitializingRef.current) {
+      console.log('[INIT_INTERVIEW] Already initializing, aborting')
       return
     }
 
+    if (hasInitializedRef.current) {
+      console.log('[INIT_INTERVIEW] Already initialized, aborting')
+      return
+    }
+
+    console.log('[INIT_INTERVIEW] Setting isInitializingRef to true')
     isInitializingRef.current = true
 
     try {
-      setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
+      console.log('[INIT_INTERVIEW] Setting loading state')
+      setInterviewState((prev) => {
+        console.log('[INIT_INTERVIEW] Previous state:', { isLoading: prev.isLoading, sessionId: prev.sessionId })
+        return { ...prev, isLoading: true, error: null }
+      })
 
-      console.log('Starting interview with:', { formTemplateId, jobType, postcode, experienceLevel })
+      console.log('[INIT_INTERVIEW] Starting interview with:', { formTemplateId, jobType, postcode, experienceLevel })
 
       // Add timeout to prevent hanging
       const controller = new AbortController()
@@ -155,6 +182,7 @@ export function GuidedInterviewPanel({
         controller.abort()
       }, 30000) // 30 second timeout
 
+      console.log('[INIT_INTERVIEW] Making API request to /api/forms/interview/start')
       const response = await fetch('/api/forms/interview/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,31 +197,53 @@ export function GuidedInterviewPanel({
 
       clearTimeout(timeoutId)
       
-      console.log('Interview start response status:', response.status, response.statusText)
+      console.log('[INIT_INTERVIEW] API response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.error || errorData.details || response.statusText
+        console.error('[INIT_INTERVIEW] API error:', { status: response.status, error: errorMessage, errorData })
         throw new Error(`Failed to start interview: ${errorMessage}`)
       }
 
+      console.log('[INIT_INTERVIEW] Parsing response JSON...')
       const data = await response.json()
       
-      console.log('Interview start response data:', {
+      console.log('[INIT_INTERVIEW] Response data parsed:', {
         hasSessionId: !!data.sessionId,
+        sessionId: data.sessionId,
         questionsCount: data.questions?.length || 0,
         totalQuestions: data.totalQuestions,
         hasTieredQuestions: !!data.tieredQuestions,
+        tier1Count: data.tieredQuestions?.tier1?.length || 0,
+        tier2Count: data.tieredQuestions?.tier2?.length || 0,
+        tier3Count: data.tieredQuestions?.tier3?.length || 0,
+        tier4Count: data.tieredQuestions?.tier4?.length || 0,
+        fullData: data,
       })
 
       // Validate response data
       if (!data || !data.sessionId) {
-        console.error('Invalid response: missing sessionId', data)
+        console.error('[INIT_INTERVIEW] Invalid response: missing sessionId', data)
         throw new Error('Invalid response from server: missing sessionId')
       }
 
+      console.log('[INIT_INTERVIEW] Validating questions...', {
+        hasQuestions: !!data.questions,
+        isArray: Array.isArray(data.questions),
+        length: data.questions?.length || 0,
+      })
+
       if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
-        console.error('No questions in response:', data)
+        console.error('[INIT_INTERVIEW] No questions in response:', {
+          questions: data.questions,
+          tieredQuestions: data.tieredQuestions,
+          allData: data,
+        })
         throw new Error('No questions returned from server. Please check your subscription tier.')
       }
 
@@ -223,29 +273,44 @@ export function GuidedInterviewPanel({
         throw new Error('No questions available to start the interview')
       }
 
-      console.log('Setting interview state:', {
+      console.log('[INIT_INTERVIEW] Preparing state update:', {
         sessionId: data.sessionId,
         firstQuestionId: firstQuestion.id,
+        firstQuestionText: firstQuestion.text?.substring(0, 50),
         totalQuestions: data.totalQuestions || allQuestionsFlat.length,
         questionsCount: questionsToUse.length,
+        allQuestionsFlatCount: allQuestionsFlat.length,
       })
 
-      setInterviewState((prev) => ({
-        ...prev,
-        sessionId: data.sessionId,
-        currentTier: data.currentTier || 1,
-        currentQuestion: firstQuestion,
-        allQuestions: allQuestionsFlat.length > 0 ? allQuestionsFlat : questionsToUse,
-        tieredQuestions: data.tieredQuestions || { tier1: [], tier2: [], tier3: [], tier4: [] },
-        totalQuestions: data.totalQuestions || allQuestionsFlat.length || questionsToUse.length,
-        estimatedDurationMinutes: data.estimatedDuration || 10,
-        standardsCovered: data.standardsCovered || [],
-        isLoading: false,
-        status: 'IN_PROGRESS',
-      }))
+      console.log('[INIT_INTERVIEW] Calling setInterviewState...')
+      setInterviewState((prev) => {
+        const newState = {
+          ...prev,
+          sessionId: data.sessionId,
+          currentTier: data.currentTier || 1,
+          currentQuestion: firstQuestion,
+          allQuestions: allQuestionsFlat.length > 0 ? allQuestionsFlat : questionsToUse,
+          tieredQuestions: data.tieredQuestions || { tier1: [], tier2: [], tier3: [], tier4: [] },
+          totalQuestions: data.totalQuestions || allQuestionsFlat.length || questionsToUse.length,
+          estimatedDurationMinutes: data.estimatedDuration || 10,
+          standardsCovered: data.standardsCovered || [],
+          isLoading: false,
+          status: 'IN_PROGRESS' as const,
+        }
+        console.log('[INIT_INTERVIEW] New state:', {
+          sessionId: newState.sessionId,
+          isLoading: newState.isLoading,
+          status: newState.status,
+          hasCurrentQuestion: !!newState.currentQuestion,
+          totalQuestions: newState.totalQuestions,
+        })
+        return newState
+      })
       
+      console.log('[INIT_INTERVIEW] Setting isInitializingRef to false')
       isInitializingRef.current = false
-      console.log('Interview initialized successfully')
+      hasInitializedRef.current = true
+      console.log('[INIT_INTERVIEW] Interview initialized successfully')
     } catch (error) {
       let errorMessage = 'Failed to start interview'
       
@@ -257,29 +322,47 @@ export function GuidedInterviewPanel({
         }
       }
       
-      console.error('Error starting interview:', error)
-      setInterviewState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: errorMessage,
-        status: 'ERROR',
-      }))
+      console.error('[INIT_INTERVIEW] Error starting interview:', error)
+      console.error('[INIT_INTERVIEW] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
       isInitializingRef.current = false
+      hasInitializedRef.current = false // Allow retry on error
+      setInterviewState((prev) => {
+        console.log('[INIT_INTERVIEW] Setting error state')
+        return {
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+          status: 'ERROR',
+        }
+      })
     }
-  }, [formTemplateId, jobType, postcode, experienceLevel])
+  }, [formTemplateId, jobType, postcode, experienceLevel]) // Removed interviewState dependencies to prevent re-creation
 
   /**
    * Restore session from saved answers
    */
   const restoreSession = useCallback(async (sessionId: string) => {
-    // Prevent multiple calls
-    if (isInitializingRef.current || interviewState.isLoading || interviewState.sessionId) {
+    console.log('[RESTORE_SESSION] Called', {
+      sessionId,
+      isInitializing: isInitializingRef.current,
+      hasInitialized: hasInitializedRef.current,
+    })
+
+    // Prevent multiple calls - only check refs
+    if (isInitializingRef.current) {
+      console.log('[RESTORE_SESSION] Already initializing, aborting')
+      return
+    }
+
+    if (hasInitializedRef.current) {
+      console.log('[RESTORE_SESSION] Already initialized, aborting')
       return
     }
 
     isInitializingRef.current = true
 
     try {
+      console.log('[RESTORE_SESSION] Setting loading state')
       setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
 
       // Fetch session data with stored answers
@@ -376,16 +459,23 @@ export function GuidedInterviewPanel({
         isLoading: false,
         status: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
       }))
+      
+      console.log('[RESTORE_SESSION] Setting isInitializingRef to false')
+      isInitializingRef.current = false
+      hasInitializedRef.current = true
+      console.log('[RESTORE_SESSION] Session restored successfully')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to restore session'
-      console.error('Error restoring session:', error)
+      console.error('[RESTORE_SESSION] Error restoring session:', error)
+      console.error('[RESTORE_SESSION] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      isInitializingRef.current = false
+      hasInitializedRef.current = false // Allow retry on error
       setInterviewState((prev) => ({
         ...prev,
         isLoading: false,
         error: errorMessage,
         status: 'ERROR',
       }))
-      isInitializingRef.current = false
     }
   }, [formTemplateId, jobType, postcode, initializeInterview])
 
