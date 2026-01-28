@@ -33,6 +33,8 @@ interface CompletionMetricsProps {
     medianDays: number
     p95Days: number
     totalReports: number
+    completedReports?: number
+    completionRate?: number
   }
   byHazardType?: HazardMetric[]
   timeSeries?: TimeSeriesPoint[]
@@ -93,7 +95,7 @@ export default function CompletionMetrics({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className={cn("p-4 rounded-lg border", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-600/20")}>
               <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Average Days</p>
               <p className={cn("text-2xl font-semibold", "text-neutral-900 dark:text-slate-200")}>{overall.avgDays.toFixed(1)}</p>
@@ -112,8 +114,18 @@ export default function CompletionMetrics({
               <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>max expected days</p>
             </div>
 
+            <div className={cn("p-4 rounded-lg border", "bg-gradient-to-br from-emerald-500/10 to-green-500/10", "border-emerald-200 dark:border-emerald-600/20")}>
+              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Completion Rate</p>
+              <p className={cn("text-2xl font-semibold", "text-emerald-600 dark:text-emerald-400")}>
+                {overall.completionRate !== undefined ? `${overall.completionRate}%` : "—"}
+              </p>
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>
+                {overall.completedReports !== undefined ? `${overall.completedReports}/${overall.totalReports}` : `${overall.totalReports} total`}
+              </p>
+            </div>
+
             <div className={cn("p-4 rounded-lg border", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-600/20")}>
-              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Reports Analyzed</p>
+              <p className={cn("text-xs mb-2", "text-neutral-600 dark:text-slate-400")}>Total Reports</p>
               <p className={cn("text-2xl font-semibold", "text-neutral-900 dark:text-slate-200")}>{overall.totalReports}</p>
               <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>in period</p>
             </div>
