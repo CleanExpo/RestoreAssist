@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateInvoicePDF } from '@/lib/invoices/pdf-generator'
+import { uploadPDFToCloudinary } from '@/lib/cloudinary'
 
 export async function GET(
   request: NextRequest,
@@ -86,6 +87,36 @@ export async function GET(
       payments: invoice.payments,
       businessInfo
     })
+
+    // Upload PDF to Cloudinary and save URL
+    try {
+      const buffer = Buffer.from(pdfBytes)
+      const filename = `${invoice.invoiceNumber}_${Date.now()}`
+
+      const { url: pdfUrl } = await uploadPDFToCloudinary(
+        buffer,
+        filename,
+        'invoices',
+        {
+          tags: ['invoice', invoice.status.toLowerCase()],
+          // PDFs persist indefinitely (no TTL) for financial records
+        }
+      )
+
+      // Update invoice with PDF URL
+      await prisma.invoice.update({
+        where: { id: params.id },
+        data: {
+          pdfUrl,
+          pdfGeneratedAt: new Date()
+        }
+      })
+
+      console.log(`[Invoice PDF] ✅ Uploaded to Cloudinary: ${pdfUrl}`)
+    } catch (cloudinaryError) {
+      console.error('[Invoice PDF] ⚠️ Failed to upload to Cloudinary:', cloudinaryError)
+      // Continue with PDF download even if Cloudinary upload fails
+    }
 
     // Return PDF with proper headers
     return new NextResponse(pdfBytes, {
