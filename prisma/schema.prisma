@@ -3182,6 +3182,11 @@ model InvoicePayment {
   stripePaymentIntentId String? @unique
   stripeChargeId        String?
 
+  // External accounting system payment (from webhooks)
+  externalPaymentId String? // Payment ID in Xero/QuickBooks/MYOB
+  externalProvider  IntegrationProvider? // Which system this came from
+  webhookEventId    String? // Link to WebhookEvent that created this
+
   // Bank reconciliation
   reconciled   Boolean   @default(false)
   reconciledAt DateTime?
@@ -3206,6 +3211,7 @@ model InvoicePayment {
   @@index([invoiceId, paymentDate])
   @@index([stripePaymentIntentId])
   @@index([paymentMethod])
+  @@index([externalPaymentId])
 }
 
 // Payment Allocation (split payments across invoices)
@@ -3538,6 +3544,7 @@ enum PaymentMethod {
   CHEQUE // Cheque
   CREDIT_CARD // Manual credit card (non-Stripe)
   PAYPAL // PayPal
+  EXTERNAL // From external accounting system (Xero, QuickBooks, MYOB)
   OTHER // Other method
 }
 
