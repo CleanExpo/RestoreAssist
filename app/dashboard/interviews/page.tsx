@@ -54,11 +54,29 @@ export default function InterviewsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [stats, setStats] = useState<any>(null)
+  const [templates, setTemplates] = useState<any[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
 
   useEffect(() => {
     fetchSessions()
     fetchStats()
+    fetchTemplates()
   }, [])
+
+  const fetchTemplates = async () => {
+    try {
+      setLoadingTemplates(true)
+      const response = await fetch("/api/form-templates")
+      if (response.ok) {
+        const data = await response.json()
+        setTemplates(data.templates || [])
+      }
+    } catch (error) {
+      console.error("Error fetching templates:", error)
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
 
   const fetchSessions = async () => {
     try {
@@ -156,17 +174,55 @@ export default function InterviewsPage() {
       </div>
 
       {/* Form Template Status */}
-      <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
-        <div className="flex items-start gap-3">
-          <FileText className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">Form Template</h3>
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              No form templates available. Create a form template first, or the interview will use the default question set for all users.
-            </p>
+      {loadingTemplates ? (
+        <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+          <div className="flex items-center gap-3">
+            <Loader2 className="animate-spin text-cyan-500" size={20} />
+            <p className="text-sm text-neutral-600 dark:text-slate-400">Loading templates...</p>
           </div>
         </div>
-      </div>
+      ) : templates.length === 0 ? (
+        <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
+          <div className="flex items-start gap-3">
+            <FileText className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">Form Template</h3>
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                No form templates available. Create a form template first, or the interview will use the default question set for all users.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10">
+          <div className="flex items-start gap-3">
+            <FileText className="text-emerald-600 dark:text-emerald-400 mt-0.5" size={20} />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
+                Form Templates ({templates.length} available)
+              </h3>
+              <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                {templates.length} form template{templates.length !== 1 ? 's' : ''} available for interviews. Select a template when starting a new interview.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {templates.slice(0, 5).map((tpl) => (
+                  <span
+                    key={tpl.id}
+                    className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                  >
+                    {tpl.name}
+                  </span>
+                ))}
+                {templates.length > 5 && (
+                  <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    +{templates.length - 5} more
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Bar */}
       {stats && (
