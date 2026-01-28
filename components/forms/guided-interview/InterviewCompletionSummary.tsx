@@ -376,11 +376,20 @@ export function InterviewCompletionSummary({
       {/* Action Buttons */}
       {showActions && (
         <div className="flex gap-4 justify-between">
-          <Button variant="outline" onClick={onExport} className="gap-2">
+          <Button 
+            variant="outline" 
+            onClick={onExport || (() => console.warn('Export handler not provided'))} 
+            className="gap-2"
+            disabled={!onExport}
+          >
             <Download className="h-4 w-4" />
             Export Summary
           </Button>
-          <Button onClick={onContinue} className="gap-2">
+          <Button 
+            onClick={onContinue || (() => console.warn('Continue handler not provided'))} 
+            className="gap-2"
+            disabled={!onContinue}
+          >
             <CheckCircle2 className="h-4 w-4" />
             Continue to Form
           </Button>

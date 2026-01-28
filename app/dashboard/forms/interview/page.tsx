@@ -91,22 +91,89 @@ export default function InterviewPage() {
    * Submit interview data and auto-populated fields
    */
   const handleSubmitData = useCallback(async () => {
-    if (!autoPopulatedFields) return
+    if (!autoPopulatedFields) {
+      console.error('No auto-populated fields to submit')
+      return
+    }
 
-    const result = await submitForm(autoPopulatedFields)
+    try {
+      console.log('Submitting interview data...', { 
+        fieldsCount: autoPopulatedFields.size,
+        reportId,
+        formTemplateId 
+      })
+      
+      const result = await submitForm(autoPopulatedFields)
+      
+      console.log('Submit result:', result)
 
-    if (result.success && result.submissionId) {
-      // Redirect back to the linked report form with pre-filled data
-      if (reportId) {
-        router.push(
-          `/dashboard/reports/${reportId}/edit?submissionId=${result.submissionId}`
-        )
+      if (result.success && result.submissionId) {
+        // Redirect back to the linked report form with pre-filled data
+        if (reportId) {
+          console.log('Redirecting to report edit page:', `/dashboard/reports/${reportId}/edit?submissionId=${result.submissionId}`)
+          router.push(
+            `/dashboard/reports/${reportId}/edit?submissionId=${result.submissionId}`
+          )
+        } else {
+          // Fallback: go to reports list if no report context
+          console.log('No reportId, redirecting to reports list')
+          router.push('/dashboard/reports')
+        }
       } else {
-        // Fallback: go to reports list if no report context
-        router.push('/dashboard/reports')
+        console.error('Form submission failed:', result.error)
+        alert(`Failed to submit form: ${result.error || 'Unknown error'}`)
       }
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      alert(`Error submitting form: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }, [autoPopulatedFields, submitForm, formTemplateId, reportId, router])
+
+  /**
+   * Export interview summary
+   */
+  const handleExportSummary = useCallback(() => {
+    if (!autoPopulatedFields || !mergeResult) {
+      alert('No data to export')
+      return
+    }
+
+    try {
+      // Create export data
+      const exportData = {
+        interviewSummary: {
+          fieldsMerged: mergeResult.statistics.totalFieldsMerged,
+          newFieldsAdded: mergeResult.statistics.newFieldsAdded,
+          fieldsUpdated: mergeResult.statistics.fieldsUpdated,
+          averageConfidence: mergeResult.statistics.averageConfidence,
+          formCompletion: Math.round(
+            (mergeResult.statistics.totalFieldsMerged / (mergeResult.statistics.totalFieldsMerged + 5)) * 100
+          ),
+        },
+        autoPopulatedFields: Object.fromEntries(autoPopulatedFields),
+        mergedFields: mergeResult.mergedFields,
+        timestamp: new Date().toISOString(),
+        formTemplateId,
+        reportId: reportId || null,
+      }
+
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `interview-summary-${Date.now()}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error exporting summary:', error)
+      alert(`Error exporting summary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }, [autoPopulatedFields, mergeResult, formTemplateId, reportId])
 
   /**
    * Continue to form without interview
@@ -198,6 +265,7 @@ export default function InterviewPage() {
               <InterviewCompletionSummary
                 mergeResult={mergeResult}
                 onContinue={handleSubmitData}
+                onExport={handleExportSummary}
                 showActions={true}
               />
 
