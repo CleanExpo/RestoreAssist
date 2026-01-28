@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
     const templateId = searchParams.get('templateId')
     const type = searchParams.get('type')
 
-    // Get aggregate statistics
+    // Get aggregate statistics (user-scoped for dashboard KPIs)
     if (type === 'aggregate') {
-      const stats = await InterviewAnalyticsService.getAggregateStatistics()
+      const stats = await InterviewAnalyticsService.getAggregateStatisticsForUser(user.id)
       return NextResponse.json(stats)
     }
 
