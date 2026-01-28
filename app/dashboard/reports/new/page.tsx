@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Upload, FileText, Loader2, X, CheckCircle, Crown, Zap, DollarSign, ArrowRight, Sparkles, TrendingUp } from "lucide-react"
-import { useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
 import { useSession } from "next-auth/react"

@@ -327,7 +327,7 @@ export default function InitialDataEntryForm({
       title: "Client Information",
       icon: User,
       description: "Enter client details and contact information",
-      requiredFields: ["clientName", "propertyAddress", "propertyPostcode"],
+      requiredFields: ["clientName"],
     },
     {
       id: 1,

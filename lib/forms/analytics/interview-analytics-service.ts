@@ -395,6 +395,92 @@ export class InterviewAnalyticsService {
   }
 
   /**
+   * Get aggregate statistics for a specific user (dashboard KPIs)
+   */
+  static async getAggregateStatisticsForUser(userId: string): Promise<{
+    totalSessions: number
+    completedSessions: number
+    completionRate: number
+    averageSessionDuration: number
+    averageFieldsPopulated: number
+    averageFieldConfidence: number
+    topPerformingTemplates: Array<{
+      templateId: string
+      completionRate: number
+      sessionCount: number
+    }>
+  }> {
+    try {
+      const sessions = await prisma.interviewSession.findMany({
+        where: { userId },
+        include: { responses: true },
+      })
+
+      const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length
+      const completionRate = sessions.length > 0 ? Math.round((completedSessions / sessions.length) * 100) : 0
+
+      let totalDuration = 0
+      let totalFieldsPopulated = 0
+      let totalConfidence = 0
+      let confidenceCount = 0
+
+      sessions.forEach((session) => {
+        const metadata = session.metadata as any
+        if (metadata?.totalDurationSeconds) totalDuration += metadata.totalDurationSeconds
+        if (metadata?.autoPopulatedFieldsCount) totalFieldsPopulated += metadata.autoPopulatedFieldsCount
+        if (metadata?.averageConfidence) {
+          totalConfidence += metadata.averageConfidence
+          confidenceCount++
+        }
+      })
+
+      const templateStats = sessions.reduce(
+        (acc, session) => {
+          if (!acc[session.formTemplateId]) {
+            acc[session.formTemplateId] = { completed: 0, total: 0 }
+          }
+          acc[session.formTemplateId].total++
+          if (session.status === 'COMPLETED') {
+            acc[session.formTemplateId].completed++
+          }
+          return acc
+        },
+        {} as Record<string, { completed: number; total: number }>
+      )
+
+      const topPerformingTemplates = Object.entries(templateStats)
+        .map(([templateId, { completed, total }]) => ({
+          templateId,
+          completionRate: Math.round((completed / total) * 100),
+          sessionCount: total,
+        }))
+        .sort((a, b) => b.completionRate - a.completionRate)
+        .slice(0, 5)
+
+      return {
+        totalSessions: sessions.length,
+        completedSessions,
+        completionRate,
+        averageSessionDuration: Math.round(totalDuration / Math.max(sessions.length, 1)),
+        averageFieldsPopulated: Math.round(totalFieldsPopulated / Math.max(sessions.length, 1)),
+        averageFieldConfidence: confidenceCount > 0 ? Math.round(totalConfidence / confidenceCount) : 0,
+        topPerformingTemplates,
+      }
+    } catch (error) {
+      console.error('Error getting aggregate statistics for user:', error)
+      return {
+        totalSessions: 0,
+        completedSessions: 0,
+        completionRate: 0,
+        averageSessionDuration: 0,
+        averageFieldsPopulated: 0,
+        averageFieldConfidence: 0,
+        topPerformingTemplates: [],
+      }
+    }
+  }
+
+  /**
    * Get aggregate statistics across all interviews
    */
   static async getAggregateStatistics(): Promise<{

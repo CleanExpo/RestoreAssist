@@ -224,27 +224,27 @@ export default function InterviewsPage() {
         </div>
       )}
 
-      {/* Stats Bar */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Sessions</div>
-            <div className="text-xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">{stats.totalSessions ?? 0}</div>
-          </div>
-          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Completion Rate</div>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{Math.round(stats.completionRate ?? 0)}%</div>
-          </div>
-          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Avg Duration</div>
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">{Math.round((stats.averageSessionDuration ?? 0) / 60)}m</div>
-          </div>
-          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Fields Auto-Filled</div>
-            <div className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">{stats.averageFieldsPopulated ?? 0}</div>
+      {/* Stats Bar — customer-centric metrics (no session count) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+          <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Finished</div>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+            {stats != null ? `${Math.round(stats.completionRate ?? 0)}%` : "—"}
           </div>
         </div>
-      )}
+        <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+          <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Avg. Time per Interview</div>
+          <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+            {stats != null ? `${Math.round((stats.averageSessionDuration ?? 0) / 60)}m` : "—"}
+          </div>
+        </div>
+        <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+          <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Report Fields Filled</div>
+          <div className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+            {stats != null ? (stats.averageFieldsPopulated ?? 0) : "—"}
+          </div>
+        </div>
+      </div>
 
       {/* Status Filter Pills */}
       <div className="flex flex-wrap gap-2">
