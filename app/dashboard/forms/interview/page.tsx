@@ -96,10 +96,15 @@ export default function InterviewPage() {
     const result = await submitForm(autoPopulatedFields)
 
     if (result.success && result.submissionId) {
-      // Redirect to form with pre-filled data
-      router.push(
-        `/dashboard/forms/predefined/${formTemplateId}?submissionId=${result.submissionId}&reportId=${reportId || ''}`
-      )
+      // Redirect back to the linked report form with pre-filled data
+      if (reportId) {
+        router.push(
+          `/dashboard/reports/${reportId}/edit?submissionId=${result.submissionId}`
+        )
+      } else {
+        // Fallback: go to reports list if no report context
+        router.push('/dashboard/reports')
+      }
     }
   }, [autoPopulatedFields, submitForm, formTemplateId, reportId, router])
 
@@ -107,10 +112,14 @@ export default function InterviewPage() {
    * Continue to form without interview
    */
   const handleSkipInterview = useCallback(() => {
-    router.push(
-      `/dashboard/forms/predefined/${formTemplateId}?reportId=${reportId || ''}`
-    )
-  }, [formTemplateId, reportId, router])
+    if (reportId) {
+      // Go back to the linked report form without interview auto-fill
+      router.push(`/dashboard/reports/${reportId}/edit`)
+    } else {
+      // Fallback: go to reports list if no report context
+      router.push('/dashboard/reports')
+    }
+  }, [reportId, router])
 
   if (!formTemplateId) {
     return (
