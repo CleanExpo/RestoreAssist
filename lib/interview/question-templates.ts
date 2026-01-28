@@ -647,12 +647,20 @@ export function getQuestionsForTier(tier: number): Question[] {
 /**
  * Get all questions accessible to a subscription tier
  */
-export function getQuestionsForSubscriptionTier(subscriptionTier: 'standard' | 'premium' | 'enterprise'): Question[] {
-  const tierMap = { standard: ['standard'], premium: ['standard', 'premium'], enterprise: ['standard', 'premium', 'enterprise'] }
-  const accessibleTiers = tierMap[subscriptionTier]
+export function getQuestionsForSubscriptionTier(subscriptionTier: 'standard' | 'premium' | 'enterprise' | 'STANDARD' | 'PREMIUM' | 'ENTERPRISE'): Question[] {
+  // Normalize tier to lowercase
+  const normalizedTier = (subscriptionTier || 'standard').toLowerCase() as 'standard' | 'premium' | 'enterprise'
+  
+  const tierMap: Record<'standard' | 'premium' | 'enterprise', string[]> = { 
+    standard: ['standard'], 
+    premium: ['standard', 'premium'], 
+    enterprise: ['standard', 'premium', 'enterprise'] 
+  }
+  
+  const accessibleTiers = tierMap[normalizedTier] || tierMap.standard
 
   return INTERVIEW_QUESTION_LIBRARY.filter((q) => {
-    const minTier = q.minTierLevel || 'standard'
+    const minTier = (q.minTierLevel || 'standard').toLowerCase()
     return accessibleTiers.includes(minTier)
   })
 }

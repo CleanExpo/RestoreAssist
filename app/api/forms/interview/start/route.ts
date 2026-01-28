@@ -59,8 +59,9 @@ export async function POST(request: NextRequest) {
     // Generate questions
     const questionResponse = QuestionGenerationEngine.generateQuestions(context)
 
-    // Filter questions by subscription tier
-    const accessibleQuestions = getQuestionsForSubscriptionTier(user.interviewTier || 'standard')
+    // Filter questions by subscription tier (normalize to lowercase)
+    const userTier = (user.interviewTier || 'STANDARD').toLowerCase() as 'standard' | 'premium' | 'enterprise'
+    const accessibleQuestions = getQuestionsForSubscriptionTier(userTier)
     const filteredTieredQuestions = {
       tier1: questionResponse.tieredQuestions.tier1.filter((q) =>
         accessibleQuestions.some((aq) => aq.id === q.id)
