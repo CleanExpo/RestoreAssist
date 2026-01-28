@@ -10,14 +10,17 @@ import {
   User,
   Flag,
   Plus,
-  GripVertical
+  GripVertical,
+  Filter,
+  X,
+  PauseCircle
 } from 'lucide-react'
 
 interface CrmTask {
   id: string
   title: string
   description?: string
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE'
+  status: 'TODO' | 'IN_PROGRESS' | 'WAITING' | 'COMPLETED' | 'CANCELLED'
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   dueDate?: Date | string | null
   completedAt?: Date | string | null
@@ -29,7 +32,7 @@ interface CrmTask {
     id: string
     fullName: string
   }
-  user?: {
+  assignedTo?: {
     id: string
     name: string | null
     email: string | null
@@ -42,6 +45,7 @@ interface TaskKanbanProps {
   onTaskClick?: (task: CrmTask) => void
   onAddTask?: (status: CrmTask['status']) => void
   loading?: boolean
+  showFilters?: boolean
 }
 
 export function TaskKanban({
@@ -49,14 +53,17 @@ export function TaskKanban({
   onTaskMove,
   onTaskClick,
   onAddTask,
-  loading = false
+  loading = false,
+  showFilters = false
 }: TaskKanbanProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
+  const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null)
+  const [dueDateFilter, setDueDateFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all')
 
   const columns = [
     {
-      id: 'PENDING',
+      id: 'TODO',
       title: 'To Do',
       icon: Clock,
       color: 'text-slate-600 dark:text-slate-400',
@@ -70,6 +77,14 @@ export function TaskKanban({
       color: 'text-blue-600 dark:text-blue-400',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       borderColor: 'border-blue-300 dark:border-blue-700'
+    },
+    {
+      id: 'WAITING',
+      title: 'Waiting',
+      icon: PauseCircle,
+      color: 'text-amber-600 dark:text-amber-400',
+      bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+      borderColor: 'border-amber-300 dark:border-amber-700'
     },
     {
       id: 'COMPLETED',
@@ -120,13 +135,54 @@ export function TaskKanban({
   }
 
   const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => {
-      if (status === 'PENDING') {
-        return task.status === 'PENDING' || task.status === 'OVERDUE'
-      }
-      return task.status === status
-    })
+    let filtered = tasks.filter(task => task.status === status)
+
+    // Apply assignee filter
+    if (selectedAssignee) {
+      filtered = filtered.filter(task => task.assignedTo?.id === selectedAssignee)
+    }
+
+    // Apply due date filter
+    if (dueDateFilter !== 'all') {
+      const now = new Date()
+      filtered = filtered.filter(task => {
+        if (!task.dueDate) return false
+
+        const dueDate = new Date(task.dueDate)
+        if (dueDateFilter === 'overdue') {
+          return dueDate < now && task.status !== 'COMPLETED'
+        } else if (dueDateFilter === 'today') {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          const tomorrow = new Date(today)
+          tomorrow.setDate(tomorrow.getDate() + 1)
+          return dueDate >= today && dueDate < tomorrow
+        } else if (dueDateFilter === 'week') {
+          const weekFromNow = new Date(now)
+          weekFromNow.setDate(weekFromNow.getDate() + 7)
+          return dueDate <= weekFromNow
+        }
+        return true
+      })
+    }
+
+    return filtered
   }
+
+  // Get unique assignees for filter dropdown
+  const uniqueAssignees = Array.from(
+    new Map(
+      tasks
+        .filter(task => task.assignedTo)
+        .map(task => [task.assignedTo!.id, task.assignedTo!])
+    ).values()
+  )
+
+  const clearFilters = () => {
+    setSelectedAssignee(null)
+    setDueDateFilter('all')
+  }
+
+  const hasActiveFilters = selectedAssignee || dueDateFilter !== 'all'
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId)
@@ -170,7 +226,68 @@ export function TaskKanban({
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="space-y-4">
+      {/* Filters */}
+      {showFilters && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Filters:
+            </span>
+          </div>
+
+          {/* Assignee Filter */}
+          <select
+            value={selectedAssignee || ''}
+            onChange={(e) => setSelectedAssignee(e.target.value || null)}
+            className="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          >
+            <option value="">All Assignees</option>
+            {uniqueAssignees.map(assignee => (
+              <option key={assignee.id} value={assignee.id}>
+                {assignee.name || assignee.email}
+              </option>
+            ))}
+          </select>
+
+          {/* Due Date Filter */}
+          <div className="flex items-center gap-1">
+            {(['all', 'overdue', 'today', 'week'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setDueDateFilter(filter)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  dueDateFilter === filter
+                    ? 'bg-cyan-500 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {filter === 'all' ? 'All Dates' : filter === 'overdue' ? 'Overdue' : filter === 'today' ? 'Due Today' : 'This Week'}
+              </button>
+            ))}
+          </div>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-2 py-1 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </button>
+          )}
+
+          {/* Task Count */}
+          <div className="ml-auto text-sm text-slate-600 dark:text-slate-400">
+            {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+          </div>
+        </div>
+      )}
+
+      {/* Kanban Board */}
+      <div className="flex gap-4 overflow-x-auto pb-4">
       {columns.map(column => {
         const columnTasks = getTasksByStatus(column.id)
         const Icon = column.icon
@@ -301,14 +418,14 @@ export function TaskKanban({
                     </div>
 
                     {/* Assignee */}
-                    {task.user && (
+                    {task.assignedTo && (
                       <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-cyan-500 text-white flex items-center justify-center text-xs font-semibold">
-                            {task.user.name?.[0] || task.user.email?.[0] || '?'}
+                            {task.assignedTo.name?.[0] || task.assignedTo.email?.[0] || '?'}
                           </div>
                           <span className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                            {task.user.name || task.user.email}
+                            {task.assignedTo.name || task.assignedTo.email}
                           </span>
                         </div>
                       </div>
@@ -320,6 +437,7 @@ export function TaskKanban({
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
