@@ -325,7 +325,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4  py-8 space-y-8">
+      <div className=" mx-auto px-4  py-8 space-y-8">
         {/* Selected Team Member Indicator (Admin and Manager) */}
         {selectedMember && (session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER") && (
           <div className={cn(
