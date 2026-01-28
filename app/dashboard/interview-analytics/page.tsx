@@ -158,63 +158,27 @@ export default function InterviewAnalyticsDashboard() {
         </Alert>
       )}
 
-      {/* Key Metrics */}
+      {/* Stats Bar — customer-centric metrics (matches interviews page) */}
       {aggregateStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Total Sessions */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Sessions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-gray-900">{aggregateStats.totalSessions}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {aggregateStats.completedSessions} completed
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Completion Rate */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Completion Rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-600">
-                {formatPercentage(aggregateStats.completionRate)}
-              </p>
-              <Progress
-                value={aggregateStats.completionRate}
-                className="mt-2 h-1"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Avg Duration */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Avg Duration</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-blue-600">
-                {formatDuration(aggregateStats.averageSessionDuration)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">per session</p>
-            </CardContent>
-          </Card>
-
-          {/* Avg Fields Populated */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Fields Populated</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-purple-600">
-                {aggregateStats.averageFieldsPopulated}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">per session</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Finished</div>
+            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+              {Math.round(aggregateStats.completionRate ?? 0)}%
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Avg. Time per Interview</div>
+            <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+              {formatDuration(aggregateStats.averageSessionDuration ?? 0)}
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Report Fields Filled</div>
+            <div className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+              {aggregateStats.averageFieldsPopulated ?? 0}
+            </div>
+          </div>
         </div>
       )}
 
