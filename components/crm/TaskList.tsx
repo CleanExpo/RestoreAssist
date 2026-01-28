@@ -16,7 +16,7 @@ interface CrmTask {
   id: string
   title: string
   description?: string
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE'
+  status: 'TODO' | 'IN_PROGRESS' | 'WAITING' | 'COMPLETED' | 'CANCELLED'
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   dueDate?: Date | string | null
   completedAt?: Date | string | null
@@ -28,7 +28,7 @@ interface CrmTask {
     id: string
     fullName: string
   }
-  user?: {
+  assignedTo?: {
     id: string
     name: string | null
     email: string | null
@@ -74,8 +74,11 @@ export function TaskList({
         return 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30'
       case 'IN_PROGRESS':
         return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30'
-      case 'OVERDUE':
+      case 'WAITING':
+        return 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30'
+      case 'CANCELLED':
         return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30'
+      case 'TODO':
       default:
         return 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/30'
     }
@@ -148,10 +151,11 @@ export function TaskList({
               className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm"
             >
               <option value="">All</option>
-              <option value="PENDING">Pending</option>
+              <option value="TODO">To Do</option>
               <option value="IN_PROGRESS">In Progress</option>
+              <option value="WAITING">Waiting</option>
               <option value="COMPLETED">Completed</option>
-              <option value="OVERDUE">Overdue</option>
+              <option value="CANCELLED">Cancelled</option>
             </select>
           </div>
 
@@ -275,13 +279,13 @@ export function TaskList({
                   )}
 
                   {/* Assignee */}
-                  {task.user && (
+                  {task.assignedTo && (
                     <div className="flex items-center gap-1.5">
                       <div className="w-5 h-5 rounded-full bg-cyan-500 text-white flex items-center justify-center text-[10px] font-semibold">
-                        {task.user.name?.[0] || task.user.email?.[0] || '?'}
+                        {task.assignedTo.name?.[0] || task.assignedTo.email?.[0] || '?'}
                       </div>
                       <span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[100px]">
-                        {task.user.name || task.user.email}
+                        {task.assignedTo.name || task.assignedTo.email}
                       </span>
                     </div>
                   )}
