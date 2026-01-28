@@ -140,6 +140,10 @@ export async function POST(request: NextRequest) {
         await handlePaymentIntentSucceeded(event)
         break
 
+      case "checkout.session.async_payment_succeeded":
+        await handleCheckoutSessionCompleted(event)
+        break
+
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(event)
         break
@@ -163,6 +167,11 @@ export async function POST(request: NextRequest) {
 async function handleCheckoutSessionCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session
 
+  // Handle invoice payments
+  if (session.mode === 'payment' && session.metadata?.type === 'invoice') {
+    await processInvoicePayment(session)
+  }
+
   // Handle add-on purchases (one-time payments)
   if (session.mode === 'payment' && session.metadata?.type === 'addon') {
     await processAddonPurchase(session)
@@ -172,6 +181,107 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
   if (session.mode === 'subscription') {
     await processSubscriptionCheckout(session)
   }
+}
+
+// Process invoice payment from checkout session
+async function processInvoicePayment(session: Stripe.Checkout.Session) {
+  const invoiceId = session.metadata?.invoiceId
+  const userId = session.metadata?.userId
+
+  if (!invoiceId) {
+    console.error('❌ INVOICE PAYMENT ERROR: No invoiceId in metadata')
+    return
+  }
+
+  const paymentIntentId = session.payment_intent as string | undefined
+
+  // Check if payment already processed
+  const existingPayment = paymentIntentId ? await prisma.invoicePayment.findUnique({
+    where: { stripePaymentIntentId: paymentIntentId }
+  }) : null
+
+  if (existingPayment) {
+    console.log('⚠️ INVOICE PAYMENT ALREADY PROCESSED (checkout session):', session.id)
+    return
+  }
+
+  // Get the invoice
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId }
+  })
+
+  if (!invoice) {
+    console.error('❌ INVOICE PAYMENT ERROR: Invoice not found:', invoiceId)
+    return
+  }
+
+  const amountPaid = session.amount_total || 0
+
+  // Create payment and update invoice in transaction
+  await prisma.$transaction(async (tx) => {
+    // Create payment record
+    const payment = await tx.invoicePayment.create({
+      data: {
+        amount: amountPaid,
+        paymentMethod: 'STRIPE',
+        paymentDate: new Date(),
+        stripePaymentIntentId: paymentIntentId,
+        stripeChargeId: session.payment_intent as string,
+        invoiceId: invoiceId,
+        userId: userId || invoice.userId,
+        reconciled: true
+      }
+    })
+
+    // Create payment allocation
+    await tx.invoicePaymentAllocation.create({
+      data: {
+        paymentId: payment.id,
+        invoiceId: invoiceId,
+        allocatedAmount: amountPaid
+      }
+    })
+
+    // Update invoice amounts
+    const newAmountPaid = invoice.amountPaid + amountPaid
+    const newAmountDue = invoice.totalIncGST - newAmountPaid
+
+    // Determine new status
+    let newStatus = invoice.status
+    if (newAmountDue === 0) {
+      newStatus = 'PAID'
+    } else if (newAmountPaid > 0 && newAmountDue > 0) {
+      newStatus = 'PARTIALLY_PAID'
+    }
+
+    await tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        amountPaid: newAmountPaid,
+        amountDue: newAmountDue,
+        status: newStatus,
+        paidDate: newAmountDue === 0 ? new Date() : invoice.paidDate
+      }
+    })
+
+    // Create audit log
+    await tx.invoiceAuditLog.create({
+      data: {
+        invoiceId: invoiceId,
+        userId: userId || invoice.userId,
+        action: 'payment_received',
+        description: `Online payment of $${(amountPaid / 100).toFixed(2)} received via Stripe`,
+        metadata: {
+          paymentId: payment.id,
+          stripeSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId,
+          amount: amountPaid
+        }
+      }
+    })
+  })
+
+  console.log(`✅ INVOICE PAYMENT PROCESSED: +$${(amountPaid / 100).toFixed(2)} for invoice ${invoice.invoiceNumber}`)
 }
 
 // Process add-on purchase from checkout session
@@ -561,10 +671,106 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   console.log(`✅ INVOICE PAYMENT SUCCEEDED for subscription ${invoice.subscription}`)
 }
 
-// Handler: payment_intent.succeeded (backup for add-ons)
+// Handler: payment_intent.succeeded (backup for add-ons and invoices)
 async function handlePaymentIntentSucceeded(event: Stripe.Event) {
   const paymentIntent = event.data.object as Stripe.PaymentIntent
 
+  // Handle invoice payments
+  if (paymentIntent.metadata?.type === 'invoice') {
+    const invoiceId = paymentIntent.metadata?.invoiceId
+    const userId = paymentIntent.metadata?.userId
+
+    if (!invoiceId) return
+
+    // Check for duplicate
+    const existingPayment = await prisma.invoicePayment.findUnique({
+      where: { stripePaymentIntentId: paymentIntent.id }
+    })
+
+    if (existingPayment) {
+      console.log('⚠️ INVOICE PAYMENT ALREADY PROCESSED (payment intent):', paymentIntent.id)
+      return
+    }
+
+    // Get the invoice
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId }
+    })
+
+    if (!invoice) {
+      console.error('❌ INVOICE PAYMENT ERROR: Invoice not found:', invoiceId)
+      return
+    }
+
+    const amountPaid = paymentIntent.amount
+
+    // Create payment and update invoice in transaction
+    await prisma.$transaction(async (tx) => {
+      // Create payment record
+      const payment = await tx.invoicePayment.create({
+        data: {
+          amount: amountPaid,
+          paymentMethod: 'STRIPE',
+          paymentDate: new Date(),
+          stripePaymentIntentId: paymentIntent.id,
+          invoiceId: invoiceId,
+          userId: userId || invoice.userId,
+          reconciled: true
+        }
+      })
+
+      // Create payment allocation
+      await tx.invoicePaymentAllocation.create({
+        data: {
+          paymentId: payment.id,
+          invoiceId: invoiceId,
+          allocatedAmount: amountPaid
+        }
+      })
+
+      // Update invoice amounts
+      const newAmountPaid = invoice.amountPaid + amountPaid
+      const newAmountDue = invoice.totalIncGST - newAmountPaid
+
+      // Determine new status
+      let newStatus = invoice.status
+      if (newAmountDue === 0) {
+        newStatus = 'PAID'
+      } else if (newAmountPaid > 0 && newAmountDue > 0) {
+        newStatus = 'PARTIALLY_PAID'
+      }
+
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          amountPaid: newAmountPaid,
+          amountDue: newAmountDue,
+          status: newStatus,
+          paidDate: newAmountDue === 0 ? new Date() : invoice.paidDate
+        }
+      })
+
+      // Create audit log
+      await tx.invoiceAuditLog.create({
+        data: {
+          invoiceId: invoiceId,
+          userId: userId || invoice.userId,
+          action: 'payment_received',
+          description: `Online payment of $${(amountPaid / 100).toFixed(2)} received via Stripe`,
+          metadata: {
+            paymentId: payment.id,
+            stripePaymentIntentId: paymentIntent.id,
+            amount: amountPaid
+          }
+        }
+      })
+    })
+
+    console.log(`✅ INVOICE PAYMENT PROCESSED (payment intent): +$${(amountPaid / 100).toFixed(2)} for invoice ${invoice.invoiceNumber}`)
+    return
+  }
+
+  // Handle add-on payments
   if (paymentIntent.metadata?.type !== 'addon') return
 
   const userId = paymentIntent.metadata?.userId
