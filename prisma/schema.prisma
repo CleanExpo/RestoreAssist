@@ -109,6 +109,7 @@ model User {
   scopes               Scope[]
   estimates            Estimate[]
   pricingConfig        CompanyPricingConfig?
+  contractorProfile    ContractorProfile?
   addonPurchases       AddonPurchase[]
   claimAnalysisBatches ClaimAnalysisBatch[]
   standardTemplates    StandardTemplate[]
@@ -206,6 +207,8 @@ model ClientUser {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  contractorReviews ContractorReview[]
+
   @@index([email])
   @@index([clientId])
 }
@@ -245,6 +248,142 @@ model ReportApproval {
 
   @@index([reportId, approvalType])
   @@index([status])
+}
+
+// Contractor Directory & Verification Models
+model ContractorProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Public Information
+  publicDescription     String?  @db.Text
+  yearsInBusiness       Int?
+  teamSize              Int?
+  insuranceCertificate  String?  // Cloudinary URL
+  isPubliclyVisible     Boolean  @default(true)
+  isVerified            Boolean  @default(false)
+  verifiedAt            DateTime?
+  verifiedBy            String?
+
+  // Service Information
+  specializations       String[]
+  servicesOffered       String?  @db.Text // JSON
+
+  // Cached Stats
+  averageRating         Float?   @default(0)
+  totalReviews          Int      @default(0)
+  responseRatePercent   Float?
+  averageResponseHours  Float?
+  completedJobs         Int      @default(0)
+
+  // SEO
+  searchKeywords        String[]
+  slug                  String   @unique
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  certifications        ContractorCertification[]
+  serviceAreas          ContractorServiceArea[]
+  reviews               ContractorReview[]
+
+  @@index([isPubliclyVisible, isVerified])
+  @@index([averageRating])
+  @@index([slug])
+}
+
+model ContractorCertification {
+  id                   String             @id @default(cuid())
+  profileId            String
+  profile              ContractorProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  certificationType    CertificationType
+  certificationName    String
+  issuingBody          String
+  certificationNumber  String?
+  issueDate            DateTime
+  expiryDate           DateTime?
+
+  verificationStatus   VerificationStatus @default(PENDING)
+  verifiedAt           DateTime?
+  verifiedBy           String?
+  verificationNotes    String?            @db.Text
+  documentUrl          String?
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([profileId, verificationStatus])
+  @@index([expiryDate])
+  @@index([certificationType])
+}
+
+model ContractorServiceArea {
+  id         String            @id @default(cuid())
+  profileId  String
+  profile    ContractorProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  postcode   String
+  suburb     String?
+  state      String
+  radius     Int?
+
+  isActive   Boolean           @default(true)
+  priority   Int               @default(0)
+
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@unique([profileId, postcode])
+  @@index([postcode, isActive])
+  @@index([state, isActive])
+}
+
+model ContractorReview {
+  id                    String                 @id @default(cuid())
+  profileId             String
+  profile               ContractorProfile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  clientUserId          String
+  clientUser            ClientUser             @relation(fields: [clientUserId], references: [id], onDelete: Cascade)
+  reportId              String?
+  report                Report?                @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  // Ratings
+  overallRating         Int
+  qualityRating         Int?
+  timelinessRating      Int?
+  communicationRating   Int?
+  valueRating           Int?
+
+  reviewTitle           String?
+  reviewText            String                 @db.Text
+
+  contractorResponse    String?                @db.Text
+  respondedAt           DateTime?
+
+  // Dispute
+  disputeStatus         ReviewDisputeStatus    @default(NONE)
+  disputeReason         String?                @db.Text
+  disputeSubmittedAt    DateTime?
+  disputeResolvedAt     DateTime?
+  disputeResolution     String?                @db.Text
+
+  status                ReviewStatus           @default(PUBLISHED)
+  isVerifiedJob         Boolean                @default(false)
+
+  helpfulCount          Int                    @default(0)
+  notHelpfulCount       Int                    @default(0)
+
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([profileId, status])
+  @@index([clientUserId])
+  @@index([reportId])
+  @@index([createdAt])
+  @@index([overallRating])
 }
 
 model Report {
@@ -437,6 +576,9 @@ model Report {
   // Client Portal - Approvals
   approvals ReportApproval[]
 
+  // Contractor Reviews
+  contractorReviews ContractorReview[]
+
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
@@ -524,6 +666,47 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   CHANGES_REQUESTED
+}
+
+enum CertificationType {
+  IICRC_WRT
+  IICRC_AMRT
+  IICRC_FSRT
+  IICRC_CCT
+  TRADE_PLUMBING
+  TRADE_ELECTRICAL
+  TRADE_BUILDING
+  TRADE_CARPENTRY
+  INSURANCE_PUBLIC_LIABILITY
+  INSURANCE_PROFESSIONAL_INDEMNITY
+  INSURANCE_WORKERS_COMP
+  BUSINESS_ABN_REGISTRATION
+  BUSINESS_GST_REGISTRATION
+  OTHER
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+  RENEWAL_NEEDED
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  DISPUTED
+  HIDDEN
+  REMOVED
+}
+
+enum ReviewDisputeStatus {
+  NONE
+  PENDING_REVIEW
+  UNDER_INVESTIGATION
+  RESOLVED_KEPT
+  RESOLVED_AMENDED
+  RESOLVED_REMOVED
 }
 
 model Integration {
