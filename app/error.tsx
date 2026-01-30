@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
 import { ErrorFallback } from '@/components/ErrorFallback'
 
 export default function RootError({
@@ -13,7 +12,6 @@ export default function RootError({
 }) {
   useEffect(() => {
     console.error('[RootError]', error)
-    Sentry.captureException(error)
   }, [error])
 
   return (
