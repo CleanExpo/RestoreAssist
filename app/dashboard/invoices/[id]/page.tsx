@@ -18,7 +18,8 @@ import {
   CreditCard,
   RefreshCw,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -130,6 +131,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [syncing, setSyncing] = useState(false)
   const [showSyncMenu, setShowSyncMenu] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -291,16 +294,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const handleDelete = async () => {
     if (!invoiceId || !invoice) return
 
-    if (!confirm(`Are you sure you want to delete invoice ${invoice.invoiceNumber}?`)) {
-      return
-    }
-
+    setDeleting(true)
     try {
       const response = await fetch(`/api/invoices/${invoiceId}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
+        setShowDeleteDialog(false)
         toast.success('Invoice deleted successfully')
         router.push('/dashboard/invoices')
       } else {
@@ -310,6 +311,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     } catch (error) {
       console.error('Failed to delete invoice:', error)
       toast.error('An error occurred while deleting the invoice')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -518,8 +521,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
           {canDelete && (
             <button
-              onClick={handleDelete}
+              onClick={() => setShowDeleteDialog(true)}
               className="p-2 hover:bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+              title="Delete invoice"
             >
               <Trash2 className="h-5 w-5" />
             </button>
@@ -943,6 +947,61 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete invoice confirmation dialog */}
+      {showDeleteDialog && invoice && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !deleting && setShowDeleteDialog(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="delete-dialog-title" className="text-xl font-semibold text-red-600 dark:text-red-400">Delete invoice</h2>
+              <button
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 mb-6">
+              Are you sure you want to delete invoice <strong className="text-slate-900 dark:text-white">{invoice.invoiceNumber}</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
