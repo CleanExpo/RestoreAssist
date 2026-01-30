@@ -4,10 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import {
   OUTSTANDING_STATUSES,
-  EXCLUDED_FROM_REVENUE,
   isDraft,
   isOutstanding,
-  isOverdueByDate,
+  isExcludedFromRevenue,
 } from '@/lib/invoice-status'
 
 export async function GET(request: NextRequest) {
