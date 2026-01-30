@@ -40,12 +40,13 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  // Stats
+  // Stats (amounts in cents from API)
   const [stats, setStats] = useState({
     totalRevenue: 0,
     outstanding: 0,
     overdue: 0,
-    paidThisMonth: 0
+    paidThisMonth: 0,
+    draftTotal: 0
   })
 
   useEffect(() => {
@@ -78,7 +79,13 @@ export default function InvoicesPage() {
     try {
       const res = await fetch('/api/invoices/analytics')
       const data = await res.json()
-      setStats(data.stats)
+      setStats({
+        totalRevenue: data.stats?.totalRevenue ?? 0,
+        outstanding: data.stats?.outstanding ?? 0,
+        overdue: data.stats?.overdue ?? 0,
+        paidThisMonth: data.stats?.paidThisMonth ?? 0,
+        draftTotal: data.stats?.draftTotal ?? 0
+      })
     } catch (error) {
       console.error('Failed to fetch stats:', error)
     }
@@ -118,8 +125,8 @@ export default function InvoicesPage() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      {/* Stats Cards (amounts in cents, divide by 100 for display) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/10 rounded-lg">
@@ -127,10 +134,26 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.totalRevenue / 100).toFixed(0)}
+                ${(stats.totalRevenue / 100).toFixed(2)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Total Revenue
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-slate-500/10 rounded-lg">
+              <FileText className="h-6 w-6 text-slate-500" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                ${(stats.draftTotal / 100).toFixed(2)}
+              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Drafts
               </div>
             </div>
           </div>
@@ -143,7 +166,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.outstanding / 100).toFixed(0)}
+                ${(stats.outstanding / 100).toFixed(2)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Outstanding
@@ -159,7 +182,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.overdue / 100).toFixed(0)}
+                ${(stats.overdue / 100).toFixed(2)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Overdue
@@ -175,7 +198,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.paidThisMonth / 100).toFixed(0)}
+                ${(stats.paidThisMonth / 100).toFixed(2)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Paid This Month
