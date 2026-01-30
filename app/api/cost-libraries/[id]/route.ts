@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(
   request: NextRequest,
@@ -59,7 +60,10 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { name, region, description, isDefault } = body
+    const name = sanitizeString(body.name, 200)
+    const region = sanitizeString(body.region, 200)
+    const description = sanitizeString(body.description, 1000)
+    const isDefault = body.isDefault
 
     if (!name || !region) {
       return NextResponse.json({ error: "Name and region are required" }, { status: 400 })

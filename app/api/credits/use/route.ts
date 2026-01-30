@@ -3,14 +3,19 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getEffectiveSubscription, getOrganizationOwner } from "@/lib/organization-credits"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 30 credit operations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 30, prefix: "credits-use", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const { credits = 1 } = await request.json()
 

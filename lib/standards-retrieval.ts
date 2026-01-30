@@ -10,6 +10,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { listDriveItems, downloadDriveFile, searchDriveFiles, getStandardsFolderId, DriveFile } from './google-drive'
 import { extractTextFromPDF, extractTextFromDOCX, extractTextFromTXT } from './file-extraction'
+import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
 
 export interface StandardsContext {
   documents: Array<{
@@ -241,10 +242,11 @@ Focus on extracting:
 
 Be thorough but precise. Each extracted section should be directly usable in the report generation.`
 
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
-      system: systemPrompt,
+      system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
           role: 'user',
@@ -252,6 +254,10 @@ Be thorough but precise. Each extracted section should be directly usable in the
         }
       ]
     })
+
+    // Log cache metrics
+    const metrics = extractCacheMetrics(response)
+    logCacheMetrics('StandardsRetrieval', metrics, response.id)
 
     if (response.content[0].type === 'text') {
       const extractedText = response.content[0].text
@@ -337,10 +343,11 @@ Analyse this folder structure and identify the most relevant standards documents
 4. Australian building codes and regulations
 5. IICRC standard references and citations`
 
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
-      system: systemPrompt,
+      system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
           role: 'user',
@@ -348,6 +355,10 @@ Analyse this folder structure and identify the most relevant standards documents
         }
       ]
     })
+
+    // Log cache metrics
+    const metrics = extractCacheMetrics(response)
+    logCacheMetrics('StandardsFolder Analysis', metrics, response.id)
 
     if (response.content[0].type === 'text') {
       const analysisText = response.content[0].text

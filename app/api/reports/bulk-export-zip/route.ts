@@ -10,17 +10,26 @@ import {
 } from '@/lib/bulk-operations'
 import { format } from 'date-fns'
 
-// Helper: Generate PDF for a report
-// This reuses the existing PDF generation logic
+// Helper: Generate PDF for a report by calling the internal download endpoint
 async function generateReportPDF(reportId: string): Promise<Buffer | null> {
   try {
-    // Call the existing PDF generation endpoint or service
-    // For now, we'll create a placeholder - you should integrate with your PDF service
-    // This would typically call puppeteer or another PDF service
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    // Placeholder: Return a dummy PDF for now
-    // In production, call: GET /api/reports/[id]/download with PDF type
-    return Buffer.from('PDF placeholder')
+    // Call the existing PDF generation endpoint internally
+    const response = await fetch(`${baseUrl}/api/reports/${reportId}/download?type=summary`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      console.error(`Failed to generate PDF for report ${reportId}: ${response.status}`)
+      return null
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    return Buffer.from(arrayBuffer)
   } catch (error) {
     console.error(`Error generating PDF for report ${reportId}:`, error)
     return null
@@ -123,8 +132,7 @@ export async function POST(request: NextRequest) {
       const batchResults = await Promise.allSettled(
         batch.map(async report => {
           try {
-            // TODO: Call your actual PDF generation function
-            // For now, returning placeholder
+            // Generate PDF using the internal download endpoint
             const pdfBuffer = await generateReportPDF(report.id)
 
             if (!pdfBuffer) {

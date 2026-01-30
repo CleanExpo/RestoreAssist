@@ -257,9 +257,9 @@ body {
     background: white !important;
   }
 
-  /* Hide buttons and footer in print */
+  /* Hide buttons and footer in print (Tailwind print:hidden class) */
   button,
-  .print\\:hidden {
+  [class*="print:hidden"] {
     display: none !important;
   }
 

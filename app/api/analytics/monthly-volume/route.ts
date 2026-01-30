@@ -3,10 +3,15 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-/**
- * GET /api/analytics/monthly-volume
- * Returns monthly report volume data for chart visualization
- */
+interface MonthlyData {
+  month: string
+  monthLabel: string
+  reports: number
+  revenue: number
+  completed: number
+  pending: number
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,7 +24,7 @@ export async function GET(request: NextRequest) {
     const months = parseInt(searchParams.get("months") || "12")
     const userIdParam = searchParams.get("userId")
 
-    // Determine target user (same logic as other analytics endpoints)
+    // Validate user access for team member analytics
     let targetUserId = session.user.id
     if (userIdParam && userIdParam !== session.user.id) {
       const isAdmin = session.user.role === "ADMIN"
@@ -34,7 +39,7 @@ export async function GET(request: NextRequest) {
 
       const currentUser = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { organizationId: true, role: true },
+        select: { organizationId: true }
       })
 
       if (!currentUser?.organizationId) {
@@ -46,19 +51,12 @@ export async function GET(request: NextRequest) {
 
       const targetUser = await prisma.user.findUnique({
         where: { id: userIdParam },
-        select: { id: true, organizationId: true, role: true },
+        select: { id: true, organizationId: true, role: true }
       })
 
       if (!targetUser || targetUser.organizationId !== currentUser.organizationId) {
         return NextResponse.json(
           { error: "User not found or not in your organization" },
-          { status: 403 }
-        )
-      }
-
-      if (isAdmin && targetUser.role === "ADMIN" && targetUser.id !== session.user.id) {
-        return NextResponse.json(
-          { error: "Cannot view other Admin accounts" },
           { status: 403 }
         )
       }
@@ -76,7 +74,6 @@ export async function GET(request: NextRequest) {
     // Calculate date range
     const now = new Date()
     const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1)
-    startDate.setHours(0, 0, 0, 0)
 
     // Fetch reports grouped by month
     const reports = await prisma.report.findMany({
@@ -90,63 +87,101 @@ export async function GET(request: NextRequest) {
         id: true,
         createdAt: true,
         status: true,
-        completionDate: true,
+        totalEstimate: true,
       },
       orderBy: { createdAt: "asc" },
     })
 
     // Group by month
-    const monthlyData = new Map<string, { total: number; completed: number }>()
+    const monthlyMap = new Map<string, MonthlyData>()
 
-    // Initialize all months in range
+    // Initialize all months
     for (let i = 0; i < months; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-      monthlyData.set(monthKey, { total: 0, completed: 0 })
+      const date = new Date(now.getFullYear(), now.getMonth() - months + 1 + i, 1)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const monthLabel = date.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+
+      monthlyMap.set(monthKey, {
+        month: monthKey,
+        monthLabel,
+        reports: 0,
+        revenue: 0,
+        completed: 0,
+        pending: 0,
+      })
     }
 
-    // Count reports by month
+    // Aggregate report data
     reports.forEach((report) => {
-      const reportDate = new Date(report.createdAt)
-      const monthKey = `${reportDate.getFullYear()}-${String(reportDate.getMonth() + 1).padStart(2, "0")}`
+      const date = new Date(report.createdAt)
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 
-      const existing = monthlyData.get(monthKey) || { total: 0, completed: 0 }
-      existing.total++
-      if (report.status === "COMPLETED" || report.status === "APPROVED" || report.completionDate) {
-        existing.completed++
+      const data = monthlyMap.get(monthKey)
+      if (data) {
+        data.reports += 1
+        data.revenue += report.totalEstimate || 0
+
+        if (report.status === 'COMPLETED' || report.status === 'APPROVED') {
+          data.completed += 1
+        } else {
+          data.pending += 1
+        }
       }
-      monthlyData.set(monthKey, existing)
     })
 
-    // Convert to array format for chart
-    const chartData = Array.from(monthlyData.entries())
-      .map(([monthKey, data]) => {
-        const [year, month] = monthKey.split("-")
-        const date = new Date(parseInt(year), parseInt(month) - 1, 1)
-        return {
-          month: date.toLocaleDateString("en-AU", { month: "short", year: "numeric" }),
-          monthKey,
-          total: data.total,
-          completed: data.completed,
-          inProgress: data.total - data.completed,
-        }
-      })
-      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+    // Convert to array and sort
+    const monthlyData = Array.from(monthlyMap.values())
+      .sort((a, b) => a.month.localeCompare(b.month))
 
-    // Calculate totals
-    const totalReports = reports.length
-    const totalCompleted = reports.filter(
-      (r) => r.status === "COMPLETED" || r.status === "APPROVED" || r.completionDate
-    ).length
-    const completionRate = totalReports > 0 ? Math.round((totalCompleted / totalReports) * 100) : 0
+    // Calculate trends
+    const totalReports = monthlyData.reduce((sum, m) => sum + m.reports, 0)
+    const totalRevenue = monthlyData.reduce((sum, m) => sum + m.revenue, 0)
+    const avgMonthlyReports = totalReports / months
+    const avgMonthlyRevenue = totalRevenue / months
+
+    // Calculate growth (compare last 3 months to previous 3 months)
+    const recentMonths = monthlyData.slice(-3)
+    const previousMonths = monthlyData.slice(-6, -3)
+
+    const recentTotal = recentMonths.reduce((sum, m) => sum + m.reports, 0)
+    const previousTotal = previousMonths.reduce((sum, m) => sum + m.reports, 0)
+
+    let growthRate = 0
+    if (previousTotal > 0) {
+      growthRate = ((recentTotal - previousTotal) / previousTotal) * 100
+    }
+
+    // Find best and worst months
+    const sortedByReports = [...monthlyData].sort((a, b) => b.reports - a.reports)
+    const bestMonth = sortedByReports[0]
+    const worstMonth = sortedByReports[sortedByReports.length - 1]
+
+    // Year-to-date
+    const currentYear = now.getFullYear()
+    const ytdData = monthlyData.filter(m => m.month.startsWith(String(currentYear)))
+    const ytdReports = ytdData.reduce((sum, m) => sum + m.reports, 0)
+    const ytdRevenue = ytdData.reduce((sum, m) => sum + m.revenue, 0)
 
     return NextResponse.json({
-      data: chartData,
+      monthlyData,
       summary: {
         totalReports,
-        totalCompleted,
-        completionRate,
-        averagePerMonth: Math.round(totalReports / months),
+        totalRevenue,
+        avgMonthlyReports: Math.round(avgMonthlyReports * 10) / 10,
+        avgMonthlyRevenue: Math.round(avgMonthlyRevenue),
+        growthRate: Math.round(growthRate * 10) / 10,
+        bestMonth: bestMonth ? {
+          label: bestMonth.monthLabel,
+          reports: bestMonth.reports,
+        } : null,
+        worstMonth: worstMonth ? {
+          label: worstMonth.monthLabel,
+          reports: worstMonth.reports,
+        } : null,
+        ytd: {
+          reports: ytdReports,
+          revenue: ytdRevenue,
+        },
       },
     })
   } catch (error) {

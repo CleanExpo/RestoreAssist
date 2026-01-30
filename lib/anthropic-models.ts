@@ -1,9 +1,14 @@
 /**
  * Anthropic Claude Model Selection Utility
- * 
+ *
  * This utility provides a function to try multiple Claude models with fallback logic.
  * It attempts models in order until one succeeds, handling deprecated/404 errors gracefully.
+ *
+ * Supports prompt caching for cost optimization (90% savings on cache hits).
  */
+
+import Anthropic from '@anthropic-ai/sdk'
+import { extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
 
 export interface ModelConfig {
   name: string
@@ -12,11 +17,16 @@ export interface ModelConfig {
 
 /**
  * Get list of Claude models to try, ordered by preference
- * We try stable known-working models first, then newer ones
+ * We try the latest models first, then fall back to stable versions
  */
 export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
   return [
-    // Use stable, widely-available models first to avoid 404s
+    // Latest Claude 4.5 models (2025)
+    { name: 'claude-sonnet-4-5-20250929', maxTokens }, // Latest Sonnet 4.5
+    { name: 'claude-opus-4-5-20251101', maxTokens }, // Latest Opus 4.5
+
+    // Stable Claude 3.x fallbacks
+    { name: 'claude-3-5-sonnet-20241022', maxTokens }, // Claude 3.5 Sonnet
     { name: 'claude-3-sonnet-20240229', maxTokens }, // Stable 3.0 Sonnet
     { name: 'claude-3-opus-20240229', maxTokens: Math.min(maxTokens, 4096) }, // Stable 3.0 Opus
     { name: 'claude-3-haiku-20240307', maxTokens }, // Fast, highly available
@@ -28,29 +38,57 @@ export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
  * @param anthropicClient - Initialized Anthropic client
  * @param requestConfig - Request configuration (system, messages, max_tokens)
  * @param models - Optional list of models to try (defaults to getClaudeModels())
+ * @param options - Optional configuration (agentName for metrics, enableCacheMetrics)
  * @returns The successful response
  * @throws Error if all models fail
  */
 export async function tryClaudeModels(
   anthropicClient: any,
   requestConfig: {
-    system?: string
+    system?: string | Anthropic.Messages.TextBlockParam[]
     messages: any[]
     max_tokens?: number
+    temperature?: number
+    top_p?: number
+    top_k?: number
   },
-  models?: ModelConfig[]
+  models?: ModelConfig[],
+  options?: {
+    agentName?: string
+    enableCacheMetrics?: boolean
+  }
 ): Promise<any> {
   const modelsToTry = models || getClaudeModels(requestConfig.max_tokens || 8000)
   let lastError: any = null
 
   for (const modelConfig of modelsToTry) {
     try {
-      const response = await anthropicClient.messages.create({
+      const createParams: Anthropic.Messages.MessageCreateParams = {
         model: modelConfig.name,
         max_tokens: modelConfig.maxTokens,
         system: requestConfig.system,
         messages: requestConfig.messages,
-      })
+      }
+
+      // Add optional parameters
+      if (requestConfig.temperature !== undefined) {
+        createParams.temperature = requestConfig.temperature
+      }
+      if (requestConfig.top_p !== undefined) {
+        createParams.top_p = requestConfig.top_p
+      }
+      if (requestConfig.top_k !== undefined) {
+        createParams.top_k = requestConfig.top_k
+      }
+
+      const response = await anthropicClient.messages.create(createParams)
+
+      // Log cache metrics if enabled
+      if (options?.enableCacheMetrics && options?.agentName) {
+        const metrics = extractCacheMetrics(response)
+        logCacheMetrics(options.agentName, metrics, response.id)
+      }
+
       return response
     } catch (error: any) {
       lastError = error

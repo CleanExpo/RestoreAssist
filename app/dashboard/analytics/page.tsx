@@ -54,35 +54,6 @@ interface CompletionData {
   trend: "improving" | "stable" | "declining"
 }
 
-interface MonthlyVolumeData {
-  data: Array<{ month: string; monthKey: string; total: number; completed: number; inProgress: number }>
-  summary: {
-    totalReports: number
-    totalCompleted: number
-    completionRate: number
-    averagePerMonth: number
-  }
-}
-
-interface BillingOverviewData {
-  summary: {
-    totalRevenue: number
-    totalReports: number
-    averageRevenuePerReport: number
-    averageRevenuePerMonth: number
-  }
-  chartData: Array<{ month: string; monthKey: string; revenue: number; reports: number }>
-  revenueByRole: Array<{ role: string; revenue: number; reports: number }>
-  topGenerators: Array<{
-    userId: string
-    userName: string
-    userEmail: string
-    userRole: string
-    revenue: number
-    reports: number
-  }>
-}
-
 interface ActivityFeedData {
   activities: Array<{
     id: string
@@ -103,8 +74,6 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [projectionData, setProjectionData] = useState<ProjectionData | null>(null)
   const [completionData, setCompletionData] = useState<CompletionData | null>(null)
-  const [monthlyVolumeData, setMonthlyVolumeData] = useState<MonthlyVolumeData | null>(null)
-  const [billingData, setBillingData] = useState<BillingOverviewData | null>(null)
   const [activityFeedData, setActivityFeedData] = useState<ActivityFeedData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -206,31 +175,16 @@ export default function AnalyticsPage() {
         completionUrl.searchParams.set("dateRange", filters.dateRange)
         if (filters.userId) completionUrl.searchParams.set("userId", filters.userId)
 
-        const monthlyVolumeUrl = new URL("/api/analytics/monthly-volume", window.location.origin)
-        monthlyVolumeUrl.searchParams.set("months", "12")
-        if (filters.userId) monthlyVolumeUrl.searchParams.set("userId", filters.userId)
-
         const activityFeedUrl = new URL("/api/analytics/activity-feed", window.location.origin)
         activityFeedUrl.searchParams.set("limit", "50")
         if (filters.userId) activityFeedUrl.searchParams.set("userId", filters.userId)
 
-        const billingUrl = new URL("/api/analytics/billing-overview", window.location.origin)
-        billingUrl.searchParams.set("months", "12")
-
-        const fetchPromises: Promise<Response>[] = [
+        const [analyticsRes, projectionsRes, completionRes, activityFeedRes] = await Promise.all([
           fetch(analyticsUrl),
           fetch(projectionsUrl),
           fetch(completionUrl),
-          fetch(monthlyVolumeUrl),
           fetch(activityFeedUrl),
-        ]
-
-        if (isAdmin) {
-          fetchPromises.push(fetch(billingUrl))
-        }
-
-        const results = await Promise.all(fetchPromises)
-        const [analyticsRes, projectionsRes, completionRes, monthlyVolumeRes, activityFeedRes, billingRes] = results
+        ])
 
         if (!analyticsRes.ok) throw new Error("Failed to load analytics")
 
@@ -247,19 +201,9 @@ export default function AnalyticsPage() {
           setCompletionData(completionJson)
         }
 
-        if (monthlyVolumeRes.ok) {
-          const monthlyVolumeJson = await monthlyVolumeRes.json()
-          setMonthlyVolumeData(monthlyVolumeJson)
-        }
-
         if (activityFeedRes.ok) {
           const activityFeedJson = await activityFeedRes.json()
           setActivityFeedData(activityFeedJson)
-        }
-
-        if (isAdmin && billingRes && billingRes.ok) {
-          const billingJson = await billingRes.json()
-          setBillingData(billingJson)
         }
       } catch (err) {
         console.error("Error fetching analytics:", err)
@@ -446,6 +390,15 @@ export default function AnalyticsPage() {
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-100">
               <KPICards data={data?.kpis || null} />
             </div>
+
+            {/* Billing Overview (Admin Only) */}
+            {session?.user?.role === "ADMIN" && (
+              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-150">
+                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-emerald-500/30")}>
+                  <BillingOverview />
+                </div>
+              </div>
+            )}
 
             {/* Main Revenue Chart with Enhanced Styling */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
@@ -640,6 +593,13 @@ export default function AnalyticsPage() {
               )}
             </div>
 
+            {/* Monthly Volume Chart */}
+            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-550">
+              <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-cyan-500/30")}>
+                <MonthlyVolumeChart userId={filters.userId} months={12} />
+              </div>
+            </div>
+
             {/* Completion Metrics - Full Width */}
             {completionData && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-600">
@@ -654,28 +614,11 @@ export default function AnalyticsPage() {
               </div>
             )}
 
-            {/* Monthly Report Volume Chart - Full Width */}
-            {monthlyVolumeData && (
+            {/* Billing Overview - Admin Only (fetches its own data) */}
+            {isAdmin && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-700">
-                <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-blue-500/30")}>
-                  <MonthlyVolumeChart
-                    data={monthlyVolumeData.data}
-                    summary={monthlyVolumeData.summary}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Billing Overview - Admin Only */}
-            {isAdmin && billingData && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 delay-800">
                 <div className={cn("backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden", "bg-white/50 dark:bg-slate-800/50", "border border-neutral-200 dark:border-slate-700/50", "hover:border-emerald-500/30")}>
-                  <BillingOverview
-                    summary={billingData.summary}
-                    chartData={billingData.chartData}
-                    revenueByRole={billingData.revenueByRole}
-                    topGenerators={billingData.topGenerators}
-                  />
+                  <BillingOverview />
                 </div>
               </div>
             )}

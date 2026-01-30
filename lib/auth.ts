@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import { logSecurityEvent } from '@/lib/security-audit'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -14,14 +15,15 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
     CredentialsProvider({
-      name: "credentials",
+      id: "contractor-credentials",
+      name: "contractor-credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email) {
-          console.log('[Credentials] No email provided')
+          console.log('[Contractor Credentials] No email provided')
           return null
         }
 
@@ -36,23 +38,36 @@ export const authOptions: NextAuthOptions = {
             image: true,
             role: true,
             password: true,
-            mustChangePassword: true
+            mustChangePassword: true,
+            organizationId: true
           }
         })
 
         if (!user) {
-          console.log('[Credentials] User not found:', credentials.email)
+          console.log('[Contractor Credentials] User not found:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            email: credentials.email,
+            details: { reason: 'user_not_found' },
+          }).catch(() => {})
           return null
         }
 
         // Handle Google users (no password provided or empty string)
         // Check if password is missing, empty string, or undefined
         const isPasswordEmpty = !credentials.password || credentials.password.trim() === ''
-        
+
         if (isPasswordEmpty) {
           // Check if user was created via Google (no password set in DB)
           if (!user.password) {
-            console.log('[Credentials] Google user authenticated:', credentials.email)
+            console.log('[Contractor Credentials] Google user authenticated:', credentials.email)
+            logSecurityEvent({
+              eventType: 'LOGIN_SUCCESS',
+              userId: user.id,
+              email: user.email!,
+              details: { method: 'google_passthrough' },
+            }).catch(() => {})
             return {
               id: user.id,
               email: user.email,
@@ -60,16 +75,18 @@ export const authOptions: NextAuthOptions = {
               image: user.image,
               role: user.role,
               mustChangePassword: user.mustChangePassword || false,
+              organizationId: user.organizationId || null,
+              userType: 'contractor',
             }
           }
           // User has password but none provided - invalid
-          console.log('[Credentials] Password required for user:', credentials.email)
+          console.log('[Contractor Credentials] Password required for user:', credentials.email)
           return null
         }
 
         // Regular password check for email/password users
         if (!user.password) {
-          console.log('[Credentials] User has no password but password was provided:', credentials.email)
+          console.log('[Contractor Credentials] User has no password but password was provided:', credentials.email)
           return null
         }
 
@@ -79,11 +96,23 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
-          console.log('[Credentials] Invalid password for user:', credentials.email)
+          console.log('[Contractor Credentials] Invalid password for user:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            userId: user.id,
+            email: credentials.email,
+            details: { reason: 'invalid_password' },
+          }).catch(() => {})
           return null
         }
 
-        console.log('[Credentials] User authenticated successfully:', credentials.email)
+        console.log('[Contractor Credentials] User authenticated successfully:', credentials.email)
+        logSecurityEvent({
+          eventType: 'LOGIN_SUCCESS',
+          userId: user.id,
+          email: user.email!,
+        }).catch(() => {})
         return {
           id: user.id,
           email: user.email,
@@ -91,6 +120,94 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           role: user.role,
           mustChangePassword: user.mustChangePassword || false,
+          organizationId: user.organizationId || null,
+          userType: 'contractor',
+        }
+      }
+    }),
+    CredentialsProvider({
+      id: "client-credentials",
+      name: "client-credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          console.log('[Client Credentials] Missing email or password')
+          return null
+        }
+
+        const clientUser = await prisma.clientUser.findUnique({
+          where: {
+            email: credentials.email
+          },
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userId: true, // Contractor who owns this client
+              }
+            }
+          }
+        })
+
+        if (!clientUser) {
+          console.log('[Client Credentials] Client user not found:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            email: credentials.email,
+            details: { reason: 'client_user_not_found', userType: 'client' },
+          }).catch(() => {})
+          return null
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          clientUser.passwordHash
+        )
+
+        if (!isPasswordValid) {
+          console.log('[Client Credentials] Invalid password for client:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            userId: clientUser.id,
+            email: credentials.email,
+            details: { reason: 'invalid_password', userType: 'client' },
+          }).catch(() => {})
+          return null
+        }
+
+        console.log('[Client Credentials] Client authenticated successfully:', credentials.email)
+
+        // Update last login time
+        await prisma.clientUser.update({
+          where: { id: clientUser.id },
+          data: { lastLoginAt: new Date() }
+        }).catch(() => {})
+
+        logSecurityEvent({
+          eventType: 'LOGIN_SUCCESS',
+          userId: clientUser.id,
+          email: clientUser.email,
+          details: { userType: 'client', clientId: clientUser.clientId },
+        }).catch(() => {})
+
+        return {
+          id: clientUser.id,
+          email: clientUser.email,
+          name: clientUser.name,
+          image: null,
+          role: 'CLIENT',
+          mustChangePassword: clientUser.mustChangePassword || false,
+          organizationId: null,
+          userType: 'client',
+          clientId: clientUser.clientId,
+          contractorId: clientUser.client.userId, // The contractor who owns this client
         }
       }
     })
@@ -102,7 +219,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role
-        token.mustChangePassword = (user as any).mustChangePassword || false
+        token.mustChangePassword = user.mustChangePassword || false
+        token.organizationId = user.organizationId || null
+        token.userType = user.userType || 'contractor'
+        token.clientId = user.clientId || null
+        token.contractorId = user.contractorId || null
       }
       return token
     },
@@ -111,6 +232,10 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub!
         session.user.role = token.role as string
         session.user.mustChangePassword = (token.mustChangePassword as boolean) || false
+        session.user.organizationId = (token.organizationId as string) || null
+        session.user.userType = (token.userType as string) || 'contractor'
+        session.user.clientId = (token.clientId as string) || null
+        session.user.contractorId = (token.contractorId as string) || null
       }
       return session
     },

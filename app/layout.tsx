@@ -4,17 +4,49 @@ import { Inter } from "next/font/google"
 import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
+import { OrganizationSchema } from "@/components/seo/JsonLd"
 import "@/lib/env-check"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Restore Assist - Professional Restoration Reports",
+  title: {
+    default: "Restore Assist - Professional Restoration Reports",
+    template: "%s | Restore Assist",
+  },
   description:
     "Generate comprehensive, legally defensible inspection reports and cost estimates for property restoration claims backed by IICRC standards and Australian compliance.",
-  keywords: "restoration, reports, IICRC, compliance, property damage, insurance",
-  generator: "v0.app",
+  keywords: [
+    "restoration reports",
+    "IICRC compliance",
+    "property damage assessment",
+    "insurance claims",
+    "water damage restoration",
+    "cost estimation",
+    "inspection reports",
+    "Australian building standards",
+  ],
+  authors: [{ name: "Restore Assist" }],
+  openGraph: {
+    title: "Restore Assist - Professional Restoration Reports",
+    description:
+      "Generate comprehensive, legally defensible inspection reports backed by IICRC standards.",
+    type: "website",
+    locale: "en_AU",
+    siteName: "Restore Assist",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Restore Assist",
+    description:
+      "Professional restoration reports backed by IICRC standards and Australian compliance.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://restoreassist.com.au"),
 }
 
 export default function RootLayout({
@@ -25,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <OrganizationSchema />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

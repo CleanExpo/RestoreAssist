@@ -30,3 +30,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /lib/generated/prisma
+
+.vercel
+storybook-static/
+nul
+
+# Playwright E2E testing
+/playwright-report/
+/test-results/
+.playwright/

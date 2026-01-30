@@ -3,16 +3,21 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { callAIProvider } from "@/lib/ai-provider"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user || !(session.user as any).id) {
+    if (!session?.user || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = (session.user as any).id
+    const userId = session.user.id
+
+    // Rate limit: 60 chat history fetches per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 60, prefix: "chatbot-get", key: userId })
+    if (rateLimited) return rateLimited
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get("limit") || "50")
 
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ messages: [] })
       }
       
-      chatMessages = await (prisma as any).chatMessage.findMany({
+      chatMessages = await prisma.chatMessage.findMany({
         where: {
           userId,
         },
@@ -63,9 +68,13 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user || !(session.user as any).id) {
+    if (!session?.user || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 20 AI chat messages per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "chatbot", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { messages } = body
@@ -227,7 +236,7 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
 
     // Save messages to database
     try {
-      const userId = (session.user as any).id
+      const userId = session.user.id
       
       // Check if chatMessage model exists on prisma client
       if (!('chatMessage' in prisma)) {
@@ -235,7 +244,7 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
         // Continue without saving - don't fail the request
       } else {
         // Save user message
-        await (prisma as any).chatMessage.create({
+        await prisma.chatMessage.create({
           data: {
             userId,
             role: "user",
@@ -244,7 +253,7 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
         })
 
         // Save assistant response
-        await (prisma as any).chatMessage.create({
+        await prisma.chatMessage.create({
           data: {
             userId,
             role: "assistant",

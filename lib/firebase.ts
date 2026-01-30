@@ -17,13 +17,19 @@ async function initializeFirebase() {
     const { getAuth } = firebaseAuthModule
 
     const firebaseConfig = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBz8AI-2dLK4z36II9CnLaUj_exVSv3sz4",
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "restore-assist.firebaseapp.com",
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "restore-assist",
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "restore-assist.firebasestorage.app",
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "901429819918",
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:901429819918:web:adb4f3ec75be15a1345a5f",
-      measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-WNRVB9K2X8"
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+    }
+
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+      throw new Error(
+        'Firebase configuration is incomplete. Set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variables.'
+      )
     }
 
     if (getApps().length === 0) {

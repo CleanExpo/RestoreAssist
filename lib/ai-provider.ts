@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { prisma } from './prisma'
 import { tryClaudeModels } from './anthropic-models'
 import { getOrganizationOwner } from './organization-credits'
+import { createCachedSystemPrompt } from './anthropic/features/prompt-cache'
 
 export type AIProvider = 'anthropic' | 'openai' | 'gemini'
 
@@ -188,12 +189,18 @@ export async function callAIProvider(
       ]
 
       // Use tryClaudeModels for automatic fallback to working models
+      // Use prompt caching for cost optimization (90% savings on cache hits)
       const response = await tryClaudeModels(
         anthropic,
         {
-          system,
+          system: system ? [createCachedSystemPrompt(system)] : undefined,
           messages,
           max_tokens: maxTokens
+        },
+        undefined, // use default models
+        {
+          agentName: 'AIProvider',
+          enableCacheMetrics: true
         }
       )
       

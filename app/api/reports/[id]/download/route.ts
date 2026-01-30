@@ -6,6 +6,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import fs from "fs/promises"
 import path from "path"
 import Anthropic from "@anthropic-ai/sdk"
+import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
 
 export async function GET(
   request: NextRequest,
@@ -278,21 +279,28 @@ export async function GET(
           apiKey: process.env.ANTHROPIC_API_KEY
         })
         
+        // Use prompt caching for cost optimization (90% savings on cache hits)
         const message = await tryClaudeModels(
           anthropicClient,
           {
+          system: [createCachedSystemPrompt('You are a professional water damage restoration report writer generating concise executive summaries. Create factual, evidence-based summaries (5-8 sentences) that are audit-ready and use Australian context.')],
           max_tokens: 400,
           temperature: 0.2,
           messages: [
             {
               role: "user",
-              content: `You are generating a concise, professional executive summary (5-8 sentences) for a water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration). Keep it factual, evidence-based, and audit-ready. Use Australian context.
+              content: `Generate a concise executive summary for this water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration).
 
 Report: ${JSON.stringify(parsedReport)}
 Scope: ${JSON.stringify(scope)}
 Estimate: ${JSON.stringify(estimate)}`,
             },
           ],
+        },
+        undefined, // use default models
+        {
+          agentName: 'ExecutiveSummaryGenerator',
+          enableCacheMetrics: true
         }
         )
         

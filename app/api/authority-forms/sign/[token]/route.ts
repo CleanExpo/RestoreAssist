@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 /**
  * GET /api/authority-forms/sign/:token
@@ -11,6 +12,10 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // Rate limit: 20 requests per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "form-sign" })
+    if (rateLimited) return rateLimited
+
     const { token } = await params
 
     if (!token) {
@@ -97,6 +102,10 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // Rate limit: 10 submissions per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "form-sign-submit" })
+    if (rateLimited) return rateLimited
+
     const { token } = await params
     const body = await request.json()
     const { signatureData, signatoryName } = body

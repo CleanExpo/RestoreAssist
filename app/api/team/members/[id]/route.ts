@@ -12,6 +12,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -79,11 +82,6 @@ export async function DELETE(
       )
     }
 
-    console.log("🗑️ [TEAM] Removing team member...")
-    console.log("🗑️ [TEAM] Remover ID:", session.user.id)
-    console.log("🗑️ [TEAM] Member to remove:", memberToRemove.id)
-    console.log("🗑️ [TEAM] Member email:", memberToRemove.email)
-    console.log("🗑️ [TEAM] Member role:", memberToRemove.role)
 
     // Remove member from organization (soft remove - set organizationId to null)
     // This allows the user account to remain but removes them from the team
@@ -95,7 +93,6 @@ export async function DELETE(
       }
     })
 
-    console.log("✅ [TEAM] Member removed successfully")
 
     return NextResponse.json({
       message: `${memberToRemove.name || memberToRemove.email} has been removed from the team`,

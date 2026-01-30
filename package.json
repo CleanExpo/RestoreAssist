@@ -9,13 +9,17 @@
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && next build --webpack",
     "dev": "next dev",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
@@ -84,7 +88,7 @@
     "jspdf": "^3.0.4",
     "lucide-react": "^0.454.0",
     "mammoth": "^1.11.0",
-    "next": "15.0.0",
+    "next": "16.1.5",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
     "nodemailer": "^7.0.10",
@@ -112,15 +116,16 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.9",
+    "@playwright/test": "^1.58.0",
+    "@tailwindcss/postcss": "4.1.9",
     "@types/archiver": "^6.0.2",
     "@types/jspdf": "^1.3.3",
-    "@types/node": "^22",
+    "@types/node": "^22.19.7",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "prisma": "^6.1.0",
-    "tailwindcss": "^4.1.9",
+    "tailwindcss": "4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
   }

@@ -1,14 +1,58 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
+import { sanitizeString } from "@/lib/sanitize"
+import { validateCsrf } from "@/lib/csrf"
+import { sendWelcomeEmail } from "@/lib/email"
+import { notifyWelcome } from "@/lib/notifications"
+import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
+
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, signupType, inviteToken } = await request.json()
+    // CSRF validation
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
+    // Rate limit: 5 registrations per 15 minutes per IP
+    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "register" })
+    if (rateLimited) return rateLimited
+
+    let body: Record<string, unknown>
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      )
+    }
+    const name = sanitizeString(body.name, 200)
+    const email = sanitizeString(body.email, 320)
+    const { password, signupType, inviteToken } = body
 
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
+        { status: 400 }
+      )
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Please provide a valid email address" },
+        { status: 400 }
+      )
+    }
+
+    // Enforce minimum password length
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters" },
         { status: 400 }
       )
     }
@@ -113,6 +157,15 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      const reqCtx = extractRequestContext(request)
+      logSecurityEvent({
+        eventType: 'ACCOUNT_REGISTERED',
+        userId: user.id,
+        email: user.email,
+        ...reqCtx,
+        details: { signupType: 'invite', role: invite.role },
+      }).catch(() => {})
+
       const { password: _, ...userWithoutPassword } = user
       return NextResponse.json(
         { message: "User created successfully", user: userWithoutPassword },
@@ -126,7 +179,7 @@ export async function POST(request: NextRequest) {
       // If Prisma Client hasn't been regenerated after schema changes, this delegate may be missing.
       // In that case we still allow signup (so the account is created), and the organisation can be
       // created later after `prisma generate` + server restart.
-      const canCreateOrganization = Boolean((prisma as any).organization?.create)
+      const canCreateOrganization = Boolean(prisma.organization?.create)
 
       if (!canCreateOrganization) {
         const user = await prisma.user.create({
@@ -138,11 +191,21 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
           }
         })
+
+        // Send welcome email and in-app notification (non-blocking)
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 14,
+          trialCredits: 3,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err))
+        notifyWelcome(user.id)
 
         const { password: _, ...userWithoutPassword } = user
         return NextResponse.json(
@@ -167,14 +230,14 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
             }
           })
 
           const orgName = `${name}'s Organisation`
-          const org = await (tx as any).organization.create({
+          const org = await tx.organization.create({
             data: { name: orgName, ownerId: user.id }
           })
 
@@ -183,6 +246,25 @@ export async function POST(request: NextRequest) {
             data: { organizationId: org.id }
           })
         })
+
+        // Send welcome email and in-app notification (non-blocking)
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 14,
+          trialCredits: 3,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err))
+        notifyWelcome(updatedUser.id)
+
+        const reqCtx = extractRequestContext(request)
+        logSecurityEvent({
+          eventType: 'ACCOUNT_REGISTERED',
+          userId: updatedUser.id,
+          email: updatedUser.email,
+          ...reqCtx,
+          details: { signupType: 'admin', hasOrganization: true },
+        }).catch(() => {})
 
         const { password: _, ...userWithoutPassword } = updatedUser
         return NextResponse.json(
@@ -201,11 +283,21 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
           }
         })
+
+        // Send welcome email and in-app notification (non-blocking)
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 14,
+          trialCredits: 3,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err))
+        notifyWelcome(user.id)
 
         const { password: _, ...userWithoutPassword } = user
         return NextResponse.json(
@@ -230,26 +322,47 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial // 30 days from now
           quickFillCreditsRemaining: 1, // Free users get 1 Quick Fill credit
           totalQuickFillUsed: 0
       }
     })
 
+    const reqCtx = extractRequestContext(request)
+    logSecurityEvent({
+      eventType: 'ACCOUNT_REGISTERED',
+      userId: user.id,
+      email: user.email,
+      ...reqCtx,
+      details: { signupType: 'user' },
+    }).catch(() => {})
+
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user
 
     return NextResponse.json(
-      { 
+      {
         message: "User created successfully",
-        user: userWithoutPassword 
+        user: userWithoutPassword
       },
       { status: 201 }
     )
-  } catch (error) {
-    console.error("Registration error:", error)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    const stack = error instanceof Error ? error.stack : undefined
+    console.error("[Register] Registration error:", message, stack ?? String(error))
+
+    // Prisma unique constraint (e.g. duplicate email)
+    const prismaError = error as { code?: string }
+    if (prismaError?.code === "P2002") {
+      return NextResponse.json(
+        { error: "User with this email already exists" },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Registration failed. Please try again." },
       { status: 500 }
     )
   }
