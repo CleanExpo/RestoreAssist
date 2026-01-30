@@ -7,9 +7,10 @@ import { uploadPDFToCloudinary } from '@/lib/cloudinary'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,7 +19,7 @@ export async function GET(
     // Fetch invoice with all related data
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id
       },
       include: {
@@ -105,7 +106,7 @@ export async function GET(
 
       // Update invoice with PDF URL
       await prisma.invoice.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           pdfUrl,
           pdfGeneratedAt: new Date()
