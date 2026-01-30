@@ -14,6 +14,11 @@ import {
   CheckCircle,
   Clock
 } from 'lucide-react'
+import {
+  getEffectiveStatus,
+  getStatusConfig,
+  FILTER_STATUS_OPTIONS,
+} from '@/lib/invoice-status'
 
 interface Invoice {
   id: string
@@ -91,20 +96,12 @@ export default function InvoicesPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      DRAFT: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
-      SENT: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-      VIEWED: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-      PARTIALLY_PAID: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-      PAID: 'bg-green-500/10 text-green-600 dark:text-green-400',
-      OVERDUE: 'bg-red-500/10 text-red-600 dark:text-red-400',
-      CANCELLED: 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-    }
-
+  const getStatusBadge = (invoice: { status: string; dueDate: string; amountDue: number }) => {
+    const effective = getEffectiveStatus(invoice)
+    const config = getStatusConfig(effective)
     return (
-      <span className={`text-xs px-2 py-1 rounded ${styles[status as keyof typeof styles] || styles.DRAFT}`}>
-        {status.replace(/_/g, ' ')}
+      <span className={`text-xs px-2 py-1 rounded ${config.badgeClass}`} title={config.description}>
+        {config.label}
       </span>
     )
   }
@@ -318,7 +315,11 @@ export default function InvoicesPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(invoice.status)}
+                    {getStatusBadge({
+                      status: invoice.status,
+                      dueDate: invoice.dueDate,
+                      amountDue: invoice.amountDue,
+                    })}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     <button

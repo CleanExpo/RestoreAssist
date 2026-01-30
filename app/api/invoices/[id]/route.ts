@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isDraft, isCancelled } from '@/lib/invoice-status'
 
 export async function GET(
   request: NextRequest,
@@ -102,7 +103,7 @@ export async function PUT(
     }
 
     // Only allow updates to DRAFT invoices
-    if (existing.status !== 'DRAFT') {
+    if (!isDraft(existing.status)) {
       return NextResponse.json(
         { error: 'Only draft invoices can be edited' },
         { status: 400 }
@@ -297,7 +298,7 @@ export async function DELETE(
     }
 
     // Only allow deletion of DRAFT or CANCELLED invoices
-    if (invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
+    if (!isDraft(invoice.status) && !isCancelled(invoice.status)) {
       return NextResponse.json(
         { error: 'Only draft or cancelled invoices can be deleted' },
         { status: 400 }
