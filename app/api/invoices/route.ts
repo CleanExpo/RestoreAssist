@@ -57,12 +57,6 @@ export async function GET(request: NextRequest) {
           },
           client: {
             select: { id: true, name: true, email: true }
-          },
-          contact: {
-            select: { id: true, fullName: true, email: true }
-          },
-          company: {
-            select: { id: true, name: true }
           }
         },
         orderBy: { invoiceDate: 'desc' },

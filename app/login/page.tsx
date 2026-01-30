@@ -32,7 +32,7 @@ function LoginForm() {
     setError("")
 
     try {
-      const result = await signIn("credentials", {
+      const result = await signIn("contractor-credentials", {
         email,
         password,
         redirect: false,
@@ -73,9 +73,9 @@ function LoginForm() {
 
       // User is now created/updated in database via /api/auth/google-signin
       // Sign in with NextAuth using credentials (email only, no password for Google users)
-      const signInResult = await signIn("credentials", {
+      const signInResult = await signIn("contractor-credentials", {
         email: googleUser.email,
-        password: "", // Empty password - CredentialsProvider handles Google users
+        password: "", // Empty password - contractor-credentials handles Google users
         redirect: false,
       })
 

@@ -14,7 +14,6 @@ import {
   Clock,
   AlertCircle,
   Calendar,
-  Building2,
   User,
   CreditCard,
   RefreshCw,
@@ -545,20 +544,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </h2>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
-                {invoice.company ? (
-                  <Building2 className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
-                ) : (
-                  <User className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
-                )}
+                <User className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
                 <div>
                   <div className="font-medium text-slate-900 dark:text-white">
                     {invoice.customerName}
                   </div>
-                  {invoice.company && invoice.contact && (
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
-                      {invoice.contact.fullName}
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
