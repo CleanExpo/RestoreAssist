@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { QuestionType } from '@prisma/client'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { InterviewFlowEngine } from '@/lib/interview'
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
             questionId: body.questionId,
             questionText: question.text,
             answerValue: typeof answer === 'string' ? answer : JSON.stringify(answer),
-            answerType: question.type as any,
+            answerType: question.type as unknown as QuestionType,
             answeredAt: new Date(),
           },
         })

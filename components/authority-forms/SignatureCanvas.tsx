@@ -11,16 +11,20 @@ interface SignatureCanvasProps {
   lineWidth?: number
   lineColor?: string
   disabled?: boolean
+  showColorPicker?: boolean
+  showLineWidthPicker?: boolean
 }
 
 export function SignatureCanvas({
   onSave,
   onClear,
-  width = 500,
-  height = 200,
-  lineWidth = 2,
-  lineColor = '#000000',
+  width = 600,
+  height = 250,
+  lineWidth: initialLineWidth = 2,
+  lineColor: initialLineColor = '#000000',
   disabled = false,
+  showColorPicker = true,
+  showLineWidthPicker = true,
 }: SignatureCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -28,6 +32,8 @@ export function SignatureCanvas({
   const [hasSignature, setHasSignature] = useState(false)
   const [strokeHistory, setStrokeHistory] = useState<ImageData[]>([])
   const [canvasSize, setCanvasSize] = useState({ width, height })
+  const [lineColor, setLineColor] = useState(initialLineColor)
+  const [lineWidth, setLineWidth] = useState(initialLineWidth)
 
   // Responsive sizing
   useEffect(() => {
@@ -204,8 +210,8 @@ export function SignatureCanvas({
       </p>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between mt-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={handleClear}
@@ -224,12 +230,86 @@ export function SignatureCanvas({
             <Undo2 className="h-3.5 w-3.5" />
             Undo
           </button>
+
+          {/* Color picker */}
+          {showColorPicker && (
+            <div className="flex items-center gap-1 border border-gray-300 dark:border-slate-600 rounded-md p-1">
+              <button
+                type="button"
+                onClick={() => setLineColor('#000000')}
+                disabled={disabled}
+                className={`w-7 h-7 rounded border-2 ${
+                  lineColor === '#000000'
+                    ? 'border-cyan-500 ring-2 ring-cyan-200 dark:ring-cyan-800'
+                    : 'border-gray-300 dark:border-slate-600'
+                } bg-black transition-all`}
+                title="Black ink"
+              />
+              <button
+                type="button"
+                onClick={() => setLineColor('#0000FF')}
+                disabled={disabled}
+                className={`w-7 h-7 rounded border-2 ${
+                  lineColor === '#0000FF'
+                    ? 'border-cyan-500 ring-2 ring-cyan-200 dark:ring-cyan-800'
+                    : 'border-gray-300 dark:border-slate-600'
+                } bg-blue-600 transition-all`}
+                title="Blue ink"
+              />
+            </div>
+          )}
+
+          {/* Line width picker */}
+          {showLineWidthPicker && (
+            <div className="flex items-center gap-1 border border-gray-300 dark:border-slate-600 rounded-md p-1">
+              <button
+                type="button"
+                onClick={() => setLineWidth(1.5)}
+                disabled={disabled}
+                className={`w-7 h-7 rounded flex items-center justify-center ${
+                  lineWidth === 1.5
+                    ? 'bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500'
+                    : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+                } border transition-all`}
+                title="Thin line"
+              >
+                <div className="w-0.5 h-4 bg-slate-600 dark:bg-slate-400" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLineWidth(2.5)}
+                disabled={disabled}
+                className={`w-7 h-7 rounded flex items-center justify-center ${
+                  lineWidth === 2.5
+                    ? 'bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500'
+                    : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+                } border transition-all`}
+                title="Medium line"
+              >
+                <div className="w-1 h-4 bg-slate-600 dark:bg-slate-400" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLineWidth(3.5)}
+                disabled={disabled}
+                className={`w-7 h-7 rounded flex items-center justify-center ${
+                  lineWidth === 3.5
+                    ? 'bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500'
+                    : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+                } border transition-all`}
+                title="Thick line"
+              >
+                <div className="w-1.5 h-4 bg-slate-600 dark:bg-slate-400" />
+              </button>
+            </div>
+          )}
         </div>
+
         <button
           type="button"
           onClick={handleSave}
           disabled={disabled || !hasSignature}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full sm:w-auto justify-center"
         >
           <Check className="h-3.5 w-3.5" />
           Confirm Signature

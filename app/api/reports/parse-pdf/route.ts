@@ -3,18 +3,23 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createRequire } from "module"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 const require = createRequire(import.meta.url)
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user || !(session.user as any).id) {
+
+    if (!session?.user || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    
-    const userId = (session.user as any).id
+
+    const userId = session.user.id
+
+    // Rate limit: 15 PDF parses per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 15, prefix: "parse-pdf", key: userId })
+    if (rateLimited) return rateLimited
 
     const formData = await request.formData()
     const file = formData.get("file") as File

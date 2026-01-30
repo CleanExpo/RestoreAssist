@@ -66,18 +66,16 @@ function LoginForm() {
     try {
       // Use Firebase Google authentication
       const googleUser = await signInWithGoogleFirebase()
-      
+
+      if (!googleUser.email) {
+        throw new Error("No email returned from Google sign-in")
+      }
+
       // User is now created/updated in database via /api/auth/google-signin
       // Sign in with NextAuth using credentials (email only, no password for Google users)
-      toast.success("Signing you in...")
-      
-      // Small delay to ensure database write is complete
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
-      // Sign in with NextAuth using credentials (email only, no password for Google users)
       const signInResult = await signIn("credentials", {
-        email: googleUser.email || "",
-        password: "", // Empty password - our updated CredentialsProvider handles this
+        email: googleUser.email,
+        password: "", // Empty password - CredentialsProvider handles Google users
         redirect: false,
       })
 
@@ -86,12 +84,16 @@ function LoginForm() {
         router.push("/dashboard")
       } else {
         console.error("Sign in result:", signInResult)
-        const errorMsg = signInResult?.error || "Failed to create session"
-        setError(errorMsg)
+        setError("Failed to create session. Please try again.")
         toast.error("Failed to create session. Please try again.")
       }
     } catch (error: any) {
       console.error("Google sign-in error:", error)
+      // Don't show Firebase popup closed error as an error
+      if (error?.code === "auth/popup-closed-by-user" || error?.code === "auth/cancelled-popup-request") {
+        setIsLoading(false)
+        return
+      }
       const errorMessage = error.message || "Google sign-in failed. Please try again."
       setError(errorMessage)
       toast.error(errorMessage)

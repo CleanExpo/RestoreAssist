@@ -4,14 +4,20 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { getAnthropicApiKey } from "@/lib/ai-provider"
+import { applyRateLimit } from "@/lib/rate-limiter"
+import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 30 question generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 30, prefix: "gen-question", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { conversation } = body
@@ -90,10 +96,11 @@ Example responses:
 
       const { tryClaudeModels } = await import('@/lib/anthropic-models')
 
+      // Use prompt caching for cost optimization (90% savings on cache hits)
       const message = await tryClaudeModels(
         anthropic,
         {
-          system: systemPrompt,
+          system: [createCachedSystemPrompt(systemPrompt)],
         max_tokens: 500,
         messages: [
           ...formattedMessages,
@@ -102,6 +109,11 @@ Example responses:
             content: "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message."
           }
         ]
+        },
+        undefined, // use default models
+        {
+          agentName: 'QuestionGenerator',
+          enableCacheMetrics: true
         }
       )
 

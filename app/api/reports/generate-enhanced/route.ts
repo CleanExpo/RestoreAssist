@@ -4,14 +4,20 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { getAnthropicApiKey } from "@/lib/ai-provider"
+import { applyRateLimit } from "@/lib/rate-limiter"
+import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 10 enhanced report generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-enhanced", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { reportId, technicianNotes, dateOfAttendance, clientContacted, clientName, propertyAddress, clientEmail, clientPhone, photos, conversationHistory } = body
@@ -269,22 +275,28 @@ CRITICAL INSTRUCTIONS:
 Format the response as a well-structured professional report with clear sections and headings. Each section should explicitly reference the relevant Australian standards, codes, and regulations.`
 
     // Call Anthropic API to generate enhanced report
+    // Use prompt caching for cost optimization (90% savings on cache hits)
     const systemPrompt = `You are a professional water damage restoration report writer operating in Australia. Generate comprehensive, professional reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference and mention specific standards, codes, and regulations throughout the report. Always use the actual client information provided (name, address, email, phone, technician name) - NEVER use "[Redacted for Privacy]" or placeholder text.`
 
     // Use utility function to try multiple models with fallback
     const { tryClaudeModels } = await import('@/lib/anthropic-models')
-    
+
     const message = await tryClaudeModels(
       anthropic,
       {
-          system: systemPrompt,
+        system: [createCachedSystemPrompt(systemPrompt)],
         max_tokens: 8000,
-          messages: [
-            {
-              role: "user",
-              content: prompt
-            }
-          ]
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      },
+      undefined, // use default models
+      {
+        agentName: 'EnhancedReportGenerator',
+        enableCacheMetrics: true
       }
     )
 

@@ -302,19 +302,19 @@ export default function ReportsPage() {
   return (
     <div >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
-          <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Reports</h1>
-          <p className={cn("text-neutral-600 dark:text-slate-400")}>Manage and view all restoration reports</p>
+          <h1 className={cn("text-2xl sm:text-3xl font-semibold mb-1 sm:mb-2", "text-neutral-900 dark:text-white")}>Reports</h1>
+          <p className={cn("text-sm sm:text-base text-neutral-600 dark:text-slate-400")}>Manage and view all restoration reports</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {selectedReports.length > 0 && (
             <>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                 <CheckSquare className="w-4 h-4 text-blue-400" />
-                <span className="text-sm font-semibold text-blue-300">{selectedReports.length} selected</span>
+                <span className="text-xs sm:text-sm font-semibold text-blue-300">{selectedReports.length} selected</span>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <button
                   onClick={() => setBulkActionType('export-excel')}
                   className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-green-500/30 text-sm font-medium group"
@@ -477,7 +477,7 @@ export default function ReportsPage() {
       {/* Filter Panel */}
       {filterOpen && (
         <div className={cn("p-4 rounded-lg border space-y-4 animate-fade-in", "border-neutral-200 dark:border-slate-700/50", "bg-neutral-50 dark:bg-slate-800/30")}>
-          <div className="grid md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Status</label>
               <select
@@ -608,10 +608,10 @@ export default function ReportsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className={cn("border-b", "border-neutral-200 dark:border-slate-700", "bg-neutral-50 dark:bg-slate-900/50")}>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>
                     <button
                       onClick={selectedReports.length === paginatedReports.length ? clearSelection : selectAllReports}
-                      className={cn("flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 group", "text-neutral-700 dark:text-white", "hover:text-neutral-900 dark:hover:text-white")}
+                      className={cn("flex items-center gap-1 sm:gap-2 transition-all duration-200 hover:scale-105 active:scale-95 group", "text-neutral-700 dark:text-white", "hover:text-neutral-900 dark:hover:text-white")}
                       title={selectedReports.length === paginatedReports.length ? "Deselect all" : "Select all"}
                     >
                       {selectedReports.length === paginatedReports.length ? (
@@ -619,17 +619,17 @@ export default function ReportsPage() {
                       ) : (
                         <Square size={16} className="transition-transform duration-200 group-hover:scale-110" />
                       )}
-                      <span>Select All</span>
+                      <span className="hidden sm:inline">Select All</span>
                     </button>
                   </th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Report ID</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Client Name</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Property Address</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Postcode</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Category</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Status</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Updated</th>
-                  <th className={cn("text-left py-4 px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Actions</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Report ID</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Client Name</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium hidden md:table-cell", "text-neutral-700 dark:text-slate-400")}>Property Address</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium hidden lg:table-cell", "text-neutral-700 dark:text-slate-400")}>Postcode</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium hidden lg:table-cell", "text-neutral-700 dark:text-slate-400")}>Category</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Status</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium hidden sm:table-cell", "text-neutral-700 dark:text-slate-400")}>Updated</th>
+                  <th className={cn("text-left py-3 px-3 sm:py-4 sm:px-6 font-medium", "text-neutral-700 dark:text-slate-400")}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -642,7 +642,7 @@ export default function ReportsPage() {
                 ) : (
                   paginatedReports.map((report, i) => (
                     <tr key={report.id || i} className={cn("border-b transition-colors", "border-neutral-200 dark:border-slate-700/50", "hover:bg-neutral-50 dark:hover:bg-slate-700/30")}>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6">
                         <button
                           onClick={() => toggleReportSelection(report.id)}
                           className={cn("flex items-center gap-2 transition-all duration-200 hover:scale-110 active:scale-95 group", "text-neutral-700 dark:text-white", "hover:text-neutral-900 dark:hover:text-white")}
@@ -655,27 +655,27 @@ export default function ReportsPage() {
                           )}
                         </button>
                       </td>
-                      <td className="py-4 px-6">
-                        <Link href={`/dashboard/reports/${report.id}`} className="font-medium text-cyan-400 hover:text-cyan-300 hover:underline">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6">
+                        <Link href={`/dashboard/reports/${report.id}`} className="font-medium text-cyan-400 hover:text-cyan-300 hover:underline text-xs sm:text-sm">
                           {report.reportNumber || report.title || report.id.slice(0, 8) + "..."}
                         </Link>
                       </td>
-                      <td className="py-4 px-6">
-                        <span className={cn("font-medium", "text-neutral-900 dark:text-white")} title={getClientName(report)}>
-                          {truncateText(getClientName(report), 30)}
+                      <td className="py-3 px-3 sm:py-4 sm:px-6">
+                        <span className={cn("font-medium text-xs sm:text-sm", "text-neutral-900 dark:text-white")} title={getClientName(report)}>
+                          {truncateText(getClientName(report), 20)}
                         </span>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6 hidden md:table-cell">
                         <span className={cn("text-sm", "text-neutral-600 dark:text-slate-300")} title={getPropertyAddress(report)}>
                           {truncateText(getPropertyAddress(report), 30)}
                         </span>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6 hidden lg:table-cell">
                         <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
                           {report.propertyPostcode || "—"}
                         </span>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6 hidden lg:table-cell">
                         <div className="flex flex-col gap-1">
                         <span className="flex items-center gap-2">
                             <span className="text-lg">{hazardIcons[report.hazardType as keyof typeof hazardIcons] || "💧"}</span>
@@ -690,10 +690,10 @@ export default function ReportsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6">
                         <div className="flex flex-col gap-1">
                         <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${statusColors[report.status as keyof typeof statusColors] || cn("bg-neutral-200 dark:bg-slate-500/20", "text-neutral-600 dark:text-slate-400")}`}
+                            className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium w-fit ${statusColors[report.status as keyof typeof statusColors] || cn("bg-neutral-200 dark:bg-slate-500/20", "text-neutral-600 dark:text-slate-400")}`}
                         >
                           {report.status || "DRAFT"}
                         </span>
@@ -704,7 +704,7 @@ export default function ReportsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6 hidden sm:table-cell">
                         <div className="flex flex-col gap-1">
                           <span className={cn("text-xs", "text-neutral-600 dark:text-slate-300")}>
                         {formatDateTime(report.updatedAt || report.createdAt)}
@@ -716,7 +716,7 @@ export default function ReportsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3 px-3 sm:py-4 sm:px-6">
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
@@ -802,46 +802,59 @@ export default function ReportsPage() {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-slate-400 text-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p className={cn("text-xs sm:text-sm order-2 sm:order-1", "text-neutral-500 dark:text-slate-400")}>
           Showing {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}{" "}
           of {filteredReports.length} reports
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 order-1 sm:order-2">
           <button
             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1 group"
+            className={cn(
+              "px-2 sm:px-3 py-2 border rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1 group",
+              "border-neutral-300 dark:border-slate-700",
+              "hover:bg-neutral-100 dark:hover:bg-slate-800"
+            )}
             title="Previous page"
           >
             <ChevronLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
-            <span>Previous</span>
+            <span className="hidden sm:inline">Previous</span>
           </button>
-          {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-            const pageNum = i + 1
-            return (
-              <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm hover:scale-110 active:scale-95 ${
-                  pageNum === currentPage
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:shadow-lg hover:shadow-blue-500/30"
-                    : "border border-slate-700 hover:bg-slate-800 hover:shadow-md"
-                }`}
-                title={`Go to page ${pageNum}`}
-              >
-                {pageNum}
-              </button>
-            )
-          })}
-          {totalPages > 5 && <span className="px-3 py-2">...</span>}
+          <div className="hidden sm:flex gap-2">
+            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+              const pageNum = i + 1
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm hover:scale-110 active:scale-95 ${
+                    pageNum === currentPage
+                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:shadow-lg hover:shadow-blue-500/30"
+                      : cn("border hover:shadow-md", "border-neutral-300 dark:border-slate-700", "hover:bg-neutral-100 dark:hover:bg-slate-800")
+                  }`}
+                  title={`Go to page ${pageNum}`}
+                >
+                  {pageNum}
+                </button>
+              )
+            })}
+            {totalPages > 5 && <span className={cn("px-3 py-2", "text-neutral-500 dark:text-slate-400")}>...</span>}
+          </div>
+          <span className={cn("sm:hidden px-3 py-2 text-sm", "text-neutral-600 dark:text-slate-300")}>
+            {currentPage} / {totalPages}
+          </span>
           <button
             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1 group"
+            className={cn(
+              "px-2 sm:px-3 py-2 border rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1 group",
+              "border-neutral-300 dark:border-slate-700",
+              "hover:bg-neutral-100 dark:hover:bg-slate-800"
+            )}
             title="Next page"
           >
-            <span>Next</span>
+            <span className="hidden sm:inline">Next</span>
             <ChevronRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
           </button>
         </div>

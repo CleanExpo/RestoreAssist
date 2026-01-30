@@ -7,9 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import type { SubscriptionTier } from '@/lib/interview/types'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { QuestionGenerationEngine } from '@/lib/interview'
+import { QuestionGenerationEngine, INTERVIEW_QUESTION_LIBRARY, getQuestionsForSubscriptionTier } from '@/lib/interview'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       jobType: jobType || 'WATER_DAMAGE',
       postcode,
       userId: user.id,
-      userTierLevel: (user.interviewTier || 'standard') as any,
+      userTierLevel: (user.interviewTier?.toLowerCase() || 'standard') as SubscriptionTier,
     }
 
     // Generate questions (already filtered by tier in QuestionGenerationEngine)

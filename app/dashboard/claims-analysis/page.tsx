@@ -28,9 +28,14 @@ import {
   X,
   Clock,
   FileCheck,
+  BookOpen,
 } from 'lucide-react'
 import { exportClaimsCSV, exportClaimsPDF } from '@/lib/claims-export'
 import { GoogleDriveFolderPicker } from '@/components/claims/GoogleDriveFolderPicker'
+import { StandardsBadge, StandardsGroup } from '@/components/claims/StandardsBadge'
+import { ScoreRing, ScoreRingGroup } from '@/components/claims/ScoreRing'
+import { StatCard, StatCardGrid } from '@/components/claims/StatCard'
+import { SeverityDistributionChart, SeveritySummaryBar } from '@/components/claims/SeverityDistributionChart'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +45,27 @@ import {
 import { useSession } from 'next-auth/react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+
+interface MissingElementsSummary {
+  iicrc: number
+  australianStandards: number
+  ohs: number
+  whs: number
+  scopeOfWorks: number
+  billing: number
+  documentation: number
+  equipment: number
+  monitoring: number
+}
+
+interface ScoresSummary {
+  completeness: number
+  compliance: number
+  standardization: number
+  scopeAccuracy: number
+  billingAccuracy: number
+}
+
 
 interface GapAnalysisResult {
   fileName: string
@@ -695,125 +721,140 @@ export default function ClaimsAnalysisPage() {
             <TabsTrigger value="issues">Top Issues</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
-            {/* Key Performance Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Avg Completeness</CardTitle>
+          <TabsContent value="overview" className="space-y-8">
+            {/* Hero Statistics Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Score Rings */}
+              <Card className="col-span-1 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Quality Scores</CardTitle>
+                  <CardDescription>Average completeness and compliance across all analyzed reports</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-2xl font-bold ${getScoreColor(summary.averageScores.completeness)}`}>
-                    {summary.averageScores.completeness.toFixed(1)}%
-                  </div>
+                  <ScoreRingGroup
+                    scores={[
+                      { value: summary.averageScores.completeness, label: 'Completeness' },
+                      { value: summary.averageScores.compliance, label: 'Compliance' },
+                      { value: summary.averageScores.standardization, label: 'Standardization' },
+                      ...(summary.averageScores && (summary.averageScores as ScoresSummary).scopeAccuracy
+                        ? [{ value: (summary.averageScores as ScoresSummary).scopeAccuracy!, label: 'Scope Accuracy' }]
+                        : []),
+                    ]}
+                    size="md"
+                  />
                 </CardContent>
               </Card>
+
+              {/* Severity Distribution */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Avg Compliance</CardTitle>
+                <CardHeader>
+                  <CardTitle>Issue Severity</CardTitle>
+                  <CardDescription>Distribution of {summary.totalIssues} total issues</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${getScoreColor(summary.averageScores.compliance)}`}>
-                    {summary.averageScores.compliance.toFixed(1)}%
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Issues</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalIssues}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Revenue Recovery</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
-                    ${summary.totalEstimatedMissingRevenue.toFixed(2)}
-                  </div>
+                <CardContent className="flex items-center justify-center py-4">
+                  <SeverityDistributionChart
+                    critical={analysisResults.reduce((sum, r) => sum + r.issues.filter(i => i.severity === 'CRITICAL').length, 0)}
+                    high={analysisResults.reduce((sum, r) => sum + r.issues.filter(i => i.severity === 'HIGH').length, 0)}
+                    medium={analysisResults.reduce((sum, r) => sum + r.issues.filter(i => i.severity === 'MEDIUM').length, 0)}
+                    low={analysisResults.reduce((sum, r) => sum + r.issues.filter(i => i.severity === 'LOW').length, 0)}
+                    size="md"
+                    showLegend={true}
+                  />
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing IICRC</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.iicrc || 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing AU Standards</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).australianStandards || 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing OH&S/WHS</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements.ohs || 0) + ((summary.totalMissingElements as any).whs || 0)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing Scope</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).scopeOfWorks || 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing Billing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.billing || 0}</div>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing Docs</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summary.totalMissingElements.documentation || 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing Equipment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).equipment || 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Missing Monitoring</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{(summary.totalMissingElements as any).monitoring || 0}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Avg Scope Accuracy</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{((summary.averageScores as any).scopeAccuracy?.toFixed(1)) || 'N/A'}%</div>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Key Metrics */}
+            <StatCardGrid columns={4}>
+              <StatCard
+                title="Files Analyzed"
+                value={summary.totalFiles}
+                subtitle={`${summary.totalFiles} PDF reports processed`}
+                icon={FileText}
+                variant="info"
+              />
+              <StatCard
+                title="Total Issues"
+                value={summary.totalIssues}
+                subtitle={`${(summary.totalIssues / summary.totalFiles).toFixed(1)} avg per report`}
+                icon={AlertTriangle}
+                variant="warning"
+              />
+              <StatCard
+                title="Revenue Recovery"
+                value={`$${summary.totalEstimatedMissingRevenue.toFixed(2)}`}
+                subtitle="Estimated missing billable revenue"
+                icon={DollarSign}
+                variant="success"
+              />
+              <StatCard
+                title="Standards Referenced"
+                value={new Set(analysisResults.flatMap(r => r.standardsReferenced || [])).size}
+                subtitle="Unique IICRC/NCC/AS standards"
+                icon={BookOpen}
+                variant="default"
+              />
+            </StatCardGrid>
+
+            {/* Missing Elements Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Missing Elements by Category</CardTitle>
+                <CardDescription>Breakdown of gaps identified across all reports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                      {summary.totalMissingElements.iicrc || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">IICRC</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                      {(summary.totalMissingElements as MissingElementsSummary).australianStandards || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">AU Standards</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400 mb-1">
+                      {(summary.totalMissingElements.ohs || 0) + ((summary.totalMissingElements as MissingElementsSummary).whs || 0)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">OH&S/WHS</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                      {(summary.totalMissingElements as MissingElementsSummary).scopeOfWorks || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Scope</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                      {summary.totalMissingElements.billing || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Billing</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      {summary.totalMissingElements.documentation || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Documentation</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+                      {(summary.totalMissingElements as MissingElementsSummary).equipment || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Equipment</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mb-1">
+                      {(summary.totalMissingElements as MissingElementsSummary).monitoring || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Monitoring</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="analyses" className="space-y-4">
@@ -989,24 +1030,22 @@ export default function ClaimsAnalysisPage() {
 
                 {/* Summary Stats Bar */}
                 <Card>
-                  <CardContent className="py-4">
-                    <div className="flex flex-wrap items-center gap-4">
-                      {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map(sev => {
-                        const count = selectedDocument.issues.filter(i => i.severity === sev).length
-                        return (
-                          <div key={sev} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${getSeverityColor(sev)}`}>
-                            {getSeverityIcon(sev)}
-                            <span>{count} {sev.charAt(0) + sev.slice(1).toLowerCase()}</span>
-                          </div>
-                        )
-                      })}
-                      <div className="ml-auto flex items-center gap-2 text-sm">
-                        <DollarSign className="h-4 w-4 text-green-600" />
-                        <span className="font-semibold text-green-600">
+                  <CardContent className="py-6">
+                    <SeveritySummaryBar
+                      critical={selectedDocument.issues.filter(i => i.severity === 'CRITICAL').length}
+                      high={selectedDocument.issues.filter(i => i.severity === 'HIGH').length}
+                      medium={selectedDocument.issues.filter(i => i.severity === 'MEDIUM').length}
+                      low={selectedDocument.issues.filter(i => i.severity === 'LOW').length}
+                    />
+                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Estimated Billable Revenue</span>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <span className="text-xl font-bold text-green-600 dark:text-green-400">
                           ${selectedDocument.issues
                             .filter(i => i.isBillable && i.estimatedCost)
                             .reduce((sum, i) => sum + (i.estimatedCost || 0), 0)
-                            .toFixed(2)} billable
+                            .toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -1068,11 +1107,11 @@ export default function ClaimsAnalysisPage() {
                                           </div>
                                           <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
                                           {issue.standardReference && (
-                                            <p className="text-sm mb-2">
-                                              <span className="font-bold text-primary">{issue.standardReference}</span>
-                                            </p>
+                                            <div className="mb-3">
+                                              <StandardsBadge standardRef={issue.standardReference} size="md" />
+                                            </div>
                                           )}
-                                          {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
+                                          {issue.description && <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{issue.description}</p>}
                                           {issue.suggestedLineItem && (
                                             <p className="text-sm text-muted-foreground">
                                               <strong>Line Item:</strong> {issue.suggestedLineItem}
@@ -1163,11 +1202,11 @@ export default function ClaimsAnalysisPage() {
                                       </div>
                                       <h4 className="font-semibold text-lg mb-2">{issue.elementName}</h4>
                                       {issue.standardReference && (
-                                        <p className="text-sm mb-2">
-                                          <span className="font-bold text-primary">{issue.standardReference}</span>
-                                        </p>
+                                        <div className="mb-3">
+                                          <StandardsBadge standardRef={issue.standardReference} size="md" />
+                                        </div>
                                       )}
-                                      {issue.description && <p className="text-sm mb-2">{issue.description}</p>}
+                                      {issue.description && <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{issue.description}</p>}
                                       {issue.suggestedLineItem && (
                                         <p className="text-sm text-muted-foreground">
                                           <strong>Line Item:</strong> {issue.suggestedLineItem}

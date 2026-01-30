@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
 import { getUserReportLimits } from "@/lib/report-limits"
 import { getEffectiveSubscription } from "@/lib/organization-credits"
+import { getTrialStatus, checkAndUpdateTrialStatus } from "@/lib/trial-handling"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
           subscriptionStatus: 'TRIAL',
           creditsRemaining: 3,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
           stripeCustomerId: stripeCustomerId,
         },
         select: {
@@ -172,11 +174,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    // Get trial status for trial users
+    let trialStatus = null
+    if (subscriptionStatus === 'TRIAL') {
+      // Check and update trial status if expired
+      await checkAndUpdateTrialStatus(user.id)
+      trialStatus = await getTrialStatus(user.id)
+    }
+
+    return NextResponse.json({
       profile: {
         ...user,
         // Override with effective subscription for team members
-        subscriptionStatus: subscriptionStatus,
+        subscriptionStatus: trialStatus?.hasTrialExpired ? 'EXPIRED' : subscriptionStatus,
         subscriptionPlan: subscriptionPlan,
         creditsRemaining: creditsRemaining,
         // Override with Admin's business info for team members
@@ -195,6 +205,13 @@ export async function GET(request: NextRequest) {
         nextBillingDate: user.nextBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
+        // Trial status info
+        trialStatus: trialStatus ? {
+          isTrialActive: trialStatus.isTrialActive,
+          daysRemaining: trialStatus.daysRemaining,
+          hasTrialExpired: trialStatus.hasTrialExpired,
+          creditsRemaining: trialStatus.creditsRemaining,
+        } : null,
       }
     })
   } catch (error) {
@@ -205,6 +222,9 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -224,16 +244,14 @@ export async function PUT(request: NextRequest) {
     const isAdmin = user.role === "ADMIN"
 
     const body = await request.json()
-    const { 
-      name, 
-      email,
-      businessName,
-      businessAddress,
-      businessLogo,
-      businessABN,
-      businessPhone,
-      businessEmail
-    } = body
+    const name = sanitizeString(body.name, 200)
+    const email = body.email ? sanitizeString(body.email, 320).toLowerCase() : undefined
+    const businessName = sanitizeString(body.businessName, 200)
+    const businessAddress = sanitizeString(body.businessAddress, 500)
+    const businessLogo = sanitizeString(body.businessLogo, 2000)
+    const businessABN = sanitizeString(body.businessABN, 20)
+    const businessPhone = sanitizeString(body.businessPhone, 50)
+    const businessEmail = sanitizeString(body.businessEmail, 320)
 
     // Build update data object
     const updateData: any = {}
@@ -270,7 +288,6 @@ export async function PUT(request: NextRequest) {
       // If they try, ignore those fields (they're read-only)
       if (businessName !== undefined || businessAddress !== undefined || businessLogo !== undefined || 
           businessABN !== undefined || businessPhone !== undefined || businessEmail !== undefined) {
-        console.log("⚠️ [PROFILE] Non-admin user attempted to update business info. Ignoring.")
       }
     }
 

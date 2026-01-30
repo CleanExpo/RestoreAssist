@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   FileText,
@@ -16,7 +16,6 @@ import {
   Menu,
   X,
   Plus,
-  Bell,
   Search,
   HelpCircle,
   CreditCard,
@@ -25,9 +24,14 @@ import {
   ClipboardCheck,
   MessageSquare,
   Lock,
+  Building2,
+  Receipt,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
-import Chatbot from "@/components/Chatbot"
+import dynamic from "next/dynamic"
+import { NotificationBell } from "@/components/notifications"
+
+const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
@@ -37,12 +41,19 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // NotificationBell manages its own open/close state
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
 
-  // Fetch subscription status
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
+
+  // Fetch subscription status on mount and window focus only (not polling)
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
       try {
@@ -55,15 +66,15 @@ export default function DashboardLayout({
         console.error("Error fetching subscription status:", error)
       }
     }
+
     if (status === "authenticated") {
       fetchSubscriptionStatus()
-      
-      // Refresh subscription status periodically to catch updates from webhooks
-      const interval = setInterval(() => {
-        fetchSubscriptionStatus()
-      }, 5000) // Check every 5 seconds
-      
-      return () => clearInterval(interval)
+
+      // Refetch on window focus (e.g., after Stripe checkout redirect)
+      const handleFocus = () => fetchSubscriptionStatus()
+      window.addEventListener("focus", handleFocus)
+
+      return () => window.removeEventListener("focus", handleFocus)
     }
   }, [status, session])
 
@@ -106,6 +117,7 @@ export default function DashboardLayout({
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
     { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections", locked: isTrial },
     { icon: Users, label: "Clients", href: "/dashboard/clients", locked: isTrial },
+    { icon: Receipt, label: "Invoices", href: "/dashboard/invoices", locked: isTrial },
     { icon: Users, label: "Team", href: "/dashboard/team", locked: isTrial },
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config", locked: isTrial },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations", locked: isTrial },
@@ -129,13 +141,25 @@ const upgradeItem = {
   return (
     <>
     <div className={cn("min-h-screen", "bg-white dark:bg-slate-950", "text-neutral-900 dark:text-slate-50")}>
+                {/* Mobile backdrop */}
+                {mobileMenuOpen && (
+                  <div
+                    className="fixed inset-0 bg-black/50 z-30 md:hidden"
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                )}
+
                 {/* Sidebar */}
                 <aside
                   className={cn(
                     "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
                     "bg-white dark:bg-slate-900",
                     "border-r border-neutral-200 dark:border-slate-800",
-                    sidebarOpen ? "w-64" : "w-20"
+                    // Mobile: slide in/out, always w-64 when visible
+                    mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+                    "md:translate-x-0",
+                    // Desktop: toggle width
+                    sidebarOpen ? "w-64" : "md:w-20 w-64"
                   )}
                 >
                   {/* Logo */}
@@ -293,14 +317,33 @@ const upgradeItem = {
                 </aside>
 
         {/* Main Content */}
-        <div className={`transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
+        <div className={cn(
+          "transition-all duration-300",
+          // Mobile: no margin (sidebar is overlay)
+          "ml-0",
+          // Desktop: margin matches sidebar width
+          sidebarOpen ? "md:ml-64" : "md:ml-20"
+        )}>
           {/* Top Bar */}
           <header className={cn(
-            "h-16 flex items-center justify-between px-6 sticky top-0 z-30",
+            "h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20",
             "bg-white dark:bg-slate-900",
             "border-b border-neutral-200 dark:border-slate-800"
           )}>
-            <div className="flex-1 max-w-md">
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className={cn(
+                "p-2 rounded-lg md:hidden mr-2",
+                "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                "text-neutral-700 dark:text-slate-300"
+              )}
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+
+            <div className="flex-1 max-w-xs sm:max-w-md">
               <div className="relative">
                 <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />
                 <input
@@ -323,55 +366,7 @@ const upgradeItem = {
               <ThemeToggle />
               
               {/* Notifications */}
-              <div className="relative">
-                {/* <button
-                  onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  className={cn(
-                    "p-2 rounded-lg transition-colors relative",
-                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                    "text-neutral-700 dark:text-slate-300"
-                  )}
-                >
-                  <Bell size={20} />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
-                </button>
-
-                {notificationsOpen && (
-                  <div className={cn(
-                    "absolute right-0 mt-2 w-80 rounded-lg shadow-xl z-50",
-                    "bg-white dark:bg-slate-800",
-                    "border border-neutral-200 dark:border-slate-700"
-                  )}>
-                    <div className={cn("p-4 border-b", "border-neutral-200 dark:border-slate-700")}>
-                      <h3 className={cn("font-semibold", "text-neutral-900 dark:text-slate-50")}>Notifications</h3>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {[
-                        {
-                          title: "Report Approved",
-                          desc: "Water damage report #WD-2025-001 approved",
-                          time: "2 hours ago",
-                        },
-                        { title: "New Client", desc: "Advanced Property Restoration added", time: "5 hours ago" },
-                        { title: "System Update", desc: "NCC 2022 compliance library updated", time: "1 day ago" },
-                      ].map((notif, i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            "p-4 cursor-pointer transition-colors",
-                            "border-b border-neutral-200 dark:border-slate-700",
-                            "hover:bg-neutral-50 dark:hover:bg-slate-700/50"
-                          )}
-                        >
-                          <p className={cn("font-medium text-sm", "text-neutral-900 dark:text-slate-50")}>{notif.title}</p>
-                          <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>{notif.desc}</p>
-                          <p className={cn("text-xs mt-2", "text-neutral-500 dark:text-slate-500")}>{notif.time}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )} */}
-              </div>
+              <NotificationBell />
 
               {/* User Avatar & Dropdown */}
               <div className={cn("flex items-center gap-3 pl-4", "border-l border-neutral-200 dark:border-slate-700")}>

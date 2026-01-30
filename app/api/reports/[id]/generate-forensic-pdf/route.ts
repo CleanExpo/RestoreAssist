@@ -4,10 +4,11 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateForensicReportPDF } from '@/lib/generate-forensic-report-pdf'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 /**
  * GET /api/reports/[id]/generate-forensic-pdf
- * 
+ *
  * Generates a professional forensic inspection report PDF matching the
  * Disaster Recovery QLD format with exact layout and structure.
  */
@@ -17,10 +18,14 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit: 10 forensic PDF generations per 15 minutes per user
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-forensic", key: session.user.email })
+    if (rateLimited) return rateLimited
 
     const { id: reportId } = await params
 
@@ -38,7 +43,7 @@ export async function GET(
         businessPhone: true,
         businessEmail: true,
         pricingConfig: true
-      }
+    }
     })
 
     if (!user) {
@@ -110,15 +115,14 @@ export async function GET(
         ].filter(Boolean),
         materials: tier1?.T1_Q6_materialsAffected || [],
         technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
-      }
+    }
       
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
         
-        standardsContext = buildStandardsContextPrompt(retrievedStandards)
-      } catch (error: any) {
-        console.error('[Generate Forensic PDF] Error retrieving standards:', error)
-        // Continue without standards context - not critical for PDF generation
-      }
+      standardsContext = buildStandardsContextPrompt(retrievedStandards)
+    } catch (error: any) {
+      console.error('[Generate Forensic PDF] Error retrieving standards:', error)
+      // Continue without standards context - not critical for PDF generation
     }
 
     // Prepare report data with all assessment report fields
@@ -158,7 +162,7 @@ export async function GET(
         businessABN: user.businessABN,
         businessPhone: user.businessPhone,
         businessEmail: user.businessEmail
-      }
+    }
     }
 
     // Generate PDF
@@ -173,7 +177,7 @@ export async function GET(
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': pdfBytes.length.toString()
-      }
+    }
     })
   } catch (error: any) {
     console.error('Error generating forensic PDF:', error)
