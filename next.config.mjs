@@ -1,5 +1,4 @@
 import bundleAnalyzer from '@next/bundle-analyzer'
-import { withSentryConfig } from '@sentry/nextjs'
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -31,11 +30,11 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.sentry.io",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://*.stripe.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.supabase.co https://*.stripe.com https://api.anthropic.com https://api.deepseek.com https://generativelanguage.googleapis.com https://*.sentry.io https://*.firebaseapp.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://go.servicem8.com https://api.servicem8.com https://login.xero.com https://identity.xero.com https://api.xero.com https://appcenter.intuit.com https://oauth.platform.intuit.com https://quickbooks.api.intuit.com https://secure.myob.com https://api.myob.com https://api.ascora.com.au",
+              "connect-src 'self' https://*.supabase.co https://*.stripe.com https://api.anthropic.com https://api.deepseek.com https://generativelanguage.googleapis.com https://*.firebaseapp.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://go.servicem8.com https://api.servicem8.com https://login.xero.com https://identity.xero.com https://api.xero.com https://appcenter.intuit.com https://oauth.platform.intuit.com https://quickbooks.api.intuit.com https://secure.myob.com https://api.myob.com https://api.ascora.com.au",
               "frame-src 'self' https://*.firebaseapp.com https://*.stripe.com https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",
@@ -92,10 +91,4 @@ const nextConfig = {
   },
 }
 
-export default withSentryConfig(withBundleAnalyzer(nextConfig), {
-  // Suppress source map upload logs in CI
-  silent: true,
-  // Upload source maps only when SENTRY_AUTH_TOKEN is set
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-})
+export default withBundleAnalyzer(nextConfig)

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
 import { ErrorFallback } from '@/components/ErrorFallback'
 
 export default function PortalError({
@@ -13,7 +12,6 @@ export default function PortalError({
 }) {
   useEffect(() => {
     console.error('[PortalError]', error)
-    Sentry.captureException(error)
   }, [error])
 
   return (
