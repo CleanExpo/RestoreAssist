@@ -129,6 +129,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [creatingCheckout, setCreatingCheckout] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [showSyncMenu, setShowSyncMenu] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -312,9 +313,38 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (!invoiceId) return
-    window.open(`/api/invoices/${invoiceId}/pdf`, '_blank')
+    setGeneratingPdf(true)
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Failed to generate PDF (${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const win = window.open(url, '_blank', 'noopener,noreferrer')
+      if (win) {
+        win.focus()
+        toast.success('PDF opened in new tab. Use Ctrl+P (or Cmd+P) to print.')
+        // Revoke URL after a delay so the new window can load the PDF
+        setTimeout(() => URL.revokeObjectURL(url), 60000)
+      } else {
+        // Popup blocked: trigger download instead
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `invoice-${invoice?.invoiceNumber ?? invoiceId}.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success('PDF downloaded. Open the file to view or print (Ctrl+P).')
+      }
+    } catch (e: any) {
+      console.error('PDF generation error:', e)
+      toast.error(e?.message || 'Failed to generate PDF. Please try again.')
+    } finally {
+      setGeneratingPdf(false)
+    }
   }
 
   if (loading) {
@@ -467,10 +497,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
           <button
             onClick={downloadPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
+            disabled={generatingPdf}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download className="h-4 w-4" />
-            <span>Download PDF</span>
+            {generatingPdf ? (
+              <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span>{generatingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
           </button>
           {canEdit && (
             <button
