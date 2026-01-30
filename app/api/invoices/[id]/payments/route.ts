@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isDraft, isCancelled } from '@/lib/invoice-status'
 
 export async function POST(
   request: NextRequest,
@@ -26,7 +27,7 @@ export async function POST(
     }
 
     // Can't record payment for draft or cancelled invoices
-    if (invoice.status === 'DRAFT' || invoice.status === 'CANCELLED') {
+    if (isDraft(invoice.status) || isCancelled(invoice.status)) {
       return NextResponse.json(
         { error: 'Cannot record payment for draft or cancelled invoices' },
         { status: 400 }

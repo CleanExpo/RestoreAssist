@@ -21,6 +21,13 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import {
+  getEffectiveStatus,
+  getStatusConfig,
+  isDraft,
+  isCancelled,
+  type InvoiceStatus,
+} from '@/lib/invoice-status'
 
 interface LineItem {
   id: string
@@ -336,33 +343,42 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      DRAFT: { bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-400', icon: Clock },
-      SENT: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', icon: Mail },
-      VIEWED: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', icon: FileText },
-      PARTIALLY_PAID: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', icon: DollarSign },
-      PAID: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', icon: CheckCircle },
-      OVERDUE: { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', icon: AlertCircle },
-      CANCELLED: { bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-400', icon: Clock }
-    }
+  const effectiveStatus = getEffectiveStatus({
+    status: invoice.status,
+    dueDate: invoice.dueDate,
+    amountDue: invoice.amountDue,
+  })
+  const statusConfig = getStatusConfig(effectiveStatus)
 
-    const style = styles[status as keyof typeof styles] || styles.DRAFT
-    const Icon = style.icon
-
-    return (
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${style.bg} ${style.text}`}>
-        <Icon className="h-4 w-4" />
-        <span className="text-sm font-medium">{status.replace(/_/g, ' ')}</span>
-      </div>
-    )
+  const statusIcons: Record<InvoiceStatus, React.ComponentType<{ className?: string }>> = {
+    DRAFT: Clock,
+    SENT: Mail,
+    VIEWED: FileText,
+    PARTIALLY_PAID: DollarSign,
+    PAID: CheckCircle,
+    OVERDUE: AlertCircle,
+    CANCELLED: Clock,
+    WRITTEN_OFF: AlertTriangle,
+    REFUNDED: RefreshCw,
   }
+  const StatusIcon = statusIcons[effectiveStatus] ?? FileText
 
-  const isDraft = invoice.status === 'DRAFT'
-  const canEdit = isDraft
-  const canDelete = isDraft || invoice.status === 'CANCELLED'
-  const canSend = isDraft
-  const canRecordPayment = invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED' && invoice.amountDue > 0
+  const getStatusBadge = () => (
+    <div
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusConfig.badgeClass}`}
+      title={statusConfig.description}
+    >
+      <StatusIcon className="h-4 w-4" />
+      <span className="text-sm font-medium">{statusConfig.label}</span>
+    </div>
+  )
+
+  const draft = isDraft(invoice.status)
+  const cancelled = isCancelled(invoice.status)
+  const canEdit = draft
+  const canDelete = draft || cancelled
+  const canSend = draft
+  const canRecordPayment = !draft && !cancelled && invoice.amountDue > 0
 
   return (
     <div className="space-y-6 pb-12">
@@ -413,7 +429,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               </button>
             </>
           )}
-          {!isDraft && (
+          {!draft && (
             <div className="relative">
               <button
                 onClick={() => setShowSyncMenu(!showSyncMenu)}
@@ -478,7 +494,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Status Badge */}
       <div className="flex items-center gap-4 flex-wrap">
-        {getStatusBadge(invoice.status)}
+        {getStatusBadge()}
         {invoice.sentDate && (
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
             <Mail className="h-4 w-4" />

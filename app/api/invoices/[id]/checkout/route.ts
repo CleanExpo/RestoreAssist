@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { stripe } from '@/lib/stripe'
+import { isDraft, isCancelled } from '@/lib/invoice-status'
 
 const APP_URL = process.env.NEXTAUTH_URL || 'https://restoreassist.com.au'
 
@@ -34,7 +35,7 @@ export async function POST(
     }
 
     // Can't create checkout for draft or fully paid invoices
-    if (invoice.status === 'DRAFT') {
+    if (isDraft(invoice.status)) {
       return NextResponse.json(
         { error: 'Cannot create checkout for draft invoices. Please send the invoice first.' },
         { status: 400 }
@@ -48,7 +49,7 @@ export async function POST(
       )
     }
 
-    if (invoice.status === 'CANCELLED') {
+    if (isCancelled(invoice.status)) {
       return NextResponse.json(
         { error: 'Cannot create checkout for cancelled invoices' },
         { status: 400 }

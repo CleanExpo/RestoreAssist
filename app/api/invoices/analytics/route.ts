@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  OUTSTANDING_STATUSES,
+  EXCLUDED_FROM_REVENUE,
+  isDraft,
+  isOutstanding,
+  isOverdueByDate,
+} from '@/lib/invoice-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,13 +56,13 @@ export async function GET(request: NextRequest) {
           totalIncGST: true
         }
       }),
-      // Overdue: due date in the past, amount due > 0, not PAID/CANCELLED/DRAFT
+      // Overdue: due date in the past, amount due > 0, outstanding status
       prisma.invoice.findMany({
         where: {
           ...where,
           dueDate: { lt: startOfToday },
           amountDue: { gt: 0 },
-          status: { in: ['SENT', 'VIEWED', 'PARTIALLY_PAID', 'OVERDUE'] }
+          status: { in: [...OUTSTANDING_STATUSES] }
         },
         select: {
           amountDue: true
@@ -70,17 +77,17 @@ export async function GET(request: NextRequest) {
 
     for (const invoice of allInvoices) {
       // Total revenue: all issued/sent invoices (exclude DRAFT and CANCELLED)
-      if (invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
+      if (!isExcludedFromRevenue(invoice.status)) {
         totalRevenue += invoice.totalIncGST
       }
 
       // Outstanding: sent/active invoices with amount due
-      if (['SENT', 'VIEWED', 'PARTIALLY_PAID', 'OVERDUE'].includes(invoice.status)) {
+      if (isOutstanding(invoice.status)) {
         outstanding += invoice.amountDue
       }
 
       // Draft total: sum of draft invoice amounts (so stats reflect real data)
-      if (invoice.status === 'DRAFT') {
+      if (isDraft(invoice.status)) {
         draftTotal += invoice.totalIncGST
       }
     }

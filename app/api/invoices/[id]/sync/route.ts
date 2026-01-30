@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isDraft } from '@/lib/invoice-status'
 import { syncInvoiceToXero } from '@/lib/integrations/xero'
 import { syncInvoiceToQuickBooks } from '@/lib/integrations/quickbooks'
 import { syncInvoiceToMYOB } from '@/lib/integrations/myob'
@@ -58,7 +59,7 @@ export async function POST(
     }
 
     // Can't sync draft invoices
-    if (invoice.status === 'DRAFT') {
+    if (isDraft(invoice.status)) {
       return NextResponse.json(
         { error: 'Cannot sync draft invoices. Please send the invoice first.' },
         { status: 400 }
