@@ -1,24 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import {
-  Plus,
-  Search,
-  FileText,
-  Download,
-  DollarSign,
-  AlertCircle,
-  CheckCircle,
-  Clock
-} from 'lucide-react'
 import {
   getEffectiveStatus,
-  getStatusConfig,
-  FILTER_STATUS_OPTIONS,
+  getStatusConfig
 } from '@/lib/invoice-status'
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Download,
+  FileText,
+  Plus,
+  Search
+} from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 interface Invoice {
   id: string
