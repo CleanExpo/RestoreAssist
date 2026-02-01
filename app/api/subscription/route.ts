@@ -51,7 +51,9 @@ export async function GET(request: NextRequest) {
     // If owner has a Stripe subscription, get details from Stripe
     if (user.subscriptionId && user.stripeCustomerId) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId)
+        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId, {
+          expand: ['default_payment_method'],
+        })
         const price = await stripe.prices.retrieve(subscription.items.data[0].price.id)
 
         // Update database with latest subscription data (on owner's account)
@@ -68,19 +70,47 @@ export async function GET(request: NextRequest) {
           }
         })
 
+        // Optional: payment method details for display
+        let defaultPaymentMethod: { brand: string; last4: string } | null = null
+        const pm = subscription.default_payment_method
+        if (pm && typeof pm === 'object' && 'card' in pm && pm.card) {
+          const card = pm.card as { brand?: string; last4?: string }
+          defaultPaymentMethod = {
+            brand: card.brand || 'card',
+            last4: card.last4 || '••••',
+          }
+        }
+
+        // Optional: next invoice amount (upcoming invoice)
+        let nextInvoiceAmount: number | null = null
+        try {
+          const upcoming = await stripe.invoices.retrieveUpcoming({
+            customer: user.stripeCustomerId,
+            subscription: user.subscriptionId,
+          })
+          if (upcoming.amount_due != null) nextInvoiceAmount = upcoming.amount_due
+        } catch {
+          // No upcoming invoice or not applicable
+        }
+
         return NextResponse.json({
           subscription: {
             id: subscription.id,
             status: subscription.status,
+            created: subscription.created,
             currentPeriodStart: subscription.current_period_start,
             currentPeriodEnd: subscription.current_period_end,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            canceledAt: subscription.canceled_at ?? null,
             plan: {
               name: price.nickname || user.subscriptionPlan || 'Subscription',
               amount: price.unit_amount || 0,
               currency: price.currency,
               interval: price.recurring?.interval || 'month',
             },
+            defaultPaymentMethod: defaultPaymentMethod,
+            nextInvoiceAmount: nextInvoiceAmount,
+            stripeCustomerId: user.stripeCustomerId,
           },
         })
       } catch (stripeError) {
