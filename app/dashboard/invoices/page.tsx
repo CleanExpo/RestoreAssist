@@ -2,7 +2,9 @@
 
 import {
   getEffectiveStatus,
-  getStatusConfig
+  getStatusConfig,
+  isDraft,
+  isCancelled,
 } from '@/lib/invoice-status'
 import {
   AlertCircle,
@@ -12,12 +14,15 @@ import {
   Download,
   FileText,
   Plus,
-  Search
+  Search,
+  Trash2,
+  X,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 
 interface Invoice {
   id: string
@@ -52,6 +57,77 @@ export default function InvoicesPage() {
     paidThisMonth: 0,
     draftTotal: 0
   })
+
+  // Bulk delete: selected invoice IDs (only DRAFT/CANCELLED can be deleted)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const canDeleteInvoice = (invoice: Invoice) => isDraft(invoice.status) || isCancelled(invoice.status)
+  const deletableInvoices = invoices.filter(canDeleteInvoice)
+  const selectedCount = selectedIds.size
+  const allDeletableSelected =
+    deletableInvoices.length > 0 &&
+    deletableInvoices.every((inv) => selectedIds.has(inv.id))
+
+  const toggleSelect = (id: string, invoice: Invoice) => {
+    if (!canDeleteInvoice(invoice)) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAllDeletable = () => {
+    if (allDeletableSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(deletableInvoices.map((inv) => inv.id)))
+    }
+  }
+
+  const openDeleteDialog = () => {
+    if (selectedCount === 0) return
+    setShowDeleteDialog(true)
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0) return
+    setDeleting(true)
+    try {
+      const ids = Array.from(selectedIds)
+      const results = await Promise.allSettled(
+        ids.map((id) => fetch(`/api/invoices/${id}`, { method: 'DELETE' }))
+      )
+      const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok))
+      const succeeded = results.length - failed.length
+      if (succeeded > 0) {
+        setSelectedIds(new Set())
+        setShowDeleteDialog(false)
+        toast.success(
+          succeeded === 1
+            ? 'Invoice deleted successfully'
+            : `${succeeded} invoices deleted successfully`
+        )
+        fetchInvoices()
+        fetchStats()
+      }
+      if (failed.length > 0) {
+        toast.error(
+          failed.length === 1
+            ? 'Failed to delete one invoice'
+            : `Failed to delete ${failed.length} invoices`
+        )
+      }
+    } catch (e) {
+      console.error('Bulk delete error:', e)
+      toast.error('An error occurred while deleting invoices')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -204,9 +280,9 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="flex-1 relative">
+      {/* Search, Filters, and Bulk Actions */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6 items-start md:items-center">
+        <div className="flex-1 w-full md:max-w-md relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input
             type="text"
@@ -229,6 +305,28 @@ export default function InvoicesPage() {
           <option value="PAID">Paid</option>
           <option value="OVERDUE">Overdue</option>
         </select>
+        {selectedCount > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              {selectedCount} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={openDeleteDialog}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete selected
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Invoice Table */}
@@ -254,6 +352,17 @@ export default function InvoicesPage() {
           <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-700/50">
               <tr>
+                <th className="px-4 py-3 text-left w-10">
+                  {deletableInvoices.length > 0 ? (
+                    <input
+                      type="checkbox"
+                      checked={allDeletableSelected}
+                      onChange={toggleSelectAllDeletable}
+                      className="rounded border-slate-300 dark:border-slate-600 text-cyan-600 focus:ring-cyan-500"
+                      aria-label="Select all deletable invoices"
+                    />
+                  ) : null}
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Invoice
                 </th>
@@ -281,9 +390,24 @@ export default function InvoicesPage() {
               {invoices.map((invoice) => (
                 <tr
                   key={invoice.id}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer"
+                  className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer ${selectedIds.has(invoice.id) ? 'bg-cyan-500/5 dark:bg-cyan-500/10' : ''}`}
                   onClick={() => router.push(`/dashboard/invoices/${invoice.id}`)}
                 >
+                  <td
+                    className="px-4 py-4 whitespace-nowrap w-10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {canDeleteInvoice(invoice) ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(invoice.id)}
+                        onChange={() => toggleSelect(invoice.id, invoice)}
+                        className="rounded border-slate-300 dark:border-slate-600 text-cyan-600 focus:ring-cyan-500"
+                        aria-label={`Select ${invoice.invoiceNumber}`}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : null}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-slate-900 dark:text-white">
                       {invoice.invoiceNumber}
@@ -335,6 +459,66 @@ export default function InvoicesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete selected confirmation dialog */}
+      {showDeleteDialog && selectedCount > 0 && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !deleting && setShowDeleteDialog(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="bulk-delete-dialog-title"
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                id="bulk-delete-dialog-title"
+                className="text-xl font-semibold text-red-600 dark:text-red-400"
+              >
+                Delete {selectedCount} invoice{selectedCount !== 1 ? 's' : ''}?
+              </h2>
+              <button
+                type="button"
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 mb-6">
+              This action cannot be undone. Only draft and cancelled invoices can be deleted.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
