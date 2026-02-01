@@ -137,7 +137,7 @@ export default function InterviewPage() {
   }, [])
 
   /**
-   * Submit interview data and auto-populated fields - redirects to NEW report creation
+   * Submit interview data and auto-populated fields - redirects to NEW inspection page
    */
   const handleSubmitData = useCallback(async () => {
     if (!autoPopulatedFields) {
@@ -146,7 +146,7 @@ export default function InterviewPage() {
     }
 
     try {
-      console.log('Preparing to create new report with interview data...', { 
+      console.log('Preparing to open new inspection with interview data...', { 
         fieldsCount: autoPopulatedFields.size,
         formTemplateId 
       })
@@ -154,7 +154,7 @@ export default function InterviewPage() {
       // Convert interview fields to report data format
       const reportData = convertInterviewFieldsToReportData(autoPopulatedFields)
       
-      // Encode the data as URL params for the new report page
+      // Encode the data as URL params for the new inspection page
       const encodedData = encodeURIComponent(JSON.stringify(reportData))
       const encodedMetadata = encodeURIComponent(JSON.stringify({
         fromInterview: true,
@@ -164,10 +164,10 @@ export default function InterviewPage() {
         timestamp: new Date().toISOString(),
       }))
 
-      // Redirect to NEW report page with auto-populated data
-      console.log('Redirecting to new report page with interview data')
+      // Redirect to NEW inspection page with auto-populated data
+      console.log('Redirecting to new inspection page with interview data')
       router.push(
-        `/dashboard/reports/new?interviewData=${encodedData}&interviewMetadata=${encodedMetadata}`
+        `/dashboard/inspections/new?interviewData=${encodedData}&interviewMetadata=${encodedMetadata}`
       )
     } catch (error) {
       console.error('Error preparing interview data:', error)
