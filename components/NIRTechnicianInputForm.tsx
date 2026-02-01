@@ -451,25 +451,27 @@ export default function NIRTechnicianInputForm({
     if (typeof initialData.propertyAddress === "string") setPropertyAddress(initialData.propertyAddress)
     if (typeof initialData.propertyPostcode === "string") setPropertyPostcode(initialData.propertyPostcode)
     if (typeof initialData.technicianName === "string") setTechnicianName(initialData.technicianName)
-    if (typeof initialData.ambientTemperature === "number" || typeof initialData.ambientTemperature === "string") {
-      const t = typeof initialData.ambientTemperature === "string" ? parseFloat(initialData.ambientTemperature) : initialData.ambientTemperature
-      if (!Number.isNaN(t)) setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: t }))
-    }
-    if (typeof initialData.humidityLevel === "number" || typeof initialData.humidityLevel === "string") {
-      const h = typeof initialData.humidityLevel === "string" ? parseFloat(initialData.humidityLevel) : initialData.humidityLevel
-      if (!Number.isNaN(h)) setEnvironmentalData((prev) => ({ ...prev, humidityLevel: h }))
-    }
+    // Ambient temperature: interview sends ambientTemperature (from mapping) or temperatureCurrent
+    const tempRaw = initialData.ambientTemperature ?? initialData.temperatureCurrent
+    if (typeof tempRaw === "number" && !Number.isNaN(tempRaw)) setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: tempRaw }))
+    else if (typeof tempRaw === "string") { const t = parseFloat(tempRaw); if (!Number.isNaN(t)) setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: t })) }
+    // Humidity: interview sends humidityLevel (from mapping) or humidityCurrent
+    const humidityRaw = initialData.humidityLevel ?? initialData.humidityCurrent
+    if (typeof humidityRaw === "number" && !Number.isNaN(humidityRaw)) setEnvironmentalData((prev) => ({ ...prev, humidityLevel: humidityRaw }))
+    else if (typeof humidityRaw === "string") { const h = parseFloat(humidityRaw); if (!Number.isNaN(h)) setEnvironmentalData((prev) => ({ ...prev, humidityLevel: h })) }
     if (typeof initialData.dewPoint === "number" || typeof initialData.dewPoint === "string") {
       const d = typeof initialData.dewPoint === "string" ? parseFloat(initialData.dewPoint) : initialData.dewPoint
       if (!Number.isNaN(d)) setEnvironmentalData((prev) => ({ ...prev, dewPoint: d }))
     }
     if (typeof initialData.airCirculation === "boolean") setEnvironmentalData((prev) => ({ ...prev, airCirculation: initialData.airCirculation }))
     if (typeof initialData.weatherConditions === "string") setEnvironmentalData((prev) => ({ ...prev, weatherConditions: initialData.weatherConditions }))
-    if ((typeof initialData.waterCategory === "string" || typeof initialData.waterCategory === "number") && (typeof initialData.waterClass === "string" || typeof initialData.waterClass === "number")) {
-      setManualClassification({
-        category: String(initialData.waterCategory),
-        class: String(initialData.waterClass),
-      })
+    // Water classification: normalize "Category 1" / "Class 1" to "1" for NIR dropdowns
+    const catRaw = initialData.waterCategory
+    const classRaw = initialData.waterClass
+    if (catRaw != null && classRaw != null) {
+      const category = typeof catRaw === "number" ? String(catRaw) : String(catRaw).replace(/^Category\s*/i, "").trim() || String(catRaw)
+      const waterClass = typeof classRaw === "number" ? String(classRaw) : String(classRaw).replace(/^Class\s*/i, "").trim() || String(classRaw)
+      setManualClassification({ category, class: waterClass })
     }
   }, [initialData])
 

@@ -11,8 +11,7 @@ export default function NewInspectionPage() {
 
   const initialData = useMemo(() => {
     const interviewDataParam = searchParams.get("interviewData")
-    const interviewMetadataParam = searchParams.get("interviewMetadata")
-    if (!interviewDataParam || !interviewMetadataParam) return undefined
+    if (!interviewDataParam) return undefined
     try {
       return JSON.parse(decodeURIComponent(interviewDataParam)) as Record<string, unknown>
     } catch {
