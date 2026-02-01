@@ -88,12 +88,14 @@ export default function InterviewPage() {
   }, [router])
 
   /**
-   * Convert interview fields to report form data format
+   * Convert interview fields to report/inspection form data format.
+   * Maps question-library field IDs (e.g. temperatureCurrent, humidityCurrent) to keys
+   * expected by the inspection NIR form (ambientTemperature, humidityLevel).
    */
   const convertInterviewFieldsToReportData = useCallback((fields: Map<string, InterviewPopulatedField>) => {
     const reportData: Record<string, any> = {}
     
-    // Map interview field IDs to report field names
+    // Map interview/question-library field IDs to inspection/report field names
     const fieldMapping: Record<string, string> = {
       'sourceOfWater': 'sourceOfWater',
       'waterCategory': 'waterCategory',
@@ -106,11 +108,16 @@ export default function InterviewPage() {
       'technicianAttendanceDate': 'technicianAttendanceDate',
       'technicianName': 'technicianName',
       'affectedArea': 'affectedArea',
+      'affectedAreaPercentage': 'affectedArea',
       'claimReferenceNumber': 'claimReferenceNumber',
       'buildingAge': 'buildingAge',
       'structureType': 'structureType',
       'hazardType': 'hazardType',
       'insuranceType': 'insuranceType',
+      // Question library uses these; inspection NIR expects ambient/humidity
+      'temperatureCurrent': 'ambientTemperature',
+      'humidityCurrent': 'humidityLevel',
+      'timeSinceLoss': 'timeSinceLoss',
     }
 
     fields.forEach((field, fieldId) => {
