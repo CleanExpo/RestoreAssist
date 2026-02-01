@@ -40,6 +40,7 @@ export default function InterviewPage() {
   >(null)
   const [mergeResult, setMergeResult] = useState(null)
   const [showSummary, setShowSummary] = useState(false)
+  const [savingToInspection, setSavingToInspection] = useState(false)
 
   const { submitForm, isLoading: isSubmitting, error: submitError } = useInterviewFormSubmission({
     formTemplateId,
@@ -144,7 +145,8 @@ export default function InterviewPage() {
   }, [])
 
   /**
-   * Submit interview data and auto-populated fields - redirects to NEW inspection page
+   * Save auto-populated data to DB, then redirect to new inspection page.
+   * Inspection page loads prefill from API using sessionId.
    */
   const handleSubmitData = useCallback(async () => {
     if (!autoPopulatedFields) {
@@ -152,35 +154,45 @@ export default function InterviewPage() {
       return
     }
 
-    try {
-      console.log('Preparing to open new inspection with interview data...', { 
-        fieldsCount: autoPopulatedFields.size,
-        formTemplateId 
-      })
-      
-      // Convert interview fields to report data format
-      const reportData = convertInterviewFieldsToReportData(autoPopulatedFields)
-      
-      // Encode the data as URL params for the new inspection page
-      const encodedData = encodeURIComponent(JSON.stringify(reportData))
-      const encodedMetadata = encodeURIComponent(JSON.stringify({
-        fromInterview: true,
-        interviewSessionId: searchParams.get('sessionId'),
-        fieldsCount: autoPopulatedFields.size,
-        averageConfidence: mergeResult?.statistics.averageConfidence || 85,
-        timestamp: new Date().toISOString(),
-      }))
-
-      // Redirect to NEW inspection page with auto-populated data
-      console.log('Redirecting to new inspection page with interview data')
-      router.push(
-        `/dashboard/inspections/new?interviewData=${encodedData}&interviewMetadata=${encodedMetadata}`
-      )
-    } catch (error) {
-      console.error('Error preparing interview data:', error)
-      alert(`Error preparing data: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    const sessionIdForSave = searchParams.get('sessionId')
+    if (!sessionIdForSave) {
+      alert('Session ID missing. Please complete the interview from the start so we can save your answers.')
+      return
     }
-  }, [autoPopulatedFields, convertInterviewFieldsToReportData, formTemplateId, router, searchParams, mergeResult])
+
+    setSavingToInspection(true)
+    try {
+      // Serialize autoPopulatedFields: Map<fieldId, { value, confidence }> -> object for JSON
+      const payload = Object.fromEntries(
+        Array.from(autoPopulatedFields.entries()).map(([k, v]) => [
+          k,
+          { value: v.value, confidence: v.confidence ?? 85 },
+        ])
+      )
+
+      const response = await fetch(`/api/interviews/${sessionIdForSave}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoPopulatedFields: payload,
+          status: 'COMPLETED',
+        }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error ?? 'Failed to save interview data')
+      }
+
+      // Redirect to new inspection; page will fetch prefill from API using sessionId
+      router.push(`/dashboard/inspections/new?sessionId=${sessionIdForSave}`)
+    } catch (error) {
+      console.error('Error saving interview data:', error)
+      alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setSavingToInspection(false)
+    }
+  }, [autoPopulatedFields, router, searchParams])
 
   /**
    * Export interview summary
@@ -320,6 +332,7 @@ export default function InterviewPage() {
                 onContinue={handleSubmitData}
                 onExport={handleExportSummary}
                 showActions={true}
+                isLoading={savingToInspection}
               />
 
               {submitError && (

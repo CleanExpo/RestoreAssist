@@ -62,20 +62,78 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching interview session:", error)
     const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : undefined
-    
-    console.error("Error details:", {
-      message: errorMessage,
-      stack: errorStack,
-    })
-    
     return NextResponse.json(
-      { 
-        error: "Internal server error",
-        details: errorMessage
-      },
+      { error: "Internal server error", details: errorMessage },
       { status: 500 }
     )
+  }
+}
+
+// PATCH - Update interview session (e.g. save autoPopulatedFields and mark COMPLETED)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const { id } = await params
+    if (!id) {
+      return NextResponse.json({ error: "Interview ID is required" }, { status: 400 })
+    }
+
+    const existing = await prisma.interviewSession.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 })
+    }
+
+    const body = await request.json().catch(() => ({}))
+    const { autoPopulatedFields, status, completedAt } = body
+
+    const data: { autoPopulatedFields?: string; status?: string; completedAt?: Date } = {}
+    if (typeof autoPopulatedFields === "string") data.autoPopulatedFields = autoPopulatedFields
+    else if (autoPopulatedFields != null && typeof autoPopulatedFields === "object") {
+      data.autoPopulatedFields = JSON.stringify(autoPopulatedFields)
+    }
+    if (status === "COMPLETED" || status === "IN_PROGRESS" || status === "STARTED" || status === "ABANDONED") {
+      data.status = status
+    }
+    if (completedAt != null) {
+      const d = new Date(completedAt)
+      if (!Number.isNaN(d.getTime())) data.completedAt = d
+    } else if (status === "COMPLETED") {
+      data.completedAt = new Date()
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ success: true, sessionId: id })
+    }
+
+    await prisma.interviewSession.update({
+      where: { id },
+      data: data as { autoPopulatedFields?: string; status?: "COMPLETED" | "IN_PROGRESS" | "STARTED" | "ABANDONED"; completedAt?: Date },
+    })
+
+    return NextResponse.json({ success: true, sessionId: id })
+  } catch (error) {
+    console.error("Error updating interview session:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
