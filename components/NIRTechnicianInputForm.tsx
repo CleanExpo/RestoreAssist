@@ -36,6 +36,8 @@ import {
 
 interface NIRTechnicianInputFormProps {
   reportId?: string
+  /** Pre-fill form from guided interview (e.g. interviewData from URL) */
+  initialData?: Record<string, unknown>
   onComplete?: (inspectionId: string) => void
   onCancel?: () => void
 }
@@ -141,6 +143,7 @@ const WATER_CLASSES = [
 
 export default function NIRTechnicianInputForm({ 
   reportId, 
+  initialData,
   onComplete,
   onCancel 
 }: NIRTechnicianInputFormProps) {
@@ -442,6 +445,34 @@ export default function NIRTechnicianInputForm({
     toast.success("Quick Fill data populated successfully!")
   }
   
+  // Pre-fill form from guided interview (e.g. inspections/new?interviewData=...)
+  useEffect(() => {
+    if (!initialData || Object.keys(initialData).length === 0) return
+    if (typeof initialData.propertyAddress === "string") setPropertyAddress(initialData.propertyAddress)
+    if (typeof initialData.propertyPostcode === "string") setPropertyPostcode(initialData.propertyPostcode)
+    if (typeof initialData.technicianName === "string") setTechnicianName(initialData.technicianName)
+    if (typeof initialData.ambientTemperature === "number" || typeof initialData.ambientTemperature === "string") {
+      const t = typeof initialData.ambientTemperature === "string" ? parseFloat(initialData.ambientTemperature) : initialData.ambientTemperature
+      if (!Number.isNaN(t)) setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: t }))
+    }
+    if (typeof initialData.humidityLevel === "number" || typeof initialData.humidityLevel === "string") {
+      const h = typeof initialData.humidityLevel === "string" ? parseFloat(initialData.humidityLevel) : initialData.humidityLevel
+      if (!Number.isNaN(h)) setEnvironmentalData((prev) => ({ ...prev, humidityLevel: h }))
+    }
+    if (typeof initialData.dewPoint === "number" || typeof initialData.dewPoint === "string") {
+      const d = typeof initialData.dewPoint === "string" ? parseFloat(initialData.dewPoint) : initialData.dewPoint
+      if (!Number.isNaN(d)) setEnvironmentalData((prev) => ({ ...prev, dewPoint: d }))
+    }
+    if (typeof initialData.airCirculation === "boolean") setEnvironmentalData((prev) => ({ ...prev, airCirculation: initialData.airCirculation }))
+    if (typeof initialData.weatherConditions === "string") setEnvironmentalData((prev) => ({ ...prev, weatherConditions: initialData.weatherConditions }))
+    if ((typeof initialData.waterCategory === "string" || typeof initialData.waterCategory === "number") && (typeof initialData.waterClass === "string" || typeof initialData.waterClass === "number")) {
+      setManualClassification({
+        category: String(initialData.waterCategory),
+        class: String(initialData.waterClass),
+      })
+    }
+  }, [initialData])
+
   // Initialize inspection if reportId provided
   useEffect(() => {
     if (reportId && !inspectionId) {
