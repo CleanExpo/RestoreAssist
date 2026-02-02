@@ -242,6 +242,9 @@ export async function GET(request: NextRequest) {
         statePerformance: [],
         turnaroundTime: [],
         topClients: [],
+        statusDistribution: [],
+        byDayOfWeek: [],
+        periodComparison: null,
       })
     }
 
@@ -383,6 +386,47 @@ export async function GET(request: NextRequest) {
         revenue: `$${Math.round(client.revenue).toLocaleString()}`,
       }))
 
+    // Status distribution (report pipeline)
+    const statusOrder = ["DRAFT", "PENDING", "APPROVED", "COMPLETED", "ARCHIVED"] as const
+    const statusCounts = new Map<string, { count: number; revenue: number }>()
+    statusOrder.forEach((s) => statusCounts.set(s, { count: 0, revenue: 0 }))
+    reportsWithCost.forEach((report) => {
+      const status = report.status || "DRAFT"
+      const existing = statusCounts.get(status) || { count: 0, revenue: 0 }
+      statusCounts.set(status, {
+        count: existing.count + 1,
+        revenue: existing.revenue + (report.cost || 0),
+      })
+    })
+    const statusDistribution = statusOrder
+      .map((status) => {
+        const data = statusCounts.get(status)!
+        return { status, count: data.count, revenue: Math.round(data.revenue) }
+      })
+      .filter((d) => d.count > 0)
+
+    // Activity by day of week (0 = Sunday, 1 = Monday, ...)
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    const byDayMap = new Map<number, { reports: number; revenue: number }>()
+    for (let i = 0; i < 7; i++) byDayMap.set(i, { reports: 0, revenue: 0 })
+    reportsWithCost.forEach((report) => {
+      const day = report.createdAt.getDay()
+      const existing = byDayMap.get(day)!
+      byDayMap.set(day, {
+        reports: existing.reports + 1,
+        revenue: existing.revenue + (report.cost || 0),
+      })
+    })
+    const byDayOfWeek = dayNames.map((day, i) => {
+      const data = byDayMap.get(i)!
+      return {
+        day,
+        dayNumber: i,
+        reports: data.reports,
+        revenue: Math.round(data.revenue),
+      }
+    })
+
     // Calculate change percentages (compared to previous period)
     // Previous period is the same duration but before the current period
     const currentStartDate = getDateFilter(dateRange).createdAt.gte
@@ -433,6 +477,15 @@ export async function GET(request: NextRequest) {
       return `${change >= 0 ? "+" : ""}${change.toFixed(0)}%`
     }
 
+    const periodComparison = {
+      current: { reports: totalReports, revenue: Math.round(totalRevenue) },
+      previous: { reports: prevTotalReports, revenue: Math.round(prevTotalRevenue) },
+      changes: {
+        reports: calculateChange(totalReports, prevTotalReports),
+        revenue: calculateChange(totalRevenue, prevTotalRevenue),
+      },
+    }
+
     return NextResponse.json({
       kpis: {
         totalReports: {
@@ -461,6 +514,9 @@ export async function GET(request: NextRequest) {
       statePerformance,
       turnaroundTime,
       topClients,
+      statusDistribution,
+      byDayOfWeek,
+      periodComparison,
     })
   } catch (error) {
     console.error("Error fetching analytics:", error)
