@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useState, useEffect } from "react"
 import NIRTechnicianInputForm from "@/components/NIRTechnicianInputForm"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function NewInspectionPage() {
   const router = useRouter()
@@ -56,28 +57,28 @@ export default function NewInspectionPage() {
       : initialDataFromUrl
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6 w-full max-w-[1600px] mx-auto", "text-neutral-900 dark:text-neutral-100", "bg-white dark:bg-transparent")}>
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push("/dashboard/inspections")}
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
+          className={cn("p-2 rounded-lg transition-colors", "hover:bg-neutral-100 dark:hover:bg-slate-800", "text-neutral-700 dark:text-neutral-300")}
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+          <h1 className={cn("text-2xl font-bold", "text-neutral-900 dark:text-white")}>
             New Inspection
           </h1>
-          <p className="text-sm text-neutral-500 dark:text-slate-400">
+          <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
             Capture field data for a National Inspection Report (NIR)
           </p>
         </div>
       </div>
 
       {loadingPrefill ? (
-        <div className="flex items-center justify-center py-20 gap-3 rounded-xl border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900/50">
+        <div className={cn("flex items-center justify-center py-20 gap-3 rounded-xl border", "border-neutral-200 dark:border-slate-700", "bg-neutral-50 dark:bg-slate-900/50")}>
           <Loader2 className="animate-spin text-cyan-500" size={28} />
-          <span className="text-neutral-600 dark:text-slate-400">Loading interview data...</span>
+          <span className={cn("text-neutral-600 dark:text-slate-400")}>Loading interview data...</span>
         </div>
       ) : (
         <NIRTechnicianInputForm
