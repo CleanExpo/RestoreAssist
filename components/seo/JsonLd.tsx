@@ -45,7 +45,7 @@ export function SoftwareApplicationSchema() {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'RestoreAssist',
+    name: 'Restore Assist',
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'Web',
     offers: {
@@ -57,7 +57,7 @@ export function SoftwareApplicationSchema() {
     aggregateRating: {
       '@type': 'AggregateRating',
       ratingValue: '4.8',
-      ratingCount: '50',
+      reviewCount: '50',
     },
     description: 'Professional restoration report software with AI-powered assessment, IICRC S500 compliance, and comprehensive cost estimation for Australian restoration contractors.',
     featureList: [

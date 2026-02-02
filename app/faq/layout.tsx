@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { FAQPageSchema } from '@/components/seo/JsonLd'
 
 export const metadata: Metadata = {
-  title: 'FAQ - Frequently Asked Questions',
+  title: 'FAQ - Restore Assist Questions & Answers',
   description: 'Get answers to common questions about RestoreAssist restoration software, IICRC compliance, pricing, features, integrations, and implementation for Australian restoration businesses.',
   keywords: [
     'restoration software FAQ',
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     'water damage software answers',
   ],
   openGraph: {
-    title: 'FAQ - RestoreAssist',
+    title: 'FAQ - Restore Assist Questions & Answers',
     description: 'Common questions about restoration software, compliance, and features.',
     type: 'website',
     images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Restore Assist' }],
