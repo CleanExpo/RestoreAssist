@@ -16,7 +16,9 @@ export const metadata: Metadata = {
     title: 'Solutions for Restoration Professionals | RestoreAssist',
     description: 'Complete restoration management solutions for contractors, loss adjusters, and insurance professionals.',
     type: 'website',
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Restore Assist' }],
   },
+  alternates: { canonical: '/solutions' },
 }
 
 export default function SolutionsLayout({
