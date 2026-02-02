@@ -595,6 +595,9 @@ model Report {
   // Invoice relationships
   invoices Invoice[] @relation("InvoiceReport")
 
+  // Guided interview sessions (when started from report actions)
+  interviewSessions InterviewSession[]
+
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
@@ -2527,6 +2530,10 @@ model InterviewSession {
   userTierLevel        SubscriptionTierLevel
   technicianExperience String? // novice, experienced, expert
 
+  // Optional link to a Report (when started from reports listing)
+  reportId String?
+  report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
   // Relations
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   formTemplate FormTemplate        @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
@@ -2539,6 +2546,7 @@ model InterviewSession {
   @@index([status])
   @@index([createdAt])
   @@index([formTemplateId])
+  @@index([reportId])
 }
 
 model InterviewResponse {
