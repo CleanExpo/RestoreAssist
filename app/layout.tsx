@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: {
-    default: "Restore Assist - Professional Restoration Reports",
+    default: "Restore Assist - AI-Powered Restoration Reports for Australia",
     template: "%s | Restore Assist",
   },
   description:
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Restore Assist" }],
   openGraph: {
-    title: "Restore Assist - Professional Restoration Reports",
+    title: "Restore Assist - AI-Powered Restoration Reports for Australia",
     description:
       "Generate comprehensive, legally defensible inspection reports backed by IICRC standards.",
     type: "website",
