@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
       select: { 
         quickFillCreditsRemaining: true,
         totalQuickFillUsed: true,
-        subscriptionStatus: true
+        subscriptionStatus: true,
+        organizationId: true,
+        role: true
       }
     })
 
@@ -26,7 +28,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Active subscribers have unlimited Quick Fill
-    const hasUnlimited = user.subscriptionStatus === 'ACTIVE'
+    // Invited team members (Managers and Technicians in an org) also get unlimited Quick Fill as part of the org package
+    const isInvitedTeamMember = !!user.organizationId && (user.role === 'MANAGER' || user.role === 'USER')
+    const hasUnlimited = user.subscriptionStatus === 'ACTIVE' || isInvitedTeamMember
     const creditsRemaining = hasUnlimited ? null : (user.quickFillCreditsRemaining ?? 0)
 
     return NextResponse.json({ 
@@ -58,7 +62,9 @@ export async function POST(request: NextRequest) {
       select: { 
         quickFillCreditsRemaining: true,
         totalQuickFillUsed: true,
-        subscriptionStatus: true
+        subscriptionStatus: true,
+        organizationId: true,
+        role: true
       }
     })
 
@@ -67,7 +73,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Active subscribers have unlimited Quick Fill - no deduction needed
-    if (user.subscriptionStatus === 'ACTIVE') {
+    // Invited team members (Managers and Technicians in an org) also get unlimited Quick Fill
+    const isInvitedTeamMember = !!user.organizationId && (user.role === 'MANAGER' || user.role === 'USER')
+    if (user.subscriptionStatus === 'ACTIVE' || isInvitedTeamMember) {
       return NextResponse.json({ 
         success: true,
         creditsRemaining: null,
