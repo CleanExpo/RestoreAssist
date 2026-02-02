@@ -473,12 +473,19 @@ export default function ClaimsAnalysisPage() {
                   Export CSV
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => {
-                    if (summary) exportClaimsPDF(analysisResults, summary, folderName)
+                  onClick={async () => {
+                    if (!summary) return
+                    try {
+                      toast.loading('Generating PDF…', { id: 'claims-pdf' })
+                      await exportClaimsPDF(analysisResults, summary, folderName)
+                      toast.success('PDF downloaded', { id: 'claims-pdf' })
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : 'Failed to generate PDF', { id: 'claims-pdf' })
+                    }
                   }}
                 >
                   <FileDown className="mr-2 h-4 w-4" />
-                  Export PDF (Print)
+                  Download PDF
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

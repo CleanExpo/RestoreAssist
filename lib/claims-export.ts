@@ -1,6 +1,9 @@
 /**
- * Claims Analysis Export — CSV and Print-ready PDF
+ * Claims Analysis Export — CSV and PDF download
  */
+
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface ExportIssue {
   category: string
@@ -111,12 +114,14 @@ export function exportClaimsCSV(results: ExportResult[], summary: ExportSummary)
 }
 
 /**
- * Open a print-friendly view for PDF export
+ * Build the claims report HTML (shared by PDF and print)
  */
-export function exportClaimsPDF(results: ExportResult[], summary: ExportSummary, folderName?: string) {
-  const container = document.createElement('div')
-  container.id = 'claims-print-container'
-  container.innerHTML = `
+function buildClaimsReportHTML(
+  results: ExportResult[],
+  summary: ExportSummary,
+  folderName?: string
+): string {
+  return `
     <style>
       @media print {
         body > *:not(#claims-print-container) { display: none !important; }
@@ -215,13 +220,67 @@ export function exportClaimsPDF(results: ExportResult[], summary: ExportSummary,
     </div>
     `).join('')}
   `
+}
 
+/**
+ * Generate PDF and trigger download (no print dialog)
+ */
+export async function exportClaimsPDF(
+  results: ExportResult[],
+  summary: ExportSummary,
+  folderName?: string
+): Promise<void> {
+  const container = document.createElement('div')
+  container.id = 'claims-print-container'
+  container.innerHTML = buildClaimsReportHTML(results, summary, folderName)
+  container.setAttribute(
+    'style',
+    'position:fixed;left:-9999px;top:0;width:900px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:40px;color:#111;font-size:12px;line-height:1.5;background:#fff;'
+  )
   document.body.appendChild(container)
-  window.print()
 
-  // Cleanup after print dialog
-  setTimeout(() => {
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    })
+    const imgData = canvas.toDataURL('image/png')
+    const pageW = 210
+    const margin = 10
+    const contentW = pageW - margin * 2
+    const imgW = contentW
+    const imgH = (canvas.height * contentW) / canvas.width
+    const pageH = 297
+    const contentH = pageH - margin * 2
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    })
+    const scalePxPerMm = canvas.width / contentW
+    const sliceHeightPx = contentH * scalePxPerMm
+    const totalPages = Math.ceil(canvas.height / sliceHeightPx) || 1
+    for (let i = 0; i < totalPages; i++) {
+      if (i > 0) pdf.addPage()
+      const sourceY = i * sliceHeightPx
+      const sourceH = Math.min(sliceHeightPx, canvas.height - sourceY)
+      const sliceCanvas = document.createElement('canvas')
+      sliceCanvas.width = canvas.width
+      sliceCanvas.height = sourceH
+      const ctx = sliceCanvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH)
+        const sliceData = sliceCanvas.toDataURL('image/png')
+        const sliceHMm = sourceH / scalePxPerMm
+        pdf.addImage(sliceData, 'PNG', margin, margin, imgW, sliceHMm, undefined, 'FAST')
+      }
+    }
+    const filename = `claims-analysis-${new Date().toISOString().split('T')[0]}.pdf`
+    pdf.save(filename)
+  } finally {
     const el = document.getElementById('claims-print-container')
     if (el) document.body.removeChild(el)
-  }, 1000)
+  }
 }
