@@ -45,7 +45,8 @@ export async function GET(
           select: {
             id: true,
             questionId: true,
-            answerValue: true, // Use answerValue from schema
+            questionText: true,
+            answerValue: true,
             answerType: true,
             answeredAt: true,
             createdAt: true,
