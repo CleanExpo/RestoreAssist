@@ -16,7 +16,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { QuestionCard } from './QuestionCard'
 import { ProgressRing } from './ProgressRing'
 import { BottomActionBar } from './BottomActionBar'
-import { AutoPopulatedFieldsDisplay } from './AutoPopulatedFieldsDisplay'
 import type { Question } from '@/lib/interview'
 
 /**
@@ -40,13 +39,21 @@ interface InterviewState {
   status: 'STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'ERROR'
 }
 
+/** One question and its answer for summary review */
+export interface InterviewQuestionAnswer {
+  questionId: string
+  questionText: string
+  answer: unknown
+}
+
 interface GuidedInterviewPanelProps {
   formTemplateId: string
   jobType?: string
   postcode?: string
   experienceLevel?: "novice" | "experienced" | "expert"
   sessionId?: string
-  onComplete?: (autoPopulatedFields: Map<string, any>) => void
+  reportId?: string
+  onComplete?: (questionsAndAnswers: InterviewQuestionAnswer[]) => void
   onCancel?: () => void
   showAutoPopulatedFields?: boolean
 }
@@ -60,6 +67,7 @@ export function GuidedInterviewPanel({
   postcode,
   experienceLevel,
   sessionId: resumeSessionId,
+  reportId,
   onComplete,
   onCancel,
   showAutoPopulatedFields = true,
@@ -189,6 +197,7 @@ export function GuidedInterviewPanel({
           jobType,
           postcode,
           experienceLevel,
+          reportId: reportId || undefined,
         }),
         signal: controller.signal,
       })
@@ -732,13 +741,22 @@ export function GuidedInterviewPanel({
   }, [interviewState])
 
   /**
-   * Complete interview
+   * Complete interview: pass questions and answers for summary review
    */
   const handleComplete = useCallback(() => {
-    if (onComplete) {
-      onComplete(interviewState.autoPopulatedFields)
-    }
-  }, [interviewState.autoPopulatedFields, onComplete])
+    if (!onComplete) return
+    const questionsAndAnswers: InterviewQuestionAnswer[] = Array.from(
+      interviewState.answers.entries()
+    ).map(([questionId, answer]) => {
+      const q = interviewState.allQuestions.find((qq) => qq.id === questionId)
+      return {
+        questionId,
+        questionText: q?.text ?? '',
+        answer,
+      }
+    })
+    onComplete(questionsAndAnswers)
+  }, [interviewState.answers, interviewState.allQuestions, onComplete])
 
   /**
    * Evaluate condition for conditional shows
@@ -825,57 +843,99 @@ export function GuidedInterviewPanel({
     )
   }
 
-  // Render completion state
+  // Format answer for one-line preview
+  const formatAnswerPreview = (value: unknown): string => {
+    if (value === null || value === undefined) return '—'
+    if (typeof value === 'string') return value.length > 60 ? value.slice(0, 60) + '…' : value
+    if (Array.isArray(value)) return value.join(', ').slice(0, 60) + (value.join(', ').length > 60 ? '…' : '')
+    if (typeof value === 'object') return JSON.stringify(value).slice(0, 60) + '…'
+    return String(value)
+  }
+
+  // Render completion state: detailed summary then "View full summary"
   if (interviewState.status === 'COMPLETED') {
+    const completedQa = Array.from(interviewState.answers.entries()).map(([questionId, answer]) => {
+      const q = interviewState.allQuestions.find((qq) => qq.id === questionId)
+      return { questionText: q?.text ?? '', answer }
+    })
+    const timeSpentMin = Math.round((Date.now() - startTime) / 60000)
+    const timeSpentSec = Math.round((Date.now() - startTime) / 1000) % 60
+
     return (
-      <Card className="w-full h-full flex flex-col">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-            <CardTitle className="text-gray-900 dark:text-white">Interview Complete</CardTitle>
+      <Card className="w-full h-full flex flex-col border-2 border-green-200/60 dark:border-green-800/60 bg-gradient-to-b from-green-50/50 to-white dark:from-green-950/20 dark:to-slate-900">
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <CardTitle className="text-xl text-gray-900 dark:text-white">Interview Complete</CardTitle>
+              <CardDescription className="text-sm text-gray-600 dark:text-slate-400">
+                All questions answered. Review your answers below or open the full summary.
+              </CardDescription>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Questions Answered</p>
-              <p className="text-2xl font-bold">{interviewState.answeredQuestions}</p>
+        <CardContent className="flex-1 overflow-y-auto space-y-5">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Questions</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{interviewState.answeredQuestions}</p>
+              <p className="text-xs text-muted-foreground">of {interviewState.totalQuestions}</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Fields Auto-Populated</p>
-              <p className="text-2xl font-bold">{interviewState.autoPopulatedFields.size}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Average Confidence</p>
-              <p className="text-2xl font-bold">
-                {interviewState.autoPopulatedFields.size > 0
-                  ? Math.round(
-                      Array.from(interviewState.autoPopulatedFields.values()).reduce(
-                        (sum, f) => sum + f.confidence,
-                        0
-                      ) / interviewState.autoPopulatedFields.size
-                    )
-                  : 0}
-                %
+            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Time</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {timeSpentMin > 0 ? `${timeSpentMin} min` : `${timeSpentSec} sec`}
               </p>
+              <p className="text-xs text-muted-foreground">total</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Time Spent</p>
-              <p className="text-2xl font-bold">
-                {Math.round((Date.now() - startTime) / 60000)} min
-              </p>
+            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Progress</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">100%</p>
+              <p className="text-xs text-muted-foreground">complete</p>
             </div>
           </div>
 
-          {showAutoPopulatedFields && interviewState.autoPopulatedFields.size > 0 && (
-            <AutoPopulatedFieldsDisplay fields={interviewState.autoPopulatedFields} />
+          {/* Standards covered */}
+          {interviewState.standardsCovered.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Standards covered</p>
+              <div className="flex flex-wrap gap-1.5">
+                {interviewState.standardsCovered.map((std) => (
+                  <span
+                    key={std}
+                    className="inline-flex items-center rounded-md bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200"
+                  >
+                    {std}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
 
-          <div className="flex gap-2 pt-4">
-            <Button onClick={handleComplete} className="flex-1">
-              Apply Auto-Populated Fields
+          {/* Answers at a glance */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Your answers at a glance</p>
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/30 divide-y divide-gray-200 dark:divide-slate-700">
+              {completedQa.map((item, index) => (
+                <div
+                  key={index}
+                  className="px-3 py-2.5 text-left hover:bg-gray-100/80 dark:hover:bg-slate-700/30 transition-colors"
+                >
+                  <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{item.questionText}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{formatAnswerPreview(item.answer)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleComplete} className="flex-1" size="lg">
+              View full summary
             </Button>
-            <Button onClick={onCancel} variant="outline" className="flex-1">
+            <Button onClick={onCancel} variant="outline" className="flex-1" size="lg">
               Cancel
             </Button>
           </div>
@@ -994,23 +1054,6 @@ export function GuidedInterviewPanel({
                 </div>
               </CardContent>
             </Card>
-
-            {/* Auto-populated fields display */}
-            {showAutoPopulatedFields && interviewState.autoPopulatedFields.size > 0 && (
-              <Card className="border border-emerald-200/80 dark:border-emerald-800/70 bg-emerald-50/80 dark:bg-emerald-900/20 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-                    Auto-populated fields
-                  </CardTitle>
-                  <CardDescription className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                    Review which report fields will be filled automatically as you answer.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="max-h-64 overflow-y-auto pr-1">
-                  <AutoPopulatedFieldsDisplay fields={interviewState.autoPopulatedFields} />
-                </CardContent>
-              </Card>
-            )}
 
             {/* Standards coverage */}
             {interviewState.standardsCovered.length > 0 && (
