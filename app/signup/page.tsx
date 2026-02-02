@@ -92,7 +92,7 @@ export default function SignupPage() {
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
           // Redirect to dashboard (full navigation so callbackUrl is not signup)
-          window.location.href = "/dashboard?onboarding=true"
+          window.location.href = "/dashboard"
         } else {
           toast.error("Please sign in manually")
           // Send to login with callbackUrl=dashboard so after login they land on dashboard
