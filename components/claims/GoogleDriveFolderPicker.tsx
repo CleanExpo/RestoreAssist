@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
+import { signIn } from 'next-auth/react'
 import {
   Dialog,
   DialogContent,
@@ -20,8 +21,36 @@ import {
   ArrowLeft,
   Home,
   Loader2,
+  Cloud,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+declare global {
+  interface Window {
+    gapi?: { load: (name: string, cb: () => void) => void; picker?: unknown }
+    google?: {
+      picker: {
+        PickerBuilder: new () => {
+          addView: (view: unknown) => unknown
+          setOAuthToken: (token: string) => unknown
+          setAppId: (id: string) => unknown
+          setDeveloperKey: (key: string) => unknown
+          setCallback: (cb: (data: unknown) => void) => unknown
+          build: () => { setVisible: (v: boolean) => void }
+        }
+        DocsView: new (id?: number) => {
+          setIncludeFolders: (v: boolean) => unknown
+          setSelectFolderEnabled: (v: boolean) => unknown
+          setMimeTypes: (m: string) => unknown
+        }
+        ViewId: { FOLDERS: number; DOCS: number }
+        Response: { ACTION: string; DOCUMENTS: unknown[] }
+        Action: { PICKED: string }
+        Document: { ID: string; NAME: string; MIME_TYPE: string }
+      }
+    }
+  }
+}
 
 interface FolderItem {
   id: string
@@ -52,6 +81,103 @@ export function GoogleDriveFolderPicker({
   ])
   const [currentFolderId, setCurrentFolderId] = useState('root')
   const [initialized, setInitialized] = useState(false)
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [needsGoogleSignIn, setNeedsGoogleSignIn] = useState(false)
+  const scriptsLoadedRef = useRef(false)
+
+  const loadGooglePickerScript = (): Promise<void> =>
+    new Promise((resolve) => {
+      if (typeof window === 'undefined') {
+        resolve()
+        return
+      }
+      if (window.gapi?.picker !== undefined) {
+        resolve()
+        return
+      }
+      if (scriptsLoadedRef.current) {
+        const check = () => {
+          if (window.gapi?.picker !== undefined) resolve()
+          else setTimeout(check, 50)
+        }
+        check()
+        return
+      }
+      const script = document.createElement('script')
+      script.src = 'https://apis.google.com/js/api.js'
+      script.async = true
+      script.onload = () => {
+        window.gapi!.load('picker', () => {
+          scriptsLoadedRef.current = true
+          resolve()
+        })
+      }
+      document.head.appendChild(script)
+    })
+
+  const openGoogleDrivePicker = useCallback(async () => {
+    setPickerLoading(true)
+    setNeedsGoogleSignIn(false)
+    try {
+      const res = await fetch('/api/claims/google-drive-token')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 403) {
+          setNeedsGoogleSignIn(true)
+          toast.error('Sign in with Google to browse your Drive')
+        } else {
+          toast.error(data.message || data.error || 'Failed to get Google Drive access')
+        }
+        return
+      }
+      const accessToken = data.accessToken
+      if (!accessToken) {
+        setNeedsGoogleSignIn(true)
+        toast.error('Sign in with Google to browse your Drive')
+        return
+      }
+      await loadGooglePickerScript()
+      const google = window.google
+      const gapi = window.gapi
+      if (!google?.picker || !gapi) {
+        toast.error('Google Picker failed to load')
+        return
+      }
+      const appId = process.env.NEXT_PUBLIC_GOOGLE_APP_ID || ''
+      const developerKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || ''
+      const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(true)
+        .setMimeTypes('application/vnd.google-apps.folder')
+      const builder = new google.picker.PickerBuilder()
+        .addView(docsView)
+        .setOAuthToken(accessToken)
+        .setCallback((pickerData: unknown) => {
+          const d = pickerData as Record<string, unknown>
+          const action = d?.action ?? (typeof google.picker.Response !== 'undefined' && (d as Record<string, unknown>)[(google.picker.Response as Record<string, string>).ACTION])
+          const docsRaw = d?.docs ?? (typeof google.picker.Response !== 'undefined' && (d as Record<string, unknown>)[(google.picker.Response as Record<string, string>).DOCUMENTS])
+          const docs = Array.isArray(docsRaw) ? docsRaw : undefined
+          const picked = action === 'picked' || (typeof google.picker.Action !== 'undefined' && action === (google.picker.Action as Record<string, string>).PICKED)
+          if (picked && docs?.[0]) {
+            const doc = docs[0] as Record<string, unknown>
+            const id = (doc.id ?? doc.ID) as string
+            const name = (doc.name ?? doc.NAME) as string
+            if (id) {
+              onSelect(id, name || 'Selected Folder')
+              onOpenChange(false)
+            }
+          }
+        })
+      if (appId) builder.setAppId(appId)
+      if (developerKey) builder.setDeveloperKey(developerKey)
+      const picker = builder.build()
+      picker.setVisible(true)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to open Google Drive')
+    } finally {
+      setPickerLoading(false)
+    }
+  }, [onSelect, onOpenChange])
 
   const fetchFolders = useCallback(async (parentId: string) => {
     setLoading(true)
@@ -121,6 +247,52 @@ export function GoogleDriveFolderPicker({
             Select a folder containing claim PDFs for analysis
           </DialogDescription>
         </DialogHeader>
+
+        {/* Open with your Google account */}
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+          <p className="text-sm font-medium text-foreground">Browse your Google Drive</p>
+          <p className="text-xs text-muted-foreground">
+            Sign in with Google to see and select folders from your own Drive.
+          </p>
+          {needsGoogleSignIn ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Sign in with Google first to use this option.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => signIn('google', { callbackUrl: window.location.href })}
+                className="w-fit gap-2"
+              >
+                <Cloud className="h-4 w-4" />
+                Sign in with Google
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              onClick={openGoogleDrivePicker}
+              disabled={pickerLoading}
+              className="w-fit gap-2"
+            >
+              {pickerLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Opening…
+                </>
+              ) : (
+                <>
+                  <Cloud className="h-4 w-4" />
+                  Open with Google Drive
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Or browse folders shared with the app (service account):
+        </p>
 
         {/* Breadcrumbs */}
         <div className="flex items-center gap-1 text-sm overflow-x-auto py-1">
