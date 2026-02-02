@@ -4,7 +4,7 @@ import { Inter } from "next/font/google"
 import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
-import { OrganizationSchema } from "@/components/seo/JsonLd"
+import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -35,7 +35,9 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_AU",
     siteName: "Restore Assist",
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" }],
   },
+  alternates: { canonical: "/" },
   twitter: {
     card: "summary_large_image",
     title: "Restore Assist",
@@ -58,6 +60,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <OrganizationSchema />
+        <SoftwareApplicationSchema />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
