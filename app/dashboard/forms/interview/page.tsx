@@ -2,25 +2,16 @@
 
 import React, { useState, useCallback, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AlertCircle, CheckCircle2, Loader2, FileText, Gift, Shield } from 'lucide-react'
-import {
-  GuidedInterviewPanel,
-  EquipmentRecommendations,
-  IICRCClassificationVisualizer,
-  InterviewCompletionSummary,
-} from '@/components/forms/guided-interview'
-import { useInterviewFormSubmission } from '@/lib/forms/hooks'
-import { InterviewFormMerger } from '@/lib/forms/interview-form-merger'
-import type { InterviewPopulatedField, MergeResult } from '@/lib/forms/interview-form-merger'
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { GuidedInterviewPanel, InterviewQuestionAnswerSummary } from '@/components/forms/guided-interview'
+import type { InterviewQuestionAnswer } from '@/components/forms/guided-interview'
 
 /**
  * Guided Interview Page
- * Integrated page for conducting interviews and auto-populating form fields
- * Route: /dashboard/forms/interview?formTemplateId=<id>&reportId=<id>
+ * Conduct interview and review question & answer summary (no auto-population).
+ * Route: /dashboard/forms/interview?formTemplateId=<id>&reportId=<id>&sessionId=<id>
+ * View-only summary: ?sessionId=<id> (no formTemplateId) shows completed interview Q&A.
  */
 export default function InterviewPage() {
   const searchParams = useSearchParams()
@@ -32,197 +23,101 @@ export default function InterviewPage() {
   const experienceLevel = searchParams.get('experienceLevel') || undefined
   const sessionId = searchParams.get('sessionId') || undefined
 
-  const [interviewStatus, setInterviewStatus] = useState<'in_progress' | 'completed' | 'error'>(
+  const [interviewStatus, setInterviewStatus] = useState<'in_progress' | 'completed' | 'error' | 'loading'>(
     'in_progress'
   )
-  const [autoPopulatedFields, setAutoPopulatedFields] = useState<
-    Map<string, InterviewPopulatedField> | null
-  >(null)
-  const [mergeResult, setMergeResult] = useState(null)
-  const [showSummary, setShowSummary] = useState(false)
-  const [savingToInspection, setSavingToInspection] = useState(false)
+  const [questionsAndAnswers, setQuestionsAndAnswers] = useState<InterviewQuestionAnswer[] | null>(
+    null
+  )
+  const [viewOnlyReportId, setViewOnlyReportId] = useState<string | null>(null)
 
-  const { submitForm, isLoading: isSubmitting, error: submitError } = useInterviewFormSubmission({
-    formTemplateId,
-    reportId: reportId || undefined,
-    jobType,
-    postcode,
-  })
+  // View-only summary: when opened with sessionId only (e.g. from reports "View summary")
+  useEffect(() => {
+    if (!sessionId || formTemplateId) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/interviews/${sessionId}`)
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        const session = data.session
+        if (!session || session.status !== 'COMPLETED' || cancelled) {
+          if (!cancelled) router.push('/dashboard/reports')
+          return
+        }
+        const qa: InterviewQuestionAnswer[] = (session.responses || []).map((r: { questionId: string; questionText: string; answerValue: string | null }) => ({
+          questionId: r.questionId,
+          questionText: r.questionText || '',
+          answer: r.answerValue != null ? (() => { try { return JSON.parse(r.answerValue) } catch { return r.answerValue } })() : null,
+        }))
+        if (!cancelled) {
+          setQuestionsAndAnswers(qa)
+          setViewOnlyReportId(session.reportId ?? null)
+          setInterviewStatus('completed')
+        }
+      } catch {
+        if (!cancelled) setInterviewStatus('error')
+      }
+    }
+    setInterviewStatus('loading')
+    load()
+    return () => { cancelled = true }
+  }, [sessionId, formTemplateId, router])
 
-  /**
-   * Handle interview completion
-   */
   const handleInterviewComplete = useCallback(
-    (autoPopulatedData: Map<string, any>) => {
-      // Convert to proper interview field format
-      const interviewFields = new Map<string, InterviewPopulatedField>()
-      autoPopulatedData.forEach((value, fieldId) => {
-        interviewFields.set(fieldId, {
-          value,
-          confidence: 85, // Default confidence for auto-populated fields
-          source: 'direct',
-        })
-      })
-
-      // Calculate merge result immediately for summary display
-      const mergeResult = InterviewFormMerger.mergeInterviewWithForm({}, interviewFields, {
-        overwriteExisting: false,
-        minimumConfidence: 70,
-        prioritizeInterview: false,
-      })
-
-      setAutoPopulatedFields(interviewFields)
-      setMergeResult(mergeResult)
+    async (qa: InterviewQuestionAnswer[]) => {
+      setQuestionsAndAnswers(qa)
       setInterviewStatus('completed')
-      setShowSummary(true)
+
+      const sessionIdForSave = searchParams.get('sessionId')
+      if (sessionIdForSave) {
+        try {
+          await fetch(`/api/interviews/${sessionIdForSave}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'COMPLETED' }),
+          })
+        } catch {
+          // Non-blocking: summary still shown
+        }
+      }
     },
-    []
+    [searchParams]
   )
 
-  /**
-   * Handle cancel
-   */
   const handleCancel = useCallback(() => {
     if (confirm('Are you sure you want to cancel this interview? Progress will be lost.')) {
       router.back()
     }
   }, [router])
 
-  /**
-   * Convert interview fields to report/inspection form data format.
-   * Maps question-library field IDs (e.g. temperatureCurrent, humidityCurrent) to keys
-   * expected by the inspection NIR form (ambientTemperature, humidityLevel).
-   */
-  const convertInterviewFieldsToReportData = useCallback((fields: Map<string, InterviewPopulatedField>) => {
-    const reportData: Record<string, any> = {}
-    
-    // Map interview/question-library field IDs to inspection/report field names
-    const fieldMapping: Record<string, string> = {
-      'sourceOfWater': 'sourceOfWater',
-      'waterCategory': 'waterCategory',
-      'waterClass': 'waterClass',
-      'propertyAddress': 'propertyAddress',
-      'propertyPostcode': 'propertyPostcode',
-      'clientName': 'clientName',
-      'clientContactDetails': 'clientContactDetails',
-      'incidentDate': 'incidentDate',
-      'technicianAttendanceDate': 'technicianAttendanceDate',
-      'technicianName': 'technicianName',
-      'affectedArea': 'affectedArea',
-      'affectedAreaPercentage': 'affectedArea',
-      'claimReferenceNumber': 'claimReferenceNumber',
-      'buildingAge': 'buildingAge',
-      'structureType': 'structureType',
-      'hazardType': 'hazardType',
-      'insuranceType': 'insuranceType',
-      // Question library uses these; inspection NIR expects ambient/humidity
-      'temperatureCurrent': 'ambientTemperature',
-      'humidityCurrent': 'humidityLevel',
-      'timeSinceLoss': 'timeSinceLoss',
-    }
+  const handleBackToReports = useCallback(() => {
+    router.push('/dashboard/reports')
+  }, [router])
 
-    fields.forEach((field, fieldId) => {
-      const reportFieldName = fieldMapping[fieldId] || fieldId
-      
-      // Handle date fields - convert to YYYY-MM-DD format if needed
-      if (reportFieldName.includes('Date') && field.value) {
-        try {
-          const date = new Date(field.value)
-          if (!isNaN(date.getTime())) {
-            reportData[reportFieldName] = date.toISOString().split('T')[0]
-          } else {
-            reportData[reportFieldName] = field.value
-          }
-        } catch {
-          reportData[reportFieldName] = field.value
-        }
-      } else {
-        reportData[reportFieldName] = field.value
-      }
-    })
+  const handleGoToReport = useCallback(
+    (id: string) => {
+      router.push(`/dashboard/reports/${id}`)
+    },
+    [router]
+  )
 
-    return reportData
-  }, [])
-
-  /**
-   * Save auto-populated data to DB, then redirect to new inspection page.
-   * Inspection page loads prefill from API using sessionId.
-   */
-  const handleSubmitData = useCallback(async () => {
-    if (!autoPopulatedFields) {
-      console.error('No auto-populated fields to submit')
-      return
-    }
-
-    const sessionIdForSave = searchParams.get('sessionId')
-    if (!sessionIdForSave) {
-      alert('Session ID missing. Please complete the interview from the start so we can save your answers.')
-      return
-    }
-
-    setSavingToInspection(true)
-    try {
-      // Serialize autoPopulatedFields: Map<fieldId, { value, confidence }> -> object for JSON
-      const payload = Object.fromEntries(
-        Array.from(autoPopulatedFields.entries()).map(([k, v]) => [
-          k,
-          { value: v.value, confidence: v.confidence ?? 85 },
-        ])
-      )
-
-      const response = await fetch(`/api/interviews/${sessionIdForSave}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          autoPopulatedFields: payload,
-          status: 'COMPLETED',
-        }),
-      })
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        throw new Error(err.error ?? 'Failed to save interview data')
-      }
-
-      // Redirect to new inspection; page will fetch prefill from API using sessionId
-      router.push(`/dashboard/inspections/new?sessionId=${sessionIdForSave}`)
-    } catch (error) {
-      console.error('Error saving interview data:', error)
-      alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setSavingToInspection(false)
-    }
-  }, [autoPopulatedFields, router, searchParams])
-
-  /**
-   * Export interview summary
-   */
   const handleExportSummary = useCallback(() => {
-    if (!autoPopulatedFields || !mergeResult) {
-      alert('No data to export')
-      return
-    }
-
+    if (!questionsAndAnswers) return
     try {
-      // Create export data
       const exportData = {
-        interviewSummary: {
-          fieldsMerged: mergeResult.statistics.totalFieldsMerged,
-          newFieldsAdded: mergeResult.statistics.newFieldsAdded,
-          fieldsUpdated: mergeResult.statistics.fieldsUpdated,
-          averageConfidence: mergeResult.statistics.averageConfidence,
-          formCompletion: Math.round(
-            (mergeResult.statistics.totalFieldsMerged / (mergeResult.statistics.totalFieldsMerged + 5)) * 100
-          ),
-        },
-        autoPopulatedFields: Object.fromEntries(autoPopulatedFields),
-        mergedFields: mergeResult.mergedFields,
+        interviewSummary: questionsAndAnswers.map((qa) => ({
+          question: qa.questionText,
+          answer:
+            typeof qa.answer === 'string'
+              ? qa.answer
+              : Array.isArray(qa.answer)
+                ? qa.answer.join(', ')
+                : JSON.stringify(qa.answer),
+        })),
         timestamp: new Date().toISOString(),
-        formTemplateId,
         reportId: reportId || null,
       }
-
-      // Create and download JSON file
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json',
       })
@@ -236,24 +131,20 @@ export default function InterviewPage() {
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Error exporting summary:', error)
-      alert(`Error exporting summary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }, [autoPopulatedFields, mergeResult, formTemplateId, reportId])
+  }, [questionsAndAnswers, reportId])
 
-  /**
-   * Continue to form without interview
-   */
   const handleSkipInterview = useCallback(() => {
     if (reportId) {
-      // Go back to the linked report form without interview auto-fill
-      router.push(`/dashboard/reports/${reportId}/edit`)
+      router.push(`/dashboard/reports/${reportId}`)
     } else {
-      // Fallback: go to reports list if no report context
       router.push('/dashboard/reports')
     }
   }, [reportId, router])
 
-  if (!formTemplateId) {
+  const reportIdOrViewOnly = reportId || viewOnlyReportId
+  if (!formTemplateId && !sessionId) {
     return (
       <div className="py-8">
         <Alert variant="destructive">
@@ -266,11 +157,10 @@ export default function InterviewPage() {
 
   return (
     <div className="min-h-screen h-full w-full flex flex-col bg-white dark:bg-slate-900">
-      {/* Header */}
       <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Guided Interview</h1>
         <p className="mt-2 text-gray-600 dark:text-slate-400">
-          Answer quick questions to auto-populate your form fields in seconds
+          Answer questions to capture details for this report
         </p>
         {reportId && (
           <p className="mt-1 text-sm text-gray-500 dark:text-slate-500">
@@ -279,7 +169,6 @@ export default function InterviewPage() {
         )}
       </div>
 
-      {/* Interview In Progress - Full Height Content */}
       {interviewStatus === 'in_progress' && (
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -288,65 +177,58 @@ export default function InterviewPage() {
                 formTemplateId={formTemplateId}
                 jobType={jobType}
                 postcode={postcode}
-                experienceLevel={experienceLevel as "novice" | "experienced" | "expert" | undefined}
+                experienceLevel={experienceLevel as 'novice' | 'experienced' | 'expert' | undefined}
                 sessionId={sessionId}
+                reportId={reportId || undefined}
                 onComplete={handleInterviewComplete}
                 onCancel={handleCancel}
-                showAutoPopulatedFields={true}
+                showAutoPopulatedFields={false}
               />
             </div>
           </div>
-
-          {/* Skip Interview Option - Fixed at bottom */}
           <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="max-w-6xl mx-auto flex justify-center">
-              <Button
-                variant="outline"
+              <button
+                type="button"
                 onClick={handleSkipInterview}
-                className="text-gray-600 dark:text-slate-400 border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800"
+                className="text-sm text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white underline"
               >
-                Skip Interview
-              </Button>
+                Skip interview
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Interview Completed - Full Height Content */}
-      {interviewStatus === 'completed' && autoPopulatedFields && showSummary && mergeResult && (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className="max-w-6xl mx-auto space-y-6">
-              {/* Success Banner */}
-              <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <AlertDescription className="text-green-800 dark:text-green-300">
-                  <strong>Interview completed successfully!</strong> Your form has been auto-populated
-                  with {autoPopulatedFields.size} fields.
-                </AlertDescription>
-              </Alert>
-
-              {/* Completion Summary with Merge Details */}
-              <InterviewCompletionSummary
-                mergeResult={mergeResult}
-                onContinue={handleSubmitData}
-                onExport={handleExportSummary}
-                showActions={true}
-                isLoading={savingToInspection}
-              />
-
-              {submitError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{submitError}</AlertDescription>
-                </Alert>
-              )}
-            </div>
+      {interviewStatus === 'completed' && questionsAndAnswers && (
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-800 dark:text-green-300">
+                <strong>Interview completed.</strong> Review your answers below.
+              </AlertDescription>
+            </Alert>
+            <InterviewQuestionAnswerSummary
+              questionsAndAnswers={questionsAndAnswers}
+              onBackToReports={handleBackToReports}
+              onGoToReport={reportIdOrViewOnly ? handleGoToReport : undefined}
+              onExport={handleExportSummary}
+              reportId={reportIdOrViewOnly}
+            />
           </div>
         </div>
       )}
 
-      {/* Error State - Full Height */}
+      {interviewStatus === 'loading' && (
+        <div className="flex-1 flex items-center justify-center px-6 py-6">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+            <p className="text-sm text-gray-600 dark:text-slate-400">Loading interview summary...</p>
+          </div>
+        </div>
+      )}
+
       {interviewStatus === 'error' && (
         <div className="flex-1 flex items-center justify-center px-6 py-6">
           <div className="max-w-2xl w-full">
