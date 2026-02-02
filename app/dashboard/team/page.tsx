@@ -1150,8 +1150,22 @@ export default function TeamPage() {
         </Card>
       )}
 
-      {/* Team Activity Feed */}
-      <TeamActivityFeed />
+      {/* Team Activity – Admin/Manager: comprehensive activity from managers and technicians */}
+      {canViewInvites && (
+        <div className="space-y-3">
+          <div>
+            <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-neutral-50")}>
+              Team Activity
+            </h2>
+            <p className={cn("text-sm mt-0.5", "text-neutral-600 dark:text-neutral-400")}>
+              {isAdmin
+                ? "All activity from your managers and technicians: reports, inspections, guided interviews, and invites."
+                : "All activity from your technicians: reports, inspections, and guided interviews."}
+            </p>
+          </div>
+          <TeamActivityFeed />
+        </div>
+      )}
     </div>
   )
 }
