@@ -1207,8 +1207,8 @@ export default function NIRTechnicianInputForm({
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="font-medium text-white text-base">{area.roomZoneId}</span>
-                      <span className="text-xs px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded">
+                      <span className={cn("font-medium text-base", "text-neutral-900 dark:text-white")}>{area.roomZoneId}</span>
+                      <span className={cn("text-xs px-2 py-1 rounded", "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400")}>
                         {area.affectedSquareFootage.toFixed(2)} m²
                       </span>
                       <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
@@ -1224,7 +1224,7 @@ export default function NIRTechnicianInputForm({
                       ))}
                     </div>
                     <div className={cn("flex items-center gap-4 text-xs", "text-neutral-600 dark:text-slate-400")}>
-                      <span>Water Source: <span className="text-cyan-400">{area.waterSource}</span></span>
+                      <span>Water Source: <span className={cn("text-cyan-600 dark:text-cyan-400")}>{area.waterSource}</span></span>
                       <span>Time Since Loss: {area.timeSinceLoss} hrs</span>
                     </div>
                   </div>
@@ -1595,12 +1595,12 @@ export default function NIRTechnicianInputForm({
       <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
         <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
           <Droplets className="w-5 h-5" />
-          Moisture Readings <span className="text-red-400">*</span>
+          Moisture Readings <span className="text-red-500 dark:text-red-400">*</span>
         </h3>
         
         {validationErrors.moistureReadings && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm">{validationErrors.moistureReadings}</p>
+            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>{validationErrors.moistureReadings}</p>
           </div>
         )}
         
@@ -1671,8 +1671,8 @@ export default function NIRTechnicianInputForm({
         {moistureReadings.length > 0 && (
           <div className="space-y-2">
             {moistureReadings.map((reading) => (
-              <div key={reading.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
-                <div className="flex items-center gap-4 text-sm">
+              <div key={reading.id} className={cn("flex items-center justify-between p-3 rounded-lg text-sm", "bg-neutral-100 dark:bg-slate-900/50")}>
+                <div className="flex items-center gap-4">
                   <span className={cn("font-medium", "text-neutral-900 dark:text-white")}>{reading.location}</span>
                   <span className={cn("text-neutral-600 dark:text-slate-400")}>{reading.surfaceType}</span>
                   <span className={cn("font-semibold", "text-cyan-600 dark:text-cyan-400")}>{reading.moistureLevel}%</span>
@@ -1681,7 +1681,7 @@ export default function NIRTechnicianInputForm({
                 <button
                   type="button"
                   onClick={() => handleRemoveMoistureReading(reading.id)}
-                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group"
+                  className={cn("p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group", "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10")}
                   title="Remove reading"
                 >
                   <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
@@ -1771,12 +1771,12 @@ export default function NIRTechnicianInputForm({
       <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
         <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
           <MapPin className="w-5 h-5" />
-          Affected Areas <span className="text-red-400">*</span>
+          Affected Areas <span className="text-red-500 dark:text-red-400">*</span>
         </h3>
         
         {validationErrors.affectedAreas && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm">{validationErrors.affectedAreas}</p>
+            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>{validationErrors.affectedAreas}</p>
           </div>
         )}
         
@@ -1785,7 +1785,7 @@ export default function NIRTechnicianInputForm({
           {/* Room Picker */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Room Type <span className="text-red-400">*</span></label>
+              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Room Type <span className="text-red-500 dark:text-red-400">*</span></label>
               <select
                 value={newAffectedArea.roomType}
                 onChange={(e) => setNewAffectedArea(prev => ({ ...prev, roomType: e.target.value, customRoomName: "" }))}
@@ -1799,7 +1799,7 @@ export default function NIRTechnicianInputForm({
             
             {newAffectedArea.roomType === "Other" && (
               <div>
-                <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Custom Room Name <span className="text-red-400">*</span></label>
+                <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Custom Room Name <span className="text-red-500 dark:text-red-400">*</span></label>
                 <input
                   type="text"
                   value={newAffectedArea.customRoomName}
@@ -1814,7 +1814,7 @@ export default function NIRTechnicianInputForm({
           {/* Dimensions for Area Calculation */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Length (m) <span className="text-red-400">*</span></label>
+              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Length (m) <span className="text-red-500 dark:text-red-400">*</span></label>
               <input
                 type="number"
                 min="0"
@@ -1827,7 +1827,7 @@ export default function NIRTechnicianInputForm({
             </div>
             
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Width (m) <span className="text-red-400">*</span></label>
+              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Width (m) <span className="text-red-500 dark:text-red-400">*</span></label>
               <input
                 type="number"
                 min="0"
@@ -1860,13 +1860,13 @@ export default function NIRTechnicianInputForm({
                 disabled
                 className={cn("w-full px-3 py-2 rounded-lg text-sm cursor-not-allowed", "bg-neutral-100 dark:bg-slate-700/30 border border-neutral-200 dark:border-slate-600", "text-neutral-500 dark:text-slate-400")}
               />
-              <p className="text-xs text-slate-500 mt-1">Auto-calculated: Length × Width</p>
+              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-500")}>Auto-calculated: Length × Width</p>
             </div>
           </div>
 
           {/* Materials Selection */}
           <div>
-            <label className={cn("block text-xs font-medium mb-2", "text-neutral-600 dark:text-slate-400")}>Affected Materials <span className="text-red-400">*</span></label>
+            <label className={cn("block text-xs font-medium mb-2", "text-neutral-700 dark:text-slate-400")}>Affected Materials <span className="text-red-500 dark:text-red-400">*</span></label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {MATERIAL_TYPES.map((material) => (
                 <label
@@ -1879,7 +1879,7 @@ export default function NIRTechnicianInputForm({
                     onChange={() => handleMaterialToggle(material)}
                     className={cn("w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
                   />
-                  <span className="text-xs text-white">{material}</span>
+                  <span className={cn("text-xs font-medium", "text-neutral-900 dark:text-white")}>{material}</span>
                 </label>
               ))}
             </div>
@@ -1934,12 +1934,12 @@ export default function NIRTechnicianInputForm({
         {affectedAreas.length > 0 && (
           <div className="space-y-2">
             {affectedAreas.map((area) => (
-              <div key={area.id} className={cn("p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
+              <div key={area.id} className={cn("p-3 rounded-lg border", "bg-white dark:bg-slate-900/50 border-neutral-200 dark:border-slate-700/50")}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="font-medium text-white">{area.roomZoneId}</span>
-                      <span className="text-xs px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded">
+                      <span className={cn("font-medium", "text-neutral-900 dark:text-white")}>{area.roomZoneId}</span>
+                      <span className={cn("text-xs px-2 py-1 rounded", "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400")}>
                         {area.affectedSquareFootage.toFixed(2)} m²
                       </span>
                       <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
@@ -1954,7 +1954,7 @@ export default function NIRTechnicianInputForm({
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                    <div className={cn("flex items-center gap-4 mt-2 text-xs", "text-neutral-600 dark:text-slate-400")}>
                       <span>Source: {area.waterSource}</span>
                       <span>Time: {area.timeSinceLoss} hrs</span>
                     </div>
@@ -1962,7 +1962,7 @@ export default function NIRTechnicianInputForm({
                   <button
                     type="button"
                     onClick={() => handleRemoveAffectedArea(area.id)}
-                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group ml-4"
+                    className={cn("p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group ml-4", "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10")}
                     title="Remove area"
                   >
                     <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
@@ -1987,12 +1987,12 @@ export default function NIRTechnicianInputForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Water Category Selector */}
           <div>
-            <label className="block text-sm font-medium mb-3 text-slate-300">Water Category (IICRC S500)</label>
+            <label className={cn("block text-sm font-medium mb-3", "text-neutral-700 dark:text-slate-300")}>Water Category (IICRC S500)</label>
             <div className="space-y-2">
               {WATER_CATEGORIES.map((category) => (
                 <label
                   key={category.value}
-                  className="flex items-start gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-lg hover:bg-slate-900/70 cursor-pointer transition-colors"
+                  className={cn("flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors", "bg-neutral-100 dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-600", "hover:bg-neutral-200 dark:hover:bg-slate-900/70")}
                 >
                   <input
                     type="radio"
@@ -2004,11 +2004,11 @@ export default function NIRTechnicianInputForm({
                       category: e.target.value,
                       class: prev?.class || ""
                     }))}
-                    className="mt-1 w-4 h-4 border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                    className={cn("mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
                   />
                   <div className="flex-1">
-                    <div className="font-medium text-white text-sm">{category.label}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{category.description}</div>
+                    <div className={cn("font-medium text-sm", "text-neutral-900 dark:text-white")}>{category.label}</div>
+                    <div className={cn("text-xs mt-0.5", "text-neutral-600 dark:text-slate-400")}>{category.description}</div>
                   </div>
                 </label>
               ))}
@@ -2017,12 +2017,12 @@ export default function NIRTechnicianInputForm({
           
           {/* Water Class Selector */}
           <div>
-            <label className="block text-sm font-medium mb-3 text-slate-300">Water Class (IICRC S500)</label>
+            <label className={cn("block text-sm font-medium mb-3", "text-neutral-700 dark:text-slate-300")}>Water Class (IICRC S500)</label>
             <div className="space-y-2">
               {WATER_CLASSES.map((waterClass) => (
                 <label
                   key={waterClass.value}
-                  className="flex items-start gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-lg hover:bg-slate-900/70 cursor-pointer transition-colors"
+                  className={cn("flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors", "bg-neutral-100 dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-600", "hover:bg-neutral-200 dark:hover:bg-slate-900/70")}
                 >
                   <input
                     type="radio"
@@ -2033,11 +2033,11 @@ export default function NIRTechnicianInputForm({
                       category: prev?.category || "",
                       class: e.target.value
                     }))}
-                    className="mt-1 w-4 h-4 border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                    className={cn("mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
                   />
                   <div className="flex-1">
-                    <div className="font-medium text-white text-sm">{waterClass.label}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{waterClass.description}</div>
+                    <div className={cn("font-medium text-sm", "text-neutral-900 dark:text-white")}>{waterClass.label}</div>
+                    <div className={cn("text-xs mt-0.5", "text-neutral-600 dark:text-slate-400")}>{waterClass.description}</div>
                   </div>
                 </label>
               ))}
@@ -2053,7 +2053,7 @@ export default function NIRTechnicianInputForm({
             <button
               type="button"
               onClick={() => setManualClassification(null)}
-              className="mt-2 text-xs text-cyan-400 hover:text-cyan-300 underline"
+              className={cn("mt-2 text-xs underline", "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300")}
             >
               Clear manual override (use auto-classification)
             </button>
@@ -2073,14 +2073,14 @@ export default function NIRTechnicianInputForm({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
           {SCOPE_ITEM_TYPES.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-lg">
+            <div key={item.id} className={cn("flex items-center gap-3 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
               <input
                 type="checkbox"
                 checked={selectedScopeItems.has(item.id)}
                 onChange={() => handleScopeItemToggle(item.id)}
                 className={cn("w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
               />
-              <label className="text-sm text-white flex-1">{item.label}</label>
+              <label className={cn("text-sm flex-1", "text-neutral-900 dark:text-white")}>{item.label}</label>
               {item.id === "demolish_drywall" && selectedScopeItems.has(item.id) && (
                 <input
                   type="text"
@@ -2096,8 +2096,8 @@ export default function NIRTechnicianInputForm({
 
         {/* Equipment Selection */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold mb-3 text-slate-300">Equipment Required</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-slate-900/50 rounded-lg">
+          <h4 className={cn("text-sm font-semibold mb-3", "text-neutral-800 dark:text-slate-300")}>Equipment Required</h4>
+          <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
             <div>
               <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Equipment Type</label>
               <select
@@ -2149,8 +2149,8 @@ export default function NIRTechnicianInputForm({
           {equipmentSelection.length > 0 && (
             <div className="space-y-2">
               {equipmentSelection.map((eq) => (
-                <div key={eq.id} className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg text-sm">
-                  <span className="text-white">
+                <div key={eq.id} className={cn("flex items-center justify-between p-2 rounded-lg text-sm", "bg-neutral-100 dark:bg-slate-900/50")}>
+                  <span className={cn("text-neutral-900 dark:text-white")}>
                     {eq.quantity}x {eq.type}
                   </span>
                   <button
@@ -2159,7 +2159,7 @@ export default function NIRTechnicianInputForm({
                       setEquipmentSelection(equipmentSelection.filter(e => e.id !== eq.id))
                       toast.success("Equipment removed")
                     }}
-                    className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                    className={cn("p-1 rounded transition-colors", "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10")}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -2171,7 +2171,7 @@ export default function NIRTechnicianInputForm({
 
         {/* Drying Duration */}
         <div>
-          <h4 className="text-sm font-semibold mb-3 text-slate-300">Drying Duration</h4>
+          <h4 className={cn("text-sm font-semibold mb-3", "text-neutral-800 dark:text-slate-300")}>Drying Duration</h4>
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Estimated Drying Duration (Days)</label>
@@ -2185,7 +2185,7 @@ export default function NIRTechnicianInputForm({
               />
             </div>
             <div className="pt-6">
-              <span className="text-sm text-slate-400">
+              <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
                 {dryingDuration === 1 ? "1 day" : `${dryingDuration} days`}
               </span>
             </div>
