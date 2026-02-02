@@ -1,5 +1,4 @@
 import { Metadata } from 'next'
-import { SoftwareApplicationSchema } from '@/components/seo/JsonLd'
 
 export const metadata: Metadata = {
   title: 'Features - AI-Powered Restoration Software',
@@ -17,7 +16,9 @@ export const metadata: Metadata = {
     title: 'Features - AI-Powered Restoration Software | RestoreAssist',
     description: 'AI-powered report generation, IICRC S500 compliance, and comprehensive restoration tools for Australian professionals.',
     type: 'website',
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Restore Assist' }],
   },
+  alternates: { canonical: '/features' },
 }
 
 export default function FeaturesLayout({
@@ -25,10 +26,5 @@ export default function FeaturesLayout({
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <>
-      <SoftwareApplicationSchema />
-      {children}
-    </>
-  )
+  return <>{children}</>
 }
