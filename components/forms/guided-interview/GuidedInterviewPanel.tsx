@@ -93,7 +93,7 @@ export function GuidedInterviewPanel({
     status: 'STARTED',
   })
 
-  const [startTime] = useState(Date.now())
+  const startTimeRef = useRef<number | null>(null)
   const isInitializingRef = useRef(false)
   const hasInitializedRef = useRef(false)
 
@@ -289,6 +289,7 @@ export function GuidedInterviewPanel({
         allQuestionsFlatCount: allQuestionsFlat.length,
       })
 
+      startTimeRef.current = Date.now()
       console.log('[INIT_INTERVIEW] Calling setInterviewState...')
       setInterviewState((prev) => {
         const newState = {
@@ -449,6 +450,7 @@ export function GuidedInterviewPanel({
       const answeredCount = restoredAnswers.size
       const totalQ = startData.totalQuestions
       const isComplete = !nextQuestion || answeredCount >= totalQ
+      startTimeRef.current = Date.now()
 
       setInterviewState((prev) => ({
         ...prev,
@@ -858,8 +860,9 @@ export function GuidedInterviewPanel({
       const q = interviewState.allQuestions.find((qq) => qq.id === questionId)
       return { questionText: q?.text ?? '', answer }
     })
-    const timeSpentMin = Math.round((Date.now() - startTime) / 60000)
-    const timeSpentSec = Math.round((Date.now() - startTime) / 1000) % 60
+    const start = startTimeRef.current ?? Date.now()
+    const timeSpentMin = Math.round((Date.now() - start) / 60000)
+    const timeSpentSec = Math.round((Date.now() - start) / 1000) % 60
 
     return (
       <Card className="w-full h-full flex flex-col border-2 border-green-200/60 dark:border-green-800/60 bg-gradient-to-b from-green-50/50 to-white dark:from-green-950/20 dark:to-slate-900">
