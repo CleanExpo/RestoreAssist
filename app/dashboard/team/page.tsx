@@ -172,6 +172,13 @@ export default function TeamPage() {
     load()
   }, [])
 
+  // Managers can only invite Technicians: when opening invite form as Manager, force role to Technician
+  useEffect(() => {
+    if (showInviteForm && session?.user?.role === "MANAGER") {
+      setInviteRole("USER")
+    }
+  }, [showInviteForm, session?.user?.role])
+
   // Debug: Log modal state changes
   useEffect(() => {
     console.log("Credentials modal state changed:", {
@@ -612,10 +619,16 @@ export default function TeamPage() {
                         "text-neutral-900 dark:text-neutral-50",
                         "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                       )}
+                      disabled={isManager}
                     >
                       <option value="USER">Technician</option>
-                      <option value="MANAGER">Manager</option>
+                      {isAdmin && <option value="MANAGER">Manager</option>}
                     </select>
+                    {isManager && (
+                      <p className={cn("text-xs mt-1", "text-neutral-500 dark:text-neutral-400")}>
+                        Managers can only invite Technicians.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-4">
