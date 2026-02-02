@@ -812,15 +812,15 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* Credentials Modal */}
+      {/* Credentials Modal - explicit light/dark text for visibility */}
       <Dialog open={showCredentialsModal} onOpenChange={setShowCredentialsModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={cn("sm:max-w-md", "bg-white dark:bg-neutral-900", "text-neutral-900 dark:text-neutral-100", "border-neutral-200 dark:border-neutral-700")}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className={cn("flex items-center gap-2", "text-neutral-900 dark:text-neutral-100")}>
               <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
               {credentials?.password ? "User Account Created" : "User Added to Organization"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className={cn("text-neutral-600 dark:text-neutral-400")}>
               {credentials?.password 
                 ? "Account has been created successfully. Please copy and share these credentials with the user."
                 : "User has been added to your organization. Please share the email address with them."}
@@ -830,7 +830,7 @@ export default function TeamPage() {
           <div className="space-y-4 py-4">
             {/* Email Field */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className={cn("text-sm font-medium", "text-neutral-700 dark:text-neutral-300")}>
                 Email / Username
               </label>
               <div className="flex items-center gap-2">
@@ -839,11 +839,9 @@ export default function TeamPage() {
                   readOnly
                   value={credentials?.email || ""}
                   className={cn(
-                    "flex-1 px-3 py-2 rounded-lg border",
-                    "bg-gray-50 dark:bg-slate-800/50",
-                    "border-gray-300 dark:border-slate-600",
-                    "text-gray-900 dark:text-white",
-                    "font-mono text-sm",
+                    "flex-1 px-3 py-2 rounded-lg border font-mono text-sm",
+                    "bg-neutral-100 dark:bg-slate-800/50 border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
                     "focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   )}
                 />
@@ -875,11 +873,9 @@ export default function TeamPage() {
                     readOnly
                     value={credentials.password}
                     className={cn(
-                      "flex-1 px-3 py-2 rounded-lg border",
-                      "bg-gray-50 dark:bg-slate-800/50",
-                      "border-gray-300 dark:border-slate-600",
-                      "text-gray-900 dark:text-white",
-                      "font-mono text-sm font-semibold",
+                      "flex-1 px-3 py-2 rounded-lg border font-mono text-sm font-semibold",
+                      "bg-neutral-100 dark:bg-slate-800/50 border-neutral-300 dark:border-slate-600",
+                      "text-neutral-900 dark:text-white",
                       "focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     )}
                   />
@@ -900,7 +896,7 @@ export default function TeamPage() {
               </div>
             )}
 
-            {/* Info Box */}
+            {/* Info Box - explicit contrast for light mode */}
             <div className={cn(
               "p-3 rounded-lg border",
               credentials?.password 
@@ -908,10 +904,10 @@ export default function TeamPage() {
                 : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
             )}>
               <p className={cn(
-                "text-xs",
+                "text-xs font-medium",
                 credentials?.password 
-                  ? "text-blue-800 dark:text-blue-200"
-                  : "text-amber-800 dark:text-amber-200"
+                  ? "text-blue-900 dark:text-blue-200"
+                  : "text-amber-900 dark:text-amber-200"
               )}>
                 {credentials?.password ? (
                   <>
