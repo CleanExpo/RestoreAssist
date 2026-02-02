@@ -127,6 +127,9 @@ export async function handleExpiredTrials(): Promise<number> {
  * Check and update a single user's trial status if expired
  */
 export async function checkAndUpdateTrialStatus(userId: string): Promise<boolean> {
+  if (!userId) {
+    return false
+  }
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
