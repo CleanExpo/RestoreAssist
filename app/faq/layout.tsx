@@ -14,7 +14,9 @@ export const metadata: Metadata = {
     title: 'FAQ - RestoreAssist',
     description: 'Common questions about restoration software, compliance, and features.',
     type: 'website',
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Restore Assist' }],
   },
+  alternates: { canonical: '/faq' },
 }
 
 const faqData = [
