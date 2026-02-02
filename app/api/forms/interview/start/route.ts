@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { formTemplateId, jobType, postcode, experienceLevel } = body
+    const { formTemplateId, jobType, postcode, experienceLevel, reportId } = body
 
     if (!formTemplateId) {
       return NextResponse.json({ error: 'formTemplateId is required' }, { status: 400 })
@@ -63,11 +63,12 @@ export async function POST(request: NextRequest) {
     // Use the tiered questions directly - they're already filtered by userTierLevel
     const filteredTieredQuestions = questionResponse.tieredQuestions
 
-    // Create interview session in database
+    // Create interview session in database (optionally linked to a report)
     const interviewSession = await prisma.interviewSession.create({
       data: {
         userId: user.id,
         formTemplateId,
+        reportId: reportId || undefined,
         status: 'STARTED',
         userTierLevel: user.interviewTier || 'STANDARD',
         technicianExperience: experienceLevel || 'experienced',
