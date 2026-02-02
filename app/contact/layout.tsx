@@ -13,7 +13,9 @@ export const metadata: Metadata = {
     title: 'Contact RestoreAssist',
     description: 'Get in touch for demos, support, or inquiries about restoration software.',
     type: 'website',
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Restore Assist' }],
   },
+  alternates: { canonical: '/contact' },
 }
 
 export default function ContactLayout({
