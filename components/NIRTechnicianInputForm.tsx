@@ -493,7 +493,6 @@ export default function NIRTechnicianInputForm({
           setHasUnlimitedQuickFill(data.hasUnlimited || false)
         }
       } catch (error) {
-        console.error("Error fetching quick fill credits:", error)
       }
     }
     fetchQuickFillCredits()
@@ -571,7 +570,6 @@ export default function NIRTechnicianInputForm({
         }
       }
     } catch (error) {
-      console.error("Error initializing inspection:", error)
     } finally {
       setLoading(false)
     }
@@ -821,7 +819,6 @@ export default function NIRTechnicianInputForm({
       await Promise.all(uploadPromises)
       toast.success(`${files.length} photo(s) uploaded successfully`)
     } catch (error) {
-      console.error("Error uploading photos:", error)
       toast.error("Failed to upload some photos")
     } finally {
       setUploadingPhotos(false)
@@ -937,7 +934,6 @@ export default function NIRTechnicianInputForm({
         }
       }
     } catch (error) {
-      console.error("Error creating inspection:", error)
       if (showToast) {
         toast.error("Failed to create inspection")
       }
@@ -1081,7 +1077,6 @@ export default function NIRTechnicianInputForm({
         onComplete(currentInspectionId)
       }
     } catch (error: any) {
-      console.error("Error submitting inspection:", error)
       toast.error(error.message || "Failed to submit inspection")
     } finally {
       setSaving(false)
@@ -2354,7 +2349,6 @@ export default function NIRTechnicianInputForm({
                 toast.error("Failed to save draft")
               }
             } catch (error: any) {
-              console.error("Error saving draft:", error)
               toast.error(error.message || "Failed to save draft")
             } finally {
               setSaving(false)
