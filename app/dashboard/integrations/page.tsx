@@ -38,12 +38,13 @@ const EXTERNAL_INTEGRATIONS: {
   description: string
   icon: string
   category: 'bookkeeping' | 'jobmanagement'
+  comingSoon?: boolean
 }[] = [
-  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', category: 'bookkeeping' },
-  { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', category: 'bookkeeping' },
-  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', category: 'bookkeeping' },
-  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', category: 'jobmanagement' },
-  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', category: 'jobmanagement' },
+  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', category: 'bookkeeping', comingSoon: true },
+  { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', category: 'bookkeeping', comingSoon: true },
+  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', category: 'bookkeeping', comingSoon: true },
+  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', category: 'jobmanagement', comingSoon: true },
+  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', category: 'jobmanagement', comingSoon: true },
 ]
 
 interface SubscriptionStatus {
@@ -787,6 +788,13 @@ export default function IntegrationsPage() {
                             Disconnect
                           </button>
                         </>
+                      ) : integration.comingSoon ? (
+                        <button
+                          onClick={() => toast.error('This integration is coming soon!')}
+                          className="w-full px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 cursor-not-allowed"
+                        >
+                          Coming Soon
+                        </button>
                       ) : (
                         <button
                           onClick={() => handleConnectExternal(integration.slug)}
@@ -812,12 +820,13 @@ export default function IntegrationsPage() {
                     </div>
                   </div>
                 </div>
-                <a
-                  href="mailto:support@restoreassist.app?subject=Integration Request"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700/50 transition-colors text-sm flex items-center justify-center gap-2 text-gray-700 dark:text-slate-300"
+                <button
+                  type="button"
+                  onClick={() => toast.error('This integration is coming soon!')}
+                  className="w-full px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 cursor-not-allowed"
                 >
-                  Contact Us
-                </a>
+                  Coming Soon
+                </button>
               </div>
             </div>
           </div>
