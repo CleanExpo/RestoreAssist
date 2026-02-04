@@ -699,6 +699,13 @@ export default function IntegrationsPage() {
                             Disconnect
                           </button>
                         </>
+                      ) : integration.comingSoon ? (
+                        <button
+                          onClick={() => toast.error('This integration is coming soon!')}
+                          className="w-full px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 cursor-not-allowed"
+                        >
+                          Coming Soon
+                        </button>
                       ) : (
                         <button
                           onClick={() => handleConnectExternal(integration.slug)}
