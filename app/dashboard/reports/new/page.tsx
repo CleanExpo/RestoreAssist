@@ -92,7 +92,6 @@ export default function NewReportPage() {
         // The API returns subscriptionStatus in data.profile.subscriptionStatus
         const status = data?.profile?.subscriptionStatus || data?.subscriptionStatus
         if (status) {
-          console.log('[NewReportPage] Fetched subscription status:', status)
           setSubscriptionStatus(status)
         } else {
           console.warn('[NewReportPage] No subscription status found in response:', data)
@@ -114,9 +113,7 @@ export default function NewReportPage() {
       try {
         const interviewData = JSON.parse(decodeURIComponent(interviewDataParam))
         const interviewMetadata = JSON.parse(decodeURIComponent(interviewMetadataParam))
-        
-        console.log('Loading interview data into new report:', { interviewData, interviewMetadata })
-        
+
         // Convert interview data to report form format
         // Map interview field IDs to report form field names
         const formData: Record<string, any> = {
