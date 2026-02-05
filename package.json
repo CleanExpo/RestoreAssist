@@ -16,7 +16,8 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
