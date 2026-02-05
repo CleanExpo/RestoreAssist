@@ -748,7 +748,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
           <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            Thanks for signing up to Restore Assist! Your account is ready to go with a <strong>${data.trialDays}-day free trial</strong> and <strong>${data.trialCredits} report credits</strong> to get you started.
+            Thanks for signing up to Restore Assist! Your account is ready with a <strong>${data.trialDays}-day free trial</strong> and <strong>unlimited reports and quick fill</strong> during the trial. Add your API key in Integrations to get started.
           </p>
 
           <!-- Getting started -->
@@ -789,7 +789,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
 
 Hi ${data.recipientName},
 
-Thanks for signing up! Your account is ready with a ${data.trialDays}-day free trial and ${data.trialCredits} report credits.
+Thanks for signing up! Your account is ready with a ${data.trialDays}-day free trial and unlimited reports and quick fill during the trial. Add your API key in Integrations to get started.
 
 Get started:
 1. Create your first water damage report

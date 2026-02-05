@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         subscriptionStatus: 'TRIAL',
         creditsRemaining: 30,
         totalCreditsUsed: 0,
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day trial
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day trial
         quickFillCreditsRemaining: 30,
         totalQuickFillUsed: 0
       },

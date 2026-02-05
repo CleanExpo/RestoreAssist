@@ -17,7 +17,7 @@ interface UserProfile {
   createdAt: string
   subscriptionStatus: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
   subscriptionPlan?: string
-  creditsRemaining: number
+  creditsRemaining: number | null
   totalCreditsUsed: number
   trialEndsAt?: string
   subscriptionEndsAt?: string
@@ -891,7 +891,7 @@ export default function SettingsPage() {
             <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
               <Zap className="w-5 h-5" />
-              {profile?.subscriptionStatus === 'ACTIVE' ? 'Reports' : 'Credits'}
+              {profile?.subscriptionStatus === 'ACTIVE' ? 'Reports' : (profile?.creditsRemaining == null ? 'Credits (trial)' : 'Credits')}
             </h2>
 
               <div className="space-y-4">
@@ -939,7 +939,7 @@ export default function SettingsPage() {
                 <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Remaining</label>
                 <div className={cn("text-2xl font-bold flex items-center gap-2", "text-cyan-600 dark:text-cyan-400")}>
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  {profile?.creditsRemaining || 0}
+                  {profile?.creditsRemaining == null ? 'Unlimited' : (profile?.creditsRemaining ?? 0)}
               </div>
             </div>
 
@@ -954,7 +954,7 @@ export default function SettingsPage() {
                 <div 
                   className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
                   style={{ 
-                          width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0) || 1)) * 100)}%` 
+                          width: profile?.creditsRemaining == null ? '0%' : `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining ?? 0) || 1)) * 100)}%` 
                   }}
                 ></div>
               </div>

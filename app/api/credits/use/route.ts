@@ -26,20 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Check if user has enough credits
-    if (effectiveSub.subscriptionStatus === 'TRIAL' && (effectiveSub.creditsRemaining || 0) < credits) {
-      return NextResponse.json({ 
-        error: "Insufficient credits", 
-        creditsRemaining: effectiveSub.creditsRemaining || 0,
-        upgradeRequired: true 
-      }, { status: 402 })
-    }
-
-    // Get the organization owner (Admin) - they own the credits
     const ownerId = await getOrganizationOwner(session.user.id)
     const targetUserId = ownerId || session.user.id
-
-    // Get current owner data
     const owner = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: {
@@ -53,13 +41,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Update credits on the owner's account
+    // Trial users: unlimited reports during 30-day trial - no deduction
+    const isTrialWithinPeriod = effectiveSub.subscriptionStatus === 'TRIAL' &&
+      (!effectiveSub.trialEndsAt || new Date() <= new Date(effectiveSub.trialEndsAt))
+    if (isTrialWithinPeriod) {
+      return NextResponse.json({
+        success: true,
+        creditsRemaining: null,
+        totalCreditsUsed: owner.totalCreditsUsed ?? 0,
+        subscriptionStatus: 'TRIAL',
+      })
+    }
+
+    if (effectiveSub.subscriptionStatus === 'TRIAL' && (effectiveSub.creditsRemaining || 0) < credits) {
+      return NextResponse.json({
+        error: "Insufficient credits",
+        creditsRemaining: effectiveSub.creditsRemaining || 0,
+        upgradeRequired: true
+      }, { status: 402 })
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },
       data: {
-        creditsRemaining: effectiveSub.subscriptionStatus === 'TRIAL' 
+        creditsRemaining: effectiveSub.subscriptionStatus === 'TRIAL'
           ? Math.max(0, (owner.creditsRemaining || 0) - credits)
-          : owner.creditsRemaining, // Unlimited for paid plans
+          : owner.creditsRemaining,
         totalCreditsUsed: (owner.totalCreditsUsed || 0) + credits,
       },
       select: {

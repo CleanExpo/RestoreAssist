@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 30,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
         },
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         recipientEmail: email,
         recipientName: name,
         loginUrl: `${APP_URL}/login`,
-        trialDays: 14,
+        trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err))
       notifyWelcome(user.id)
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
             subscriptionStatus: "TRIAL",
             creditsRemaining: 30,
             totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             quickFillCreditsRemaining: 30,
             totalQuickFillUsed: 0,
           },
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
         recipientEmail: email,
         recipientName: name,
         loginUrl: `${APP_URL}/login`,
-        trialDays: 14,
+        trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err))
       notifyWelcome(updatedUser.id)
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: "TRIAL",
           creditsRemaining: 30,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
         },
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         recipientEmail: email,
         recipientName: name,
         loginUrl: `${APP_URL}/login`,
-        trialDays: 14,
+        trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err))
       notifyWelcome(user.id)

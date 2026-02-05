@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
           subscriptionStatus: 'TRIAL',
           creditsRemaining: 30,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day free trial
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
           stripeCustomerId: stripeCustomerId,
@@ -107,14 +107,18 @@ export async function GET(request: NextRequest) {
         }
       })
 
+      const newTrialEndsAt = newUser.trialEndsAt ? new Date(newUser.trialEndsAt) : null
+      const newIsUnlimited = !newTrialEndsAt || new Date() <= newTrialEndsAt
       return NextResponse.json({ 
         profile: {
           ...newUser,
+          creditsRemaining: newIsUnlimited ? null : newUser.creditsRemaining,
           createdAt: newUser.createdAt.toISOString(),
           trialEndsAt: newUser.trialEndsAt?.toISOString(),
           subscriptionEndsAt: newUser.subscriptionEndsAt?.toISOString(),
           lastBillingDate: newUser.lastBillingDate?.toISOString(),
           nextBillingDate: newUser.nextBillingDate?.toISOString(),
+          trialStatus: newIsUnlimited ? { isTrialActive: true, daysRemaining: 30, hasTrialExpired: false, creditsRemaining: null, hasUnlimitedTrial: true } : null,
         }
       })
     }
@@ -162,10 +166,12 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Use effective subscription data for team members
     const subscriptionStatus = effectiveSub?.subscriptionStatus || user.subscriptionStatus
     const subscriptionPlan = effectiveSub?.subscriptionPlan || user.subscriptionPlan
-    const creditsRemaining = effectiveSub?.creditsRemaining ?? user.creditsRemaining
+    const trialEndsAtRaw = effectiveSub?.trialEndsAt ?? user.trialEndsAt
+    const trialEndsAt = trialEndsAtRaw ? new Date(trialEndsAtRaw) : null
+    const isTrialUnlimited = subscriptionStatus === 'TRIAL' && (!trialEndsAt || new Date() <= trialEndsAt)
+    const creditsRemaining = isTrialUnlimited ? null : (effectiveSub?.creditsRemaining ?? user.creditsRemaining)
 
     // Get report limits for active subscribers (use owner's account for team members)
     let reportLimits = null
@@ -210,12 +216,12 @@ export async function GET(request: NextRequest) {
         nextBillingDate: user.nextBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
-        // Trial status info
         trialStatus: trialStatus ? {
           isTrialActive: trialStatus.isTrialActive,
           daysRemaining: trialStatus.daysRemaining,
           hasTrialExpired: trialStatus.hasTrialExpired,
-          creditsRemaining: trialStatus.creditsRemaining,
+          creditsRemaining: isTrialUnlimited ? null : trialStatus.creditsRemaining,
+          hasUnlimitedTrial: isTrialUnlimited,
         } : null,
       }
     })

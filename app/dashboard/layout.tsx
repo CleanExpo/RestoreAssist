@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
+import toast from "react-hot-toast"
 import { NotificationBell } from "@/components/notifications"
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
@@ -191,22 +192,22 @@ const upgradeItem = {
                           <button
                             key={item.href}
                             onClick={async () => {
-                              // Check credits before navigating
                               try {
                                 const response = await fetch('/api/reports/check-credits')
                                 if (response.ok) {
                                   const data = await response.json()
+                                  if (!data.hasApiKey) {
+                                    toast.error('Please add your API key to create reports.')
+                                    router.push('/dashboard/integrations')
+                                    return
+                                  }
                                   if (!data.canCreate) {
-                                    // Show upgrade modal or redirect to pricing
                                     router.push('/dashboard/pricing')
                                     return
                                   }
                                 }
-                                // If credits available, navigate to new report page
                                 router.push(item.href)
                               } catch (error) {
-                                console.error('Error checking credits:', error)
-                                // On error, still allow navigation (will be checked on the page)
                                 router.push(item.href)
                               }
                             }}

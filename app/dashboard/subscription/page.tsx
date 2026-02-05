@@ -58,7 +58,7 @@ export default function SubscriptionPage() {
   const [profile, setProfile] = useState<{
     subscriptionStatus?: string
     trialEndsAt?: string | null
-    trialStatus?: { isTrialActive: boolean; daysRemaining: number; hasTrialExpired: boolean; creditsRemaining: number }
+    trialStatus?: { isTrialActive: boolean; daysRemaining: number; hasTrialExpired: boolean; creditsRemaining: number | null; hasUnlimitedTrial?: boolean }
   } | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
 
@@ -714,11 +714,13 @@ export default function SubscriptionPage() {
                         Trial ends {new Date(profile.trialEndsAt).toLocaleDateString('en-AU', { dateStyle: 'long' })}
                       </span>
                     )}
-                    {profile.trialStatus.creditsRemaining != null && (
+                    {(profile.trialStatus.hasUnlimitedTrial || profile.trialStatus.creditsRemaining == null) ? (
+                      <span className="block mt-1">Unlimited reports and quick fill during trial</span>
+                    ) : profile.trialStatus.creditsRemaining != null ? (
                       <span className="block mt-1">
                         {profile.trialStatus.creditsRemaining} trial report{profile.trialStatus.creditsRemaining === 1 ? '' : 's'} remaining
                       </span>
-                    )}
+                    ) : null}
                   </p>
                 </div>
               </div>
