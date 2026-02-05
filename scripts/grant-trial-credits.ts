@@ -1,6 +1,7 @@
 /**
- * One-time script: Grant existing TRIAL users 30 report credits and 30 quick fill credits
- * (same as new signups after the trial-credits change).
+ * One-time script for existing TRIAL users:
+ * 1. Extend trial to 30 days from signup (trialEndsAt = createdAt + 30 days)
+ *    so everyone gets the full 30-day unlimited trial.
  *
  * Run from project root:
  *   npx tsx scripts/grant-trial-credits.ts
@@ -12,21 +13,30 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-const REPORT_CREDITS = 30
-const QUICK_FILL_CREDITS = 30
+const TRIAL_DAYS = 30
+const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 async function main() {
-  // Update all users on TRIAL to have 30 report credits and 30 quick fill credits
-  const result = await prisma.user.updateMany({
+  const trialUsers = await prisma.user.findMany({
     where: { subscriptionStatus: 'TRIAL' },
-    data: {
-      creditsRemaining: REPORT_CREDITS,
-      quickFillCreditsRemaining: QUICK_FILL_CREDITS,
-    },
+    select: { id: true, createdAt: true, trialEndsAt: true },
   })
 
+  let extended = 0
+  for (const u of trialUsers) {
+    const signupEnd = new Date(u.createdAt.getTime() + TRIAL_DAYS * MS_PER_DAY)
+    const currentEnd = u.trialEndsAt ? new Date(u.trialEndsAt) : null
+    const newEnd = currentEnd == null || signupEnd > currentEnd ? signupEnd : currentEnd
+
+    await prisma.user.update({
+      where: { id: u.id },
+      data: { trialEndsAt: newEnd },
+    })
+    extended++
+  }
+
   console.log(
-    `Updated ${result.count} trial user(s) to ${REPORT_CREDITS} report credits and ${QUICK_FILL_CREDITS} quick fill credits.`
+    `Extended ${extended} trial user(s) to ${TRIAL_DAYS} days from signup. Trial = unlimited reports and quick fill during period.`
   )
 }
 

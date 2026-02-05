@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
         totalQuickFillUsed: true,
         subscriptionStatus: true,
         organizationId: true,
-        role: true
+        role: true,
+        trialEndsAt: true
       }
     })
 
@@ -27,10 +28,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Active subscribers have unlimited Quick Fill
-    // Invited team members (Managers and Technicians in an org) also get unlimited Quick Fill as part of the org package
     const isInvitedTeamMember = !!user.organizationId && (user.role === 'MANAGER' || user.role === 'USER')
-    const hasUnlimited = user.subscriptionStatus === 'ACTIVE' || isInvitedTeamMember
+    const isTrialWithinPeriod = user.subscriptionStatus === 'TRIAL' &&
+      (!user.trialEndsAt || new Date() <= new Date(user.trialEndsAt))
+    const hasUnlimited = user.subscriptionStatus === 'ACTIVE' || isInvitedTeamMember || isTrialWithinPeriod
     const creditsRemaining = hasUnlimited ? null : (user.quickFillCreditsRemaining ?? 0)
 
     return NextResponse.json({ 
@@ -64,7 +65,8 @@ export async function POST(request: NextRequest) {
         totalQuickFillUsed: true,
         subscriptionStatus: true,
         organizationId: true,
-        role: true
+        role: true,
+        trialEndsAt: true
       }
     })
 
@@ -72,10 +74,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Active subscribers have unlimited Quick Fill - no deduction needed
-    // Invited team members (Managers and Technicians in an org) also get unlimited Quick Fill
     const isInvitedTeamMember = !!user.organizationId && (user.role === 'MANAGER' || user.role === 'USER')
-    if (user.subscriptionStatus === 'ACTIVE' || isInvitedTeamMember) {
+    const isTrialWithinPeriod = user.subscriptionStatus === 'TRIAL' &&
+      (!user.trialEndsAt || new Date() <= new Date(user.trialEndsAt))
+    if (user.subscriptionStatus === 'ACTIVE' || isInvitedTeamMember || isTrialWithinPeriod) {
       return NextResponse.json({ 
         success: true,
         creditsRemaining: null,
@@ -83,7 +85,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Check if user has credits
     const creditsRemaining = user.quickFillCreditsRemaining ?? 0
     if (creditsRemaining <= 0) {
       return NextResponse.json(

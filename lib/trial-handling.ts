@@ -40,10 +40,9 @@ export async function getTrialStatus(userId: string): Promise<TrialStatus | null
   const trialEndsAt = user.trialEndsAt ? new Date(user.trialEndsAt) : null
 
   if (!trialEndsAt) {
-    // Legacy users without trialEndsAt - treat as active trial
     return {
       isTrialActive: true,
-      daysRemaining: 14,
+      daysRemaining: 30,
       trialEndsAt: null,
       hasTrialExpired: false,
       creditsRemaining: user.creditsRemaining || 0,
@@ -56,7 +55,7 @@ export async function getTrialStatus(userId: string): Promise<TrialStatus | null
     : Math.ceil((trialEndsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
 
   return {
-    isTrialActive: !hasTrialExpired && (user.creditsRemaining || 0) > 0,
+    isTrialActive: !hasTrialExpired,
     daysRemaining,
     trialEndsAt,
     hasTrialExpired,
@@ -84,15 +83,7 @@ export async function canTrialUserPerformAction(userId: string): Promise<{ allow
   if (trialStatus.hasTrialExpired) {
     return {
       allowed: false,
-      reason: "Your 14-day free trial has expired. Please subscribe to continue using RestoreAssist."
-    }
-  }
-
-  // Trial active but no credits
-  if (trialStatus.creditsRemaining <= 0) {
-    return {
-      allowed: false,
-      reason: "You've used all your trial credits. Subscribe now to continue creating reports."
+      reason: "Your 30-day free trial has expired. Please subscribe to continue using RestoreAssist."
     }
   }
 

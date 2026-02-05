@@ -142,32 +142,22 @@ export async function canCreateReport(userId: string): Promise<{ allowed: boolea
     return { allowed: false, reason: "User not found" }
   }
 
-  // Trial users use credits
+  // Trial users: unlimited reports during 30-day trial (API key required when creating)
   if (effectiveSub.subscriptionStatus === 'TRIAL') {
-    // Check if trial has expired
     const trialExpired = await checkAndUpdateTrialStatus(effectiveSub.id)
     if (trialExpired) {
       return {
         allowed: false,
-        reason: "Your 14-day free trial has expired. Please subscribe to continue using RestoreAssist."
+        reason: "Your 30-day free trial has expired. Please subscribe to continue using RestoreAssist."
       }
     }
-
-    // Check trial end date
     if (effectiveSub.trialEndsAt && new Date() > new Date(effectiveSub.trialEndsAt)) {
       return {
         allowed: false,
-        reason: "Your 14-day free trial has expired. Please subscribe to continue using RestoreAssist."
+        reason: "Your 30-day free trial has expired. Please subscribe to continue using RestoreAssist."
       }
     }
-
-    if (effectiveSub.creditsRemaining && effectiveSub.creditsRemaining > 0) {
-      return { allowed: true }
-    }
-    return {
-      allowed: false,
-      reason: "You've used all your trial credits. Subscribe now to continue creating reports."
-    }
+    return { allowed: true }
   }
 
   // Active subscribers use monthly limits
@@ -203,15 +193,12 @@ export async function canCreateBulkReports(userId: string, count: number): Promi
     return { allowed: false, reason: "User not found" }
   }
 
-  // Trial users use credits
+  // Trial users: unlimited during 30-day trial
   if (effectiveSub.subscriptionStatus === 'TRIAL') {
-    if (effectiveSub.creditsRemaining && effectiveSub.creditsRemaining >= count) {
-      return { allowed: true }
+    if (effectiveSub.trialEndsAt && new Date() > new Date(effectiveSub.trialEndsAt)) {
+      return { allowed: false, reason: "Your 30-day free trial has expired. Please subscribe to continue." }
     }
-    return { 
-      allowed: false, 
-      reason: `Insufficient credits. You need ${count} credits but only have ${effectiveSub.creditsRemaining || 0}. Please upgrade your plan to create more reports.` 
-    }
+    return { allowed: true }
   }
 
   // Active subscribers use monthly limits

@@ -42,20 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
-      return NextResponse.json(
-        { 
-          error: "Insufficient credits. Please upgrade your plan to create more reports.",
-          upgradeRequired: true,
-          creditsRemaining: user.creditsRemaining
-        },
-        { status: 402 }
-      )
-    }
-
-    // Get appropriate API key based on subscription status
-    // Free users: uses ANTHROPIC_API_KEY from .env
-    // Upgraded users: uses API key from integrations
+    // Get API key (required for all users in Integrations; trial has unlimited reports during 30-day period)
     let anthropicApiKey: string
     try {
       anthropicApiKey = await getAnthropicApiKey(session.user.id)

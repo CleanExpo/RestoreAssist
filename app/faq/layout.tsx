@@ -38,7 +38,7 @@ const faqData = [
   },
   {
     question: "Is there a free trial?",
-    answer: "Yes, all plans include a 14-day free trial. You can explore all features without any commitment during this period."
+    answer: "Yes, all plans include a 30-day free trial with unlimited reports and quick fill. Add your API key in Integrations to get started."
   },
   {
     question: "What happens after my free trial ends?",
