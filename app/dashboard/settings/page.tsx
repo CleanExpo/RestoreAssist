@@ -118,7 +118,7 @@ export default function SettingsPage() {
           image: session?.user?.image || undefined,
           createdAt: new Date().toISOString(),
           subscriptionStatus: 'TRIAL',
-          creditsRemaining: 3,
+          creditsRemaining: 30,
           totalCreditsUsed: 0
         })
         setFormData({
@@ -142,7 +142,7 @@ export default function SettingsPage() {
         image: session?.user?.image ?? undefined,
         createdAt: new Date().toISOString(),
         subscriptionStatus: 'TRIAL',
-        creditsRemaining: 3,
+        creditsRemaining: 30,
         totalCreditsUsed: 0
       })
       setFormData({

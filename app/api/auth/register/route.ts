@@ -76,10 +76,10 @@ export async function POST(request: NextRequest) {
           password: hashedPassword,
           role: "ADMIN",
           subscriptionStatus: "TRIAL",
-          creditsRemaining: 3,
+          creditsRemaining: 30,
           totalCreditsUsed: 0,
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-          quickFillCreditsRemaining: 1,
+          quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
         },
       })
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         recipientName: name,
         loginUrl: `${APP_URL}/login`,
         trialDays: 14,
-        trialCredits: 3,
+        trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err))
       notifyWelcome(user.id)
       const reqCtx = extractRequestContext(request)
@@ -120,10 +120,10 @@ export async function POST(request: NextRequest) {
             password: hashedPassword,
             role: "ADMIN",
             subscriptionStatus: "TRIAL",
-            creditsRemaining: 3,
+            creditsRemaining: 30,
             totalCreditsUsed: 0,
             trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-            quickFillCreditsRemaining: 1,
+            quickFillCreditsRemaining: 30,
             totalQuickFillUsed: 0,
           },
         })
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         recipientName: name,
         loginUrl: `${APP_URL}/login`,
         trialDays: 14,
-        trialCredits: 3,
+        trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err))
       notifyWelcome(updatedUser.id)
       const reqCtx = extractRequestContext(request)
@@ -165,10 +165,10 @@ export async function POST(request: NextRequest) {
           password: hashedPassword,
           role: "ADMIN",
           subscriptionStatus: "TRIAL",
-          creditsRemaining: 3,
+          creditsRemaining: 30,
           totalCreditsUsed: 0,
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-          quickFillCreditsRemaining: 1,
+          quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
         },
       })
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         recipientName: name,
         loginUrl: `${APP_URL}/login`,
         trialDays: 14,
-        trialCredits: 3,
+        trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err))
       notifyWelcome(user.id)
       const { password: _, ...userWithoutPassword } = user

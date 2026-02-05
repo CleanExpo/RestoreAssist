@@ -73,9 +73,11 @@ export async function GET(request: NextRequest) {
           email: session.user.email!,
           image: session.user.image,
           subscriptionStatus: 'TRIAL',
-          creditsRemaining: 3,
+          creditsRemaining: 30,
           totalCreditsUsed: 0,
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
+          quickFillCreditsRemaining: 30,
+          totalQuickFillUsed: 0,
           stripeCustomerId: stripeCustomerId,
         },
         select: {
@@ -92,6 +94,8 @@ export async function GET(request: NextRequest) {
           subscriptionEndsAt: true,
           creditsRemaining: true,
           totalCreditsUsed: true,
+          quickFillCreditsRemaining: true,
+          totalQuickFillUsed: true,
           lastBillingDate: true,
           nextBillingDate: true,
           businessName: true,
