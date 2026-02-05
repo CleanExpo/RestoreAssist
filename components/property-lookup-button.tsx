@@ -37,7 +37,6 @@ export function PropertyLookupButton({
     try {
       // V3 Feature: Property Intelligence Integration
       // This will call /api/property/lookup when CoreLogic/Domain integration is complete
-      console.log('Property lookup clicked', { inspectionId, address, postcode })
       if (onSuccess) {
         onSuccess({ data: null, expiresAt: null })
       }
