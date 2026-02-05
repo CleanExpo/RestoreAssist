@@ -23,7 +23,6 @@ import {
   FileSearch,
   ClipboardCheck,
   MessageSquare,
-  Lock,
   Building2,
   Receipt,
 } from "lucide-react"
@@ -107,23 +106,21 @@ export default function DashboardLayout({
 
   // Check if user is a Manager or Technician (they should be linked to an Admin)
   const isTeamMember = session?.user?.role === "MANAGER" || session?.user?.role === "USER"
-  
-  // Check if user is on trial (free user)
-  const isTrial = subscriptionStatus === "TRIAL"
 
+  // Free trial users get full sidebar access; they must add their own API key in Integrations
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: Plus, label: "New Report", href: "/dashboard/reports/new", highlight: true },
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
-    { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections", locked: isTrial },
-    { icon: Users, label: "Clients", href: "/dashboard/clients", locked: isTrial },
-    { icon: Receipt, label: "Invoices", href: "/dashboard/invoices", locked: isTrial },
-    { icon: Users, label: "Team", href: "/dashboard/team", locked: isTrial },
-    { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config", locked: isTrial },
-    { icon: Plug, label: "Integrations", href: "/dashboard/integrations", locked: isTrial },
-    { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics", locked: isTrial },
-    { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis", locked: isTrial },
-    { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews", locked: isTrial },
+    { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections" },
+    { icon: Users, label: "Clients", href: "/dashboard/clients" },
+    { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
+    { icon: Users, label: "Team", href: "/dashboard/team" },
+    { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
+    { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
+    { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
+    { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
+    { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
     // Hide Subscription for team members (Managers and Technicians)
     ...(isTeamMember ? [] : [{ icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" }]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
@@ -230,31 +227,6 @@ const upgradeItem = {
                           </button>
                         )
                       }
-                      // Handle locked items
-                      if (item.locked) {
-                        return (
-                          <button
-                            key={item.href}
-                            onClick={() => router.push('/dashboard/pricing')}
-                            className={cn(
-                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left relative",
-                              "text-neutral-500 dark:text-slate-500",
-                              "opacity-60 cursor-not-allowed",
-                              "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
-                            )}
-                            title={!sidebarOpen ? `${item.label} - Upgrade to unlock` : "Upgrade to unlock"}
-                          >
-                            <item.icon size={20} className="flex-shrink-0" />
-                            {sidebarOpen && (
-                              <>
-                                <span className="text-sm flex-1">{item.label}</span>
-                                <Lock size={16} className="flex-shrink-0 text-amber-500" />
-                              </>
-                            )}
-                          </button>
-                        )
-                      }
-                      
                       return (
                         <Link
                           key={item.href}
