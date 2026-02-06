@@ -8,12 +8,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { listDriveItems, downloadDriveFile } from '@/lib/google-drive'
 import { performGapAnalysis } from '@/lib/gap-analysis'
 import { performRevolutionaryGapAnalysis } from '@/lib/revolutionary-gap-analysis'
 import { retrieveRelevantStandards, buildStandardsContextPrompt } from '@/lib/standards-retrieval'
 import type { GapAnalysisResult } from '@/lib/gap-analysis'
 import { applyRateLimit } from '@/lib/rate-limiter'
+
+const CATEGORY_MAP: Record<string, 'IICRC_COMPLIANCE' | 'OH_S_POLICY' | 'BILLING_ITEM' | 'DOCUMENTATION' | 'SCOPE_OF_WORKS' | 'OTHER'> = {
+  iicrc: 'IICRC_COMPLIANCE',
+  compliance: 'IICRC_COMPLIANCE',
+  ohs: 'OH_S_POLICY',
+  'oh&s': 'OH_S_POLICY',
+  billing: 'BILLING_ITEM',
+  documentation: 'DOCUMENTATION',
+  scope: 'SCOPE_OF_WORKS',
+  'scope of works': 'SCOPE_OF_WORKS',
+}
+function mapCategory(category: string): 'IICRC_COMPLIANCE' | 'OH_S_POLICY' | 'BILLING_ITEM' | 'DOCUMENTATION' | 'SCOPE_OF_WORKS' | 'OTHER' {
+  const key = (category || '').toLowerCase().trim()
+  return (CATEGORY_MAP[key] ?? 'OTHER') as any
+}
+function mapSeverity(severity: string): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
+  const s = (severity || 'MEDIUM').toUpperCase()
+  return (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(s) ? s : 'MEDIUM') as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,7 +121,19 @@ export async function POST(request: NextRequest) {
             controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'))
           }
 
-          sendEvent({ type: 'start', total: pdfFiles.length })
+          const batch = await prisma.claimAnalysisBatch.create({
+            data: {
+              userId,
+              folderId,
+              folderName: null,
+              status: 'PROCESSING',
+              totalFiles: pdfFiles.length,
+              processedFiles: 0,
+              failedFiles: 0,
+            },
+          })
+
+          sendEvent({ type: 'start', total: pdfFiles.length, batchId: batch.id })
 
           const analysisResults: GapAnalysisResult[] = []
 
@@ -163,9 +195,69 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Calculate summary
+          // Calculate summary and persist to DB
           const summary = buildSummary(analysisResults)
-          sendEvent({ type: 'complete', results: analysisResults, summary })
+          const completed = analysisResults.filter(r => (r.scores?.completeness ?? 0) > 0 || r.issues?.length > 0).length
+          const failed = pdfFiles.length - completed
+
+          await prisma.$transaction(async (tx) => {
+            for (const r of analysisResults) {
+              const analysisData = {
+                batchId: batch.id,
+                fileName: r.fileName,
+                completenessScore: Math.round(r.scores?.completeness ?? 0),
+                complianceScore: Math.round(r.scores?.compliance ?? 0),
+                standardizationScore: Math.round(r.scores?.standardization ?? 0),
+                billingAccuracyScore: Math.round(r.scores?.billingAccuracy ?? 0),
+                missingIICRCElements: r.missingElements?.iicrc ?? 0,
+                missingOHSElements: r.missingElements?.ohs ?? 0,
+                missingBillingItems: r.missingElements?.billing ?? 0,
+                missingDocumentation: r.missingElements?.documentation ?? 0,
+                estimatedMissingRevenue: r.estimatedMissingRevenue ?? null,
+                fullAnalysisData: JSON.stringify({ issues: r.issues, reportStructure: r.reportStructure, technicianPattern: r.technicianPattern }),
+                status: ((r.issues?.length ?? 0) === 0 && (r.scores?.completeness ?? 0) === 0) ? 'FAILED' as const : 'COMPLETED' as const,
+                processedAt: new Date(),
+              }
+              const analysis = await tx.claimAnalysis.upsert({
+                where: { googleDriveFileId: r.fileId },
+                create: { googleDriveFileId: r.fileId, ...analysisData },
+                update: analysisData,
+              })
+              await tx.missingElement.deleteMany({ where: { analysisId: analysis.id } })
+              for (const issue of r.issues || []) {
+                await tx.missingElement.create({
+                  data: {
+                    analysisId: analysis.id,
+                    category: mapCategory(issue.category),
+                    elementType: issue.category || 'Other',
+                    elementName: issue.elementName || 'Unknown',
+                    description: issue.description ?? null,
+                    severity: mapSeverity(issue.severity),
+                    standardReference: issue.standardReference ?? null,
+                    isBillable: !!issue.isBillable,
+                    estimatedCost: issue.estimatedCost ?? null,
+                    estimatedHours: issue.estimatedHours ?? null,
+                    suggestedLineItem: issue.suggestedLineItem ?? null,
+                  },
+                })
+              }
+            }
+            await tx.claimAnalysisBatch.update({
+              where: { id: batch.id },
+              data: {
+                status: failed > 0 && completed > 0 ? 'PARTIAL' : failed === pdfFiles.length ? 'FAILED' : 'COMPLETED',
+                processedFiles: completed,
+                failedFiles: failed,
+                completedAt: new Date(),
+                averageCompletenessScore: summary.averageScores.completeness,
+                averageComplianceScore: summary.averageScores.compliance,
+                totalMissingElements: summary.totalMissingElements.iicrc + summary.totalMissingElements.ohs + summary.totalMissingElements.billing + summary.totalMissingElements.documentation,
+                estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
+              },
+            })
+          })
+
+          sendEvent({ type: 'complete', results: analysisResults, summary, batchId: batch.id })
           controller.close()
         }
       })
@@ -190,7 +282,71 @@ export async function POST(request: NextRequest) {
     const analysisResults = await performGapAnalysis(pdfData, anthropicApiKey, standardsContext)
     const summary = buildSummary(analysisResults)
 
-    return NextResponse.json({ success: true, results: analysisResults, summary })
+    const completed = analysisResults.filter(r => (r.scores?.completeness ?? 0) > 0 || (r.issues?.length ?? 0) > 0).length
+    const failed = pdfFiles.length - completed
+
+    const batch = await prisma.claimAnalysisBatch.create({
+      data: {
+        userId,
+        folderId,
+        folderName: null,
+        status: failed > 0 && completed > 0 ? 'PARTIAL' : failed === pdfFiles.length ? 'FAILED' : 'COMPLETED',
+        totalFiles: pdfFiles.length,
+        processedFiles: completed,
+        failedFiles: failed,
+        completedAt: new Date(),
+        averageCompletenessScore: summary.averageScores.completeness,
+        averageComplianceScore: summary.averageScores.compliance,
+        totalMissingElements: summary.totalMissingElements.iicrc + summary.totalMissingElements.ohs + summary.totalMissingElements.billing + summary.totalMissingElements.documentation,
+        estimatedRevenueRecovery: summary.totalEstimatedMissingRevenue,
+      },
+    })
+
+    await prisma.$transaction(async (tx) => {
+      for (const r of analysisResults) {
+        const analysisData = {
+          batchId: batch.id,
+          fileName: r.fileName,
+          completenessScore: Math.round(r.scores?.completeness ?? 0),
+          complianceScore: Math.round(r.scores?.compliance ?? 0),
+          standardizationScore: Math.round(r.scores?.standardization ?? 0),
+          billingAccuracyScore: Math.round(r.scores?.billingAccuracy ?? 0),
+          missingIICRCElements: r.missingElements?.iicrc ?? 0,
+          missingOHSElements: r.missingElements?.ohs ?? 0,
+          missingBillingItems: r.missingElements?.billing ?? 0,
+          missingDocumentation: r.missingElements?.documentation ?? 0,
+          estimatedMissingRevenue: r.estimatedMissingRevenue ?? null,
+          fullAnalysisData: JSON.stringify({ issues: r.issues, reportStructure: r.reportStructure, technicianPattern: r.technicianPattern }),
+          status: ((r.issues?.length ?? 0) === 0 && (r.scores?.completeness ?? 0) === 0) ? 'FAILED' as const : 'COMPLETED' as const,
+          processedAt: new Date(),
+        }
+        const analysis = await tx.claimAnalysis.upsert({
+          where: { googleDriveFileId: r.fileId },
+          create: { googleDriveFileId: r.fileId, ...analysisData },
+          update: analysisData,
+        })
+        await tx.missingElement.deleteMany({ where: { analysisId: analysis.id } })
+        for (const issue of r.issues || []) {
+          await tx.missingElement.create({
+            data: {
+              analysisId: analysis.id,
+              category: mapCategory(issue.category),
+              elementType: issue.category || 'Other',
+              elementName: issue.elementName || 'Unknown',
+              description: issue.description ?? null,
+              severity: mapSeverity(issue.severity),
+              standardReference: issue.standardReference ?? null,
+              isBillable: !!issue.isBillable,
+              estimatedCost: issue.estimatedCost ?? null,
+              estimatedHours: issue.estimatedHours ?? null,
+              suggestedLineItem: issue.suggestedLineItem ?? null,
+            },
+          })
+        }
+      }
+    })
+
+    return NextResponse.json({ success: true, results: analysisResults, summary, batchId: batch.id })
 
   } catch (error: any) {
     console.error('Error performing gap analysis:', error)

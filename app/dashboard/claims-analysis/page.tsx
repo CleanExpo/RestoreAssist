@@ -28,6 +28,7 @@ import {
   X,
   Clock,
   FileCheck,
+  FileSearch,
   BookOpen,
 } from 'lucide-react'
 import { exportClaimsCSV, exportClaimsPDF } from '@/lib/claims-export'
@@ -170,8 +171,33 @@ export default function ClaimsAnalysisPage() {
     fileStatuses: Array<{ name: string; status: 'pending' | 'processing' | 'done' | 'failed'; error?: string }>
   } | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [showNewAnalysisForm, setShowNewAnalysisForm] = useState(false)
+  const [loadingLatest, setLoadingLatest] = useState(true)
   const abortControllerRef = useRef<AbortController | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Load latest saved analysis on mount so dashboard shows previous results
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch('/api/claims/analyses/latest')
+        if (cancelled) return
+        const data = await res.json()
+        if (!res.ok) return
+        if (data.results?.length && data.summary) {
+          setAnalysisResults(data.results)
+          setSummary(data.summary)
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoadingLatest(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   // Elapsed time counter during processing
   useEffect(() => {
@@ -356,6 +382,7 @@ export default function ClaimsAnalysisPage() {
             } else if (event.type === 'complete') {
               setAnalysisResults(event.results || [])
               setSummary(event.summary || null)
+              setShowNewAnalysisForm(false)
               toast.success(`Analysis completed! Processed ${event.results?.length || 0} file(s)`)
             }
           } catch {
@@ -434,6 +461,7 @@ export default function ClaimsAnalysisPage() {
     setViewMode('list')
     setBatchProgress(null)
     setProcessing(false)
+    setShowNewAnalysisForm(true)
   }
 
   return (
@@ -445,16 +473,19 @@ export default function ClaimsAnalysisPage() {
             Comprehensive analysis and insights for restoration claim management
           </p>
         </div>
-        {summary && (
+        {!showNewAnalysisForm && (
           <div className="flex items-center gap-3">
-            <div className="text-right mr-4">
-              <div className="text-sm text-muted-foreground">Total Files</div>
-              <div className="text-2xl font-bold">{summary.totalFiles}</div>
-            </div>
-            <Button variant="outline" size="sm" onClick={resetAnalysis}>
+            {summary && (
+              <div className="text-right mr-4">
+                <div className="text-sm text-muted-foreground">Total Files</div>
+                <div className="text-2xl font-bold">{summary.totalFiles}</div>
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setShowNewAnalysisForm(true)}>
               <RotateCcw className="mr-2 h-4 w-4" />
               New Analysis
             </Button>
+            {summary && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -489,12 +520,13 @@ export default function ClaimsAnalysisPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
         )}
       </div>
 
-      {/* Start New Analysis - Only show when no results */}
-      {analysisResults.length === 0 && !summary && (
+      {/* New Analysis form - only when user clicked New Analysis */}
+      {showNewAnalysisForm && (
       <Card>
         <CardHeader>
             <CardTitle>New Analysis</CardTitle>
@@ -719,8 +751,31 @@ export default function ClaimsAnalysisPage() {
       </Card>
       )}
 
-      {/* Analysis Results */}
-      {analysisResults.length > 0 && summary && (
+      {/* Stats dashboard: loading latest, empty state, or full results */}
+      {!showNewAnalysisForm && loadingLatest && analysisResults.length === 0 && !summary && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Loader2 className="h-12 w-12 text-muted-foreground animate-spin mb-4" />
+            <p className="text-muted-foreground">Loading your latest analysis…</p>
+          </CardContent>
+        </Card>
+      )}
+      {!showNewAnalysisForm && !loadingLatest && analysisResults.length === 0 && !summary && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <FileSearch className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No analysis yet</h2>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              Run an analysis on claim reports from Google Drive to see compliance gaps, missing elements, and revenue recovery insights.
+            </p>
+            <Button onClick={() => setShowNewAnalysisForm(true)} size="lg">
+              <Play className="mr-2 h-4 w-4" />
+              New Analysis
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {!showNewAnalysisForm && analysisResults.length > 0 && summary && (
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
