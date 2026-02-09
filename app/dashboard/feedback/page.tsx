@@ -59,7 +59,7 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="space-y-6 bg-background">
+    <div className="space-y-6 bg-background p-4">
       <div>
         <h1 className="text-2xl sm:text-3xl font-semibold mb-1 text-foreground">
           Feedback
