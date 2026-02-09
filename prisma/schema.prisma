@@ -154,6 +154,25 @@ model User {
   recurringInvoices RecurringInvoice[] @relation("UserRecurringInvoices")
   invoiceSequences  InvoiceSequence[]  @relation("UserInvoiceSequences")
   invoiceAuditLogs  InvoiceAuditLog[]  @relation("UserInvoiceAuditLogs")
+
+  // User feedback (trial / product feedback)
+  feedback Feedback[]
+}
+
+model Feedback {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rating       Int?     // 1-5 or null
+  whatDoing    String?  @db.Text // What were you trying to do?
+  whatHappened String?  @db.Text // What happened? / Suggestion
+  page         String?  // Optional: page/URL when submitted
+
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model VerificationToken {
