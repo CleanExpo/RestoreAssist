@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Building2,
   Receipt,
+  MessageCircle,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -125,6 +126,7 @@ export default function DashboardLayout({
     // Hide Subscription for team members (Managers and Technicians)
     ...(isTeamMember ? [] : [{ icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" }]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+    { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
   ]
 
