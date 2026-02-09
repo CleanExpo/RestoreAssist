@@ -1,25 +1,65 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Send, CheckCircle, Star, Loader2 } from 'lucide-react'
+import { Send, CheckCircle, Star, Loader2, Inbox } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 
+type FeedbackItem = {
+  id: string
+  rating: number | null
+  whatDoing: string | null
+  whatHappened: string | null
+  page: string | null
+  createdAt: string
+  user?: { id: string; name: string | null; email: string }
+}
+
+const INBOX_EMAIL = 'mmlrana00@gmail.com'
+
 export default function FeedbackPage() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const pathname = usePathname()
   const [rating, setRating] = useState<number | null>(null)
   const [whatDoing, setWhatDoing] = useState('')
   const [whatHappened, setWhatHappened] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [inboxList, setInboxList] = useState<FeedbackItem[]>([])
+  const [inboxLoading, setInboxLoading] = useState(false)
+  const [inboxPage, setInboxPage] = useState(1)
+  const [inboxTotal, setInboxTotal] = useState(0)
+
+  const canViewInbox = session?.user?.email === INBOX_EMAIL
+
+  const loadInbox = async (page = 1, append = false) => {
+    if (!canViewInbox) return
+    setInboxLoading(true)
+    try {
+      const res = await fetch(`/api/feedback?inbox=1&page=${page}&limit=20`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load')
+      const list = data.feedback ?? []
+      setInboxList(prev => append ? [...prev, ...list] : list)
+      setInboxTotal(data.pagination?.total ?? 0)
+      setInboxPage(page)
+    } catch {
+      toast.error('Failed to load feedback.')
+    } finally {
+      setInboxLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (canViewInbox) loadInbox(1)
+  }, [canViewInbox])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,6 +82,7 @@ export default function FeedbackPage() {
       setRating(null)
       setWhatDoing('')
       setWhatHappened('')
+      if (canViewInbox) loadInbox(1)
       toast.success('Thank you! Your feedback has been submitted.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong.')
@@ -175,6 +216,93 @@ export default function FeedbackPage() {
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {canViewInbox && (
+        <Card className="border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <Inbox className="h-5 w-5" />
+              All feedback
+            </CardTitle>
+            <CardDescription>
+              Submissions from all users (name and email of who submitted).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {inboxLoading && inboxList.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : inboxList.length === 0 ? (
+              <p className="text-center py-12 text-muted-foreground">No feedback yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {inboxList.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-lg border border-border bg-background/50"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      {item.user && (
+                        <>
+                          <span className="text-sm font-medium text-foreground">
+                            {item.user.name || 'No name'}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {item.user.email}
+                          </span>
+                        </>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(item.createdAt).toLocaleString()}
+                      </span>
+                      {item.page && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={item.page}>
+                          {item.page}
+                        </span>
+                      )}
+                    </div>
+                    {item.rating != null && (
+                      <div className="flex gap-0.5 mb-2">
+                        {[1, 2, 3, 4, 5].map((v) => (
+                          <Star
+                            key={v}
+                            className={cn('h-4 w-4', v <= item.rating! ? 'text-amber-500 fill-amber-500 dark:text-amber-400 dark:fill-amber-400' : 'text-muted-foreground/40')}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {item.whatDoing && (
+                      <p className="text-sm text-foreground mb-1">
+                        <span className="font-medium">Doing: </span>
+                        {item.whatDoing}
+                      </p>
+                    )}
+                    {item.whatHappened && (
+                      <p className="text-sm text-foreground">
+                        <span className="font-medium">Feedback: </span>
+                        {item.whatHappened}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                {inboxTotal > inboxList.length && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadInbox(inboxPage + 1, true)}
+                      disabled={inboxLoading}
+                    >
+                      {inboxLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load more'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
