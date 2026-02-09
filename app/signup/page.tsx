@@ -91,8 +91,8 @@ export default function SignupPage() {
 
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
-          // Redirect to dashboard (full navigation so callbackUrl is not signup)
-          window.location.href = "/dashboard"
+          // Redirect to dashboard with welcome param so we show personalization popup
+          window.location.href = "/dashboard?welcome=1"
         } else {
           toast.error("Please sign in manually")
           // Send to login with callbackUrl=dashboard so after login they land on dashboard
@@ -133,7 +133,7 @@ export default function SignupPage() {
 
       if (signInResult?.ok) {
         toast.success("Welcome to Restore Assist!")
-        router.push("/dashboard")
+        router.push("/dashboard?welcome=1")
       } else {
         console.error("Sign in result:", signInResult)
         const errorMsg = signInResult?.error || "Failed to create session"
