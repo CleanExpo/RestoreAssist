@@ -85,9 +85,12 @@ export async function getUserReportLimits(userId: string): Promise<ReportLimitIn
 
   // For active subscribers, calculate limits
   if (user.subscriptionStatus === 'ACTIVE') {
-    const plan = user.subscriptionPlan === 'Yearly Plan' 
-      ? PRICING_CONFIG.pricing.yearly 
-      : PRICING_CONFIG.pricing.monthly
+    const isLifetime = user.subscriptionPlan === 'Lifetime'
+    const plan = isLifetime
+      ? { reportLimit: 999 }
+      : user.subscriptionPlan === 'Yearly Plan'
+        ? PRICING_CONFIG.pricing.yearly
+        : PRICING_CONFIG.pricing.monthly
 
     const baseLimit = plan.reportLimit || 0
     

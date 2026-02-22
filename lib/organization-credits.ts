@@ -65,15 +65,20 @@ export async function getEffectiveSubscription(userId: string): Promise<{
         monthlyReportsUsed: true,
         monthlyResetDate: true,
         trialEndsAt: true,
-        addonReports: true
+        addonReports: true,
+        lifetimeAccess: true
       }
     })
-    
+
+    const status = user?.lifetimeAccess ? 'ACTIVE' : user?.subscriptionStatus
+    const credits = user?.lifetimeAccess ? 999999 : user?.creditsRemaining
+    const plan = user?.lifetimeAccess ? 'Lifetime' : user?.subscriptionPlan
+
     return user ? {
       id: user.id,
-      subscriptionStatus: user.subscriptionStatus,
-      creditsRemaining: user.creditsRemaining,
-      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStatus: status,
+      creditsRemaining: credits,
+      subscriptionPlan: plan,
       monthlyReportsUsed: user.monthlyReportsUsed,
       monthlyResetDate: user.monthlyResetDate,
       trialEndsAt: user.trialEndsAt,
@@ -92,15 +97,20 @@ export async function getEffectiveSubscription(userId: string): Promise<{
       monthlyReportsUsed: true,
       monthlyResetDate: true,
       trialEndsAt: true,
-      addonReports: true
+      addonReports: true,
+      lifetimeAccess: true
     }
   })
 
+  const status = owner?.lifetimeAccess ? 'ACTIVE' : owner?.subscriptionStatus
+  const credits = owner?.lifetimeAccess ? 999999 : owner?.creditsRemaining
+  const plan = owner?.lifetimeAccess ? 'Lifetime' : owner?.subscriptionPlan
+
   return owner ? {
     id: owner.id,
-    subscriptionStatus: owner.subscriptionStatus,
-    creditsRemaining: owner.creditsRemaining,
-    subscriptionPlan: owner.subscriptionPlan,
+    subscriptionStatus: status,
+    creditsRemaining: credits,
+    subscriptionPlan: plan,
     monthlyReportsUsed: owner.monthlyReportsUsed,
     monthlyResetDate: owner.monthlyResetDate,
     trialEndsAt: owner.trialEndsAt,
