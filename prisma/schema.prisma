@@ -78,6 +78,9 @@ model User {
   monthlyResetDate   DateTime? // Date when monthly usage resets
   signupBonusApplied Boolean?  @default(false) // Track if signup bonus has been applied
 
+  // One-time lifetime access (e.g. special $22 offer for specific users)
+  lifetimeAccess Boolean? @default(false)
+
   // Password management
   mustChangePassword Boolean? @default(false) // True if user needs to change temporary password
 
