@@ -177,6 +177,11 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
     await processAddonPurchase(session)
   }
 
+  // Handle lifetime one-time payment ($22)
+  if (session.mode === 'payment' && session.metadata?.type === 'lifetime') {
+    await processLifetimePayment(session)
+  }
+
   // Handle subscription checkout
   if (session.mode === 'subscription') {
     await processSubscriptionCheckout(session)
@@ -369,6 +374,40 @@ async function processAddonPurchase(session: Stripe.Checkout.Session) {
   })
 
   console.log(`✅ ADD-ON PROCESSED: +${addonReports} reports for user ${userId}`)
+}
+
+// Process lifetime one-time payment ($22) - grants ACTIVE + lifetimeAccess
+async function processLifetimePayment(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId
+  if (!userId) {
+    console.error('❌ LIFETIME PAYMENT ERROR: No userId in metadata')
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, lifetimeAccess: true }
+  })
+  if (!user) {
+    console.error('❌ LIFETIME PAYMENT ERROR: User not found:', userId)
+    return
+  }
+  if (user.lifetimeAccess) {
+    console.log('⚠️ LIFETIME ALREADY GRANTED for user:', userId)
+    return
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      lifetimeAccess: true,
+      subscriptionStatus: 'ACTIVE',
+      subscriptionPlan: 'Lifetime',
+      creditsRemaining: 999999,
+    }
+  })
+
+  console.log(`✅ LIFETIME ACCESS GRANTED for user ${userId}`)
 }
 
 // Process subscription checkout
