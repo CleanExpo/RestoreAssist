@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         monthlyReportsUsed: true,
         monthlyResetDate: true,
         organizationId: true,
+        lifetimeAccess: true,
       }
     })
 
@@ -193,6 +194,7 @@ export async function GET(request: NextRequest) {
       trialStatus = await getTrialStatus(user.id)
     }
 
+    const isLifetime = subscriptionPlan === 'Lifetime'
     return NextResponse.json({
       profile: {
         ...user,
@@ -200,6 +202,9 @@ export async function GET(request: NextRequest) {
         subscriptionStatus: trialStatus?.hasTrialExpired ? 'EXPIRED' : subscriptionStatus,
         subscriptionPlan: subscriptionPlan,
         creditsRemaining: creditsRemaining,
+        // Lifetime: no trial or billing dates
+        trialEndsAt: isLifetime ? null : user.trialEndsAt?.toISOString(),
+        nextBillingDate: isLifetime ? null : user.nextBillingDate?.toISOString(),
         // Override with Admin's business info for team members
         businessName: businessInfo.businessName,
         businessAddress: businessInfo.businessAddress,
@@ -210,19 +215,17 @@ export async function GET(request: NextRequest) {
         // Include organizationId to check if user is linked to Admin
         organizationId: user.organizationId,
         createdAt: user.createdAt.toISOString(),
-        trialEndsAt: user.trialEndsAt?.toISOString(),
         subscriptionEndsAt: user.subscriptionEndsAt?.toISOString(),
         lastBillingDate: user.lastBillingDate?.toISOString(),
-        nextBillingDate: user.nextBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
-        trialStatus: trialStatus ? {
+        trialStatus: isLifetime ? null : (trialStatus ? {
           isTrialActive: trialStatus.isTrialActive,
           daysRemaining: trialStatus.daysRemaining,
           hasTrialExpired: trialStatus.hasTrialExpired,
           creditsRemaining: isTrialUnlimited ? null : trialStatus.creditsRemaining,
           hasUnlimitedTrial: isTrialUnlimited,
-        } : null,
+        } : null),
       }
     })
   } catch (error) {

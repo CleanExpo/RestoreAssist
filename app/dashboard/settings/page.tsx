@@ -862,14 +862,14 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {profile?.trialEndsAt && (
+                {profile?.trialEndsAt && profile?.subscriptionPlan !== 'Lifetime' && (
                   <div>
                     <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Trial Ends</label>
                     <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.trialEndsAt)}</p>
                   </div>
                 )}
 
-                {profile?.nextBillingDate && (
+                {profile?.nextBillingDate && profile?.subscriptionPlan !== 'Lifetime' && (
                   <div>
                     <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Next Billing</label>
                     <p className={cn("text-neutral-700 dark:text-slate-300")}>{formatDate(profile.nextBillingDate)}</p>
@@ -891,7 +891,7 @@ export default function SettingsPage() {
             <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
               <Zap className="w-5 h-5" />
-              {profile?.subscriptionStatus === 'ACTIVE' ? 'Reports' : (profile?.creditsRemaining == null ? 'Credits (trial)' : 'Credits')}
+              {profile?.subscriptionPlan === 'Lifetime' ? 'Reports (Lifetime)' : profile?.subscriptionStatus === 'ACTIVE' ? 'Reports' : (profile?.creditsRemaining == null ? 'Credits (trial)' : 'Credits')}
             </h2>
 
               <div className="space-y-4">
@@ -925,6 +925,7 @@ export default function SettingsPage() {
                       ></div>
                     </div>
 
+                    {profile?.subscriptionPlan !== 'Lifetime' && (
                     <a
                       href="/dashboard/pricing"
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
@@ -932,6 +933,7 @@ export default function SettingsPage() {
                       <Crown className="w-4 h-4" />
                       Purchase Add-ons
                     </a>
+                    )}
                   </>
                 ) : (
                   <>

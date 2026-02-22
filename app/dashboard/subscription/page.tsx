@@ -57,6 +57,7 @@ export default function SubscriptionPage() {
   }>>([])
   const [profile, setProfile] = useState<{
     subscriptionStatus?: string
+    subscriptionPlan?: string
     trialEndsAt?: string | null
     trialStatus?: { isTrialActive: boolean; daysRemaining: number; hasTrialExpired: boolean; creditsRemaining: number | null; hasUnlimitedTrial?: boolean }
   } | null>(null)
@@ -70,6 +71,7 @@ export default function SubscriptionPage() {
         const data = await res.json()
         setProfile(data.profile ? {
           subscriptionStatus: data.profile.subscriptionStatus,
+          subscriptionPlan: data.profile.subscriptionPlan,
           trialEndsAt: data.profile.trialEndsAt,
           trialStatus: data.profile.trialStatus,
         } : null)
@@ -430,7 +432,9 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {subscription ? (
+      {subscription ? (() => {
+        const isLifetime = subscription.plan.interval === 'one-time' || subscription.plan.name === 'Lifetime'
+        return (
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Current Plan – detailed */}
           <div className={cn("p-6 rounded-xl border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
@@ -453,7 +457,7 @@ export default function SubscriptionPage() {
               <div>
                 <h3 className={cn("text-2xl font-bold", "text-neutral-900 dark:text-white")}>{subscription.plan.name}</h3>
                 <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                  {formatPrice(subscription.plan.amount, subscription.plan.currency)}/{subscription.plan.interval}
+                  {isLifetime ? 'One-time payment — unlimited access' : `${formatPrice(subscription.plan.amount, subscription.plan.currency)}/${subscription.plan.interval}`}
                 </p>
               </div>
 
@@ -462,7 +466,7 @@ export default function SubscriptionPage() {
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className={cn("w-4 h-4", "text-neutral-500 dark:text-slate-400")} />
                   <span className={cn("text-neutral-700 dark:text-slate-300")}>
-                    Current period: {formatDate(subscription.currentPeriodStart)} – {formatDate(subscription.currentPeriodEnd)}
+                    {isLifetime ? 'Lifetime access — no end date' : `Current period: ${formatDate(subscription.currentPeriodStart)} – ${formatDate(subscription.currentPeriodEnd)}`}
                   </span>
                 </div>
                 {subscription.created != null && (
@@ -470,7 +474,7 @@ export default function SubscriptionPage() {
                     Subscribed since {formatDate(subscription.created)}
                   </div>
                 )}
-                {subscription.cancelAtPeriodEnd && (
+                {!isLifetime && subscription.cancelAtPeriodEnd && (
                   <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>Subscription will cancel at the end of the current period. You will retain access until {formatDate(subscription.currentPeriodEnd)}.</span>
@@ -494,7 +498,7 @@ export default function SubscriptionPage() {
               Billing & payment
             </h2>
             <div className="space-y-4">
-              {subscription.nextInvoiceAmount != null && subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
+              {!isLifetime && subscription.nextInvoiceAmount != null && subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Next invoice</label>
                   <div className={cn("text-lg font-semibold", "text-neutral-900 dark:text-white")}>
@@ -537,7 +541,8 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          {/* Cancel / Reactivate */}
+          {/* Cancel / Reactivate (not for Lifetime) */}
+          {!isLifetime && (
           <div className={cn("p-6 rounded-xl border lg:col-span-2", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <h2 className={cn("text-lg font-semibold mb-3", "text-neutral-900 dark:text-white")}>Subscription actions</h2>
             <div className="flex flex-wrap gap-3">
@@ -567,6 +572,7 @@ export default function SubscriptionPage() {
                 : 'Canceling will stop automatic renewal. You keep access until the end of the current billing period.'}
             </p>
           </div>
+          )}
 
           {/* Report Usage */}
           {reportLimits && (
@@ -694,10 +700,10 @@ export default function SubscriptionPage() {
             </div>
           </div>
         </div>
-      ) : (
+        );})() : (
         <div className="space-y-8">
-          {/* Trial info banner when on trial */}
-          {profile?.trialStatus?.isTrialActive && !profile.trialStatus.hasTrialExpired && (
+          {/* Trial info banner when on trial (not for Lifetime) */}
+          {profile?.subscriptionPlan !== 'Lifetime' && profile?.trialStatus?.isTrialActive && !profile.trialStatus.hasTrialExpired && (
             <div className={cn("p-6 rounded-xl border", "border-cyan-200 dark:border-cyan-800/50", "bg-cyan-50/50 dark:bg-cyan-900/10")}>
               <div className="flex items-start gap-4">
                 <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", "bg-cyan-100 dark:bg-cyan-800/50")}>
@@ -787,11 +793,11 @@ export default function SubscriptionPage() {
                   </div>
                   
                   {/* Discount Display */}
-                  {'discount' in plan && plan.discount && (
+                  {'discount' in plan && !!((plan as { discount?: unknown }).discount) ? (
                     <div className={cn("text-sm mb-2", "text-green-600 dark:text-green-400")}>
-                      {plan.discount} discount - Save ${'savings' in plan ? plan.savings : 0}/year
+                      {String((plan as { discount?: unknown }).discount)} discount - Save ${'savings' in plan ? String((plan as { savings?: number }).savings ?? 0) : 0}/year
                     </div>
-                  )}
+                  ) : null}
                   
                   {/* Monthly Equivalent */}
                   {'monthlyEquivalent' in plan && plan.monthlyEquivalent != null && (

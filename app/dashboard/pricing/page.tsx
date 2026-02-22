@@ -2,19 +2,32 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Check, Star, Zap, Shield, Download, Users, Clock, Award } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { Check, Star, Zap, Shield, Download, Users, Clock, Award, CheckCircle } from "lucide-react"
 import { PRICING_CONFIG, type PricingPlan, type AddonPack } from "@/lib/pricing"
+import { LIFETIME_PRICING_EMAIL, LIFETIME_AMOUNT_DISPLAY, LIFETIME_CURRENCY, LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
 export default function PricingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session } = useSession()
   const isOnboarding = searchParams.get('onboarding') === 'true'
   const requireSubscription = searchParams.get('require_subscription') === 'true'
   const [loading, setLoading] = useState<string | null>(null)
-  
-  // Note: Subscription is no longer required for onboarding - users get 3 free credits
+  const [profile, setProfile] = useState<{ subscriptionStatus?: string; subscriptionPlan?: string; lifetimeAccess?: boolean } | null>(null)
+
+  const isLifetimePricingUser = session?.user?.email?.toLowerCase() === LIFETIME_PRICING_EMAIL.toLowerCase()
+  const hasLifetimeAccess = profile?.lifetimeAccess || (profile?.subscriptionStatus === 'ACTIVE' && profile?.subscriptionPlan === 'Lifetime')
+
+  useEffect(() => {
+    if (!session?.user || !isLifetimePricingUser) return
+    fetch('/api/user/profile', { cache: 'no-store' })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => data?.profile ? setProfile(data.profile) : null)
+      .catch(() => {})
+  }, [session?.user, isLifetimePricingUser])
 
   const handleSubscribe = async (plan: PricingPlan) => {
     setLoading(plan)
@@ -48,6 +61,24 @@ export default function PricingPage() {
     }
   }
 
+  const handleLifetimeCheckout = async () => {
+    setLoading('lifetime')
+    try {
+      const response = await fetch('/api/checkout-lifetime', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create checkout')
+      }
+      const { url } = await response.json()
+      if (url) window.location.href = url
+      else toast.error('No checkout URL received')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout')
+    } finally {
+      setLoading(null)
+    }
+  }
+
   const formatPrice = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-AU', {
       style: 'currency',
@@ -75,7 +106,59 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Pricing Cards */}
+        {/* Lifetime-only pricing for phill.mcgurk@gmail.com */}
+        {isLifetimePricingUser && (
+          <div className="max-w-md mx-auto">
+            {hasLifetimeAccess ? (
+              <div className={cn("rounded-2xl border-2 p-8 text-center", "border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-400")}>
+                <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600 dark:text-green-400" />
+                <h2 className={cn("text-2xl font-bold mb-2", "text-neutral-900 dark:text-white")}>You have lifetime access</h2>
+                <p className={cn("text-neutral-600 dark:text-slate-400")}>Your account is active with all tools connected. No further payment required.</p>
+              </div>
+            ) : (
+              <div className={cn("relative rounded-2xl border-2 p-8 border-cyan-500 shadow-2xl shadow-cyan-500/20", "bg-white dark:bg-slate-800/50")}>
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold">One-time</div>
+                </div>
+                <div className="text-center mb-8">
+                  <h3 className={cn("text-2xl font-bold mb-2", "text-neutral-900 dark:text-white")}>{LIFETIME_PLAN_NAME}</h3>
+                  <div className="mb-4">
+                    <span className={cn("text-4xl font-bold", "text-cyan-600 dark:text-cyan-400")}>
+                      {formatPrice(LIFETIME_AMOUNT_DISPLAY, LIFETIME_CURRENCY)}
+                    </span>
+                    <span className={cn("text-neutral-600 dark:text-slate-400")}> one-time</span>
+                  </div>
+                  <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>No monthly fee. Full access to all built-in tools.</p>
+                </div>
+                <div className="space-y-4 mb-8">
+                  {['All reports & tools', 'IICRC S500 compliance', 'Integrations & API', 'No recurring charges'].map((f, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Check className="w-5 h-5 flex-shrink-0 text-green-600 dark:text-green-400" />
+                      <span className={cn("text-neutral-700 dark:text-slate-300")}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleLifetimeCheckout}
+                  disabled={loading === 'lifetime'}
+                  className="w-full py-4 px-6 rounded-lg font-semibold text-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading === 'lifetime' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Processing...
+                    </span>
+                  ) : (
+                    `Pay ${formatPrice(LIFETIME_AMOUNT_DISPLAY, LIFETIME_CURRENCY)} once`
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Standard pricing cards (all other users) */}
+        {!isLifetimePricingUser && (
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
             <div
@@ -99,11 +182,11 @@ export default function PricingPage() {
               )}
 
               {/* Best Value Badge */}
-              {plan.badge && (
+              {'badge' in plan && plan.badge && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                   <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
                     <Award className="w-4 h-4" />
-                    {plan.badge}
+                    {'badge' in plan ? plan.badge : ''}
                   </div>
                 </div>
               )}
@@ -122,7 +205,7 @@ export default function PricingPage() {
                 </div>
                 
                 {/* Monthly Equivalent */}
-                {plan.monthlyEquivalent && (
+                {'monthlyEquivalent' in plan && plan.monthlyEquivalent && (
                   <div className={cn("text-sm mb-2", "text-neutral-600 dark:text-slate-400")}>
                     ${plan.monthlyEquivalent}/month equivalent
                   </div>
@@ -180,8 +263,10 @@ export default function PricingPage() {
             </div>
           ))}
         </div>
+        )}
 
-        {/* Add-ons Section */}
+        {/* Add-ons Section (hidden for lifetime-only user) */}
+        {!isLifetimePricingUser && (
         <div className="mt-16 max-w-6xl mx-auto">
           <h2 className={cn("text-3xl font-bold text-center mb-8", "text-neutral-900 dark:text-white")}>
             Add More Reports
@@ -201,7 +286,7 @@ export default function PricingPage() {
                     : cn("border-neutral-300 dark:border-slate-700", "hover:border-neutral-400 dark:hover:border-slate-600")
                 )}
               >
-                {addon.popular && (
+                {'popular' in addon && addon.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
                       <Star className="w-4 h-4" />
@@ -209,7 +294,7 @@ export default function PricingPage() {
                     </div>
                   </div>
                 )}
-                {addon.badge && (
+                {'badge' in addon && addon.badge && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
                       <Award className="w-4 h-4" />
@@ -269,7 +354,7 @@ export default function PricingPage() {
                   disabled={loading === key}
                   className={cn(
                     "w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed",
-                    addon.popular
+                    'popular' in addon && addon.popular
                       ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
                       : cn("bg-neutral-700 dark:bg-slate-700 text-white", "hover:bg-neutral-600 dark:hover:bg-slate-600")
                   )}
@@ -287,6 +372,7 @@ export default function PricingPage() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Features Comparison */}
         <div className="mt-16 max-w-4xl mx-auto">
