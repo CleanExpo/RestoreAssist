@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { PRICING_CONFIG } from "@/lib/pricing"
+import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing"
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,12 +21,27 @@ export async function POST(request: NextRequest) {
         id: true,
         email: true,
         stripeCustomerId: true,
-        subscriptionId: true
+        subscriptionId: true,
+        lifetimeAccess: true,
+        subscriptionStatus: true,
+        subscriptionPlan: true
       }
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Lifetime one-time payers have no Stripe subscription; treat as active
+    if (user.lifetimeAccess || (user.subscriptionStatus === 'ACTIVE' && user.subscriptionPlan === 'Lifetime')) {
+      return NextResponse.json({
+        success: true,
+        subscription: {
+          status: 'ACTIVE',
+          plan: 'Lifetime',
+          creditsRemaining: 999999
+        }
+      })
     }
 
     let customerId = user.stripeCustomerId
@@ -151,6 +167,35 @@ export async function POST(request: NextRequest) {
           }
         })
       } else {
+        // Fallback: lifetime one-time payer — webhook/verify may not have run yet
+        if (user.email === LIFETIME_PRICING_EMAIL && customerId) {
+          try {
+            const sessions = await stripe.checkout.sessions.list({
+              customer: customerId,
+              limit: 10
+            })
+            const lifetimePaid = sessions.data.find(
+              s => s.mode === 'payment' && s.metadata?.type === 'lifetime' && s.payment_status === 'paid'
+            )
+            if (lifetimePaid) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                  lifetimeAccess: true,
+                  subscriptionStatus: 'ACTIVE',
+                  subscriptionPlan: 'Lifetime',
+                  creditsRemaining: 999999
+                }
+              })
+              return NextResponse.json({
+                success: true,
+                subscription: { status: 'ACTIVE', plan: 'Lifetime', creditsRemaining: 999999 }
+              })
+            }
+          } catch (e) {
+            console.error('Error checking lifetime checkout:', e)
+          }
+        }
         return NextResponse.json({ 
           error: "No active subscription found",
           foundSubscriptions: subscriptions.data.length
