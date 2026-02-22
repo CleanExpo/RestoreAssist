@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         totalCreditsUsed: true,
         lastBillingDate: true,
         nextBillingDate: true,
+        lifetimeAccess: true,
       }
     })
 
@@ -121,20 +122,22 @@ export async function GET(request: NextRequest) {
 
     // Return database subscription data (using effective subscription status)
     const effectiveStatus = effectiveSub.subscriptionStatus || user.subscriptionStatus
+    const isLifetime = user.lifetimeAccess || effectiveSub.subscriptionPlan === 'Lifetime'
     return NextResponse.json({
       subscription: effectiveStatus !== 'TRIAL' && effectiveStatus !== null ? {
-        id: user.subscriptionId,
+        id: user.subscriptionId || 'lifetime',
         status: effectiveStatus.toLowerCase(),
         currentPeriodStart: user.lastBillingDate ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000) : null,
         currentPeriodEnd: user.nextBillingDate ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000) : null,
-        cancelAtPeriodEnd: effectiveStatus === 'CANCELED',
+        cancelAtPeriodEnd: effectiveStatus === 'CANCELED' && !isLifetime,
         plan: {
-          name: effectiveSub.subscriptionPlan || user.subscriptionPlan || 'Subscription',
-          amount: 0,
+          name: isLifetime ? 'Lifetime' : (effectiveSub.subscriptionPlan || user.subscriptionPlan || 'Subscription'),
+          amount: isLifetime ? 22 : 0,
           currency: 'AUD',
-          interval: 'month',
+          interval: isLifetime ? 'one-time' : 'month',
         },
-      } : null
+      } : null,
+      lifetimeAccess: user.lifetimeAccess ?? false,
     })
   } catch (error) {
     console.error("Error fetching subscription:", error)

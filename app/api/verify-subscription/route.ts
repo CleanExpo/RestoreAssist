@@ -52,6 +52,24 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
 
+      // One-time lifetime payment (no Stripe subscription)
+      if (checkoutSession.mode === 'payment' && checkoutSession.metadata?.type === 'lifetime') {
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: {
+            lifetimeAccess: true,
+            subscriptionStatus: 'ACTIVE',
+            subscriptionPlan: 'Lifetime',
+            creditsRemaining: 999999,
+            ...(checkoutSession.customer ? { stripeCustomerId: checkoutSession.customer as string } : {}),
+          }
+        })
+        return NextResponse.json({
+          success: true,
+          subscription: { status: 'ACTIVE', plan: 'Lifetime', creditsRemaining: 999999 }
+        })
+      }
+
       // Get subscription details
       let subscriptionId = checkoutSession.subscription
       if (typeof subscriptionId === 'object' && subscriptionId) {
