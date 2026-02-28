@@ -160,6 +160,9 @@ model User {
 
   // User feedback (trial / product feedback)
   feedback Feedback[]
+
+  // Restoration documentation (Australian-law invoices, estimates)
+  restorationDocuments RestorationDocument[]
 }
 
 model Feedback {
@@ -175,6 +178,29 @@ model Feedback {
   createdAt    DateTime @default(now())
 
   @@index([userId])
+  @@index([createdAt])
+}
+
+// Australian restoration documentation (tax invoices, estimates) — specific legal wording
+model RestorationDocument {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId        String?
+  report          Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  documentType    String   // "RESTORATION_INVOICE", "ESTIMATE", etc.
+  documentNumber  String   // e.g. INV-2026-0001
+  title           String?  // Optional display title
+
+  data            Json     // Full form payload for re-render and edit
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([userId, documentType])
   @@index([createdAt])
 }
 
@@ -616,6 +642,9 @@ model Report {
 
   // Invoice relationships
   invoices Invoice[] @relation("InvoiceReport")
+
+  // Restoration documentation (tax invoices, estimates) linked to this report
+  restorationDocuments RestorationDocument[]
 
   // Guided interview sessions (when started from report actions)
   interviewSessions InterviewSession[]

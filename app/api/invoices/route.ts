@@ -136,30 +136,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate invoice number
-    const year = new Date().getFullYear()
-    const sequence = await prisma.invoiceSequence.upsert({
-      where: {
-        userId_year: {
-          userId: session.user.id,
-          year
-        }
-      },
-      update: {
-        lastNumber: {
-          increment: 1
-        }
-      },
-      create: {
-        userId: session.user.id,
-        year,
-        prefix: 'RA',
-        lastNumber: 1
-      }
-    })
-
-    const invoiceNumber = `${sequence.prefix}-${year}-${String(sequence.lastNumber).padStart(4, '0')}`
-
     // Calculate financials
     let subtotalExGST = 0
     let gstAmount = 0
@@ -206,9 +182,29 @@ export async function POST(request: NextRequest) {
     }
 
     const totalIncGST = subtotalExGST + gstAmount
+    const year = new Date().getFullYear()
 
-    // Create invoice with line items in transaction
-    const invoice = await prisma.$transaction(async (tx) => {
+    const runCreate = async () => {
+      return prisma.$transaction(async (tx) => {
+      const sequence = await tx.invoiceSequence.upsert({
+        where: {
+          userId_year: {
+            userId: session.user.id,
+            year
+          }
+        },
+        update: {
+          lastNumber: { increment: 1 }
+        },
+        create: {
+          userId: session.user.id,
+          year,
+          prefix: 'RA',
+          lastNumber: 1
+        }
+      })
+      const invoiceNumber = `${sequence.prefix}-${year}-${String(sequence.lastNumber).padStart(4, '0')}`
+
       const newInvoice = await tx.invoice.create({
         data: {
           invoiceNumber,
@@ -260,6 +256,51 @@ export async function POST(request: NextRequest) {
 
       return newInvoice
     })
+    }
+
+    let invoice
+    try {
+      invoice = await runCreate()
+    } catch (firstError: any) {
+      if (firstError?.code === 'P2002') {
+        // Sync sequence in case it was behind (e.g. existing invoices from import)
+        const prefix = 'RA'
+        const existing = await prisma.invoice.findMany({
+          where: {
+            userId: session.user.id,
+            invoiceNumber: { startsWith: `${prefix}-${year}-` }
+          },
+          select: { invoiceNumber: true }
+        })
+        const numbers = existing
+          .map((inv) => parseInt(inv.invoiceNumber.replace(`${prefix}-${year}-`, ''), 10))
+          .filter((n) => !Number.isNaN(n))
+        const maxNum = numbers.length ? Math.max(...numbers) : 0
+        await prisma.invoiceSequence.upsert({
+          where: {
+            userId_year: { userId: session.user.id, year }
+          },
+          update: { lastNumber: maxNum },
+          create: {
+            userId: session.user.id,
+            year,
+            prefix: 'RA',
+            lastNumber: maxNum
+          }
+        })
+        try {
+          invoice = await runCreate()
+        } catch (secondError: any) {
+          console.error('Error creating invoice (retry after P2002):', secondError)
+          return NextResponse.json(
+            { error: 'Failed to create invoice. Please try again.' },
+            { status: 500 }
+          )
+        }
+      } else {
+        throw firstError
+      }
+    }
 
     return NextResponse.json({ invoice }, { status: 201 })
   } catch (error: any) {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign, FileSignature, MessageSquare } from "lucide-react"
+import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign, FileSignature, MessageSquare, Receipt } from "lucide-react"
 import { useRouter } from "next/navigation"
 import InspectionReportViewer from "@/components/InspectionReportViewer"
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer"
@@ -113,22 +113,31 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            const jobType = report.hazardType === 'Fire' ? 'FIRE_DAMAGE'
-              : report.hazardType === 'Storm' ? 'STORM_DAMAGE'
-              : report.hazardType === 'Mould' ? 'MOULD_REMEDIATION'
-              : 'WATER_DAMAGE'
-            const params = new URLSearchParams({ reportId: reportId! })
-            if (jobType) params.set('jobType', jobType)
-            if (report.propertyPostcode) params.set('postcode', report.propertyPostcode)
-            router.push(`/dashboard/interviews/new?${params.toString()}`)
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-        >
-          <MessageSquare size={18} />
-          Start Interview
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/dashboard/restoration-documents/invoice/new?reportId=${reportId}`)}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+          >
+            <Receipt size={18} />
+            Restoration Invoice
+          </button>
+          <button
+            onClick={() => {
+              const jobType = report.hazardType === 'Fire' ? 'FIRE_DAMAGE'
+                : report.hazardType === 'Storm' ? 'STORM_DAMAGE'
+                : report.hazardType === 'Mould' ? 'MOULD_REMEDIATION'
+                : 'WATER_DAMAGE'
+              const params = new URLSearchParams({ reportId: reportId! })
+              if (jobType) params.set('jobType', jobType)
+              if (report.propertyPostcode) params.set('postcode', report.propertyPostcode)
+              router.push(`/dashboard/interviews/new?${params.toString()}`)
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+          >
+            <MessageSquare size={18} />
+            Start Interview
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
