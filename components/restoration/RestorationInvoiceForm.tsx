@@ -324,6 +324,18 @@ export default function RestorationInvoiceForm({
     padding: 0 !important;
     background: white !important;
   }
+  /* Hide fixed/sticky UI (header, sidebar, toasts) so they never show in print (avoids e.g. time/badge overlay) */
+  body header,
+  body aside,
+  body [role="status"],
+  body [aria-live],
+  body [class*="fixed"],
+  body [class*="sticky"]:not(#restoration-invoice-print-content *),
+  body > div > div[style*="position: fixed"],
+  body > div > div[style*="position:fixed"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
   body * {
     visibility: hidden !important;
   }
