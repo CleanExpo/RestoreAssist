@@ -117,6 +117,7 @@ export default function DashboardLayout({
     { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections" },
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
     { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
+    { icon: FileText, label: "Restoration Documents", href: "/dashboard/restoration-documents" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
