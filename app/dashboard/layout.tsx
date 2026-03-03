@@ -26,6 +26,7 @@ import {
   Building2,
   Receipt,
   MessageCircle,
+  Calculator,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -120,6 +121,7 @@ export default function DashboardLayout({
     { icon: FileText, label: "Restoration Documents", href: "/dashboard/restoration-documents" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
+    { icon: Calculator, label: "Quote Generator", href: "/dashboard/quote" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },

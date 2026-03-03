@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { NRPG_RATE_RANGES } from '@/lib/nrpg-rate-ranges'
 
 // GET - Retrieve pricing configuration for current user
 export async function GET(request: NextRequest) {
@@ -133,6 +134,20 @@ export async function PUT(request: NextRequest) {
       if (typeof data[field] !== 'number' || data[field] < 0) {
         return NextResponse.json(
           { error: `Invalid value for ${field}: must be a positive number` },
+          { status: 400 }
+        )
+      }
+
+      // NRPG hard boundary validation
+      const range = NRPG_RATE_RANGES[field]
+      if (range && (data[field] < range.min || data[field] > range.max)) {
+        return NextResponse.json(
+          {
+            error: `${range.label} rate $${data[field].toFixed(2)} is outside the NRPG recommended range ($${range.min} – $${range.max})`,
+            field,
+            min: range.min,
+            max: range.max,
+          },
           { status: 400 }
         )
       }
