@@ -1,0 +1,19 @@
+# RestoreAssist — AI Crawler Guide
+# https://restoreassist.com.au
+
+RestoreAssist is Australia's compliance platform for disaster restoration contractors.
+
+## What we do
+- Contractor compliance management (IICRC, NRPG, trade licences)
+- Job management for water damage, fire damage, mould remediation
+- Invoice generation and reporting
+- Continuing education tracking (IICRC CEC points)
+
+## Key pages
+- Homepage: https://restoreassist.com.au
+- Features: https://restoreassist.com.au/features
+- Pricing: https://restoreassist.com.au/pricing
+- Compliance: https://restoreassist.com.au/compliance
+
+## Data freshness
+Sitemap: https://restoreassist.com.au/sitemap.xml
