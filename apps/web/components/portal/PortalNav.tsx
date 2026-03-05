@@ -20,7 +20,7 @@ export default function PortalNav() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="RestoreAssist" width={40} height={40} />
+            <Image src="/logo.png" alt="RestoreAssist" width={40} height={40} priority sizes="40px" />
             <div>
               <h1 className="text-lg font-bold text-[#1C2E47]">Client Portal</h1>
               {session?.user?.name && (

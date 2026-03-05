@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import PricingClient from "./pricing-client"
 
 export const metadata: Metadata = {
-  title: "Pricing",
+  title: "RestoreAssist Pricing — Plans for Restoration Contractors",
   description:
-    "Start free with 3 reports. Upgrade for unlimited Quick Fill, enhanced reports, and PDF uploads. Plans for every restoration business.",
+    "Affordable plans for Australian restoration contractors. Start free, then scale with monthly or annual subscriptions for inspections and invoicing.",
 }
 
 export default function PricingPage() {

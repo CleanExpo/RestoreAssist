@@ -2,16 +2,16 @@ import type { Metadata } from "next"
 import HomeClient from "./home-client"
 
 export const metadata: Metadata = {
-  title: "Restore Assist - AI-Powered Restoration Reports for Australia",
+  title: "RestoreAssist — Australia's Compliance Platform for Restoration Contractors",
   description:
-    "Generate comprehensive, legally defensible inspection reports and cost estimates for property restoration claims backed by IICRC standards and Australian compliance.",
+    "Restoration contractor platform for IICRC-compliant inspections, scoping, estimating and invoicing. Built for Australian restoration professionals.",
   openGraph: {
-    title: "Restore Assist - AI-Powered Restoration Reports for Australia",
+    title: "RestoreAssist — Australia's Compliance Platform for Restoration Contractors",
     description:
-      "Generate comprehensive, legally defensible inspection reports backed by IICRC standards.",
+      "Restoration contractor platform for IICRC-compliant inspections, scoping, estimating and invoicing.",
     type: "website",
     locale: "en_AU",
-    siteName: "Restore Assist",
+    siteName: "RestoreAssist",
   },
 }
 

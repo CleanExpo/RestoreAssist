@@ -28,6 +28,8 @@ export default function HomeClient() {
                   width={100}
                   height={100}
                   className="object-contain p-1 md:p-2"
+                  priority
+                  sizes="100px"
                 />
               </div>
             </Link>
@@ -188,7 +190,7 @@ export default function HomeClient() {
             className="text-6xl md:text-8xl lg:text-9xl font-bold text-white mb-6 leading-tight text-left"
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Restore <br/> Assist
+            Australia's Compliance Platform for Restoration Contractors
           </motion.h1>
 
           {/* Subtitle */}
@@ -320,7 +322,7 @@ export default function HomeClient() {
           </svg>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
-          <motion.h2
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -329,7 +331,7 @@ export default function HomeClient() {
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
             Inspection. Scoping. Estimating. Connected.
-          </motion.h2>
+          </motion.p>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

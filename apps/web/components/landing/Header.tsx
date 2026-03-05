@@ -27,6 +27,7 @@ export default function Header({ darkMode, setDarkMode }: HeaderProps) {
               height={64}
               className="object-contain"
               priority
+              sizes="64px"
             />
           </Link>
         </div>

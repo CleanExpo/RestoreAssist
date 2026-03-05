@@ -25,7 +25,7 @@ export default function Footer({ darkMode }: FooterProps) {
         </svg>
       </div>
       <div className="max-w-7xl mx-auto relative z-10">
-        <motion.h2
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -34,7 +34,7 @@ export default function Footer({ darkMode }: FooterProps) {
           style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
         >
           Inspection. Scoping. Estimating. Connected.
-        </motion.h2>
+        </motion.p>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

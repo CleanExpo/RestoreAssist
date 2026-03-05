@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -48,7 +48,21 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "RestoreAssist",
+  },
+  formatDetection: { telephone: false },
   metadataBase: new URL(process.env.NEXTAUTH_URL || "https://restoreassist.com.au"),
+}
+
+export const viewport: Viewport = {
+  themeColor: "#050505",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({

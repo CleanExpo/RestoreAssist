@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import AboutClient from "./about-client"
 
 export const metadata: Metadata = {
-  title: "About Us",
+  title: "About RestoreAssist — Built for Australia's Restoration Industry",
   description:
-    "Learn about Restore Assist — empowering Australian restoration professionals with AI-powered damage assessment tools.",
+    "RestoreAssist is built by restoration professionals for restoration contractors across Australia. Compliance, inspections and invoicing in one platform.",
 }
 
 export default function AboutPage() {

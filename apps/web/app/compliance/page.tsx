@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import ComplianceClient from "./compliance-client"
 
 export const metadata: Metadata = {
-  title: "Compliance",
+  title: "Restoration Contractor Compliance — IICRC, NRPG & Licence Management",
   description:
-    "Ensure your restoration assessments meet IICRC S500, NCC 2022, AS/NZS, and Australian insurance standards with Restore Assist.",
+    "Manage IICRC, NRPG and licence compliance for your restoration business. Automated standards tracking for Australian restoration contractors.",
 }
 
 export default function CompliancePage() {
