@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { NexusSiblingBar } from "@/components/nexus"
 
 export const metadata: Metadata = {
   title: {
@@ -33,5 +34,10 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return (
+    <>
+      <NexusSiblingBar darkMode />
+      {children}
+    </>
+  )
 }

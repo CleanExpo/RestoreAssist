@@ -27,6 +27,7 @@ import {
   Receipt,
   MessageCircle,
   Calculator,
+  GraduationCap,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -124,6 +125,7 @@ export default function DashboardLayout({
     { icon: Calculator, label: "Quote Generator", href: "/dashboard/quote" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
+    { icon: GraduationCap, label: "CEC Tracker", href: "/dashboard/contractors/cec" },
     { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
     // Hide Subscription for team members (Managers and Technicians)

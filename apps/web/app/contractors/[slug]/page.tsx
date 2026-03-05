@@ -18,7 +18,8 @@ import {
   Calendar,
   Lock,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  BarChart3,
 } from 'lucide-react'
 
 interface ContractorProfile {
@@ -226,6 +227,19 @@ export default function ContractorProfilePage() {
                   </div>
                 )}
               </div>
+
+              {/* Scorecard Link */}
+              {session?.user && (
+                <div className="mt-4">
+                  <Link
+                    href={`/dashboard/contractors/${contractor.id}/scorecard`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-colors text-sm"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    View Scorecard
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

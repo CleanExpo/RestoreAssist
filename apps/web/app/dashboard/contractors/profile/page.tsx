@@ -11,8 +11,11 @@ import {
   MapPin,
   Shield,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  BarChart3,
+  GraduationCap,
 } from 'lucide-react'
+import Link from 'next/link'
 
 interface ContractorProfile {
   id: string
@@ -281,7 +284,27 @@ export default function ContractorProfileDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Contractor Profile</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-white">Contractor Profile</h1>
+        {profile && (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/contractors/cec"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              <GraduationCap className="h-5 w-5" />
+              CEC Tracker
+            </Link>
+            <a
+              href={`/dashboard/contractors/${profile.id}/scorecard`}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            >
+              <BarChart3 className="h-5 w-5" />
+              View Scorecard
+            </a>
+          </div>
+        )}
+      </div>
 
       {/* Message */}
       {message && (

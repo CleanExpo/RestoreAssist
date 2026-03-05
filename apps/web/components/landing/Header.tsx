@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X, Moon, Sun } from "lucide-react"
+import { NexusBadge } from "@/components/nexus"
 
 interface HeaderProps {
   darkMode: boolean
@@ -30,6 +31,9 @@ export default function Header({ darkMode, setDarkMode }: HeaderProps) {
               sizes="64px"
             />
           </Link>
+          <div className="hidden md:block">
+            <NexusBadge variant="inline" darkMode={darkMode} />
+          </div>
         </div>
 
         {/* Desktop Navigation */}

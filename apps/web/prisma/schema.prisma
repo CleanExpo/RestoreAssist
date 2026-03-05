@@ -345,9 +345,10 @@ model ContractorProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  certifications ContractorCertification[]
-  serviceAreas   ContractorServiceArea[]
-  reviews        ContractorReview[]
+  certifications      ContractorCertification[]
+  serviceAreas        ContractorServiceArea[]
+  reviews             ContractorReview[]
+  continuingEducation ContinuingEducation[]
 
   @@index([isPubliclyVisible, isVerified])
   @@index([averageRating])
@@ -3668,4 +3669,25 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// Continuing Education Credit (CEC) tracking for IICRC / CARSI
+model ContinuingEducation {
+  id             String            @id @default(cuid())
+  contractorId   String
+  contractor     ContractorProfile @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  courseName     String
+  provider       String   // "IICRC" | "CARSI" | "Other"
+  cecPoints      Float
+  completedAt    DateTime
+  certificateUrl String?
+  expiresAt      DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([provider])
+  @@index([completedAt])
 }

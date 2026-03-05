@@ -3,6 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { NexusBadge } from "@/components/nexus"
 
 interface FooterProps {
   darkMode: boolean
@@ -68,7 +69,9 @@ export default function Footer({ darkMode }: FooterProps) {
                 <div className={`text-xs space-y-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                   <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
                   <p>ABN: [Company ABN]</p>
-                   
+                </div>
+                <div className="mt-3">
+                  <NexusBadge variant="footer" darkMode={darkMode} />
                 </div>
               </div>
             </div>
