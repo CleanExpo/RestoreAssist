@@ -1,10 +1,23 @@
+import type React from "react"
 import type { Metadata } from "next"
-import HomeClient from "./home-client"
 
 export const metadata: Metadata = {
-  title: "Restore Assist - AI-Powered Restoration Reports for Australia",
+  title: {
+    default: "Restore Assist - AI-Powered Restoration Reports for Australia",
+    template: "%s | Restore Assist",
+  },
   description:
     "Generate comprehensive, legally defensible inspection reports and cost estimates for property restoration claims backed by IICRC standards and Australian compliance.",
+  keywords: [
+    "restoration reports",
+    "IICRC compliance",
+    "property damage assessment",
+    "insurance claims",
+    "water damage restoration",
+    "cost estimation",
+    "inspection reports",
+    "Australian building standards",
+  ],
   openGraph: {
     title: "Restore Assist - AI-Powered Restoration Reports for Australia",
     description:
@@ -15,6 +28,10 @@ export const metadata: Metadata = {
   },
 }
 
-export default function Home() {
-  return <HomeClient />
+export default function PublicLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return <>{children}</>
 }
