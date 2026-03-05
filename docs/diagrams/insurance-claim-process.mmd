@@ -1,0 +1,25 @@
+flowchart TD
+    A[Damage Reported] --> B[Initial Site Inspection]
+    B --> C[Photo & Video Documentation]
+    C --> D[Moisture Readings Recorded]
+    D --> E[Scope of Works Drafted]
+    E --> F{Insurer Approval Required?}
+    F -->|Yes| G[Submit Scope to Insurer]
+    F -->|No - Under Threshold| H[Proceed with Works]
+    G --> I{Scope Approved?}
+    I -->|Yes| H
+    I -->|Variations Requested| J[Revise Scope]
+    J --> G
+    H --> K[Daily Progress Reports]
+    K --> L[Equipment Logs Updated]
+    L --> M{Works Complete?}
+    M -->|No| K
+    M -->|Yes| N[Final Moisture Readings]
+    N --> O[Completion Certificate]
+    O --> P[Documentation Package Compiled]
+    P --> Q[Invoice Generated from Scope]
+    Q --> R[Submit to Insurer / Client]
+    R --> S{Payment Received?}
+    S -->|Yes| T[Job Archived]
+    S -->|No| U[Follow Up]
+    U --> S

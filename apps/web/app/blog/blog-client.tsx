@@ -11,46 +11,76 @@ export default function BlogClient() {
 
   const blogPosts = [
     {
+      title: "How to Find an IICRC-Certified Restoration Contractor in Australia (2025 Guide)",
+      excerpt: "Learn what IICRC certification means, why it matters for insurance claims, how to verify credentials, and red flags to watch for when hiring a restoration contractor.",
+      date: "March 1, 2025",
+      category: "Compliance",
+      readTime: "8 min read",
+      href: "/blog/find-iicrc-certified-restoration-contractor-australia"
+    },
+    {
+      title: "Water Damage Restoration Costs in Australia: 2025 Price Guide",
+      excerpt: "Understand typical restoration costs by water damage category, factors affecting price, NRPG rate boundaries, and the insurance claim process.",
+      date: "March 1, 2025",
+      category: "Pricing",
+      readTime: "9 min read",
+      href: "/blog/water-damage-restoration-cost-australia"
+    },
+    {
+      title: "NRPG Membership: What It Means for Restoration Contractors and Why It Matters",
+      excerpt: "What the National Restoration Pricing Guide is, membership requirements, rate boundaries explained, and how NRPG protects both contractors and property owners.",
+      date: "March 1, 2025",
+      category: "Industry",
+      readTime: "8 min read",
+      href: "/blog/nrpg-membership-benefits-restoration-contractors"
+    },
+    {
       title: "The Future of AI in Restoration Assessment",
       excerpt: "Exploring how AI technology is revolutionizing damage assessment and making restoration work more efficient and accurate.",
       date: "January 15, 2024",
       category: "Technology",
-      readTime: "5 min read"
+      readTime: "5 min read",
+      href: "#"
     },
     {
       title: "Understanding IICRC S500 Compliance",
       excerpt: "A comprehensive guide to IICRC S500 standards and how RestoreAssist helps you maintain compliance automatically.",
       date: "January 8, 2024",
       category: "Compliance",
-      readTime: "7 min read"
+      readTime: "7 min read",
+      href: "#"
     },
     {
       title: "Best Practices for Water Damage Assessment",
       excerpt: "Learn the essential steps and best practices for conducting thorough water damage assessments on-site.",
       date: "January 1, 2024",
       category: "Best Practices",
-      readTime: "6 min read"
+      readTime: "6 min read",
+      href: "#"
     },
     {
       title: "Streamlining Your Restoration Workflow",
       excerpt: "Discover how modern technology can help you reduce report generation time while improving accuracy and compliance.",
       date: "December 24, 2023",
       category: "Workflow",
-      readTime: "4 min read"
+      readTime: "4 min read",
+      href: "#"
     },
     {
       title: "Regional Pricing in Australian Restoration",
       excerpt: "Understanding how regional cost variations affect restoration estimates and how to account for them.",
       date: "December 18, 2023",
       category: "Pricing",
-      readTime: "5 min read"
+      readTime: "5 min read",
+      href: "#"
     },
     {
       title: "Building Trust with Transparent Reports",
       excerpt: "How transparent, evidence-based reporting builds trust with clients and insurance providers.",
       date: "December 10, 2023",
       category: "Industry",
-      readTime: "6 min read"
+      readTime: "6 min read",
+      href: "#"
     }
   ]
 
@@ -122,11 +152,11 @@ export default function BlogClient() {
                     {post.date}
                   </span>
                   <Link
-                    href="#"
+                    href={post.href}
                     className={`text-sm font-medium ${darkMode ? 'text-[#8A6B4E] hover:text-[#8A6B4E]/80' : 'text-[#8A6B4E] hover:text-[#8A6B4E]/90'} transition-colors`}
                     style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
                   >
-                    Coming Soon
+                    {post.href === "#" ? "Coming Soon" : "Read Article"}
                   </Link>
                 </div>
               </motion.div>

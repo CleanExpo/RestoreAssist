@@ -1,0 +1,23 @@
+flowchart TD
+    A[Contractor Onboarding] --> B{IICRC Certified?}
+    B -->|Yes| C[Verify Certificate Number]
+    B -->|No| D[Flag Non-Compliant]
+    C --> E{NRPG Registered?}
+    D --> E
+    E -->|Yes| F[Verify NRPG Membership]
+    E -->|No| G[Require Registration]
+    F --> H[Check Insurance Coverage]
+    G --> H
+    H --> I{Public Liability Current?}
+    I -->|Yes| J[Verify Workers Comp]
+    I -->|No| K[Request Updated Policy]
+    J --> L{All Licences Valid?}
+    K --> L
+    L -->|Yes| M[Contractor Approved]
+    L -->|No| N[Licence Remediation]
+    N --> O[Re-Submit for Review]
+    O --> L
+    M --> P[Annual Review Scheduled]
+    P --> Q{Review Due?}
+    Q -->|Yes| H
+    Q -->|No| R[Continue Operations]

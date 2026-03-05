@@ -1,0 +1,15 @@
+flowchart TD
+    A[Job Created] --> B[Initial Assessment]
+    B --> C{Water Category}
+    C -->|Cat 1 - Clean| D[Standard Protocol]
+    C -->|Cat 2 - Grey Water| E[Enhanced Protocol]
+    C -->|Cat 3 - Black Water| F[Specialist Protocol]
+    D & E & F --> G[Moisture Mapping]
+    G --> H[Equipment Placement]
+    H --> I[Daily Monitoring]
+    I --> J{Drying Complete?}
+    J -->|No| I
+    J -->|Yes| K[Final Inspection]
+    K --> L[Documentation Package]
+    L --> M[Invoice Generated]
+    M --> N[Job Closed]

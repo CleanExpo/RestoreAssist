@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import Header from "@/components/landing/Header"
 import Footer from "@/components/landing/Footer"
@@ -104,6 +105,38 @@ export default function ComplianceClient() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Workflow Diagrams CTA */}
+      <section className="py-16 px-6 relative bg-[#C4C8CA]/30 overflow-hidden">
+        <div className="max-w-7xl mx-auto relative z-10 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2
+              className={`text-3xl font-bold mb-4 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
+              style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            >
+              Compliance Workflow Diagrams
+            </h2>
+            <p
+              className={`text-lg mb-8 max-w-2xl mx-auto ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
+              style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            >
+              View visual audit trails for the water damage restoration workflow, contractor compliance checklist, and insurance claim process.
+            </p>
+            <Link
+              href="/compliance/diagrams"
+              className="inline-block px-8 py-3 rounded-lg bg-[#8A6B4E] text-[#F4F5F6] font-semibold hover:bg-[#8A6B4E]/80 transition-colors"
+              style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            >
+              View Workflow Diagrams
+            </Link>
+          </motion.div>
         </div>
       </section>
 

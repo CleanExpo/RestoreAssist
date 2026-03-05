@@ -14,6 +14,7 @@ import {
   CheckCircle,
   BarChart3,
   GraduationCap,
+  Wrench,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -294,6 +295,13 @@ export default function ContractorProfileDashboard() {
             >
               <GraduationCap className="h-5 w-5" />
               CEC Tracker
+            </Link>
+            <Link
+              href="/dashboard/contractors/equipment"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              <Wrench className="h-5 w-5" />
+              Equipment
             </Link>
             <a
               href={`/dashboard/contractors/${profile.id}/scorecard`}
