@@ -11,6 +11,14 @@ export default function BlogClient() {
 
   const blogPosts = [
     {
+      title: "Why Restoration Contractors Lose Jobs to Competitors Who Use Better Reports",
+      excerpt: "Insurance assessors approve claims faster when restoration reports are precise, compliant, and professional. Report quality is now the hidden competitive advantage in Australia's restoration industry.",
+      date: "March 5, 2026",
+      category: "Business Growth",
+      readTime: "5 min read",
+      href: "/blog/restoration-contractors-reports-competitive-advantage"
+    },
+    {
       title: "How to Find an IICRC-Certified Restoration Contractor in Australia (2025 Guide)",
       excerpt: "Learn what IICRC certification means, why it matters for insurance claims, how to verify credentials, and red flags to watch for when hiring a restoration contractor.",
       date: "March 1, 2025",

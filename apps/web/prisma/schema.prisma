@@ -163,6 +163,13 @@ model User {
 
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
+
+  // Insurance & Licence tracking
+  contractorInsurances ContractorInsurance[]
+  contractorLicences   ContractorLicence[]
+
+  // WHS Incident Reporting
+  whsIncidents WHSIncident[]
 }
 
 model Feedback {
@@ -3717,4 +3724,88 @@ model ContractorEquipment {
   @@index([category])
   @@index([isVerified])
   @@index([calibrationDue])
+}
+
+model ContractorInsurance {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  insuranceType       String   // "PUBLIC_LIABILITY" | "PROFESSIONAL_INDEMNITY" | "WORKERS_COMP" | "OTHER"
+  provider            String?
+  policyNumber        String?
+  coverageAmount      Float?
+  expiryDate          DateTime
+  documentUrl         String?
+  isActive            Boolean  @default(true)
+  lastNotified60      Boolean  @default(false)
+  lastNotified30      Boolean  @default(false)
+  lastNotified14      Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiryDate])
+}
+
+model ContractorLicence {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  licenceType         String    // "BUILDERS_LICENCE" | "WHS_WHITE_CARD" | "ELECTRICAL" | "PLUMBING" | "IICRC_MEMBERSHIP" | "NRPG_MEMBERSHIP" | "ABN_REGISTRATION" | "OTHER"
+  licenceNumber       String?
+  issuingAuthority    String?
+  expiryDate          DateTime?
+  documentUrl         String?
+  isActive            Boolean   @default(true)
+  lastNotified60      Boolean   @default(false)
+  lastNotified30      Boolean   @default(false)
+  lastNotified14      Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([expiryDate])
+}
+
+model WHSIncident {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentNumber      String   @unique  // auto-generated e.g. "INC-2026-001"
+  incidentDate        DateTime
+  location            String
+  description         String   @db.Text
+  severity            String   // "NEAR_MISS" | "MINOR" | "MODERATE" | "SERIOUS" | "CRITICAL"
+  injuryType          String?  // "NONE" | "STRAIN" | "LACERATION" | "FRACTURE" | "BURN" | "OTHER"
+  affectedPerson      String?  // name of affected person
+  witnessNames        String?  // comma-separated
+  immediateAction     String?  @db.Text
+  reportedToSafework  Boolean  @default(false)
+  safeworkRefNumber   String?
+  status              String   @default("OPEN")  // "OPEN" | "UNDER_INVESTIGATION" | "CORRECTIVE_ACTION" | "CLOSED"
+  investigationNotes  String?  @db.Text
+  closedAt            DateTime?
+  evidenceUrls        String[] // array of uploaded file URLs
+  correctiveActions   WHSCorrectiveAction[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+  @@index([incidentDate])
+  @@index([severity])
+}
+
+model WHSCorrectiveAction {
+  id                  String   @id @default(cuid())
+  incidentId          String
+  incident            WHSIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  description         String   @db.Text
+  assignedTo          String?
+  dueDate             DateTime?
+  completedAt         DateTime?
+  status              String   @default("PENDING")  // "PENDING" | "IN_PROGRESS" | "COMPLETED"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([incidentId])
 }

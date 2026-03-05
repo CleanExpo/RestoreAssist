@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   Filter,
   X,
+  Bell,
+  Loader2,
 } from 'lucide-react'
 
 interface Equipment {
@@ -65,6 +67,15 @@ export function EquipmentVerification() {
   const [filterVerified, setFilterVerified] = useState<string>('all')
   const [showAddForm, setShowAddForm] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const [checkingReminders, setCheckingReminders] = useState(false)
+  const [reminderSummary, setReminderSummary] = useState<{
+    overdue: number
+    due7: number
+    due14: number
+    due30: number
+    totalNotificationsCreated: number
+  } | null>(null)
 
   const [form, setForm] = useState({
     equipmentName: '',
@@ -168,6 +179,32 @@ export function EquipmentVerification() {
     setTimeout(() => setMessage(null), 3000)
   }
 
+  const handleCheckReminders = async () => {
+    setCheckingReminders(true)
+    setReminderSummary(null)
+    try {
+      const res = await fetch('/api/contractors/equipment/check-calibration', {
+        method: 'POST',
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setReminderSummary(data.summary)
+        setMessage({
+          type: 'success',
+          text: `Calibration check complete. ${data.summary.totalNotificationsCreated} notification${data.summary.totalNotificationsCreated !== 1 ? 's' : ''} created.`,
+        })
+      } else {
+        const err = await res.json()
+        setMessage({ type: 'error', text: err.error || 'Failed to check reminders.' })
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Network error checking reminders.' })
+    } finally {
+      setCheckingReminders(false)
+    }
+    setTimeout(() => setMessage(null), 5000)
+  }
+
   if (status === 'loading' || (loading && session)) {
     return (
       <div className="space-y-4 p-6">
@@ -195,13 +232,27 @@ export function EquipmentVerification() {
             <p className="text-sm text-[#C4C8CA]">Track calibration compliance for restoration equipment</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowAddForm(v => !v)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#8A6B4E] text-white hover:bg-[#8A6B4E]/90 transition-colors text-sm font-medium"
-        >
-          <Plus className="h-4 w-4" />
-          Add Equipment
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCheckReminders}
+            disabled={checkingReminders}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1C2E47] border border-[#5A6A7B]/30 text-[#F4F5F6] hover:bg-[#1C2E47]/80 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            {checkingReminders ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Bell className="h-4 w-4" />
+            )}
+            Check Reminders
+          </button>
+          <button
+            onClick={() => setShowAddForm(v => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#8A6B4E] text-white hover:bg-[#8A6B4E]/90 transition-colors text-sm font-medium"
+          >
+            <Plus className="h-4 w-4" />
+            Add Equipment
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -223,6 +274,30 @@ export function EquipmentVerification() {
           <p className="text-2xl font-bold text-red-400">{overdueCount}</p>
         </div>
       </div>
+
+      {/* Calibration reminder summary */}
+      {reminderSummary && (reminderSummary.overdue > 0 || reminderSummary.due7 > 0 || reminderSummary.due14 > 0 || reminderSummary.due30 > 0) && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-[#1C2E47]/60 border border-[#8A6B4E]/30">
+          <Bell className="h-5 w-5 text-[#8A6B4E] shrink-0 mt-0.5" />
+          <div className="text-sm text-[#C4C8CA] space-y-1">
+            <p className="font-medium text-[#F4F5F6]">Calibration Summary</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {reminderSummary.overdue > 0 && (
+                <span className="text-red-400">{reminderSummary.overdue} overdue</span>
+              )}
+              {reminderSummary.due7 > 0 && (
+                <span className="text-amber-400">{reminderSummary.due7} due within 7 days</span>
+              )}
+              {reminderSummary.due14 > 0 && (
+                <span className="text-amber-300">{reminderSummary.due14} due within 14 days</span>
+              )}
+              {reminderSummary.due30 > 0 && (
+                <span className="text-[#C4C8CA]">{reminderSummary.due30} due within 30 days</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alert banner */}
       {overdueCount > 0 && (

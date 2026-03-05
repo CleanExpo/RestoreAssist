@@ -29,6 +29,9 @@ import {
   Calculator,
   GraduationCap,
   Wrench,
+  Shield,
+  Award,
+  HardHat,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -128,6 +131,9 @@ export default function DashboardLayout({
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     { icon: GraduationCap, label: "CEC Tracker", href: "/dashboard/contractors/cec" },
     { icon: Wrench, label: "Equipment", href: "/dashboard/contractors/equipment" },
+    { icon: Shield, label: "Insurance", href: "/dashboard/contractors/insurance" },
+    { icon: Award, label: "Licences", href: "/dashboard/contractors/licences" },
+    { icon: HardHat, label: "WHS Safety", href: "/dashboard/whs" },
     { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
     // Hide Subscription for team members (Managers and Technicians)

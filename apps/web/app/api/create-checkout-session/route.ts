@@ -1,3 +1,16 @@
+// Stripe Checkout Audit - 2026-03-05
+// Status: Issues found and fixed
+// Findings:
+//   1. success_url missing ?session_id={CHECKOUT_SESSION_ID} — verify-subscription could not
+//      match the checkout session on return, forcing fallback to polling.
+//   2. .env had misnamed price env vars (STRIPE_PRICE_ID_MONTHLY vs STRIPE_PRICE_MONTHLY);
+//      production .env.production is correct.
+//   3. STRIPE_WEBHOOK_SECRET placeholder in local .env — production value is set.
+// Fixes applied:
+//   1. Added session_id={CHECKOUT_SESSION_ID} to success_url in both primary and fallback paths.
+//   2. Added STRIPE_WEBHOOK_SECRET runtime guard in webhook handler.
+//   3. Added session_id to checkout-lifetime success_url.
+
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -93,7 +106,7 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${baseUrl}/dashboard/success`,
+        success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
         metadata: {
           userId: session.user.id,
@@ -139,7 +152,7 @@ export async function POST(request: NextRequest) {
               quantity: 1,
             },
           ],
-          success_url: `${baseUrl}/dashboard/success`,
+          success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
           metadata: {
             userId: session.user.id,
