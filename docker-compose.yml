@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: nodejs-starter-postgres
+    environment:
+      POSTGRES_DB: starter_db
+      POSTGRES_USER: starter_user
+      POSTGRES_PASSWORD: local_dev_password
+      POSTGRES_HOST_AUTH_METHOD: trust  # Simplified for local development
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U starter_user -d starter_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - starter-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: nodejs-starter-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - starter-network
+
+  # Backend service (optional - can be run locally for development)
+  # Uncomment if you want to run the entire stack in Docker
+  # backend:
+  #   build:
+  #     context: ./apps/backend
+  #     dockerfile: Dockerfile
+  #   container_name: nodejs-starter-backend
+  #   environment:
+  #     DATABASE_URL: postgresql://starter_user:local_dev_password@postgres:5432/starter_db
+  #     REDIS_URL: redis://redis:6379
+  #     AI_PROVIDER: ${AI_PROVIDER:-ollama}
+  #     OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - starter-network
+  #   volumes:
+  #     - ./apps/backend:/app
+  #   command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: restoreassist-web
+    env_file:
+      - ./apps/web/.env.local
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - starter-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  starter-network:
+    driver: bridge
