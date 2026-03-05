@@ -13,6 +13,14 @@ export default function ResourcesClient() {
 
   const resources = [
     {
+      category: "New to the Industry",
+      items: [
+        { title: "Industry Overview", description: "What is the restoration industry? Water, fire, mould, and contents restoration explained", link: "/resources/new-to-industry" },
+        { title: "Getting Started Checklist", description: "Step-by-step checklist to launch your restoration business in Australia", link: "/resources/new-to-industry/getting-started-checklist" },
+        { title: "Certifications & Equipment", description: "IICRC certifications, essential equipment, costs, and where to buy", link: "/resources/new-to-industry#certifications" }
+      ]
+    },
+    {
       category: "Documentation",
       items: [
         { title: "Getting Started Guide", description: "Learn the basics of using RestoreAssist", link: "/help", comingSoon: true },

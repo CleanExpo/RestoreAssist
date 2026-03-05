@@ -77,10 +77,14 @@ Location: `.skills/custom/`
 | **system-supervisor** | Architecture drift detection, silent failure scanning, hallucination prevention, and feature completeness audit | "drift", "dead code", "completeness", "audit", "integrity", "silent failure" |
 | **playwright-browser** | Playwright CLI and MCP tools for headless browser automation, E2E testing, screenshots, and web scraping | "playwright", "E2E", "browser test", "screenshot", "headless", "automation" |
 | **claude-browser** | Claude Chrome extension tools for personal browser automation in logged-in sessions | "chrome", "personal browser", "form fill", "logged in", "tab management" |
+| **restoreassist-inspection-report** | IICRC S500-compliant water damage inspection report generation with moisture mapping | "inspection report", "moisture report", "site assessment", "water damage report", "S500 report" |
+| **restoreassist-scope-of-works** | Itemised scope of works for restoration jobs with labour, materials, equipment, and NRPG rates | "scope of works", "SOW", "remediation plan", "work schedule", "restoration scope" |
+| **restoreassist-insurance-summary** | Concise insurance claim summaries for loss adjusters with damage classification and cost breakdown | "insurance summary", "claim summary", "insurer report", "loss adjuster", "claim submission" |
+| **restoreassist-iicrc-compliance-check** | IICRC S500/S520 compliance audit with gap detection and severity-scored non-conformances | "compliance check", "IICRC audit", "S500 compliance", "S520 compliance", "documentation gaps" |
 
 ### Identified Gaps
 
-No gaps identified. All **59 skills** are installed. Use `/skill-manager analyse` to run automated gap analysis across all installed skills and detect missing capabilities.
+No gaps identified. All **63 skills** are installed. Use `/skill-manager analyse` to run automated gap analysis across all installed skills and detect missing capabilities.
 
 ## Skill Priority
 
