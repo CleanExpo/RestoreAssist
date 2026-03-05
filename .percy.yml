@@ -1,0 +1,83 @@
+# Percy Visual Testing Configuration
+# https://www.browserstack.com/docs/percy/get-started/setup
+
+version: 2
+
+# Static discovery - Percy will discover static assets
+static:
+  # Base URL for static assets
+  baseUrl: /
+
+# Snapshot configuration defaults
+snapshot:
+  # Widths to capture snapshots at (overridable per snapshot)
+  widths:
+    - 375  # Mobile
+    - 768  # Tablet
+    - 1280 # Desktop
+
+  # Minimum height for snapshots
+  minHeight: 1024
+
+  # Percy CSS to apply to all snapshots
+  percyCSS: |
+    /* Hide elements that change frequently */
+    [data-percy-hide] { opacity: 0 !important; }
+    .timestamp { opacity: 0 !important; }
+
+    /* Disable animations for consistent snapshots */
+    *, *::before, *::after {
+      animation-duration: 0s !important;
+      animation-delay: 0s !important;
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+    }
+
+# Browser configuration
+browser:
+  # Use Chromium for snapshots
+  name: chromium
+
+# Discovery options
+discovery:
+  # Disable asset discovery (we're using Playwright for navigation)
+  disableCache: false
+
+  # Network idle timeout
+  networkIdleTimeout: 750
+
+# CI/CD integration
+ci:
+  # Branch patterns to run Percy on
+  # (configure in Percy dashboard or via env vars)
+  # PERCY_TARGET_BRANCH, PERCY_BRANCH, etc.
+
+# Excluded patterns (optional)
+# exclude:
+#   - "**/*.map"
+#   - "**/test-*.png"
+
+# Enable JavaScript (default: true)
+enableJavaScript: true
+
+# Consider layout shifts
+considerLayoutChanges: true
+
+# Comparison threshold (0-1, where 0.01 = 1% difference allowed)
+threshold: 0.01
+
+# Wait for network idle before snapshot
+waitForTimeout: 1000
+waitForSelector: null
+
+# Percy-specific options
+percy:
+  # Auto-approve visual changes from main branch
+  # autoApproveOnMainBranch: false
+
+  # Enable Percy CSS
+  enablePercyCSS: true
+
+  # Request headers (optional)
+  # requestHeaders:
+  #   Authorization: Bearer ${PERCY_TOKEN}

@@ -1,39 +1,97 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
+node_modules/
+.pnpm-store/
 
-# dependencies
-/node_modules
-package-lock.json
+# Build outputs
+.next/
+dist/
+build/
+out/
+.turbo/
 
-# next.js
-/.next/
-/out/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.uv/
+*.egg-info/
+.eggs/
 
-# production
-/build
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files
+# Environment — ignore ALL .env files except the example
 .env*
+!.env.example
+
+# Prisma generated
+lib/generated/prisma
+
+# Claude Memory (personal settings)
+CLAUDE.local.md
 
 # MCP config (contains API keys)
 .mcp.json
 
-# vercel
+# IDE
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+test-results/
+playwright-report/
+playwright/.cache/
+storybook-static/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Docker
+.docker/
+
+# Vercel
 .vercel
 
-# typescript
+# Misc
 *.tsbuildinfo
 next-env.d.ts
-/lib/generated/prisma
-
-.vercel
-storybook-static/
+.cache
 nul
+package-lock.json
+
+# Skills (external cloned repos)
+.skills/vercel-labs-agent-skills/
+
+# Local binaries (Beads CLI)
+.bin/
+
+# AI Review (generated outputs)
+ai-review/results/
+ai-review/screenshots/
+
+# NotebookLM generated artifacts
+.claude/notebooklm/repo-pack.txt
+.claude/data/minion-state.json
 
 # Playwright E2E testing
 /playwright-report/

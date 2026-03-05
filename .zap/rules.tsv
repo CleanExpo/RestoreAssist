@@ -1,0 +1,145 @@
+# OWASP ZAP Scan Rules Configuration
+#
+# Format: RULE_ID	ACTION	THRESHOLD
+#
+# ACTIONS:
+#   IGNORE - Ignore this rule completely
+#   INFO   - Report as informational only
+#   WARN   - Report as warning
+#   FAIL   - Fail the build if found
+#
+# THRESHOLDS: (only for active scan rules)
+#   OFF    - Disable this scan
+#   LOW    - Minimal scanning
+#   MEDIUM - Standard scanning
+#   HIGH   - Comprehensive scanning
+#
+# RULE_ID: ZAP rule identifier (see ZAP documentation)
+
+# SQL Injection
+40018	FAIL	HIGH
+
+# Cross-Site Scripting (XSS)
+40012	FAIL	HIGH
+40014	FAIL	HIGH
+40016	FAIL	HIGH
+40017	FAIL	HIGH
+
+# Path Traversal
+6	FAIL	HIGH
+
+# Remote File Inclusion
+7	FAIL	HIGH
+
+# Server Side Include
+40009	FAIL	HIGH
+
+# Cross-Site Request Forgery (CSRF)
+10202	FAIL	MEDIUM
+
+# Cookie Security
+10010	WARN	MEDIUM
+10011	WARN	MEDIUM
+10054	WARN	MEDIUM
+
+# Information Disclosure
+10096	WARN	MEDIUM
+10097	WARN	MEDIUM
+10098	WARN	MEDIUM
+
+# Security Headers
+10020	WARN	MEDIUM
+10021	WARN	MEDIUM
+10023	WARN	MEDIUM
+10035	WARN	MEDIUM
+10036	WARN	MEDIUM
+10038	WARN	MEDIUM
+10055	WARN	MEDIUM
+
+# Authentication
+10101	FAIL	MEDIUM
+10102	FAIL	MEDIUM
+
+# Session Management
+10112	FAIL	MEDIUM
+
+# Insecure HTTP Methods
+90028	WARN	MEDIUM
+
+# Application Error Disclosure
+90022	WARN	MEDIUM
+
+# XXE (XML External Entity)
+90019	FAIL	HIGH
+
+# Command Injection
+90020	FAIL	HIGH
+
+# LDAP Injection
+40015	FAIL	HIGH
+
+# XML Injection
+90021	FAIL	HIGH
+
+# Server Side Template Injection
+90035	FAIL	HIGH
+
+# Insecure Deserialization
+90034	FAIL	HIGH
+
+# TLS/SSL Issues
+10047	WARN	MEDIUM
+
+# Heartbleed
+10034	FAIL	HIGH
+
+# Poodle
+10040	WARN	MEDIUM
+
+# SWEET32
+10048	WARN	MEDIUM
+
+# DROWN
+10049	WARN	MEDIUM
+
+# Weak Cipher Suites
+10045	WARN	MEDIUM
+
+# Private IP Disclosure
+2	INFO	LOW
+
+# Timestamp Disclosure
+10096	INFO	LOW
+
+# Hash Disclosure
+10097	INFO	LOW
+
+# Username Hash
+10057	INFO	LOW
+
+# Application Framework Disclosure
+10068	INFO	LOW
+
+# X-Powered-By Header
+10037	INFO	LOW
+
+# Server Header Disclosure
+10036	INFO	LOW
+
+# HTML Comments
+10015	INFO	LOW
+
+# Incomplete or No Cache-control
+10015	WARN	LOW
+
+# Content Security Policy
+10038	WARN	MEDIUM
+
+# Subresource Integrity
+90003	WARN	LOW
+
+# Permissions Policy
+10063	WARN	LOW
+
+# Referrer Policy
+10062	WARN	LOW

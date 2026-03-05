@@ -1,0 +1,111 @@
+# OWASP ZAP Full Active Scan Configuration
+#
+# This configuration runs both passive and active scans.
+# Active scanning may impact application performance and should
+# be run on test/staging environments only.
+#
+# ⚠️  WARNING: Active scans perform actual attacks on the application
+#
+# Usage:
+#   docker run -v $(pwd):/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable \
+#     zap-full-scan.py -t http://localhost:3000 -c .zap/full-scan.yaml
+
+env:
+  contexts:
+    - name: "NodeJS-Starter-V1-Full"
+      urls:
+        - "http://localhost:3000"
+        - "http://localhost:8000"
+      includePaths:
+        - "http://localhost:3000/.*"
+        - "http://localhost:8000/api/.*"
+      excludePaths:
+        - "http://localhost:3000/_next/.*"
+        - "http://localhost:8000/docs.*"
+        - "http://localhost:8000/openapi.*"
+        - "http://localhost:8000/health.*"  # Don't attack health check
+      authentication:
+        method: "manual"
+      sessionManagement:
+        method: "cookie"
+
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+  vars: {}
+
+jobs:
+  # Spider the application
+  - type: "spider"
+    parameters:
+      url: "http://localhost:3000"
+      maxDuration: 10  # minutes
+      maxDepth: 10
+      maxChildren: 20
+
+  - type: "spider"
+    parameters:
+      url: "http://localhost:8000/api"
+      maxDuration: 5
+      maxDepth: 5
+      maxChildren: 15
+
+  # Wait for passive scan
+  - type: "passiveScan-wait"
+    parameters:
+      maxDuration: 10
+
+  # Active scan configuration
+  - type: "activeScan"
+    parameters:
+      context: "NodeJS-Starter-V1-Full"
+      url: "http://localhost:3000"
+      maxRuleDurationInMins: 5
+      maxScanDurationInMins: 30
+      addQueryParam: false
+      defaultPolicy: "SQL-Injection"  # Start with SQL injection
+      delayInMs: 100  # Throttle requests
+
+  - type: "activeScan"
+    parameters:
+      context: "NodeJS-Starter-V1-Full"
+      url: "http://localhost:8000/api"
+      maxRuleDurationInMins: 5
+      maxScanDurationInMins: 30
+      defaultPolicy: "OWASP-Top-10"
+      delayInMs: 100
+
+  # Wait for active scan to complete
+  - type: "activeScan-wait"
+    parameters:
+      maxDuration: 60  # minutes
+
+  # Generate reports
+  - type: "report"
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-full-scan-report"
+      reportTitle: "ZAP Full Security Scan Report"
+      reportDescription: "Comprehensive active + passive scan results"
+      displayReport: false
+
+  - type: "report"
+    parameters:
+      template: "traditional-json"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-full-scan-report"
+
+  - type: "report"
+    parameters:
+      template: "traditional-md"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-full-scan-report"
+
+  - type: "report"
+    parameters:
+      template: "traditional-xml"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-full-scan-report"

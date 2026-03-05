@@ -1,0 +1,71 @@
+# OWASP ZAP Baseline Scan Configuration
+#
+# This configuration runs a passive scan (no active attacks)
+# to identify basic security issues without impacting the application.
+#
+# Usage:
+#   docker run -v $(pwd):/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable \
+#     zap-baseline.py -t http://localhost:3000 -c .zap/baseline-scan.yaml
+
+env:
+  contexts:
+    - name: "NodeJS-Starter-V1"
+      urls:
+        - "http://localhost:3000"
+        - "http://localhost:8000"
+      includePaths:
+        - "http://localhost:3000/.*"
+        - "http://localhost:8000/api/.*"
+      excludePaths:
+        - "http://localhost:3000/_next/.*"  # Exclude Next.js internals
+        - "http://localhost:8000/docs.*"    # Exclude API docs
+        - "http://localhost:8000/openapi.*" # Exclude OpenAPI schema
+      authentication:
+        method: "manual"
+      sessionManagement:
+        method: "cookie"
+
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+  vars: {}
+
+jobs:
+  - type: "passiveScan-config"
+    parameters:
+      scanOnlyInScope: true
+      enableTags: false
+
+  - type: "spider"
+    parameters:
+      url: "http://localhost:3000"
+      maxDuration: 5  # minutes
+      maxDepth: 5
+      maxChildren: 10
+
+  - type: "spider"
+    parameters:
+      url: "http://localhost:8000/api"
+      maxDuration: 3
+      maxDepth: 3
+      maxChildren: 10
+
+  - type: "passiveScan-wait"
+    parameters:
+      maxDuration: 5  # minutes
+
+  - type: "report"
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-baseline-report"
+      reportTitle: "ZAP Baseline Scan Report"
+      reportDescription: "Passive security scan results"
+
+  - type: "report"
+    parameters:
+      template: "traditional-json"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-baseline-report"
