@@ -1,10 +1,21 @@
 /**
  * NIR Building Code Lookup System
- * Provides state-specific building code requirements for Australian states
- * Based on National Construction Code (NCC) and state-specific regulations
+ * Provides state-specific building code requirements for Australian states.
+ * Based on National Construction Code (NCC) and state-specific regulations.
+ *
+ * v2.0: State data is now sourced from nir-jurisdictional-matrix.ts.
+ * nirEngineFlags and activeTriggers are populated from the canonical matrix,
+ * eliminating duplicate maintenance of state-specific data.
  */
 
-import { detectStateFromPostcode } from "@/lib/state-detection"
+import { detectStateFromPostcode } from '@/lib/state-detection'
+import {
+  getJurisdictionConfig,
+  getActiveTriggers,
+  type JurisdictionTrigger,
+} from '@/lib/nir-jurisdictional-matrix'
+
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface BuildingCodeRequirements {
   state: string
@@ -17,213 +28,36 @@ export interface BuildingCodeRequirements {
     [key: string]: any
   }
   notes: string | null
+  /** NIR v2.0 — engine flags from nir-jurisdictional-matrix.ts */
+  nirEngineFlags: string[]
+  /** NIR v2.0 — populated by checkBuildingCodeTriggers when context is provided */
+  activeTriggers?: JurisdictionTrigger[]
 }
 
+// ─── PUBLIC API ───────────────────────────────────────────────────────────────
+
 /**
- * Get building code requirements for a given postcode
+ * Get building code requirements for a given postcode.
  */
 export async function getBuildingCodeRequirements(
   postcode: string
 ): Promise<BuildingCodeRequirements | null> {
   try {
-    // Detect state from postcode
     const state = detectStateFromPostcode(postcode)
-    
-    if (!state) {
-      return null
-    }
-    
-    // Get requirements from database or return defaults
-    // For now, we'll use a lookup function, but this should query the BuildingCode table
+    if (!state) return null
     return getStateBuildingCodeRequirements(state, postcode)
   } catch (error) {
-    console.error("Error getting building code requirements:", error)
+    console.error('Error getting building code requirements:', error)
     return null
   }
 }
 
 /**
- * Get state-specific building code requirements
- */
-function getStateBuildingCodeRequirements(
-  state: string,
-  postcode?: string
-): BuildingCodeRequirements {
-  const stateUpper = state.toUpperCase()
-  
-  // Base requirements structure
-  const baseRequirements: BuildingCodeRequirements = {
-    state: stateUpper,
-    codeVersion: "NCC 2022",
-    moistureThreshold: 20, // Default threshold
-    dryingTimeStandard: "48-72 hours",
-    dehumidificationRequired: false,
-    certificationRequired: false,
-    requirements: {},
-    notes: null
-  }
-  
-  // State-specific requirements
-  switch (stateUpper) {
-    case "QLD":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (QLD Building Act 1975)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true, // QLD requires dehumidification if moisture > 20%
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND drywall affected, dehumidification is mandatory",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "Queensland Building and Construction Commission (QBCC) requirements apply. Pre-1990 buildings require asbestos assessment."
-      }
-      
-    case "NSW":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (NSW Environmental Planning and Assessment Act 1979)",
-        moistureThreshold: 18,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 18,
-          dehumidificationRequired: "If moisture > 18% AND structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1987 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "NSW Fair Trading requirements apply. Pre-1987 buildings require asbestos assessment."
-      }
-      
-    case "VIC":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (Victorian Building Act 1993)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND drywall/structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "Victorian Building Authority (VBA) requirements apply. Pre-1990 buildings require asbestos assessment."
-      }
-      
-    case "WA":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (WA Building Act 2011)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "Western Australian Building Commission requirements apply."
-      }
-      
-    case "SA":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (SA Development Act 1993)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "South Australian Building Commission requirements apply."
-      }
-      
-    case "TAS":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (TAS Building Act 2016)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "Tasmanian Building Services Authority requirements apply."
-      }
-      
-    case "NT":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (NT Building Act 1993)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "Northern Territory Building Control requirements apply."
-      }
-      
-    case "ACT":
-      return {
-        ...baseRequirements,
-        codeVersion: "NCC 2022 (ACT Building Act 2004)",
-        moistureThreshold: 20,
-        dryingTimeStandard: "48-72 hours",
-        dehumidificationRequired: true,
-        certificationRequired: false,
-        requirements: {
-          moistureThreshold: 20,
-          dehumidificationRequired: "If moisture > 20% AND structural materials affected",
-          dryingAssessment: "48-72hr drying assessment required",
-          moldTesting: "If visible mold or > 3 days damp: requires mold testing",
-          asbestos: "Pre-1990 buildings: Asbestos assessment required",
-          lead: "Pre-1970 buildings: Lead paint assessment required"
-        },
-        notes: "ACT Planning and Land Authority requirements apply."
-      }
-      
-    default:
-      return baseRequirements
-  }
-}
-
-/**
- * Check if building code requirements are triggered based on inspection data
+ * Check if building code requirements are triggered based on inspection data.
+ *
+ * v2.0 addition: pass optional `jurisdictionContext` to also evaluate
+ * jurisdiction-specific triggers from nir-jurisdictional-matrix.ts.
+ * Omitting it preserves the original behaviour exactly.
  */
 export function checkBuildingCodeTriggers(
   requirements: BuildingCodeRequirements,
@@ -233,52 +67,299 @@ export function checkBuildingCodeTriggers(
     hasStructuralMaterials: boolean
     daysSinceLoss?: number
     buildingAge?: number
+  },
+  jurisdictionContext?: {
+    isFloodZone?: boolean
+    isBushfireProne?: boolean
+    isCycloneZone?: boolean
+    isHeritageListed?: boolean
+    buildingYearBuilt?: number
   }
 ): {
   triggered: boolean
   triggers: string[]
   requiredActions: string[]
+  jurisdictionTriggers: JurisdictionTrigger[]
 } {
   const triggers: string[] = []
   const requiredActions: string[] = []
-  
-  // Check moisture threshold
-  if (requirements.moistureThreshold && inspectionData.maxMoistureLevel > requirements.moistureThreshold) {
+
+  // ── Moisture threshold check ─────────────────────────────────────────────────
+  if (
+    requirements.moistureThreshold &&
+    inspectionData.maxMoistureLevel > requirements.moistureThreshold
+  ) {
     if (inspectionData.hasDrywall || inspectionData.hasStructuralMaterials) {
-      triggers.push(`Moisture level (${inspectionData.maxMoistureLevel}%) exceeds threshold (${requirements.moistureThreshold}%)`)
-      
+      triggers.push(
+        `Moisture level (${inspectionData.maxMoistureLevel}%) exceeds threshold (${requirements.moistureThreshold}%)`
+      )
+
       if (requirements.dehumidificationRequired) {
-        requiredActions.push("Dehumidification is mandatory")
+        requiredActions.push('Dehumidification is mandatory')
       }
-      
+
       if (requirements.dryingTimeStandard) {
         requiredActions.push(`Drying assessment required: ${requirements.dryingTimeStandard}`)
       }
     }
   }
-  
-  // Check mold testing requirement
+
+  // ── Mould testing (water present >3 days) ────────────────────────────────────
   if (inspectionData.daysSinceLoss && inspectionData.daysSinceLoss > 3) {
-    triggers.push(`Water damage has been present for ${inspectionData.daysSinceLoss} days`)
-    requiredActions.push("Mold testing required (water present > 3 days)")
+    triggers.push(`Water damage present for ${inspectionData.daysSinceLoss} days`)
+    requiredActions.push('Mould testing required (water present >3 days)')
   }
-  
-  // Check asbestos requirement
+
+  // ── Asbestos assessment ──────────────────────────────────────────────────────
   if (inspectionData.buildingAge && inspectionData.buildingAge < 1990) {
-    triggers.push(`Building age (${inspectionData.buildingAge}) indicates potential asbestos presence`)
-    requiredActions.push("Asbestos assessment required (pre-1990 building)")
+    triggers.push(
+      `Building age (${inspectionData.buildingAge}) indicates potential asbestos presence`
+    )
+    requiredActions.push('Asbestos assessment required (pre-1990 building)')
   }
-  
-  // Check lead requirement
+
+  // ── Lead paint assessment ────────────────────────────────────────────────────
   if (inspectionData.buildingAge && inspectionData.buildingAge < 1970) {
-    triggers.push(`Building age (${inspectionData.buildingAge}) indicates potential lead paint presence`)
-    requiredActions.push("Lead paint assessment required (pre-1970 building)")
+    triggers.push(
+      `Building age (${inspectionData.buildingAge}) indicates potential lead paint presence`
+    )
+    requiredActions.push('Lead paint assessment required (pre-1970 building)')
   }
-  
+
+  // ── Jurisdiction-specific triggers (NIR v2.0) ────────────────────────────────
+  let jurisdictionTriggers: JurisdictionTrigger[] = []
+
+  if (jurisdictionContext) {
+    jurisdictionTriggers = getActiveTriggers(requirements.state, {
+      ...jurisdictionContext,
+      buildingYearBuilt: jurisdictionContext.buildingYearBuilt ?? inspectionData.buildingAge,
+    })
+
+    for (const jt of jurisdictionTriggers) {
+      triggers.push(`[${jt.regulationRef}] ${jt.condition}`)
+      requiredActions.push(jt.requiredAction)
+    }
+  }
+
   return {
     triggered: triggers.length > 0,
     triggers,
-    requiredActions
+    requiredActions,
+    jurisdictionTriggers,
   }
 }
 
+// ─── INTERNAL LOOKUP ──────────────────────────────────────────────────────────
+
+/**
+ * Build state requirements, pulling codeVersion and nirEngineFlags
+ * from the canonical JURISDICTIONAL_MATRIX where available.
+ */
+function getStateBuildingCodeRequirements(
+  state: string,
+  _postcode?: string
+): BuildingCodeRequirements {
+  const stateUpper = state.toUpperCase()
+  const jurisdictionConfig = getJurisdictionConfig(stateUpper)
+
+  // Base structure — overridden per-state below
+  const base: BuildingCodeRequirements = {
+    state: stateUpper,
+    codeVersion: jurisdictionConfig?.primaryCode ?? 'NCC 2022',
+    moistureThreshold: 20,
+    dryingTimeStandard: '48–72 hours',
+    dehumidificationRequired: false,
+    certificationRequired: false,
+    requirements: {},
+    notes: jurisdictionConfig
+      ? `${jurisdictionConfig.regulatoryBody} requirements apply.`
+      : null,
+    nirEngineFlags: jurisdictionConfig?.nirEngineFlags ?? [],
+  }
+
+  switch (stateUpper) {
+    case 'QLD':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '48–72 hours',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND drywall affected, dehumidification is mandatory',
+          dryingAssessment: '48–72 hr drying assessment required',
+          mouldTesting: 'If >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+        },
+        notes:
+          'Queensland Building and Construction Commission (QBCC) requirements apply. ' +
+          'Pre-1990 buildings require asbestos assessment. ' +
+          'High-humidity climate: apply QLD_HUMID_DRYING_ADJUSTMENT to drying targets.',
+      }
+
+    case 'NSW':
+      return {
+        ...base,
+        moistureThreshold: 18,
+        dryingTimeStandard: '48–72 hours',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 18,
+          dehumidificationRequired:
+            'If moisture >18% AND structural materials affected',
+          dryingAssessment: '48–72 hr drying assessment required',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1987 buildings: Asbestos assessment required (NSW cutoff differs from QLD)',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+        },
+        notes:
+          'NSW Fair Trading / NSW Building Commission requirements apply. ' +
+          'Pre-1987 buildings require asbestos assessment (note: different cutoff to other states).',
+      }
+
+    case 'VIC':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '48–72 hours (may extend in cool climate)',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND drywall/structural materials affected',
+          dryingAssessment: '48–72 hr drying assessment required',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+          coolClimateAdjustment:
+            'VIC_COOL_CLIMATE_DRYING_EXTENSION flag: standard drying timeline may be insufficient',
+        },
+        notes:
+          'Victorian Building Authority (VBA) requirements apply. Pre-1990 buildings require asbestos assessment.',
+      }
+
+    case 'WA':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '48–72 hours',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND structural materials affected',
+          dryingAssessment: '48–72 hr drying assessment required',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+          cycloneZone:
+            'WA_CYCLONE_ZONE_CHECK: Pilbara/Kimberley — structural replacements must meet Wind Region C/D',
+          aridAdjustment:
+            'WA_ARID_DRYING_ADJUSTMENT: inland WA drying targets differ from coastal/national defaults',
+        },
+        notes:
+          'Western Australian Building Commission requirements apply. Cyclone zone checks required for northern WA properties.',
+      }
+
+    case 'SA':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '48–72 hours',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND structural materials affected',
+          dryingAssessment: '48–72 hr drying assessment required',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+          heritageCheck:
+            'SA_HERITAGE_REGISTER_CHECK: Heritage-listed properties require Heritage SA approval before material removal',
+        },
+        notes:
+          'South Australian Building Commission requirements apply. Heritage-listed properties require additional approval.',
+      }
+
+    case 'TAS':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '48–72 hours (extend for cool climate)',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND structural materials affected',
+          dryingAssessment:
+            '48–72 hr drying assessment required — TAS cool climate may require extension',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+          timberAdjustment:
+            'TAS_TIMBER_MOISTURE_ADJUSTMENT: high timber prevalence — standard 48-72 hr timeline frequently insufficient',
+        },
+        notes:
+          'Tasmanian Building Services Authority (TBSA) requirements apply. Cool temperate climate requires extended drying assessment.',
+      }
+
+    case 'NT':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '24 hours (Cat 3 events), 48–72 hours (Cat 1/2)',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND structural materials affected',
+          dryingAssessment:
+            'NT: 24-hour re-inspection cycle required for Cat 3 events',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+          cycloneZone:
+            'NT_CYCLONE_WIND_REGION_CD_ALL: ALL NT structural restoration must meet cyclone-rated specification',
+          tropicalAdjustment:
+            'NT_TROPICAL_DRYING_ADJUSTMENT: ambient RH 70–90% wet season — drying targets require dehumidification to achieve',
+        },
+        notes:
+          'NT Building Control requirements apply. All NT structural restoration must meet cyclone-rated specifications. ' +
+          '24-hour re-inspection cycle required for Category 3 water events.',
+      }
+
+    case 'ACT':
+      return {
+        ...base,
+        moistureThreshold: 20,
+        dryingTimeStandard: '48–72 hours',
+        dehumidificationRequired: true,
+        requirements: {
+          moistureThreshold: 20,
+          dehumidificationRequired:
+            'If moisture >20% AND structural materials affected',
+          dryingAssessment: '48–72 hr drying assessment required',
+          mouldTesting:
+            'If visible mould or >3 days damp: requires mould testing',
+          asbestos: 'Pre-1990 buildings: Asbestos assessment required',
+          lead: 'Pre-1970 buildings: Lead paint assessment required',
+          bushfireCheck:
+            'ACT_BUSHFIRE_PRONE_AREA_CHECK: Tuggeranong/Weston Creek/Molonglo Valley fringe — BAL-rated materials required',
+        },
+        notes:
+          'ACT Planning and Land Authority requirements apply. Bushfire-prone areas require BAL-rated replacement materials.',
+      }
+
+    default:
+      return base
+  }
+}
