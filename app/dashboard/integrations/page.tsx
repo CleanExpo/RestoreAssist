@@ -44,7 +44,7 @@ const EXTERNAL_INTEGRATIONS: {
   { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', category: 'bookkeeping', comingSoon: true },
   { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', category: 'bookkeeping', comingSoon: true },
   { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', category: 'jobmanagement', comingSoon: true },
-  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', category: 'jobmanagement', comingSoon: true },
+  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', category: 'jobmanagement' },
 ]
 
 interface SubscriptionStatus {
@@ -71,9 +71,8 @@ export default function IntegrationsPage() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [newApiKeyType, setNewApiKeyType] = useState<'openai' | 'anthropic' | 'gemini'>('anthropic')
   const [newApiKey, setNewApiKey] = useState("")
-  const [showAscoraModal, setShowAscoraModal] = useState(false)
-  const [ascoraApiKey, setAscoraApiKey] = useState("")
-  const [connectingAscora, setConnectingAscora] = useState(false)
+  // Ascora modal removed — Ascora uses static API key auth via ASCORA_API_KEY env var.
+  // Connect flow now goes through the generic handleConnectExternal path.
   const [showImportModal, setShowImportModal] = useState(false)
 
   // Show success/error messages from OAuth callback
@@ -163,11 +162,6 @@ export default function IntegrationsPage() {
   }
 
   const handleConnectExternal = async (slug: ProviderSlug) => {
-    if (slug === 'ascora') {
-      setShowAscoraModal(true)
-      return
-    }
-
     try {
       const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
         method: 'POST',
@@ -193,43 +187,6 @@ export default function IntegrationsPage() {
     } catch (error) {
       console.error("Error connecting:", error)
       toast.error("Failed to initiate connection")
-    }
-  }
-
-  const handleConnectAscora = async () => {
-    if (!ascoraApiKey) {
-      toast.error("API key is required")
-      return
-    }
-
-    setConnectingAscora(true)
-    try {
-      // For Ascora, use the OAuth connect endpoint which will handle API key auth
-      const response = await fetch('/api/integrations/oauth/ascora/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: ascoraApiKey }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.authUrl) {
-          window.location.href = data.authUrl
-        } else {
-          toast.success('Connected to Ascora successfully')
-          setShowAscoraModal(false)
-          setAscoraApiKey("")
-          fetchExternalIntegrations()
-        }
-      } else {
-        const data = await response.json()
-        toast.error(data.error || 'Failed to connect to Ascora')
-      }
-    } catch (error) {
-      console.error("Error connecting to Ascora:", error)
-      toast.error("Failed to connect to Ascora")
-    } finally {
-      setConnectingAscora(false)
     }
   }
 
@@ -945,70 +902,6 @@ export default function IntegrationsPage() {
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all text-white"
                 >
                   Upgrade Now
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Ascora API Key Modal */}
-      {showAscoraModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="text-3xl">📋</div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Connect to Ascora</h2>
-              </div>
-              <button onClick={() => {
-                setShowAscoraModal(false)
-                setAscoraApiKey("")
-              }} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500 dark:text-slate-400">
-                <XIcon size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-slate-400">
-                Ascora uses API key authentication. Enter your Ascora API key to connect.
-              </p>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key</label>
-                <input
-                  type="password"
-                  value={ascoraApiKey}
-                  onChange={(e) => setAscoraApiKey(e.target.value)}
-                  placeholder="Enter your Ascora API key"
-                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
-                />
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
-                  You can find your API key in Ascora under Settings &gt; API Access
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowAscoraModal(false)
-                    setAscoraApiKey("")
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
-                  disabled={connectingAscora}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConnectAscora}
-                  disabled={connectingAscora || !ascoraApiKey}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-white"
-                >
-                  {connectingAscora ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    'Connect'
-                  )}
                 </button>
               </div>
             </div>
