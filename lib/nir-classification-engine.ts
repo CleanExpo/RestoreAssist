@@ -18,7 +18,7 @@
  *   Class 4: Specialty drying — concrete, hardwood, dense materials
  */
 
-import { S500_FIELD_MAP } from '@/lib/nir-standards-mapping'
+import { S500_FIELD_MAP, STANDARDS_VERSIONS } from '@/lib/nir-standards-mapping'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +63,8 @@ export interface ClassificationResult {
   moistureAssessments: MoistureAssessment[]
   /** True if Cat 1 was upgraded to Cat 2 due to elapsed time (S500 §7.1 note) */
   timeEscalationApplied: boolean
+  /** IICRC S500 edition cited — sourced from STANDARDS_VERSIONS.S500.edition */
+  iicrcEdition: string
 }
 
 // ─── MOISTURE ASSESSMENT ─────────────────────────────────────────────────────
@@ -261,5 +263,6 @@ export async function classifyIICRC(input: ClassificationInput): Promise<Classif
     confidence,
     moistureAssessments,
     timeEscalationApplied,
+    iicrcEdition: STANDARDS_VERSIONS.S500.edition,
   }
 }

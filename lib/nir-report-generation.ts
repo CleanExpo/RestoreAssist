@@ -293,12 +293,12 @@ export async function generateNIRPDF(inspection: NirReportInspectionData): Promi
   if (inspection.scopeItems.length > 0) {
     section('Scope of Works')
     inspection.scopeItems.forEach((item, i) => {
-      text(`${i + 1}. ${item.description}`, 10)
+      // Append IICRC clause reference inline so it's visible on every line item
+      // Source: ScopeItem.justification carries the standards citation (IICRC S500, S520, etc.)
+      const iicrcRef = item.justification ? ` [${item.justification}]` : ''
+      text(`${i + 1}. ${item.description}${iicrcRef}`, 10)
       if (item.quantity != null && item.unit) {
         text(`   Quantity: ${item.quantity} ${item.unit}`, 10)
-      }
-      if (item.justification) {
-        text(`   Justification: ${item.justification}`, 9)
       }
       if (item.standardReference) {
         text(`   Standard ref: ${item.standardReference}`, 9)
