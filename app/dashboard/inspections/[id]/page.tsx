@@ -362,7 +362,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <span className="text-xs text-neutral-400">Temperature</span>
-                    <div className="text-lg font-semibold">{inspection.environmentalData.ambientTemperature}°F</div>
+                    <div className="text-lg font-semibold">{inspection.environmentalData.ambientTemperature}°C</div>
                   </div>
                   <div>
                     <span className="text-xs text-neutral-400">Humidity</span>
@@ -370,7 +370,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                   </div>
                   <div>
                     <span className="text-xs text-neutral-400">Dew Point</span>
-                    <div className="text-lg font-semibold">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "N/A"}°F</div>
+                    <div className="text-lg font-semibold">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "N/A"}°C</div>
                   </div>
                   <div>
                     <span className="text-xs text-neutral-400">Air Circulation</span>
@@ -394,7 +394,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Ambient Temperature</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.ambientTemperature}°F</p>
+                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.ambientTemperature}°C</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Humidity Level</label>
@@ -402,7 +402,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Dew Point</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "Not calculated"}°F</p>
+                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Air Circulation</label>
