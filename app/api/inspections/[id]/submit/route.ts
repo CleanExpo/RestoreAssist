@@ -146,6 +146,22 @@ export async function POST(
       // In production, would retry via queue
     }
 
+    // After successful submit — trigger integration sync (non-blocking)
+    // Only fires if the inspection is linked to a Report (reportId is nullable).
+    if (inspection.reportId) {
+      try {
+        const syncPayload = { reportId: inspection.reportId }
+        // Fire-and-forget: don't await, don't fail the submit if sync fails
+        fetch(`${process.env.NEXTAUTH_URL}/api/integrations/nir-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: request.headers.get('cookie') || '' },
+          body: JSON.stringify(syncPayload),
+        }).catch(err => console.error('[NIR Sync] Auto-trigger failed:', err))
+      } catch (syncErr) {
+        console.error('[NIR Sync] Could not trigger integration sync:', syncErr)
+      }
+    }
+
     return NextResponse.json({
       message: "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
       inspectionId: id,
