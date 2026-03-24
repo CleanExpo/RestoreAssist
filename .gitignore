@@ -39,3 +39,6 @@ nul
 /playwright-report/
 /test-results/
 .playwright/
+
+# Claude Code worktrees
+.claude/worktrees/
