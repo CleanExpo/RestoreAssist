@@ -227,6 +227,14 @@ const SCOPE_ITEM_NRPG_CONFIG: Record<string, ScopeItemNRPGConfig> = {
   },
 
   // ── Third-party testing (no NRPG boundary — external provider costs) ───────
+  // Australian English: mould_testing (scope engine emits this item type)
+  mould_testing: {
+    nrpgField:   null,
+    defaultRate: 300,
+    unit:        'test',
+    category:    'Other',
+  },
+  /** @deprecated Use mould_testing. Kept temporarily for any legacy records. */
   mold_testing: {
     nrpgField:   null,
     defaultRate: 300,
