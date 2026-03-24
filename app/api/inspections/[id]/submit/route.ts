@@ -111,7 +111,7 @@ export async function POST(
     // Only run if enough data is present — supplementary gaps may limit processing.
     // In production, this should be done asynchronously via a queue.
     try {
-      await processInspectionComplete(id, inspection)
+      await processInspectionComplete(id, inspection, session.user.id)
     } catch (error) {
       console.error("Error processing inspection:", error)
       // Don't fail the submission, but log the error
@@ -146,7 +146,8 @@ export async function POST(
 // Process complete inspection: classification, scope determination, and cost estimation
 async function processInspectionComplete(
   inspectionId: string,
-  inspection: any
+  inspection: any,
+  inspectionOwnerId: string
 ) {
   // Update status to PROCESSING
   await prisma.inspection.update({
@@ -291,8 +292,14 @@ async function processInspectionComplete(
     data: { status: "SCOPED" }
   })
   
-  // Step 5: Estimate costs
-  const costEstimate = await estimateCosts(scopeItems, buildingCodeRequirements?.state)
+  // Step 5: Estimate costs — pass userId so the engine loads the company's
+  // NRPG-validated pricing config. Falls back to NRPG midpoints if none saved.
+  const costEstimate = await estimateCosts(
+    scopeItems,
+    buildingCodeRequirements?.state,
+    null,       // pricingRates — let the engine fetch by userId
+    inspectionOwnerId
+  )
   
   // Save cost estimates
   for (const costItem of costEstimate.items) {
