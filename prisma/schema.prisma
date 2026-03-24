@@ -3583,6 +3583,65 @@ model PaymentReminder {
 }
 
 // ============================================
+// NIR PILOT MEASUREMENT
+// ============================================
+
+/**
+ * PilotObservation — stores individual data points collected during the
+ * Phase 2 pilot. Each observation contributes evidence toward promoting
+ * a HYPOTHESIS claim in lib/nir-evidence-architecture.ts to VALIDATED.
+ *
+ * Promotion is always manual (via a code PR) — this table provides the
+ * evidence trail and readiness evaluation that informs that decision.
+ *
+ * Foreign keys are stored as plain strings (no Prisma @relation) to
+ * avoid modifying the large User and Inspection models in this migration.
+ */
+model PilotObservation {
+  id String @id @default(cuid())
+
+  // Which HYPOTHESIS claim this observation contributes evidence toward
+  // Valid values: 'CLAIM-002', 'CLAIM-003', 'CLAIM-004', 'CLAIM-005', 'CLAIM-007'
+  claimId String
+
+  // Observation type — matches the measurementMethod in each claim's hypothesis
+  // 'cost_impact'           — CLAIM-002: per-claim cost (AUD)
+  // 'reinspection_event'    — CLAIM-003: 1 = re-inspection required, 0 = not required
+  // 'adjuster_session'      — CLAIM-004: review time in minutes
+  // 'technician_survey'     — CLAIM-005: ease-of-use rating 1–5
+  // 'cycle_time'            — CLAIM-007: claim open to scope-approval in business days
+  observationType String
+
+  // The measured numeric value (see observationType for units)
+  value Float
+
+  // 'nir' = using NIR format / process | 'control' = baseline / existing format
+  group String @default("nir")
+
+  // Optional: the inspection this observation is derived from
+  // Stored as plain string — no @relation to avoid Inspection model modification
+  inspectionId String?
+
+  // Who recorded this observation (session user ID at time of recording)
+  // Stored as plain string — no @relation to avoid User model modification
+  recordedByUserId String
+
+  // Optional structured context (e.g. adjuster name, company name, survey source)
+  context Json?
+
+  // Free-text notes — caveats, methodology notes, data quality flags
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+  @@index([observationType])
+  @@index([group])
+  @@index([inspectionId])
+  @@index([createdAt])
+}
+
+// ============================================
 // INVOICING ENUMS
 // ============================================
 
