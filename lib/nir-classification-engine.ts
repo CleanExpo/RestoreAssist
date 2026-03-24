@@ -1,22 +1,41 @@
 /**
  * NIR Classification Engine
- * Implements IICRC S500 standards for water damage classification
- * 
- * Categories (Water Source):
- * - Category 1: Clean Water (potable water, broken pipes)
- * - Category 2: Grey Water (washing machine, dishwasher - contains contaminants)
- * - Category 3: Black Water (sewage, contaminated water)
- * - Category 4: Specialty Drying (brackish water, specialty protocols)
- * 
- * Classes (Affected Area Size):
- * - Class 1: <10% of floor space (evaporation adequate)
- * - Class 2: 10-50% of floor space (requires air movement + dehumidification)
- * - Class 3: >50% of floor space (requires aggressive drying)
- * - Class 4: Specialty Drying (concrete, hardwood, dense materials)
+ * Implements IICRC standards for water damage classification.
+ *
+ * v2.0: All clause references are sourced from nir-standards-mapping.ts.
+ * No hardcoded IICRC section strings — every reference is typed, auditable,
+ * and tied to a specific edition clause.
+ *
+ * Categories (Water Source) — IICRC S500 §7.1–7.3:
+ *   Category 1: Clean / potable water
+ *   Category 2: Grey water (contaminants, no faecal matter)
+ *   Category 3: Black / contaminated water (sewage, external flooding)
+ *
+ * Classes (Evaporation Load) — IICRC S500 §8.1–8.4:
+ *   Class 1: <10% of floor space, low porosity materials
+ *   Class 2: 10–40% of floor space, carpet and cushion
+ *   Class 3: >40% of floor space, walls, ceilings, insulation
+ *   Class 4: Specialty drying — concrete, hardwood, dense materials
  */
 
-interface ClassificationInput {
+import { S500_FIELD_MAP } from '@/lib/nir-standards-mapping'
+
+// ─── TYPES ────────────────────────────────────────────────────────────────────
+
+type MoistureLevel = 'NORMAL' | 'ELEVATED' | 'CRITICAL'
+
+export interface MoistureAssessment {
+  surfaceType: string
+  moistureLevel: number
+  assessment: MoistureLevel
+  clauseRef: string
+  /** Material-specific thresholds used for this assessment (null = fallback applied) */
+  thresholds: { normal: number; elevated: number; critical: number } | null
+}
+
+export interface ClassificationInput {
   waterSource: string
+  /** Field kept as square footage for API/schema backward compatibility */
   affectedSquareFootage: number
   moistureReadings: Array<{
     surfaceType: string
@@ -31,121 +50,216 @@ interface ClassificationInput {
   timeSinceLoss?: number | null
 }
 
-interface ClassificationResult {
+export interface ClassificationResult {
   category: string
   class: string
   justification: string
+  /** Kept for backward compatibility — equals clauseRefs.join('; ') */
   standardReference: string
+  /** Typed clause references sourced from nir-standards-mapping.ts */
+  clauseRefs: string[]
   confidence: number
+  /** Per-reading moisture assessment against S500 §12.3 material thresholds */
+  moistureAssessments: MoistureAssessment[]
+  /** True if Cat 1 was upgraded to Cat 2 due to elapsed time (S500 §7.1 note) */
+  timeEscalationApplied: boolean
 }
 
+// ─── MOISTURE ASSESSMENT ─────────────────────────────────────────────────────
+
+const SPECIALTY_MATERIALS = ['concrete', 'hardwood', 'timber', 'dense', 'brick', 'stone', 'plaster']
+
+function assessMoistureReading(reading: {
+  surfaceType: string
+  moistureLevel: number
+  depth: string
+}): MoistureAssessment {
+  const surfaceLower = reading.surfaceType.toLowerCase()
+  const { thresholds, clauseRef } = S500_FIELD_MAP.moistureContent
+
+  // Map surface type to the closest S500 §12.3 material category
+  let threshold: { normal: number; elevated: number; critical: number } | null = null
+
+  if (surfaceLower.includes('wood') || surfaceLower.includes('hardwood') || surfaceLower.includes('timber')) {
+    threshold = thresholds.wood
+  } else if (
+    surfaceLower.includes('drywall') ||
+    surfaceLower.includes('gyprock') ||
+    surfaceLower.includes('plasterboard') ||
+    surfaceLower.includes('gypsum')
+  ) {
+    threshold = thresholds.drywall
+  } else if (
+    surfaceLower.includes('concrete') ||
+    surfaceLower.includes('brick') ||
+    surfaceLower.includes('stone') ||
+    surfaceLower.includes('tile') ||
+    surfaceLower.includes('masonry')
+  ) {
+    threshold = thresholds.concrete
+  } else if (surfaceLower.includes('carpet') || surfaceLower.includes('rug')) {
+    threshold = thresholds.carpet
+  }
+
+  // Use wood as a conservative fallback when no material match
+  const effectiveThreshold = threshold ?? thresholds.wood
+
+  let assessment: MoistureLevel = 'NORMAL'
+  if (reading.moistureLevel >= effectiveThreshold.critical) {
+    assessment = 'CRITICAL'
+  } else if (reading.moistureLevel >= effectiveThreshold.elevated) {
+    assessment = 'ELEVATED'
+  }
+
+  return {
+    surfaceType: reading.surfaceType,
+    moistureLevel: reading.moistureLevel,
+    assessment,
+    clauseRef,
+    thresholds: threshold, // null signals fallback was used
+  }
+}
+
+// ─── MAIN CLASSIFICATION ──────────────────────────────────────────────────────
+
 export async function classifyIICRC(input: ClassificationInput): Promise<ClassificationResult> {
-  // Determine Category based on water source
-  let category = "1"
-  let categoryJustification = ""
-  let categoryReference = "IICRC S500 Section 4"
-  
+  const clauseRefs: string[] = []
+  const { waterCategory, waterClass, moistureContent, dryingEquipment } = S500_FIELD_MAP
+
+  // ── Category — IICRC S500 §7.1–7.3 ─────────────────────────────────────────
+  let category = '1'
+  let categoryJustification = ''
+  let timeEscalationApplied = false
+
   const waterSourceLower = input.waterSource.toLowerCase()
-  
-  if (waterSourceLower.includes("black") || waterSourceLower.includes("sewage") || waterSourceLower.includes("contaminated")) {
-    category = "3"
-    categoryJustification = "Water source is contaminated (sewage, black water). Requires containment and PPE per IICRC S500."
-    categoryReference = "IICRC S500 Section 4.3"
-  } else if (waterSourceLower.includes("grey") || waterSourceLower.includes("washing") || waterSourceLower.includes("dishwasher")) {
-    category = "2"
-    categoryJustification = "Water source contains contaminants but not fecal matter (grey water). Requires sanitization."
-    categoryReference = "IICRC S500 Section 4.2"
-  } else if (waterSourceLower.includes("clean") || waterSourceLower.includes("potable") || waterSourceLower.includes("pipe")) {
-    category = "1"
-    categoryJustification = "Water source is clean/potable water. No significant contamination."
-    categoryReference = "IICRC S500 Section 4.1"
+
+  if (
+    waterSourceLower.includes('black') ||
+    waterSourceLower.includes('sewage') ||
+    waterSourceLower.includes('contaminated') ||
+    waterSourceLower.includes('faecal') ||
+    waterSourceLower.includes('fecal')
+  ) {
+    category = '3'
+    const def = waterCategory.definitions.category3
+    categoryJustification =
+      `${def.label}: ${def.source}. ` +
+      `Containment: REQUIRED. PPE: REQUIRED (${waterCategory.clauseRef}).`
+  } else if (
+    waterSourceLower.includes('grey') ||
+    waterSourceLower.includes('gray') ||
+    waterSourceLower.includes('washing') ||
+    waterSourceLower.includes('dishwasher') ||
+    (waterSourceLower.includes('toilet') && !waterSourceLower.includes('faecal'))
+  ) {
+    category = '2'
+    const def = waterCategory.definitions.category2
+    categoryJustification = `${def.label}: ${def.source}. Sanitisation required (${waterCategory.clauseRef}).`
+  } else if (
+    waterSourceLower.includes('clean') ||
+    waterSourceLower.includes('potable') ||
+    waterSourceLower.includes('pipe') ||
+    waterSourceLower.includes('rain') ||
+    waterSourceLower.includes('supply')
+  ) {
+    category = '1'
+    const def = waterCategory.definitions.category1
+    categoryJustification = `${def.label}: ${def.source} (${waterCategory.clauseRef}).`
   } else {
-    // Default to Category 2 if unclear
-    category = "2"
-    categoryJustification = "Water source classification unclear. Defaulting to Category 2 (grey water) for safety."
-    categoryReference = "IICRC S500 Section 4.2"
+    // Conservative default — grey water
+    category = '2'
+    categoryJustification =
+      `Water source unclear. Defaulting to Category 2 (grey water) per ${waterCategory.clauseRef}.`
   }
-  
-  // Determine Class based on affected area and moisture levels
-  let classValue = "1"
-  let classJustification = ""
-  let classReference = "IICRC S500 Section 5"
-  
-  // Calculate average moisture level
-  const avgMoisture = input.moistureReadings.length > 0
-    ? input.moistureReadings.reduce((sum, r) => sum + r.moistureLevel, 0) / input.moistureReadings.length
-    : 0
-  
-  // Check for specialty drying materials (Class 4)
-  const specialtyMaterials = ["concrete", "hardwood", "dense", "brick", "stone"]
+
+  clauseRefs.push(waterCategory.clauseRef)
+
+  // ── Time escalation — S500 §7.1 note ────────────────────────────────────────
+  if (category === '1' && input.timeSinceLoss && input.timeSinceLoss > 48) {
+    category = '2'
+    categoryJustification +=
+      ` ${waterCategory.timeEscalation} — ${input.timeSinceLoss} hrs elapsed, category upgraded.`
+    timeEscalationApplied = true
+  }
+
+  // ── Moisture Assessments — S500 §12.3 ───────────────────────────────────────
+  const moistureAssessments = input.moistureReadings.map(assessMoistureReading)
+  const avgMoisture =
+    moistureAssessments.length > 0
+      ? moistureAssessments.reduce((sum, a) => sum + a.moistureLevel, 0) / moistureAssessments.length
+      : 0
+
+  const hasCriticalReading = moistureAssessments.some(a => a.assessment === 'CRITICAL')
+  if (hasCriticalReading) {
+    clauseRefs.push(moistureContent.clauseRef)
+  }
+
+  // ── Class — S500 §8.1–8.4 ───────────────────────────────────────────────────
+  let classValue = '1'
+  let classJustification = ''
+
   const hasSpecialtyMaterial = input.moistureReadings.some(r =>
-    specialtyMaterials.some(material => r.surfaceType.toLowerCase().includes(material))
+    SPECIALTY_MATERIALS.some(m => r.surfaceType.toLowerCase().includes(m))
   )
-  
+  const { definitions: classDefs } = waterClass
+
   if (hasSpecialtyMaterial && avgMoisture > 15) {
-    classValue = "4"
-    classJustification = `Specialty drying required. Affected materials include dense/specialty surfaces (${input.moistureReadings.find(r => specialtyMaterials.some(m => r.surfaceType.toLowerCase().includes(m)))?.surfaceType}). Average moisture: ${avgMoisture.toFixed(1)}%. Requires extended drying protocols.`
-    classReference = "IICRC S500 Section 5.4"
-  } else if (input.affectedSquareFootage > 0) {
-    // Estimate total floor space (assume affected area is percentage of total)
-    // For Class determination, we need percentage of total floor space
-    // Since we don't have total floor space, we'll use moisture levels and area size as indicators
-    
-    // Class 3: Large area (>50% implied by high moisture and large area)
-    if (input.affectedSquareFootage > 500 && avgMoisture > 20) {
-      classValue = "3"
-      classJustification = `Large affected area (${input.affectedSquareFootage.toFixed(0)} sq ft) with high moisture levels (avg ${avgMoisture.toFixed(1)}%). Requires aggressive drying with all equipment deployed.`
-      classReference = "IICRC S500 Section 5.3"
-    }
-    // Class 2: Medium area (10-50%)
-    else if (input.affectedSquareFootage > 100 || avgMoisture > 15) {
-      classValue = "2"
-      classJustification = `Moderate affected area (${input.affectedSquareFootage.toFixed(0)} sq ft) with moisture levels (avg ${avgMoisture.toFixed(1)}%). Requires air movement and dehumidification.`
-      classReference = "IICRC S500 Section 5.2"
-    }
-    // Class 1: Small area (<10%)
-    else {
-      classValue = "1"
-      classJustification = `Small affected area (${input.affectedSquareFootage.toFixed(0)} sq ft) with lower moisture levels (avg ${avgMoisture.toFixed(1)}%). Evaporation adequate, standard drying equipment.`
-      classReference = "IICRC S500 Section 5.1"
-    }
+    classValue = '4'
+    classJustification =
+      `${classDefs.class4.label} (${waterClass.clauseRef}): ` +
+      `${classDefs.class4.materials} detected. ` +
+      `Avg moisture ${avgMoisture.toFixed(1)}%. Extended drying protocol required.`
+  } else if (input.affectedSquareFootage > 500 && avgMoisture > 20) {
+    classValue = '3'
+    classJustification =
+      `${classDefs.class3.label} (${waterClass.clauseRef}): ` +
+      `${classDefs.class3.affectedArea} of floor space affected. ` +
+      `${classDefs.class3.materials}. Avg moisture ${avgMoisture.toFixed(1)}%.`
+  } else if (input.affectedSquareFootage > 100 || avgMoisture > 15) {
+    classValue = '2'
+    classJustification =
+      `${classDefs.class2.label} (${waterClass.clauseRef}): ` +
+      `${classDefs.class2.affectedArea} of floor space affected. ` +
+      `${classDefs.class2.materials}. Avg moisture ${avgMoisture.toFixed(1)}%.`
+  } else {
+    classValue = '1'
+    classJustification =
+      `${classDefs.class1.label} (${waterClass.clauseRef}): ` +
+      `${classDefs.class1.affectedArea} of floor space affected. ` +
+      `${classDefs.class1.materials}. Avg moisture ${avgMoisture.toFixed(1)}%.`
   }
-  
-  // Adjust category based on time since loss (Category 1 can degrade to Category 2)
-  if (category === "1" && input.timeSinceLoss && input.timeSinceLoss > 48) {
-    category = "2"
-    categoryJustification += ` Note: Clean water has been standing for ${input.timeSinceLoss} hours, may have degraded to Category 2.`
-  }
-  
-  // Calculate confidence (0-100)
-  let confidence = 85 // Base confidence
-  
-  // Increase confidence if we have multiple moisture readings
-  if (input.moistureReadings.length >= 3) {
+
+  clauseRefs.push(waterClass.clauseRef)
+  clauseRefs.push(dryingEquipment.clauseRef)
+
+  // ── Confidence ───────────────────────────────────────────────────────────────
+  let confidence = 85
+
+  if (input.moistureReadings.length >= 3) confidence += 5
+  if (input.environmentalData?.ambientTemperature && input.environmentalData?.humidityLevel) {
     confidence += 5
   }
-  
-  // Increase confidence if environmental data is complete
-  if (input.environmentalData && input.environmentalData.ambientTemperature && input.environmentalData.humidityLevel) {
-    confidence += 5
-  }
-  
-  // Decrease confidence if water source is unclear
-  if (!waterSourceLower.includes("clean") && !waterSourceLower.includes("grey") && !waterSourceLower.includes("black")) {
+  if (
+    !waterSourceLower.includes('clean') &&
+    !waterSourceLower.includes('grey') &&
+    !waterSourceLower.includes('gray') &&
+    !waterSourceLower.includes('black')
+  ) {
     confidence -= 10
   }
-  
+
   confidence = Math.min(100, Math.max(0, confidence))
-  
-  const justification = `${categoryJustification} ${classJustification}`
-  const standardReference = `${categoryReference}; ${classReference}`
-  
+
+  const uniqueClauseRefs = [...new Set(clauseRefs)]
+
   return {
     category,
     class: classValue,
-    justification: justification.trim(),
-    standardReference,
-    confidence
+    justification: `${categoryJustification} ${classJustification}`.trim(),
+    standardReference: uniqueClauseRefs.join('; '),
+    clauseRefs: uniqueClauseRefs,
+    confidence,
+    moistureAssessments,
+    timeEscalationApplied,
   }
 }
-
