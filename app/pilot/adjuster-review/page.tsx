@@ -13,7 +13,7 @@
  * Feeds: CLAIM-004 in the NIR evidence register via /api/pilot/adjuster-session.
  */
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Clock, ChevronRight, CheckCircle2, Loader2, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -33,7 +33,7 @@ const FORMAT_OPTIONS = [
   },
 ]
 
-export default function AdjusterReviewPage() {
+function AdjusterReviewContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token") ?? ""
 
@@ -321,6 +321,16 @@ export default function AdjusterReviewPage() {
 
       </form>
     </PageShell>
+  )
+}
+
+// ── Page export — Suspense boundary required for useSearchParams() ─────────────
+
+export default function AdjusterReviewPage() {
+  return (
+    <Suspense fallback={<PageShell><div className="h-40" /></PageShell>}>
+      <AdjusterReviewContent />
+    </Suspense>
   )
 }
 
