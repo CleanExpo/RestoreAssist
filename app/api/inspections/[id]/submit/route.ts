@@ -77,6 +77,34 @@ export async function POST(
       )
     }
 
+    // ── CLAIM-003 auto-detection ────────────────────────────────────────────
+    // If the inspection was previously processed (status != DRAFT), this submission
+    // represents a re-inspection event. Record it automatically so no admin action
+    // is needed to collect CLAIM-003 pilot data.
+    const isReInspection = inspection.status !== "DRAFT"
+    try {
+      await prisma.pilotObservation.create({
+        data: {
+          claimId:          "CLAIM-003",
+          observationType:  "reinspection_event",
+          value:            isReInspection ? 1 : 0,  // 1 = re-inspection required, 0 = first submission
+          group:            "nir",
+          inspectionId:     id,
+          recordedByUserId: session.user.id,
+          context: {
+            previousStatus: inspection.status,
+            derivedFrom:    "submit_route_auto_detection",
+          },
+          notes: isReInspection
+            ? `Re-submission detected: inspection was previously in status ${inspection.status}`
+            : "First submission — no re-inspection required",
+        },
+      })
+    } catch (pilotError) {
+      // Pilot observation failure must never block submission
+      console.warn("CLAIM-003 auto-detection failed (non-blocking):", pilotError)
+    }
+
     // Update status to SUBMITTED
     await prisma.inspection.update({
       where: { id },

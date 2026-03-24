@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
+import { NirPilotSurvey } from "@/components/nir-pilot-survey"
 import {
   ArrowLeft,
   Loader2,
@@ -691,6 +692,12 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
           </div>
         )}
       </div>
+
+      {/* Pilot ease-of-use survey — shown once per technician after COMPLETED */}
+      <NirPilotSurvey
+        inspectionId={inspection.id}
+        inspectionStatus={inspection.status}
+      />
     </div>
   )
 }
