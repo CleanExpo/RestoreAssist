@@ -5,7 +5,7 @@
  * Best paired with Xero or MYOB for accounting.
  */
 
-import { getTokens, storeTokens, markIntegrationError, logSync } from '../oauth-handler'
+import { getTokens, markIntegrationError, logSync } from '../oauth-handler'
 import { ServiceM8Client } from './client'
 import type { NIRJobPayload } from '../xero/nir-sync'
 
@@ -23,9 +23,10 @@ export async function syncNIRJobToServiceM8(
   let accessToken = tokens.accessToken
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new ServiceM8Client(integrationId)
-    const r = await client.refreshAccessToken(tokens.refreshToken)
-    await storeTokens(integrationId, r.access_token, r.refresh_token, r.expires_in)
-    accessToken = r.access_token
+    await client.refreshAccessToken()
+    const freshTokens = await getTokens(integrationId)
+    if (!freshTokens.accessToken) throw new Error('ServiceM8 token refresh failed')
+    accessToken = freshTokens.accessToken
   }
 
   const headers = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json', 'Content-Type': 'application/json' }

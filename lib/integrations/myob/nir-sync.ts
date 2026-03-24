@@ -5,7 +5,7 @@
  * Company-file-scoped. GST/FRE tax codes. 4-xxxx account routing.
  */
 
-import { getTokens, storeTokens, markIntegrationError, logSync } from '../oauth-handler'
+import { getTokens, markIntegrationError, logSync } from '../oauth-handler'
 import { MYOBClient } from './client'
 import { prisma } from '@/lib/prisma'
 import type { NIRJobPayload } from '../xero/nir-sync'
@@ -61,9 +61,10 @@ export async function syncNIRJobToMYOB(
   let accessToken = tokens.accessToken
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new MYOBClient(integrationId)
-    const r = await client.refreshAccessToken(tokens.refreshToken)
-    await storeTokens(integrationId, r.access_token, r.refresh_token, r.expires_in)
-    accessToken = r.access_token
+    await client.refreshAccessToken()
+    const freshTokens = await getTokens(integrationId)
+    if (!freshTokens.accessToken) throw new Error('MYOB token refresh failed')
+    accessToken = freshTokens.accessToken
   }
 
   const companyFileUrl = `https://api.myob.com/accountright/${integration.companyId}`

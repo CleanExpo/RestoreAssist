@@ -6,7 +6,7 @@
  * job types, damage categories, IICRC classifications, insurance claims.
  */
 
-import { getTokens, storeTokens, markIntegrationError, logSync } from '../oauth-handler'
+import { getTokens, markIntegrationError, logSync } from '../oauth-handler'
 import { AscoraClient } from './client'
 import { prisma } from '@/lib/prisma'
 import type { NIRJobPayload } from '../xero/nir-sync'
@@ -38,9 +38,10 @@ export async function syncNIRJobToAscora(
   let accessToken = tokens.accessToken
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new AscoraClient(integrationId, integration?.companyId || undefined)
-    const r = await client.refreshAccessToken(tokens.refreshToken)
-    await storeTokens(integrationId, r.access_token, r.refresh_token, r.expires_in)
-    accessToken = r.access_token
+    await client.refreshAccessToken()
+    const freshTokens = await getTokens(integrationId)
+    if (!freshTokens.accessToken) throw new Error('Ascora token refresh failed')
+    accessToken = freshTokens.accessToken
   }
 
   const headers = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json', 'Content-Type': 'application/json' }

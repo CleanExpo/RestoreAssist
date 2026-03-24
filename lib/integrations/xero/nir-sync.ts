@@ -11,7 +11,7 @@
  *   XERO_ACCOUNT_WATER=200  XERO_ACCOUNT_FIRE=201  XERO_ACCOUNT_MOULD=202
  */
 
-import { getTokens, storeTokens, markIntegrationError, logSync } from '../oauth-handler'
+import { getTokens, markIntegrationError, logSync } from '../oauth-handler'
 import { XeroClient } from './client'
 import { prisma } from '@/lib/prisma'
 
@@ -75,9 +75,10 @@ export async function syncNIRJobToXero(
   let accessToken = tokens.accessToken
   if (tokens.isExpired && tokens.refreshToken) {
     const client = new XeroClient(integrationId, integration.tenantId)
-    const r = await client.refreshAccessToken(tokens.refreshToken)
-    await storeTokens(integrationId, r.access_token, r.refresh_token, r.expires_in)
-    accessToken = r.access_token
+    await client.refreshAccessToken()
+    const freshTokens = await getTokens(integrationId)
+    if (!freshTokens.accessToken) throw new Error('Xero token refresh failed')
+    accessToken = freshTokens.accessToken
   }
 
   const accountCode = getAccountCode(job.damageType)
