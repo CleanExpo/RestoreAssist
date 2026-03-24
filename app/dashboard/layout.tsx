@@ -27,6 +27,9 @@ import {
   Receipt,
   MessageCircle,
   Calculator,
+  Shield,
+  FlaskConical,
+  Lock,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -109,6 +112,7 @@ export default function DashboardLayout({
 
   // Check if user is a Manager or Technician (they should be linked to an Admin)
   const isTeamMember = session?.user?.role === "MANAGER" || session?.user?.role === "USER"
+  const isAdmin = (session?.user as { role?: string })?.role === "ADMIN"
 
   // Free trial users get full sidebar access; they must add their own API key in Integrations
   const navItems = [
@@ -131,6 +135,12 @@ export default function DashboardLayout({
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
+    // Admin-only section — hidden from Managers and Technicians
+    ...(isAdmin ? [
+      { icon: Shield,        label: "Admin",         href: "/dashboard/admin",               adminOnly: true },
+      { icon: FlaskConical,  label: "NIR Pilot",     href: "/dashboard/admin/pilot",          adminOnly: true },
+      { icon: Lock,          label: "Content Gate",  href: "/dashboard/admin/content-gate",   adminOnly: true },
+    ] : []),
   ]
 
 const upgradeItem = {
@@ -190,68 +200,96 @@ const upgradeItem = {
 
                   {/* Navigation */}
                   <nav className="flex-1 overflow-y-auto py-4 px-2">
-                    {navItems.map((item) => {
+                    {navItems.map((item, index) => {
+                      // Insert admin divider before the first adminOnly item
+                      const prevItem = navItems[index - 1] as { adminOnly?: boolean } | undefined
+                      const isFirstAdminItem = (item as { adminOnly?: boolean }).adminOnly && !prevItem?.adminOnly
+
+                      const divider = isFirstAdminItem ? (
+                        <div key={`divider-admin`} className="mt-2 mb-1 px-2">
+                          <div className="border-t border-neutral-200 dark:border-slate-700" />
+                          {sidebarOpen && (
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-2 mb-1 px-2">
+                              Admin
+                            </p>
+                          )}
+                        </div>
+                      ) : null
+
                       // Special handling for "New Report" to check credits
                       if (item.label === "New Report") {
                         return (
-                          <button
-                            key={item.href}
-                            onClick={async () => {
-                              try {
-                                const response = await fetch('/api/reports/check-credits')
-                                if (response.ok) {
-                                  const data = await response.json()
-                                  if (!data.hasApiKey) {
-                                    toast.error('Please add your API key to create reports.')
-                                    router.push('/dashboard/integrations')
-                                    return
+                          <>
+                            {divider}
+                            <button
+                              key={item.href}
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/reports/check-credits')
+                                  if (response.ok) {
+                                    const data = await response.json()
+                                    if (!data.hasApiKey) {
+                                      toast.error('Please add your API key to create reports.')
+                                      router.push('/dashboard/integrations')
+                                      return
+                                    }
+                                    if (!data.canCreate) {
+                                      router.push('/dashboard/pricing')
+                                      return
+                                    }
                                   }
-                                  if (!data.canCreate) {
-                                    router.push('/dashboard/pricing')
-                                    return
-                                  }
+                                  router.push(item.href)
+                                } catch (error) {
+                                  router.push(item.href)
                                 }
-                                router.push(item.href)
-                              } catch (error) {
-                                router.push(item.href)
-                              }
-                            }}
+                              }}
+                              className={cn(
+                                "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
+                                item.highlight
+                                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                                  : cn(
+                                      "text-neutral-700 dark:text-slate-300",
+                                      "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                      "hover:scale-[1.02] hover:shadow-md"
+                                    )
+                              )}
+                              title={!sidebarOpen ? item.label : ""}
+                            >
+                              <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
+                              {sidebarOpen && <span className="text-sm">{item.label}</span>}
+                            </button>
+                          </>
+                        )
+                      }
+                      return (
+                        <>
+                          {divider}
+                          <Link
+                            key={item.href}
+                            href={item.href}
                             className={cn(
-                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
-                              item.highlight
-                                ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                                : cn(
-                                    "text-neutral-700 dark:text-slate-300",
-                                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                                    "hover:scale-[1.02] hover:shadow-md"
+                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+                              (item as { adminOnly?: boolean }).adminOnly
+                                ? cn(
+                                    "text-neutral-500 dark:text-slate-500",
+                                    "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
+                                    pathname === item.href && "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
+                                    "hover:scale-[1.02]"
                                   )
+                                : item.highlight
+                                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                                  : cn(
+                                      "text-neutral-700 dark:text-slate-300",
+                                      "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                      "hover:scale-[1.02] hover:shadow-md"
+                                    )
                             )}
                             title={!sidebarOpen ? item.label : ""}
                           >
                             <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
                             {sidebarOpen && <span className="text-sm">{item.label}</span>}
-                          </button>
-                        )
-                      }
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
-                            item.highlight
-                              ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                              : cn(
-                                  "text-neutral-700 dark:text-slate-300",
-                                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                                  "hover:scale-[1.02] hover:shadow-md"
-                                )
-                          )}
-                          title={!sidebarOpen ? item.label : ""}
-                        >
-                          <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
-                          {sidebarOpen && <span className="text-sm">{item.label}</span>}
-                        </Link>
+                          </Link>
+                        </>
                       )
                     })}
                     
