@@ -6,6 +6,7 @@ import { classifyIICRC } from "@/lib/nir-classification-engine"
 import { getBuildingCodeRequirements, checkBuildingCodeTriggers } from "@/lib/nir-building-codes"
 import { determineScopeItems } from "@/lib/nir-scope-determination"
 import { estimateCosts } from "@/lib/nir-cost-estimation"
+import { validateTieredCompletion } from "@/lib/nir-tiered-completion"
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -14,13 +15,13 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    
+
     const { id } = await params
-    
+
     // Get inspection with all data
     const inspection = await prisma.inspection.findFirst({
       where: {
@@ -35,40 +36,47 @@ export async function POST(
         photos: true
       }
     })
-    
+
     if (!inspection) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
     }
-    
-    // Validate all required data is present
-    if (!inspection.environmentalData) {
+
+    // ── Tiered completion validation ───────────────────────────────────────────
+    // CRITICAL fields block submission. SUPPLEMENTARY fields are flagged in the
+    // audit log and returned to the caller but do NOT block submission.
+    // This implements the field-reality spec requirement: a partial record in
+    // emergency conditions is better than no record at all.
+    // Source: lib/nir-field-reality-spec.ts → PHYSICAL_UX_REQUIREMENTS.tieredCompletion
+    const tieredResult = validateTieredCompletion({
+      propertyAddress:    inspection.propertyAddress,
+      propertyPostcode:   inspection.propertyPostcode,
+      inspectionDate:     inspection.inspectionDate,
+      affectedAreas:      inspection.affectedAreas,
+      photos:             inspection.photos,
+      environmentalData:  inspection.environmentalData,
+      moistureReadings:   inspection.moistureReadings,
+      scopeItems:         inspection.scopeItems,
+      affectedAreasWithSource: inspection.affectedAreas.map((a: { waterSource?: string | null }) => ({
+        waterSource: a.waterSource,
+      })),
+    })
+
+    if (!tieredResult.canSubmit) {
       return NextResponse.json(
-        { error: "Environmental data is required" },
+        {
+          error: 'Inspection cannot be submitted — critical fields missing',
+          summary: tieredResult.summary,
+          missingCritical: tieredResult.missingCritical.map(f => ({
+            field: f.fieldName,
+            label: f.label,
+            clauseRef: f.clauseRef,
+            rationale: f.rationale,
+          })),
+        },
         { status: 400 }
       )
     }
-    
-    if (inspection.moistureReadings.length === 0) {
-      return NextResponse.json(
-        { error: "At least one moisture reading is required" },
-        { status: 400 }
-      )
-    }
-    
-    if (inspection.affectedAreas.length === 0) {
-      return NextResponse.json(
-        { error: "At least one affected area is required" },
-        { status: 400 }
-      )
-    }
-    
-    if (inspection.photos.length === 0) {
-      return NextResponse.json(
-        { error: "At least one photo is required" },
-        { status: 400 }
-      )
-    }
-    
+
     // Update status to SUBMITTED
     await prisma.inspection.update({
       where: { id },
@@ -77,20 +85,31 @@ export async function POST(
         submittedAt: new Date()
       }
     })
-    
-    // Create audit log
+
+    // Create audit log — includes supplementary field gaps for follow-up tracking
+    const auditNotes = [
+      'Inspection submitted for processing',
+      ...(tieredResult.missingSupplementary.length > 0
+        ? [`SUPPLEMENTARY FIELDS ABSENT: ${tieredResult.missingSupplementary.map(f => f.label).join(', ')}`]
+        : []),
+      ...(tieredResult.warnings.length > 0
+        ? tieredResult.warnings.map(w => `WARNING: ${w}`)
+        : []),
+    ].join(' | ')
+
     await prisma.auditLog.create({
       data: {
         inspectionId: id,
-        action: "Inspection submitted for processing",
+        action: auditNotes,
         entityType: "Inspection",
         entityId: id,
         userId: session.user.id
       }
     })
-    
-    // Process classification, scope determination, and cost estimation
-    // In production, this should be done asynchronously via a queue
+
+    // Process classification, scope determination, and cost estimation.
+    // Only run if enough data is present — supplementary gaps may limit processing.
+    // In production, this should be done asynchronously via a queue.
     try {
       await processInspectionComplete(id, inspection)
     } catch (error) {
@@ -98,11 +117,22 @@ export async function POST(
       // Don't fail the submission, but log the error
       // In production, would retry via queue
     }
-    
+
     return NextResponse.json({
       message: "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
       inspectionId: id,
-      status: "SUBMITTED"
+      status: "SUBMITTED",
+      // Surface supplementary gaps and warnings to the caller (mobile app shows follow-up prompts)
+      ...(tieredResult.missingSupplementary.length > 0 && {
+        missingSupplementary: tieredResult.missingSupplementary.map(f => ({
+          field: f.fieldName,
+          label: f.label,
+          clauseRef: f.clauseRef,
+        })),
+      }),
+      ...(tieredResult.warnings.length > 0 && {
+        warnings: tieredResult.warnings,
+      }),
     })
   } catch (error) {
     console.error("Error submitting inspection:", error)
