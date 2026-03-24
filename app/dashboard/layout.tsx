@@ -26,6 +26,8 @@ import {
   Lock,
   Building2,
   Receipt,
+  Shield,
+  FlaskConical,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -107,7 +109,8 @@ export default function DashboardLayout({
 
   // Check if user is a Manager or Technician (they should be linked to an Admin)
   const isTeamMember = session?.user?.role === "MANAGER" || session?.user?.role === "USER"
-  
+  const isAdmin      = (session?.user as { role?: string })?.role === "ADMIN"
+
   // Check if user is on trial (free user)
   const isTrial = subscriptionStatus === "TRIAL"
 
@@ -128,6 +131,12 @@ export default function DashboardLayout({
     ...(isTeamMember ? [] : [{ icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" }]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
+    // Admin-only items — hidden from all non-ADMIN roles
+    ...(isAdmin ? [
+      { icon: Shield,       label: "Admin",        href: "/dashboard/admin",                adminOnly: true },
+      { icon: FlaskConical, label: "NIR Pilot",    href: "/dashboard/admin/pilot",           adminOnly: true },
+      { icon: Lock,         label: "Content Gate", href: "/dashboard/admin/content-gate",    adminOnly: true },
+    ] : []),
   ]
 
 const upgradeItem = {
@@ -187,7 +196,44 @@ const upgradeItem = {
 
                   {/* Navigation */}
                   <nav className="flex-1 overflow-y-auto py-4 px-2">
-                    {navItems.map((item) => {
+                    {navItems.map((item, index) => {
+                      // Insert divider + label before first admin-only item
+                      const isAdminItem = (item as { adminOnly?: boolean }).adminOnly
+                      const prevIsAdmin = (navItems[index - 1] as { adminOnly?: boolean } | undefined)?.adminOnly
+                      const adminDivider = isAdminItem && !prevIsAdmin ? (
+                        <div key="admin-divider" className="mt-2 mb-1 px-2">
+                          <div className="border-t border-neutral-200 dark:border-slate-700" />
+                          {sidebarOpen && (
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-2 mb-1 px-2">
+                              Admin
+                            </p>
+                          )}
+                        </div>
+                      ) : null
+
+                      // Admin items — rendered inline so we can prepend the divider as a fragment
+                      if (isAdminItem) {
+                        return (
+                          <span key={item.href}>
+                            {adminDivider}
+                            <Link
+                              href={item.href}
+                              className={cn(
+                                "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+                                pathname === item.href
+                                  ? "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400"
+                                  : "text-neutral-500 dark:text-slate-500 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
+                                "hover:scale-[1.02]"
+                              )}
+                              title={!sidebarOpen ? item.label : ""}
+                            >
+                              <item.icon size={18} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                              {sidebarOpen && <span className="text-sm">{item.label}</span>}
+                            </Link>
+                          </span>
+                        )
+                      }
+
                       // Special handling for "New Report" to check credits
                       if (item.label === "New Report") {
                         return (
