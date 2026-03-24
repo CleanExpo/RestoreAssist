@@ -702,6 +702,15 @@ export default function ReportsPage() {
                               {report.reportDepthLevel}
                             </span>
                           )}
+                          {report.interviewCompleted ? (
+                            <span className={cn("text-xs font-medium", "text-green-600 dark:text-green-400")} title="Interview completed">
+                              Interview ✓
+                            </span>
+                          ) : (
+                            <span className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>
+                              Interview —
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-3 sm:py-4 sm:px-6 hidden sm:table-cell">
@@ -737,27 +746,42 @@ export default function ReportsPage() {
                           >
                             <Edit size={16} />
                           </Link> */}
-                          <button
-                            onClick={() => {
-                              const jobType = report.hazardType === 'Fire' ? 'FIRE_DAMAGE'
-                                : report.hazardType === 'Storm' ? 'STORM_DAMAGE'
-                                : report.hazardType === 'Mould' ? 'MOULD_REMEDIATION'
-                                : 'WATER_DAMAGE'
-                              const params = new URLSearchParams({ reportId: report.id })
-                              if (jobType) params.set('jobType', jobType)
-                              if (report.propertyPostcode) params.set('postcode', report.propertyPostcode)
-                              router.push(`/dashboard/interviews/new?${params.toString()}`)
-                            }}
-                            className={cn(
-                              "p-1.5 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
-                              "hover:bg-neutral-100 dark:hover:bg-slate-700",
-                              "text-neutral-600 dark:text-slate-300",
-                              "hover:text-blue-600 dark:hover:text-blue-400"
-                            )}
-                            title="Start Interview"
-                          >
-                            <MessageSquare size={16} className="transition-transform duration-200 group-hover:scale-110" />
-                          </button>
+                          {report.interviewCompleted && report.interviewSessionId ? (
+                            <Link
+                              href={`/dashboard/forms/interview?sessionId=${report.interviewSessionId}`}
+                              className={cn(
+                                "p-1.5 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
+                                "hover:bg-neutral-100 dark:hover:bg-slate-700",
+                                "text-green-600 dark:text-green-400",
+                                "hover:text-green-700 dark:hover:text-green-300"
+                              )}
+                              title="View interview summary"
+                            >
+                              <MessageSquare size={16} className="transition-transform duration-200 group-hover:scale-110" />
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const jobType = report.hazardType === 'Fire' ? 'FIRE_DAMAGE'
+                                  : report.hazardType === 'Storm' ? 'STORM_DAMAGE'
+                                  : report.hazardType === 'Mould' ? 'MOULD_REMEDIATION'
+                                  : 'WATER_DAMAGE'
+                                const params = new URLSearchParams({ reportId: report.id })
+                                if (jobType) params.set('jobType', jobType)
+                                if (report.propertyPostcode) params.set('postcode', report.propertyPostcode)
+                                router.push(`/dashboard/interviews/new?${params.toString()}`)
+                              }}
+                              className={cn(
+                                "p-1.5 rounded transition-all duration-200 hover:scale-110 active:scale-95 hover:shadow-md group",
+                                "hover:bg-neutral-100 dark:hover:bg-slate-700",
+                                "text-neutral-600 dark:text-slate-300",
+                                "hover:text-blue-600 dark:hover:text-blue-400"
+                              )}
+                              title="Start interview"
+                            >
+                              <MessageSquare size={16} className="transition-transform duration-200 group-hover:scale-110" />
+                            </button>
+                          )}
                           <button
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}

@@ -14,7 +14,9 @@ export const metadata: Metadata = {
     title: 'About RestoreAssist - Restoration Software Leaders',
     description: 'Revolutionizing restoration reporting with AI-powered technology and IICRC compliance.',
     type: 'website',
+    images: [{ url: '/logo.png', width: 512, height: 512, alt: 'Restore Assist' }],
   },
+  alternates: { canonical: '/about' },
 }
 
 export default function AboutLayout({

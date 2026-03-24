@@ -82,20 +82,22 @@ export default function SignupPage() {
       if (response.ok) {
         toast.success("Account created successfully!")
         // Auto sign in after successful registration
-        const result = await signIn("credentials", {
+        const result = await signIn("contractor-credentials", {
           email,
           password,
           redirect: false,
+          callbackUrl: "/dashboard",
         })
 
         if (result?.ok) {
           toast.success("Welcome to Restore Assist!")
-          // Redirect to dashboard with onboarding - simplified flow for free users
-          router.push("/dashboard?onboarding=true")
+          // Redirect to dashboard with welcome param so we show personalization popup
+          window.location.href = "/dashboard?welcome=1"
         } else {
           toast.error("Please sign in manually")
+          // Send to login with callbackUrl=dashboard so after login they land on dashboard
           setTimeout(() => {
-            window.location.href = "/login"
+            window.location.href = "/login?callbackUrl=" + encodeURIComponent("/dashboard")
           }, 1000)
         }
       } else {
@@ -123,15 +125,15 @@ export default function SignupPage() {
       await new Promise(resolve => setTimeout(resolve, 100))
       
       // Sign in with NextAuth using credentials (email only, no password for Google users)
-      const signInResult = await signIn("credentials", {
+      const signInResult = await signIn("contractor-credentials", {
         email: googleUser.email || "",
-        password: "", // Empty password - our updated CredentialsProvider handles this
+        password: "", // Empty password - contractor-credentials handles Google users
         redirect: false,
       })
 
       if (signInResult?.ok) {
         toast.success("Welcome to Restore Assist!")
-        router.push("/dashboard")
+        router.push("/dashboard?welcome=1")
       } else {
         console.error("Sign in result:", signInResult)
         const errorMsg = signInResult?.error || "Failed to create session"

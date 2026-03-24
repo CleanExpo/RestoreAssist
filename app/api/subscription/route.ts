@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         totalCreditsUsed: true,
         lastBillingDate: true,
         nextBillingDate: true,
+        lifetimeAccess: true,
       }
     })
 
@@ -51,7 +52,9 @@ export async function GET(request: NextRequest) {
     // If owner has a Stripe subscription, get details from Stripe
     if (user.subscriptionId && user.stripeCustomerId) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId)
+        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId, {
+          expand: ['default_payment_method'],
+        })
         const price = await stripe.prices.retrieve(subscription.items.data[0].price.id)
 
         // Update database with latest subscription data (on owner's account)
@@ -68,19 +71,47 @@ export async function GET(request: NextRequest) {
           }
         })
 
+        // Optional: payment method details for display
+        let defaultPaymentMethod: { brand: string; last4: string } | null = null
+        const pm = subscription.default_payment_method
+        if (pm && typeof pm === 'object' && 'card' in pm && pm.card) {
+          const card = pm.card as { brand?: string; last4?: string }
+          defaultPaymentMethod = {
+            brand: card.brand || 'card',
+            last4: card.last4 || '••••',
+          }
+        }
+
+        // Optional: next invoice amount (upcoming invoice)
+        let nextInvoiceAmount: number | null = null
+        try {
+          const upcoming = await stripe.invoices.retrieveUpcoming({
+            customer: user.stripeCustomerId,
+            subscription: user.subscriptionId,
+          })
+          if (upcoming.amount_due != null) nextInvoiceAmount = upcoming.amount_due
+        } catch {
+          // No upcoming invoice or not applicable
+        }
+
         return NextResponse.json({
           subscription: {
             id: subscription.id,
             status: subscription.status,
+            created: subscription.created,
             currentPeriodStart: subscription.current_period_start,
             currentPeriodEnd: subscription.current_period_end,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            canceledAt: subscription.canceled_at ?? null,
             plan: {
               name: price.nickname || user.subscriptionPlan || 'Subscription',
               amount: price.unit_amount || 0,
               currency: price.currency,
               interval: price.recurring?.interval || 'month',
             },
+            defaultPaymentMethod: defaultPaymentMethod,
+            nextInvoiceAmount: nextInvoiceAmount,
+            stripeCustomerId: user.stripeCustomerId,
           },
         })
       } catch (stripeError) {
@@ -91,20 +122,22 @@ export async function GET(request: NextRequest) {
 
     // Return database subscription data (using effective subscription status)
     const effectiveStatus = effectiveSub.subscriptionStatus || user.subscriptionStatus
+    const isLifetime = user.lifetimeAccess || effectiveSub.subscriptionPlan === 'Lifetime'
     return NextResponse.json({
       subscription: effectiveStatus !== 'TRIAL' && effectiveStatus !== null ? {
-        id: user.subscriptionId,
+        id: user.subscriptionId || 'lifetime',
         status: effectiveStatus.toLowerCase(),
         currentPeriodStart: user.lastBillingDate ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000) : null,
         currentPeriodEnd: user.nextBillingDate ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000) : null,
-        cancelAtPeriodEnd: effectiveStatus === 'CANCELED',
+        cancelAtPeriodEnd: effectiveStatus === 'CANCELED' && !isLifetime,
         plan: {
-          name: effectiveSub.subscriptionPlan || user.subscriptionPlan || 'Subscription',
-          amount: 0,
+          name: isLifetime ? 'Lifetime' : (effectiveSub.subscriptionPlan || user.subscriptionPlan || 'Subscription'),
+          amount: isLifetime ? 22 : 0,
           currency: 'AUD',
-          interval: 'month',
+          interval: isLifetime ? 'one-time' : 'month',
         },
-      } : null
+      } : null,
+      lifetimeAccess: user.lifetimeAccess ?? false,
     })
   } catch (error) {
     console.error("Error fetching subscription:", error)

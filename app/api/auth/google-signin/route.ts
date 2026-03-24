@@ -113,10 +113,10 @@ export async function POST(request: NextRequest) {
         emailVerified: emailVerified ? new Date() : null,
         role: 'ADMIN',
         subscriptionStatus: 'TRIAL',
-        creditsRemaining: 3,
+        creditsRemaining: 30,
         totalCreditsUsed: 0,
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day trial
-        quickFillCreditsRemaining: 1,
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day trial
+        quickFillCreditsRemaining: 30,
         totalQuickFillUsed: 0
       },
       select: {

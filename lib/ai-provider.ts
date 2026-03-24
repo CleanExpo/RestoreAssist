@@ -99,50 +99,14 @@ export async function getLatestAIIntegration(userId: string): Promise<AIIntegrat
 }
 
 /**
- * Get the appropriate Anthropic API key based on user's subscription status
- * - For free users (TRIAL): uses ANTHROPIC_API_KEY from .env
- * - For upgraded users (ACTIVE): uses API key from integrations
- * 
- * @param userId - The user ID to check subscription status for
+ * Get the Anthropic API key for the user.
+ * Both trial and paid users must add their own API key in Integrations (no env fallback).
+ *
+ * @param userId - The user ID (uses org owner's integrations for team members)
  * @returns The Anthropic API key to use
  * @throws Error if no API key is available
  */
 export async function getAnthropicApiKey(userId: string): Promise<string> {
-  // Get user's subscription status
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      subscriptionStatus: true,
-      organizationId: true,
-      role: true
-    }
-  })
-
-  if (!user) {
-    throw new Error('User not found')
-  }
-
-  // Get effective subscription status (for team members, check Admin's status)
-  const effectiveUserId = await getEffectiveUserIdForIntegrations(userId)
-  const effectiveUser = await prisma.user.findUnique({
-    where: { id: effectiveUserId },
-    select: {
-      subscriptionStatus: true
-    }
-  })
-
-  const subscriptionStatus = effectiveUser?.subscriptionStatus || user.subscriptionStatus
-
-  // For free users (TRIAL), use environment variable
-  if (subscriptionStatus === 'TRIAL' || !subscriptionStatus) {
-    const envApiKey = process.env.ANTHROPIC_API_KEY
-    if (!envApiKey) {
-      throw new Error('ANTHROPIC_API_KEY is not configured in environment variables')
-    }
-    return envApiKey
-  }
-
-  // For upgraded users (ACTIVE), use API key from integrations
   const integrations = await getIntegrationsForUser(userId, {
     status: 'CONNECTED',
     nameContains: ['Anthropic', 'Claude']
@@ -155,7 +119,7 @@ export async function getAnthropicApiKey(userId: string): Promise<string> {
   )
 
   if (!integration?.apiKey) {
-    throw new Error('No connected Anthropic API integration found. Please connect an Anthropic API key in the Integrations page.')
+    throw new Error('Please add your Anthropic API key in Settings → Integrations to use AI features.')
   }
 
   return integration.apiKey

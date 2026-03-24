@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isDraft, isCancelled } from '@/lib/invoice-status'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -15,7 +17,7 @@ export async function GET(
 
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id
       },
       include: {
@@ -54,12 +56,6 @@ export async function GET(
         client: {
           select: { id: true, name: true, email: true, phone: true }
         },
-        contact: {
-          select: { id: true, fullName: true, email: true, phone: true }
-        },
-        company: {
-          select: { id: true, name: true }
-        },
         report: {
           select: { id: true, title: true, clientName: true }
         },
@@ -85,9 +81,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -96,7 +93,7 @@ export async function PUT(
     // Check if invoice exists and belongs to user
     const existing = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id
       }
     })
@@ -106,7 +103,7 @@ export async function PUT(
     }
 
     // Only allow updates to DRAFT invoices
-    if (existing.status !== 'DRAFT') {
+    if (!isDraft(existing.status)) {
       return NextResponse.json(
         { error: 'Only draft invoices can be edited' },
         { status: 400 }
@@ -207,12 +204,12 @@ export async function PUT(
       const invoice = await prisma.$transaction(async (tx) => {
         // Delete existing line items
         await tx.invoiceLineItem.deleteMany({
-          where: { invoiceId: params.id }
+          where: { invoiceId: id }
         })
 
         // Update invoice and create new line items
         const updated = await tx.invoice.update({
-          where: { id: params.id },
+          where: { id },
           data: {
             ...updateData,
             lineItems: {
@@ -229,7 +226,7 @@ export async function PUT(
         // Create audit log
         await tx.invoiceAuditLog.create({
           data: {
-            invoiceId: params.id,
+            invoiceId: id,
             userId: session.user.id,
             action: 'updated',
             description: `Invoice ${existing.invoiceNumber} updated`
@@ -244,7 +241,7 @@ export async function PUT(
       // Update invoice without line items
       const invoice = await prisma.$transaction(async (tx) => {
         const updated = await tx.invoice.update({
-          where: { id: params.id },
+          where: { id },
           data: updateData,
           include: {
             lineItems: {
@@ -256,7 +253,7 @@ export async function PUT(
         // Create audit log
         await tx.invoiceAuditLog.create({
           data: {
-            invoiceId: params.id,
+            invoiceId: id,
             userId: session.user.id,
             action: 'updated',
             description: `Invoice ${existing.invoiceNumber} updated`
@@ -279,9 +276,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -290,7 +288,7 @@ export async function DELETE(
     // Check if invoice exists and belongs to user
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id
       }
     })
@@ -300,7 +298,7 @@ export async function DELETE(
     }
 
     // Only allow deletion of DRAFT or CANCELLED invoices
-    if (invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
+    if (!isDraft(invoice.status) && !isCancelled(invoice.status)) {
       return NextResponse.json(
         { error: 'Only draft or cancelled invoices can be deleted' },
         { status: 400 }
@@ -309,7 +307,7 @@ export async function DELETE(
 
     // Delete invoice (cascade will handle related records)
     await prisma.invoice.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({

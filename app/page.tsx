@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
@@ -9,6 +9,8 @@ import MobileWorkflowCarousel from "@/components/landing/MobileWorkflowCarousel"
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [videoPlaying, setVideoPlaying] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     // Load fonts dynamically if not already loaded
@@ -256,6 +258,70 @@ export default function Home() {
             className="flex justify-center"
           >
             <MobileWorkflowCarousel darkMode={true} />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Video Section - RestoreAssist overview */}
+      <section className="py-20 px-6 relative transition-colors duration-300 bg-[#1C2E47] overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl h-full bg-[#8A6B4E]/10 rounded-full blur-3xl" />
+        </div>
+        <div className="max-w-4xl mx-auto relative z-10">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-3xl md:text-4xl font-bold mb-4 text-center text-white"
+            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+          >
+            See RestoreAssist in action
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-lg text-white/80 text-center mb-10"
+            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+          >
+            Watch the RestoreAssist front landing page overview.
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative w-full rounded-xl overflow-hidden shadow-2xl border border-white/10 aspect-video bg-black"
+          >
+            <video
+              ref={videoRef}
+              src="/sample.mp4"
+              controls
+              playsInline
+              className="w-full h-full object-contain"
+              preload="metadata"
+              onPlay={() => setVideoPlaying(true)}
+              onPause={() => setVideoPlaying(false)}
+              onEnded={() => setVideoPlaying(false)}
+            >
+              Your browser does not support the video tag.
+            </video>
+            {/* Centered play button overlay - hidden when video is playing */}
+            {!videoPlaying && (
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer z-10"
+                onClick={() => videoRef.current?.play()}
+                aria-label="Play video"
+              >
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/90 flex items-center justify-center shadow-xl hover:bg-white hover:scale-110 transition-all duration-200">
+                  <svg className="w-8 h-8 md:w-10 md:h-10 text-[#1C2E47] ml-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </section>

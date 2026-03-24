@@ -14,14 +14,21 @@ import {
   Clock,
   AlertCircle,
   Calendar,
-  Building2,
   User,
   CreditCard,
   RefreshCw,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import {
+  getEffectiveStatus,
+  getStatusConfig,
+  isDraft,
+  isCancelled,
+  type InvoiceStatus,
+} from '@/lib/invoice-status'
 
 interface LineItem {
   id: string
@@ -123,6 +130,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [creatingCheckout, setCreatingCheckout] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [showSyncMenu, setShowSyncMenu] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -284,16 +294,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const handleDelete = async () => {
     if (!invoiceId || !invoice) return
 
-    if (!confirm(`Are you sure you want to delete invoice ${invoice.invoiceNumber}?`)) {
-      return
-    }
-
+    setDeleting(true)
     try {
       const response = await fetch(`/api/invoices/${invoiceId}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
+        setShowDeleteDialog(false)
         toast.success('Invoice deleted successfully')
         router.push('/dashboard/invoices')
       } else {
@@ -303,12 +311,43 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     } catch (error) {
       console.error('Failed to delete invoice:', error)
       toast.error('An error occurred while deleting the invoice')
+    } finally {
+      setDeleting(false)
     }
   }
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (!invoiceId) return
-    window.open(`/api/invoices/${invoiceId}/pdf`, '_blank')
+    setGeneratingPdf(true)
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Failed to generate PDF (${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const win = window.open(url, '_blank', 'noopener,noreferrer')
+      if (win) {
+        win.focus()
+        toast.success('PDF opened in new tab. Use Ctrl+P (or Cmd+P) to print.')
+        // Revoke URL after a delay so the new window can load the PDF
+        setTimeout(() => URL.revokeObjectURL(url), 60000)
+      } else {
+        // Popup blocked: trigger download instead
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `invoice-${invoice?.invoiceNumber ?? invoiceId}.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success('PDF downloaded. Open the file to view or print (Ctrl+P).')
+      }
+    } catch (e: any) {
+      console.error('PDF generation error:', e)
+      toast.error(e?.message || 'Failed to generate PDF. Please try again.')
+    } finally {
+      setGeneratingPdf(false)
+    }
   }
 
   if (loading) {
@@ -337,33 +376,42 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      DRAFT: { bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-400', icon: Clock },
-      SENT: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', icon: Mail },
-      VIEWED: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', icon: FileText },
-      PARTIALLY_PAID: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', icon: DollarSign },
-      PAID: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', icon: CheckCircle },
-      OVERDUE: { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', icon: AlertCircle },
-      CANCELLED: { bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-400', icon: Clock }
-    }
+  const effectiveStatus = getEffectiveStatus({
+    status: invoice.status,
+    dueDate: invoice.dueDate,
+    amountDue: invoice.amountDue,
+  })
+  const statusConfig = getStatusConfig(effectiveStatus)
 
-    const style = styles[status as keyof typeof styles] || styles.DRAFT
-    const Icon = style.icon
-
-    return (
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${style.bg} ${style.text}`}>
-        <Icon className="h-4 w-4" />
-        <span className="text-sm font-medium">{status.replace(/_/g, ' ')}</span>
-      </div>
-    )
+  const statusIcons: Record<InvoiceStatus, React.ComponentType<{ className?: string }>> = {
+    DRAFT: Clock,
+    SENT: Mail,
+    VIEWED: FileText,
+    PARTIALLY_PAID: DollarSign,
+    PAID: CheckCircle,
+    OVERDUE: AlertCircle,
+    CANCELLED: Clock,
+    WRITTEN_OFF: AlertTriangle,
+    REFUNDED: RefreshCw,
   }
+  const StatusIcon = statusIcons[effectiveStatus] ?? FileText
 
-  const isDraft = invoice.status === 'DRAFT'
-  const canEdit = isDraft
-  const canDelete = isDraft || invoice.status === 'CANCELLED'
-  const canSend = isDraft
-  const canRecordPayment = invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED' && invoice.amountDue > 0
+  const getStatusBadge = () => (
+    <div
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusConfig.badgeClass}`}
+      title={statusConfig.description}
+    >
+      <StatusIcon className="h-4 w-4" />
+      <span className="text-sm font-medium">{statusConfig.label}</span>
+    </div>
+  )
+
+  const draft = isDraft(invoice.status)
+  const cancelled = isCancelled(invoice.status)
+  const canEdit = draft
+  const canDelete = draft || cancelled
+  const canSend = draft
+  const canRecordPayment = !draft && !cancelled && invoice.amountDue > 0
 
   return (
     <div className="space-y-6 pb-12">
@@ -414,7 +462,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               </button>
             </>
           )}
-          {!isDraft && (
+          {!draft && (
             <div className="relative">
               <button
                 onClick={() => setShowSyncMenu(!showSyncMenu)}
@@ -452,10 +500,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
           <button
             onClick={downloadPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
+            disabled={generatingPdf}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download className="h-4 w-4" />
-            <span>Download PDF</span>
+            {generatingPdf ? (
+              <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span>{generatingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
           </button>
           {canEdit && (
             <button
@@ -468,8 +521,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
           {canDelete && (
             <button
-              onClick={handleDelete}
+              onClick={() => setShowDeleteDialog(true)}
               className="p-2 hover:bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+              title="Delete invoice"
             >
               <Trash2 className="h-5 w-5" />
             </button>
@@ -479,7 +533,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Status Badge */}
       <div className="flex items-center gap-4 flex-wrap">
-        {getStatusBadge(invoice.status)}
+        {getStatusBadge()}
         {invoice.sentDate && (
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
             <Mail className="h-4 w-4" />
@@ -545,20 +599,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </h2>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
-                {invoice.company ? (
-                  <Building2 className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
-                ) : (
-                  <User className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
-                )}
+                <User className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
                 <div>
                   <div className="font-medium text-slate-900 dark:text-white">
                     {invoice.customerName}
                   </div>
-                  {invoice.company && invoice.contact && (
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
-                      {invoice.contact.fullName}
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -902,6 +947,61 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete invoice confirmation dialog */}
+      {showDeleteDialog && invoice && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !deleting && setShowDeleteDialog(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="delete-dialog-title" className="text-xl font-semibold text-red-600 dark:text-red-400">Delete invoice</h2>
+              <button
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300 mb-6">
+              Are you sure you want to delete invoice <strong className="text-slate-900 dark:text-white">{invoice.invoiceNumber}</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -247,11 +247,11 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
               </div>
             ) : connectedIntegrations.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  No connected integrations found
+                <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
+                  Coming Soon
                 </p>
                 <p className="text-sm text-gray-400 dark:text-gray-500">
-                  Connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora to import data
+                  Import from Xero, QuickBooks, MYOB, ServiceM8, or Ascora will be available soon.
                 </p>
               </div>
             ) : (

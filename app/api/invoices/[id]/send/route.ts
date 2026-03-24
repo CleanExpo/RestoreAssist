@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 import { generateInvoiceSentEmail } from '@/lib/invoices/email-templates'
+import { isDraft } from '@/lib/invoice-status'
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
@@ -51,7 +52,8 @@ export async function POST(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
 
-    if (invoice.status !== 'DRAFT' && invoice.status !== 'SENT') {
+    // Allow send from DRAFT (first send) or SENT (resend)
+    if (!isDraft(invoice.status) && invoice.status !== 'SENT') {
       return NextResponse.json(
         { error: 'Invoice cannot be sent in current status' },
         { status: 400 }

@@ -49,14 +49,20 @@ export default function DashboardPage() {
 
   const [showGuidedModal, setShowGuidedModal] = useState(false)
   const [guidedStep, setGuidedStep] = useState<'api' | 'pricing' | 'client' | 'report'>('api')
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const upgradeFlag = searchParams.get('upgrade')
       const upgradeSuccessFlag = searchParams.get('upgrade_success')
+      const welcomeFlag = searchParams.get('welcome')
       fetchSubscriptionStatus()
       fetchDashboardData()
       
+      // Show welcome/personalization popup after signup
+      if (welcomeFlag === '1') {
+        setTimeout(() => setShowWelcomeModal(true), 800)
+      }
       // Show guided modal if coming from successful payment
       if (upgradeSuccessFlag === 'true') {
         setTimeout(() => {
@@ -574,6 +580,89 @@ export default function DashboardPage() {
           </motion.div>
         </div>
       </main>
+
+      {/* Welcome / Personalization popup after signup */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 max-w-md w-full shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Make it yours</h2>
+              <button
+                onClick={() => {
+                  setShowWelcomeModal(false)
+                  router.replace('/dashboard')
+                }}
+                className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors text-neutral-600 dark:text-slate-300"
+                aria-label="Close"
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-neutral-600 dark:text-slate-400 mb-6">
+              Get the most out of Restore Assist by personalizing your experience: add your profile details, set up pricing, and connect your API in Integrations.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowWelcomeModal(false)
+                  router.push('/dashboard/settings')
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-neutral-200 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-slate-700 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-neutral-600 dark:text-slate-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-neutral-900 dark:text-white">Profile details</p>
+                  <p className="text-sm text-neutral-500 dark:text-slate-400">Add your name, company & preferences</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-neutral-400" />
+              </button>
+              <button
+                onClick={() => {
+                  setShowWelcomeModal(false)
+                  router.push('/dashboard/subscription')
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-neutral-200 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-slate-700 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-neutral-600 dark:text-slate-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-neutral-900 dark:text-white">Pricing</p>
+                  <p className="text-sm text-neutral-500 dark:text-slate-400">Choose your plan & billing</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-neutral-400" />
+              </button>
+              <button
+                onClick={() => {
+                  setShowWelcomeModal(false)
+                  router.push('/dashboard/integrations')
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-neutral-200 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-slate-700 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-neutral-600 dark:text-slate-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-neutral-900 dark:text-white">API integration</p>
+                  <p className="text-sm text-neutral-500 dark:text-slate-400">Connect your AI API key to generate reports</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-neutral-400" />
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setShowWelcomeModal(false)
+                router.replace('/dashboard')
+              }}
+              className="mt-6 w-full py-2.5 px-4 rounded-lg bg-neutral-200 dark:bg-slate-600 hover:bg-neutral-300 dark:hover:bg-slate-500 text-neutral-800 dark:text-slate-200 font-medium transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Guided Setup Modal (After Successful Payment) - Improved */}
       {showGuidedModal && (

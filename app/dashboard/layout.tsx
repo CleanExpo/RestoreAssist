@@ -23,14 +23,17 @@ import {
   FileSearch,
   ClipboardCheck,
   MessageSquare,
-  Lock,
   Building2,
   Receipt,
+  MessageCircle,
+  Calculator,
   Shield,
   FlaskConical,
+  Lock,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
+import toast from "react-hot-toast"
 import { NotificationBell } from "@/components/notifications"
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
@@ -109,33 +112,34 @@ export default function DashboardLayout({
 
   // Check if user is a Manager or Technician (they should be linked to an Admin)
   const isTeamMember = session?.user?.role === "MANAGER" || session?.user?.role === "USER"
-  const isAdmin      = (session?.user as { role?: string })?.role === "ADMIN"
+  const isAdmin = (session?.user as { role?: string })?.role === "ADMIN"
 
-  // Check if user is on trial (free user)
-  const isTrial = subscriptionStatus === "TRIAL"
-
+  // Free trial users get full sidebar access; they must add their own API key in Integrations
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: Plus, label: "New Report", href: "/dashboard/reports/new", highlight: true },
     { icon: FileText, label: "Reports", href: "/dashboard/reports" },
-    { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections", locked: isTrial },
-    { icon: Users, label: "Clients", href: "/dashboard/clients", locked: isTrial },
-    { icon: Receipt, label: "Invoices", href: "/dashboard/invoices", locked: isTrial },
-    { icon: Users, label: "Team", href: "/dashboard/team", locked: isTrial },
-    { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config", locked: isTrial },
-    { icon: Plug, label: "Integrations", href: "/dashboard/integrations", locked: isTrial },
-    { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics", locked: isTrial },
-    { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis", locked: isTrial },
-    { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews", locked: isTrial },
+    { icon: ClipboardCheck, label: "Inspections", href: "/dashboard/inspections" },
+    { icon: Users, label: "Clients", href: "/dashboard/clients" },
+    { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
+    { icon: FileText, label: "Restoration Documents", href: "/dashboard/restoration-documents" },
+    { icon: Users, label: "Team", href: "/dashboard/team" },
+    { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
+    { icon: Calculator, label: "Quote Generator", href: "/dashboard/quote" },
+    { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
+    { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
+    { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
+    { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
     // Hide Subscription for team members (Managers and Technicians)
     ...(isTeamMember ? [] : [{ icon: CreditCard, label: "Subscription", href: "/dashboard/subscription" }]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+    { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
-    // Admin-only items — hidden from all non-ADMIN roles
+    // Admin-only section — hidden from Managers and Technicians
     ...(isAdmin ? [
-      { icon: Shield,       label: "Admin",        href: "/dashboard/admin",                adminOnly: true },
-      { icon: FlaskConical, label: "NIR Pilot",    href: "/dashboard/admin/pilot",           adminOnly: true },
-      { icon: Lock,         label: "Content Gate", href: "/dashboard/admin/content-gate",    adminOnly: true },
+      { icon: Shield,        label: "Admin",         href: "/dashboard/admin",               adminOnly: true },
+      { icon: FlaskConical,  label: "NIR Pilot",     href: "/dashboard/admin/pilot",          adminOnly: true },
+      { icon: Lock,          label: "Content Gate",  href: "/dashboard/admin/content-gate",   adminOnly: true },
     ] : []),
   ]
 
@@ -197,11 +201,12 @@ const upgradeItem = {
                   {/* Navigation */}
                   <nav className="flex-1 overflow-y-auto py-4 px-2">
                     {navItems.map((item, index) => {
-                      // Insert divider + label before first admin-only item
-                      const isAdminItem = (item as { adminOnly?: boolean }).adminOnly
-                      const prevIsAdmin = (navItems[index - 1] as { adminOnly?: boolean } | undefined)?.adminOnly
-                      const adminDivider = isAdminItem && !prevIsAdmin ? (
-                        <div key="admin-divider" className="mt-2 mb-1 px-2">
+                      // Insert admin divider before the first adminOnly item
+                      const prevItem = navItems[index - 1] as { adminOnly?: boolean } | undefined
+                      const isFirstAdminItem = (item as { adminOnly?: boolean }).adminOnly && !prevItem?.adminOnly
+
+                      const divider = isFirstAdminItem ? (
+                        <div key={`divider-admin`} className="mt-2 mb-1 px-2">
                           <div className="border-t border-neutral-200 dark:border-slate-700" />
                           {sidebarOpen && (
                             <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-2 mb-1 px-2">
@@ -211,115 +216,80 @@ const upgradeItem = {
                         </div>
                       ) : null
 
-                      // Admin items — rendered inline so we can prepend the divider as a fragment
-                      if (isAdminItem) {
-                        return (
-                          <span key={item.href}>
-                            {adminDivider}
-                            <Link
-                              href={item.href}
-                              className={cn(
-                                "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
-                                pathname === item.href
-                                  ? "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400"
-                                  : "text-neutral-500 dark:text-slate-500 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
-                                "hover:scale-[1.02]"
-                              )}
-                              title={!sidebarOpen ? item.label : ""}
-                            >
-                              <item.icon size={18} className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
-                              {sidebarOpen && <span className="text-sm">{item.label}</span>}
-                            </Link>
-                          </span>
-                        )
-                      }
-
                       // Special handling for "New Report" to check credits
                       if (item.label === "New Report") {
                         return (
-                          <button
-                            key={item.href}
-                            onClick={async () => {
-                              // Check credits before navigating
-                              try {
-                                const response = await fetch('/api/reports/check-credits')
-                                if (response.ok) {
-                                  const data = await response.json()
-                                  if (!data.canCreate) {
-                                    // Show upgrade modal or redirect to pricing
-                                    router.push('/dashboard/pricing')
-                                    return
+                          <>
+                            {divider}
+                            <button
+                              key={item.href}
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/reports/check-credits')
+                                  if (response.ok) {
+                                    const data = await response.json()
+                                    if (!data.hasApiKey) {
+                                      toast.error('Please add your API key to create reports.')
+                                      router.push('/dashboard/integrations')
+                                      return
+                                    }
+                                    if (!data.canCreate) {
+                                      router.push('/dashboard/pricing')
+                                      return
+                                    }
                                   }
+                                  router.push(item.href)
+                                } catch (error) {
+                                  router.push(item.href)
                                 }
-                                // If credits available, navigate to new report page
-                                router.push(item.href)
-                              } catch (error) {
-                                console.error('Error checking credits:', error)
-                                // On error, still allow navigation (will be checked on the page)
-                                router.push(item.href)
-                              }
-                            }}
+                              }}
+                              className={cn(
+                                "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
+                                item.highlight
+                                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                                  : cn(
+                                      "text-neutral-700 dark:text-slate-300",
+                                      "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                      "hover:scale-[1.02] hover:shadow-md"
+                                    )
+                              )}
+                              title={!sidebarOpen ? item.label : ""}
+                            >
+                              <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
+                              {sidebarOpen && <span className="text-sm">{item.label}</span>}
+                            </button>
+                          </>
+                        )
+                      }
+                      return (
+                        <>
+                          {divider}
+                          <Link
+                            key={item.href}
+                            href={item.href}
                             className={cn(
-                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
-                              item.highlight
-                                ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                                : cn(
-                                    "text-neutral-700 dark:text-slate-300",
-                                    "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                                    "hover:scale-[1.02] hover:shadow-md"
+                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+                              (item as { adminOnly?: boolean }).adminOnly
+                                ? cn(
+                                    "text-neutral-500 dark:text-slate-500",
+                                    "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
+                                    pathname === item.href && "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
+                                    "hover:scale-[1.02]"
                                   )
+                                : item.highlight
+                                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                                  : cn(
+                                      "text-neutral-700 dark:text-slate-300",
+                                      "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                                      "hover:scale-[1.02] hover:shadow-md"
+                                    )
                             )}
                             title={!sidebarOpen ? item.label : ""}
                           >
                             <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
                             {sidebarOpen && <span className="text-sm">{item.label}</span>}
-                          </button>
-                        )
-                      }
-                      // Handle locked items
-                      if (item.locked) {
-                        return (
-                          <button
-                            key={item.href}
-                            onClick={() => router.push('/dashboard/pricing')}
-                            className={cn(
-                              "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left relative",
-                              "text-neutral-500 dark:text-slate-500",
-                              "opacity-60 cursor-not-allowed",
-                              "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
-                            )}
-                            title={!sidebarOpen ? `${item.label} - Upgrade to unlock` : "Upgrade to unlock"}
-                          >
-                            <item.icon size={20} className="flex-shrink-0" />
-                            {sidebarOpen && (
-                              <>
-                                <span className="text-sm flex-1">{item.label}</span>
-                                <Lock size={16} className="flex-shrink-0 text-amber-500" />
-                              </>
-                            )}
-                          </button>
-                        )
-                      }
-                      
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
-                            item.highlight
-                              ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                              : cn(
-                                  "text-neutral-700 dark:text-slate-300",
-                                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                                  "hover:scale-[1.02] hover:shadow-md"
-                                )
-                          )}
-                          title={!sidebarOpen ? item.label : ""}
-                        >
-                          <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
-                          {sidebarOpen && <span className="text-sm">{item.label}</span>}
-                        </Link>
+                          </Link>
+                        </>
                       )
                     })}
                     

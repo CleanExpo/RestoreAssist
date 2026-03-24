@@ -9,17 +9,16 @@
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build --webpack",
+    "prebuild": "npm install --force",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "dev": "next dev",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report"
+    "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
@@ -55,7 +54,6 @@
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
-    "@sentry/nextjs": "^10.36.0",
     "@stripe/stripe-js": "^8.1.0",
     "@supabase/supabase-js": "^2.86.0",
     "@tailwindcss/typography": "^0.5.19",

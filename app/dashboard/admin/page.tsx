@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Clock,
   RefreshCw,
+  BarChart2,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -248,7 +249,7 @@ export default function AdminDashboardPage() {
           <CardDescription>Common administrative tasks</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
@@ -280,6 +281,14 @@ export default function AdminDashboardPage() {
             >
               <Settings className="h-5 w-5" />
               <span className="text-sm">Settings</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2 border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
+              onClick={() => router.push('/dashboard/admin/pilot')}
+            >
+              <BarChart2 className="h-5 w-5" />
+              <span className="text-sm">NIR Pilot</span>
             </Button>
           </div>
         </CardContent>

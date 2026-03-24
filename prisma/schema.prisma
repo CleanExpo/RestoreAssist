@@ -78,6 +78,9 @@ model User {
   monthlyResetDate   DateTime? // Date when monthly usage resets
   signupBonusApplied Boolean?  @default(false) // Track if signup bonus has been applied
 
+  // One-time lifetime access (e.g. special $22 offer for specific users)
+  lifetimeAccess Boolean? @default(false)
+
   // Password management
   mustChangePassword Boolean? @default(false) // True if user needs to change temporary password
 
@@ -154,6 +157,51 @@ model User {
   recurringInvoices RecurringInvoice[] @relation("UserRecurringInvoices")
   invoiceSequences  InvoiceSequence[]  @relation("UserInvoiceSequences")
   invoiceAuditLogs  InvoiceAuditLog[]  @relation("UserInvoiceAuditLogs")
+
+  // User feedback (trial / product feedback)
+  feedback Feedback[]
+
+  // Restoration documentation (Australian-law invoices, estimates)
+  restorationDocuments RestorationDocument[]
+}
+
+model Feedback {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rating       Int?     // 1-5 or null
+  whatDoing    String?  @db.Text // What were you trying to do?
+  whatHappened String?  @db.Text // What happened? / Suggestion
+  page         String?  // Optional: page/URL when submitted
+
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Australian restoration documentation (tax invoices, estimates) — specific legal wording
+model RestorationDocument {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId        String?
+  report          Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  documentType    String   // "RESTORATION_INVOICE", "ESTIMATE", etc.
+  documentNumber  String   // e.g. INV-2026-0001
+  title           String?  // Optional display title
+
+  data            Json     // Full form payload for re-render and edit
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([userId, documentType])
+  @@index([createdAt])
 }
 
 model VerificationToken {
@@ -594,6 +642,12 @@ model Report {
 
   // Invoice relationships
   invoices Invoice[] @relation("InvoiceReport")
+
+  // Restoration documentation (tax invoices, estimates) linked to this report
+  restorationDocuments RestorationDocument[]
+
+  // Guided interview sessions (when started from report actions)
+  interviewSessions InterviewSession[]
 
   // Full-Text Search
   search_vector Unsupported("tsvector")?
@@ -2527,6 +2581,10 @@ model InterviewSession {
   userTierLevel        SubscriptionTierLevel
   technicianExperience String? // novice, experienced, expert
 
+  // Optional link to a Report (when started from reports listing)
+  reportId String?
+  report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
   // Relations
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   formTemplate FormTemplate        @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
@@ -2539,6 +2597,7 @@ model InterviewSession {
   @@index([status])
   @@index([createdAt])
   @@index([formTemplateId])
+  @@index([reportId])
 }
 
 model InterviewResponse {
@@ -3521,6 +3580,65 @@ model PaymentReminder {
 
   @@index([status, scheduledFor])
   @@index([invoiceId])
+}
+
+// ============================================
+// NIR PILOT MEASUREMENT
+// ============================================
+
+/**
+ * PilotObservation — stores individual data points collected during the
+ * Phase 2 pilot. Each observation contributes evidence toward promoting
+ * a HYPOTHESIS claim in lib/nir-evidence-architecture.ts to VALIDATED.
+ *
+ * Promotion is always manual (via a code PR) — this table provides the
+ * evidence trail and readiness evaluation that informs that decision.
+ *
+ * Foreign keys are stored as plain strings (no Prisma @relation) to
+ * avoid modifying the large User and Inspection models in this migration.
+ */
+model PilotObservation {
+  id String @id @default(cuid())
+
+  // Which HYPOTHESIS claim this observation contributes evidence toward
+  // Valid values: 'CLAIM-002', 'CLAIM-003', 'CLAIM-004', 'CLAIM-005', 'CLAIM-007'
+  claimId String
+
+  // Observation type — matches the measurementMethod in each claim's hypothesis
+  // 'cost_impact'           — CLAIM-002: per-claim cost (AUD)
+  // 'reinspection_event'    — CLAIM-003: 1 = re-inspection required, 0 = not required
+  // 'adjuster_session'      — CLAIM-004: review time in minutes
+  // 'technician_survey'     — CLAIM-005: ease-of-use rating 1–5
+  // 'cycle_time'            — CLAIM-007: claim open to scope-approval in business days
+  observationType String
+
+  // The measured numeric value (see observationType for units)
+  value Float
+
+  // 'nir' = using NIR format / process | 'control' = baseline / existing format
+  group String @default("nir")
+
+  // Optional: the inspection this observation is derived from
+  // Stored as plain string — no @relation to avoid Inspection model modification
+  inspectionId String?
+
+  // Who recorded this observation (session user ID at time of recording)
+  // Stored as plain string — no @relation to avoid User model modification
+  recordedByUserId String
+
+  // Optional structured context (e.g. adjuster name, company name, survey source)
+  context Json?
+
+  // Free-text notes — caveats, methodology notes, data quality flags
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+  @@index([observationType])
+  @@index([group])
+  @@index([inspectionId])
+  @@index([createdAt])
 }
 
 // ============================================

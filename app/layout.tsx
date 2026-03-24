@@ -4,7 +4,7 @@ import { Inter } from "next/font/google"
 import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
-import { OrganizationSchema } from "@/components/seo/JsonLd"
+import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: {
-    default: "Restore Assist - Professional Restoration Reports",
+    default: "Restore Assist - AI-Powered Restoration Reports for Australia",
     template: "%s | Restore Assist",
   },
   description:
@@ -29,13 +29,15 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Restore Assist" }],
   openGraph: {
-    title: "Restore Assist - Professional Restoration Reports",
+    title: "Restore Assist - AI-Powered Restoration Reports for Australia",
     description:
       "Generate comprehensive, legally defensible inspection reports backed by IICRC standards.",
     type: "website",
     locale: "en_AU",
     siteName: "Restore Assist",
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" }],
   },
+  alternates: { canonical: "/" },
   twitter: {
     card: "summary_large_image",
     title: "Restore Assist",
@@ -58,6 +60,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <OrganizationSchema />
+        <SoftwareApplicationSchema />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

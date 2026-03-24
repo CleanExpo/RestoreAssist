@@ -63,11 +63,34 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Map reports to include estimatedCost from estimate
-    const reportsWithCost = reports.map(report => ({
-      ...report,
-      estimatedCost: report.estimates?.[0]?.totalIncGST || report.estimatedCost || null
-    }))
+    const reportIds = reports.map((r) => r.id)
+    const completedSessions = reportIds.length > 0
+      ? await prisma.interviewSession.findMany({
+          where: {
+            reportId: { in: reportIds },
+            status: "COMPLETED",
+            userId: session.user.id
+          },
+          orderBy: { completedAt: "desc" },
+          select: { id: true, reportId: true }
+        })
+      : []
+    const sessionByReportId = new Map<string, string>()
+    for (const s of completedSessions) {
+      if (s.reportId && !sessionByReportId.has(s.reportId)) {
+        sessionByReportId.set(s.reportId, s.id)
+      }
+    }
+
+    const reportsWithCost = reports.map((report) => {
+      const sessionId = sessionByReportId.get(report.id)
+      return {
+        ...report,
+        estimatedCost: report.estimates?.[0]?.totalIncGST || report.estimatedCost || null,
+        interviewCompleted: !!sessionId,
+        interviewSessionId: sessionId ?? null
+      }
+    })
 
     const total = await prisma.report.count({ where })
 

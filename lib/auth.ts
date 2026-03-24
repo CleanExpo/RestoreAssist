@@ -13,6 +13,13 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly',
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     }),
     CredentialsProvider({
       id: "contractor-credentials",
@@ -216,7 +223,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.role = user.role
         token.mustChangePassword = user.mustChangePassword || false
@@ -224,6 +231,10 @@ export const authOptions: NextAuthOptions = {
         token.userType = user.userType || 'contractor'
         token.clientId = user.clientId || null
         token.contractorId = user.contractorId || null
+      }
+      if (account?.provider === 'google' && account.access_token) {
+        token.googleAccessToken = account.access_token
+        if (account.refresh_token) token.googleRefreshToken = account.refresh_token
       }
       return token
     },

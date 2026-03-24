@@ -17,6 +17,11 @@ import CompletionMetrics from "./components/CompletionMetrics"
 import MonthlyVolumeChart from "./components/MonthlyVolumeChart"
 import BillingOverview from "./components/BillingOverview"
 import ActivityFeed from "./components/ActivityFeed"
+import ExecutiveSummary from "./components/ExecutiveSummary"
+import StatusPipeline from "./components/StatusPipeline"
+import ActivityByDay from "./components/ActivityByDay"
+import PeriodComparison from "./components/PeriodComparison"
+import InsightsMovers from "./components/InsightsMovers"
 import { Users, UserCog, Wrench } from "lucide-react"
 
 interface AnalyticsData {
@@ -32,6 +37,35 @@ interface AnalyticsData {
   statePerformance: Array<{ state: string; value: number }>
   turnaroundTime: Array<{ hazard: string; hours: number }>
   topClients: Array<{ name: string; reports: number; revenue: string }>
+  statusDistribution?: Array<{ status: string; count: number; revenue: number }>
+  byDayOfWeek?: Array<{ day: string; dayNumber: number; reports: number; revenue: number }>
+  periodComparison?: {
+    current: { reports: number; revenue: number }
+    previous: { reports: number; revenue: number }
+    changes: { reports: string; revenue: string }
+  } | null
+}
+
+interface InsightsData {
+  summary: string
+  periodComparison?: {
+    currentReports: number
+    previousReports: number
+    currentRevenue: number
+    previousRevenue: number
+    revenueChangePct: number
+    reportChangePct: number
+  }
+  topHazard?: { name: string; count: number }
+  topGrowingClients?: Array<{
+    name: string
+    currentRevenue: number
+    currentReports: number
+    revenueChangePct: number
+    reportChangePct: number
+  }>
+  slowestHazards?: Array<{ hazard: string; avgHours: number; count: number }>
+  fastestHazards?: Array<{ hazard: string; avgHours: number; count: number }>
 }
 
 interface ProjectionData {
@@ -75,6 +109,7 @@ export default function AnalyticsPage() {
   const [projectionData, setProjectionData] = useState<ProjectionData | null>(null)
   const [completionData, setCompletionData] = useState<CompletionData | null>(null)
   const [activityFeedData, setActivityFeedData] = useState<ActivityFeedData | null>(null)
+  const [insightsData, setInsightsData] = useState<InsightsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'reports'>('revenue')
@@ -179,11 +214,16 @@ export default function AnalyticsPage() {
         activityFeedUrl.searchParams.set("limit", "50")
         if (filters.userId) activityFeedUrl.searchParams.set("userId", filters.userId)
 
-        const [analyticsRes, projectionsRes, completionRes, activityFeedRes] = await Promise.all([
+        const insightsUrl = new URL("/api/analytics/insights", window.location.origin)
+        insightsUrl.searchParams.set("dateRange", filters.dateRange)
+        if (filters.userId) insightsUrl.searchParams.set("userId", filters.userId)
+
+        const [analyticsRes, projectionsRes, completionRes, activityFeedRes, insightsRes] = await Promise.all([
           fetch(analyticsUrl),
           fetch(projectionsUrl),
           fetch(completionUrl),
           fetch(activityFeedUrl),
+          fetch(insightsUrl),
         ])
 
         if (!analyticsRes.ok) throw new Error("Failed to load analytics")
@@ -204,6 +244,13 @@ export default function AnalyticsPage() {
         if (activityFeedRes.ok) {
           const activityFeedJson = await activityFeedRes.json()
           setActivityFeedData(activityFeedJson)
+        }
+
+        if (insightsRes.ok) {
+          const insightsJson = await insightsRes.json()
+          setInsightsData(insightsJson)
+        } else {
+          setInsightsData(null)
         }
       } catch (err) {
         console.error("Error fetching analytics:", err)
@@ -386,9 +433,40 @@ export default function AnalyticsPage() {
               </div>
             )}
 
+            {/* Executive Summary - Next-level insight */}
+            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
+              <ExecutiveSummary
+                summary={insightsData?.summary ?? ""}
+                periodLabel={filters.dateRange === "7days" ? "Last 7 days" : filters.dateRange === "30days" ? "Last 30 days" : filters.dateRange === "90days" ? "Last 90 days" : "Year to date"}
+                loading={loading}
+              />
+            </div>
+
             {/* KPI Cards Section */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-100">
               <KPICards data={data?.kpis || null} />
+            </div>
+
+            {/* Period Comparison + Report Pipeline + Activity by Day */}
+            <div className="grid lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500 delay-125">
+              <PeriodComparison
+                data={data?.periodComparison ?? null}
+                currentLabel="This period"
+                previousLabel="Previous period"
+                loading={loading}
+              />
+              <StatusPipeline data={data?.statusDistribution ?? []} loading={loading} />
+              <ActivityByDay data={data?.byDayOfWeek ?? []} loading={loading} />
+            </div>
+
+            {/* Top Movers & Turnaround (from insights API) */}
+            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-150">
+              <InsightsMovers
+                topGrowingClients={insightsData?.topGrowingClients ?? []}
+                slowestHazards={insightsData?.slowestHazards ?? []}
+                fastestHazards={insightsData?.fastestHazards ?? []}
+                loading={loading}
+              />
             </div>
 
             {/* Billing Overview (Admin Only) */}

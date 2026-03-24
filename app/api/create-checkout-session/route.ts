@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { validateCsrf } from "@/lib/csrf"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { applyRateLimit } from "@/lib/rate-limiter"

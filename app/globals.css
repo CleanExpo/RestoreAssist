@@ -243,13 +243,16 @@ body {
     visibility: hidden;
   }
 
-  /* Show only the report content */
+  /* Show only the report or quote content */
   #visual-report-content,
-  #visual-report-content * {
+  #visual-report-content *,
+  #quote-print-content,
+  #quote-print-content * {
     visibility: visible;
   }
 
-  #visual-report-content {
+  #visual-report-content,
+  #quote-print-content {
     position: absolute;
     left: 0;
     top: 0;

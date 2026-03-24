@@ -20,6 +20,8 @@ interface InterviewCompletionSummaryProps {
   onContinue?: () => void
   onExport?: () => void
   showActions?: boolean
+  /** When true, Continue button shows loading and is disabled (e.g. saving to DB) */
+  isLoading?: boolean
 }
 
 /**
@@ -48,6 +50,7 @@ export function InterviewCompletionSummary({
   onContinue,
   onExport,
   showActions = true,
+  isLoading = false,
 }: InterviewCompletionSummaryProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
@@ -388,10 +391,19 @@ export function InterviewCompletionSummary({
           <Button 
             onClick={onContinue || (() => console.warn('Continue handler not provided'))} 
             className="gap-2 h-12 text-base font-semibold flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
-            disabled={!onContinue}
+            disabled={!onContinue || isLoading}
           >
-            <CheckCircle2 className="h-5 w-5" />
-            Create New Report with Auto-Populated Data
+            {isLoading ? (
+              <>
+                <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                Saving & opening inspection...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-5 w-5" />
+                Create auto population
+              </>
+            )}
           </Button>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { validateCsrf } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
 import { getUserReportLimits } from "@/lib/report-limits"
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
         monthlyReportsUsed: true,
         monthlyResetDate: true,
         organizationId: true,
+        lifetimeAccess: true,
       }
     })
 
@@ -72,9 +74,11 @@ export async function GET(request: NextRequest) {
           email: session.user.email!,
           image: session.user.image,
           subscriptionStatus: 'TRIAL',
-          creditsRemaining: 3,
+          creditsRemaining: 30,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day free trial
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day free trial
+          quickFillCreditsRemaining: 30,
+          totalQuickFillUsed: 0,
           stripeCustomerId: stripeCustomerId,
         },
         select: {
@@ -91,6 +95,8 @@ export async function GET(request: NextRequest) {
           subscriptionEndsAt: true,
           creditsRemaining: true,
           totalCreditsUsed: true,
+          quickFillCreditsRemaining: true,
+          totalQuickFillUsed: true,
           lastBillingDate: true,
           nextBillingDate: true,
           businessName: true,
@@ -102,14 +108,18 @@ export async function GET(request: NextRequest) {
         }
       })
 
+      const newTrialEndsAt = newUser.trialEndsAt ? new Date(newUser.trialEndsAt) : null
+      const newIsUnlimited = !newTrialEndsAt || new Date() <= newTrialEndsAt
       return NextResponse.json({ 
         profile: {
           ...newUser,
+          creditsRemaining: newIsUnlimited ? null : newUser.creditsRemaining,
           createdAt: newUser.createdAt.toISOString(),
           trialEndsAt: newUser.trialEndsAt?.toISOString(),
           subscriptionEndsAt: newUser.subscriptionEndsAt?.toISOString(),
           lastBillingDate: newUser.lastBillingDate?.toISOString(),
           nextBillingDate: newUser.nextBillingDate?.toISOString(),
+          trialStatus: newIsUnlimited ? { isTrialActive: true, daysRemaining: 30, hasTrialExpired: false, creditsRemaining: null, hasUnlimitedTrial: true } : null,
         }
       })
     }
@@ -157,10 +167,12 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Use effective subscription data for team members
     const subscriptionStatus = effectiveSub?.subscriptionStatus || user.subscriptionStatus
     const subscriptionPlan = effectiveSub?.subscriptionPlan || user.subscriptionPlan
-    const creditsRemaining = effectiveSub?.creditsRemaining ?? user.creditsRemaining
+    const trialEndsAtRaw = effectiveSub?.trialEndsAt ?? user.trialEndsAt
+    const trialEndsAt = trialEndsAtRaw ? new Date(trialEndsAtRaw) : null
+    const isTrialUnlimited = subscriptionStatus === 'TRIAL' && (!trialEndsAt || new Date() <= trialEndsAt)
+    const creditsRemaining = isTrialUnlimited ? null : (effectiveSub?.creditsRemaining ?? user.creditsRemaining)
 
     // Get report limits for active subscribers (use owner's account for team members)
     let reportLimits = null
@@ -182,6 +194,7 @@ export async function GET(request: NextRequest) {
       trialStatus = await getTrialStatus(user.id)
     }
 
+    const isLifetime = subscriptionPlan === 'Lifetime'
     return NextResponse.json({
       profile: {
         ...user,
@@ -189,6 +202,9 @@ export async function GET(request: NextRequest) {
         subscriptionStatus: trialStatus?.hasTrialExpired ? 'EXPIRED' : subscriptionStatus,
         subscriptionPlan: subscriptionPlan,
         creditsRemaining: creditsRemaining,
+        // Lifetime: no trial or billing dates
+        trialEndsAt: isLifetime ? null : user.trialEndsAt?.toISOString(),
+        nextBillingDate: isLifetime ? null : user.nextBillingDate?.toISOString(),
         // Override with Admin's business info for team members
         businessName: businessInfo.businessName,
         businessAddress: businessInfo.businessAddress,
@@ -199,19 +215,17 @@ export async function GET(request: NextRequest) {
         // Include organizationId to check if user is linked to Admin
         organizationId: user.organizationId,
         createdAt: user.createdAt.toISOString(),
-        trialEndsAt: user.trialEndsAt?.toISOString(),
         subscriptionEndsAt: user.subscriptionEndsAt?.toISOString(),
         lastBillingDate: user.lastBillingDate?.toISOString(),
-        nextBillingDate: user.nextBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
-        // Trial status info
-        trialStatus: trialStatus ? {
+        trialStatus: isLifetime ? null : (trialStatus ? {
           isTrialActive: trialStatus.isTrialActive,
           daysRemaining: trialStatus.daysRemaining,
           hasTrialExpired: trialStatus.hasTrialExpired,
-          creditsRemaining: trialStatus.creditsRemaining,
-        } : null,
+          creditsRemaining: isTrialUnlimited ? null : trialStatus.creditsRemaining,
+          hasUnlimitedTrial: isTrialUnlimited,
+        } : null),
       }
     })
   } catch (error) {

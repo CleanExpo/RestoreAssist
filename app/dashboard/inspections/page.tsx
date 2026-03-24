@@ -354,7 +354,7 @@ export default function InspectionsPage() {
                       {insp.environmentalData && (
                         <span className="flex items-center gap-1">
                           <Thermometer size={12} />
-                          {insp.environmentalData.ambientTemperature}°F / {insp.environmentalData.humidityLevel}%
+                          {insp.environmentalData.ambientTemperature}°C / {insp.environmentalData.humidityLevel}%
                         </span>
                       )}
                     </div>

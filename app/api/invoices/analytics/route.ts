@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  OUTSTANDING_STATUSES,
+  isDraft,
+  isOutstanding,
+  isExcludedFromRevenue,
+} from '@/lib/invoice-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate date ranges
     const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
@@ -21,9 +28,9 @@ export async function GET(request: NextRequest) {
     const [
       allInvoices,
       paidThisMonth,
-      overdueInvoices
+      overdueByDate
     ] = await Promise.all([
-      // All invoices for total revenue and outstanding
+      // All invoices for total revenue, outstanding, and draft total
       prisma.invoice.findMany({
         where,
         select: {
@@ -48,14 +55,13 @@ export async function GET(request: NextRequest) {
           totalIncGST: true
         }
       }),
-      // Overdue invoices
+      // Overdue: due date in the past, amount due > 0, outstanding status
       prisma.invoice.findMany({
         where: {
           ...where,
-          status: 'OVERDUE',
-          amountDue: {
-            gt: 0
-          }
+          dueDate: { lt: startOfToday },
+          amountDue: { gt: 0 },
+          status: { in: [...OUTSTANDING_STATUSES] }
         },
         select: {
           amountDue: true
@@ -63,23 +69,29 @@ export async function GET(request: NextRequest) {
       })
     ])
 
-    // Calculate metrics
+    // Calculate metrics from all invoices
     let totalRevenue = 0
     let outstanding = 0
+    let draftTotal = 0
 
     for (const invoice of allInvoices) {
-      // Total revenue includes all invoices except DRAFT and CANCELLED
-      if (invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
+      // Total revenue: all issued/sent invoices (exclude DRAFT and CANCELLED)
+      if (!isExcludedFromRevenue(invoice.status)) {
         totalRevenue += invoice.totalIncGST
       }
 
-      // Outstanding includes SENT, VIEWED, PARTIALLY_PAID, OVERDUE
-      if (['SENT', 'VIEWED', 'PARTIALLY_PAID', 'OVERDUE'].includes(invoice.status)) {
+      // Outstanding: sent/active invoices with amount due
+      if (isOutstanding(invoice.status)) {
         outstanding += invoice.amountDue
+      }
+
+      // Draft total: sum of draft invoice amounts (so stats reflect real data)
+      if (isDraft(invoice.status)) {
+        draftTotal += invoice.totalIncGST
       }
     }
 
-    const overdue = overdueInvoices.reduce((sum, inv) => sum + inv.amountDue, 0)
+    const overdue = overdueByDate.reduce((sum, inv) => sum + inv.amountDue, 0)
     const paidThisMonthTotal = paidThisMonth.reduce((sum, inv) => sum + inv.totalIncGST, 0)
 
     // Count invoices by status
@@ -115,7 +127,8 @@ export async function GET(request: NextRequest) {
         totalRevenue,
         outstanding,
         overdue,
-        paidThisMonth: paidThisMonthTotal
+        paidThisMonth: paidThisMonthTotal,
+        draftTotal
       },
       statusCounts,
       monthlyRevenue: monthlyRevenueFormatted
