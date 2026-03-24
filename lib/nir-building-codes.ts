@@ -3,9 +3,13 @@
  * Provides state-specific building code requirements for Australian states.
  * Based on National Construction Code (NCC) and state-specific regulations.
  *
- * v2.0: State data is now sourced from nir-jurisdictional-matrix.ts.
- * nirEngineFlags and activeTriggers are populated from the canonical matrix,
- * eliminating duplicate maintenance of state-specific data.
+ * v2.0: State data is sourced from nir-jurisdictional-matrix.ts.
+ *   nirEngineFlags and activeTriggers populated from the canonical matrix.
+ *
+ * v2.1 (Integration #2): Location services wired in.
+ *   getBuildingCodeRequirements() now auto-populates activeTriggers using
+ *   postcode-based property risk flags from nir-location-services.ts.
+ *   No call-site changes required.
  */
 
 import { detectStateFromPostcode } from '@/lib/state-detection'
@@ -14,6 +18,7 @@ import {
   getActiveTriggers,
   type JurisdictionTrigger,
 } from '@/lib/nir-jurisdictional-matrix'
+import { getPropertyLocationFlags, type PropertyLocationFlags } from '@/lib/nir-location-services'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -30,14 +35,21 @@ export interface BuildingCodeRequirements {
   notes: string | null
   /** NIR v2.0 — engine flags from nir-jurisdictional-matrix.ts */
   nirEngineFlags: string[]
-  /** NIR v2.0 — populated by checkBuildingCodeTriggers when context is provided */
-  activeTriggers?: JurisdictionTrigger[]
+  /** NIR v2.1 — auto-populated by getBuildingCodeRequirements via location services */
+  activeTriggers: JurisdictionTrigger[]
+  /** NIR v2.1 — postcode-derived property risk flags from nir-location-services.ts */
+  locationFlags?: PropertyLocationFlags
 }
 
 // ─── PUBLIC API ───────────────────────────────────────────────────────────────
 
 /**
  * Get building code requirements for a given postcode.
+ *
+ * v2.1: Now auto-populates activeTriggers and locationFlags using
+ * postcode-based property risk detection from nir-location-services.ts.
+ * Downstream consumers receive jurisdiction-specific triggers without
+ * needing to provide manual context.
  */
 export async function getBuildingCodeRequirements(
   postcode: string
@@ -45,7 +57,26 @@ export async function getBuildingCodeRequirements(
   try {
     const state = detectStateFromPostcode(postcode)
     if (!state) return null
-    return getStateBuildingCodeRequirements(state, postcode)
+
+    // Get static state requirements (moistureThreshold, nirEngineFlags, etc.)
+    const requirements = getStateBuildingCodeRequirements(state, postcode)
+
+    // Detect property-level risk flags from postcode
+    const locationFlags = getPropertyLocationFlags(postcode, state)
+
+    // Auto-populate activeTriggers from the jurisdictional matrix
+    const activeTriggers = getActiveTriggers(state, {
+      isFloodZone:      locationFlags.isFloodZone,
+      isBushfireProne:  locationFlags.isBushfireProne,
+      isCycloneZone:    locationFlags.isCycloneZone,
+      isHeritageListed: locationFlags.isHeritageListed,
+    })
+
+    return {
+      ...requirements,
+      activeTriggers,
+      locationFlags,
+    }
   } catch (error) {
     console.error('Error getting building code requirements:', error)
     return null
@@ -126,19 +157,26 @@ export function checkBuildingCodeTriggers(
     requiredActions.push('Lead paint assessment required (pre-1970 building)')
   }
 
-  // ── Jurisdiction-specific triggers (NIR v2.0) ────────────────────────────────
+  // ── Jurisdiction-specific triggers (NIR v2.1) ────────────────────────────────
+  // Use pre-populated activeTriggers from getBuildingCodeRequirements() if available,
+  // OR derive from optional jurisdictionContext if caller supplies it,
+  // OR fall back to empty (original behaviour when called without context).
   let jurisdictionTriggers: JurisdictionTrigger[] = []
 
   if (jurisdictionContext) {
+    // Caller-supplied context overrides — useful for manual flag override
     jurisdictionTriggers = getActiveTriggers(requirements.state, {
       ...jurisdictionContext,
       buildingYearBuilt: jurisdictionContext.buildingYearBuilt ?? inspectionData.buildingAge,
     })
+  } else if (requirements.activeTriggers.length > 0) {
+    // Use triggers already resolved by getBuildingCodeRequirements() + location services
+    jurisdictionTriggers = requirements.activeTriggers
+  }
 
-    for (const jt of jurisdictionTriggers) {
-      triggers.push(`[${jt.regulationRef}] ${jt.condition}`)
-      requiredActions.push(jt.requiredAction)
-    }
+  for (const jt of jurisdictionTriggers) {
+    triggers.push(`[${jt.regulationRef}] ${jt.condition}`)
+    requiredActions.push(jt.requiredAction)
   }
 
   return {
@@ -162,7 +200,9 @@ function getStateBuildingCodeRequirements(
   const stateUpper = state.toUpperCase()
   const jurisdictionConfig = getJurisdictionConfig(stateUpper)
 
-  // Base structure — overridden per-state below
+  // Base structure — overridden per-state below.
+  // activeTriggers is always [] here; getBuildingCodeRequirements() populates it
+  // via getActiveTriggers() after calling getPropertyLocationFlags().
   const base: BuildingCodeRequirements = {
     state: stateUpper,
     codeVersion: jurisdictionConfig?.primaryCode ?? 'NCC 2022',
@@ -175,6 +215,7 @@ function getStateBuildingCodeRequirements(
       ? `${jurisdictionConfig.regulatoryBody} requirements apply.`
       : null,
     nirEngineFlags: jurisdictionConfig?.nirEngineFlags ?? [],
+    activeTriggers: [],
   }
 
   switch (stateUpper) {
