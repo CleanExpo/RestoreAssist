@@ -187,7 +187,7 @@ export const S700_FIELD_MAP = {
   },
 
   /**
-   * Structural stability assessment
+   * Structural stability assessment (gate condition)
    * Source: IICRC S700 §8
    */
   structuralStability: {
@@ -195,6 +195,123 @@ export const S700_FIELD_MAP = {
     gateCondition: 'Structural stability must be assessed before restoration work proceeds',
     engineLogic: 'Require structural stability field completion before scope generation. Flag if stability is uncertain.',
     adjusterValue: 'Safety and liability risk managed before scope commitment.',
+  },
+
+  /**
+   * Safety assessment and site entry conditions (gate condition)
+   * Source: IICRC S700 §4 — Safety and health requirements
+   *
+   * Must be completed before technician enters the structure.
+   * Utility disconnection and PPE level are non-negotiable gates.
+   */
+  safetyAssessment: {
+    clauseRef: 'IICRC S700 §4',
+    gateCondition: 'Safety assessment must be completed before site entry and restoration work',
+    utilityRequirements: {
+      electrical: 'Disconnect or isolate before wet cleaning commences',
+      gas:        'Verify shutoff — gas leaks may persist post-fire',
+      water:      'Verify main shut off where structural damage may affect plumbing',
+    },
+    ppeRequirements: {
+      level1: { trigger: 'Dry smoke residue only, no structural damage', ppe: 'Gloves, P2 respirator, eye protection' },
+      level2: { trigger: 'Wet/protein smoke, limited structural damage', ppe: 'Full Tyvek suit, P3 respirator, gloves, eye protection' },
+      level3: { trigger: 'Fuel oil soot, significant structural damage, or asbestos suspect', ppe: 'Full encapsulating suit, supplied air, asbestos-rated respirator' },
+    },
+    engineLogic: 'Map residue type and structural condition to PPE level. Block scope generation if safety field is empty.',
+    adjusterValue: 'Site entry risk is documented and classified — reduces insurer liability.',
+  },
+
+  /**
+   * Odour severity classification
+   * Source: IICRC S700 §9 — Deodorisation
+   *
+   * Odour severity drives the deodorisation method selected.
+   * Must be recorded before scope is finalised.
+   */
+  odourSeverity: {
+    clauseRef: 'IICRC S700 §9',
+    scale: {
+      none:     { score: 0, label: 'No detectable odour', treatment: 'none' },
+      mild:     { score: 1, label: 'Faint odour, detectable on entry', treatment: 'ventilation + surface cleaning' },
+      moderate: { score: 2, label: 'Persistent odour in all rooms', treatment: 'hydroxyl or ozone treatment required' },
+      severe:   { score: 3, label: 'Overwhelming odour, HVAC permeated', treatment: 'thermal fogging + duct cleaning + encapsulant' },
+    },
+    engineLogic: 'Map recorded odour score to treatment method. Severity 3 triggers mandatory HVAC inspection line item.',
+    adjusterValue: 'Deodorisation scope is severity-matched, not added as a default line item.',
+  },
+
+  /**
+   * Deodorisation method selection
+   * Source: IICRC S700 §9 — Deodorisation methods and procedures
+   */
+  deodorisationMethod: {
+    clauseRef: 'IICRC S700 §9',
+    methods: {
+      ventilation: {
+        label: 'Ventilation and Source Removal',
+        indication: 'Mild odour; residue removal complete',
+        ozoneCompatible: false,
+        notes: 'First step for all odour severities — must be completed before chemical deodorisation.',
+      },
+      hydroxylGeneration: {
+        label: 'Hydroxyl Generation',
+        indication: 'Moderate odour; occupied or occupied-adjacent structures',
+        ozoneCompatible: false,
+        notes: 'Safe for occupied structures. Slower than ozone — allow 3–5 days continuous treatment.',
+      },
+      thermalFogging: {
+        label: 'Thermal Fogging',
+        indication: 'Severe odour; penetrant residues in porous materials',
+        ozoneCompatible: true,
+        notes: 'Requires evacuation. Fog penetrates same pathways as original smoke. Best paired with encapsulant.',
+      },
+      ozoneTreatment: {
+        label: 'Ozone Treatment',
+        indication: 'Severe to extreme odour; unoccupied structures only',
+        ozoneCompatible: false,
+        notes: 'UNOCCUPIED ONLY — ozone is hazardous to occupants and pets. 24hr clearance required post-treatment.',
+      },
+      encapsulation: {
+        label: 'Encapsulant Sealant',
+        indication: 'Residual odour after cleaning; porous structural materials',
+        ozoneCompatible: true,
+        notes: 'Applied after cleaning — seals residual smoke compounds in substrate. Not a substitute for cleaning.',
+      },
+    },
+    engineLogic: 'Recommend method based on odourSeverity score and occupancy status. Flag ozone selection if occupied.',
+    adjusterValue: 'Deodorisation method is linked to odour classification — defensible line item.',
+  },
+
+  /**
+   * Content pack-out and inventory assessment
+   * Source: IICRC S700 §7 — Affected items and content management
+   */
+  contentPackOut: {
+    clauseRef: 'IICRC S700 §7',
+    decisionMatrix: {
+      cleanOnSite:   { condition: 'Minor smoke exposure, non-porous items, low value', action: 'Clean in place — document per item' },
+      packOut:       { condition: 'High-value items, porous materials needing offsite treatment, space constraints', action: 'Inventory, tag, and pack for offsite restoration' },
+      totalLoss:     { condition: 'Structural damage to item, residue absorption beyond practical cleaning, health hazard', action: 'Document condition with photos, obtain insurer approval before disposal' },
+    },
+    engineLogic: 'Prompt technician with decision matrix for each content category. Generate pack-out inventory with item-level photos.',
+    adjusterValue: 'Content decisions are documented with rationale — reduces disputes on salvageability.',
+  },
+
+  /**
+   * Photo documentation standard
+   * Source: IICRC S700 §11 — Documentation requirements
+   */
+  photoDocumentation: {
+    clauseRef: 'IICRC S700 §11',
+    requirements: [
+      'Pre-restoration overview: all affected rooms, structural damage, smoke patterns',
+      'Residue type close-up: wet/dry/protein/fuel oil sample areas with scale reference',
+      'Content inventory: every item assessed for pack-out/total loss with condition photo',
+      'Post-cleaning verification: same angles as pre-restoration for before/after comparison',
+      'Deodorisation equipment placement: document method and equipment used',
+    ],
+    engineLogic: 'Auto-timestamp, geo-stamp, and sequence photos per S700 §11. Pre/post pairs required — flag if post-cleaning photos are missing.',
+    adjusterValue: 'Before/after photo pairs are the primary adjuster dispute-resolution tool.',
   },
 } as const
 
