@@ -39,3 +39,4 @@ nul
 /playwright-report/
 /test-results/
 .playwright/
+.env*.local

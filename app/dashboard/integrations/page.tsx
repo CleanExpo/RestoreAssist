@@ -40,7 +40,7 @@ const EXTERNAL_INTEGRATIONS: {
   category: 'bookkeeping' | 'jobmanagement'
   comingSoon?: boolean
 }[] = [
-  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', category: 'bookkeeping', comingSoon: true },
+  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', category: 'bookkeeping' },
   { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', category: 'bookkeeping', comingSoon: true },
   { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', category: 'bookkeeping', comingSoon: true },
   { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', category: 'jobmanagement', comingSoon: true },
