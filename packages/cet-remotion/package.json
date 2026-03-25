@@ -1,0 +1,26 @@
+{
+  "name": "@restoreassist/cet-remotion",
+  "version": "1.0.0",
+  "description": "Remotion compositions for RestoreAssist Client Education Terminal videos",
+  "private": true,
+  "main": "src/Root.tsx",
+  "scripts": {
+    "studio": "remotion studio src/Root.tsx",
+    "render:standard": "remotion render src/Root.tsx StandardSlide out/standard-slide.mp4",
+    "render:disclaimer": "remotion render src/Root.tsx DisclaimerFrame out/disclaimer.mp4",
+    "lambda:sites": "remotion lambda sites create src/Root.tsx --site-name=cet-remotion",
+    "lambda:functions": "remotion lambda functions deploy --memory=2048 --timeout=120 --region=ap-southeast-2"
+  },
+  "dependencies": {
+    "remotion": "^4.0.0",
+    "@remotion/lambda": "^4.0.0",
+    "@remotion/player": "^4.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}
