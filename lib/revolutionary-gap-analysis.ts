@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { extractTextFromPDF } from './file-extraction'
 import { retrieveRelevantStandards, buildStandardsContextPrompt, RetrievalQuery } from './standards-retrieval'
 import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
+import { selectClaudeModel } from './anthropic-models'
 
 export interface RevolutionaryGapAnalysisResult {
   fileName: string
@@ -493,7 +494,7 @@ Return JSON with this EXACT structure:
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: selectClaudeModel('premium'),
       max_tokens: 16384, // Maximum tokens for comprehensive analysis
       system: [createCachedSystemPrompt(comprehensiveSystemPrompt)],
       messages: [

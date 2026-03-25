@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { X, CheckCircle, Circle, ArrowRight, Sparkles, HelpCircle, Lightbulb, Zap, Building2, KeyRound, DollarSign, FileText, CreditCard } from "lucide-react"
+import { X, CheckCircle, Circle, ArrowRight, Sparkles, HelpCircle, Lightbulb, Zap, Building2, KeyRound, DollarSign, FileText, CreditCard, HardDrive, Bot } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 // @ts-ignore - canvas-confetti types
 import confetti from "canvas-confetti"
@@ -63,23 +63,37 @@ export default function OnboardingGuide({
   }, [isOnboarding, step])
 
   const steps = [
-    { 
-      number: 0, 
-      name: 'Business Profile', 
+    {
+      number: 0,
+      name: 'Business Profile',
       icon: Building2,
       route: '/dashboard/settings',
       description: 'Set up your business details'
     },
-    { 
-      number: 1, 
-      name: 'Pricing Setup', 
+    {
+      number: 1,
+      name: 'Google Drive Backup',
+      icon: HardDrive,
+      route: '/dashboard/integrations',
+      description: 'Connect Google Drive to backup inspection data'
+    },
+    {
+      number: 2,
+      name: 'AI Provider',
+      icon: Bot,
+      route: '/dashboard/integrations',
+      description: 'Add your Anthropic or Gemini API key'
+    },
+    {
+      number: 3,
+      name: 'Pricing Setup',
       icon: DollarSign,
       route: '/dashboard/pricing-config',
       description: 'Configure your rates'
     },
-    { 
-      number: 2, 
-      name: 'First Report', 
+    {
+      number: 4,
+      name: 'First Report',
       icon: FileText,
       route: '/dashboard/reports/new',
       description: 'Create your first report'

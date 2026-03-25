@@ -16,21 +16,43 @@ export interface ModelConfig {
 }
 
 /**
- * Get list of Claude models to try, ordered by preference
- * We try the latest models first, then fall back to stable versions
+ * RestoreAssist premium model IDs — locked, do not change without product approval.
+ * Users bring their own Anthropic API key (BYOK); these are the only two supported tiers.
  */
-export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
-  return [
-    // Latest Claude 4.5 models (2025)
-    { name: 'claude-sonnet-4-5-20250929', maxTokens }, // Latest Sonnet 4.5
-    { name: 'claude-opus-4-5-20251101', maxTokens }, // Latest Opus 4.5
+export const CLAUDE_MODELS = {
+  OPUS: 'claude-opus-4-6',    // Premium — complex reasoning, full NIR generation
+  SONNET: 'claude-sonnet-4-6' // Standard — fast tasks, classifications, summaries
+} as const
 
-    // Stable Claude 3.x fallbacks
-    { name: 'claude-3-5-sonnet-20241022', maxTokens }, // Claude 3.5 Sonnet
-    { name: 'claude-3-sonnet-20240229', maxTokens }, // Stable 3.0 Sonnet
-    { name: 'claude-3-opus-20240229', maxTokens: Math.min(maxTokens, 4096) }, // Stable 3.0 Opus
-    { name: 'claude-3-haiku-20240307', maxTokens }, // Fast, highly available
-  ]
+/**
+ * Task complexity tier.
+ * - 'standard': Structured extraction, summaries, classifications → Sonnet 4.6
+ * - 'premium':  Adversarial reasoning, 8K+ token output, PDF document analysis → Opus 4.6
+ */
+export type TaskComplexity = 'standard' | 'premium'
+
+/**
+ * Select the correct Claude model for a given task complexity.
+ * Use this everywhere instead of hardcoding model strings.
+ *
+ * Standard → Sonnet 4.6  (fast, cost-effective — use by default)
+ * Premium  → Opus 4.6    (deep reasoning — only when genuinely needed)
+ *
+ * Premium is required when ANY of the following apply:
+ *  - Analysing PDF/document content adversarially (claim analysis)
+ *  - Generating output > 6 000 tokens (full NIR reports, revolutionary gap analysis)
+ *  - Legal or compliance interpretation requiring multi-step reasoning
+ */
+export function selectClaudeModel(complexity: TaskComplexity): string {
+  return complexity === 'premium' ? CLAUDE_MODELS.OPUS : CLAUDE_MODELS.SONNET
+}
+
+/**
+ * Get a single-model list for tryClaudeModels, routed by complexity.
+ * No fallback chain — BYOK keys must have access to the requested tier.
+ */
+export function getClaudeModels(complexity: TaskComplexity = 'standard', maxTokens: number = 8000): ModelConfig[] {
+  return [{ name: selectClaudeModel(complexity), maxTokens }]
 }
 
 /**

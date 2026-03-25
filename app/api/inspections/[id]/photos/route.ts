@@ -33,31 +33,32 @@ export async function POST(
     const formData = await request.formData()
     const file = formData.get("file") as File
     const location = formData.get("location") as string | null
-    
+    const roomId = formData.get("roomId") as string | null
+
     if (!file) {
       return NextResponse.json(
         { error: "File is required" },
         { status: 400 }
       )
     }
-    
+
     // Upload to Cloudinary
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    
+
     const uploadResult = await uploadToCloudinary(buffer, {
       folder: `inspections/${id}`,
       resource_type: "image"
     })
-    
+
     if (!uploadResult.url) {
       return NextResponse.json(
         { error: "Failed to upload photo" },
         { status: 500 }
       )
     }
-    
-    // Create photo record
+
+    // Create photo record, linked to room if provided
     const photo = await prisma.inspectionPhoto.create({
       data: {
         inspectionId: id,
@@ -66,7 +67,8 @@ export async function POST(
         location: location || null,
         fileSize: file.size,
         mimeType: file.type,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...(roomId ? { roomId } : {}),
       }
     })
     
