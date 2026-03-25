@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import SessionProvider from "@/components/providers/SessionProvider"
+import { CapacitorProvider } from "@/components/providers/CapacitorProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
 import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
@@ -67,7 +68,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>{children}</SessionProvider>
+          <SessionProvider>
+            <CapacitorProvider>{children}</CapacitorProvider>
+          </SessionProvider>
         <Toaster
           position="top-right"
           toastOptions={{
