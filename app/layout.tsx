@@ -5,6 +5,7 @@ import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
 import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -67,6 +68,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ServiceWorkerRegistration />
           <SessionProvider>{children}</SessionProvider>
         <Toaster
           position="top-right"

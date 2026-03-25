@@ -94,6 +94,9 @@ model User {
   // Deepseek API Key (for Quick Fill functionality)
   deepseekApiKey String? @db.Text // Encrypted Deepseek API key for Quick Fill
 
+  // Inspection Layout Preference
+  inspectionLayout InspectionLayout @default(ROOM_FIRST)
+
   // Business Information
   businessName    String?
   businessAddress String?
@@ -1490,6 +1493,7 @@ model Inspection {
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
   usageEvents       UsageEvent[]       @relation("usageEvents")
+  rooms             Room[]
 
   // AI Assistant Tier (Phase 1 - Metering)
   totalUsageCost Float @default(0) // Cached total cost for this inspection
@@ -1573,6 +1577,10 @@ model MoistureReading {
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
+  // Room association (optional — legacy readings have no room)
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
   // Location & Surface
   location      String // Room/Zone identifier
   surfaceType   String // drywall, wood, carpet, concrete, etc.
@@ -1596,6 +1604,10 @@ model AffectedArea {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Room association (optional — legacy areas have no room)
+  roomId String? @unique
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   // Area Identification
   roomZoneId            String // Room/Zone identifier
@@ -1626,6 +1638,10 @@ model ScopeItem {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Room association (optional — legacy items have no room)
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   // Item Details
   itemType    String // remove_carpet, sanitize_materials, install_dehumidification, etc.
@@ -1927,6 +1943,10 @@ model InspectionPhoto {
   id           String     @id @default(cuid())
   inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Room association (optional — legacy photos have no room)
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   // Photo Details
   url          String // Cloudinary or S3 URL
@@ -3727,4 +3747,96 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// ─── Encircle-Class Field Documentation ──────────────────────────
+
+enum InspectionLayout {
+  ROOM_FIRST    // Room sidebar → per-room photo/moisture/scope tabs
+  TIMELINE      // Chronological capture: arrive → document → classify → submit
+  QUICK_CAPTURE // Camera-first, minimal data entry, auto-organised by GPS/time
+}
+
+enum RoomType {
+  MASTER_BEDROOM
+  BEDROOM
+  BATHROOM
+  ENSUITE
+  KITCHEN
+  LIVING_ROOM
+  FAMILY_ROOM
+  DINING_ROOM
+  LAUNDRY
+  HALLWAY
+  GARAGE
+  ATTIC
+  BASEMENT
+  CRAWL_SPACE
+  OFFICE
+  STUDY
+  OUTDOOR
+  ROOF_CAVITY
+  SUBFLOOR
+  STAIRWELL
+  OTHER
+}
+
+enum AnnotationType {
+  ARROW
+  CIRCLE
+  RECTANGLE
+  TEXT
+  FREEHAND
+  MEASUREMENT
+  DAMAGE_ZONE
+}
+
+model Room {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  name      String    // "Master Bedroom", "Kitchen", etc.
+  type      RoomType  @default(OTHER)
+  sortOrder Int       @default(0)
+
+  // Visual
+  thumbnailUrl String? // Auto-generated from first photo (Cloudinary/Drive thumbnail)
+
+  // Floor plan canvas state (Konva.js JSON serialisation)
+  floorPlanData String? @db.Text
+
+  // Dimensions (metres)
+  length Float?
+  width  Float?
+  height Float?
+
+  // Relations
+  photos           InspectionPhoto[]
+  moistureReadings MoistureReading[]
+  affectedArea     AffectedArea?
+  scopeItems       ScopeItem[]
+  annotations      RoomAnnotation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([inspectionId, sortOrder])
+}
+
+model RoomAnnotation {
+  id     String @id @default(cuid())
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  type    AnnotationType
+  data    String  @db.Text // JSON: { x, y, width, height, points, text, colour, strokeWidth }
+  photoId String? // If annotation is on a specific photo (null = on floor plan)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([roomId, photoId])
 }
