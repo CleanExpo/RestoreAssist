@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="myob-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6F2C91"/>
+      <stop offset="100%" stop-color="#4A1A6B"/>
+    </linearGradient>
+    <filter id="myob-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#4A1A6B" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#myob-bg)" filter="url(#myob-shadow)"/>
+  <rect x="1" y="1" width="62" height="32" rx="13" fill="white" fill-opacity="0.12"/>
+  <g transform="translate(32,32)">
+    <text x="0" y="2" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="16" fill="white" letter-spacing="-0.5">myob</text>
+    <rect x="-22" y="10" width="44" height="2.5" rx="1.25" fill="#E84C3D" opacity="0.9"/>
+  </g>
+</svg>

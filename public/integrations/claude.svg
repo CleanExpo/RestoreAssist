@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="claude-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D4A574"/>
+      <stop offset="100%" stop-color="#B8825E"/>
+    </linearGradient>
+    <filter id="claude-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#B8825E" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#claude-bg)" filter="url(#claude-shadow)"/>
+  <rect x="1" y="1" width="62" height="32" rx="13" fill="white" fill-opacity="0.15"/>
+  <g transform="translate(32,32)">
+    <circle cx="0" cy="-2" r="12" fill="none" stroke="white" stroke-width="2.5"/>
+    <circle cx="-4" cy="-4" r="2" fill="white"/>
+    <circle cx="4" cy="-4" r="2" fill="white"/>
+    <path d="M-5,2 Q0,7 5,2" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-8" y1="-10" x2="-5" y2="-8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="8" y1="-10" x2="5" y2="-8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

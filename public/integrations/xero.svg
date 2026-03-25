@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="xero-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1AB4D7"/>
+      <stop offset="100%" stop-color="#0E8EAD"/>
+    </linearGradient>
+    <filter id="xero-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0E8EAD" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#xero-bg)" filter="url(#xero-shadow)"/>
+  <rect x="1" y="1" width="62" height="32" rx="13" fill="white" fill-opacity="0.12"/>
+  <g transform="translate(32,32)" fill="white">
+    <g transform="translate(-18,0)">
+      <line x1="-5" y1="-5" x2="5" y2="5" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      <line x1="5" y1="-5" x2="-5" y2="5" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(-6,0)">
+      <circle cx="0" cy="0" r="5.5" fill="none" stroke="white" stroke-width="2.8"/>
+      <line x1="4" y1="4" x2="5" y2="5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(6,0)">
+      <path d="M-4.5,-5 L-4.5,5 M-4.5,-5 Q2,-5 2,0 Q2,2 -1,2" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(18,0)">
+      <circle cx="0" cy="0" r="5.5" fill="none" stroke="white" stroke-width="2.8"/>
+    </g>
+  </g>
+</svg>
