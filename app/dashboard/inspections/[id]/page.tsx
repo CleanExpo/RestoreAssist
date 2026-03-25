@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
+import { BluetoothMeterPanel } from "@/components/inspection/BluetoothMeterPanel"
 import {
   ArrowLeft,
   Loader2,
@@ -385,7 +386,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl">
+          <div className="max-w-2xl space-y-4">
             {inspection.environmentalData ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -426,12 +427,26 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             ) : (
               <div className="text-center py-12 text-neutral-400">No environmental data recorded</div>
             )}
+
+            {/* Bluetooth Thermo-Hygrometer Panel (Testo 605-H1, Vaisala HM70) */}
+            <BluetoothMeterPanel
+              inspectionId={id}
+              mode="environmental"
+              onReadingAccepted={fetchInspection}
+            />
           </div>
         )}
 
         {/* Moisture Readings Tab */}
         {activeTab === "moisture" && (
           <div className="space-y-4">
+            {/* Bluetooth Moisture Meter Panel (Tramex MEP, Delmhorst BD-2100, Tramex CMEXv5) */}
+            <BluetoothMeterPanel
+              inspectionId={id}
+              mode="moisture"
+              onReadingAccepted={fetchInspection}
+            />
+
             {inspection.moistureReadings.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
