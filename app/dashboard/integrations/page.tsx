@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Check, X, XIcon, Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
+import Image from "next/image"
 import ImportModal from "@/components/integrations/ImportModal"
 
 interface Integration {
@@ -37,14 +38,15 @@ const EXTERNAL_INTEGRATIONS: {
   name: string
   description: string
   icon: string
+  logo: string
   category: 'bookkeeping' | 'jobmanagement'
   comingSoon?: boolean
 }[] = [
-  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', category: 'bookkeeping' },
-  { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', category: 'bookkeeping', comingSoon: true },
-  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', category: 'bookkeeping', comingSoon: true },
-  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', category: 'jobmanagement', comingSoon: true },
-  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', category: 'jobmanagement' },
+  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', logo: '/integrations/xero.svg', category: 'bookkeeping' },
+  { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', logo: '/integrations/quickbooks.svg', category: 'bookkeeping', comingSoon: true },
+  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', logo: '/integrations/myob.svg', category: 'bookkeeping', comingSoon: true },
+  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', logo: '/integrations/servicem8.svg', category: 'jobmanagement', comingSoon: true },
+  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', logo: '/integrations/ascora.svg', category: 'jobmanagement' },
 ]
 
 interface SubscriptionStatus {
@@ -603,7 +605,9 @@ export default function IntegrationsPage() {
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-4">
-                        <div className="text-3xl">{integration.icon}</div>
+                        <div className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg shadow-black/10 dark:shadow-black/30 ring-1 ring-white/20">
+                          <Image src={integration.logo} alt={integration.name} width={48} height={48} className="object-contain" />
+                        </div>
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">{integration.name}</h3>
                           <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{integration.description}</p>
@@ -683,7 +687,7 @@ export default function IntegrationsPage() {
           <div className="mt-8">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
               <span>📋</span>
-              Job Management Systems (CRM's)
+              Job Management Systems (CRM&apos;s)
             </h2>
             <div className="grid md:grid-cols-3 gap-4">
               {EXTERNAL_INTEGRATIONS.filter(i => i.category === 'jobmanagement').map((integration) => {
@@ -699,7 +703,9 @@ export default function IntegrationsPage() {
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-4">
-                        <div className="text-3xl">{integration.icon}</div>
+                        <div className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg shadow-black/10 dark:shadow-black/30 ring-1 ring-white/20">
+                          <Image src={integration.logo} alt={integration.name} width={48} height={48} className="object-contain" />
+                        </div>
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">{integration.name}</h3>
                           <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{integration.description}</p>

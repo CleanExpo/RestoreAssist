@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="qb-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2CA01C"/>
+      <stop offset="100%" stop-color="#1A7A10"/>
+    </linearGradient>
+    <filter id="qb-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1A7A10" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#qb-bg)" filter="url(#qb-shadow)"/>
+  <rect x="1" y="1" width="62" height="32" rx="13" fill="white" fill-opacity="0.12"/>
+  <g transform="translate(32,32)">
+    <circle cx="-6" cy="0" r="13" fill="none" stroke="white" stroke-width="3" stroke-opacity="0.9"/>
+    <circle cx="6" cy="0" r="13" fill="none" stroke="white" stroke-width="3" stroke-opacity="0.9"/>
+    <rect x="-2" y="-10" width="3" height="20" rx="1.5" fill="white" fill-opacity="0.9"/>
+    <rect x="-1" y="-10" width="3" height="20" rx="1.5" fill="white" fill-opacity="0.9"/>
+  </g>
+</svg>
