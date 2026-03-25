@@ -163,6 +163,9 @@ model User {
 
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
+
+  // Client Education Terminal (CET) video library
+  videoLibrary VideoLibrary?
 }
 
 model Feedback {
@@ -3727,4 +3730,106 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLIENT EDUCATION TERMINAL (CET) — Video library, rendering, analytics
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum VideoStatus {
+  DRAFT       // Script written, not yet rendered
+  RENDERING   // Remotion Lambda render in progress
+  READY       // MP4 available, ready for playback
+  FAILED      // Render failed — can retry
+}
+
+enum VideoCategory {
+  PREFERRED_SUPPLIER_RIGHTS  // Cites ICA 1984 s.54, AFCA 7.2 — ships first, QR shareable
+  COMPANY_INTRO
+  CLAIM_PROCESS
+  POLICY_UNDERSTANDING
+  EQUIPMENT_EXPLAINER
+  SAFETY_BRIEF
+  TIMELINE_EXPECTATIONS
+  COMMON_QUESTIONS
+  INSURER_INTERACTION_TIPS
+  SCOPE_OF_WORKS_EXPLAINED
+}
+
+enum BrandingMode {
+  DEFAULT_RA  // RestoreAssist default branding (included in $99/month plan)
+  CUSTOM      // Company's own logo + colours (paid add-on)
+}
+
+/// One video library per RestoreAssist user (restoration company).
+/// Created automatically on first video creation.
+model VideoLibrary {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName        String
+  brandingMode       BrandingMode @default(DEFAULT_RA)
+  logoUrl            String?      // Cloudinary URL — used when brandingMode = CUSTOM
+  primaryColour      String?      // hex e.g. "#00B4D8" — used when brandingMode = CUSTOM
+  /// Whether analytics are enabled (add-on: $33/month)
+  isAnalyticsEnabled Boolean      @default(false)
+  /// Short token used by the CET Capacitor app to fetch the library (no auth)
+  cetToken           String?      @unique
+  videos             Video[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+/// A single CET video — one per VideoCategory per library.
+model Video {
+  id              String        @id @default(cuid())
+  libraryId       String
+  library         VideoLibrary  @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String        // URL-safe identifier e.g. "preferred-supplier-rights"
+  description     String?
+  category        VideoCategory
+  /// The script text with variable slots e.g. {{companyName}}, {{technicianName}}.
+  /// First two sentences are always the mandatory disclaimer.
+  scriptText      String        @db.Text
+  /// Cloudinary URL for ElevenLabs MP3 narration (generated before video render)
+  audioUrl        String?
+  /// Cloudinary URL for the rendered Remotion Lambda MP4
+  videoUrl        String?
+  thumbnailUrl    String?       // First-frame JPEG from Remotion render
+  durationSeconds Int?          // Estimated from word count at 130wpm; confirmed after render
+  status          VideoStatus   @default(DRAFT)
+  sortOrder       Int           @default(0)
+  /// If true, can be shared via QR code (public /watch/[shareToken] page).
+  /// PREFERRED_SUPPLIER_RIGHTS is shareable by default; others are internal only.
+  isShareable     Boolean       @default(false)
+  shareToken      String?       @unique  // nanoid(12) — used in QR code URL
+  /// JSON array of source URLs cited in this video's script (for audit trail)
+  contentSources  String?       @db.Text
+  views           VideoView[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([libraryId])
+  @@index([libraryId, category])
+  @@index([shareToken])
+  @@index([libraryId, sortOrder])
+}
+
+/// Anonymous viewing session logged by the CET Capacitor app.
+/// No PII collected — sessionId is a random UUID generated on the CET device.
+model VideoView {
+  id                String   @id @default(cuid())
+  videoId           String
+  video             Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  /// Random UUID from the CET device — not linked to any user account
+  sessionId         String
+  /// 0–100: percentage of video watched before stopping
+  completionPercent Int      @default(0)
+  deviceType        String?  // "ipad", "iphone", "android-tablet", "android-phone"
+  platform          String?  // "ios", "android", "web"
+  viewedAt          DateTime @default(now())
+
+  @@index([videoId])
+  @@index([videoId, viewedAt])
 }
