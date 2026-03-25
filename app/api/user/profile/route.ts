@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         monthlyResetDate: true,
         organizationId: true,
         lifetimeAccess: true,
+        inspectionLayout: true,
       }
     })
 
@@ -266,12 +267,16 @@ export async function PUT(request: NextRequest) {
     const businessABN = sanitizeString(body.businessABN, 20)
     const businessPhone = sanitizeString(body.businessPhone, 50)
     const businessEmail = sanitizeString(body.businessEmail, 320)
+    const inspectionLayout = ['ROOM_FIRST', 'TIMELINE', 'QUICK_CAPTURE'].includes(body.inspectionLayout)
+      ? body.inspectionLayout
+      : undefined
 
     // Build update data object
     const updateData: any = {}
-    
-    // All users can update their name
+
+    // All users can update their name and inspection layout preference
     if (name !== undefined) updateData.name = name
+    if (inspectionLayout !== undefined) updateData.inspectionLayout = inspectionLayout
     
     // Email updates (if needed in future)
     if (email !== undefined) {
@@ -332,6 +337,7 @@ export async function PUT(request: NextRequest) {
         businessEmail: true,
         role: true,
         organizationId: true,
+        inspectionLayout: true,
       }
     })
 

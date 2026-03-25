@@ -1,13 +1,15 @@
 "use client"
 
-import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2, CheckCircle, ArrowRight } from "lucide-react"
+import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2, CheckCircle, ArrowRight, LayoutGrid } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import OnboardingGuide from "@/components/OnboardingGuide"
 import WelcomeScreen from "@/components/WelcomeScreen"
+import LayoutPreferenceSelector from "@/components/inspection/LayoutPreferenceSelector"
 import { cn } from "@/lib/utils"
+import type { InspectionLayout } from "@/types/room"
 
 interface UserProfile {
   id: string
@@ -75,6 +77,8 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
+  const [inspectionLayout, setInspectionLayout] = useState<InspectionLayout>('ROOM_FIRST')
+  const [savingLayout, setSavingLayout] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
@@ -109,6 +113,9 @@ export default function SettingsPage() {
           businessPhone: data.profile.businessPhone || '',
           businessEmail: data.profile.businessEmail || ''
         })
+        if (data.profile.inspectionLayout) {
+          setInspectionLayout(data.profile.inspectionLayout as InspectionLayout)
+        }
       } else {
         // Fallback to session data
         setProfile({
@@ -269,6 +276,27 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSaveLayout = async (layout: InspectionLayout) => {
+    setInspectionLayout(layout)
+    setSavingLayout(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspectionLayout: layout }),
+      })
+      if (res.ok) {
+        toast.success('Layout preference saved')
+      } else {
+        toast.error('Failed to save layout preference')
+      }
+    } catch {
+      toast.error('Connection error')
+    } finally {
+      setSavingLayout(false)
+    }
+  }
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) {
@@ -390,7 +418,7 @@ export default function SettingsPage() {
       {/* Onboarding Guide - Contextual Sidebar */}
       <OnboardingGuide
         step={0}
-        totalSteps={3}
+        totalSteps={5}
         title="Business Profile Setup"
         description="Add your business information, logo, and contact details. This will appear on all your professional reports."
         value="Your business details will be automatically included in every report you generate, saving you time and ensuring consistency."
@@ -973,6 +1001,21 @@ export default function SettingsPage() {
                   </>
                 )}
             </div>
+          </div>
+
+          {/* Inspection Layout Preference */}
+          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50 bg-neutral-50 dark:bg-slate-800/30")}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={cn("text-xl font-semibold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+                <LayoutGrid className={cn("w-5 h-5", "text-neutral-700 dark:text-white")} />
+                Inspection Layout
+              </h2>
+              {savingLayout && <Loader2 className="w-4 h-4 animate-spin text-cyan-500" />}
+            </div>
+            <p className={cn("text-sm mb-4", "text-neutral-500 dark:text-slate-400")}>
+              Choose how inspections are presented during field documentation. You can also change this per-inspection.
+            </p>
+            <LayoutPreferenceSelector value={inspectionLayout} onChange={handleSaveLayout} />
           </div>
 
           {/* Security */}

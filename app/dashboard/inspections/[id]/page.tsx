@@ -1,10 +1,13 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
+import RoomNavigationSidebar from "@/components/inspection/RoomNavigationSidebar"
+import RoomWorkspace from "@/components/inspection/RoomWorkspace"
+import SyncStatusBar from "@/components/inspection/SyncStatusBar"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
 import {
   ArrowLeft,
@@ -25,9 +28,14 @@ import {
   Clock,
   XCircle,
   Map,
+  LayoutGrid,
+  X,
+  ChevronDown,
 } from "lucide-react"
+import type { Room, RoomType } from "@/types/room"
+import { ROOM_TYPE_LABELS } from "@/types/room"
 
-type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "rooms"
 
 interface Inspection {
   id: string
@@ -166,12 +174,29 @@ function moistureBg(level: number): string {
   return "bg-red-50 dark:bg-red-900/20"
 }
 
+const ROOM_TYPES: RoomType[] = [
+  "MASTER_BEDROOM","BEDROOM","BATHROOM","ENSUITE","KITCHEN",
+  "LIVING_ROOM","FAMILY_ROOM","DINING_ROOM","LAUNDRY","HALLWAY",
+  "GARAGE","ATTIC","BASEMENT","CRAWL_SPACE","OFFICE","STUDY",
+  "OUTDOOR","ROOF_CAVITY","SUBFLOOR","STAIRWELL","OTHER",
+]
+
 export default function InspectionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+
+  // Rooms state
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [roomsLoading, setRoomsLoading] = useState(false)
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null)
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'offline'>('synced')
+  const [showAddRoom, setShowAddRoom] = useState(false)
+  const [newRoomName, setNewRoomName] = useState("")
+  const [newRoomType, setNewRoomType] = useState<RoomType>("LIVING_ROOM")
+  const [addingRoom, setAddingRoom] = useState(false)
 
   useEffect(() => {
     fetchInspection()
@@ -196,6 +221,62 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  const fetchRooms = useCallback(async () => {
+    setRoomsLoading(true)
+    try {
+      const res = await fetch(`/api/inspections/${id}/rooms`)
+      if (res.ok) {
+        const data = await res.json()
+        setRooms(data.rooms ?? [])
+        if (!activeRoomId && data.rooms?.length > 0) {
+          setActiveRoomId(data.rooms[0].id)
+        }
+      }
+    } catch {
+      setSyncStatus('offline')
+    } finally {
+      setRoomsLoading(false)
+    }
+  }, [id, activeRoomId])
+
+  // Fetch rooms when Rooms tab is activated
+  useEffect(() => {
+    if (activeTab === "rooms") {
+      fetchRooms()
+    }
+  }, [activeTab, fetchRooms])
+
+  const handleAddRoom = async () => {
+    if (!newRoomName.trim()) return
+    setAddingRoom(true)
+    setSyncStatus('pending')
+    try {
+      const res = await fetch(`/api/inspections/${id}/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newRoomName.trim(), type: newRoomType }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setRooms(prev => [...prev, data.room])
+        setActiveRoomId(data.room.id)
+        setNewRoomName("")
+        setNewRoomType("LIVING_ROOM")
+        setShowAddRoom(false)
+        setSyncStatus('synced')
+        toast.success(`${data.room.name} added`)
+      } else {
+        toast.error("Failed to add room")
+        setSyncStatus('synced')
+      }
+    } catch {
+      toast.error("Connection error")
+      setSyncStatus('offline')
+    } finally {
+      setAddingRoom(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -210,6 +291,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const totalCost = inspection.costEstimates.reduce((sum, c) => sum + c.total, 0)
 
   const TABS: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
+    { key: "rooms", label: "Rooms", icon: LayoutGrid, count: rooms.length },
     { key: "overview", label: "Overview", icon: ClipboardCheck },
     { key: "environmental", label: "Environmental", icon: Thermometer },
     { key: "moisture", label: "Moisture", icon: Droplets, count: inspection.moistureReadings.length },
@@ -291,8 +373,96 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         ))}
       </div>
 
+      {/* Rooms Tab — full-height split layout */}
+      {activeTab === "rooms" && (
+        <div className="flex flex-col rounded-xl overflow-hidden border border-slate-700/50 bg-slate-900" style={{ height: 'calc(100vh - 280px)', minHeight: 400 }}>
+          <SyncStatusBar status={syncStatus} />
+          {roomsLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="animate-spin text-cyan-500" size={28} />
+            </div>
+          ) : (
+            <div className="flex-1 flex overflow-hidden">
+              <RoomNavigationSidebar
+                inspectionId={id}
+                rooms={rooms}
+                activeRoomId={activeRoomId}
+                onSelectRoom={setActiveRoomId}
+                onAddRoom={() => setShowAddRoom(true)}
+              />
+              <RoomWorkspace
+                room={rooms.find(r => r.id === activeRoomId) ?? null}
+                inspectionId={id}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Room Dialog */}
+      {showAddRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl mx-4">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-white">Add Room</h3>
+              <button
+                onClick={() => setShowAddRoom(false)}
+                className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-300 block mb-1.5">Room Name</label>
+                <input
+                  type="text"
+                  value={newRoomName}
+                  onChange={e => setNewRoomName(e.target.value)}
+                  placeholder="e.g. Master Bedroom"
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-sm"
+                  onKeyDown={e => e.key === 'Enter' && handleAddRoom()}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-300 block mb-1.5">Room Type</label>
+                <div className="relative">
+                  <select
+                    value={newRoomType}
+                    onChange={e => setNewRoomType(e.target.value as RoomType)}
+                    className="w-full appearance-none px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600/50 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-sm"
+                  >
+                    {ROOM_TYPES.map(type => (
+                      <option key={type} value={type}>{ROOM_TYPE_LABELS[type]}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setShowAddRoom(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-600/50 text-slate-300 hover:bg-slate-800 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddRoom}
+                  disabled={!newRoomName.trim() || addingRoom}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-cyan-500 text-white hover:bg-cyan-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {addingRoom ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Add Room
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Content */}
-      <div className="min-h-[400px]">
+      <div className={cn("min-h-[400px]", activeTab === "rooms" && "hidden")}>
         {/* Overview */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

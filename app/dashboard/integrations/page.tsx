@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import ImportModal from "@/components/integrations/ImportModal"
+import OnboardingGuide from "@/components/OnboardingGuide"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -63,6 +64,7 @@ export default function IntegrationsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isOnboarding = searchParams.get('onboarding') === 'true'
+  const onboardingStep = Number(searchParams.get('step') ?? '1')
   const successMessage = searchParams.get('success')
   const errorMessage = searchParams.get('error')
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -499,7 +501,18 @@ export default function IntegrationsPage() {
     }
   }
 
+  const onboardingStepLabel = onboardingStep === 1 ? 'Google Drive Backup' : 'AI Provider'
+  const onboardingStepDesc = onboardingStep === 1
+    ? 'Connect your Google Drive to enable automatic inspection data backup'
+    : 'Add your Anthropic (Claude) or Google (Gemini) API key to enable AI-powered features'
+
   return (
+    <OnboardingGuide
+      step={onboardingStep}
+      totalSteps={5}
+      title={onboardingStepLabel}
+      description={onboardingStepDesc}
+    >
     <div className="space-y-8">
 
       {/* ── Header ─────────────────────────────────── */}
@@ -963,5 +976,6 @@ export default function IntegrationsPage() {
         onImportComplete={() => { fetchExternalIntegrations() }}
       />
     </div>
+    </OnboardingGuide>
   )
 }

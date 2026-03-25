@@ -216,7 +216,8 @@ export async function callAIProvider(
 
     case 'gemini': {
       const genAI = new GoogleGenerativeAI(integration.apiKey)
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
+      // Use gemini-1.5-pro (supports multimodal + large context); falls back to flash variant
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' })
 
       let fullPrompt = prompt
       if (system) {
