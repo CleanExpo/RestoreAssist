@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
+import { MeterPhotoCapture } from "@/components/inspection/MeterPhotoCapture"
 import {
   ArrowLeft,
   Loader2,
@@ -385,7 +386,14 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl">
+          <div className="max-w-2xl space-y-4">
+            {/* Thermo-hygrometer photo OCR (Testo 605-H1, Vaisala HM70) */}
+            <MeterPhotoCapture
+              inspectionId={id}
+              mode="environmental"
+              onReadingAccepted={fetchInspection}
+            />
+
             {inspection.environmentalData ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -432,6 +440,12 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Moisture Readings Tab */}
         {activeTab === "moisture" && (
           <div className="space-y-4">
+            {/* Moisture meter photo OCR (Tramex MEP, Delmhorst BD-2100) */}
+            <MeterPhotoCapture
+              inspectionId={id}
+              mode="moisture"
+              onReadingAccepted={fetchInspection}
+            />
             {inspection.moistureReadings.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
@@ -469,7 +483,13 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Moisture Map Tab */}
         {activeTab === "moisture-map" && (
-          <div>
+          <div className="space-y-4">
+            {/* Laser distance measure photo OCR (Leica Disto, Bosch GLM) */}
+            <MeterPhotoCapture
+              inspectionId={id}
+              mode="measurement"
+              onReadingAccepted={fetchInspection}
+            />
             {inspection.moistureReadings.length > 0 ? (
               <MoistureMappingCanvas readings={inspection.moistureReadings} />
             ) : (
