@@ -7,7 +7,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { getAnthropicApiKey } from '@/lib/ai-provider'
-import { tryClaudeModels, getClaudeModels } from '@/lib/anthropic-models'
+import { tryClaudeModels, getClaudeModels, CLAUDE_MODELS, type TaskComplexity } from '@/lib/anthropic-models'
 import { createCachedSystemPrompt } from '@/lib/anthropic/features/prompt-cache'
 import type { AgentSlug, AIProviderType } from './types'
 
@@ -21,6 +21,7 @@ export interface AIBridgeParams {
     model?: string
     maxTokens?: number
     temperature?: number
+    complexity?: TaskComplexity
   }
 }
 
@@ -40,20 +41,20 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
   const { userId, systemPrompt, userPrompt, overrides } = params
   const provider = overrides?.provider ?? 'anthropic'
   const maxTokens = overrides?.maxTokens ?? 8000
+  const complexity: TaskComplexity = overrides?.complexity ?? 'standard'
 
   if (provider === 'local') {
     throw new Error('Local agents do not use the AI bridge')
   }
 
-  // Currently only Anthropic is wired up via the existing infrastructure
   const apiKey = await getAnthropicApiKey(userId)
   const client = new Anthropic({ apiKey })
 
+  // Explicit model override takes priority; otherwise route by complexity
   const models = overrides?.model
     ? [{ name: overrides.model, maxTokens }]
-    : getClaudeModels(maxTokens)
+    : getClaudeModels(complexity, maxTokens)
 
-  // Use prompt caching for cost optimization (90% savings on cache hits)
   const response = await tryClaudeModels(client, {
     system: [createCachedSystemPrompt(systemPrompt)],
     messages: [{ role: 'user', content: userPrompt }],
@@ -72,8 +73,11 @@ export async function callAI(params: AIBridgeParams): Promise<AIBridgeResult> {
   const outputTokens = response.usage?.output_tokens ?? 0
   const totalTokens = inputTokens + outputTokens
 
-  // Rough cost estimate (Claude 3 Sonnet pricing)
-  const cost = (inputTokens * 0.003 + outputTokens * 0.015) / 1000
+  // Rough cost estimate (Sonnet 4.6 pricing; Opus 4.6 is ~5× higher)
+  const isOpus = models[0]?.name === CLAUDE_MODELS.OPUS
+  const cost = isOpus
+    ? (inputTokens * 0.015 + outputTokens * 0.075) / 1000
+    : (inputTokens * 0.003 + outputTokens * 0.015) / 1000
 
   return {
     text,

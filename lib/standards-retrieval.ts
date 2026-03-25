@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { listDriveItems, downloadDriveFile, searchDriveFiles, getStandardsFolderId, DriveFile } from './google-drive'
 import { extractTextFromPDF, extractTextFromDOCX, extractTextFromTXT } from './file-extraction'
 import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
+import { selectClaudeModel } from './anthropic-models'
 
 export interface StandardsContext {
   documents: Array<{
@@ -244,7 +245,7 @@ Be thorough but precise. Each extracted section should be directly usable in the
 
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: selectClaudeModel('standard'),
       max_tokens: 4000,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
@@ -345,7 +346,7 @@ Analyse this folder structure and identify the most relevant standards documents
 
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: selectClaudeModel('standard'),
       max_tokens: 4000,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [

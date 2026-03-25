@@ -65,6 +65,23 @@ export interface ClassificationResult {
   timeEscalationApplied: boolean
   /** IICRC S500 edition cited — sourced from STANDARDS_VERSIONS.S500.edition */
   iicrcEdition: string
+  /**
+   * True when the water source is weather-related (storm, flood, wind-driven rain).
+   * Per ANSI/IICRC S500 §10.4.1 Position Statement: these are NOT automatically Cat 3.
+   * Category must be confirmed via inspection — see requiresPreliminaryDetermination.
+   */
+  weatherRelatedEvent: boolean
+  /**
+   * True when the category cannot be confirmed without a site inspection.
+   * Applies to weather-related events and ambiguous sources.
+   * Per S500 §10.6.7: preliminary determination requires inspection + info gathering.
+   */
+  requiresPreliminaryDetermination: boolean
+  /**
+   * Checklist of information the restorer must gather on-site per S500 §10.5
+   * before finalising the category. Only populated when requiresPreliminaryDetermination is true.
+   */
+  informationGatheringChecklist: string[]
 }
 
 // ─── MOISTURE ASSESSMENT ─────────────────────────────────────────────────────
@@ -132,21 +149,73 @@ export async function classifyIICRC(input: ClassificationInput): Promise<Classif
   let category = '1'
   let categoryJustification = ''
   let timeEscalationApplied = false
+  let weatherRelatedEvent = false
+  let requiresPreliminaryDetermination = false
+  let informationGatheringChecklist: string[] = []
 
   const waterSourceLower = input.waterSource.toLowerCase()
 
-  if (
-    waterSourceLower.includes('black') ||
+  // Detect weather-related sources per ANSI/IICRC S500 §10.4.1 Position Statement.
+  // These must NOT be auto-classified as Category 3 without inspection evidence
+  // of "grossly contaminated" conditions (S500 §12.2.6).
+  const isWeatherRelated =
+    waterSourceLower.includes('storm') ||
+    waterSourceLower.includes('flood') ||
+    waterSourceLower.includes('wind-driven') ||
+    waterSourceLower.includes('wind driven') ||
+    waterSourceLower.includes('river') ||
+    waterSourceLower.includes('seawater') ||
+    waterSourceLower.includes('sea water') ||
+    waterSourceLower.includes('rising water') ||
+    waterSourceLower.includes('weather') ||
+    waterSourceLower.includes('hurricane') ||
+    waterSourceLower.includes('cyclone') ||
+    waterSourceLower.includes('tropical storm') ||
+    waterSourceLower.includes('external flooding') ||
+    waterSourceLower.includes('overland flow')
+
+  // Explicit contamination signals that override the weather-related rule
+  const isExplicitlyContaminated =
     waterSourceLower.includes('sewage') ||
-    waterSourceLower.includes('contaminated') ||
     waterSourceLower.includes('faecal') ||
-    waterSourceLower.includes('fecal')
-  ) {
+    waterSourceLower.includes('fecal') ||
+    waterSourceLower.includes('black water') ||
+    waterSourceLower.includes('blackwater') ||
+    waterSourceLower.includes('grossly contaminated') ||
+    waterSourceLower.includes('pathogenic') ||
+    waterSourceLower.includes('wasteline')
+
+  if (isExplicitlyContaminated || waterSourceLower.includes('black')) {
     category = '3'
     const def = waterCategory.definitions.category3
     categoryJustification =
       `${def.label}: ${def.source}. ` +
       `Containment: REQUIRED. PPE: REQUIRED (${waterCategory.clauseRef}).`
+  } else if (isWeatherRelated) {
+    // ANSI/IICRC S500 §10.4.1 Position Statement compliance:
+    // Wind-driven rain, storm water and weather-related events are NOT automatically
+    // Category 3. The "can" in the S500 definition establishes these as a possibility,
+    // not a standard of care. Category requires inspection to confirm gross contamination.
+    weatherRelatedEvent = true
+    requiresPreliminaryDetermination = true
+    category = '2' // Conservative pending inspection — may be 1 or 3 after assessment
+    categoryJustification =
+      `Weather-related intrusion. Per ANSI/IICRC S500 §10.4.1 Position Statement, ` +
+      `wind-driven rain and weather events are not automatically Category 3. ` +
+      `Preliminary determination requires site inspection to confirm whether water ` +
+      `is grossly contaminated (S500 §10.6.7). Category 2 applied pending assessment.`
+    informationGatheringChecklist = [
+      'Verify source, date and time of water intrusion (S500 §10.5)',
+      'Confirm status of water source control',
+      'Identify suspect or known contaminants on-site',
+      'Assess general size of affected areas (number of rooms, floors)',
+      'Review history of previous water damage to structure',
+      'Note types of materials affected (flooring, walls, framing)',
+      'Conduct site-specific safety survey (S500 §10.6)',
+      'Check for visible mold growth — if found, refer to ANSI/IICRC S520',
+      'Determine if occupants are high-risk (elderly, infants, immunocompromised)',
+      'Assess whether contaminants have been aerosolised — IEP may be required (S500 §12.2.6)',
+    ]
   } else if (
     waterSourceLower.includes('grey') ||
     waterSourceLower.includes('gray') ||
@@ -168,10 +237,12 @@ export async function classifyIICRC(input: ClassificationInput): Promise<Classif
     const def = waterCategory.definitions.category1
     categoryJustification = `${def.label}: ${def.source} (${waterCategory.clauseRef}).`
   } else {
-    // Conservative default — grey water
+    // Conservative default — grey water, inspection recommended
     category = '2'
+    requiresPreliminaryDetermination = true
     categoryJustification =
-      `Water source unclear. Defaulting to Category 2 (grey water) per ${waterCategory.clauseRef}.`
+      `Water source unclear. Defaulting to Category 2 (grey water) per ${waterCategory.clauseRef}. ` +
+      `Inspection recommended to confirm category (S500 §10.6.7).`
   }
 
   clauseRefs.push(waterCategory.clauseRef)
@@ -235,7 +306,8 @@ export async function classifyIICRC(input: ClassificationInput): Promise<Classif
   clauseRefs.push(dryingEquipment.clauseRef)
 
   // ── Confidence ───────────────────────────────────────────────────────────────
-  let confidence = 85
+  // Weather-related events start at 60% — category is inspection-dependent per S500 §10.6.7
+  let confidence = weatherRelatedEvent ? 60 : 85
 
   if (input.moistureReadings.length >= 3) confidence += 5
   if (input.environmentalData?.ambientTemperature && input.environmentalData?.humidityLevel) {
@@ -249,6 +321,8 @@ export async function classifyIICRC(input: ClassificationInput): Promise<Classif
   ) {
     confidence -= 10
   }
+  // Reduce further when preliminary determination is required — category may change on inspection
+  if (requiresPreliminaryDetermination) confidence -= 10
 
   confidence = Math.min(100, Math.max(0, confidence))
 
@@ -264,5 +338,8 @@ export async function classifyIICRC(input: ClassificationInput): Promise<Classif
     moistureAssessments,
     timeEscalationApplied,
     iicrcEdition: STANDARDS_VERSIONS.S500.edition,
+    weatherRelatedEvent,
+    requiresPreliminaryDetermination,
+    informationGatheringChecklist,
   }
 }

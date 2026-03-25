@@ -2,11 +2,20 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { prisma } from './prisma'
-import { tryClaudeModels } from './anthropic-models'
+import { tryClaudeModels, getClaudeModels, type TaskComplexity } from './anthropic-models'
 import { getOrganizationOwner } from './organization-credits'
 import { createCachedSystemPrompt } from './anthropic/features/prompt-cache'
 
 export type AIProvider = 'anthropic' | 'openai' | 'gemini'
+
+/**
+ * RestoreAssist premium Gemini model IDs — locked, do not change without product approval.
+ * Users bring their own Google AI API key (BYOK); these are the only two supported tiers.
+ */
+export const GEMINI_MODELS = {
+  PRO:   'gemini-3.1-pro-preview', // Premium — complex reasoning, large context
+  FLASH: 'gemini-3-flash-preview',  // Standard — fast tasks, real-time classification
+} as const
 
 export interface AIIntegration {
   id: string
@@ -135,9 +144,10 @@ export async function callAIProvider(
     prompt: string
     maxTokens?: number
     temperature?: number
+    complexity?: TaskComplexity
   }
 ): Promise<string> {
-  const { system, prompt, maxTokens = 16000, temperature = 0.7 } = options
+  const { system, prompt, maxTokens = 16000, temperature = 0.7, complexity = 'standard' } = options
 
   switch (integration.provider) {
     case 'anthropic': {
@@ -152,8 +162,6 @@ export async function callAIProvider(
         }
       ]
 
-      // Use tryClaudeModels for automatic fallback to working models
-      // Use prompt caching for cost optimization (90% savings on cache hits)
       const response = await tryClaudeModels(
         anthropic,
         {
@@ -161,7 +169,7 @@ export async function callAIProvider(
           messages,
           max_tokens: maxTokens
         },
-        undefined, // use default models
+        getClaudeModels(complexity, maxTokens),
         {
           agentName: 'AIProvider',
           enableCacheMetrics: true
@@ -216,8 +224,11 @@ export async function callAIProvider(
 
     case 'gemini': {
       const genAI = new GoogleGenerativeAI(integration.apiKey)
-      // Use gemini-1.5-pro (supports multimodal + large context); falls back to flash variant
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' })
+      // Select model tier from integration name: "Flash" → gemini-3-flash-preview, else Pro
+      const geminiModelId = integration.name.toLowerCase().includes('flash')
+        ? GEMINI_MODELS.FLASH
+        : GEMINI_MODELS.PRO
+      const model = genAI.getGenerativeModel({ model: geminiModelId })
 
       let fullPrompt = prompt
       if (system) {

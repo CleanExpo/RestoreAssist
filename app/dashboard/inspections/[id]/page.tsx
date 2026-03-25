@@ -8,6 +8,7 @@ import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas
 import RoomNavigationSidebar from "@/components/inspection/RoomNavigationSidebar"
 import RoomWorkspace from "@/components/inspection/RoomWorkspace"
 import SyncStatusBar from "@/components/inspection/SyncStatusBar"
+import LayoutPreferenceSelector from "@/components/inspection/LayoutPreferenceSelector"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
 import {
   ArrowLeft,
@@ -32,7 +33,7 @@ import {
   X,
   ChevronDown,
 } from "lucide-react"
-import type { Room, RoomType } from "@/types/room"
+import type { Room, RoomType, InspectionLayout } from "@/types/room"
 import { ROOM_TYPE_LABELS } from "@/types/room"
 
 type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "rooms"
@@ -197,6 +198,8 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [newRoomName, setNewRoomName] = useState("")
   const [newRoomType, setNewRoomType] = useState<RoomType>("LIVING_ROOM")
   const [addingRoom, setAddingRoom] = useState(false)
+  const [layout, setLayout] = useState<InspectionLayout>('ROOM_FIRST')
+  const [showLayoutSelector, setShowLayoutSelector] = useState(false)
 
   useEffect(() => {
     fetchInspection()
@@ -377,6 +380,16 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       {activeTab === "rooms" && (
         <div className="flex flex-col rounded-xl overflow-hidden border border-slate-700/50 bg-slate-900" style={{ height: 'calc(100vh - 280px)', minHeight: 400 }}>
           <SyncStatusBar status={syncStatus} />
+          {/* Layout selector panel */}
+          {showLayoutSelector && (
+            <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-800/40">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Layout Preference</span>
+                <button onClick={() => setShowLayoutSelector(false)} className="text-xs text-slate-500 hover:text-slate-300">Done</button>
+              </div>
+              <LayoutPreferenceSelector value={layout} onChange={(l) => { setLayout(l); setShowLayoutSelector(false) }} />
+            </div>
+          )}
           {roomsLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="animate-spin text-cyan-500" size={28} />
