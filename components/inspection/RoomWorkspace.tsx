@@ -364,6 +364,7 @@ export default function RoomWorkspace({ room, inspectionId }: RoomWorkspaceProps
                     surfaceType: r.surfaceType,
                     moistureLevel: r.moistureLevel,
                     depth: r.depth,
+                    notes: r.notes,
                   })) ?? []}
                   className="rounded-xl overflow-hidden"
                   readonly={false}
@@ -436,6 +437,7 @@ export default function RoomWorkspace({ room, inspectionId }: RoomWorkspaceProps
                 surfaceType: r.surfaceType,
                 moistureLevel: r.moistureLevel,
                 depth: r.depth,
+                notes: r.notes,
               })) ?? []}
               initialBackgroundImage={detail?.floorPlanData ?? null}
               className="rounded-xl overflow-hidden"
