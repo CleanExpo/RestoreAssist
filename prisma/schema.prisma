@@ -163,6 +163,10 @@ model User {
 
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
+
+  // Business Profiles (multi-business support)
+  businessProfiles        BusinessProfile[]
+  activeBusinessProfileId String?
 }
 
 model Feedback {
@@ -179,6 +183,44 @@ model Feedback {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// Multi-business support: each user can have multiple business identities
+model BusinessProfile {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Core identity
+  name    String  // Trading / business name
+  abn     String? // Australian Business Number
+  logoUrl String? // Cloudinary URL
+  address String?
+  phone   String?
+  email   String?
+
+  // Insurance
+  insuranceCertificateNumber String?
+  insuranceExpiry            DateTime?
+
+  // Licence
+  licenceNumber String?
+  licenceClass  String?
+  licenceExpiry DateTime?
+
+  // Metadata
+  isDefault Boolean  @default(false) // One default per user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Reverse relations — data scoped to this business entity
+  clients     Client[]
+  reports     Report[]
+  inspections Inspection[]
+  invoices    Invoice[]
+
+  @@index([userId])
+  @@index([userId, isDefault])
 }
 
 // Australian restoration documentation (tax invoices, estimates) — specific legal wording
@@ -239,6 +281,11 @@ model Client {
   updatedAt     DateTime                 @updatedAt
   userId        String
   user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Business Profile (multi-business data separation)
+  businessProfileId String?
+  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+
   reports       Report[]
   clientUser    ClientUser?
   invitations   PortalInvitation[]
@@ -252,6 +299,7 @@ model Client {
   @@index([userId, name])
   @@index([userId, email])
   @@index([userId, createdAt])
+  @@index([businessProfileId])
 }
 
 model ClientUser {
@@ -464,6 +512,10 @@ model Report {
   clientId        String?
   client          Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  // Business Profile (multi-business data separation)
+  businessProfileId String?
+  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+
   // Team assignment: For Technicians, assign to a Manager; For Managers, assign to an Admin
   assignedManagerId String? // Manager assigned to this report (for Technicians)
   assignedManager   User?   @relation("ReportManager", fields: [assignedManagerId], references: [id], onDelete: SetNull)
@@ -661,6 +713,7 @@ model Report {
   @@index([userId, status])
   @@index([clientId, createdAt])
   @@index([includeRegulatoryCitations]) // Index for efficient filtering
+  @@index([businessProfileId])
 }
 
 enum Role {
@@ -1481,6 +1534,10 @@ model Inspection {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Business Profile (multi-business data separation)
+  businessProfileId String?
+  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+
   environmentalData EnvironmentalData?
   moistureReadings  MoistureReading[]
   affectedAreas     AffectedArea[]
@@ -1533,6 +1590,7 @@ model Inspection {
   @@index([inspectionDate])
   @@index([propertyPostcode])
   @@index([search_vector], type: Gin)
+  @@index([businessProfileId])
 }
 
 enum InspectionStatus {
@@ -3133,6 +3191,10 @@ model Invoice {
   userId String
   user   User   @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
 
+  // Business Profile (multi-business data separation)
+  businessProfileId String?
+  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: SetNull)
+
   // Invoice variations (for change orders)
   originalInvoiceId String?
   originalInvoice   Invoice?  @relation("InvoiceVariations", fields: [originalInvoiceId], references: [id], onDelete: SetNull)
@@ -3188,6 +3250,7 @@ model Invoice {
   @@index([status, dueDate])
   @@index([externalInvoiceId])
   @@index([publicToken])
+  @@index([businessProfileId])
 }
 
 // Invoice Line Items (snapshot from estimate)

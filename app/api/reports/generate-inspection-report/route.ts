@@ -7,6 +7,7 @@ import { getEquipmentGroupById, getEquipmentDailyRate } from '@/lib/equipment-ma
 import { generateVerificationChecklist } from '@/lib/nir-verification-checklist'
 import { getLatestAIIntegration, callAIProvider } from '@/lib/ai-provider'
 import { applyRateLimit } from '@/lib/rate-limiter'
+import { getActiveBusinessInfo } from '@/lib/business-profile'
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -201,14 +202,7 @@ export async function POST(request: NextRequest) {
         tier1,
         tier2,
         tier3,
-        businessInfo: {
-          businessName: user.businessName,
-          businessAddress: user.businessAddress,
-          businessLogo: user.businessLogo,
-          businessABN: user.businessABN,
-          businessPhone: user.businessPhone,
-          businessEmail: user.businessEmail
-        }
+        businessInfo: await getActiveBusinessInfo(session.user.id),
       })
 
       // Save the structured report as JSON
@@ -243,14 +237,7 @@ export async function POST(request: NextRequest) {
       psychrometricAssessment,
       scopeAreas,
       equipmentSelection,
-      businessInfo: {
-        businessName: user.businessName,
-        businessAddress: user.businessAddress,
-        businessLogo: user.businessLogo,
-        businessABN: user.businessABN,
-        businessPhone: user.businessPhone,
-        businessEmail: user.businessEmail
-      }
+      businessInfo: await getActiveBusinessInfo(session.user.id),
     })
 
     const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.

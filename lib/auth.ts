@@ -46,7 +46,8 @@ export const authOptions: NextAuthOptions = {
             role: true,
             password: true,
             mustChangePassword: true,
-            organizationId: true
+            organizationId: true,
+            activeBusinessProfileId: true
           }
         })
 
@@ -83,6 +84,7 @@ export const authOptions: NextAuthOptions = {
               role: user.role,
               mustChangePassword: user.mustChangePassword || false,
               organizationId: user.organizationId || null,
+              activeBusinessProfileId: user.activeBusinessProfileId || null,
               userType: 'contractor',
             }
           }
@@ -128,6 +130,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           mustChangePassword: user.mustChangePassword || false,
           organizationId: user.organizationId || null,
+          activeBusinessProfileId: user.activeBusinessProfileId || null,
           userType: 'contractor',
         }
       }
@@ -228,10 +231,23 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
         token.mustChangePassword = user.mustChangePassword || false
         token.organizationId = user.organizationId || null
+        token.activeBusinessProfileId = user.activeBusinessProfileId || null
         token.userType = user.userType || 'contractor'
         token.clientId = user.clientId || null
         token.contractorId = user.contractorId || null
       }
+
+      // Refresh activeBusinessProfileId from DB on each token refresh (lightweight PK lookup)
+      if (token.sub && token.userType !== 'client') {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { activeBusinessProfileId: true },
+        })
+        if (dbUser) {
+          token.activeBusinessProfileId = dbUser.activeBusinessProfileId || null
+        }
+      }
+
       if (account?.provider === 'google' && account.access_token) {
         token.googleAccessToken = account.access_token
         if (account.refresh_token) token.googleRefreshToken = account.refresh_token
@@ -244,6 +260,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string
         session.user.mustChangePassword = (token.mustChangePassword as boolean) || false
         session.user.organizationId = (token.organizationId as string) || null
+        session.user.activeBusinessProfileId = (token.activeBusinessProfileId as string) || null
         session.user.userType = (token.userType as string) || 'contractor'
         session.user.clientId = (token.clientId as string) || null
         session.user.contractorId = (token.contractorId as string) || null

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { generateForensicReportPDF } from '@/lib/generate-forensic-report-pdf'
 import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
 import { applyRateLimit } from '@/lib/rate-limiter'
+import { getActiveBusinessInfo } from '@/lib/business-profile'
 
 /**
  * GET /api/reports/[id]/generate-forensic-pdf
@@ -155,14 +156,7 @@ export async function GET(
       scopeAreas,
       equipmentSelection,
       standardsContext,
-      businessInfo: {
-        businessName: user.businessName,
-        businessAddress: user.businessAddress,
-        businessLogo: user.businessLogo,
-        businessABN: user.businessABN,
-        businessPhone: user.businessPhone,
-        businessEmail: user.businessEmail
-    }
+      businessInfo: await getActiveBusinessInfo(session.user.id),
     }
 
     // Generate PDF

@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import OnboardingGuide from "@/components/OnboardingGuide"
 import WelcomeScreen from "@/components/WelcomeScreen"
+import { BusinessProfilesManager } from "@/components/BusinessProfilesManager"
 import { cn } from "@/lib/utils"
 
 interface UserProfile {
@@ -526,7 +527,14 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Business Information */}
+          {/* Business Profiles (Multi-business support) */}
+          {canEditBusinessInfo && (
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+              <BusinessProfilesManager />
+            </div>
+          )}
+
+          {/* Business Information (Legacy — shown for reference) */}
             <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <div className="flex items-center justify-between mb-6">
               <h2 className={cn("text-xl font-semibold flex items-center gap-2", "text-neutral-900 dark:text-white")}>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getOrganizationOwner } from "@/lib/organization-credits"
+import { getActiveBusinessInfo } from "@/lib/business-profile"
 
 /**
  * GET /api/reports/:id/authority-forms
@@ -100,18 +100,6 @@ export async function POST(
     // Verify report access
     const report = await prisma.report.findUnique({
       where: { id: reportId },
-      include: {
-        user: {
-          select: {
-            businessName: true,
-            businessLogo: true,
-            businessABN: true,
-            businessPhone: true,
-            businessEmail: true,
-            businessAddress: true
-          }
-        }
-      }
     })
 
     if (!report) {
@@ -127,43 +115,8 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Get Admin's business info (for team members, use Admin's info)
-    let businessInfo = {
-      businessName: report.user.businessName || "",
-      businessLogo: report.user.businessLogo || null,
-      businessABN: report.user.businessABN || null,
-      businessPhone: report.user.businessPhone || null,
-      businessEmail: report.user.businessEmail || null,
-      businessAddress: report.user.businessAddress || null
-    }
-
-    // For team members, get Admin's business info
-    if (session.user.role === "MANAGER" || session.user.role === "USER") {
-      const ownerId = await getOrganizationOwner(session.user.id)
-      if (ownerId) {
-        const owner = await prisma.user.findUnique({
-          where: { id: ownerId },
-          select: {
-            businessName: true,
-            businessLogo: true,
-            businessABN: true,
-            businessPhone: true,
-            businessEmail: true,
-            businessAddress: true
-          }
-        })
-        if (owner) {
-          businessInfo = {
-            businessName: owner.businessName || "",
-            businessLogo: owner.businessLogo || null,
-            businessABN: owner.businessABN || null,
-            businessPhone: owner.businessPhone || null,
-            businessEmail: owner.businessEmail || null,
-            businessAddress: owner.businessAddress || null
-          }
-        }
-      }
-    }
+    // Resolve business info via centralized helper (handles org admin resolution)
+    const businessInfo = await getActiveBusinessInfo(session.user.id)
 
     // Extract incident brief from technician field report (first 300 chars)
     const incidentBrief = report.technicianFieldReport
@@ -175,14 +128,14 @@ export async function POST(
       data: {
         templateId,
         reportId,
-        companyName: businessInfo.businessName,
+        companyName: businessInfo.businessName || "",
         companyLogo: businessInfo.businessLogo,
         companyABN: businessInfo.businessABN,
         companyPhone: businessInfo.businessPhone,
         companyEmail: businessInfo.businessEmail,
         companyAddress: businessInfo.businessAddress,
-        companyWebsite: businessInfo.businessEmail 
-          ? `www.${businessInfo.businessEmail.split('@')[1]}` 
+        companyWebsite: businessInfo.businessEmail
+          ? `www.${businessInfo.businessEmail.split('@')[1]}`
           : null,
         clientName: report.clientName,
         clientAddress: report.propertyAddress,

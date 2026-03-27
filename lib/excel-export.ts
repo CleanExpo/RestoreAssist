@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs'
 import { format } from 'date-fns'
+import { getActiveBusinessInfo } from '@/lib/business-profile'
 
 /**
  * Professional Excel export utilities for RestoreAssist reports
@@ -150,20 +151,24 @@ export async function generateSingleReportExcel(
     { field: 'BUSINESS INFORMATION', value: '' }
   ]
 
-  // Add business information from user if available
-  if (report.user) {
+  // Add business information from the active business profile
+  const businessInfo = report.userId
+    ? await getActiveBusinessInfo(report.userId)
+    : null
+
+  if (businessInfo) {
     inspectorRows.push(
-      { field: 'Business Name', value: report.user.businessName || 'N/A' },
-      { field: 'Business Address', value: report.user.businessAddress || 'N/A' },
-      { field: 'Business ABN', value: report.user.businessABN || 'N/A' },
-      { field: 'Business Phone', value: report.user.businessPhone || 'N/A' },
-      { field: 'Business Email', value: report.user.businessEmail || 'N/A' }
+      { field: 'Business Name', value: businessInfo.businessName || 'N/A' },
+      { field: 'Business Address', value: businessInfo.businessAddress || 'N/A' },
+      { field: 'Business ABN', value: businessInfo.businessABN || 'N/A' },
+      { field: 'Business Phone', value: businessInfo.businessPhone || 'N/A' },
+      { field: 'Business Email', value: businessInfo.businessEmail || 'N/A' }
     )
   }
 
   // Also check structured data for header business info
   if (structuredData && structuredData.header) {
-    if (!report.user?.businessName && structuredData.header.businessName) {
+    if (!businessInfo?.businessName && structuredData.header.businessName) {
       inspectorRows.push(
         { field: '', value: '' },
         { field: 'FROM REPORT HEADER', value: '' },
