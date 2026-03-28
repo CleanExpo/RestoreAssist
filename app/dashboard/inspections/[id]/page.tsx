@@ -25,9 +25,13 @@ import {
   Clock,
   XCircle,
   Map,
+  ListChecks,
+  Send,
+  Download,
 } from "lucide-react"
+import { generateVerificationChecklist } from "@/lib/nir-verification-checklist"
 
-type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "checklist"
 
 interface Inspection {
   id: string
@@ -172,6 +176,8 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [submitting, setSubmitting] = useState(false)
+  const [downloading, setDownloading] = useState<"pdf" | "excel" | null>(null)
 
   useEffect(() => {
     fetchInspection()
@@ -193,6 +199,50 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       toast.error("Failed to load inspection")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!inspection) return
+    try {
+      setSubmitting(true)
+      const res = await fetch(`/api/inspections/${id}/submit`, { method: "POST" })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Inspection submitted — processing classification and cost estimates…")
+        await fetchInspection()
+      } else {
+        toast.error(data.error || "Failed to submit inspection")
+      }
+    } catch {
+      toast.error("Failed to submit inspection")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDownloadReport = async (format: "pdf" | "excel") => {
+    if (!inspection) return
+    try {
+      setDownloading(format)
+      const res = await fetch(`/api/inspections/${id}/report?format=${format}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to generate report")
+        return
+      }
+      const blob = await res.blob()
+      const ext = format === "pdf" ? "pdf" : "xlsx"
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `NIR-${inspection.inspectionNumber}.${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error("Failed to download report")
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -219,6 +269,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
+    { key: "checklist", label: "Verification", icon: ListChecks },
   ]
 
   return (
@@ -232,7 +283,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
               {inspection.inspectionNumber}
             </h1>
@@ -241,6 +292,39 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
+            {/* Action buttons */}
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
+              {inspection.status === "DRAFT" && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 transition-colors"
+                >
+                  {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  Submit for Processing
+                </button>
+              )}
+              {inspection.status === "COMPLETED" && (
+                <>
+                  <button
+                    onClick={() => handleDownloadReport("pdf")}
+                    disabled={downloading !== null}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors border border-red-200 dark:border-red-800"
+                  >
+                    {downloading === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    PDF Report
+                  </button>
+                  <button
+                    onClick={() => handleDownloadReport("excel")}
+                    disabled={downloading !== null}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 disabled:opacity-50 transition-colors border border-emerald-200 dark:border-emerald-800"
+                  >
+                    {downloading === "excel" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                    Excel Report
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
@@ -691,6 +775,84 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             )}
           </div>
         )}
+
+        {/* Verification Checklist Tab */}
+        {activeTab === "checklist" && (() => {
+          const checklist = generateVerificationChecklist(inspection)
+          const passCount = checklist.items.filter((i) => i.verified).length
+          const totalCount = checklist.items.length
+          const allPassed = passCount === totalCount
+          return (
+            <div className="space-y-4 max-w-3xl">
+              {/* Summary banner */}
+              <div className={cn(
+                "p-4 rounded-xl border flex items-center gap-3",
+                allPassed
+                  ? "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50"
+                  : "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/50"
+              )}>
+                <ListChecks size={20} className={allPassed ? "text-emerald-500" : "text-amber-500"} />
+                <div className="flex-1">
+                  <p className={cn("font-semibold text-sm", allPassed ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300")}>
+                    {allPassed ? "All checks passed" : `${passCount} of ${totalCount} checks passed`}
+                  </p>
+                  <p className="text-xs text-neutral-500 dark:text-slate-400 mt-0.5">
+                    Auto-generated for insurance adjuster / client review — generated {checklist.generatedAt.toLocaleString("en-AU")}
+                  </p>
+                </div>
+                <div className={cn(
+                  "px-3 py-1 rounded-full text-sm font-bold",
+                  allPassed ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                )}>
+                  {passCount}/{totalCount}
+                </div>
+              </div>
+
+              {/* Checklist items */}
+              <div className="divide-y divide-neutral-100 dark:divide-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700/50 overflow-hidden">
+                {checklist.items.map((item, idx) => (
+                  <div key={idx} className={cn(
+                    "flex items-start gap-3 px-4 py-3",
+                    item.verified ? "bg-white dark:bg-slate-900/50" : "bg-red-50/30 dark:bg-red-900/5"
+                  )}>
+                    <div className={cn(
+                      "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                      item.verified ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-slate-700 text-neutral-400"
+                    )}>
+                      {item.verified
+                        ? <CheckCircle2 size={14} />
+                        : <XCircle size={14} />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "text-sm font-medium",
+                        item.verified ? "text-neutral-800 dark:text-slate-200" : "text-neutral-500 dark:text-slate-400"
+                      )}>
+                        {item.item}
+                      </p>
+                      {item.notes && (
+                        <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">{item.notes}</p>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "text-xs font-medium px-2 py-0.5 rounded flex-shrink-0",
+                      item.verified
+                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                        : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                    )}>
+                      {item.verified ? "Pass" : "Fail"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-neutral-400 dark:text-slate-500 text-center">
+                This checklist is automatically generated based on IICRC S500 standards. It is not for the technician to complete.
+              </p>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Pilot ease-of-use survey — shown once per technician after COMPLETED */}
