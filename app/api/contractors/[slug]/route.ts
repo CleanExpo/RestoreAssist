@@ -25,9 +25,8 @@ export async function GET(
             businessAddress: true,
             // Conditionally include contact info only for authenticated users
             ...(isAuthenticated && {
-              phoneNumber: true,
+              businessPhone: true,
               email: true,
-              website: true
             })
           }
         },
@@ -64,18 +63,12 @@ export async function GET(
           include: {
             clientUser: {
               select: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true
-                  }
-                }
+                name: true,
               }
             },
             report: {
               select: {
                 id: true,
-                title: true
               }
             }
           },
@@ -140,14 +133,13 @@ export async function GET(
         insuranceCertificate: contractor.insuranceCertificate,
         // Contact info only for authenticated users
         ...(isAuthenticated && {
-          phoneNumber: contractor.user.phoneNumber,
+          phoneNumber: (contractor.user as any).businessPhone,
           email: contractor.user.email,
-          website: contractor.user.website
         })
       },
       certifications: contractor.certifications,
       serviceAreas: contractor.serviceAreas,
-      reviews: contractor.reviews.map(r => ({
+      reviews: contractor.reviews.map((r: any) => ({
         id: r.id,
         overallRating: r.overallRating,
         qualityRating: r.qualityRating,
@@ -162,8 +154,8 @@ export async function GET(
         helpfulCount: r.helpfulCount,
         notHelpfulCount: r.notHelpfulCount,
         createdAt: r.createdAt,
-        clientName: `${r.clientUser.user.firstName} ${r.clientUser.user.lastName.charAt(0)}.`,
-        reportTitle: r.report?.title
+        clientName: r.clientUser.name,
+        reportId: r.report?.id
       })),
       ratingBreakdown: ratingBreakdown.reduce((acc, item) => {
         acc[item.overallRating] = item._count

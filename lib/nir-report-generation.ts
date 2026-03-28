@@ -31,7 +31,7 @@ export async function generateNIRPDF(inspection: any): Promise<Buffer> {
     const addText = (text: string, fontSize: number = 11, isBold: boolean = false, align: "left" | "center" | "right" = "left") => {
       checkNewPage()
       doc.setFontSize(fontSize)
-      doc.setFont(undefined, isBold ? "bold" : "normal")
+      doc.setFont("helvetica", isBold ? "bold" : "normal")
       const lines = doc.splitTextToSize(text, doc.internal.pageSize.width - 2 * margin)
       doc.text(lines, margin, yPosition, { align })
       yPosition += lines.length * (fontSize * 0.4) + 2

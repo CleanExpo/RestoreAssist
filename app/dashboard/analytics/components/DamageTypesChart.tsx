@@ -1,6 +1,7 @@
 "use client"
 
-import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts"
+import { PieChart, Pie, Cell, Legend, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts"
+const Tooltip = RechartsTooltip as any
 import { Loader2 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
@@ -96,10 +97,7 @@ export default function DamageTypesChart({
               color: "#111827",
             }}
             className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-            formatter={(value: any) => [
-              `${value} reports`,
-              "Count",
-            ]}
+            formatter={(value: any) => [`${value} reports`, "Count"]}
           />
         </PieChart>
       </ResponsiveContainer>

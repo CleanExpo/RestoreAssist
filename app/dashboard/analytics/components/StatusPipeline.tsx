@@ -90,10 +90,10 @@ export default function StatusPipeline({ data, loading = false }: StatusPipeline
               borderRadius: "8px",
               color: "#111827",
             }}
-            formatter={(value: number, _name: string, props: { payload?: { count?: number; revenue?: number } }) => [
+            formatter={((value: number, _name: string, props: { payload?: { count?: number; revenue?: number } }) => [
               `${value} reports · $${(props?.payload?.revenue ?? 0).toLocaleString()}`,
               "Count · Revenue",
-            ]}
+            ]) as any}
             labelFormatter={(label) => `Status: ${label}`}
           />
           <Bar dataKey="count" name="count" radius={[0, 4, 4, 0]} minPointSize={8}>

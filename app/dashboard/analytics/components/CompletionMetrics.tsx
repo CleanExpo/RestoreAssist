@@ -8,11 +8,12 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
   ComposedChart,
 } from "recharts"
+const Tooltip = RechartsTooltip as any
 import { Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -220,9 +221,7 @@ export default function CompletionMetrics({
                   color: "#111827",
                 }}
                 className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-                formatter={(value: any) =>
-                  `${(value as number).toFixed(1)} days`
-                }
+                formatter={(value: any) => `${(value as number).toFixed(1)} days`}
               />
               <Legend />
               <Line

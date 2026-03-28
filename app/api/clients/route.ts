@@ -198,10 +198,10 @@ export async function GET(request: NextRequest) {
     })
 
     // Combine and deduplicate (prefer actual Client records over report-based ones)
-    const allClients = [...clientsWithStats]
+    const allClients: any[] = [...clientsWithStats]
     reportClients.forEach(reportClient => {
       // Only add if no client with same name or email exists
-      const exists = allClients.some(c => 
+      const exists = allClients.some(c =>
         c.name === reportClient.name || c.email === reportClient.email
       )
       if (!exists) {

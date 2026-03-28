@@ -6,13 +6,14 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
   ComposedChart,
   Area,
   AreaChart,
 } from "recharts"
+const Tooltip = RechartsTooltip as any
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -127,7 +128,7 @@ export default function RevenueProjection({
             }}
             className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
             formatter={(value: any) => `$${(value as number).toLocaleString()}`}
-            labelFormatter={(label) => `Date: ${label}`}
+            labelFormatter={(label: any) => `Date: ${label}`}
           />
           <Legend />
 

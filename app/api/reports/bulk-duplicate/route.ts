@@ -260,11 +260,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Track usage for manager and creator for each report (without deducting credits again)
-      const { trackUsageOnly } = await import('@/lib/report-limits')
-      for (let i = 0; i < createdReports.length; i++) {
-        await trackUsageOnly(session.user.id)
-      }
+      // Note: usage tracking already handled above (incrementReportUsage or deductCreditsAndTrackUsage)
 
       // 12. Return success response
       return NextResponse.json(

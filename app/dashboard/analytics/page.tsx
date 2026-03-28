@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Loader2, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, Clock, DollarSign, FileText, BarChart3, Activity, Zap } from "lucide-react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart } from "recharts"
+const Tooltip = RechartsTooltip as any
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 

@@ -281,7 +281,7 @@ export default function PricingPage() {
                 className={cn(
                   "relative rounded-2xl border-2 p-8 transition-all duration-300 hover:scale-105",
                   "bg-white dark:bg-slate-800/50",
-                  addon.popular
+                  ('popular' in addon && addon.popular)
                     ? 'border-cyan-500 shadow-2xl shadow-cyan-500/20'
                     : cn("border-neutral-300 dark:border-slate-700", "hover:border-neutral-400 dark:hover:border-slate-600")
                 )}

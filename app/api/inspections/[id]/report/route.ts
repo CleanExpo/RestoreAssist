@@ -138,7 +138,7 @@ async function generatePDFReport(inspection: any) {
   try {
     const pdfBuffer = await generateNIRPDF(inspection)
     
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(Buffer.from(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="NIR-${inspection.inspectionNumber}.pdf"`

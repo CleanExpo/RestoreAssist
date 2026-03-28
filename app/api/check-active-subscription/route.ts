@@ -137,9 +137,9 @@ export async function POST(request: NextRequest) {
             subscriptionPlan: subscriptionPlan,
             stripeCustomerId: customerId,
             subscriptionId: activeSubscription.id,
-            subscriptionEndsAt: new Date(activeSubscription.current_period_end * 1000),
-            nextBillingDate: new Date(activeSubscription.current_period_end * 1000),
-            lastBillingDate: new Date(activeSubscription.current_period_start * 1000),
+            subscriptionEndsAt: new Date((activeSubscription.items.data[0]?.current_period_end ?? 0) * 1000),
+            nextBillingDate: new Date((activeSubscription.items.data[0]?.current_period_end ?? 0) * 1000),
+            lastBillingDate: new Date((activeSubscription.items.data[0]?.current_period_start ?? 0) * 1000),
           monthlyReportsUsed: 0,
           monthlyResetDate: nextReset,
           // Don't set creditsRemaining for active subscriptions - they use monthly limits

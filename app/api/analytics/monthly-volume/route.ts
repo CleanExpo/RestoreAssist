@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
         id: true,
         createdAt: true,
         status: true,
-        totalEstimate: true,
+        estimates: { select: { totalIncGST: true } },
       },
       orderBy: { createdAt: "asc" },
     })
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       const data = monthlyMap.get(monthKey)
       if (data) {
         data.reports += 1
-        data.revenue += report.totalEstimate || 0
+        data.revenue += report.estimates?.[0]?.totalIncGST || 0
 
         if (report.status === 'COMPLETED' || report.status === 'APPROVED') {
           data.completed += 1

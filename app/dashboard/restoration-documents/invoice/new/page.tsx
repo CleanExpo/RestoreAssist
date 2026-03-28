@@ -68,9 +68,6 @@ export default function NewRestorationInvoicePage() {
       <RestorationInvoiceForm
         reportId={reportId ?? undefined}
         initialSeed={seed ?? undefined}
-        suggestedInvoiceNumber={seed?.suggestedInvoiceNumber}
-        defaultInvDate={seed?.defaultInvDate}
-        defaultDueDate={seed?.defaultDueDate}
       />
     </div>
   )

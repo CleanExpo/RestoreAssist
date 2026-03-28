@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { validateCsrf } from "@/lib/csrf"
 import { stripe } from "@/lib/stripe"
+import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { applyRateLimit } from "@/lib/rate-limiter"
 
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
       if (priceError.code === 'resource_missing') {
         
         // Create price based on the priceId
-        let priceData
+        let priceData: Stripe.PriceCreateParams
         if (priceId === 'MONTHLY_PLAN' || priceId.includes('MONTHLY')) {
           priceData = {
             unit_amount: 9900, // $99.00 in cents
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
         } else {
           throw new Error('Invalid price ID')
         }
-        
+
         const newPrice = await stripe.prices.create(priceData)
         
         checkoutSession = await stripe.checkout.sessions.create({

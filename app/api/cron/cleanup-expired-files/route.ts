@@ -9,11 +9,8 @@ export async function GET(request: NextRequest) {
   try {
     // Verify cron authentication
     const authResult = verifyCronAuth(request)
-    if (!authResult.authorized) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: authResult.message },
-        { status: 401 }
-      )
+    if (authResult !== null) {
+      return authResult
     }
 
     console.log('[Cron API] Starting file cleanup jobs...')

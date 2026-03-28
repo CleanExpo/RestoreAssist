@@ -64,9 +64,9 @@ export async function GET(request: NextRequest) {
             subscriptionStatus: subscription.status === 'active' ? 'ACTIVE' : 
                               subscription.status === 'canceled' ? 'CANCELED' : 
                               subscription.status === 'past_due' ? 'PAST_DUE' : 'EXPIRED',
-            subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
-            nextBillingDate: new Date(subscription.current_period_end * 1000),
-            lastBillingDate: new Date(subscription.current_period_start * 1000),
+            subscriptionEndsAt: new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000),
+            nextBillingDate: new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000),
+            lastBillingDate: new Date((subscription.items.data[0]?.current_period_start ?? 0) * 1000),
             // Don't set creditsRemaining for active subscriptions - they use monthly limits
           }
         })
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         // Optional: next invoice amount (upcoming invoice)
         let nextInvoiceAmount: number | null = null
         try {
-          const upcoming = await stripe.invoices.retrieveUpcoming({
+          const upcoming = await (stripe.invoices as any).retrieveUpcoming({
             customer: user.stripeCustomerId,
             subscription: user.subscriptionId,
           })
@@ -99,8 +99,8 @@ export async function GET(request: NextRequest) {
             id: subscription.id,
             status: subscription.status,
             created: subscription.created,
-            currentPeriodStart: subscription.current_period_start,
-            currentPeriodEnd: subscription.current_period_end,
+            currentPeriodStart: subscription.items.data[0]?.current_period_start ?? null,
+            currentPeriodEnd: subscription.items.data[0]?.current_period_end ?? null,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             canceledAt: subscription.canceled_at ?? null,
             plan: {

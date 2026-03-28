@@ -70,15 +70,15 @@ export async function getEffectiveSubscription(userId: string): Promise<{
       }
     })
 
-    const status = user?.lifetimeAccess ? 'ACTIVE' : user?.subscriptionStatus
-    const credits = user?.lifetimeAccess ? 999999 : user?.creditsRemaining
-    const plan = user?.lifetimeAccess ? 'Lifetime' : user?.subscriptionPlan
+    const status = user?.lifetimeAccess ? 'ACTIVE' : (user?.subscriptionStatus ?? null)
+    const credits = user?.lifetimeAccess ? 999999 : (user?.creditsRemaining ?? null)
+    const plan = user?.lifetimeAccess ? 'Lifetime' : (user?.subscriptionPlan ?? null)
 
     return user ? {
       id: user.id,
-      subscriptionStatus: status,
-      creditsRemaining: credits,
-      subscriptionPlan: plan,
+      subscriptionStatus: status as string | null,
+      creditsRemaining: credits as number | null,
+      subscriptionPlan: plan as string | null,
       monthlyReportsUsed: user.monthlyReportsUsed,
       monthlyResetDate: user.monthlyResetDate,
       trialEndsAt: user.trialEndsAt,
@@ -102,15 +102,15 @@ export async function getEffectiveSubscription(userId: string): Promise<{
     }
   })
 
-  const status = owner?.lifetimeAccess ? 'ACTIVE' : owner?.subscriptionStatus
-  const credits = owner?.lifetimeAccess ? 999999 : owner?.creditsRemaining
-  const plan = owner?.lifetimeAccess ? 'Lifetime' : owner?.subscriptionPlan
+  const status = owner?.lifetimeAccess ? 'ACTIVE' : (owner?.subscriptionStatus ?? null)
+  const credits = owner?.lifetimeAccess ? 999999 : (owner?.creditsRemaining ?? null)
+  const plan = owner?.lifetimeAccess ? 'Lifetime' : (owner?.subscriptionPlan ?? null)
 
   return owner ? {
     id: owner.id,
-    subscriptionStatus: status,
-    creditsRemaining: credits,
-    subscriptionPlan: plan,
+    subscriptionStatus: status as string | null,
+    creditsRemaining: credits as number | null,
+    subscriptionPlan: plan as string | null,
     monthlyReportsUsed: owner.monthlyReportsUsed,
     monthlyResetDate: owner.monthlyResetDate,
     trialEndsAt: owner.trialEndsAt,

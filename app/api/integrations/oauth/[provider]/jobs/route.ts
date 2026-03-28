@@ -191,7 +191,7 @@ export async function POST(
               externalId: externalJob.clientExternalId,
             },
           })
-          clientId = linkedClient?.contactId || undefined
+          clientId = undefined // ExternalClient does not carry a contactId field
         }
 
         // Create a report for this job
@@ -201,9 +201,11 @@ export async function POST(
             clientId,
             title: externalJob.title,
             description: externalJob.description || '',
-            address: externalJob.address || '',
-            status: mapExternalStatusToReportStatus(externalJob.status),
-            jobType: 'WATER_DAMAGE', // Default - can be updated
+            clientName: '',
+            propertyAddress: externalJob.address || '',
+            hazardType: 'UNKNOWN',
+            insuranceType: 'UNKNOWN',
+            status: mapExternalStatusToReportStatus(externalJob.status) as import('@prisma/client').ReportStatus,
           },
         })
 
@@ -237,18 +239,18 @@ export async function POST(
   }
 }
 
-function mapExternalStatusToReportStatus(externalStatus: string | null): string {
+function mapExternalStatusToReportStatus(externalStatus: string | null): import('@prisma/client').ReportStatus {
   if (!externalStatus) return 'DRAFT'
 
-  const statusMap: Record<string, string> = {
+  const statusMap: Record<string, import('@prisma/client').ReportStatus> = {
     QUOTE: 'DRAFT',
     DRAFT: 'DRAFT',
-    PENDING: 'DRAFT',
-    SCHEDULED: 'ACTIVE',
-    IN_PROGRESS: 'ACTIVE',
-    ACTIVE: 'ACTIVE',
+    PENDING: 'PENDING',
+    SCHEDULED: 'PENDING',
+    IN_PROGRESS: 'PENDING',
+    ACTIVE: 'PENDING',
     COMPLETED: 'COMPLETED',
-    CANCELLED: 'DRAFT',
+    CANCELLED: 'ARCHIVED',
     PAID: 'COMPLETED',
     INVOICED: 'COMPLETED',
   }

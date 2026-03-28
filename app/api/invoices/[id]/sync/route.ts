@@ -37,18 +37,12 @@ export async function POST(
         lineItems: {
           orderBy: { sortOrder: 'asc' }
         },
-        contact: {
+        client: {
           select: {
             id: true,
-            fullName: true,
+            name: true,
             email: true,
             phone: true
-          }
-        },
-        company: {
-          select: {
-            id: true,
-            name: true
           }
         }
       }

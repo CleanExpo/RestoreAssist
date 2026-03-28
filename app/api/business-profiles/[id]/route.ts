@@ -21,8 +21,7 @@ import { sanitizeString } from "@/lib/sanitize"
 // ---------------------------------------------------------------------------
 async function resolveAuthorizedProfile(
   profileId: string,
-  sessionUserId: string,
-  sessionOrgId: string | null | undefined
+  sessionUserId: string
 ) {
   const profile = await prisma.businessProfile.findUnique({
     where: { id: profileId },
@@ -33,13 +32,7 @@ async function resolveAuthorizedProfile(
   // Rule 1: direct ownership
   const isOwner = profile.userId === sessionUserId
 
-  // Rule 2: same-organization member access
-  const isOrgMember =
-    !!profile.organizationId &&
-    !!sessionOrgId &&
-    profile.organizationId === sessionOrgId
-
-  return { profile, authorized: isOwner || isOrgMember }
+  return { profile, authorized: isOwner }
 }
 
 // ---------------------------------------------------------------------------
@@ -59,8 +52,7 @@ export async function GET(
     const { id } = await params
     const { profile, authorized } = await resolveAuthorizedProfile(
       id,
-      session.user.id,
-      session.user.organizationId
+      session.user.id
     )
 
     if (!profile) {
@@ -96,8 +88,7 @@ export async function PUT(
     const { id } = await params
     const { profile, authorized } = await resolveAuthorizedProfile(
       id,
-      session.user.id,
-      session.user.organizationId
+      session.user.id
     )
 
     if (!profile) {
@@ -126,7 +117,7 @@ export async function PUT(
         phone: sanitizeString(body.phone, 50) || null,
         email: sanitizeString(body.email, 320) || null,
         address: sanitizeString(body.address, 500) || null,
-        logo: sanitizeString(body.logo, 1000) || null,
+        logoUrl: sanitizeString(body.logoUrl, 1000) || null,
         isDefault: typeof body.isDefault === "boolean" ? body.isDefault : undefined,
       },
     })
@@ -155,8 +146,7 @@ export async function DELETE(
     const { id } = await params
     const { profile, authorized } = await resolveAuthorizedProfile(
       id,
-      session.user.id,
-      session.user.organizationId
+      session.user.id
     )
 
     if (!profile) {

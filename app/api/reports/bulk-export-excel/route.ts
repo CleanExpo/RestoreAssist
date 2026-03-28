@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     // 9. Return file
     const filename = `RestoreAssist_Export_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`
 
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

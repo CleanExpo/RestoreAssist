@@ -17,6 +17,34 @@ import {
   Wind
 } from "lucide-react"
 
+interface PsychrometricReading {
+  id: number
+  timestamp: string
+  location: string
+  temperature: string
+  humidity: string
+  notes: string
+}
+
+interface MoistureReading {
+  id: number
+  timestamp: string
+  material: string
+  location: string
+  moistureContent: string
+  targetLevel: string
+  notes: string
+}
+
+interface MonitoringDataState {
+  psychrometricReadings: PsychrometricReading[]
+  moistureReadings: MoistureReading[]
+  equipmentPerformance: any[]
+  dailyLogs: any[]
+  verificationResults: any[]
+  complianceStatus: string
+}
+
 interface MonitoringVerificationProceduresProps {
   waterClass: string
   waterCategory: string
@@ -32,7 +60,7 @@ export default function MonitoringVerificationProcedures({
   onMonitoringUpdate,
   initialData 
 }: MonitoringVerificationProceduresProps) {
-  const [monitoringData, setMonitoringData] = useState({
+  const [monitoringData, setMonitoringData] = useState<MonitoringDataState>({
     psychrometricReadings: [],
     moistureReadings: [],
     equipmentPerformance: [],

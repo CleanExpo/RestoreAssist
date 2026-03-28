@@ -115,7 +115,7 @@ export class InterviewAnalyticsService {
             metadata: {
               startedAt: new Date().toISOString(),
               analyticsEnabled: true,
-            },
+            } as any,
           },
         }
       )
@@ -163,7 +163,7 @@ export class InterviewAnalyticsService {
               autoPopulatedFieldsCount,
               averageConfidence,
               conflictCount,
-            },
+            } as any,
           },
         }
       )
@@ -206,13 +206,13 @@ export class InterviewAnalyticsService {
         data: {
           interviewSessionId: sessionId,
           questionId,
-          answer: answerValue,
+          answerValue: typeof answerValue === 'string' ? answerValue : JSON.stringify(answerValue),
           metadata: {
             timeToAnswerSeconds,
             fieldsMappedCount,
             averageFieldConfidence,
             trackedAt: new Date().toISOString(),
-          },
+          } as any,
         },
       })
     } catch (error) {

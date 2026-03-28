@@ -30,6 +30,8 @@ export interface FormattedCitation {
   shortReference: string   // Short form for in-text
   inTextCitation: string   // Parenthetical form (Author Year, p. XX)
   footnoteCitation: string // Footnote format
+  documentCode?: string    // Document code (e.g. 'IICRC-S500', 'AS/NZS 3000')
+  sectionNumber?: string   // Section/clause reference
 }
 
 /**
@@ -533,6 +535,43 @@ export function formatCitationSet(
       case 'full':
       default:
         return formatted.fullReference
+    }
+  })
+}
+
+/**
+ * Parse a citation string and return a FormattedCitation.
+ * Alias for formatCitationAGLC4 with a single string input.
+ */
+export function parseAndFormatCitation(citation: string): FormattedCitation {
+  // Try to extract document code and section from a citation string
+  const parts = citation.split(/\s+section\s+|\s+cl\.\s+|\s+s\s+/i)
+  const document = parts[0]?.trim() ?? citation
+  const section = parts[1]?.trim() ?? ''
+  const formatted = formatCitationAGLC4(document, section)
+  return {
+    ...formatted,
+    documentCode: document,
+    sectionNumber: section || undefined,
+  }
+}
+
+/**
+ * Extract and format all citations found in a text string.
+ */
+export function extractAndFormatCitations(text: string): FormattedCitation[] {
+  if (!text) return []
+  // Match common citation patterns like "IICRC S500", "AS/NZS 3000", "NCC 2022"
+  const citationPattern = /\b(IICRC\s+S?\d+|AS\/NZS\s+[\d:]+|NCC\s+\d{4}|QDC\s+MP\d+\.\d+|WorkSafe\s+\w+)/gi
+  const matches = text.match(citationPattern) ?? []
+  return matches.map(match => {
+    const parts = match.trim().split(/\s+/)
+    const documentCode = parts.join(' ')
+    const formatted = formatCitationAGLC4(documentCode, '')
+    return {
+      ...formatted,
+      documentCode,
+      sectionNumber: undefined,
     }
   })
 }

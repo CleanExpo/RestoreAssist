@@ -219,7 +219,7 @@ async function handlePaymentCreated(event: any): Promise<void> {
     data: {
       amountPaid: newAmountPaid,
       amountDue: Math.max(0, newAmountDue),
-      status: newAmountDue <= 0 ? 'PAID' : 'PARTIAL',
+      status: newAmountDue <= 0 ? 'PAID' : 'PARTIALLY_PAID',
       paidDate: newAmountDue <= 0 ? new Date() : invoice.paidDate
     }
   })
@@ -270,7 +270,7 @@ async function handleInvoiceUpdated(event: any): Promise<void> {
   const invoice = await prisma.invoice.findFirst({
     where: {
       externalInvoiceId,
-      externalProvider: event.provider
+      externalSyncProvider: event.provider
     }
   })
 
@@ -331,7 +331,7 @@ async function handleInvoiceDeleted(event: any): Promise<void> {
   const invoice = await prisma.invoice.findFirst({
     where: {
       externalInvoiceId,
-      externalProvider: event.provider
+      externalSyncProvider: event.provider
     }
   })
 

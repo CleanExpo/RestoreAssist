@@ -19,7 +19,7 @@ import {
 } from '../oauth-handler'
 import { prisma } from '@/lib/prisma'
 
-interface ServiceM8Client {
+interface ServiceM8ClientRecord {
   uuid: string
   active: number
   edit_date: string
@@ -158,7 +158,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
    */
   async fetchClients(): Promise<ExternalClientData[]> {
     try {
-      const clients = await this.makeRequest<ServiceM8Client[]>(
+      const clients = await this.makeRequest<ServiceM8ClientRecord[]>(
         '/client.json?%24filter=active%20eq%201'
       )
 
@@ -230,14 +230,14 @@ export class ServiceM8Client extends BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
           lastSyncedAt: new Date(),
         },
       })
@@ -291,7 +291,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
   /**
    * Format address from ServiceM8 client
    */
-  private formatAddress(client: ServiceM8Client): string | undefined {
+  private formatAddress(client: ServiceM8ClientRecord): string | undefined {
     const parts = [
       client.billing_address,
       client.billing_address_line_2,

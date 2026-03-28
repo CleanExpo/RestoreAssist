@@ -428,9 +428,9 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
   if (session.subscription) {
     try {
       const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription as string)
-      subscriptionEndsAt = new Date(stripeSubscription.current_period_end * 1000)
-      nextBillingDate = new Date(stripeSubscription.current_period_end * 1000)
-      periodStartDate = new Date(stripeSubscription.current_period_start * 1000)
+      subscriptionEndsAt = new Date((stripeSubscription.items.data[0]?.current_period_end ?? 0) * 1000)
+      nextBillingDate = new Date((stripeSubscription.items.data[0]?.current_period_end ?? 0) * 1000)
+      periodStartDate = new Date((stripeSubscription.items.data[0]?.current_period_start ?? 0) * 1000)
 
       if (stripeSubscription.items.data[0]?.price?.recurring?.interval === 'year') {
         subscriptionPlan = 'Yearly Plan'
@@ -572,9 +572,9 @@ async function handleSubscriptionCreated(event: Stripe.Event) {
     subscriptionStatus: 'ACTIVE',
     subscriptionPlan: subscriptionPlan,
     subscriptionId: subscription.id,
-    subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
-    nextBillingDate: new Date(subscription.current_period_end * 1000),
-    lastBillingDate: new Date(subscription.current_period_start * 1000),
+    subscriptionEndsAt: new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000),
+    nextBillingDate: new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000),
+    lastBillingDate: new Date((subscription.items.data[0]?.current_period_start ?? 0) * 1000),
     monthlyReportsUsed: 0,
     monthlyResetDate: nextReset,
   }
@@ -622,8 +622,8 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     where: { subscriptionId: subscription.id },
     data: {
       subscriptionStatus: mappedStatus,
-      subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
-      nextBillingDate: new Date(subscription.current_period_end * 1000),
+      subscriptionEndsAt: new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000),
+      nextBillingDate: new Date((subscription.items.data[0]?.current_period_end ?? 0) * 1000),
     }
   })
 
@@ -646,10 +646,11 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   })
 
   // Use the subscription's period end (user paid through this date) or ended_at timestamp
+  const itemPeriodEnd = subscription.items.data[0]?.current_period_end
   const endDate = subscription.ended_at
     ? new Date(subscription.ended_at * 1000)
-    : subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+    : itemPeriodEnd
+      ? new Date(itemPeriodEnd * 1000)
       : new Date()
 
   // Update user status
@@ -690,7 +691,10 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
 async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice
 
-  if (!invoice.subscription) return
+  const invoiceSubscriptionId = (invoice as any).subscription as string | null
+    ?? invoice.parent?.subscription_details?.subscription as string | null
+
+  if (!invoiceSubscriptionId) return
 
   const nextReset = new Date()
   nextReset.setMonth(nextReset.getMonth() + 1)
@@ -698,7 +702,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   nextReset.setHours(0, 0, 0, 0)
 
   await prisma.user.updateMany({
-    where: { subscriptionId: invoice.subscription as string },
+    where: { subscriptionId: invoiceSubscriptionId },
     data: {
       lastBillingDate: new Date(),
       nextBillingDate: new Date(invoice.period_end * 1000),
@@ -707,7 +711,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
     }
   })
 
-  console.log(`✅ INVOICE PAYMENT SUCCEEDED for subscription ${invoice.subscription}`)
+  console.log(`✅ INVOICE PAYMENT SUCCEEDED for subscription ${invoiceSubscriptionId}`)
 }
 
 // Handler: payment_intent.succeeded (backup for add-ons and invoices)
@@ -868,11 +872,14 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
 async function handleInvoicePaymentFailed(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice
 
-  if (!invoice.subscription) return
+  const failedInvoiceSubscriptionId = (invoice as any).subscription as string | null
+    ?? invoice.parent?.subscription_details?.subscription as string | null
+
+  if (!failedInvoiceSubscriptionId) return
 
   // Update user status to PAST_DUE
   await prisma.user.updateMany({
-    where: { subscriptionId: invoice.subscription as string },
+    where: { subscriptionId: failedInvoiceSubscriptionId },
     data: {
       subscriptionStatus: 'PAST_DUE',
     }
@@ -880,7 +887,7 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
 
   // Find user to send dunning email
   const user = await prisma.user.findFirst({
-    where: { subscriptionId: invoice.subscription as string },
+    where: { subscriptionId: failedInvoiceSubscriptionId },
     select: {
       id: true,
       email: true,
@@ -895,9 +902,9 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
     let failureReason: string | undefined
     if (invoice.last_finalization_error?.message) {
       failureReason = invoice.last_finalization_error.message
-    } else if (invoice.charge) {
+    } else if ((invoice as any).charge) {
       try {
-        const charge = await stripe.charges.retrieve(invoice.charge as string)
+        const charge = await stripe.charges.retrieve((invoice as any).charge as string)
         failureReason = charge.failure_message || undefined
       } catch {
         // Ignore charge retrieval errors
@@ -934,5 +941,5 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
     notifyPaymentFailed(user.id, formattedAmount)
   }
 
-  console.log(`⚠️ INVOICE PAYMENT FAILED for subscription ${invoice.subscription}`)
+  console.log(`⚠️ INVOICE PAYMENT FAILED for subscription ${failedInvoiceSubscriptionId}`)
 }

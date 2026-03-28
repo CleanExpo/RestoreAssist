@@ -168,19 +168,23 @@ model User {
   // Business Profiles (multi-business support)
   businessProfiles        BusinessProfile[]
   activeBusinessProfileId String?
+
+  // S500:2025 compliance
+  moistureMeters       MoistureMeter[]
+  equipmentDeployments EquipmentDeployment[]
 }
 
 model Feedback {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  rating       Int?     // 1-5 or null
-  whatDoing    String?  @db.Text // What were you trying to do?
-  whatHappened String?  @db.Text // What happened? / Suggestion
-  page         String?  // Optional: page/URL when submitted
+  rating       Int? // 1-5 or null
+  whatDoing    String? @db.Text // What were you trying to do?
+  whatHappened String? @db.Text // What happened? / Suggestion
+  page         String? // Optional: page/URL when submitted
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([createdAt])
@@ -193,7 +197,7 @@ model BusinessProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Core identity
-  name    String  // Trading / business name
+  name    String // Trading / business name
   abn     String? // Australian Business Number
   logoUrl String? // Cloudinary URL
   address String?
@@ -226,20 +230,20 @@ model BusinessProfile {
 
 // Australian restoration documentation (tax invoices, estimates) — specific legal wording
 model RestorationDocument {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reportId        String?
-  report          Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
-  documentType    String   // "RESTORATION_INVOICE", "ESTIMATE", etc.
-  documentNumber  String   // e.g. INV-2026-0001
-  title           String?  // Optional display title
+  documentType   String // "RESTORATION_INVOICE", "ESTIMATE", etc.
+  documentNumber String // e.g. INV-2026-0001
+  title          String? // Optional display title
 
-  data            Json     // Full form payload for re-render and edit
+  data Json // Full form payload for re-render and edit
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([reportId])
@@ -269,19 +273,19 @@ model PasswordResetToken {
 }
 
 model Client {
-  id            String                   @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
   email         String
   phone         String?
   address       String?
   company       String?
   contactPerson String?
-  notes         String?                  @db.Text
-  status        ClientStatus             @default(ACTIVE)
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
+  notes         String?      @db.Text
+  status        ClientStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   userId        String
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Business Profile (multi-business data separation)
   businessProfileId String?
@@ -707,6 +711,9 @@ model Report {
 
   // NEW: Optional Regulatory Citations (Phase 5 - Tick and Flick feature)
   includeRegulatoryCitations Boolean @default(false) // Client preference for regulatory citations
+
+  // S500:2025 compliance
+  equipmentDeployments EquipmentDeployment[]
 
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
@@ -1620,6 +1627,10 @@ model EnvironmentalData {
   dewPoint           Float? // °F or °C
   airCirculation     Boolean @default(false)
 
+  // H6: S500:2025 vapor pressure & GPP fields
+  vaporPressure  Float? // kPa
+  grainsPerPound Float? // GPP — grains of moisture per pound of dry air
+
   // Additional Context
   weatherConditions String? @db.Text
   notes             String? @db.Text
@@ -1641,6 +1652,19 @@ model MoistureReading {
   moistureLevel Float // Percentage (0-100)
   depth         String // Surface | Subsurface
 
+  // C4: S500:2025 meter traceability
+  meterId    String?
+  meter      MoistureMeter? @relation(fields: [meterId], references: [id], onDelete: SetNull)
+  recordedBy String? // technician name/id who took this reading
+
+  // H6: S500:2025 ambient conditions at time of reading
+  ambientTempC Float? // temperature at time of reading
+  ambientRH    Float? // relative humidity at time of reading
+
+  // H7: S500:2025 EMC fields
+  materialType String? // e.g. "softwood", "hardwood", "gypsum", "concrete"
+  emcTarget    Float? // target EMC% for this material type
+
   // Additional Context
   notes    String? @db.Text
   photoUrl String? // Link to photo if available
@@ -1651,6 +1675,7 @@ model MoistureReading {
 
   @@index([inspectionId])
   @@index([surfaceType])
+  @@index([meterId])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
@@ -2645,7 +2670,7 @@ model InterviewSession {
 
   // Optional link to a Report (when started from reports listing)
   reportId String?
-  report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   // Relations
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -3735,4 +3760,61 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// C4: S500:2025 — Calibrated moisture meter registry (legal traceability requirement)
+model MoistureMeter {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  manufacturer String
+  model        String
+  serialNumber String
+
+  lastCalibrationDate   DateTime?
+  calibrationMethod     String?
+  calibrationCertRef    String? // Certificate reference number
+  calibrationExpiryDate DateTime?
+
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  readings MoistureReading[]
+
+  @@index([userId])
+  @@index([serialNumber])
+  @@index([calibrationExpiryDate])
+}
+
+// H8: S500:2025 — Equipment deployment audit trail
+model EquipmentDeployment {
+  id       String @id @default(cuid())
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  equipmentType String // "dehumidifier", "air_mover", "air_filter", etc.
+  manufacturer  String?
+  model         String?
+  serialNumber  String?
+
+  deploymentLocation String? // e.g. "Master bedroom", "Living room"
+  startTime          DateTime
+  endTime            DateTime?
+  operatingHours     Float?
+
+  ampDraw Float?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reportId])
+  @@index([userId])
+  @@index([startTime])
 }
