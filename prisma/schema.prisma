@@ -8,6 +8,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Account {
@@ -1248,6 +1249,9 @@ model CompanyPricingConfig {
   administrationFee                 Float
   callOutFee                        Float
   thermalCameraUseCostPerAssessment Float
+
+  // Electrical Cost Estimation
+  electricityRatePer24h Float? // Cost per amp per day (e.g. 1.50 AUD)
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text

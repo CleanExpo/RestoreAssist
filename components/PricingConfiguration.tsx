@@ -34,6 +34,7 @@ interface PricingConfig {
   administrationFee: number
   callOutFee: number
   thermalCameraUseCostPerAssessment: number
+  electricityRatePer24h?: number
 }
 
 interface CustomField {
@@ -87,7 +88,8 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
     biohazardTreatmentRate: 25.00,
     administrationFee: 250.00,
     callOutFee: 150.00,
-    thermalCameraUseCostPerAssessment: 75.00
+    thermalCameraUseCostPerAssessment: 75.00,
+    electricityRatePer24h: 1.50
   })
 
   useEffect(() => {
@@ -660,6 +662,27 @@ export default function PricingConfiguration({ isOnboarding = false }: PricingCo
                   disabled={!canEdit}
                   className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                Electrical Cost Estimation — Rate per Amp per Day ($/amp/day)
+              </label>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mb-2">
+                Used to calculate electricity costs in job reports. Multiplied by total equipment draw (amps) × job duration (days). Default $1.50/amp/day is a standard Australian commercial flat rate.
+              </p>
+              <div className="relative max-w-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.electricityRatePer24h ?? 1.50}
+                  onChange={(e) => handleInputChange('electricityRatePer24h', e.target.value)}
+                  disabled={!canEdit}
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-400 text-sm">/amp/day</span>
               </div>
             </div>
           </div>

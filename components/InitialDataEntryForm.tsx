@@ -566,7 +566,7 @@ export default function InitialDataEntryForm({
   const [newNirMoistureReading, setNewNirMoistureReading] = useState({
     location: "",
     surfaceType: "Drywall",
-    moistureLevel: 0,
+    moistureLevel: 100,
     depth: "Surface" as "Surface" | "Subsurface",
   });
 
@@ -4667,7 +4667,7 @@ export default function InitialDataEntryForm({
               </h3>
               <div className="space-y-2">
                 {equipmentSelections.map((eq) => (
-                  <div key={eq.id} className={cn("flex items-center justify-between p-3 rounded-lg", "bg-neutral-50 dark:bg-neutral-800")}>
+                  <div key={eq.groupId} className={cn("flex items-center justify-between p-3 rounded-lg", "bg-neutral-50 dark:bg-neutral-800")}>
                     <span className={cn("text-sm", "text-neutral-900 dark:text-neutral-50")}>
                       {eq.quantity}x {eq.type}
                     </span>
