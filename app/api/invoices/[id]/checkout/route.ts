@@ -9,7 +9,7 @@ const APP_URL = process.env.NEXTAUTH_URL || 'https://restoreassist.com.au'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -20,7 +20,7 @@ export async function POST(
     // Check if invoice exists and belongs to user
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id: (await params).id,
         userId: session.user.id
       },
       include: {
