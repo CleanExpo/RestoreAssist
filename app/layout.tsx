@@ -1,9 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import SessionProvider from "@/components/providers/SessionProvider"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "react-hot-toast"
+import ClientProviders from "@/components/providers/ClientProviders"
 import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
 import "@/lib/env-check"
 import "./globals.css"
@@ -59,43 +57,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        {/* JSON-LD structured data — server-rendered, no JS required */}
         <OrganizationSchema />
         <SoftwareApplicationSchema />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <SessionProvider>{children}</SessionProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-                background: "#1e293b",
-                color: "#f1f5f9",
-                border: "1px solid #334155",
-                borderRadius: "12px",
-                padding: "16px",
-                fontSize: "14px",
-                fontWeight: "500",
-            },
-            success: {
-              iconTheme: {
-                  primary: "#10b981",
-                  secondary: "#f1f5f9",
-              },
-            },
-            error: {
-              iconTheme: {
-                  primary: "#ef4444",
-                  secondary: "#f1f5f9",
-              },
-            },
-          }}
-        />
-        </ThemeProvider>
+        {/* All client-only providers are isolated in ClientProviders */}
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   )

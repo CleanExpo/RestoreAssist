@@ -4,7 +4,7 @@
  */
 
 interface JsonLdProps {
-  data: Record<string, any>
+  data: Record<string, unknown>
 }
 
 export function JsonLd({ data }: JsonLdProps) {
@@ -16,6 +16,10 @@ export function JsonLd({ data }: JsonLdProps) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Organization
+// ---------------------------------------------------------------------------
+
 export function OrganizationSchema() {
   const schema = {
     '@context': 'https://schema.org',
@@ -23,14 +27,13 @@ export function OrganizationSchema() {
     name: 'RestoreAssist',
     url: 'https://restoreassist.com.au',
     logo: 'https://restoreassist.com.au/logo.png',
-    description: 'AI-powered restoration report software for Australian water damage and disaster recovery professionals. IICRC S500 compliant.',
+    description:
+      'AI-powered restoration report software for Australian water damage and disaster recovery professionals. IICRC S500 compliant.',
     address: {
       '@type': 'PostalAddress',
       addressCountry: 'AU',
     },
-    sameAs: [
-      // Add social media profiles when available
-    ],
+    sameAs: [] as string[],
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'Customer Service',
@@ -40,6 +43,13 @@ export function OrganizationSchema() {
 
   return <JsonLd data={schema} />
 }
+
+/** Alias — matches the name requested in RA-22 */
+export { OrganizationSchema as OrganizationJsonLd }
+
+// ---------------------------------------------------------------------------
+// SoftwareApplication
+// ---------------------------------------------------------------------------
 
 export function SoftwareApplicationSchema() {
   const schema = {
@@ -59,7 +69,8 @@ export function SoftwareApplicationSchema() {
       ratingValue: '4.8',
       reviewCount: '50',
     },
-    description: 'Professional restoration report software with AI-powered assessment, IICRC S500 compliance, and comprehensive cost estimation for Australian restoration contractors.',
+    description:
+      'Professional restoration report software with AI-powered assessment, IICRC S500 compliance, and comprehensive cost estimation for Australian restoration contractors.',
     featureList: [
       'AI-powered report generation',
       'IICRC S500 compliance',
@@ -73,7 +84,19 @@ export function SoftwareApplicationSchema() {
   return <JsonLd data={schema} />
 }
 
-export function FAQPageSchema({ questions }: { questions: Array<{ question: string; answer: string }> }) {
+/** Alias — matches the name requested in RA-22 */
+export { SoftwareApplicationSchema as SoftwareApplicationJsonLd }
+
+// ---------------------------------------------------------------------------
+// FAQPage
+// ---------------------------------------------------------------------------
+
+interface FAQItem {
+  question: string
+  answer: string
+}
+
+export function FAQPageSchema({ questions }: { questions: FAQItem[] }) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -90,7 +113,19 @@ export function FAQPageSchema({ questions }: { questions: Array<{ question: stri
   return <JsonLd data={schema} />
 }
 
-export function BreadcrumbSchema({ items }: { items: Array<{ name: string; url: string }> }) {
+/** Alias — matches the name requested in RA-22 */
+export { FAQPageSchema as FAQPageJsonLd }
+
+// ---------------------------------------------------------------------------
+// BreadcrumbList
+// ---------------------------------------------------------------------------
+
+interface BreadcrumbItem {
+  name: string
+  url: string
+}
+
+export function BreadcrumbSchema({ items }: { items: BreadcrumbItem[] }) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -100,6 +135,65 @@ export function BreadcrumbSchema({ items }: { items: Array<{ name: string; url: 
       name: item.name,
       item: item.url,
     })),
+  }
+
+  return <JsonLd data={schema} />
+}
+
+/** Alias — matches the name requested in RA-22 */
+export { BreadcrumbSchema as BreadcrumbJsonLd }
+
+// ---------------------------------------------------------------------------
+// Article (new — RA-22)
+// ---------------------------------------------------------------------------
+
+interface ArticleJsonLdProps {
+  headline: string
+  description: string
+  url: string
+  imageUrl?: string
+  datePublished: string
+  dateModified?: string
+  authorName: string
+  publisherName?: string
+  publisherLogoUrl?: string
+}
+
+export function ArticleJsonLd({
+  headline,
+  description,
+  url,
+  imageUrl,
+  datePublished,
+  dateModified,
+  authorName,
+  publisherName = 'RestoreAssist',
+  publisherLogoUrl = 'https://restoreassist.com.au/logo.png',
+}: ArticleJsonLdProps) {
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description,
+    url,
+    datePublished,
+    dateModified: dateModified ?? datePublished,
+    author: {
+      '@type': 'Person',
+      name: authorName,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: publisherName,
+      logo: {
+        '@type': 'ImageObject',
+        url: publisherLogoUrl,
+      },
+    },
+  }
+
+  if (imageUrl) {
+    schema.image = imageUrl
   }
 
   return <JsonLd data={schema} />
