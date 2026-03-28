@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw, Crown, HelpCircle, FileText, ChevronDown, Receipt } from "lucide-react"
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
 import toast from "react-hot-toast"
 import { useSession } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
 interface Subscription {
   id: string
@@ -27,7 +28,7 @@ interface Subscription {
   stripeCustomerId?: string
 }
 
-export default function SubscriptionPage() {
+function SubscriptionPageInner() {
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const [subscription, setSubscription] = useState<Subscription | null>(null)
@@ -979,5 +980,13 @@ export default function SubscriptionPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function SubscriptionPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <SubscriptionPageInner />
+    </Suspense>
   )
 }

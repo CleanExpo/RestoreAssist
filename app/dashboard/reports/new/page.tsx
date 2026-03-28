@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Upload, FileText, Loader2, X, CheckCircle, Crown, Zap, DollarSign, ArrowRight, Sparkles, TrendingUp } from "lucide-react"
 import toast from "react-hot-toast"
 import ReportWorkflow from "@/components/ReportWorkflow"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
-export default function NewReportPage() {
+function NewReportPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, update } = useSession()
@@ -790,3 +791,11 @@ export default function NewReportPage() {
   )
 }
 
+
+export default function NewReportPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <NewReportPageInner />
+    </Suspense>
+  )
+}

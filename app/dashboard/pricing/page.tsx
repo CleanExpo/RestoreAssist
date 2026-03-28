@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Check, Star, Zap, Shield, Download, Users, Clock, Award, CheckCircle } from "lucide-react"
@@ -8,8 +8,9 @@ import { PRICING_CONFIG, type PricingPlan, type AddonPack } from "@/lib/pricing"
 import { LIFETIME_PRICING_EMAIL, LIFETIME_AMOUNT_DISPLAY, LIFETIME_CURRENCY, LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
-export default function PricingPage() {
+function PricingPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session } = useSession()
@@ -457,5 +458,13 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <PricingPageInner />
+    </Suspense>
   )
 }

@@ -2,13 +2,14 @@
 
 import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2, CheckCircle, ArrowRight } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import OnboardingGuide from "@/components/OnboardingGuide"
 import WelcomeScreen from "@/components/WelcomeScreen"
 import { BusinessProfilesManager } from "@/components/BusinessProfilesManager"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
 interface UserProfile {
   id: string
@@ -43,7 +44,7 @@ interface UserProfile {
   }
 }
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1012,5 +1013,13 @@ export default function SettingsPage() {
         </div>
       </OnboardingGuide>
     </>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <SettingsPageInner />
+    </Suspense>
   )
 }
