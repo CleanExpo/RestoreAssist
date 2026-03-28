@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 import {
   ArrowLeft,
   Droplets,
@@ -40,7 +41,7 @@ const EXPERIENCE_LEVELS = [
   { value: "expert", label: "Expert", description: "5+ years, IICRC certified", icon: Award, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200 dark:border-purple-800", activeBg: "bg-purple-100 dark:bg-purple-900/40", activeRing: "ring-purple-500/30" },
 ]
 
-export default function NewInterviewPage() {
+function NewInterviewPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const reportId = searchParams.get("reportId")
@@ -280,5 +281,13 @@ export default function NewInterviewPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function NewInterviewPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <NewInterviewPageInner />
+    </Suspense>
   )
 }

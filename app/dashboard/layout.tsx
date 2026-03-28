@@ -35,6 +35,7 @@ import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
 import toast from "react-hot-toast"
 import { NotificationBell } from "@/components/notifications"
+import { BusinessProfileSwitcher } from "@/components/BusinessProfileSwitcher"
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -378,6 +379,9 @@ const upgradeItem = {
             </div>
 
             <div className="flex items-center gap-4 ml-6">
+              {/* Business Profile Switcher */}
+              <BusinessProfileSwitcher />
+
               {/* Theme Toggle */}
               <ThemeToggle />
               

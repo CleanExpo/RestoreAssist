@@ -9,7 +9,6 @@ import {
   Question,
   QuestionGenerationContext,
   InterviewState,
-  InterviewResponse,
 } from './types'
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { parseSearchQuery, toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
 
 export async function GET(request: NextRequest) {
@@ -42,45 +43,49 @@ export async function GET(request: NextRequest) {
     const query = validation.query!;
     const tsquery = toPostgresTsquery(query);
 
-    // Build WHERE clause
-    let whereConditions = [`"userId" = '${session.user.id}'`];
-    whereConditions.push(`search_vector @@ to_tsquery('english', '${tsquery}')`);
+    // Build WHERE clause using Prisma.sql to ensure all values are parameterized
+    const conditions: Prisma.Sql[] = [];
+    conditions.push(Prisma.sql`"userId" = ${session.user.id}`);
+    conditions.push(Prisma.sql`search_vector @@ to_tsquery('english', ${tsquery})`);
 
     if (status && status !== "all") {
-      whereConditions.push(`"status" = '${status}'`);
+      conditions.push(Prisma.sql`"status" = ${status}`);
     }
 
     if (hazardType && hazardType !== "all") {
-      whereConditions.push(`"hazardType" = '${hazardType}'`);
+      conditions.push(Prisma.sql`"hazardType" = ${hazardType}`);
     }
 
     if (dateFrom) {
-      whereConditions.push(`"createdAt" >= '${dateFrom}'::timestamp`);
+      conditions.push(Prisma.sql`"createdAt" >= ${new Date(dateFrom)}`);
     }
 
     if (dateTo) {
-      whereConditions.push(`"createdAt" <= '${dateTo}'::timestamp`);
+      conditions.push(Prisma.sql`"createdAt" <= ${new Date(dateTo)}`);
     }
 
-    const whereClause = whereConditions.join(" AND ");
+    const whereClause =
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+        : Prisma.sql``;
 
     // Execute search query
     const reports = await prisma.$queryRaw<any[]>`
       SELECT
         id,
-        reportNumber,
+        "reportNumber",
         title,
-        clientName,
-        propertyAddress,
-        hazardType,
-        waterCategory,
+        "clientName",
+        "propertyAddress",
+        "hazardType",
+        "waterCategory",
         description,
         status,
-        createdAt,
-        updatedAt,
+        "createdAt",
+        "updatedAt",
         ts_rank(search_vector, to_tsquery('english', ${tsquery})) as rank
       FROM "Report"
-      WHERE ${whereClause}
+      ${whereClause}
       ORDER BY rank DESC, "updatedAt" DESC
       LIMIT ${limit}
       OFFSET ${offset}
@@ -90,7 +95,7 @@ export async function GET(request: NextRequest) {
     const totalResult = await prisma.$queryRaw<[{ count: bigint }]>`
       SELECT COUNT(*) as count
       FROM "Report"
-      WHERE ${whereClause}
+      ${whereClause}
     `;
 
     const totalCount = Number(totalResult[0].count);

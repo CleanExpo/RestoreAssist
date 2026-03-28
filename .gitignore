@@ -39,4 +39,5 @@ nul
 /playwright-report/
 /test-results/
 .playwright/
+.superpowers/
 .env*.local

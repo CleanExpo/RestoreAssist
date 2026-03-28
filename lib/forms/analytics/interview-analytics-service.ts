@@ -112,10 +112,6 @@ export class InterviewAnalyticsService {
           where: { id: sessionId },
           data: {
             startedAt: new Date(),
-            metadata: {
-              startedAt: new Date().toISOString(),
-              analyticsEnabled: true,
-            },
           },
         }
       )
@@ -157,13 +153,6 @@ export class InterviewAnalyticsService {
           data: {
             completedAt: endTime,
             status: 'COMPLETED',
-            metadata: {
-              completedAt: endTime.toISOString(),
-              totalDurationSeconds,
-              autoPopulatedFieldsCount,
-              averageConfidence,
-              conflictCount,
-            },
           },
         }
       )
@@ -206,13 +195,10 @@ export class InterviewAnalyticsService {
         data: {
           interviewSessionId: sessionId,
           questionId,
-          answer: answerValue,
-          metadata: {
-            timeToAnswerSeconds,
-            fieldsMappedCount,
-            averageFieldConfidence,
-            trackedAt: new Date().toISOString(),
-          },
+          questionText: questionId, // fallback to questionId if text not available here
+          answerType: 'TEXT' as any,
+          answerValue: typeof answerValue === 'string' ? answerValue : JSON.stringify(answerValue),
+          timeSpentSeconds: timeToAnswerSeconds,
         },
       })
     } catch (error) {
@@ -390,7 +376,7 @@ export class InterviewAnalyticsService {
           stats.totalOccurrences++
 
           // Check if question was skipped (null or empty answer)
-          if (!response.answer || response.answer === '') {
+          if (!response.answerValue || response.answerValue === '') {
             stats.skipCount++
           }
 
@@ -409,14 +395,11 @@ export class InterviewAnalyticsService {
         .map(([questionId, stats]) => ({
           questionId,
           skipRate: Math.round((stats.skipCount / Math.max(stats.totalOccurrences, 1)) * 100),
-          lowConfidenceRate: Math.round((stats.lowConfidenceCount / Math.max(stats.totalOccurrences, 1)) * 100),
-          difficultyScore: Math.round(
-            ((stats.skipCount + stats.lowConfidenceCount) / Math.max(stats.totalOccurrences * 2, 1)) * 100
-          ),
+          averageTimeSeconds: 0, // Time tracking not yet stored per-question
         }))
-        .filter((q) => q.difficultyScore > 20) // Only include questions with >20% difficulty
-        .sort((a, b) => b.difficultyScore - a.difficultyScore)
-        .slice(0, 5) // Top 5 most difficult questions
+        .filter((q) => q.skipRate > 20) // Only include questions with >20% skip rate
+        .sort((a, b) => b.skipRate - a.skipRate)
+        .slice(0, 5) // Top 5 most skipped questions
 
       return {
         templateId,
@@ -478,7 +461,7 @@ export class InterviewAnalyticsService {
       let confidenceCount = 0
 
       sessions.forEach((session) => {
-        const metadata = session.metadata as any
+        const metadata = (session as any).metadata as any
         if (metadata?.totalDurationSeconds) totalDuration += metadata.totalDurationSeconds
         if (metadata?.autoPopulatedFieldsCount) totalFieldsPopulated += metadata.autoPopulatedFieldsCount
         if (metadata?.averageConfidence) {

@@ -52,7 +52,7 @@ const TIER1_QUESTIONS: Question[] = [
         formFieldId: 'waterCategory',
         transformer: (answer) => {
           const categoryMap = { clean_water: 'Category 1', grey_water: 'Category 2', black_water: 'Category 3' }
-          return categoryMap[answer] || 'Unknown'
+          return categoryMap[answer as keyof typeof categoryMap] || 'Unknown'
         },
         confidence: 95, // IICRC S500
       },
@@ -83,7 +83,7 @@ const TIER1_QUESTIONS: Question[] = [
         formFieldId: 'timeSinceLoss',
         transformer: (answer) => {
           const hoursMap = { lt_12h: '6', '12_48h': '30', '48_72h': '60', gt_72h: '100' }
-          return hoursMap[answer] || '0'
+          return hoursMap[answer as keyof typeof hoursMap] || '0'
         },
         confidence: 90,
       },
@@ -128,7 +128,7 @@ const TIER1_QUESTIONS: Question[] = [
         formFieldId: 'waterClass',
         transformer: (answer) => {
           const classMap = { '0_10': 'Class 1', '10_30': 'Class 2', '30_50': 'Class 3', gt_50: 'Class 4' }
-          return classMap[answer] || 'Unknown'
+          return classMap[answer as keyof typeof classMap] || 'Unknown'
         },
         confidence: 90, // IICRC S500
       },
@@ -341,7 +341,7 @@ const TIER3_QUESTIONS: Question[] = [
         formFieldId: 'buildingAge',
         transformer: (answer) => {
           const yearMap = { pre_1980: 1970, '1980_2000': 1990, '2000_2010': 2005, post_2010: 2015 }
-          return yearMap[answer] || 2000
+          return yearMap[answer as keyof typeof yearMap] || 2000
         },
         confidence: 75,
       },
@@ -588,7 +588,7 @@ const TIER4_QUESTIONS: Question[] = [
             moderate: 'Full PPE + respiratory protection',
             high: 'Hazmat suit + respiratory + training required',
           }
-          return ppeMap[answer] || 'Unknown'
+          return ppeMap[answer as keyof typeof ppeMap] || 'Unknown'
         },
         confidence: 85,
       },

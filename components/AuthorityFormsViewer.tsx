@@ -423,9 +423,9 @@ export default function AuthorityFormsViewer({ reportId }: AuthorityFormsViewerP
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className={cn("font-medium", "text-neutral-900 dark:text-white")}>{template.name}</div>
-                              {template.description && (
+                              {(template as any).description && (
                                 <div className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>
-                                  {template.description}
+                                  {(template as any).description}
                                 </div>
                               )}
                               {suggestion && (

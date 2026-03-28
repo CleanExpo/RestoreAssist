@@ -24,7 +24,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
         // 'maskable' allows the OS to crop/shape the icon for its home screen style
-        purpose: 'any maskable',
+        purpose: 'maskable',
       },
     ],
     categories: ['business', 'productivity', 'utilities'],

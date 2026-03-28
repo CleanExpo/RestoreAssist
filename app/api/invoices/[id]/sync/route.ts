@@ -9,7 +9,7 @@ import { syncInvoiceToMYOB } from '@/lib/integrations/myob'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -30,25 +30,19 @@ export async function POST(
     // Fetch invoice with all related data
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id: (await params).id,
         userId: session.user.id
       },
       include: {
         lineItems: {
           orderBy: { sortOrder: 'asc' }
         },
-        contact: {
+        client: {
           select: {
             id: true,
-            fullName: true,
+            name: true,
             email: true,
             phone: true
-          }
-        },
-        company: {
-          select: {
-            id: true,
-            name: true
           }
         }
       }
@@ -98,7 +92,7 @@ export async function POST(
 
     // Update invoice sync status to PENDING
     await prisma.invoice.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         externalSyncStatus: 'PENDING',
         externalSyncProvider: provider.toLowerCase(),
@@ -109,7 +103,7 @@ export async function POST(
     // Create audit log
     await prisma.invoiceAuditLog.create({
       data: {
-        invoiceId: params.id,
+        invoiceId: (await params).id,
         userId: session.user.id,
         action: 'sync_initiated',
         description: `Started sync to ${provider}`,
@@ -146,7 +140,7 @@ export async function POST(
 
       // Update invoice with external reference and success status
       await prisma.invoice.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: {
           externalInvoiceId,
           externalSyncStatus: 'SYNCED',
@@ -167,7 +161,7 @@ export async function POST(
       // Create success audit log
       await prisma.invoiceAuditLog.create({
         data: {
-          invoiceId: params.id,
+          invoiceId: (await params).id,
           userId: session.user.id,
           action: 'sync_completed',
           description: `Successfully synced to ${provider}`,
@@ -202,7 +196,7 @@ export async function POST(
 
       // Update invoice with error status
       await prisma.invoice.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: {
           externalSyncStatus: 'FAILED',
           externalSyncError: syncError.message || 'Unknown error'
@@ -220,7 +214,7 @@ export async function POST(
       // Create error audit log
       await prisma.invoiceAuditLog.create({
         data: {
-          invoiceId: params.id,
+          invoiceId: (await params).id,
           userId: session.user.id,
           action: 'sync_failed',
           description: `Failed to sync to ${provider}: ${syncError.message}`,
@@ -264,7 +258,7 @@ export async function POST(
 // GET - Check sync status
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -274,7 +268,7 @@ export async function GET(
 
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id: (await params).id,
         userId: session.user.id
       },
       select: {

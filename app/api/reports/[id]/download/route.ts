@@ -396,7 +396,7 @@ Estimate: ${JSON.stringify(estimate)}`,
     ]
 
     assessmentInfo.forEach(([label, value]) => {
-      page.drawText(label, {
+      page.drawText(label ?? '', {
         x: 50,
         y: yPosition,
         size: 10,
@@ -800,14 +800,14 @@ Estimate: ${JSON.stringify(estimate)}`,
 
       costItems.forEach(([label, value]) => {
         if (value) {
-          page.drawText(label, {
+          page.drawText(String(label ?? ''), {
             x: 70,
             y: yPosition,
             size: 9,
             font: font,
             color: darkColor,
           })
-          page.drawText(`$${value.toFixed(2)}`, {
+          page.drawText(`$${(typeof value === 'number' ? value : Number(value)).toFixed(2)}`, {
             x: 200,
             y: yPosition,
             size: 9,
@@ -1014,7 +1014,7 @@ Estimate: ${JSON.stringify(estimate)}`,
     const pdfBytes = await pdfDoc.save()
 
     // Return PDF as response
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="water-damage-report-${parsedReport.reportNumber || parsedReport.id}.pdf"`,

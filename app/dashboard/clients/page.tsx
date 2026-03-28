@@ -157,7 +157,7 @@ export default function ClientsPage() {
     if (!selectedClient) return
 
     // Check if this is a report-based client (can't delete, it's derived from reports)
-    if ((selectedClient as ClientWithReportFlag)._isFromReport) {
+    if ((selectedClient as unknown as ClientWithReportFlag)._isFromReport) {
       toast("This client was created from a report. It will disappear once all related reports are deleted or linked to a real client.", {
         icon: 'ℹ️',
         duration: 4000,
@@ -190,7 +190,7 @@ export default function ClientsPage() {
 
   const openEditModal = (client: Client) => {
     // Check if this is a report-based client (can't edit directly, need to create real client)
-    if ((client as ClientWithReportFlag)._isFromReport) {
+    if ((client as unknown as ClientWithReportFlag)._isFromReport) {
       toast("This client was created from a report. Please create a new client record to edit.", {
         icon: 'ℹ️',
         duration: 4000,
@@ -438,7 +438,7 @@ export default function ClientsPage() {
                           </button>
                         </td> */}
                         <td className="py-4 px-6 font-medium">
-                          {(client as ClientWithReportFlag)._isFromReport ? (
+                          {(client as unknown as ClientWithReportFlag)._isFromReport ? (
                             <span className="text-cyan-400">{client.name}</span>
                           ) : (
                             <Link href={`/dashboard/clients/${client.id}`} className="text-cyan-400 hover:underline">
@@ -448,7 +448,7 @@ export default function ClientsPage() {
                           {client.company && (
                             <div className={cn("text-xs mt-1", "text-neutral-500 dark:text-slate-500")}>{client.company}</div>
                           )}
-                          {(client as ClientWithReportFlag)._isFromReport && (
+                          {(client as unknown as ClientWithReportFlag)._isFromReport && (
                             <div className="text-xs text-amber-400 mt-1">From Report</div>
                           )}
                         </td>

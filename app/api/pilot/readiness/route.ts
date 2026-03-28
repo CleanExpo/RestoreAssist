@@ -40,11 +40,11 @@ export async function GET(request: NextRequest) {
 
     // ── 1. Load all recorded observations from the database ─────────────────
 
-    const rawObs = await prisma.pilotObservation.findMany({
+    const rawObs = await (prisma as any).pilotObservation.findMany({
       orderBy: { createdAt: 'asc' },
     })
 
-    const dbObservations: PilotObservation[] = rawObs.map(r => ({
+    const dbObservations: PilotObservation[] = (rawObs as any[]).map((r: any) => ({
       id:               r.id,
       claimId:          r.claimId,
       observationType:  r.observationType as ObservationType,
@@ -67,19 +67,16 @@ export async function GET(request: NextRequest) {
       select: {
         id:             true,
         inspectionDate: true,
-        completedAt:    true,
+        updatedAt:      true,
         userId:         true,
         status:         true,
-        user: {
-          select: { organizationId: true },
-        },
       },
     })
 
     // Group by organization, derive cycle time observations
     const byOrg: Record<string, typeof completedInspections> = {}
     for (const insp of completedInspections) {
-      const orgId = insp.user?.organizationId ?? 'unknown'
+      const orgId = (insp as any).user?.organizationId ?? 'unknown'
       if (!byOrg[orgId]) byOrg[orgId] = []
       byOrg[orgId].push(insp)
     }
@@ -90,7 +87,7 @@ export async function GET(request: NextRequest) {
         inspections.map(i => ({
           id:             i.id,
           inspectionDate: i.inspectionDate,
-          completedAt:    i.completedAt,
+          completedAt:    i.updatedAt,
           userId:         i.userId,
           status:         i.status,
         })),

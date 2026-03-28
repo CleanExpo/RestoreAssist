@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { validateCsrf } from "@/lib/csrf"
 import { stripe } from "@/lib/stripe"
+import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { applyRateLimit } from "@/lib/rate-limiter"
 
@@ -93,7 +94,8 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${baseUrl}/dashboard/success`,
+        // success_url must include {CHECKOUT_SESSION_ID} so the success page can verify the session
+        success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
         metadata: {
           userId: session.user.id,
@@ -101,10 +103,14 @@ export async function POST(request: NextRequest) {
       })
     } catch (priceError: any) {
       // If price doesn't exist, create it dynamically
+      // NOTE: This fallback only fires when STRIPE_PRICE_MONTHLY / STRIPE_PRICE_YEARLY env vars
+      // are not set (or set to placeholder values). Set them to real Stripe price IDs:
+      //   STRIPE_PRICE_MONTHLY=price_1SK6GPBY5KEPMwxd43EBhwXx  ($99/mo AUD)
+      //   STRIPE_PRICE_YEARLY=price_1SK6I7BY5KEPMwxdC451vfBk   ($1188/yr AUD)
       if (priceError.code === 'resource_missing') {
-        
+
         // Create price based on the priceId
-        let priceData
+        let priceData: Stripe.PriceCreateParams
         if (priceId === 'MONTHLY_PLAN' || priceId.includes('MONTHLY')) {
           priceData = {
             unit_amount: 9900, // $99.00 in cents
@@ -126,9 +132,9 @@ export async function POST(request: NextRequest) {
         } else {
           throw new Error('Invalid price ID')
         }
-        
+
         const newPrice = await stripe.prices.create(priceData)
-        
+
         checkoutSession = await stripe.checkout.sessions.create({
           mode: 'subscription',
           payment_method_types: ['card'],
@@ -139,7 +145,8 @@ export async function POST(request: NextRequest) {
               quantity: 1,
             },
           ],
-          success_url: `${baseUrl}/dashboard/success`,
+          // success_url must include {CHECKOUT_SESSION_ID} so the success page can verify the session
+          success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
           metadata: {
             userId: session.user.id,

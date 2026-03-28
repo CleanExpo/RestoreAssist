@@ -306,7 +306,7 @@ export function EquipmentCostCalculatorComponent({
             </div>
 
             {/* Labor */}
-            {estimate.laborCost > 0 && (
+            {(estimate.laborCost ?? 0) > 0 && (
               <div>
                 <h3 className="font-semibold mb-3 mt-4">Labor</h3>
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
@@ -318,7 +318,7 @@ export function EquipmentCostCalculatorComponent({
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
-                      {EquipmentCostCalculator.formatCost(estimate.laborCost)}
+                      {EquipmentCostCalculator.formatCost(estimate.laborCost ?? 0)}
                     </p>
                   </div>
                 </div>

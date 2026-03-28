@@ -1,12 +1,13 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, Suspense } from "react"
 import NIRTechnicianInputForm from "@/components/NIRTechnicianInputForm"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
-export default function NewInspectionPage() {
+function NewInspectionPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("sessionId")
@@ -89,5 +90,13 @@ export default function NewInspectionPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function NewInspectionPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <NewInspectionPageInner />
+    </Suspense>
   )
 }

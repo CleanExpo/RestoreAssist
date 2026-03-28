@@ -221,6 +221,7 @@ export async function PUT(request: NextRequest) {
         administrationFee: data.administrationFee,
         callOutFee: data.callOutFee,
         thermalCameraUseCostPerAssessment: data.thermalCameraUseCostPerAssessment,
+        ...(data.electricityRatePer24h !== undefined && { electricityRatePer24h: data.electricityRatePer24h }),
         customFields: customFieldsJson,
       },
       create: {
@@ -248,6 +249,7 @@ export async function PUT(request: NextRequest) {
         administrationFee: data.administrationFee,
         callOutFee: data.callOutFee,
         thermalCameraUseCostPerAssessment: data.thermalCameraUseCostPerAssessment,
+        electricityRatePer24h: data.electricityRatePer24h ?? 1.50,
         customFields: customFieldsJson,
       }
     })
@@ -302,7 +304,8 @@ function getDefaultPricingConfig() {
     biohazardTreatmentRate: 25.00,
     administrationFee: 250.00,
     callOutFee: 150.00,
-    thermalCameraUseCostPerAssessment: 75.00
+    thermalCameraUseCostPerAssessment: 75.00,
+    electricityRatePer24h: 1.50
   }
 }
 

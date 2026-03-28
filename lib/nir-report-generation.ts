@@ -347,13 +347,13 @@ export async function generateNIRPDF(inspection: NirReportInspectionData): Promi
       ? {
           ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
           humidityPercent:           inspection.environmentalData.humidityPercent,
-          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius ?? undefined,
         }
       : null,
     moistureReadings:        inspection.moistureReadings,
     affectedAreas:           inspection.affectedAreas,
-    classifications:         inspection.classifications,
-    scopeItems:              inspection.scopeItems,
+    classifications:         inspection.classifications as any,
+    scopeItems:              inspection.scopeItems as any,
     costEstimates:           inspection.costEstimates.map(c => ({ total: c.total, category: c.category ?? undefined })),
     photos:                  inspection.photos,
   }

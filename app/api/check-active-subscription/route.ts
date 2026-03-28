@@ -137,19 +137,20 @@ export async function POST(request: NextRequest) {
             subscriptionPlan: subscriptionPlan,
             stripeCustomerId: customerId,
             subscriptionId: activeSubscription.id,
-            subscriptionEndsAt: new Date(activeSubscription.current_period_end * 1000),
-            nextBillingDate: new Date(activeSubscription.current_period_end * 1000),
-            lastBillingDate: new Date(activeSubscription.current_period_start * 1000),
+            subscriptionEndsAt: new Date((activeSubscription.items.data[0]?.current_period_end ?? 0) * 1000),
+            nextBillingDate: new Date((activeSubscription.items.data[0]?.current_period_end ?? 0) * 1000),
+            lastBillingDate: new Date((activeSubscription.items.data[0]?.current_period_start ?? 0) * 1000),
           monthlyReportsUsed: 0,
           monthlyResetDate: nextReset,
           // Don't set creditsRemaining for active subscriptions - they use monthly limits
         }
         
         // Grant signup bonus (10 reports) if first subscription
-        // Note: signupBonusApplied field will be set after migration is run
         if (isFirstSubscription) {
           const currentAddonReports = userBefore?.addonReports || 0
           updateData.addonReports = currentAddonReports + 10
+          // Mark bonus as applied so it is not granted again on re-subscription
+          updateData.signupBonusApplied = true
         }
 
         // Update user subscription in database

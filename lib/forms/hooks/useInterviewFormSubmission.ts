@@ -8,7 +8,7 @@ import type { FormField, InterviewPopulatedField, MergeResult } from '../intervi
  * Interview Form Submission Hook
  * Handles form submission with interview auto-populated data
  */
-interface UseInterviewFormSubmissionOptions {
+export interface UseInterviewFormSubmissionOptions {
   formTemplateId: string
   reportId?: string
   jobType?: string

@@ -463,8 +463,8 @@ export default function NIRTechnicianInputForm({
       const d = typeof initialData.dewPoint === "string" ? parseFloat(initialData.dewPoint) : initialData.dewPoint
       if (!Number.isNaN(d)) setEnvironmentalData((prev) => ({ ...prev, dewPoint: d }))
     }
-    if (typeof initialData.airCirculation === "boolean") setEnvironmentalData((prev) => ({ ...prev, airCirculation: initialData.airCirculation }))
-    if (typeof initialData.weatherConditions === "string") setEnvironmentalData((prev) => ({ ...prev, weatherConditions: initialData.weatherConditions }))
+    if (typeof initialData.airCirculation === "boolean") setEnvironmentalData((prev) => ({ ...prev, airCirculation: initialData.airCirculation as boolean }))
+    if (typeof initialData.weatherConditions === "string") setEnvironmentalData((prev) => ({ ...prev, weatherConditions: initialData.weatherConditions as string }))
     // Water classification: normalize "Category 1" / "Class 1" to "1" for NIR dropdowns
     const catRaw = initialData.waterCategory
     const classRaw = initialData.waterClass
@@ -555,7 +555,7 @@ export default function NIRTechnicianInputForm({
             setAffectedAreas(data.inspection.affectedAreas)
           }
           if (data.inspection.scopeItems) {
-            const selected = new Set(data.inspection.scopeItems.map((item: any) => item.itemType))
+            const selected = new Set<string>(data.inspection.scopeItems.map((item: any) => String(item.itemType ?? '')))
             setSelectedScopeItems(selected)
           }
           if (data.inspection.propertyAddress) {

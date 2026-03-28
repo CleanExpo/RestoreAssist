@@ -1,15 +1,16 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CheckCircle, Loader2, ArrowRight, Zap, DollarSign, FileText, X, Sparkles, TrendingUp } from "lucide-react"
 import toast from "react-hot-toast"
 import { useSession } from "next-auth/react"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
 // Module-level flag to prevent verification from running multiple times across remounts
 let globalVerificationComplete = false
 
-export default function SuccessPage() {
+function SuccessPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, update } = useSession()

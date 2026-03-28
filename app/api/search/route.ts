@@ -1,3 +1,9 @@
+/**
+ * RA-81 SQL Audit (2026-03-29): SAFE — no injection vectors.
+ * All $queryRaw calls use Prisma template literals; ${variable} placeholders
+ * are parameterised by Prisma at the driver level (equivalent to $1, $2 …).
+ * No $executeRawUnsafe, no string concatenation inside SQL strings.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";

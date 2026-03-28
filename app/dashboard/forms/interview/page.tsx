@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { GuidedInterviewPanel, InterviewQuestionAnswerSummary } from '@/components/forms/guided-interview'
 import type { InterviewQuestionAnswer } from '@/components/forms/guided-interview'
+import { PageSkeleton } from '@/components/DashboardSkeleton'
 
 /**
  * Guided Interview Page
@@ -13,7 +14,7 @@ import type { InterviewQuestionAnswer } from '@/components/forms/guided-intervie
  * Route: /dashboard/forms/interview?formTemplateId=<id>&reportId=<id>&sessionId=<id>
  * View-only summary: ?sessionId=<id> (no formTemplateId) shows completed interview Q&A.
  */
-export default function InterviewPage() {
+function InterviewPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const formTemplateId = searchParams.get('formTemplateId') || ''
@@ -242,5 +243,13 @@ export default function InterviewPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function InterviewPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <InterviewPageInner />
+    </Suspense>
   )
 }

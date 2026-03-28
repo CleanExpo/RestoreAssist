@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, BarChart2, Briefcase, Zap } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
 interface Integration {
   id: string
@@ -59,7 +60,7 @@ interface SubscriptionStatus {
   subscriptionPlan?: string
 }
 
-export default function IntegrationsPage() {
+function IntegrationsPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isOnboarding = searchParams.get('onboarding') === 'true'
@@ -963,5 +964,13 @@ export default function IntegrationsPage() {
         onImportComplete={() => { fetchExternalIntegrations() }}
       />
     </div>
+  )
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <IntegrationsPageInner />
+    </Suspense>
   )
 }

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (myReviews) {
       // Get reviews submitted by this client
       const clientUser = await prisma.clientUser.findUnique({
-        where: { userId: session.user.id },
+        where: { email: session!.user!.email! },
         select: { id: true }
       })
 
@@ -73,18 +73,12 @@ export async function GET(request: NextRequest) {
         },
         clientUser: {
           select: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true
-              }
-            }
+            name: true,
           }
         },
         report: {
           select: {
             id: true,
-            title: true
           }
         }
       },
@@ -113,8 +107,8 @@ export async function GET(request: NextRequest) {
         helpfulCount: r.helpfulCount,
         notHelpfulCount: r.notHelpfulCount,
         createdAt: r.createdAt,
-        clientName: `${r.clientUser.user.firstName} ${r.clientUser.user.lastName.charAt(0)}.`,
-        reportTitle: r.report?.title
+        clientName: r.clientUser.name,
+        reportId: r.report?.id
       }))
     })
   } catch (error: any) {
@@ -137,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     // Get client user
     const clientUser = await prisma.clientUser.findUnique({
-      where: { userId: session.user.id },
+      where: { email: session.user.email! },
       select: { id: true }
     })
 
@@ -195,7 +189,6 @@ export async function POST(request: NextRequest) {
       const report = await prisma.report.findUnique({
         where: {
           id: reportId,
-          clientUserId: clientUser.id
         }
       })
 

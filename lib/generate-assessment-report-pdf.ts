@@ -516,6 +516,94 @@ async function renderPage1(
   })
 }
 
-// Continue with other page renderers...
-// (I'll continue in the next part due to length)
+// ─── STUB HELPERS (stubs for functions referenced above) ─────────────────────
+
+function extractWaterCategory(waterSource: string): string {
+  const src = (waterSource || '').toLowerCase()
+  if (src.includes('sewage') || src.includes('black') || src.includes('category 3')) return 'Category 3'
+  if (src.includes('grey') || src.includes('category 2')) return 'Category 2'
+  return 'Category 1'
+}
+
+function sanitizeTextForPDF(text: string): string {
+  return (text || '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2013|\u2014/g, '-')
+    .replace(/[^\x00-\x7F]/g, '')
+}
+
+function wrapText(text: string, maxWidth: number, font: PDFFont, fontSize: number): string[] {
+  const words = (text || '').split(' ')
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word
+    const testWidth = font.widthOfTextAtSize(test, fontSize)
+    if (testWidth > maxWidth && current) {
+      lines.push(current)
+      current = word
+    } else {
+      current = test
+    }
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
+function buildForensicSummary(
+  report: any, analysis: any, waterCategory: string, waterClass: string,
+  methScreen: string, bioMouldDetected: boolean, buildingAge: number | null,
+  structureType: string, accessNotes: string | null,
+  insurerName: string, propertyAddress: string, technicianName: string
+): string {
+  return [
+    `Property: ${propertyAddress}`,
+    `Technician: ${technicianName}`,
+    `Insurer: ${insurerName}`,
+    `Water Category: ${waterCategory} | Class: ${waterClass}`,
+    `Meth Screen: ${methScreen}`,
+    bioMouldDetected ? 'Biological/Mould: DETECTED' : 'Biological/Mould: Not detected',
+    buildingAge ? `Building Age: ${buildingAge} years` : '',
+    `Structure: ${structureType}`,
+    accessNotes ? `Access: ${accessNotes}` : '',
+  ].filter(Boolean).join('. ')
+}
+
+function buildScopeItems(data: ReportData, standardsContext: string): ScopeItem[] {
+  return []
+}
+
+function buildTimelineData(
+  data: ReportData,
+  phase1Start: Date | null, phase1End: Date | null,
+  phase2Start: Date | null, phase2End: Date | null,
+  phase3Start: Date | null, phase3End: Date | null
+): any[] {
+  return []
+}
+
+function buildMoistureData(data: ReportData): any[] {
+  return []
+}
+
+function buildPsychrometricData(data: ReportData): any[] {
+  return []
+}
+
+async function renderPage2(page: PDFPage, options: any): Promise<void> {
+  // Stub — full implementation pending
+}
+
+async function renderPage3(page: PDFPage, options: any): Promise<void> {
+  // Stub — full implementation pending
+}
+
+async function renderPage4(page: PDFPage, options: any): Promise<void> {
+  // Stub — full implementation pending
+}
+
+function addHeaderFooter(page: PDFPage, options: any): void {
+  // Stub — full implementation pending
+}
 

@@ -284,7 +284,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     console.log("✅ [EMAIL] Email sent successfully!")
     console.log("📧 [EMAIL] Response:", JSON.stringify(result, null, 2))
     console.log("📧 [EMAIL] Duration:", duration, "ms")
-    console.log("📧 [EMAIL] Email ID:", result.id || "N/A")
+    console.log("📧 [EMAIL] Email ID:", result.data?.id || "N/A")
     
     return result
   } catch (error: any) {
@@ -423,7 +423,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       text,
     })
 
-    console.log("✅ [DUNNING] Email sent successfully:", result.id)
+    console.log("✅ [DUNNING] Email sent successfully:", result.data?.id)
     return result
   } catch (error: any) {
     console.error("❌ [DUNNING] Failed to send payment failed email:", error?.message)
@@ -511,7 +511,7 @@ export async function sendSubscriptionCancelledEmail(data: SubscriptionCancelled
       html,
     })
 
-    console.log("✅ [EMAIL] Cancellation email sent successfully:", result.id)
+    console.log("✅ [EMAIL] Cancellation email sent successfully:", result.data?.id)
     return result
   } catch (error: any) {
     console.error("❌ [EMAIL] Failed to send cancellation email:", error?.message)
@@ -596,7 +596,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
       html,
     })
 
-    console.log("✅ [EMAIL] Trial expiring email sent successfully:", result.id)
+    console.log("✅ [EMAIL] Trial expiring email sent successfully:", result.data?.id)
     return result
   } catch (error: any) {
     console.error("❌ [EMAIL] Failed to send trial expiring email:", error?.message)
@@ -700,7 +700,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       text,
     })
 
-    console.log("✅ [EMAIL] Password reset email sent successfully:", result.id)
+    console.log("✅ [EMAIL] Password reset email sent successfully:", result.data?.id)
     return result
   } catch (error: any) {
     console.error("❌ [EMAIL] Failed to send password reset email:", error?.message)
@@ -814,7 +814,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       text,
     })
 
-    console.log("✅ [EMAIL] Welcome email sent successfully:", result.id)
+    console.log("✅ [EMAIL] Welcome email sent successfully:", result.data?.id)
     return result
   } catch (error: any) {
     console.error("❌ [EMAIL] Failed to send welcome email:", error?.message)
@@ -919,7 +919,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       text,
     })
 
-    console.log("✅ [EMAIL] Report completed email sent:", result.id)
+    console.log("✅ [EMAIL] Report completed email sent:", result.data?.id)
     return result
   } catch (error: any) {
     console.error("❌ [EMAIL] Failed to send report completed email:", error?.message)

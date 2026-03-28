@@ -1,0 +1,100 @@
+{
+  "expo": {
+    "name": "RestoreAssist",
+    "slug": "restoreassist",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "restoreassist",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.restoreassist.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "RestoreAssist needs camera access to capture inspection photos of water damage for compliance reports.",
+        "NSPhotoLibraryUsageDescription": "RestoreAssist needs photo library access to attach existing photos to inspections.",
+        "NSLocationWhenInUseUsageDescription": "RestoreAssist needs location access to auto-tag inspection data with GPS coordinates for insurance compliance.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RestoreAssist needs background location to track technician routes during restoration jobs.",
+        "NSBluetoothAlwaysUsageDescription": "RestoreAssist connects to Bluetooth moisture meters to capture readings automatically.",
+        "NSBluetoothPeripheralUsageDescription": "RestoreAssist connects to Bluetooth moisture meters to capture readings automatically."
+      },        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      },
+      "package": "com.restoreassist.mobile",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "RestoreAssist needs background location to track technician routes during restoration jobs.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "RestoreAssist needs camera access to capture inspection photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0F172A"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RestoreAssist needs photo library access to attach photos to inspections."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/YOUR_EAS_PROJECT_ID"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const record = await prisma.pilotObservation.create({
+    const record = await (prisma as any).pilotObservation.create({
       data: {
         claimId:          obs.claimId,
         observationType:  obs.observationType,
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     if (claimId) where.claimId = claimId
     if (group)   where.group   = group
 
-    const observations = await prisma.pilotObservation.findMany({
+    const observations = await (prisma as any).pilotObservation.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     })

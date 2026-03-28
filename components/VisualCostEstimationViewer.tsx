@@ -405,7 +405,7 @@ export default function VisualCostEstimationViewer({ data }: VisualCostEstimatio
                       </tr>
                     </thead>
                     <tbody>
-                      {category.lineItems.map((item, idx) => (
+                      {category.lineItems.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="border border-slate-300 px-4 py-3 text-slate-700">{item.description}</td>
                           <td className="border border-slate-300 px-4 py-3 text-center text-slate-700">{item.hours || item.qty || '-'}</td>
@@ -448,7 +448,7 @@ export default function VisualCostEstimationViewer({ data }: VisualCostEstimatio
                       </tr>
                     </thead>
                     <tbody>
-                      {category.lineItems.map((item, idx) => (
+                      {category.lineItems.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="border border-slate-300 px-4 py-3 text-slate-700">{item.description}</td>
                           {category.lineItems.some((i: any) => i.qty) && (
@@ -500,7 +500,7 @@ export default function VisualCostEstimationViewer({ data }: VisualCostEstimatio
                       </tr>
                     </thead>
                     <tbody>
-                      {category.lineItems.map((item, idx) => (
+                      {category.lineItems.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="border border-slate-300 px-4 py-3 text-slate-700">{item.description}</td>
                           {category.lineItems.some((i: any) => i.sqm) ? (
@@ -546,7 +546,7 @@ export default function VisualCostEstimationViewer({ data }: VisualCostEstimatio
                       </tr>
                     </thead>
                     <tbody>
-                      {category.lineItems.map((item, idx) => (
+                      {category.lineItems.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="border border-slate-300 px-4 py-3 text-slate-700">{item.description}</td>
                           {category.lineItems.some((i: any) => i.qty || i.hours) && (

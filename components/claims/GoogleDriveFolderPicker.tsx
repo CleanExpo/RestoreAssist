@@ -145,17 +145,20 @@ export function GoogleDriveFolderPicker({
       }
       const appId = process.env.NEXT_PUBLIC_GOOGLE_APP_ID || ''
       const developerKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || ''
-      const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
-        .setIncludeFolders(true)
-        .setSelectFolderEnabled(true)
-        .setMimeTypes('application/vnd.google-apps.folder')
-      const builder = new google.picker.PickerBuilder()
+      const docsViewObj = new google.picker.DocsView(google.picker.ViewId.DOCS) as any
+      docsViewObj.setIncludeFolders(true)
+      docsViewObj.setSelectFolderEnabled(true)
+      docsViewObj.setMimeTypes('application/vnd.google-apps.folder')
+      const docsView = docsViewObj
+      const pickerBuilderObj = new google.picker.PickerBuilder() as any
+      const builder = pickerBuilderObj
         .addView(docsView)
         .setOAuthToken(accessToken)
         .setCallback((pickerData: unknown) => {
           const d = pickerData as Record<string, unknown>
-          const action = d?.action ?? (typeof google.picker.Response !== 'undefined' && (d as Record<string, unknown>)[(google.picker.Response as Record<string, string>).ACTION])
-          const docsRaw = d?.docs ?? (typeof google.picker.Response !== 'undefined' && (d as Record<string, unknown>)[(google.picker.Response as Record<string, string>).DOCUMENTS])
+          const pickerResponse = typeof google.picker.Response !== 'undefined' ? (google.picker.Response as unknown as Record<string, string>) : null
+          const action = d?.['action'] ?? (pickerResponse && d[pickerResponse['ACTION']])
+          const docsRaw = d?.['docs'] ?? (pickerResponse && d[pickerResponse['DOCUMENTS']])
           const docs = Array.isArray(docsRaw) ? docsRaw : undefined
           const picked = action === 'picked' || (typeof google.picker.Action !== 'undefined' && action === (google.picker.Action as Record<string, string>).PICKED)
           if (picked && docs?.[0]) {

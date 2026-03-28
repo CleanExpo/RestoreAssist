@@ -45,7 +45,7 @@ export default function ProfessionalDocumentViewer({ content }: ProfessionalDocu
     // Format tables - handle pipe-delimited tables
     const lines = html.split('\n')
     let inTable = false
-    let tableRows: string[] = []
+    let tableRows: string[][] = []
     let formattedLines: string[] = []
     
     for (let i = 0; i < lines.length; i++) {
@@ -80,22 +80,22 @@ export default function ProfessionalDocumentViewer({ content }: ProfessionalDocu
               : 'bg-white hover:bg-slate-50 transition-colors'
           
           formattedLines.push(`<tr class="${rowClass}">`)
-          row.forEach((cell, cellIdx) => {
+          row.forEach((cell: string, cellIdx: number) => {
             // Right-align numeric columns (last 2-3 columns usually)
             const isNumeric = /^\$?\d+[\d,]*\.?\d*$/.test(cell.replace('$', '').trim())
-            const alignClass = (cellIdx >= row.length - 2 && isNumeric) 
-              ? 'text-right font-mono' 
+            const alignClass = (cellIdx >= row.length - 2 && isNumeric)
+              ? 'text-right font-mono'
               : 'text-left'
-            
+
             const cellPadding = isHeader ? 'px-6 py-4' : 'px-6 py-3'
-            const cellTextClass = isHeader 
-              ? 'font-bold text-slate-800 text-sm uppercase tracking-wide' 
+            const cellTextClass = isHeader
+              ? 'font-bold text-slate-800 text-sm uppercase tracking-wide'
               : isNumeric && cellIdx >= row.length - 2
                 ? 'font-semibold text-slate-900'
                 : 'text-slate-700'
-            
+
             const borderClass = cellIdx < row.length - 1 ? 'border-r border-slate-200' : ''
-            
+
             formattedLines.push(`<${tag} class="${cellPadding} ${alignClass} ${cellTextClass} ${borderClass}">${cell}</${tag}>`)
           })
           formattedLines.push('</tr>')
@@ -129,22 +129,22 @@ export default function ProfessionalDocumentViewer({ content }: ProfessionalDocu
             : 'bg-white hover:bg-slate-50 transition-colors'
         
         formattedLines.push(`<tr class="${rowClass}">`)
-        row.forEach((cell, cellIdx) => {
+        row.forEach((cell: string, cellIdx: number) => {
           // Right-align numeric columns (last 2-3 columns usually)
           const isNumeric = /^\$?\d+[\d,]*\.?\d*$/.test(cell.replace('$', '').trim())
-          const alignClass = (cellIdx >= row.length - 2 && isNumeric) 
-            ? 'text-right font-mono' 
+          const alignClass = (cellIdx >= row.length - 2 && isNumeric)
+            ? 'text-right font-mono'
             : 'text-left'
-          
+
           const cellPadding = isHeader ? 'px-6 py-4' : 'px-6 py-3'
-          const cellTextClass = isHeader 
-            ? 'font-bold text-slate-800 text-sm uppercase tracking-wide' 
+          const cellTextClass = isHeader
+            ? 'font-bold text-slate-800 text-sm uppercase tracking-wide'
             : isNumeric && cellIdx >= row.length - 2
               ? 'font-semibold text-slate-900'
               : 'text-slate-700'
-          
+
           const borderClass = cellIdx < row.length - 1 ? 'border-r border-slate-200' : ''
-          
+
           formattedLines.push(`<${tag} class="${cellPadding} ${alignClass} ${cellTextClass} ${borderClass}">${cell}</${tag}>`)
         })
         formattedLines.push('</tr>')

@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken"
 import { logSecurityEvent } from '@/lib/security-audit'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as any,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -61,39 +61,38 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // Handle Google users (no password provided or empty string)
-        // Check if password is missing, empty string, or undefined
+        // H4 fix: never allow password-less login via the Credentials provider.
+        // OAuth-only accounts (no password in DB) must authenticate through the
+        // Google provider — not through a direct credentials submission.
         const isPasswordEmpty = !credentials.password || credentials.password.trim() === ''
 
         if (isPasswordEmpty) {
-          // Check if user was created via Google (no password set in DB)
-          if (!user.password) {
-            console.log('[Contractor Credentials] Google user authenticated:', credentials.email)
-            logSecurityEvent({
-              eventType: 'LOGIN_SUCCESS',
-              userId: user.id,
-              email: user.email!,
-              details: { method: 'google_passthrough' },
-            }).catch(() => {})
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              image: user.image,
-              role: user.role,
-              mustChangePassword: user.mustChangePassword || false,
-              organizationId: user.organizationId || null,
-              userType: 'contractor',
-            }
-          }
-          // User has password but none provided - invalid
-          console.log('[Contractor Credentials] Password required for user:', credentials.email)
+          // Reject regardless of whether the DB record has a password or not.
+          // An empty submission to the Credentials endpoint is always invalid.
+          console.log('[Contractor Credentials] Empty password submitted — rejecting:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            userId: user.id,
+            email: credentials.email,
+            details: { reason: 'empty_password_credentials_attempt' },
+          }).catch(() => {})
           return null
         }
 
-        // Regular password check for email/password users
+        // Regular password check for email/password users.
+        // If the DB has no password, this is an OAuth-only account — reject with
+        // a clear signal so the client can show an appropriate message.
         if (!user.password) {
-          console.log('[Contractor Credentials] User has no password but password was provided:', credentials.email)
+          console.log('[Contractor Credentials] OAuth-only account — password auth not allowed:', credentials.email)
+          logSecurityEvent({
+            eventType: 'LOGIN_FAILED',
+            severity: 'WARNING',
+            userId: user.id,
+            email: credentials.email,
+            details: { reason: 'oauth_account_password_attempt' },
+          }).catch(() => {})
+          // Return null; the caller should surface "This account uses Google sign-in"
           return null
         }
 
@@ -253,7 +252,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
-    signUp: "/signup",
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

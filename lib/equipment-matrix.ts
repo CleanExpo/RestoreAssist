@@ -35,7 +35,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
     id: 'lgr-35',
     name: '35L/Day Ave',
     capacity: '35L/Day Ave',
-    amps: 2.55,
+    amps: 3.5,
     tempRange: '1°-38°',
     models: [
       { name: 'Trotec TTK Qube', capacity: 40 },
@@ -46,7 +46,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
     id: 'lgr-55',
     name: '55L/Day Ave',
     capacity: '55L/Day Ave',
-    amps: 2.85,
+    amps: 3.5,
     tempRange: '1°-40°',
     models: [
       { name: 'Dri-Eaz Revolution LGR', capacity: 55 },
@@ -61,7 +61,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
     id: 'lgr-85',
     name: '85L/Day Ave',
     capacity: '85L/Day Ave',
-    amps: 5.02,
+    amps: 3.5,
     tempRange: '1°-38°',
     models: [
       { name: 'ThorAir LGR 85L Pro', capacity: 85 },
@@ -74,7 +74,7 @@ export const lgrDehumidifiers: EquipmentGroup[] = [
     id: 'lgr-105',
     name: '105L/Day Ave',
     capacity: '105L/Day Ave',
-    amps: 7,
+    amps: 3.5,
     tempRange: '1°-40°',
     models: [
       { name: 'Trotec TTK 655 S', capacity: 110 },
@@ -89,7 +89,7 @@ export const desiccantDehumidifiers: EquipmentGroup[] = [
     id: 'desiccant-20',
     name: '20L/Day Ave',
     capacity: '20L/Day Ave',
-    amps: 3.75,
+    amps: 3.5,
     tempRange: '-15°-35°',
     models: [
       { name: 'Trotec TTR 200', capacity: 18 },
@@ -100,7 +100,7 @@ export const desiccantDehumidifiers: EquipmentGroup[] = [
     id: 'desiccant-35',
     name: '35L/Day Ave',
     capacity: '35L/Day Ave',
-    amps: 6.75,
+    amps: 3.5,
     tempRange: '-15°-40°',
     models: [
       { name: 'Trotec TTR 400', capacity: 38 },
@@ -111,7 +111,7 @@ export const desiccantDehumidifiers: EquipmentGroup[] = [
     id: 'desiccant-60',
     name: '60L/Day Ave',
     capacity: '60L/Day Ave',
-    amps: 9,
+    amps: 3.5,
     tempRange: '-10°-40°',
     models: [
       { name: 'Corroventa A4 ES X', capacity: 65 }
@@ -125,7 +125,7 @@ export const airMovers: EquipmentGroup[] = [
     id: 'airmover-800',
     name: '800 CFM Ave',
     capacity: '800 CFM Ave',
-    amps: 1.23,
+    amps: 1,
     airflow: 800,
     models: [
       { name: 'Dri-Eaz Velo', airflow: 885 },
@@ -138,7 +138,7 @@ export const airMovers: EquipmentGroup[] = [
     id: 'airmover-1500',
     name: '1500 CFM Ave',
     capacity: '1500 CFM Ave',
-    amps: 2.27,
+    amps: 1,
     airflow: 1500,
     models: [
       { name: 'ThorAir Snail Fan', airflow: 1600 },
@@ -150,7 +150,7 @@ export const airMovers: EquipmentGroup[] = [
     id: 'airmover-2500',
     name: '2500 CFM Ave',
     capacity: '2500 CFM Ave',
-    amps: 2,
+    amps: 1,
     airflow: 2500,
     models: [
       { name: 'Phoenix AirMAX Radial', airflow: 2600 },
@@ -168,7 +168,7 @@ export const afdUnits: EquipmentGroup[] = [
     id: 'afd-500',
     name: 'AFD 500 CFM Ave',
     capacity: 'AFD 500 CFM Ave',
-    amps: 2.3,
+    amps: 1.5,
     airflow: 500,
     models: [
       { name: 'HEPA AFD 500 (Ave)', airflow: 500 }

@@ -77,6 +77,7 @@ export default function EquipmentToolsSelection({
     initialData?.equipmentSelection || []
   )
   const [durationDays, setDurationDays] = useState(4)
+  const [circuitCapacityAmps, setCircuitCapacityAmps] = useState(40) // Australian default
 
   // Fetch pricing config on mount
   useEffect(() => {
@@ -125,6 +126,16 @@ export default function EquipmentToolsSelection({
   const totalAmps = calculateTotalAmps(equipmentSelections)
   const totalDailyCost = calculateTotalDailyCost(equipmentSelections, pricingConfig)
   const totalCost = calculateTotalCost(equipmentSelections, durationDays, pricingConfig)
+
+  // Electricity cost: totalAmps × ratePerAmpPerDay × durationDays
+  const electricityRatePer24h = pricingConfig?.electricityRatePer24h ?? 1.50
+  const totalElectricityCost = totalAmps * electricityRatePer24h * durationDays
+
+  // Circuit capacity safety check (Australian standard: use ≤80% of circuit)
+  const safeCircuitLimit = circuitCapacityAmps * 0.8
+  const circuitUsagePct = circuitCapacityAmps > 0 ? (totalAmps / circuitCapacityAmps) * 100 : 0
+  const circuitWarning = totalAmps > safeCircuitLimit
+  const circuitCritical = totalAmps > circuitCapacityAmps
   
   // Calculate efficiency targets
   // Only count dehumidifiers (LGR/Desiccant) for water removal capacity, not air movers
@@ -669,10 +680,10 @@ export default function EquipmentToolsSelection({
                 </div>
                 
                 {/* Estimated Consumption */}
-                <div className="p-4 bg-slate-900/50 rounded-lg">
-                  <h4 className="font-semibold mb-3">ESTIMATED CONSUMPTION</h4>
-                  <div className="text-2xl font-bold mb-2">${totalCost.toFixed(2)}</div>
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="p-4 bg-slate-900/50 rounded-lg space-y-3">
+                  <h4 className="font-semibold">ESTIMATED CONSUMPTION</h4>
+                  <div className="text-2xl font-bold">${(totalCost + totalElectricityCost).toFixed(2)}</div>
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       min="1"
@@ -682,8 +693,52 @@ export default function EquipmentToolsSelection({
                     />
                     <span className="text-sm">Days</span>
                   </div>
-                  <div className="text-sm text-slate-400">
-                    Total Draw: {totalAmps.toFixed(1)} Amps
+                  <div className="text-xs text-slate-400 space-y-1">
+                    <div>Equipment rental: ${totalCost.toFixed(2)}</div>
+                    <div>Electricity ({totalAmps.toFixed(1)}A × ${electricityRatePer24h.toFixed(2)}/amp/day × {durationDays}d): ${totalElectricityCost.toFixed(2)}</div>
+                  </div>
+
+                  {/* Power draw & circuit capacity */}
+                  <div className="border-t border-slate-700 pt-3 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">Total Draw</span>
+                      <span className={circuitCritical ? 'text-red-400 font-bold' : circuitWarning ? 'text-yellow-400 font-semibold' : 'text-slate-300'}>
+                        {totalAmps.toFixed(1)} A
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">
+                        Circuit Capacity
+                        <input
+                          type="number"
+                          min="10"
+                          max="200"
+                          value={circuitCapacityAmps}
+                          onChange={(e) => setCircuitCapacityAmps(parseInt(e.target.value) || 40)}
+                          className="ml-2 w-16 px-1 py-0.5 bg-slate-700/50 border border-slate-600 rounded text-xs text-white"
+                        />
+                        <span className="ml-1">A</span>
+                      </span>
+                      <span className="text-slate-400 text-xs">80% safe = {safeCircuitLimit.toFixed(0)} A</span>
+                    </div>
+                    {/* Usage bar */}
+                    <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${circuitCritical ? 'bg-red-500' : circuitWarning ? 'bg-yellow-500' : 'bg-cyan-500'}`}
+                        style={{ width: `${Math.min(circuitUsagePct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-center text-slate-400">{circuitUsagePct.toFixed(0)}% of circuit capacity</div>
+                    {circuitCritical && (
+                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded p-2">
+                        ⚠ Total draw exceeds circuit capacity. Redistribute equipment across multiple circuits.
+                      </div>
+                    )}
+                    {circuitWarning && !circuitCritical && (
+                      <div className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
+                        ⚡ Draw exceeds 80% recommended safe load. Consider spreading equipment across circuits.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

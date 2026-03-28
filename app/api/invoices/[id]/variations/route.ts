@@ -176,12 +176,13 @@ export async function POST(
     }
 
     const year = new Date().getFullYear()
-    const invoiceNumber = `RA-${year}-${sequence.nextNumber.toString().padStart(4, '0')}-V`
+    const nextNumber = sequence.lastNumber + 1
+    const invoiceNumber = `RA-${year}-${nextNumber.toString().padStart(4, '0')}-V`
 
     // Update sequence
     await prisma.invoiceSequence.update({
       where: { id: sequence.id },
-      data: { nextNumber: sequence.nextNumber + 1 }
+      data: { lastNumber: nextNumber }
     })
 
     // Calculate due date (default 30 days from now)
@@ -219,8 +220,6 @@ export async function POST(
         reportId: originalInvoice.reportId,
         estimateId: originalInvoice.estimateId,
         clientId: originalInvoice.clientId,
-        contactId: originalInvoice.contactId,
-        companyId: originalInvoice.companyId,
         templateId: originalInvoice.templateId,
         userId: session.user.id,
         // Line items

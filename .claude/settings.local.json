@@ -3,7 +3,8 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(npm run build:*)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "mcp__Desktop_Commander__read_file"
     ]
   }
 }

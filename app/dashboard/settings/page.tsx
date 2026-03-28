@@ -2,12 +2,14 @@
 
 import { CreditCard, Crown, Download, Edit, Key, RefreshCw, Shield, Trash2, User, Zap, Building2, Upload, Loader2, CheckCircle, ArrowRight } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import OnboardingGuide from "@/components/OnboardingGuide"
 import WelcomeScreen from "@/components/WelcomeScreen"
+import { BusinessProfilesManager } from "@/components/BusinessProfilesManager"
 import { cn } from "@/lib/utils"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
 interface UserProfile {
   id: string
@@ -42,7 +44,7 @@ interface UserProfile {
   }
 }
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -526,7 +528,14 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Business Information */}
+          {/* Business Profiles (Multi-business support) */}
+          {canEditBusinessInfo && (
+            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+              <BusinessProfilesManager />
+            </div>
+          )}
+
+          {/* Business Information (Legacy — shown for reference) */}
             <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
             <div className="flex items-center justify-between mb-6">
               <h2 className={cn("text-xl font-semibold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
@@ -1004,5 +1013,13 @@ export default function SettingsPage() {
         </div>
       </OnboardingGuide>
     </>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <SettingsPageInner />
+    </Suspense>
   )
 }

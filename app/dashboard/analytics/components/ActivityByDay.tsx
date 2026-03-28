@@ -75,10 +75,10 @@ export default function ActivityByDay({ data, loading = false }: ActivityByDayPr
               borderRadius: "8px",
               color: "#111827",
             }}
-            formatter={(value: number, _name: string, props: { payload?: DayItem }) => [
+            formatter={((value: number, _name: string, props: { payload?: DayItem }) => [
               `${value} reports · $${(props?.payload?.revenue ?? 0).toLocaleString()}`,
               "Reports · Revenue",
-            ]}
+            ]) as any}
             labelFormatter={(label) => `Day: ${label}`}
           />
           <Bar dataKey="reports" name="reports" radius={[6, 6, 0, 0]} minPointSize={4}>

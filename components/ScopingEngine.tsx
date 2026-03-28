@@ -54,12 +54,12 @@ export default function ScopingEngine({ reportId, reportData, initialScopeData, 
     
     // Step 3: Equipment Parameters
     equipmentParameters: {
-      equipment: []
+      equipment: [] as { type: string; quantity: number; duration: number }[]
     },
-    
+
     // Step 4: Chemical Application
     chemicalApplication: {
-      chemicals: []
+      chemicals: [] as { type: string; area: number }[]
     },
     
     // Step 5: Time & Productivity

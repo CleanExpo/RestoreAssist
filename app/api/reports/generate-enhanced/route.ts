@@ -7,6 +7,25 @@ import { getAnthropicApiKey } from "@/lib/ai-provider"
 import { applyRateLimit } from "@/lib/rate-limiter"
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
 
+function determineReportType(notes: string): string {
+  const lower = notes.toLowerCase()
+  if (lower.includes('water') || lower.includes('flood') || lower.includes('moisture')) return 'water_damage'
+  if (lower.includes('fire') || lower.includes('smoke')) return 'fire_damage'
+  if (lower.includes('mould') || lower.includes('mold')) return 'mould_remediation'
+  return 'general_restoration'
+}
+
+function extractKeywords(notes: string): string[] {
+  const words = notes.toLowerCase().split(/\W+/).filter(w => w.length > 4)
+  return [...new Set(words)].slice(0, 20)
+}
+
+function extractMaterials(notes: string): string[] {
+  const materialPatterns = ['timber', 'concrete', 'gyprock', 'carpet', 'vinyl', 'brick', 'plaster', 'insulation', 'drywall']
+  const lower = notes.toLowerCase()
+  return materialPatterns.filter(m => lower.includes(m))
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -69,7 +88,7 @@ export async function POST(request: NextRequest) {
         keywords: extractKeywords(technicianNotes),
         materials: extractMaterials(technicianNotes),
         technicianNotes: technicianNotes.substring(0, 1000),
-      }
+      } as any
       
       // Use the appropriate Anthropic API key to retrieve and analyze standards
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)

@@ -62,8 +62,6 @@ export async function POST(
         depth: body.depth || "Surface",
         notes: body.notes || null,
         photoUrl: body.photoUrl || null,
-        mapX: body.mapX !== undefined && body.mapX !== null ? parseFloat(body.mapX) : null,
-        mapY: body.mapY !== undefined && body.mapY !== null ? parseFloat(body.mapY) : null
       }
     })
     

@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         report = {
           clientName: r.client?.name ?? r.clientName,
           propertyAddress: r.propertyAddress,
-          clientContact: r.clientContact ?? undefined,
+          clientContact: r.clientContactDetails ?? undefined,
           insurerName: r.insurerName ?? undefined,
           claimReferenceNumber: r.claimReferenceNumber ?? undefined,
           incidentDate: r.incidentDate

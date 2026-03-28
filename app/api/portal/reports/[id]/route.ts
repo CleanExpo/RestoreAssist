@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 // GET /api/portal/reports/[id] - Get single report for logged-in client
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -21,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: 'Client ID not found' }, { status: 400 })
     }
 
-    const reportId = params.id
+    const reportId = (await params).id
 
     // Fetch report - verify it belongs to this client
     const report = await prisma.report.findFirst({

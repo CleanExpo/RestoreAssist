@@ -20,9 +20,8 @@ export async function GET(request: NextRequest) {
             businessName: true,
             businessLogo: true,
             businessAddress: true,
-            phoneNumber: true,
+            businessPhone: true,
             email: true,
-            website: true
           }
         },
         certifications: {
@@ -81,7 +80,7 @@ export async function PUT(request: NextRequest) {
       select: { role: true, businessName: true }
     })
 
-    if (user?.role !== 'CONTRACTOR') {
+    if ((user?.role as string) !== 'CONTRACTOR') {
       return NextResponse.json(
         { error: 'User is not a contractor' },
         { status: 403 }
@@ -89,7 +88,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Generate slug from business name
-    const slug = user.businessName
+    const slug = (user!.businessName ?? session.user.id)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')

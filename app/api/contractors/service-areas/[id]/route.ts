@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 // Update service area
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,7 +17,7 @@ export async function PATCH(
 
     // Verify ownership
     const serviceArea = await prisma.contractorServiceArea.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         profile: {
           select: { userId: true }
@@ -43,7 +43,7 @@ export async function PATCH(
     const { suburb, radius, isActive, priority } = body
 
     const updated = await prisma.contractorServiceArea.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(suburb !== undefined && { suburb }),
         ...(radius !== undefined && { radius: radius ? parseInt(radius) : null }),
@@ -65,7 +65,7 @@ export async function PATCH(
 // Delete service area
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -76,7 +76,7 @@ export async function DELETE(
 
     // Verify ownership
     const serviceArea = await prisma.contractorServiceArea.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         profile: {
           select: { userId: true }
@@ -99,7 +99,7 @@ export async function DELETE(
     }
 
     await prisma.contractorServiceArea.delete({
-      where: { id: params.id }
+      where: { id: (await params).id }
     })
 
     return NextResponse.json({ success: true })

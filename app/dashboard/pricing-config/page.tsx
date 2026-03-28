@@ -1,10 +1,12 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import PricingConfiguration from "@/components/PricingConfiguration"
 import OnboardingGuide from "@/components/OnboardingGuide"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
-export default function PricingConfigPage() {
+function PricingConfigPageInner() {
   const searchParams = useSearchParams()
   const isOnboarding = searchParams.get('onboarding') === 'true'
 
@@ -27,6 +29,14 @@ export default function PricingConfigPage() {
     </div>
       </OnboardingGuide>
     </>
+  )
+}
+
+export default function PricingConfigPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <PricingConfigPageInner />
+    </Suspense>
   )
 }
 

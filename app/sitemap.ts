@@ -4,6 +4,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
   return [
+    // Core public pages
     {
       url: baseUrl,
       lastModified: new Date(),
@@ -52,12 +53,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // Blog
     {
       url: `${baseUrl}/blog`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
     },
+    {
+      url: `${baseUrl}/blog/restoration-contractors-reports-competitive-advantage`,
+      lastModified: new Date("2024-03-01"),
+      changeFrequency: "yearly",
+      priority: 0.7,
+    },
+    // Resources & compliance
     {
       url: `${baseUrl}/resources`,
       lastModified: new Date(),
@@ -76,8 +85,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    // Support & auth
     {
       url: `${baseUrl}/help`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/pilot`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
@@ -93,6 +109,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.5,
+    },
+    // Dashboard — noindex handled via robots meta in the layout, still listed for completeness
+    {
+      url: `${baseUrl}/dashboard`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    // Blog posts
+    {
+      url: `${baseUrl}/blog/as-iicrc-s500-2025-guide`,
+      lastModified: new Date("2026-03-29"),
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
   ]
 }

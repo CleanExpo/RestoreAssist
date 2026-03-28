@@ -27,6 +27,34 @@
  * a native WebView wrapper or React Native bridge for Bluetooth access.
  */
 
+// ─── WEB BLUETOOTH TYPE STUBS ─────────────────────────────────────────────────
+// Web Bluetooth API types are not yet in the standard TypeScript dom lib.
+// These minimal stubs satisfy the compiler without affecting runtime behaviour.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type BluetoothGATTServer = {
+  connect(): Promise<BluetoothGATTServer>
+  disconnect(): void
+  getPrimaryService(uuid: string): Promise<BluetoothGATTService>
+  [key: string]: any
+}
+type BluetoothGATTService = {
+  getCharacteristic(uuid: string): Promise<BluetoothRemoteGATTCharacteristic>
+  [key: string]: any
+}
+type BluetoothDevice = {
+  gatt?: BluetoothGATTServer
+  [key: string]: any
+}
+type BluetoothRemoteGATTCharacteristic = {
+  value?: DataView
+  startNotifications(): Promise<void>
+  stopNotifications(): Promise<void>
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void
+  [key: string]: any
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 // ─── CONSTANTS & DEVICE PROFILES ─────────────────────────────────────────────
 
 /**
@@ -290,7 +318,7 @@ export async function subscribeToReadings(
   await device.characteristic.startNotifications()
 
   const handler = async (event: Event) => {
-    const target = event.target as BluetoothRemoteGATTCharacteristic
+    const target = event.target as unknown as BluetoothRemoteGATTCharacteristic
     try {
       if (device.category === 'thermo-hygrometer') {
         const rh = parseHumidityValue(device.key, target.value!)

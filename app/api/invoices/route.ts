@@ -213,8 +213,6 @@ export async function POST(request: NextRequest) {
           estimateId,
           reportId,
           clientId,
-          contactId,
-          companyId,
           customerName,
           customerEmail,
           customerPhone,

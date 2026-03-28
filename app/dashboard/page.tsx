@@ -20,18 +20,19 @@ import {
   XIcon
 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import UpgradeBanner from "@/components/UpgradeBanner"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
 interface SubscriptionStatus {
   subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
   subscriptionPlan?: string
 }
 
-export default function DashboardPage() {
+function DashboardPageInner() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -920,5 +921,12 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+  )
+}
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <DashboardPageInner />
+    </Suspense>
   )
 }

@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import RestorationInvoiceForm from "@/components/restoration/RestorationInvoiceForm"
 import { Loader2 } from "lucide-react"
+import { PageSkeleton } from "@/components/DashboardSkeleton"
 
-export default function NewRestorationInvoicePage() {
+function NewRestorationInvoicePageInner() {
   const searchParams = useSearchParams()
   const reportId = searchParams.get("reportId")
   const [seed, setSeed] = useState<{
@@ -68,10 +69,15 @@ export default function NewRestorationInvoicePage() {
       <RestorationInvoiceForm
         reportId={reportId ?? undefined}
         initialSeed={seed ?? undefined}
-        suggestedInvoiceNumber={seed?.suggestedInvoiceNumber}
-        defaultInvDate={seed?.defaultInvDate}
-        defaultDueDate={seed?.defaultDueDate}
       />
     </div>
+  )
+}
+
+export default function NewRestorationInvoicePage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <NewRestorationInvoicePageInner />
+    </Suspense>
   )
 }

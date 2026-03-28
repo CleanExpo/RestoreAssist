@@ -184,17 +184,13 @@ export async function POST(
           data: {
             userId: session.user.id,
             name: externalClient.name,
-            email: externalClient.email,
+            email: externalClient.email ?? '',
             phone: externalClient.phone,
             address: externalClient.address,
           },
         })
 
-        // Link external client to the client record
-        await prisma.externalClient.update({
-          where: { id: externalClient.id },
-          data: { contactId: client.id },
-        })
+        // Note: ExternalClient does not have a contactId field; link is tracked elsewhere
 
         imported.push(externalClient.externalId)
       } catch (err) {

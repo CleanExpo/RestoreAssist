@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 // Update certification
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,7 +17,7 @@ export async function PATCH(
 
     // Verify ownership
     const certification = await prisma.contractorCertification.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         profile: {
           select: { userId: true }
@@ -59,7 +59,7 @@ export async function PATCH(
     } = body
 
     const updated = await prisma.contractorCertification.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(certificationType && { certificationType }),
         ...(certificationName && { certificationName }),
@@ -86,7 +86,7 @@ export async function PATCH(
 // Delete certification
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -97,7 +97,7 @@ export async function DELETE(
 
     // Verify ownership
     const certification = await prisma.contractorCertification.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         profile: {
           select: { userId: true }
@@ -120,7 +120,7 @@ export async function DELETE(
     }
 
     await prisma.contractorCertification.delete({
-      where: { id: params.id }
+      where: { id: (await params).id }
     })
 
     return NextResponse.json({ success: true })

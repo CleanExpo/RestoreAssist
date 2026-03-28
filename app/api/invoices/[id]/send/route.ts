@@ -5,13 +5,14 @@ import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 import { generateInvoiceSentEmail } from '@/lib/invoices/email-templates'
 import { isDraft } from '@/lib/invoice-status'
+import { getActiveBusinessInfo } from '@/lib/business-profile'
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -29,7 +30,7 @@ export async function POST(
 
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id: (await params).id,
         userId: session.user.id
       },
       include: {
@@ -64,8 +65,9 @@ export async function POST(
     const publicToken = invoice.publicToken || `inv_${invoice.id}_${Date.now()}`
 
     // Send email via Resend
-    const fromEmail = invoice.user.businessEmail || invoice.user.email || 'invoices@restoreassist.com.au'
-    const fromName = invoice.user.businessName || invoice.user.name || 'RestoreAssist'
+    const businessInfo = await getActiveBusinessInfo(invoice.userId)
+    const fromEmail = businessInfo.businessEmail || invoice.user.email || 'invoices@restoreassist.com.au'
+    const fromName = businessInfo.businessName || invoice.user.name || 'RestoreAssist'
 
     // Generate professional email HTML
     const emailHtml = generateInvoiceSentEmail({
@@ -77,8 +79,8 @@ export async function POST(
       customerName: invoice.customerName,
       publicToken,
       businessName: fromName,
-      businessEmail: invoice.user.businessEmail || undefined,
-      businessPhone: invoice.user.businessPhone || undefined,
+      businessEmail: businessInfo.businessEmail || undefined,
+      businessPhone: businessInfo.businessPhone || undefined,
       appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://restoreassist.com.au'
     })
 
@@ -88,7 +90,7 @@ export async function POST(
         to: invoice.customerEmail,
         subject: `Invoice ${invoice.invoiceNumber} from ${fromName}`,
         html: emailHtml,
-        replyTo: invoice.user.businessEmail || invoice.user.email
+        replyTo: businessInfo.businessEmail || invoice.user.email
       })
 
       if (emailError) {
@@ -98,7 +100,7 @@ export async function POST(
       // Update invoice in transaction
       const updatedInvoice = await prisma.$transaction([
         prisma.invoice.update({
-          where: { id: params.id },
+          where: { id: (await params).id },
           data: {
             status: 'SENT',
             sentDate: new Date(),
@@ -107,7 +109,7 @@ export async function POST(
         }),
         prisma.invoiceEmail.create({
           data: {
-            invoiceId: params.id,
+            invoiceId: (await params).id,
             emailType: 'SENT',
             recipientEmail: invoice.customerEmail,
             subject: `Invoice ${invoice.invoiceNumber}`,
@@ -116,7 +118,7 @@ export async function POST(
         }),
         prisma.invoiceAuditLog.create({
           data: {
-            invoiceId: params.id,
+            invoiceId: (await params).id,
             userId: session.user.id,
             action: 'sent',
             description: `Invoice sent to ${invoice.customerEmail}`

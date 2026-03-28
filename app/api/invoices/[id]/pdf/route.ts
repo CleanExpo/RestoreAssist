@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateInvoicePDF } from '@/lib/invoices/pdf-generator'
 import { uploadPDFToCloudinary } from '@/lib/cloudinary'
+import { getActiveBusinessInfo } from '@/lib/business-profile'
 
 export async function GET(
   request: NextRequest,
@@ -49,14 +50,7 @@ export async function GET(
     }
 
     // Prepare business info
-    const businessInfo = {
-      businessName: invoice.user.businessName || invoice.user.name || 'RestoreAssist',
-      businessAddress: invoice.user.businessAddress,
-      businessLogo: invoice.user.businessLogo,
-      businessABN: invoice.user.businessABN,
-      businessPhone: invoice.user.businessPhone,
-      businessEmail: invoice.user.businessEmail || invoice.user.email
-    }
+    const businessInfo = await getActiveBusinessInfo(invoice.userId)
 
     // Generate PDF
     const pdfBytes = await generateInvoicePDF({
@@ -120,7 +114,7 @@ export async function GET(
     }
 
     // Return PDF with proper headers
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${invoice.invoiceNumber}.pdf"`

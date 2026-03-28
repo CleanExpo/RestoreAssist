@@ -149,6 +149,9 @@ export default function RestorationInvoiceForm({
     defaultDueDate?: string
   }
   initialSavedData?: RestorationInvoiceFormData | null
+  suggestedInvoiceNumber?: string
+  defaultInvDate?: string
+  defaultDueDate?: string
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
