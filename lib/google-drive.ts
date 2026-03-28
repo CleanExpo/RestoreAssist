@@ -94,13 +94,13 @@ export async function listDriveItems(folderId: string = 'root'): Promise<DriveIt
               id: file.id!,
               name: file.name!,
               mimeType: file.mimeType!,
-              size: file.size
+              size: file.size ?? undefined
             })
           }
         }
       }
       
-      nextPageToken = response.data.nextPageToken || undefined
+      nextPageToken = response.data.nextPageToken ?? undefined
     } while (nextPageToken)
     
     return { files, folders }
@@ -165,7 +165,7 @@ export async function searchDriveFiles(
       id: file.id!,
       name: file.name!,
       mimeType: file.mimeType!,
-      size: file.size
+      size: file.size ?? undefined
     }))
   } catch (error: any) {
     // Log the actual error for debugging

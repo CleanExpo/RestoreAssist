@@ -17,6 +17,7 @@ import {
   markIntegrationError,
 } from '../oauth-handler'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 interface MYOBContact {
   UID: string
@@ -334,14 +335,14 @@ export class MYOBClient extends BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as Prisma.InputJsonValue,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as Prisma.InputJsonValue,
           lastSyncedAt: new Date(),
         },
       })
@@ -373,14 +374,14 @@ export class MYOBClient extends BaseIntegrationClient {
           status: job.status,
           clientExternalId: job.clientExternalId,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as Prisma.InputJsonValue,
         },
         update: {
           title: job.title,
           status: job.status,
           clientExternalId: job.clientExternalId,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as Prisma.InputJsonValue,
           lastSyncedAt: new Date(),
         },
       })

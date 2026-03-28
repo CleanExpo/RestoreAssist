@@ -108,13 +108,13 @@ function generateJSONReport(inspection: NirReportInspectionData) {
       ? {
           ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
           humidityPercent:           inspection.environmentalData.humidityPercent,
-          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius ?? undefined,
         }
       : null,
     moistureReadings: inspection.moistureReadings,
     affectedAreas:    inspection.affectedAreas,
-    classifications:  inspection.classifications,
-    scopeItems:       inspection.scopeItems,
+    classifications:  inspection.classifications as any,
+    scopeItems:       inspection.scopeItems as any,
     costEstimates:    inspection.costEstimates.map(c => ({ total: c.total, category: c.category ?? undefined })),
     photos:           inspection.photos,
   })
@@ -176,7 +176,7 @@ function generateJSONReport(inspection: NirReportInspectionData) {
 async function generatePDFReport(inspection: NirReportInspectionData) {
   const pdfBuffer = await generateNIRPDF(inspection)
 
-  return new NextResponse(pdfBuffer, {
+  return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       'Content-Type':        'application/pdf',
       'Content-Disposition': `attachment; filename="NIR-${inspection.inspectionNumber ?? inspection.id}.pdf"`,
@@ -201,13 +201,13 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
       ? {
           ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
           humidityPercent:           inspection.environmentalData.humidityPercent,
-          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius ?? undefined,
         }
       : null,
     moistureReadings: inspection.moistureReadings,
     affectedAreas:    inspection.affectedAreas,
-    classifications:  inspection.classifications,
-    scopeItems:       inspection.scopeItems,
+    classifications:  inspection.classifications as any,
+    scopeItems:       inspection.scopeItems as any,
     costEstimates:    inspection.costEstimates.map(c => ({ total: c.total, category: c.category ?? undefined })),
     photos:           inspection.photos,
   })
@@ -477,7 +477,7 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
 
   const buffer = await workbook.xlsx.writeBuffer()
 
-  return new NextResponse(buffer as Buffer, {
+  return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       'Content-Type':        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="NIR-${inspection.inspectionNumber ?? inspection.id}.xlsx"`,

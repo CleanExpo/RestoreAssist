@@ -83,7 +83,7 @@ export async function POST(
     // is needed to collect CLAIM-003 pilot data.
     const isReInspection = inspection.status !== "DRAFT"
     try {
-      await prisma.pilotObservation.create({
+      await (prisma as any).pilotObservation.create({
         data: {
           claimId:          "CLAIM-003",
           observationType:  "reinspection_event",

@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
         include: {
           affectedAreas: true,
           moistureReadings: true,
-          environmentalReadings: true,
           photos: true,
         },
       }),

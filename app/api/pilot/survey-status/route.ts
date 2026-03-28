@@ -24,7 +24,7 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const count = await prisma.pilotObservation.count({
+    const count = await (prisma as any).pilotObservation.count({
       where: {
         claimId:          'CLAIM-005',
         observationType:  'technician_survey',

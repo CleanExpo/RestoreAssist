@@ -60,10 +60,10 @@ export async function GET(request: NextRequest) {
 
     // Team scope: Admin sees MANAGER + USER (not other ADMINs). Manager sees USER only.
     const roleCondition = currentUser.role === 'ADMIN'
-      ? { role: { in: ['MANAGER', 'USER'] as const } }
+      ? { role: { in: ['MANAGER', 'USER'] as Array<'MANAGER' | 'USER'> } }
       : { role: 'USER' as const }
     const teamMembers = await prisma.user.findMany({
-      where: { organizationId: currentUser.organizationId, ...roleCondition },
+      where: { organizationId: currentUser.organizationId, ...(roleCondition as any) },
       select: { id: true, name: true, email: true, role: true },
     })
 
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
         take: fetchLimit,
         select: {
           id: true,
-          title: true,
+          propertyAddress: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -267,9 +267,9 @@ export async function GET(request: NextRequest) {
         actorName: member.name || member.email,
         actorEmail: member.email,
         actorRole: member.role,
-        description: `started inspection "${inspection.title || inspection.id.slice(0, 8)}"`,
+        description: `started inspection "${inspection.propertyAddress || inspection.id.slice(0, 8)}"`,
         timestamp: inspection.createdAt.toISOString(),
-        metadata: { inspectionId: inspection.id, title: inspection.title },
+        metadata: { inspectionId: inspection.id, title: inspection.propertyAddress },
       })
 
       if (inspection.status === 'SUBMITTED' && inspection.updatedAt > inspection.createdAt) {
@@ -280,9 +280,9 @@ export async function GET(request: NextRequest) {
           actorName: member.name || member.email,
           actorEmail: member.email,
           actorRole: member.role,
-          description: `submitted inspection "${inspection.title || inspection.id.slice(0, 8)}"`,
+          description: `submitted inspection "${inspection.propertyAddress || inspection.id.slice(0, 8)}"`,
           timestamp: inspection.updatedAt.toISOString(),
-          metadata: { inspectionId: inspection.id, title: inspection.title },
+          metadata: { inspectionId: inspection.id, title: inspection.propertyAddress },
         })
       }
     }

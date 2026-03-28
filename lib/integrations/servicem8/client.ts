@@ -18,6 +18,7 @@ import {
   PROVIDER_CONFIG,
 } from '../oauth-handler'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 interface ServiceM8ClientRecord {
   uuid: string
@@ -270,7 +271,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as Prisma.InputJsonValue,
         },
         update: {
           title: job.title,
@@ -278,7 +279,7 @@ export class ServiceM8Client extends BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as Prisma.InputJsonValue,
           lastSyncedAt: new Date(),
         },
       })

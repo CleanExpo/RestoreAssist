@@ -152,7 +152,7 @@ function buildNirReportOutput(
   // ── Loss classification ────────────────────────────────────────────────────
 
   const primaryCls = inspection.classifications?.[0]
-  const clauseRefs: string[] = primaryCls?.clauseRefs as string[] ?? (
+  const clauseRefs: string[] = (primaryCls as any)?.clauseRefs as string[] ?? (
     primaryCls?.standardReference ? [primaryCls.standardReference] : []
   )
 
@@ -215,7 +215,7 @@ function buildNirReportOutput(
       latitude:  0,  // TODO: add GPS EXIF extraction (Phase 3)
       longitude: 0,
       sequenceNumber: idx + 1,
-      category: mapPhotoCategory(p.category),
+      category: mapPhotoCategory((p as any).category),
       standardRef: 'IICRC S500 §12.2',
     })),
   }

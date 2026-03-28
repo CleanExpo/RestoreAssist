@@ -997,8 +997,7 @@ export function GuidedInterviewPanel({
                         ? 'PREMIUM'
                         : 'ENTERPRISE'
                     }
-                    onUpgrade={(tier) => {
-                      setLockedTier(tier)
+                    onUpgrade={() => {
                       setShowUpgradePrompt(true)
                     }}
                   />
@@ -1091,14 +1090,14 @@ export function GuidedInterviewPanel({
       <BottomActionBar
         onPrevious={handlePrevious}
         onNext={() => {}} // Handled by QuestionCard
-        onComplete={interviewState.status === 'COMPLETED' ? handleComplete : undefined}
+        onComplete={(interviewState.status as string) === 'COMPLETED' ? handleComplete : undefined}
         canGoPrevious={
           interviewState.allQuestions.findIndex(
             (q) => q.id === interviewState.currentQuestion?.id
           ) > 0
         }
         canGoNext={!!interviewState.currentQuestion}
-        isComplete={interviewState.status === 'COMPLETED'}
+        isComplete={(interviewState.status as string) === 'COMPLETED'}
         onCancel={onCancel}
       />
 

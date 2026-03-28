@@ -14,6 +14,7 @@ import {
 import { isIntegrationDevMode, MOCK_CREDENTIALS } from './dev-mode'
 import { MOCK_CLIENTS, MOCK_JOBS } from './mock-data'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 export interface ExternalClientData {
   externalId: string
@@ -178,14 +179,14 @@ export abstract class BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData || {},
+          rawData: (client.rawData || {}) as Prisma.InputJsonValue,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData || {},
+          rawData: (client.rawData || {}) as Prisma.InputJsonValue,
           lastSyncedAt: new Date(),
         },
       })
@@ -223,7 +224,7 @@ export abstract class BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData || {},
+          rawData: (job.rawData || {}) as Prisma.InputJsonValue,
         },
         update: {
           title: job.title,
@@ -231,7 +232,7 @@ export abstract class BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData || {},
+          rawData: (job.rawData || {}) as Prisma.InputJsonValue,
           lastSyncedAt: new Date(),
         },
       })

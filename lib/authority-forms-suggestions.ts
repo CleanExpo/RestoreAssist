@@ -80,7 +80,7 @@ export function suggestAuthorityForms(analysis: ReportAnalysis): SuggestedForm[]
 
   // 5. Authority for Extended Drying Period
   // Optional if extended drying is needed (Class 4 or large area)
-  if (analysis.waterClass === '4' || analysis.waterClass === 4) {
+  if (analysis.waterClass === '4' || (analysis.waterClass as unknown) === 4) {
     suggestions.push({
       templateCode: 'AUTH_EXTENDED_DRYING',
       templateName: 'Authority for Extended Drying Period',

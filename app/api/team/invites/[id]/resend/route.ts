@@ -89,7 +89,7 @@ export async function POST(
     await sendInviteEmail({
       email: invite.email,
       name: existingUser?.name || invite.email.split("@")[0],
-      role: invite.role,
+      role: invite.role as 'USER' | 'MANAGER',
       tempPassword: undefined, // Password not included on resend — user already has credentials
       loginUrl,
       inviterName,

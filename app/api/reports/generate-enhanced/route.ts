@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         keywords: extractKeywords(technicianNotes),
         materials: extractMaterials(technicianNotes),
         technicianNotes: technicianNotes.substring(0, 1000),
-      }
+      } as any
       
       // Use the appropriate Anthropic API key to retrieve and analyze standards
       const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)

@@ -4642,10 +4642,10 @@ export default function InitialDataEntryForm({
                         {area.affectedSquareFootage.toFixed(2)} m²
                       </span>
                     </div>
-                    {area.materials && area.materials.length > 0 && (
+                    {(area as any).materials && (area as any).materials.length > 0 && (
                       <div className="flex items-center gap-2 flex-wrap text-xs mt-2">
                         <span className={cn("text-neutral-600 dark:text-neutral-400")}>Materials:</span>
-                        {area.materials.map((material, idx) => (
+                        {(area as any).materials.map((material: string, idx: number) => (
                           <span key={idx} className={cn("px-2 py-0.5 rounded", "bg-neutral-200 dark:bg-neutral-700", "text-neutral-900 dark:text-neutral-50")}>
                             {material}
                           </span>
@@ -4669,7 +4669,7 @@ export default function InitialDataEntryForm({
                 {equipmentSelections.map((eq) => (
                   <div key={eq.groupId} className={cn("flex items-center justify-between p-3 rounded-lg", "bg-neutral-50 dark:bg-neutral-800")}>
                     <span className={cn("text-sm", "text-neutral-900 dark:text-neutral-50")}>
-                      {eq.quantity}x {eq.type}
+                      {eq.quantity}x {(eq as any).type ?? eq.groupId}
                     </span>
                   </div>
                 ))}

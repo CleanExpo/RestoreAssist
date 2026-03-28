@@ -143,7 +143,7 @@ export async function queueWrite(
       // Attempt Background Sync if supported (Chromium)
       if ('serviceWorker' in navigator && 'SyncManager' in window) {
         navigator.serviceWorker.ready
-          .then(sw => (sw.sync as any).register('nir-inspection-sync'))
+          .then(sw => ((sw as any).sync as any).register('nir-inspection-sync'))
           .catch(() => {/* SW not yet active, online listener will handle it */})
       }
       resolve(id)
@@ -409,7 +409,7 @@ async function countConflicts(db: IDBDatabase): Promise<number> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(CONFLICT_STORE, 'readonly')
     const index = tx.objectStore(CONFLICT_STORE).index('by-resolved')
-    const req = index.count(false)
+    const req = index.count(false as unknown as IDBValidKey)
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })

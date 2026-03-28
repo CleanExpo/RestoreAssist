@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken"
 import { logSecurityEvent } from '@/lib/security-audit'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as any,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -252,7 +252,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
-    signUp: "/signup",
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

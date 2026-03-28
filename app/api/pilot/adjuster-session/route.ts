@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Use a system user ID for adjuster submissions (no account)
     const systemUserId = 'pilot-adjuster-system'
 
-    await prisma.pilotObservation.create({
+    await (prisma as any).pilotObservation.create({
       data: {
         claimId:          'CLAIM-004',
         observationType:  'adjuster_session',

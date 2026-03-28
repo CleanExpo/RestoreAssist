@@ -396,9 +396,8 @@ function buildScopeOfWorksData(data: {
     unit: 'Removal',
     labour: {
       qualified: { hours: 2, rate: rates.qualifiedTechnicianNormalHours },
-      labourer: { hours: 2, rate: rates.labourerNormalHours }
-    },
-    subtotal: (2 * rates.qualifiedTechnicianNormalHours) + (2 * rates.labourerNormalHours)
+    } as any,
+    subtotal: (2 * rates.qualifiedTechnicianNormalHours) + (2 * (rates as any).labourerNormalHours)
   })
 
   // Final certification
@@ -409,9 +408,9 @@ function buildScopeOfWorksData(data: {
     unit: 'Certification',
     labour: {
       masterQualified: { hours: 2, rate: rates.masterQualifiedNormalHours }
-    },
+    } as any,
     subtotal: 2 * rates.masterQualifiedNormalHours
-  })
+  } as any)
 
   // Administration fee
   lineItems.push({

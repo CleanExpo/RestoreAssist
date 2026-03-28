@@ -2152,12 +2152,13 @@ function buildStructuredBasicReport(data: {
     if (inspectionData?.moistureReadings && inspectionData.moistureReadings.length > 0) {
       const uniqueLocations = [...new Set(inspectionData.moistureReadings.map((r: any) => r.location).filter(Boolean))]
       if (uniqueLocations.length > 0) {
-        uniqueLocations.forEach((location: string) => {
-          const locationReadings = inspectionData.moistureReadings.filter((r: any) => r.location === location)
-          const locationPhotos = photos.filter(p => p.location === location).map(p => p.url)
-          
+        uniqueLocations.forEach((location) => {
+          const locationStr = location as string
+          const locationReadings = inspectionData.moistureReadings.filter((r: any) => r.location === locationStr)
+          const locationPhotos = photos.filter(p => p.location === locationStr).map(p => p.url)
+
           affectedAreasList.push({
-            name: location || 'Affected Area',
+            name: locationStr || 'Affected Area',
             description: '',
             materials: [],
             moistureReadings: locationReadings.map((r: any) => ({
