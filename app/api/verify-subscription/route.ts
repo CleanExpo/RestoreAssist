@@ -145,10 +145,11 @@ export async function POST(request: NextRequest) {
       }
       
       // Grant signup bonus (10 reports) if first subscription
-      // Note: signupBonusApplied field will be set after migration is run
       if (isFirstSubscription) {
         const currentAddonReports = userBefore?.addonReports || 0
         updateData.addonReports = currentAddonReports + 10
+        // Mark bonus as applied so it is not granted again on re-subscription
+        updateData.signupBonusApplied = true
       }
 
       // Update user subscription in database

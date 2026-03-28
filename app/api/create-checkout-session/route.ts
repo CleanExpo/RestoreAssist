@@ -94,7 +94,8 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${baseUrl}/dashboard/success`,
+        // success_url must include {CHECKOUT_SESSION_ID} so the success page can verify the session
+        success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
         metadata: {
           userId: session.user.id,
@@ -102,8 +103,12 @@ export async function POST(request: NextRequest) {
       })
     } catch (priceError: any) {
       // If price doesn't exist, create it dynamically
+      // NOTE: This fallback only fires when STRIPE_PRICE_MONTHLY / STRIPE_PRICE_YEARLY env vars
+      // are not set (or set to placeholder values). Set them to real Stripe price IDs:
+      //   STRIPE_PRICE_MONTHLY=price_1SK6GPBY5KEPMwxd43EBhwXx  ($99/mo AUD)
+      //   STRIPE_PRICE_YEARLY=price_1SK6I7BY5KEPMwxdC451vfBk   ($1188/yr AUD)
       if (priceError.code === 'resource_missing') {
-        
+
         // Create price based on the priceId
         let priceData: Stripe.PriceCreateParams
         if (priceId === 'MONTHLY_PLAN' || priceId.includes('MONTHLY')) {
@@ -129,7 +134,7 @@ export async function POST(request: NextRequest) {
         }
 
         const newPrice = await stripe.prices.create(priceData)
-        
+
         checkoutSession = await stripe.checkout.sessions.create({
           mode: 'subscription',
           payment_method_types: ['card'],
@@ -140,7 +145,8 @@ export async function POST(request: NextRequest) {
               quantity: 1,
             },
           ],
-          success_url: `${baseUrl}/dashboard/success`,
+          // success_url must include {CHECKOUT_SESSION_ID} so the success page can verify the session
+          success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${baseUrl}/dashboard/pricing?canceled=true`,
           metadata: {
             userId: session.user.id,
