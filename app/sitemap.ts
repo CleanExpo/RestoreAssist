@@ -117,5 +117,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "yearly",
       priority: 0.3,
     },
+    // Blog posts
+    {
+      url: `${baseUrl}/blog/as-iicrc-s500-2025-guide`,
+      lastModified: new Date("2026-03-29"),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
   ]
 }
