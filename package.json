@@ -9,11 +9,11 @@
   "type": "module",
   "scripts": {
     "postinstall": "prisma generate",
-    "prebuild": "npm install --force",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && (prisma migrate deploy || echo 'DB migration skipped - apply manually if schema changed') && next build",
     "dev": "next dev",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",

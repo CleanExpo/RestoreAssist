@@ -1,377 +1,486 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { generateNIRPDF } from "@/lib/nir-report-generation"
-import { generateVerificationChecklist } from "@/lib/nir-verification-checklist"
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { generateNIRPDF, type NirReportInspectionData } from '@/lib/nir-report-generation'
+import { generateVerificationChecklist } from '@/lib/nir-verification-checklist'
 
 // Dynamic import for ExcelJS to handle cases where it's not installed
-let ExcelJS: any = null
+let ExcelJS: typeof import('exceljs') | null = null
 try {
-  ExcelJS = require("exceljs")
-} catch (e) {
-  console.warn("ExcelJS not installed. Excel export will use JSON format.")
+  ExcelJS = require('exceljs')
+} catch {
+  console.warn('ExcelJS not installed. Excel export will use JSON format.')
 }
 
-// GET - Generate report in requested format
+const AU_DATE = (d: Date | string | null | undefined): string =>
+  d ? new Date(d).toLocaleDateString('en-AU') : '—'
+
+const AU_DATETIME = (d: Date | string | null | undefined): string =>
+  d ? new Date(d).toLocaleString('en-AU') : '—'
+
+// GET — Generate report in requested format (json | pdf | excel)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    
+
     const { id } = await params
     const { searchParams } = new URL(request.url)
-    const format = searchParams.get("format") || "json" // json, pdf, excel
-    
-    // Get inspection with all data
+    const format = searchParams.get('format') ?? 'json'
+
     const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id
-      },
+      where: { id, userId: session.user.id },
       include: {
         environmentalData: true,
-        moistureReadings: true,
-        affectedAreas: true,
-        scopeItems: {
-          where: { isSelected: true }
-        },
-        classifications: {
-          orderBy: { createdAt: "desc" },
-          take: 1
-        },
-        costEstimates: true,
-        photos: {
-          orderBy: { timestamp: "asc" }
-        },
+        moistureReadings:  true,
+        affectedAreas:     true,
+        scopeItems:        { where: { isSelected: true } },
+        classifications:   { orderBy: { createdAt: 'desc' }, take: 1 },
+        costEstimates:     true,
+        photos:            { orderBy: { timestamp: 'asc' } },
         report: {
           include: {
             user: {
               select: {
-                businessName: true,
-                businessABN: true,
+                businessName:    true,
+                businessABN:     true,
                 businessAddress: true,
-                businessPhone: true,
-                businessEmail: true
-              }
-            }
-          }
-        }
-      }
+                businessPhone:   true,
+                businessEmail:   true,
+              },
+            },
+          },
+        },
+      },
     })
-    
+
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
+      return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
     }
-    
-    if (inspection.status !== "COMPLETED") {
+
+    if (inspection.status !== 'COMPLETED') {
       return NextResponse.json(
-        { error: "Inspection must be completed before generating report" },
+        { error: 'Inspection must be completed before generating report' },
         { status: 400 }
       )
     }
-    
-    // Generate report based on format
+
+    // Shape the Prisma result into the typed NirReportInspectionData interface.
+    // This single cast is the only place `any` escapes — the rest of the file is typed.
+    const data = inspection as unknown as NirReportInspectionData
+
     switch (format.toLowerCase()) {
-      case "pdf":
-        return await generatePDFReport(inspection)
-      
-      case "excel":
-        return await generateExcelReport(inspection)
-      
-      case "json":
+      case 'pdf':
+        return generatePDFReport(data)
+      case 'excel':
+        return generateExcelReport(data)
+      case 'json':
       default:
-        return generateJSONReport(inspection)
+        return generateJSONReport(data)
     }
   } catch (error) {
-    console.error("Error generating report:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    console.error('Error generating report:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// Generate JSON report
-function generateJSONReport(inspection: any) {
+// ─── JSON ─────────────────────────────────────────────────────────────────────
+
+function generateJSONReport(inspection: NirReportInspectionData) {
+  const checklist = generateVerificationChecklist({
+    id:               inspection.id,
+    inspectionNumber: inspection.inspectionNumber,
+    status:           inspection.status,
+    propertyAddress:  inspection.propertyAddress,
+    propertyPostcode: inspection.propertyPostcode,
+    inspectionDate:   inspection.inspectionDate,
+    completedAt:      inspection.completedAt,
+    updatedAt:        inspection.updatedAt,
+    technicianName:   inspection.technicianName,
+    environmentalData: inspection.environmentalData
+      ? {
+          ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
+          humidityPercent:           inspection.environmentalData.humidityPercent,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
+        }
+      : null,
+    moistureReadings: inspection.moistureReadings,
+    affectedAreas:    inspection.affectedAreas,
+    classifications:  inspection.classifications,
+    scopeItems:       inspection.scopeItems,
+    costEstimates:    inspection.costEstimates.map(c => ({ total: c.total, category: c.category ?? undefined })),
+    photos:           inspection.photos,
+  })
+
+  const subtotal    = inspection.costEstimates.reduce((s, i) => s + i.subtotal, 0)
+  const contingency = inspection.costEstimates.reduce((s, i) => s + (i.contingency ?? 0), 0)
+  const total       = inspection.costEstimates.reduce((s, i) => s + i.total, 0)
+
   const report = {
     inspection: {
-      id: inspection.id,
+      id:               inspection.id,
       inspectionNumber: inspection.inspectionNumber,
-      propertyAddress: inspection.propertyAddress,
+      propertyAddress:  inspection.propertyAddress,
       propertyPostcode: inspection.propertyPostcode,
-      inspectionDate: inspection.inspectionDate,
-      technicianName: inspection.technicianName,
-      status: inspection.status
+      inspectionDate:   inspection.inspectionDate,
+      technicianName:   inspection.technicianName,
+      status:           inspection.status,
     },
-    environmentalData: inspection.environmentalData,
+    environmentalData: inspection.environmentalData
+      ? {
+          ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
+          humidityPercent:           inspection.environmentalData.humidityPercent,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
+          airCirculation:            inspection.environmentalData.airCirculation,
+        }
+      : null,
     moistureReadings: inspection.moistureReadings,
-    affectedAreas: inspection.affectedAreas,
-    classification: inspection.classifications[0] || null,
-    scopeItems: inspection.scopeItems,
+    affectedAreas:    inspection.affectedAreas,
+    classification:   inspection.classifications[0] ?? null,
+    scopeItems:       inspection.scopeItems,
     costEstimate: {
-      items: inspection.costEstimates,
-      subtotal: inspection.costEstimates.reduce((sum: number, item: any) => sum + item.subtotal, 0),
-      contingency: inspection.costEstimates.reduce((sum: number, item: any) => sum + (item.contingency || 0), 0),
-      total: inspection.costEstimates.reduce((sum: number, item: any) => sum + item.total, 0)
+      items:       inspection.costEstimates,
+      subtotal,
+      contingency,
+      total,
+      currency:    'AUD',
     },
-    photos: inspection.photos.map((photo: any) => ({
-      url: photo.url,
-      location: photo.location,
-      timestamp: photo.timestamp
+    photos: inspection.photos.map(photo => ({
+      url:       photo.url,
+      location:  photo.location,
+      timestamp: photo.timestamp,
+      category:  photo.category,
     })),
-    verificationChecklist: generateVerificationChecklist(inspection),
-    generatedAt: new Date().toISOString()
+    verificationChecklist: {
+      passesMinimumStandard: checklist.passesMinimumStandard,
+      items:                 checklist.items,
+      standardsCitations:    checklist.standardsCitations,
+      supplementaryWarnings: checklist.supplementaryWarnings,
+      generatedAt:           checklist.generatedAt,
+    },
+    generatedAt: new Date().toISOString(),
   }
-  
+
   return NextResponse.json(report)
 }
 
-// Generate PDF report
-async function generatePDFReport(inspection: any) {
-  try {
-    const pdfBuffer = await generateNIRPDF(inspection)
-    
-    return new NextResponse(Buffer.from(pdfBuffer), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="NIR-${inspection.inspectionNumber}.pdf"`
-      }
-    })
-  } catch (error) {
-    console.error("Error generating PDF:", error)
-    return NextResponse.json(
-      { error: "Failed to generate PDF report" },
-      { status: 500 }
-    )
-  }
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+
+async function generatePDFReport(inspection: NirReportInspectionData) {
+  const pdfBuffer = await generateNIRPDF(inspection)
+
+  return new NextResponse(pdfBuffer, {
+    headers: {
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `attachment; filename="NIR-${inspection.inspectionNumber ?? inspection.id}.pdf"`,
+    },
+  })
 }
 
-// Generate Excel report using ExcelJS
-async function generateExcelReport(inspection: any) {
-  try {
-    // Fallback to JSON if ExcelJS is not installed
-    if (!ExcelJS) {
-      console.warn("ExcelJS not available, returning JSON format")
-      const excelData = {
-        Summary: {
-          "Inspection Number": inspection.inspectionNumber,
-          "Property Address": inspection.propertyAddress,
-          "Postcode": inspection.propertyPostcode,
-          "Inspection Date": new Date(inspection.inspectionDate).toLocaleDateString(),
-          "Technician": inspection.technicianName || "N/A",
-          "Category": inspection.classifications?.[0]?.category || "N/A",
-          "Class": inspection.classifications?.[0]?.class || "N/A"
-        },
-        "Environmental Data": inspection.environmentalData || {},
-        "Moisture Readings": inspection.moistureReadings || [],
-        "Affected Areas": inspection.affectedAreas || [],
-        "Scope Items": inspection.scopeItems || [],
-        "Cost Estimate": inspection.costEstimates || [],
-        "Verification Checklist": generateVerificationChecklist(inspection)
-      }
-      
-      return NextResponse.json(excelData, {
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Disposition": `attachment; filename="NIR-${inspection.inspectionNumber}.json"`
+// ─── EXCEL ────────────────────────────────────────────────────────────────────
+
+async function generateExcelReport(inspection: NirReportInspectionData) {
+  const checklist = generateVerificationChecklist({
+    id:               inspection.id,
+    inspectionNumber: inspection.inspectionNumber,
+    status:           inspection.status,
+    propertyAddress:  inspection.propertyAddress,
+    propertyPostcode: inspection.propertyPostcode,
+    inspectionDate:   inspection.inspectionDate,
+    completedAt:      inspection.completedAt,
+    updatedAt:        inspection.updatedAt,
+    technicianName:   inspection.technicianName,
+    environmentalData: inspection.environmentalData
+      ? {
+          ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
+          humidityPercent:           inspection.environmentalData.humidityPercent,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
         }
-      })
-    }
-    
-    const workbook = new ExcelJS.Workbook()
-    
-    // Summary Sheet
-    const summarySheet = workbook.addWorksheet("Summary")
-    summarySheet.columns = [
-      { header: "Field", key: "field", width: 30 },
-      { header: "Value", key: "value", width: 50 }
-    ]
-    
-    summarySheet.addRow({ field: "Inspection Number", value: inspection.inspectionNumber })
-    summarySheet.addRow({ field: "Property Address", value: inspection.propertyAddress })
-    summarySheet.addRow({ field: "Postcode", value: inspection.propertyPostcode })
-    summarySheet.addRow({ field: "Inspection Date", value: new Date(inspection.inspectionDate).toLocaleDateString() })
-    summarySheet.addRow({ field: "Technician", value: inspection.technicianName || "N/A" })
-    
-    if (inspection.classifications && inspection.classifications.length > 0) {
-      const classification = inspection.classifications[0]
-      summarySheet.addRow({ field: "Category", value: classification.category })
-      summarySheet.addRow({ field: "Class", value: classification.class })
-      summarySheet.addRow({ field: "Justification", value: classification.justification })
-      summarySheet.addRow({ field: "Standard Reference", value: classification.standardReference })
-    }
-    
-    // Environmental Data Sheet
-    if (inspection.environmentalData) {
-      const envSheet = workbook.addWorksheet("Environmental Data")
-      envSheet.columns = [
-        { header: "Parameter", key: "parameter", width: 25 },
-        { header: "Value", key: "value", width: 20 },
-        { header: "Unit", key: "unit", width: 15 }
-      ]
-      
-      envSheet.addRow({ parameter: "Ambient Temperature", value: inspection.environmentalData.ambientTemperature, unit: "°F" })
-      envSheet.addRow({ parameter: "Humidity Level", value: inspection.environmentalData.humidityLevel, unit: "%" })
-      envSheet.addRow({ parameter: "Dew Point", value: inspection.environmentalData.dewPoint, unit: "°F" })
-      envSheet.addRow({ parameter: "Air Circulation", value: inspection.environmentalData.airCirculation ? "Yes" : "No", unit: "" })
-    }
-    
-    // Moisture Readings Sheet
-    if (inspection.moistureReadings && inspection.moistureReadings.length > 0) {
-      const moistureSheet = workbook.addWorksheet("Moisture Readings")
-      moistureSheet.columns = [
-        { header: "Location", key: "location", width: 25 },
-        { header: "Surface Type", key: "surfaceType", width: 20 },
-        { header: "Moisture Level (%)", key: "moistureLevel", width: 18 },
-        { header: "Depth", key: "depth", width: 15 },
-        { header: "Recorded At", key: "recordedAt", width: 20 }
-      ]
-      
-      inspection.moistureReadings.forEach((reading: any) => {
-        moistureSheet.addRow({
-          location: reading.location,
-          surfaceType: reading.surfaceType,
-          moistureLevel: reading.moistureLevel,
-          depth: reading.depth,
-          recordedAt: reading.recordedAt ? new Date(reading.recordedAt).toLocaleString() : ""
-        })
-      })
-    }
-    
-    // Affected Areas Sheet
-    if (inspection.affectedAreas && inspection.affectedAreas.length > 0) {
-      const areasSheet = workbook.addWorksheet("Affected Areas")
-      areasSheet.columns = [
-        { header: "Room/Zone", key: "roomZone", width: 25 },
-        { header: "Square Footage", key: "squareFootage", width: 18 },
-        { header: "Water Source", key: "waterSource", width: 20 },
-        { header: "Time Since Loss (hrs)", key: "timeSinceLoss", width: 20 },
-        { header: "Category", key: "category", width: 15 },
-        { header: "Class", key: "class", width: 15 }
-      ]
-      
-      inspection.affectedAreas.forEach((area: any) => {
-        areasSheet.addRow({
-          roomZone: area.roomZoneId,
-          squareFootage: area.affectedSquareFootage,
-          waterSource: area.waterSource,
-          timeSinceLoss: area.timeSinceLoss,
-          category: area.category || "N/A",
-          class: area.class || "N/A"
-        })
-      })
-    }
-    
-    // Scope Items Sheet
-    if (inspection.scopeItems && inspection.scopeItems.length > 0) {
-      const scopeSheet = workbook.addWorksheet("Scope Items")
-      scopeSheet.columns = [
-        { header: "Item Type", key: "itemType", width: 30 },
-        { header: "Description", key: "description", width: 40 },
-        { header: "Quantity", key: "quantity", width: 15 },
-        { header: "Unit", key: "unit", width: 15 },
-        { header: "Justification", key: "justification", width: 50 },
-        { header: "Standard Reference", key: "standardReference", width: 30 }
-      ]
-      
-      inspection.scopeItems.forEach((item: any) => {
-        scopeSheet.addRow({
-          itemType: item.itemType,
-          description: item.description,
-          quantity: item.quantity || "",
-          unit: item.unit || "",
-          justification: item.justification || "",
-          standardReference: item.standardReference || ""
-        })
-      })
-    }
-    
-    // Cost Estimate Sheet
-    if (inspection.costEstimates && inspection.costEstimates.length > 0) {
-      const costSheet = workbook.addWorksheet("Cost Estimate")
-      costSheet.columns = [
-        { header: "Category", key: "category", width: 20 },
-        { header: "Description", key: "description", width: 40 },
-        { header: "Quantity", key: "quantity", width: 15 },
-        { header: "Unit", key: "unit", width: 15 },
-        { header: "Rate", key: "rate", width: 15 },
-        { header: "Subtotal", key: "subtotal", width: 15 },
-        { header: "Contingency", key: "contingency", width: 15 },
-        { header: "Total", key: "total", width: 15 }
-      ]
-      
-      inspection.costEstimates.forEach((item: any) => {
-        costSheet.addRow({
-          category: item.category,
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit,
-          rate: item.rate,
-          subtotal: item.subtotal,
-          contingency: item.contingency || 0,
-          total: item.total
-        })
-      })
-      
-      // Add totals row
-      const subtotal = inspection.costEstimates.reduce((sum: number, item: any) => sum + item.subtotal, 0)
-      const contingency = inspection.costEstimates.reduce((sum: number, item: any) => sum + (item.contingency || 0), 0)
-      const total = inspection.costEstimates.reduce((sum: number, item: any) => sum + item.total, 0)
-      
-      costSheet.addRow({})
-      const totalsRow = costSheet.addRow({ 
-        description: "TOTALS", 
-        subtotal, 
-        contingency, 
-        total 
-      })
-      totalsRow.font = { bold: true }
-    }
-    
-    // Verification Checklist Sheet
-    const checklist = generateVerificationChecklist(inspection)
-    const checklistSheet = workbook.addWorksheet("Verification Checklist")
-    checklistSheet.columns = [
-      { header: "Item", key: "item", width: 50 },
-      { header: "Verified", key: "verified", width: 15 },
-      { header: "Notes", key: "notes", width: 60 }
-    ]
-    
-    checklistSheet.addRow({ item: "VERIFICATION CHECKLIST", verified: "", notes: "For Insurance Adjuster / Client Review" })
-    checklistSheet.addRow({ item: "", verified: "", notes: "This checklist is auto-generated for verification purposes only." })
-    checklistSheet.addRow({ item: "", verified: "", notes: "It is not for the technician to complete." })
-    checklistSheet.addRow({})
-    
-    checklist.items.forEach((checklistItem) => {
-      checklistSheet.addRow({
-        item: checklistItem.item,
-        verified: checklistItem.verified ? "✓ Yes" : "□ No",
-        notes: checklistItem.notes || ""
-      })
-    })
-    
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer()
-    
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="NIR-${inspection.inspectionNumber}.xlsx"`
-      }
-    })
-  } catch (error) {
-    console.error("Error generating Excel:", error)
+      : null,
+    moistureReadings: inspection.moistureReadings,
+    affectedAreas:    inspection.affectedAreas,
+    classifications:  inspection.classifications,
+    scopeItems:       inspection.scopeItems,
+    costEstimates:    inspection.costEstimates.map(c => ({ total: c.total, category: c.category ?? undefined })),
+    photos:           inspection.photos,
+  })
+
+  // Fallback to JSON if ExcelJS is not installed
+  if (!ExcelJS) {
+    console.warn('ExcelJS not available, returning JSON format')
     return NextResponse.json(
-      { error: "Failed to generate Excel report" },
-      { status: 500 }
+      {
+        message: 'ExcelJS not installed — returning JSON',
+        summary: {
+          inspectionNumber: inspection.inspectionNumber,
+          propertyAddress:  inspection.propertyAddress,
+          postcode:         inspection.propertyPostcode,
+          inspectionDate:   AU_DATE(inspection.inspectionDate),
+          technician:       inspection.technicianName ?? 'N/A',
+          category:         inspection.classifications[0]?.category ?? 'N/A',
+          class:            inspection.classifications[0]?.class ?? 'N/A',
+          passesMinimumStandard: checklist.passesMinimumStandard,
+        },
+      },
+      {
+        headers: {
+          'Content-Disposition': `attachment; filename="NIR-${inspection.inspectionNumber ?? inspection.id}.json"`,
+        },
+      }
     )
   }
-}
 
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'RestoreAssist'
+  workbook.created = new Date()
+
+  // ── Summary sheet ──────────────────────────────────────────────────────────
+
+  const summarySheet = workbook.addWorksheet('Summary')
+  summarySheet.columns = [
+    { header: 'Field', key: 'field', width: 30 },
+    { header: 'Value', key: 'value', width: 55 },
+  ]
+
+  summarySheet.addRow({ field: 'Inspection Number', value: inspection.inspectionNumber })
+  summarySheet.addRow({ field: 'Property Address',  value: inspection.propertyAddress })
+  summarySheet.addRow({ field: 'Postcode',          value: inspection.propertyPostcode })
+  summarySheet.addRow({ field: 'Inspection Date',   value: AU_DATE(inspection.inspectionDate) })
+  summarySheet.addRow({ field: 'Technician',        value: inspection.technicianName ?? 'N/A' })
+  summarySheet.addRow({ field: 'Status',            value: inspection.status })
+  summarySheet.addRow({ field: 'Meets Min. Standard', value: checklist.passesMinimumStandard ? 'YES ✓' : 'NO ✗' })
+
+  if (inspection.classifications.length > 0) {
+    const cls = inspection.classifications[0]
+    summarySheet.addRow({ field: 'Category',         value: cls.category })
+    summarySheet.addRow({ field: 'Class',            value: cls.class })
+    summarySheet.addRow({ field: 'Justification',    value: cls.justification })
+    summarySheet.addRow({ field: 'Standards Ref.',   value: cls.clauseRefs?.join('; ') ?? cls.standardReference })
+    if (cls.confidence != null) {
+      summarySheet.addRow({ field: 'Confidence', value: `${Math.round(cls.confidence * 100)}%` })
+    }
+  }
+
+  // ── Environmental Data sheet (°C) ──────────────────────────────────────────
+
+  if (inspection.environmentalData) {
+    const envSheet = workbook.addWorksheet('Environmental Data')
+    envSheet.columns = [
+      { header: 'Parameter', key: 'parameter', width: 30 },
+      { header: 'Value',     key: 'value',     width: 20 },
+      { header: 'Unit',      key: 'unit',       width: 10 },
+    ]
+
+    const env = inspection.environmentalData
+    envSheet.addRow({ parameter: 'Ambient Temperature', value: env.ambientTemperatureCelsius, unit: '°C' })
+    envSheet.addRow({ parameter: 'Relative Humidity',   value: env.humidityPercent,           unit: '%'  })
+    if (env.dewPointCelsius != null) {
+      envSheet.addRow({ parameter: 'Dew Point', value: env.dewPointCelsius, unit: '°C' })
+    }
+    if (env.airCirculation != null) {
+      envSheet.addRow({ parameter: 'Air Circulation', value: env.airCirculation ? 'Yes' : 'No', unit: '' })
+    }
+  }
+
+  // ── Moisture Readings sheet ────────────────────────────────────────────────
+
+  if (inspection.moistureReadings.length > 0) {
+    const moistureSheet = workbook.addWorksheet('Moisture Readings')
+    moistureSheet.columns = [
+      { header: 'Location',         key: 'location',     width: 25 },
+      { header: 'Surface Type',     key: 'surfaceType',  width: 20 },
+      { header: 'Moisture Level %', key: 'moistureLevel',width: 18 },
+      { header: 'Depth',            key: 'depth',        width: 15 },
+      { header: 'Recorded At',      key: 'recordedAt',   width: 22 },
+    ]
+
+    inspection.moistureReadings.forEach(r => {
+      moistureSheet.addRow({
+        location:     r.location,
+        surfaceType:  r.surfaceType ?? '—',
+        moistureLevel: r.moistureLevel,
+        depth:        r.depth ?? '—',
+        recordedAt:   r.recordedAt ? AU_DATETIME(r.recordedAt) : '—',
+      })
+    })
+  }
+
+  // ── Affected Areas sheet (m²) ──────────────────────────────────────────────
+
+  if (inspection.affectedAreas.length > 0) {
+    const areasSheet = workbook.addWorksheet('Affected Areas')
+    areasSheet.columns = [
+      { header: 'Room / Zone',       key: 'roomZone',     width: 25 },
+      { header: 'Area (m²)',         key: 'areaSqm',      width: 15 },
+      { header: 'Water Source',      key: 'waterSource',  width: 20 },
+      { header: 'Time Since Loss h', key: 'timeSinceLoss',width: 20 },
+      { header: 'Category',          key: 'category',     width: 12 },
+      { header: 'Class',             key: 'class',        width: 12 },
+    ]
+
+    inspection.affectedAreas.forEach(area => {
+      areasSheet.addRow({
+        roomZone:     area.roomZoneId,
+        areaSqm:      area.affectedSquareFootage,
+        waterSource:  area.waterSource ?? '—',
+        timeSinceLoss: area.timeSinceLoss ?? '—',
+        category:     area.category ?? 'N/A',
+        class:        area.class ?? 'N/A',
+      })
+    })
+  }
+
+  // ── Scope Items sheet ──────────────────────────────────────────────────────
+
+  if (inspection.scopeItems.length > 0) {
+    const scopeSheet = workbook.addWorksheet('Scope Items')
+    scopeSheet.columns = [
+      { header: 'Item Type',       key: 'itemType',        width: 30 },
+      { header: 'Description',     key: 'description',     width: 40 },
+      { header: 'Quantity',        key: 'quantity',         width: 12 },
+      { header: 'Unit',            key: 'unit',             width: 12 },
+      { header: 'Justification',   key: 'justification',   width: 50 },
+      { header: 'Standards Ref.',  key: 'standardReference',width: 30 },
+    ]
+
+    inspection.scopeItems.forEach(item => {
+      scopeSheet.addRow({
+        itemType:        item.itemType ?? '',
+        description:     item.description,
+        quantity:        item.quantity ?? '',
+        unit:            item.unit ?? '',
+        justification:   item.justification ?? '',
+        standardReference: item.standardReference ?? '',
+      })
+    })
+  }
+
+  // ── Cost Estimate sheet (AUD) ──────────────────────────────────────────────
+
+  if (inspection.costEstimates.length > 0) {
+    const costSheet = workbook.addWorksheet('Cost Estimate')
+    costSheet.columns = [
+      { header: 'Category',    key: 'category',    width: 20 },
+      { header: 'Description', key: 'description', width: 40 },
+      { header: 'Quantity',    key: 'quantity',     width: 12 },
+      { header: 'Unit',        key: 'unit',         width: 12 },
+      { header: 'Rate (AUD)',  key: 'rate',         width: 14 },
+      { header: 'Subtotal',    key: 'subtotal',     width: 14 },
+      { header: 'Contingency', key: 'contingency',  width: 14 },
+      { header: 'Total (AUD)', key: 'total',        width: 14 },
+    ]
+
+    inspection.costEstimates.forEach(item => {
+      costSheet.addRow({
+        category:    item.category ?? '',
+        description: item.description,
+        quantity:    item.quantity,
+        unit:        item.unit ?? '',
+        rate:        item.rate,
+        subtotal:    item.subtotal,
+        contingency: item.contingency ?? 0,
+        total:       item.total,
+      })
+    })
+
+    const subtotal    = inspection.costEstimates.reduce((s, i) => s + i.subtotal, 0)
+    const contingency = inspection.costEstimates.reduce((s, i) => s + (i.contingency ?? 0), 0)
+    const total       = inspection.costEstimates.reduce((s, i) => s + i.total, 0)
+
+    costSheet.addRow({})
+    const totalsRow = costSheet.addRow({
+      description: 'TOTALS (AUD)', subtotal, contingency, total,
+    })
+    totalsRow.font = { bold: true }
+  }
+
+  // ── Verification Checklist sheet ───────────────────────────────────────────
+
+  const checklistSheet = workbook.addWorksheet('Verification Checklist')
+  checklistSheet.columns = [
+    { header: 'Tier',        key: 'tier',      width: 14 },
+    { header: 'Item',        key: 'item',      width: 50 },
+    { header: 'Verified',    key: 'verified',  width: 12 },
+    { header: 'Clause Ref.', key: 'clauseRef', width: 22 },
+    { header: 'Notes',       key: 'notes',     width: 60 },
+  ]
+
+  const passRow = checklistSheet.addRow({
+    tier: '',
+    item: checklist.passesMinimumStandard
+      ? '✓ MEETS MINIMUM NIR STANDARD'
+      : '✗ DOES NOT YET MEET MINIMUM NIR STANDARD',
+    verified: '',
+    clauseRef: '',
+    notes: '',
+  })
+  passRow.font = { bold: true }
+  passRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: checklist.passesMinimumStandard ? 'FFD4EDDA' : 'FFF8D7DA' },
+  }
+  checklistSheet.addRow({})
+
+  checklist.items.forEach(item => {
+    checklistSheet.addRow({
+      tier:      item.tier,
+      item:      item.item,
+      verified:  item.verified ? '✓ Yes' : '□ No',
+      clauseRef: item.clauseRef ?? '',
+      notes:     item.notes ?? '',
+    })
+  })
+
+  if (checklist.supplementaryWarnings.length > 0) {
+    checklistSheet.addRow({})
+    checklistSheet.addRow({ item: 'FOLLOW-UP REQUIRED', notes: '' }).font = { bold: true }
+    checklist.supplementaryWarnings.forEach(w => {
+      checklistSheet.addRow({ item: '', notes: w })
+    })
+  }
+
+  // ── IICRC Standards Citations sheet ───────────────────────────────────────
+  // NEW — not in v1. Used by insurer audit teams to verify standards compliance.
+
+  const citationsSheet = workbook.addWorksheet('IICRC Standards Citations')
+  citationsSheet.columns = [
+    { header: 'Standard',  key: 'standard',  width: 15 },
+    { header: 'Clause',    key: 'clauseRef', width: 22 },
+    { header: 'Field',     key: 'field',     width: 40 },
+    { header: 'Status',    key: 'status',    width: 12 },
+  ]
+
+  citationsSheet.addRow({ standard: 'IICRC Standards Referenced in this Report', clauseRef: '', field: '', status: '' }).font = { bold: true }
+  citationsSheet.addRow({})
+
+  checklist.standardsCitations.forEach(c => {
+    const row = citationsSheet.addRow({
+      standard:  c.standard,
+      clauseRef: c.clauseRef,
+      field:     c.field,
+      status:    c.status,
+    })
+    if (c.status === 'MISSING') {
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } }
+    }
+  })
+
+  // ── Generate buffer ────────────────────────────────────────────────────────
+
+  const buffer = await workbook.xlsx.writeBuffer()
+
+  return new NextResponse(buffer as Buffer, {
+    headers: {
+      'Content-Type':        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="NIR-${inspection.inspectionNumber ?? inspection.id}.xlsx"`,
+    },
+  })
+}

@@ -221,7 +221,7 @@ export const PROVIDER_CONFIG = {
     authUrl: 'https://login.xero.com/identity/connect/authorize',
     tokenUrl: 'https://identity.xero.com/connect/token',
     apiBaseUrl: 'https://api.xero.com/api.xro/2.0',
-    scopes: ['openid', 'profile', 'email', 'accounting.contacts.read', 'accounting.transactions.read'],
+    scopes: ['openid', 'profile', 'email', 'offline_access', 'accounting.contacts', 'accounting.transactions'],
     usePKCE: true,
   },
   QUICKBOOKS: {

@@ -384,13 +384,13 @@ function buildBasicReportPromptStructured(data: {
     const env = inspectionData.environmentalData
     prompt += `\n\n## Environmental Data`
     if (hasValue(env.ambientTemperature)) {
-      prompt += `\n- Temperature (°F): ${env.ambientTemperature}`
+      prompt += `\n- Temperature (°C): ${env.ambientTemperature}`
     }
     if (hasValue(env.humidityLevel)) {
       prompt += `\n- Humidity (%): ${env.humidityLevel}`
     }
     if (hasValue(env.dewPoint)) {
-      prompt += `\n- Dew Point (°F): ${env.dewPoint}`
+      prompt += `\n- Dew Point (°C): ${env.dewPoint}`
     }
     if (hasValue(env.airCirculation)) {
       prompt += `\n- Air Circulation: ${env.airCirculation ? 'Yes' : 'No'}`
@@ -606,9 +606,9 @@ ${equipmentSelection && equipmentSelection.length > 0 ? equipmentSelection.map((
 ${inspectionData ? `
 ### Environmental Data
 ${inspectionData.environmentalData ? `
-- Ambient Temperature: ${inspectionData.environmentalData.ambientTemperature}°F
+- Ambient Temperature: ${inspectionData.environmentalData.ambientTemperature}°C
 - Humidity Level: ${inspectionData.environmentalData.humidityLevel}%
-- Dew Point: ${inspectionData.environmentalData.dewPoint}°F
+- Dew Point: ${inspectionData.environmentalData.dewPoint}°C
 - Air Circulation: ${inspectionData.environmentalData.airCirculation ? 'Yes' : 'No'}
 ` : 'No environmental data'}
 

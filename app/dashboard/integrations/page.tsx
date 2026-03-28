@@ -1,10 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, XIcon, Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download } from "lucide-react"
+import { Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, BarChart2, Briefcase, Zap } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
+import Image from "next/image"
 import ImportModal from "@/components/integrations/ImportModal"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 
 interface Integration {
   id: string
@@ -37,14 +43,15 @@ const EXTERNAL_INTEGRATIONS: {
   name: string
   description: string
   icon: string
+  logo: string
   category: 'bookkeeping' | 'jobmanagement'
   comingSoon?: boolean
 }[] = [
-  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', category: 'bookkeeping', comingSoon: true },
-  { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', category: 'bookkeeping', comingSoon: true },
-  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', category: 'bookkeeping', comingSoon: true },
-  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', category: 'jobmanagement', comingSoon: true },
-  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', category: 'jobmanagement', comingSoon: true },
+  { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', logo: '/integrations/xero.svg', category: 'bookkeeping' },
+  { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', logo: '/integrations/quickbooks.svg', category: 'bookkeeping', comingSoon: true },
+  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', logo: '/integrations/myob.svg', category: 'bookkeeping', comingSoon: true },
+  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', logo: '/integrations/servicem8.svg', category: 'jobmanagement', comingSoon: true },
+  { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', logo: '/integrations/ascora.svg', category: 'jobmanagement' },
 ]
 
 interface SubscriptionStatus {
@@ -71,9 +78,8 @@ export default function IntegrationsPage() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [newApiKeyType, setNewApiKeyType] = useState<'openai' | 'anthropic' | 'gemini'>('anthropic')
   const [newApiKey, setNewApiKey] = useState("")
-  const [showAscoraModal, setShowAscoraModal] = useState(false)
-  const [ascoraApiKey, setAscoraApiKey] = useState("")
-  const [connectingAscora, setConnectingAscora] = useState(false)
+  // Ascora modal removed — Ascora uses static API key auth via ASCORA_API_KEY env var.
+  // Connect flow now goes through the generic handleConnectExternal path.
   const [showImportModal, setShowImportModal] = useState(false)
 
   // Show success/error messages from OAuth callback
@@ -163,11 +169,6 @@ export default function IntegrationsPage() {
   }
 
   const handleConnectExternal = async (slug: ProviderSlug) => {
-    if (slug === 'ascora') {
-      setShowAscoraModal(true)
-      return
-    }
-
     try {
       const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
         method: 'POST',
@@ -193,43 +194,6 @@ export default function IntegrationsPage() {
     } catch (error) {
       console.error("Error connecting:", error)
       toast.error("Failed to initiate connection")
-    }
-  }
-
-  const handleConnectAscora = async () => {
-    if (!ascoraApiKey) {
-      toast.error("API key is required")
-      return
-    }
-
-    setConnectingAscora(true)
-    try {
-      // For Ascora, use the OAuth connect endpoint which will handle API key auth
-      const response = await fetch('/api/integrations/oauth/ascora/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: ascoraApiKey }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.authUrl) {
-          window.location.href = data.authUrl
-        } else {
-          toast.success('Connected to Ascora successfully')
-          setShowAscoraModal(false)
-          setAscoraApiKey("")
-          fetchExternalIntegrations()
-        }
-      } else {
-        const data = await response.json()
-        toast.error(data.error || 'Failed to connect to Ascora')
-      }
-    } catch (error) {
-      console.error("Error connecting to Ascora:", error)
-      toast.error("Failed to connect to Ascora")
-    } finally {
-      setConnectingAscora(false)
     }
   }
 
@@ -536,566 +500,467 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+
+      {/* ── Header ─────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold mb-2 text-gray-900 dark:text-white">Integrations</h1>
-          <p className="text-gray-600 dark:text-slate-400">Connect your tools and services to Restore Assist</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Integrations</h1>
+          <p className="text-sm text-muted-foreground mt-1">Connect your tools and services to Restore Assist</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-6 py-2 border border-gray-300 dark:border-slate-600 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-all text-gray-700 dark:text-slate-300"
-          >
-            <Download size={20} />
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+            <Download />
             Import Data
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
           >
-            <Plus size={20} />
+            <Plus />
             Add Integration
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Loading State */}
+      {/* ── Loading ─────────────────────────────────── */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="animate-spin text-muted-foreground" size={28} />
         </div>
       ) : (
         <>
-          {/* AI Integration Cards */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {integrations.length === 0 ? (
-              <div className="col-span-2 text-center py-12">
-                <p className="text-gray-600 dark:text-slate-400">No integrations yet. Add your first integration to get started.</p>
+          {/* ── AI Providers ─────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20">
+                <Zap size={16} className="text-violet-600 dark:text-violet-400" />
               </div>
-            ) : (
-              integrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/30 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-all"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-4">
-                      <div className="text-3xl">{integration.icon || "🔗"}</div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">{integration.name}</h3>
-                        <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{integration.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {integration.status === "CONNECTED" ? (
-                        <Check size={20} className="text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
-                      ) : (
-                        <X size={20} className="text-gray-400 dark:text-slate-500 flex-shrink-0" />
-                      )}
-                      <button
-                        onClick={() => handleDeleteIntegration(integration.id)}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} className="text-rose-500 dark:text-rose-400" />
-                      </button>
-                    </div>
-                  </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">AI Providers</h2>
+                <p className="text-xs text-muted-foreground">Connect your AI API keys for report generation</p>
+              </div>
+            </div>
+            <Separator className="mt-4 mb-5" />
 
-                  <div className="flex gap-2">
-                    {integration.status === "CONNECTED" ? (
-                      <button
-                        onClick={() => handleDisconnect(integration.id)}
-                        className="w-full px-4 py-2 border border-rose-500 dark:border-rose-600 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-sm"
-                      >
-                        Disconnect
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleConnect(integration)}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-sm text-white"
-                      >
-                        Connect
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
+            {integrations.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                  <Zap size={32} className="text-muted-foreground/40 mb-3" />
+                  <p className="text-sm text-muted-foreground">No AI integrations yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Add your first API key to enable AI-powered report generation.</p>
+                  <Button size="sm" variant="outline" className="mt-4" onClick={() => setShowAddModal(true)}>
+                    <Plus /> Add API Key
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {integrations.map((integration) => (
+                  <Card key={integration.id} className="group transition-all duration-200 hover:shadow-md dark:hover:shadow-black/30">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-md shadow-black/10 dark:shadow-black/30 ring-1 ring-white/10">
+                          <Image src="/integrations/claude.svg" alt={integration.name} width={48} height={48} className="object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <CardTitle className="text-sm">{integration.name}</CardTitle>
+                            {integration.status === "CONNECTED" ? (
+                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">Connected</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="shrink-0 text-xs">Disconnected</Badge>
+                            )}
+                          </div>
+                          <CardDescription className="mt-0.5 text-xs">{integration.description}</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardFooter className="pt-0 gap-2">
+                      {integration.status === "CONNECTED" ? (
+                        <>
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleConnect(integration)}>
+                            Update Key
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            onClick={() => handleDisconnect(integration.id)}
+                          >
+                            Disconnect
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" onClick={() => handleDeleteIntegration(integration.id)}>
+                            <Trash2 className="text-rose-400 size-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                            onClick={() => handleConnect(integration)}
+                          >
+                            Connect
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" onClick={() => handleDeleteIntegration(integration.id)}>
+                            <Trash2 className="text-rose-400 size-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Bookkeeping Integrations */}
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-              <span>📊</span>
-              Bookkeeping
-            </h2>
+          {/* ── Bookkeeping ──────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20">
+                <BarChart2 size={16} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Bookkeeping</h2>
+                <p className="text-xs text-muted-foreground">Sync clients and invoices from your accounting platform</p>
+              </div>
+            </div>
+            <Separator className="mt-4 mb-5" />
             <div className="grid md:grid-cols-3 gap-4">
               {EXTERNAL_INTEGRATIONS.filter(i => i.category === 'bookkeeping').map((integration) => {
                 const status = externalIntegrations[integration.slug]
                 const isConnected = status?.connected
                 const isSyncing = syncingProvider === integration.slug || status?.status === 'SYNCING'
                 const hasError = status?.status === 'ERROR'
-
                 return (
-                  <div
-                    key={integration.slug}
-                    className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/30 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start gap-4">
-                        <div className="text-3xl">{integration.icon}</div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">{integration.name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{integration.description}</p>
-                          {isConnected && status?.counts && (
-                            <p className="text-xs text-gray-500 dark:text-slate-500 mt-2">
-                              {status.counts.clients} clients • {status.counts.jobs} jobs
-                            </p>
-                          )}
-                          {status?.lastSyncAt && (
-                            <p className="text-xs text-gray-500 dark:text-slate-500">
-                              Last synced: {new Date(status.lastSyncAt).toLocaleDateString()}
-                            </p>
-                          )}
+                  <Card key={integration.slug} className="group transition-all duration-200 hover:shadow-md dark:hover:shadow-black/30 hover:-translate-y-0.5">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-md shadow-black/10 dark:shadow-black/30 ring-1 ring-white/10">
+                          <Image src={integration.logo} alt={integration.name} width={48} height={48} className="object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <CardTitle className="text-sm">{integration.name}</CardTitle>
+                            {isConnected && <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">Connected</Badge>}
+                            {hasError && <Badge variant="destructive" className="shrink-0 text-xs">Error</Badge>}
+                            {integration.comingSoon && !isConnected && <Badge variant="secondary" className="shrink-0 text-xs">Soon</Badge>}
+                          </div>
+                          <CardDescription className="mt-0.5 text-xs leading-relaxed">{integration.description}</CardDescription>
                         </div>
                       </div>
-                      {isConnected ? (
-                        <Check size={20} className="text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
-                      ) : hasError ? (
-                        <X size={20} className="text-rose-500 dark:text-rose-400 flex-shrink-0" />
-                      ) : (
-                        <X size={20} className="text-gray-400 dark:text-slate-500 flex-shrink-0" />
-                      )}
-                    </div>
-
-                    {hasError && status?.syncError && (
-                      <div className="mb-4 p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded text-xs text-rose-600 dark:text-rose-400">
-                        {status.syncError}
-                      </div>
+                    </CardHeader>
+                    {isConnected && (status?.counts || status?.lastSyncAt) && (
+                      <CardContent className="pt-0 pb-3">
+                        <Separator className="mb-3" />
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          {status?.counts && <p>{status.counts.clients} clients · {status.counts.jobs} jobs</p>}
+                          {status?.lastSyncAt && <p>Last synced {new Date(status.lastSyncAt).toLocaleDateString('en-AU')}</p>}
+                        </div>
+                      </CardContent>
                     )}
-
-                    <div className="flex gap-2">
+                    {hasError && status?.syncError && (
+                      <CardContent className="pt-0 pb-3">
+                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-rose-600 dark:text-rose-400">
+                          {status.syncError}
+                        </div>
+                      </CardContent>
+                    )}
+                    <CardFooter className="pt-0 gap-2">
                       {isConnected ? (
                         <>
-                          <button
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
                             onClick={() => handleSyncExternal(integration.slug)}
                             disabled={isSyncing}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 text-white"
                           >
-                            {isSyncing ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <RefreshCw size={16} />
-                            )}
-                            {isSyncing ? 'Syncing...' : 'Sync'}
-                          </button>
-                          <button
+                            {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                            {isSyncing ? "Syncing..." : "Sync"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                             onClick={() => handleDisconnectExternal(integration.slug)}
-                            className="px-4 py-2 border border-rose-500 dark:border-rose-600 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-sm"
                           >
                             Disconnect
-                          </button>
+                          </Button>
                         </>
                       ) : integration.comingSoon ? (
-                        <button
-                          onClick={() => toast.error('This integration is coming soon!')}
-                          className="w-full px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 cursor-not-allowed"
-                        >
-                          Coming Soon
-                        </button>
+                        <Button variant="secondary" size="sm" className="w-full" disabled>Coming Soon</Button>
                       ) : (
-                        <button
+                        <Button
+                          size="sm"
+                          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                           onClick={() => handleConnectExternal(integration.slug)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-sm flex items-center justify-center gap-2 text-white"
                         >
-                          <ExternalLink size={16} />
+                          <ExternalLink />
                           Connect
-                        </button>
+                        </Button>
                       )}
-                    </div>
-                  </div>
+                    </CardFooter>
+                  </Card>
                 )
               })}
             </div>
           </div>
 
-          {/* Job Management Systems */}
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-              <span>📋</span>
-              Job Management Systems (CRM's)
-            </h2>
+          {/* ── Job Management ───────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/20">
+                <Briefcase size={16} className="text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Job Management</h2>
+                <p className="text-xs text-muted-foreground">Connect your field service and CRM platforms</p>
+              </div>
+            </div>
+            <Separator className="mt-4 mb-5" />
             <div className="grid md:grid-cols-3 gap-4">
               {EXTERNAL_INTEGRATIONS.filter(i => i.category === 'jobmanagement').map((integration) => {
                 const status = externalIntegrations[integration.slug]
                 const isConnected = status?.connected
                 const isSyncing = syncingProvider === integration.slug || status?.status === 'SYNCING'
                 const hasError = status?.status === 'ERROR'
-
                 return (
-                  <div
-                    key={integration.slug}
-                    className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/30 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start gap-4">
-                        <div className="text-3xl">{integration.icon}</div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">{integration.name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{integration.description}</p>
-                          {isConnected && status?.counts && (
-                            <p className="text-xs text-gray-500 dark:text-slate-500 mt-2">
-                              {status.counts.clients} clients • {status.counts.jobs} jobs
-                            </p>
-                          )}
-                          {status?.lastSyncAt && (
-                            <p className="text-xs text-gray-500 dark:text-slate-500">
-                              Last synced: {new Date(status.lastSyncAt).toLocaleDateString()}
-                            </p>
-                          )}
+                  <Card key={integration.slug} className="group transition-all duration-200 hover:shadow-md dark:hover:shadow-black/30 hover:-translate-y-0.5">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-md shadow-black/10 dark:shadow-black/30 ring-1 ring-white/10">
+                          <Image src={integration.logo} alt={integration.name} width={48} height={48} className="object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <CardTitle className="text-sm">{integration.name}</CardTitle>
+                            {isConnected && <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">Connected</Badge>}
+                            {hasError && <Badge variant="destructive" className="shrink-0 text-xs">Error</Badge>}
+                            {integration.comingSoon && !isConnected && <Badge variant="secondary" className="shrink-0 text-xs">Soon</Badge>}
+                          </div>
+                          <CardDescription className="mt-0.5 text-xs leading-relaxed">{integration.description}</CardDescription>
                         </div>
                       </div>
-                      {isConnected ? (
-                        <Check size={20} className="text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
-                      ) : hasError ? (
-                        <X size={20} className="text-rose-500 dark:text-rose-400 flex-shrink-0" />
-                      ) : (
-                        <X size={20} className="text-gray-400 dark:text-slate-500 flex-shrink-0" />
-                      )}
-                    </div>
-
-                    {hasError && status?.syncError && (
-                      <div className="mb-4 p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded text-xs text-rose-600 dark:text-rose-400">
-                        {status.syncError}
-                      </div>
+                    </CardHeader>
+                    {isConnected && (status?.counts || status?.lastSyncAt) && (
+                      <CardContent className="pt-0 pb-3">
+                        <Separator className="mb-3" />
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          {status?.counts && <p>{status.counts.clients} clients · {status.counts.jobs} jobs</p>}
+                          {status?.lastSyncAt && <p>Last synced {new Date(status.lastSyncAt).toLocaleDateString('en-AU')}</p>}
+                        </div>
+                      </CardContent>
                     )}
-
-                    <div className="flex gap-2">
+                    {hasError && status?.syncError && (
+                      <CardContent className="pt-0 pb-3">
+                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-rose-600 dark:text-rose-400">
+                          {status.syncError}
+                        </div>
+                      </CardContent>
+                    )}
+                    <CardFooter className="pt-0 gap-2">
                       {isConnected ? (
                         <>
-                          <button
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
                             onClick={() => handleSyncExternal(integration.slug)}
                             disabled={isSyncing}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 text-white"
                           >
-                            {isSyncing ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <RefreshCw size={16} />
-                            )}
-                            {isSyncing ? 'Syncing...' : 'Sync'}
-                          </button>
-                          <button
+                            {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                            {isSyncing ? "Syncing..." : "Sync"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                             onClick={() => handleDisconnectExternal(integration.slug)}
-                            className="px-4 py-2 border border-rose-500 dark:border-rose-600 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-sm"
                           >
                             Disconnect
-                          </button>
+                          </Button>
                         </>
                       ) : integration.comingSoon ? (
-                        <button
-                          onClick={() => toast.error('This integration is coming soon!')}
-                          className="w-full px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 cursor-not-allowed"
-                        >
-                          Coming Soon
-                        </button>
+                        <Button variant="secondary" size="sm" className="w-full" disabled>Coming Soon</Button>
                       ) : (
-                        <button
+                        <Button
+                          size="sm"
+                          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                           onClick={() => handleConnectExternal(integration.slug)}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-sm flex items-center justify-center gap-2 text-white"
                         >
-                          <ExternalLink size={16} />
+                          <ExternalLink />
                           Connect
-                        </button>
+                        </Button>
                       )}
-                    </div>
-                  </div>
+                    </CardFooter>
+                  </Card>
                 )
               })}
 
-              {/* Request Additional Integration Card */}
-              <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/30 bg-gray-50 dark:bg-slate-800/20 hover:bg-gray-100 dark:hover:bg-slate-800/30 transition-all">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start gap-4">
-                    <div className="text-3xl">➕</div>
+              {/* Request Integration */}
+              <Card className="border-dashed bg-muted/20 hover:bg-muted/40 transition-colors">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-12 h-12 shrink-0 rounded-xl bg-muted border border-border">
+                      <Plus size={18} className="text-muted-foreground" />
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">Request Integration</h3>
-                      <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Need another platform? Let us know!</p>
+                      <CardTitle className="text-sm">Request Integration</CardTitle>
+                      <CardDescription className="text-xs mt-0.5">Need another platform? Let us know!</CardDescription>
                     </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toast.error('This integration is coming soon!')}
-                  className="w-full px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 cursor-not-allowed"
-                >
-                  Coming Soon
-                </button>
-              </div>
+                </CardHeader>
+                <CardFooter className="pt-0">
+                  <Button variant="secondary" size="sm" className="w-full" disabled>Coming Soon</Button>
+                </CardFooter>
+              </Card>
             </div>
           </div>
         </>
       )}
 
-      {/* API Key Modal */}
-      {showApiModal && selectedIntegration && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedIntegration.name}</h2>
-              <button onClick={() => setShowApiModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500 dark:text-slate-400">
-                <XIcon size={20} />
-              </button>
+      {/* ── API Key Modal ──────────────────────────── */}
+      <Dialog open={showApiModal} onOpenChange={setShowApiModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedIntegration?.name}</DialogTitle>
+            <DialogDescription>Connect your API key to enable AI-powered report generation.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">API Key Type</label>
+              <select
+                value={apiKeyType}
+                onChange={(e) => {
+                  const value = e.target.value as 'openai' | 'anthropic' | 'gemini'
+                  if (value === 'openai' || value === 'gemini') {
+                    toast.error('This integration is coming soon!')
+                    return
+                  }
+                  setApiKeyType(value)
+                }}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring text-foreground"
+              >
+                <option value="anthropic">Anthropic Claude</option>
+                <option value="openai" disabled>OpenAI GPT — Coming Soon</option>
+                <option value="gemini" disabled>Google Gemini — Coming Soon</option>
+              </select>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key Type</label>
-                <select
-                  value={apiKeyType}
-                  onChange={(e) => {
-                    const value = e.target.value as 'openai' | 'anthropic' | 'gemini'
-                    if (value === 'openai' || value === 'gemini') {
-                      toast.error('This integration is coming soon!')
-                      return
-                    }
-                    setApiKeyType(value)
-                  }}
-                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai" disabled>OpenAI GPT - Coming Soon</option>
-                  <option value="gemini" disabled>Google Gemini - Coming Soon</option>
-                </select>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
-                  Select the type of API key you want to connect
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={`Enter your ${apiKeyType === 'anthropic' ? 'Anthropic' : apiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
-                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
-                />
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
-                  Your API key is encrypted and stored securely. We'll never share it with third parties.
-                </p>
-              </div>
-              <button className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-sm text-gray-700 dark:text-slate-300">
-                Test Connection
-              </button>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowApiModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveConnection}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
-                >
-                  Save
-                </button>
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">API Key</label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={`Enter your ${apiKeyType === 'anthropic' ? 'Anthropic' : apiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring placeholder:text-muted-foreground text-foreground"
+              />
+              <p className="text-xs text-muted-foreground">Your key is encrypted at rest. We never share it with third parties.</p>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApiModal(false)}>Cancel</Button>
+            <Button
+              onClick={handleSaveConnection}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+            >
+              Save Connection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                  <Crown className="text-white" size={24} />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Upgrade Required</h2>
+      {/* ── Upgrade Modal ─────────────────────────── */}
+      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center shrink-0">
+                <Crown className="text-white" size={18} />
               </div>
-              <button onClick={() => setShowUpgradeModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-600 dark:text-slate-300">
-                <XIcon size={20} />
-              </button>
+              <DialogTitle>Upgrade Required</DialogTitle>
             </div>
-            <div className="space-y-4">
-              <p className="text-gray-700 dark:text-slate-300">
-                To connect API keys and use integrations, you need an active subscription (Monthly or Yearly plan).
-              </p>
-              <p className="text-sm text-gray-600 dark:text-slate-400">
-                Upgrade now to unlock all features including API integrations, unlimited reports, and priority support.
-              </p>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowUpgradeModal(false)
-                    router.push('/dashboard/pricing')
-                  }}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all text-white"
-                >
-                  Upgrade Now
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            <DialogDescription>
+              An active subscription is required to connect integrations and unlock all features — unlimited reports, priority support, and full API access.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUpgradeModal(false)}>Cancel</Button>
+            <Button
+              onClick={() => { setShowUpgradeModal(false); router.push('/dashboard/pricing') }}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0"
+            >
+              Upgrade Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Ascora API Key Modal */}
-      {showAscoraModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="text-3xl">📋</div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Connect to Ascora</h2>
-              </div>
-              <button onClick={() => {
-                setShowAscoraModal(false)
-                setAscoraApiKey("")
-              }} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-500 dark:text-slate-400">
-                <XIcon size={20} />
-              </button>
+      {/* ── Add Integration Modal ─────────────────── */}
+      <Dialog
+        open={showAddModal}
+        onOpenChange={(open) => {
+          if (!open) { setNewApiKey(""); setNewApiKeyType('anthropic') }
+          setShowAddModal(open)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Integration</DialogTitle>
+            <DialogDescription>Connect an AI provider API key to enable report generation.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">API Key Type</label>
+              <select
+                value={newApiKeyType}
+                onChange={(e) => {
+                  const value = e.target.value as 'openai' | 'anthropic' | 'gemini'
+                  if (value === 'openai' || value === 'gemini') {
+                    toast.error('This integration is coming soon!')
+                    return
+                  }
+                  setNewApiKeyType(value)
+                }}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring text-foreground"
+              >
+                <option value="anthropic">Anthropic Claude</option>
+                <option value="openai" disabled>OpenAI GPT — Coming Soon</option>
+                <option value="gemini" disabled>Google Gemini — Coming Soon</option>
+              </select>
             </div>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-slate-400">
-                Ascora uses API key authentication. Enter your Ascora API key to connect.
-              </p>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key</label>
-                <input
-                  type="password"
-                  value={ascoraApiKey}
-                  onChange={(e) => setAscoraApiKey(e.target.value)}
-                  placeholder="Enter your Ascora API key"
-                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
-                />
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
-                  You can find your API key in Ascora under Settings &gt; API Access
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowAscoraModal(false)
-                    setAscoraApiKey("")
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
-                  disabled={connectingAscora}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConnectAscora}
-                  disabled={connectingAscora || !ascoraApiKey}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-white"
-                >
-                  {connectingAscora ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    'Connect'
-                  )}
-                </button>
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">API Key</label>
+              <input
+                type="password"
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                placeholder={`Enter your ${newApiKeyType === 'anthropic' ? 'Anthropic' : newApiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring placeholder:text-muted-foreground text-foreground"
+              />
+              <p className="text-xs text-muted-foreground">Your key is encrypted at rest. We never share it with third parties.</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Add Integration Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Add New Integration</h2>
-              <button onClick={() => {
-                setShowAddModal(false)
-                setNewApiKey("")
-                setNewApiKeyType('anthropic')
-              }} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-600 dark:text-slate-300">
-                <XIcon size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key Type</label>
-                <select
-                  value={newApiKeyType}
-                  onChange={(e) => {
-                    const value = e.target.value as 'openai' | 'anthropic' | 'gemini'
-                    if (value === 'openai' || value === 'gemini') {
-                      toast.error('This integration is coming soon!')
-                      return
-                    }
-                    setNewApiKeyType(value)
-                  }}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai" disabled>OpenAI GPT - Coming Soon</option>
-                  <option value="gemini" disabled>Google Gemini - Coming Soon</option>
-                </select>
-                <p className="text-xs text-gray-600 dark:text-slate-400 mt-2">
-                  Select the type of API key you want to connect
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">API Key</label>
-                <input
-                  type="password"
-                  value={newApiKey}
-                  onChange={(e) => setNewApiKey(e.target.value)}
-                  placeholder={`Enter your ${newApiKeyType === 'anthropic' ? 'Anthropic' : newApiKeyType === 'openai' ? 'OpenAI' : 'Gemini'} API key`}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
-                />
-                <p className="text-xs text-gray-600 dark:text-slate-400 mt-2">
-                  Your API key is encrypted and stored securely. We'll never share it with third parties.
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowAddModal(false)
-                    setNewApiKey("")
-                    setNewApiKeyType('anthropic')
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddIntegration}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all text-white"
-                >
-                  Add Integration
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAddModal(false); setNewApiKey(""); setNewApiKeyType('anthropic') }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddIntegration}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+            >
+              Add Integration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Import Modal */}
       <ImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        onImportComplete={() => {
-          fetchExternalIntegrations()
-        }}
+        onImportComplete={() => { fetchExternalIntegrations() }}
       />
     </div>
   )

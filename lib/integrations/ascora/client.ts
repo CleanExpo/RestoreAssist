@@ -218,13 +218,19 @@ export class AscoraClient extends BaseIntegrationClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const tokens = await getTokens(this.integrationId)
+    let tokens = await getTokens(this.integrationId)
     if (!tokens.accessToken) {
       throw new Error('No access token available')
     }
 
+    // Re-fetch tokens after refresh so the request uses the NEW access token
+    // (mirrors base-client.ts:98-106 pattern)
     if (tokens.isExpired && tokens.refreshToken) {
       await this.refreshAccessToken()
+      tokens = await getTokens(this.integrationId)
+      if (!tokens.accessToken) {
+        throw new Error('Token refresh failed — no access token after refresh')
+      }
     }
 
     const url = `${this.config.apiBaseUrl}${endpoint}`

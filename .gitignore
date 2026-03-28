@@ -40,3 +40,4 @@ nul
 /test-results/
 .playwright/
 .superpowers/
+.env*.local

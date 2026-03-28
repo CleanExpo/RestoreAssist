@@ -18,9 +18,9 @@ export const DEFAULT_FORM_TEMPLATES = [
           { id: "yearBuilt", type: "number", label: "Year Built" },
         ]},
         { id: "environmental", title: "Environmental Data", fields: [
-          { id: "ambientTemperature", type: "number", label: "Ambient Temperature (°F)", required: true },
+          { id: "ambientTemperature", type: "number", label: "Ambient Temperature (°C)", required: true },
           { id: "humidityLevel", type: "number", label: "Humidity Level (%)", required: true },
-          { id: "dewPoint", type: "number", label: "Dew Point (°F)" },
+          { id: "dewPoint", type: "number", label: "Dew Point (°C)" },
           { id: "airCirculation", type: "boolean", label: "Air Circulation Available" },
         ]},
         { id: "moisture", title: "Moisture Readings", fields: [{ id: "readings", type: "array", label: "Moisture Readings", itemType: "object" }]},
