@@ -163,6 +163,10 @@ model User {
 
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
+
+  // Third-party integrations
+  ascoraIntegration  AscoraIntegration?
+  drNrpgIntegration  DrNrpgIntegration?
 }
 
 model Feedback {
@@ -1522,6 +1526,8 @@ model Inspection {
   // Relations
   propertyLookupCache PropertyLookup?
   sketches            ClaimSketch[]
+  drNrpgJobSync       DrNrpgJobSync?
+  dryingGoalRecord    DryingGoalRecord?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3724,4 +3730,215 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// ============================================================
+// ASCORA INTEGRATION (RA-262)
+// Import real AU restoration job data to seed ScopePricingDatabase.
+// "SentToMyob" on job = provisional proxy for accepted_by_insurer.
+// ============================================================
+
+model AscoraIntegration {
+  id        String    @id @default(cuid())
+  userId    String    @unique // TODO: migrate to businessProfileId when BusinessProfile model lands
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey    String    // encrypted at rest via Supabase Vault
+  baseUrl   String    @default("https://api.ascora.com.au")
+  isActive  Boolean   @default(true)
+  lastSyncAt          DateTime?
+  totalJobsImported   Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  jobs AscoraJob[]
+}
+
+model AscoraJob {
+  id              String            @id @default(cuid())
+  integrationId   String
+  integration     AscoraIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  ascoraJobId     String            @unique // Ascora native JobID
+  ascoraJobNumber String?           // Human-readable job number
+  jobType         String?           // e.g. "Water Damage", "Fire Restoration"
+  claimType       String?           // Mapped from jobType to RA claim type enum
+  suburb          String?
+  state           String?
+  postcode        String?
+  completedAt     DateTime?
+  sentToMyob      Boolean   @default(false) // Proxy for accepted_by_insurer (provisional)
+  importedAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+
+  lineItems AscoraLineItem[]
+  notes     AscoraNote[]
+
+  @@index([integrationId])
+  @@index([claimType])
+  @@index([completedAt])
+  @@index([sentToMyob])
+}
+
+model AscoraLineItem {
+  id             String    @id @default(cuid())
+  ascoraJobId    String
+  job            AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
+  partNumber     String    // Ascora PartNumber → maps to ScopePricingDatabase.partNumber
+  description    String
+  quantity       Float
+  unitPriceExTax Float
+  amountExTax    Float
+  invoiceDate    DateTime?
+  importedAt     DateTime  @default(now())
+
+  @@index([ascoraJobId])
+  @@index([partNumber])
+}
+
+model AscoraNote {
+  id          String    @id @default(cuid())
+  ascoraJobId String
+  job         AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
+  noteText    String    @db.Text
+  importedAt  DateTime  @default(now())
+
+  @@index([ascoraJobId])
+}
+
+/// AU-native scope pricing database — seeded from Ascora + beta contractor data.
+/// The compounding moat: acceptanceRate compounds with every accepted/rejected line item.
+/// After 500 jobs this is the only AU-specific insurer acceptance dataset in existence.
+model ScopePricingDatabase {
+  id                 String   @id @default(cuid())
+  partNumber         String   @unique // Ascora PartNumber / internal code
+  description        String
+  claimTypes         String[] // ["water", "fire", "mould", "storm", ...]
+  usageCount         Int      @default(0)
+  averageUnitPriceAU Float    // Average from real AU contractor data
+  medianUnitPriceAU  Float?
+  minPriceAU         Float?
+  maxPriceAU         Float?
+  averageQuantity    Float?
+  /// 0.0–1.0 fraction of usages accepted by AU insurer — the proprietary differentiator
+  acceptanceRate     Float?
+  acceptedCount      Int      @default(0)
+  rejectedCount      Int      @default(0)
+  /// Array of { date: ISO-8601, avgPrice: float } for trend analysis
+  priceHistory       Json?
+  source             String   @default("ascora") // "ascora" | "manual" | "beta_contractor"
+  isActive           Boolean  @default(true)
+  lastUpdated        DateTime @updatedAt
+  createdAt          DateTime @default(now())
+
+  @@index([claimTypes])
+  @@index([acceptanceRate])
+  @@index([isActive])
+  @@index([source])
+}
+
+// ============================================================
+// DR-NRPG INTEGRATION (RA-27)
+// Bidirectional job sync: DR-NRPG dispatch → RestoreAssist inspection
+// Eliminates double data-entry; assessor gets report URL automatically.
+// ============================================================
+
+model DrNrpgIntegration {
+  id            String    @id @default(cuid())
+  userId        String    @unique // TODO: migrate to businessProfileId when BusinessProfile model lands
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drNrpgApiKey  String    // encrypted at rest
+  drNrpgBaseUrl String    @default("https://api.dr-nrpg.com.au")
+  webhookSecret String    // HMAC-SHA256 signing secret
+  isActive      Boolean   @default(true)
+  lastSyncAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  syncedJobs DrNrpgJobSync[]
+}
+
+model DrNrpgJobSync {
+  id              String             @id @default(cuid())
+  integrationId   String
+  integration     DrNrpgIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  inspectionId    String?            @unique // null until RA auto-creates the inspection
+  inspection      Inspection?        @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  drNrpgJobId     String             @unique
+  claimNumber     String
+  insurer         String?
+  policyHolder    String?
+  propertyAddress String?
+  lossType        String?            // "water" | "fire" | "mould" | "storm" | "biohazard" | "other"
+  status          String             @default("dispatched")
+  lastEventAt     DateTime           @default(now())
+  lastEventType   String?
+  syncErrors      Json?              // [{ timestamp, error, context }]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  webhookLogs DrNrpgWebhookLog[]
+
+  @@index([integrationId])
+  @@index([status])
+  @@index([lastEventAt])
+}
+
+model DrNrpgWebhookLog {
+  id             String        @id @default(cuid())
+  jobSyncId      String
+  jobSync        DrNrpgJobSync @relation(fields: [jobSyncId], references: [id], onDelete: Cascade)
+  direction      String        // "inbound" | "outbound"
+  eventType      String        // "inspection.complete" | "scope.approved" | "drying.complete" | etc.
+  payload        Json
+  responseStatus Int?
+  responseBody   String?       @db.Text
+  deliveredAt    DateTime      @default(now())
+  retryCount     Int           @default(0)
+
+  @@index([jobSyncId])
+  @@index([eventType])
+  @@index([direction])
+}
+
+// ============================================================
+// DRYING GOAL VALIDATION (RA-260 Phase 5)
+// The feature no AU competitor offers — timestamped psychrometric
+// proof that drying completed to IICRC S500 material EMC targets.
+// ============================================================
+
+/// One record per inspection — tracks drying goal progress against
+/// IICRC S500 material EMC targets. When goalAchieved = true, the
+/// system generates a timestamped "Drying Goal: ACHIEVED" certificate
+/// that is assessor-proof: proves drying was completed to standard.
+model DryingGoalRecord {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  /// IICRC S500 Category + Class (drives which EMC targets apply)
+  targetCategory String // "CAT_1" | "CAT_2" | "CAT_3"
+  targetClass    String // "CLASS_1" | "CLASS_2" | "CLASS_3" | "CLASS_4"
+  startedAt      DateTime @default(now())
+
+  /// Per-material EMC targets in JSON:
+  /// { "drywall": 15.0, "timber": 19.0, "concrete": 3.5, "carpet": 3.0 }
+  /// Populated automatically from IICRC_DRY_STANDARDS on record creation.
+  materialTargets Json
+
+  /// Validation state — updated each time moisture readings are logged
+  goalAchieved          Boolean   @default(false)
+  goalAchievedAt        DateTime? // Exact timestamp when ALL readings ≤ EMC targets
+  totalDryingDays       Int?      // (goalAchievedAt - startedAt) in whole days
+  /// Snapshot of all moisture readings at the moment of goal achievement
+  finalReadingsSnapshot Json?
+
+  /// Certificate fields — included in PDF report
+  iicrcReference String    @default("IICRC S500:2021 §11.4")
+  signedOffBy    String?   // Technician name
+  signedOffAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([goalAchieved])
+  @@index([goalAchievedAt])
 }
