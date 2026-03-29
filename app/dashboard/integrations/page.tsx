@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, XIcon, Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, Home, ToggleLeft, ToggleRight, Settings2 } from "lucide-react"
+import { Check, X, XIcon, Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, Home, ToggleLeft, ToggleRight, Settings2, ChevronDown, ChevronRight, Trash, CheckCircle2, AlertCircle, Clock } from "lucide-react"
 import { PropertyDataSetupWizard } from "@/components/property-data/PropertyDataSetupWizard"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -79,6 +79,12 @@ export default function IntegrationsPage() {
   const [showPropertyWizard, setShowPropertyWizard] = useState(false)
   const [propertyDataEnabled, setPropertyDataEnabled] = useState(false)
   const [domainSourceEnabled, setDomainSourceEnabled] = useState(false)
+  const [realestateSourceEnabled, setRealestateSourceEnabled] = useState(false)
+  const [showLookupHistory, setShowLookupHistory] = useState(false)
+  const [lookupHistory, setLookupHistory] = useState<{ id: string; propertyAddress: string; propertyPostcode: string; lookupDate: string; expiresAt: string; apiResponseStatus: number; dataSource: string; confidence: string }[]>([])
+  const [lookupStats, setLookupStats] = useState<{ total: number; successful: number; failed: number; cached: number; expired: number } | null>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [clearingCache, setClearingCache] = useState(false)
 
   // Show success/error messages from OAuth callback
   useEffect(() => {
@@ -308,6 +314,40 @@ export default function IntegrationsPage() {
       toast.error("Failed to fetch integrations")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchLookupHistory = async () => {
+    setLoadingHistory(true)
+    try {
+      const res = await fetch("/api/property/lookup")
+      if (res.ok) {
+        const data = await res.json()
+        setLookupHistory(data.lookups || [])
+        setLookupStats(data.stats || null)
+      }
+    } catch {
+      toast.error("Failed to load property lookup history")
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const handleClearCache = async () => {
+    setClearingCache(true)
+    try {
+      const res = await fetch("/api/property/lookup", { method: "DELETE" })
+      if (res.ok) {
+        const data = await res.json()
+        toast.success(`Cleared ${data.deleted} expired cache entries`)
+        fetchLookupHistory()
+      } else {
+        toast.error("Failed to clear cache")
+      }
+    } catch {
+      toast.error("Failed to clear cache")
+    } finally {
+      setClearingCache(false)
     }
   }
 
@@ -929,6 +969,123 @@ export default function IntegrationsPage() {
                       : <ToggleLeft size={30} />}
                   </button>
                 </div>
+
+                {/* realestate.com.au — optional toggle */}
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🔍</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">realestate.com.au</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-500">Optional fallback · Off by default</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!propertyDataEnabled) {
+                        toast.error("Enable property data first")
+                        return
+                      }
+                      setRealestateSourceEnabled(v => !v)
+                    }}
+                    className={`transition-colors ${realestateSourceEnabled && propertyDataEnabled ? "text-cyan-500" : "text-gray-400 dark:text-slate-500"}`}
+                  >
+                    {realestateSourceEnabled && propertyDataEnabled
+                      ? <ToggleRight size={30} />
+                      : <ToggleLeft size={30} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Usage & History */}
+              <div className="border-t border-gray-100 dark:border-slate-700 pt-4">
+                <button
+                  onClick={() => {
+                    setShowLookupHistory(v => {
+                      if (!v) fetchLookupHistory()
+                      return !v
+                    })
+                  }}
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  {showLookupHistory ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  Usage &amp; History
+                </button>
+
+                {showLookupHistory && (
+                  <div className="mt-3 space-y-3">
+                    {/* Stats row */}
+                    {lookupStats && (
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { label: "Total", value: lookupStats.total, icon: <Clock size={13} /> },
+                          { label: "Success", value: lookupStats.successful, icon: <CheckCircle2 size={13} className="text-emerald-500" /> },
+                          { label: "Cached", value: lookupStats.cached, icon: <Clock size={13} className="text-blue-500" /> },
+                          { label: "Failed", value: lookupStats.failed, icon: <AlertCircle size={13} className="text-rose-500" /> },
+                        ].map(({ label, value, icon }) => (
+                          <div key={label} className="text-center p-2 rounded-lg bg-gray-50 dark:bg-slate-700/50">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">{icon}<span className="text-xs text-gray-500 dark:text-slate-500">{label}</span></div>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-white">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Clear cache button */}
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-slate-500">
+                      <span>Data is cached for 90 days. Clear expired entries to free up storage.</span>
+                      <button
+                        onClick={handleClearCache}
+                        disabled={clearingCache}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                      >
+                        {clearingCache ? <Loader2 size={12} className="animate-spin" /> : <Trash size={12} />}
+                        Clear Expired
+                      </button>
+                    </div>
+
+                    {/* Recent lookups list */}
+                    {loadingHistory ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 size={20} className="animate-spin text-gray-400" />
+                      </div>
+                    ) : lookupHistory.length === 0 ? (
+                      <p className="text-sm text-center text-gray-500 dark:text-slate-500 py-4">
+                        No property lookups yet. Use &quot;Lookup Property Data&quot; inside an inspection to populate history.
+                      </p>
+                    ) : (
+                      <div className="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-gray-50 dark:bg-slate-800/50">
+                              <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide">Address</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide">Source</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide">Date</th>
+                              <th className="px-3 py-2 text-center font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                            {lookupHistory.slice(0, 10).map(l => (
+                              <tr key={l.id} className="bg-white dark:bg-slate-800/20">
+                                <td className="px-3 py-2 text-gray-800 dark:text-slate-300 font-medium truncate max-w-[160px]">
+                                  {l.propertyAddress}, {l.propertyPostcode}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 dark:text-slate-400 capitalize">{l.dataSource}</td>
+                                <td className="px-3 py-2 text-gray-500 dark:text-slate-500">
+                                  {new Date(l.lookupDate).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {l.apiResponseStatus === 200
+                                    ? <CheckCircle2 size={14} className="text-emerald-500 inline" />
+                                    : <AlertCircle size={14} className="text-rose-500 inline" />}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
