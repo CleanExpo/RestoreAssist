@@ -21,6 +21,7 @@ import {
   Loader2,
   Save,
   Check,
+  FileDown,
 } from "lucide-react"
 
 // Dynamic import to avoid SSR issues
@@ -96,8 +97,9 @@ export function SketchEditor({
   const [selectedRoomColor, setSelectedRoomColor] = useState(ROOM_COLORS[0])
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
 
-  // ── Save state ──
+  // ── Save / PDF export state ──
   const [saving, setSaving] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -439,6 +441,47 @@ export function SketchEditor({
     a.click()
   }
 
+  // ── Export PDF (RA-121) ───────────────────────────────────
+  const handleExportPdf = useCallback(async () => {
+    if (!inspectionId || exportingPdf) return
+    setExportingPdf(true)
+    try {
+      const floorData = floors.map(floor => {
+        const c = floor.canvasRef.current
+        if (!c) return null
+        const fabricCanvas = c.getFabricCanvas() as { toDataURL: (opts: object) => string; toJSON: () => object } | null
+        if (!fabricCanvas) return null
+        return {
+          label: floor.floorLabel,
+          pngDataUrl: fabricCanvas.toDataURL({ format: "png", multiplier: 2 }),
+          fabricJson: fabricCanvas.toJSON(),
+        }
+      }).filter(Boolean)
+
+      if (floorData.length === 0) return
+
+      const res = await fetch(`/api/inspections/${inspectionId}/sketches/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ floors: floorData }),
+      })
+
+      if (!res.ok) { console.error("PDF export failed:", await res.text()); return }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `floor-plan-${inspectionId.slice(-8)}.pdf`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (err) {
+      console.error("PDF export error:", err)
+    } finally {
+      setExportingPdf(false)
+    }
+  }, [floors, inspectionId, exportingPdf])
+
   // ── Add / remove floors ───────────────────────────────────
   const addFloor = () => {
     const num = floors.length
@@ -504,16 +547,29 @@ export function SketchEditor({
           </button>
         )}
 
-        {/* Save indicator */}
-        {inspectionId && (
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500 flex-shrink-0">
-            {saving ? (
-              <><Loader2 size={12} className="animate-spin" /> Saving…</>
-            ) : savedAt ? (
-              <><Check size={12} className="text-emerald-500" /> Saved</>
-            ) : null}
-          </div>
-        )}
+        {/* Save indicator + PDF export */}
+        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          {inspectionId && (
+            <span className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500">
+              {saving ? (
+                <><Loader2 size={12} className="animate-spin" /> Saving…</>
+              ) : savedAt ? (
+                <><Check size={12} className="text-emerald-500" /> Saved</>
+              ) : null}
+            </span>
+          )}
+          {inspectionId && (
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              title="Export floor plan PDF"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-neutral-200 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {exportingPdf ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
+              PDF
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Floor plan underlay loader */}
