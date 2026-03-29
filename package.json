@@ -16,7 +16,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts"
+    "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",

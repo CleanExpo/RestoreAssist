@@ -157,7 +157,7 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 1, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="w-full max-w-md"
@@ -174,12 +174,13 @@ export default function SignupPage() {
 
         {/* Information Box */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
           className="mb-6 bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4"
         >
           <button
+            type="button"
             onClick={() => setShowInfo(!showInfo)}
             className="w-full flex items-center justify-between text-left"
           >
@@ -239,7 +240,7 @@ export default function SignupPage() {
 
         {/* Signup Form */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8"
@@ -287,6 +288,8 @@ export default function SignupPage() {
                 <input
                   id="name"
                   type="text"
+                  name="name"
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -306,6 +309,8 @@ export default function SignupPage() {
                 <input
                   id="email"
                   type="email"
+                  name="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -325,6 +330,8 @@ export default function SignupPage() {
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -333,6 +340,7 @@ export default function SignupPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
@@ -351,6 +359,8 @@ export default function SignupPage() {
                 <input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -359,6 +369,7 @@ export default function SignupPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
@@ -407,6 +418,7 @@ export default function SignupPage() {
 
           {/* Google Sign In */}
           <motion.button
+            type="button"
             onClick={handleGoogleSignIn}
             disabled={isLoading}
             className="w-full py-3 bg-white/10 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-white/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"

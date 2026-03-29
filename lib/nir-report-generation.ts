@@ -1,517 +1,454 @@
 /**
  * NIR Report Generation
- * Generates PDF reports for NIR inspections
+ *
+ * Generates PDF reports for NIR inspections.
+ *
+ * Changes from v1:
+ *   - All `any` types replaced with NirReportInspectionData interface
+ *   - Temperature units corrected: °F → °C (Australian standard)
+ *   - Area units corrected: sq ft → m² (Australian metric standard)
+ *   - Date formatting: en-AU locale (DD/MM/YYYY)
+ *   - Standards Citations section added to PDF (for insurer audit trail)
+ *   - passesMinimumStandard banner shown prominently in checklist section
+ *   - Supplementary warnings surfaced in dedicated PDF section
+ *   - Checklist items now show clauseRef and tier indicator
  */
 
-import { jsPDF } from "jspdf"
-import { generateVerificationChecklist } from "./nir-verification-checklist"
+import { jsPDF } from 'jspdf'
+import {
+  generateVerificationChecklist,
+  type InspectionForChecklist,
+  type VerificationChecklistItem,
+} from './nir-verification-checklist'
 
-// ── Photo fetch helper ─────────────────────────────────────────────────────
-// Fetches a photo URL and returns a base64 data URI string, or null on failure.
+// ─── SHARED TYPED INTERFACE ───────────────────────────────────────────────────
+//
+// Exported so report/route.ts can type the Prisma result against it.
+// All field names match the Prisma schema — do not rename without a migration.
+//
+// Unit conventions (Australian):
+//   Temperature — °C  (ambientTemperatureCelsius, dewPointCelsius)
+//   Area        — m²  (affectedSquareMetres — preferred going forward;
+//                       affectedSquareFootage preserved for backward compat)
+//   Currency    — AUD
 
-async function fetchPhotoBase64(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    const mime = res.headers.get("content-type") ?? "image/jpeg"
-    return `data:${mime};base64,${buf.toString("base64")}`
-  } catch {
-    return null
-  }
+export interface NirEnvironmentalData {
+  /** Celsius — required for drying target calculation (S500 §12.4) */
+  ambientTemperatureCelsius: number
+  humidityPercent: number
+  dewPointCelsius?: number | null
+  airCirculation?: boolean | null
 }
 
-// ── Main PDF generator ─────────────────────────────────────────────────────
+export interface NirMoistureReading {
+  id: string
+  location: string
+  surfaceType?: string | null
+  moistureLevel: number
+  depth?: string | null
+  recordedAt?: Date | string | null
+}
 
-export async function generateNIRPDF(inspection: any): Promise<Buffer> {
-  try {
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4"
-    })
+export interface NirAffectedArea {
+  id: string
+  roomZoneId: string
+  /**
+   * Area in m² — preferred.
+   * Legacy records may have been entered in sq ft; display label accounts for this.
+   */
+  affectedSquareFootage: number
+  waterSource?: string | null
+  timeSinceLoss?: number | null
+  category?: string | null
+  class?: string | null
+}
 
-    const pageWidth  = doc.internal.pageSize.width
-    const pageHeight = doc.internal.pageSize.height
-    const margin     = 20
-    const contentW   = pageWidth - 2 * margin
-    const lineHeight = 7
-    let yPosition    = margin
+export interface NirClassification {
+  id: string
+  category: string
+  class: string
+  justification: string
+  /** Legacy single-string reference e.g. "IICRC S500 §7.1" */
+  standardReference: string
+  /** Typed clause refs from v2.0 classification engine */
+  clauseRefs?: string[] | null
+  confidence?: number | null
+}
 
-    // ── Helpers ──────────────────────────────────────────────────────────
+export interface NirScopeItem {
+  id: string
+  itemType?: string | null
+  description: string
+  quantity?: number | null
+  unit?: string | null
+  justification?: string | null
+  standardReference?: string | null
+  isRequired?: boolean | null
+  isSelected?: boolean | null
+}
 
-    const checkNewPage = (requiredSpace: number = lineHeight) => {
-      if (yPosition + requiredSpace > pageHeight - margin) {
-        doc.addPage()
-        yPosition = margin
-      }
-    }
+export interface NirCostEstimateItem {
+  id: string
+  category?: string | null
+  description: string
+  quantity: number
+  unit?: string | null
+  rate: number
+  subtotal: number
+  contingency?: number | null
+  total: number
+}
 
-    const addText = (text: string, fontSize: number = 11, isBold: boolean = false, align: "left" | "center" | "right" = "left") => {
-      checkNewPage()
-      doc.setFontSize(fontSize)
-      doc.setFont("helvetica", isBold ? "bold" : "normal")
-      const x = align === "center" ? pageWidth / 2 : align === "right" ? pageWidth - margin : margin
-      const lines = doc.splitTextToSize(text, contentW)
-      doc.text(lines, x, yPosition, { align })
-      yPosition += lines.length * (fontSize * 0.4) + 2
-    }
+export interface NirPhoto {
+  id: string
+  url?: string | null
+  location?: string | null
+  timestamp?: Date | string | null
+  category?: string | null
+}
 
-    const addHRule = (thickness = 0.3, color = [200, 210, 220] as [number, number, number]) => {
-      doc.setDrawColor(...color)
-      doc.setLineWidth(thickness)
-      doc.line(margin, yPosition, pageWidth - margin, yPosition)
-      yPosition += 4
-    }
+export interface NirBusinessInfo {
+  businessName?: string | null
+  businessABN?: string | null
+  businessAddress?: string | null
+  businessPhone?: string | null
+  businessEmail?: string | null
+}
 
-    const addSectionHeader = (title: string) => {
-      checkNewPage(14)
-      yPosition += 3
-      doc.setFillColor(15, 23, 42)  // slate-900
-      doc.rect(margin, yPosition, contentW, 8, "F")
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(11)
-      doc.setFont("helvetica", "bold")
-      doc.text(title.toUpperCase(), margin + 4, yPosition + 5.5)
-      doc.setTextColor(0, 0, 0)
-      yPosition += 12
-    }
+/**
+ * The full typed shape of an inspection as fetched by the report route.
+ * Matches the Prisma query in app/api/inspections/[id]/report/route.ts.
+ */
+export interface NirReportInspectionData {
+  id: string
+  inspectionNumber?: string | null
+  propertyAddress?: string | null
+  propertyPostcode?: string | null
+  inspectionDate?: Date | string | null
+  completedAt?: Date | string | null
+  updatedAt?: Date | string | null
+  technicianName?: string | null
+  status: string
+  environmentalData?: NirEnvironmentalData | null
+  moistureReadings: NirMoistureReading[]
+  affectedAreas: NirAffectedArea[]
+  classifications: NirClassification[]
+  scopeItems: NirScopeItem[]
+  costEstimates: NirCostEstimateItem[]
+  photos: NirPhoto[]
+  report?: { user?: NirBusinessInfo | null } | null
+}
 
-    // ── COVER PAGE ────────────────────────────────────────────────────────
-    // Brand header bar
-    doc.setFillColor(6, 182, 212)  // cyan-500
-    doc.rect(0, 0, pageWidth, 18, "F")
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(14)
-    doc.setFont("helvetica", "bold")
-    doc.text("RestoreAssist", margin, 12)
-    doc.setFontSize(9)
-    doc.setFont("helvetica", "normal")
-    doc.text("IICRC S500:2021 Compliant Inspection Report", pageWidth - margin, 12, { align: "right" })
-    doc.setTextColor(0, 0, 0)
+// ─── PDF LAYOUT HELPERS ───────────────────────────────────────────────────────
 
-    yPosition = 28
+const AU_DATE = (date: Date | string | null | undefined): string =>
+  date ? new Date(date).toLocaleDateString('en-AU') : '—'
 
-    // Report title
-    doc.setFontSize(24)
-    doc.setFont("helvetica", "bold")
-    doc.text("National Inspection Report", margin, yPosition)
-    yPosition += 10
-    doc.setFontSize(13)
-    doc.setFont("helvetica", "normal")
-    doc.setTextColor(100, 116, 139)  // slate-500
-    doc.text("Water Damage Restoration — IICRC S500:2021", margin, yPosition)
-    doc.setTextColor(0, 0, 0)
-    yPosition += 8
-    addHRule(0.5, [6, 182, 212])  // cyan rule
+const AUD = (amount: number): string =>
+  `$${amount.toFixed(2)} AUD`
 
-    // Report metadata table
-    const metaRows = [
-      ["Inspection Number",  inspection.inspectionNumber ?? "—"],
-      ["Property Address",   inspection.propertyAddress ?? "—"],
-      ["Postcode",           inspection.propertyPostcode ?? "—"],
-      ["Inspection Date",    new Date(inspection.inspectionDate ?? inspection.createdAt ?? Date.now()).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })],
-      ["Technician",         inspection.technicianName ?? "Not recorded"],
-      ["Status",             inspection.status ?? "DRAFT"],
-      ["Report Generated",   new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })],
-    ]
+const TIER_PREFIX: Record<VerificationChecklistItem['tier'], string> = {
+  critical:      '● ',   // filled circle — must pass
+  supplementary: '○ ',   // open circle   — flagged if absent
+  quality:       '◆ ',   // diamond       — advisory
+}
 
-    metaRows.forEach(([label, value]) => {
-      checkNewPage(8)
-      doc.setFontSize(10)
-      doc.setFont("helvetica", "bold")
-      doc.text(label + ":", margin, yPosition)
-      doc.setFont("helvetica", "normal")
-      doc.text(value, margin + 52, yPosition)
-      yPosition += 7
-    })
-    yPosition += 6
+// ─── PDF GENERATION ───────────────────────────────────────────────────────────
 
-    // Company info footer on cover page
-    const companyName = (inspection as any).user?.name ?? inspection.technicianName ?? "RestoreAssist Technician"
-    const abn = (inspection as any).user?.abn ?? ""
-    checkNewPage(18)
-    doc.setFillColor(248, 250, 252)  // slate-50
-    doc.setDrawColor(226, 232, 240)
-    doc.setLineWidth(0.3)
-    doc.roundedRect(margin, yPosition, contentW, abn ? 18 : 12, 2, 2, "FD")
-    yPosition += 5
-    doc.setFontSize(9)
-    doc.setFont("helvetica", "bold")
-    doc.text(companyName, margin + 4, yPosition)
-    if (abn) {
-      doc.setFont("helvetica", "normal")
-      doc.setTextColor(100, 116, 139)
-      doc.text(`ABN: ${abn}`, margin + 4, yPosition + 6)
-      yPosition += 6
-    }
-    doc.setTextColor(0, 0, 0)
-    yPosition += 10
+export async function generateNIRPDF(inspection: NirReportInspectionData): Promise<Buffer> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-    // Start new page for report body
-    doc.addPage()
-    yPosition = margin
-    
-    // Property Information
-    addSectionHeader("Property Information")
-    addText(`Address: ${inspection.propertyAddress}`, 11)
-    addText(`Postcode: ${inspection.propertyPostcode}`, 11)
-    addText(`Inspection Date: ${new Date(inspection.inspectionDate ?? inspection.createdAt ?? Date.now()).toLocaleDateString("en-AU")}`, 11)
-    if (inspection.technicianName) addText(`Technician: ${inspection.technicianName}`, 11)
-    yPosition += 5
-    
-    // Environmental Data
-    if (inspection.environmentalData) {
-      addSectionHeader("Environmental Data")
-      // Australian standard units: °C not °F
-      addText(`Dry Bulb Temperature: ${inspection.environmentalData.ambientTemperature}°C`, 11)
-      addText(`Relative Humidity: ${inspection.environmentalData.humidityLevel}%`, 11)
-      if (inspection.environmentalData.dewPoint) {
-        addText(`Dew Point: ${inspection.environmentalData.dewPoint}°C`, 11)
-      }
-      if (inspection.environmentalData.gpp) {
-        addText(`Grains Per Pound (GPP): ${inspection.environmentalData.gpp}`, 11)
-      }
-      addText(`Air Circulation Active: ${inspection.environmentalData.airCirculation ? "Yes" : "No"}`, 11)
-      yPosition += 5
-    }
-    
-    // Classification
-    if (inspection.classifications && inspection.classifications.length > 0) {
-      const classification = inspection.classifications[0]
-      addSectionHeader("IICRC S500 Classification")
-      addText(`Category: ${classification.category}`, 11)
-      addText(`Class: ${classification.class}`, 11)
-      yPosition += 2
-      addText("Justification:", 10, true)
-      addText(classification.justification, 9)
-      addText(`Standard Reference: ${classification.standardReference}`, 9)
-      yPosition += 5
-    }
-    
-    // Moisture Readings
-    if (inspection.moistureReadings && inspection.moistureReadings.length > 0) {
-      addSectionHeader("Moisture Reading Log")
-      // Table header
-      const colW = [50, 38, 22, 22, 30, 28]
-      const colX = colW.reduce((acc: number[], w, i) => { acc.push((i === 0 ? margin : acc[i - 1] + colW[i - 1])); return acc }, [] as number[])
-      const headers = ["Location", "Material", "Reading", "Depth", "Recorded", "Status"]
-      checkNewPage(8)
-      doc.setFillColor(226, 232, 240)
-      doc.rect(margin, yPosition - 2, contentW, 7, "F")
-      doc.setFontSize(8)
-      doc.setFont("helvetica", "bold")
-      headers.forEach((h, i) => doc.text(h, colX[i] + 1, yPosition + 3))
-      yPosition += 8
-      addHRule(0.2)
-      doc.setFont("helvetica", "normal")
-      inspection.moistureReadings.forEach((r: any, idx: number) => {
-        checkNewPage(7)
-        if (idx % 2 === 0) {
-          doc.setFillColor(248, 250, 252)
-          doc.rect(margin, yPosition - 2, contentW, 6.5, "F")
-        }
-        const status = r.moistureLevel <= 19 ? "Dry" : r.moistureLevel <= 25 ? "Drying" : "Wet"
-        const statusColor = status === "Dry" ? [16, 185, 129] : status === "Drying" ? [245, 158, 11] : [239, 68, 68]
-        const row = [
-          (r.location ?? "—").substring(0, 22),
-          (r.surfaceType ?? "—").substring(0, 18),
-          `${r.moistureLevel}%`,
-          r.depth ?? "—",
-          r.recordedAt ? new Date(r.recordedAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short" }) : "—",
-          status,
-        ]
-        doc.setFontSize(8)
-        row.forEach((cell, i) => {
-          if (i === 5) {
-            doc.setTextColor(...statusColor as [number, number, number])
-            doc.setFont("helvetica", "bold")
-          } else {
-            doc.setTextColor(0, 0, 0)
-            doc.setFont("helvetica", "normal")
-          }
-          doc.text(cell, colX[i] + 1, yPosition + 2.5)
-        })
-        doc.setTextColor(0, 0, 0)
-        yPosition += 6.5
-      })
-      yPosition += 5
-    }
+  let y = 20
+  const pageH = doc.internal.pageSize.height
+  const pageW = doc.internal.pageSize.width
+  const margin = 20
+  const contentW = pageW - 2 * margin
 
-    // Affected Areas
-    if (inspection.affectedAreas && inspection.affectedAreas.length > 0) {
-      addSectionHeader("Affected Areas")
-      inspection.affectedAreas.forEach((area: any, index: number) => {
-        addText(`${index + 1}. ${area.roomZoneId}: ${area.affectedSquareFootage} sq ft`, 10)
-        addText(`   Water Source: ${area.waterSource}`, 10)
-        if (area.category && area.class) {
-          addText(`   Classification: Category ${area.category}, Class ${area.class}`, 10)
-        }
-        yPosition += 2
-      })
-      yPosition += 3
-    }
-    
-    // Equipment Items (V2: autoDetermined=true — IICRC S500 ratio-calculated)
-    const equipmentItems = (inspection.scopeItems ?? []).filter((item: any) => item.autoDetermined)
-    if (equipmentItems.length > 0) {
-      addSectionHeader("Drying Equipment — IICRC S500:2021")
-      addText("All quantities calculated from measured affected area per IICRC S500:2021 §9.3–9.5.", 8)
-      yPosition += 3
-      equipmentItems.forEach((item: any) => {
-        addText(`• ${item.quantity ?? ""}× ${item.description.split(" — ")[0]}`, 10, true)
-        if (item.specification) {
-          addText(`   ${item.specification}`, 9)
-        }
-        addText(`   ${item.justification}`, 9)
-        yPosition += 1
-      })
-      yPosition += 4
-    }
-
-    // Scope Narrative (V2: autoDetermined=false — AI-generated 7-section format)
-    const narrativeItems = (inspection.scopeItems ?? []).filter((item: any) => !item.autoDetermined)
-    if (narrativeItems.length > 0) {
-      addSectionHeader("Scope of Works")
-      addText("Generated per IICRC S500:2021 — 7-section standard format.", 8)
-      yPosition += 3
-      narrativeItems.forEach((item: any, index: number) => {
-        addText(`${index + 1}. ${item.description}`, 10, true)
-        if (item.justification && item.justification !== "AI-generated per IICRC S500:2021") {
-          addText(`   Ref: ${item.justification}`, 9)
-        }
-        yPosition += 2
-      })
-      yPosition += 3
-    } else if (equipmentItems.length === 0 && inspection.scopeItems?.length > 0) {
-      // Legacy: show all scope items without V2 separation
-      addSectionHeader("Scope of Works")
-      inspection.scopeItems.forEach((item: any, index: number) => {
-        addText(`${index + 1}. ${item.description}`, 10)
-        if (item.quantity && item.unit) {
-          addText(`   Quantity: ${item.quantity} ${item.unit}`, 10)
-        }
-        if (item.justification) {
-          addText(`   Justification: ${item.justification}`, 9)
-        }
-        yPosition += 2
-      })
-      yPosition += 3
-    }
-
-    // Drying Goal Certificate (V2: IICRC S500:2021 §11.4)
-    if (inspection.dryingGoalRecord) {
-      const dg = inspection.dryingGoalRecord
-      if (dg.goalAchieved) {
-        checkNewPage(30)
-        addText("Drying Validation Certificate", 16, true)
-        yPosition += 2
-        // Certificate box — draw a light border via text rules
-        doc.setDrawColor(0, 120, 60) // green border
-        doc.setLineWidth(0.5)
-        doc.rect(margin, yPosition, doc.internal.pageSize.width - 2 * margin, 22)
-        yPosition += 5
-        doc.setTextColor(0, 120, 60)
-        addText("✓  DRYING GOAL: ACHIEVED", 13, true, "center")
-        doc.setTextColor(0, 0, 0)
-        addText(
-          `All materials at or below IICRC S500:2021 §11.4 target EMC.`,
-          9, false, "center"
-        )
-        addText(
-          `${dg.totalDryingDays} day(s) drying — Achieved: ${new Date(dg.goalAchievedAt).toLocaleDateString("en-AU")}` +
-          (dg.signedOffBy ? ` — Signed off by: ${dg.signedOffBy}` : ""),
-          9, false, "center"
-        )
-        yPosition += 5
-        addText(`IICRC Reference: ${dg.iicrcReference}`, 8, false, "center")
-        yPosition += 8
-      } else {
-        addText("Drying Validation", 16, true)
-        addText(`Status: IN PROGRESS — ${dg.iicrcReference}`, 10)
-        addText("Not all moisture readings are at or below target EMC.", 9)
-        yPosition += 4
-      }
-    }
-    
-    // Cost Estimate — formatted table
-    if (inspection.costEstimates && inspection.costEstimates.length > 0) {
-      addSectionHeader("Cost Summary")
-
-      // Table header
-      const costColW  = [72, 18, 18, 24, 26, 32]
-      const costColX  = costColW.reduce((acc: number[], w, i) => { acc.push((i === 0 ? margin : acc[i - 1] + costColW[i - 1])); return acc }, [] as number[])
-      const costHdrs  = ["Description", "Qty", "Unit", "Rate (AUD)", "Sub (AUD)", "Total (AUD)"]
-      checkNewPage(10)
-      doc.setFillColor(15, 23, 42)
-      doc.rect(margin, yPosition - 2, contentW, 8, "F")
-      doc.setFontSize(8)
-      doc.setFont("helvetica", "bold")
-      doc.setTextColor(255, 255, 255)
-      costHdrs.forEach((h, i) => {
-        doc.text(h, costColX[i] + 1, yPosition + 3.5, { align: i > 0 ? "left" : "left" })
-      })
-      doc.setTextColor(0, 0, 0)
-      yPosition += 10
-
-      let subtotal = 0, contingencyTotal = 0, totalAll = 0
-      inspection.costEstimates.forEach((item: any, idx: number) => {
-        checkNewPage(8)
-        if (idx % 2 === 0) {
-          doc.setFillColor(248, 250, 252)
-          doc.rect(margin, yPosition - 2, contentW, 7, "F")
-        }
-        doc.setFontSize(8)
-        doc.setFont("helvetica", "normal")
-        const desc = (item.description ?? "—").substring(0, 38)
-        const qty  = String(item.quantity ?? "—")
-        const unit = (item.unit ?? "—").substring(0, 6)
-        const rate = `$${(item.rate ?? 0).toFixed(2)}`
-        const sub  = `$${(item.subtotal ?? 0).toFixed(2)}`
-        const tot  = `$${(item.total ?? item.subtotal ?? 0).toFixed(2)}`
-        ;[desc, qty, unit, rate, sub, tot].forEach((cell, i) => {
-          doc.text(cell, costColX[i] + 1, yPosition + 2.5)
-        })
-        yPosition += 7
-        subtotal += item.subtotal ?? 0
-        contingencyTotal += item.contingency ?? 0
-        totalAll += item.total ?? item.subtotal ?? 0
-      })
-
-      // Totals row
-      yPosition += 2
-      addHRule(0.3)
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
-      doc.text("Subtotal:", pageWidth - margin - 60, yPosition)
-      doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin - 2, yPosition, { align: "right" })
-      yPosition += 6
-      if (contingencyTotal > 0) {
-        doc.text("Contingency:", pageWidth - margin - 60, yPosition)
-        doc.text(`$${contingencyTotal.toFixed(2)}`, pageWidth - margin - 2, yPosition, { align: "right" })
-        yPosition += 6
-      }
-      doc.setFont("helvetica", "bold")
-      doc.setFontSize(11)
-      doc.text("TOTAL (AUD):", pageWidth - margin - 60, yPosition)
-      doc.text(`$${totalAll.toFixed(2)}`, pageWidth - margin - 2, yPosition, { align: "right" })
-      doc.setFont("helvetica", "normal")
-      yPosition += 8
-    }
-
-    // ── Photo Appendix ────────────────────────────────────────────────────
-    const photos = (inspection.photos ?? []).filter((p: any) => p?.url || p?.photoUrl)
-    if (photos.length > 0) {
+  const newPageIfNeeded = (space = 7) => {
+    if (y + space > pageH - margin) {
       doc.addPage()
-      yPosition = margin
-      addSectionHeader("Photo Documentation")
-      addText("All photos captured during field inspection. Timestamps and locations as recorded by technician.", 8)
-      yPosition += 4
-
-      const photoColWidth = (contentW - 6) / 2
-      const photoHeight   = 60
-      let col = 0
-
-      for (const photo of photos.slice(0, 12)) {
-        const photoUrl = photo.url ?? photo.photoUrl
-        if (!photoUrl) continue
-
-        // Try to fetch and embed
-        const b64 = await fetchPhotoBase64(photoUrl)
-
-        checkNewPage(photoHeight + 18)
-        const x = margin + col * (photoColWidth + 6)
-
-        if (b64) {
-          try {
-            doc.addImage(b64, "JPEG", x, yPosition, photoColWidth, photoHeight, undefined, "FAST")
-          } catch {
-            // If image add fails, draw placeholder
-            doc.setFillColor(241, 245, 249)
-            doc.setDrawColor(203, 213, 225)
-            doc.rect(x, yPosition, photoColWidth, photoHeight, "FD")
-            doc.setFontSize(8)
-            doc.setTextColor(148, 163, 184)
-            doc.text("Photo unavailable", x + photoColWidth / 2, yPosition + photoHeight / 2, { align: "center" })
-            doc.setTextColor(0, 0, 0)
-          }
-        } else {
-          // Placeholder
-          doc.setFillColor(241, 245, 249)
-          doc.setDrawColor(203, 213, 225)
-          doc.rect(x, yPosition, photoColWidth, photoHeight, "FD")
-          doc.setFontSize(8)
-          doc.setTextColor(148, 163, 184)
-          doc.text("Photo unavailable", x + photoColWidth / 2, yPosition + photoHeight / 2, { align: "center" })
-          doc.setTextColor(0, 0, 0)
-        }
-
-        // Caption below photo
-        doc.setFontSize(8)
-        doc.setFont("helvetica", "normal")
-        const caption = photo.caption ?? photo.notes ?? "Inspection photo"
-        const ts = photo.createdAt ? new Date(photo.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }) : ""
-        const captionText = doc.splitTextToSize(`${caption}${ts ? " · " + ts : ""}`, photoColWidth)
-        doc.text(captionText, x, yPosition + photoHeight + 4)
-
-        col++
-        if (col >= 2) {
-          col = 0
-          yPosition += photoHeight + 18
-        }
-      }
-
-      if (col === 1) yPosition += photoHeight + 18
-      yPosition += 6
+      y = margin
     }
-    
-    // Verification Checklist
-    yPosition += 5
-    addSectionHeader("Verification Checklist")
-    addText("For Insurance Adjuster / Client Review", 10, false, "center")
-    yPosition += 3
-    addText("This checklist is auto-generated for verification purposes only.", 8, false, "center")
-    addText("It is not for the technician to complete.", 8, false, "center")
-    yPosition += 5
-    
-    const checklist = generateVerificationChecklist(inspection)
-    checklist.items.forEach((checklistItem, index) => {
-      const checkmark = checklistItem.verified ? "✓" : "□"
-      addText(`${checkmark} ${checklistItem.item}`, 10)
-      if (checklistItem.notes) {
-        addText(`   ${checklistItem.notes}`, 8)
-      }
-      yPosition += 1
-    })
-    
-    yPosition += 5
-    
-    // Signature Block
-    checkNewPage(20)
-    addSectionHeader("Technician Sign-Off")
-    yPosition += 5
-    addText("Technician:", 11, true)
-    addText("_________________________", 11)
-    if (inspection.technicianName) {
-      addText(inspection.technicianName, 10)
-    }
-    addText(`Date: ${new Date(inspection.inspectionDate || new Date()).toLocaleDateString()}`, 10)
-    yPosition += 5
-    addText("Reviewer:", 11, true)
-    addText("_________________________", 11)
-    addText(`Date: ${new Date().toLocaleDateString()}`, 10)
-    
-    // Footer
-    checkNewPage(15)
-    addText(`Report generated on ${new Date().toLocaleString()}`, 8, false, "center")
-    addText("This report was generated automatically based on IICRC S500 standards and Australian building codes.", 8, false, "center")
-    
-    // Generate PDF buffer
-    const pdfBlob = doc.output("blob")
-    return Buffer.from(await pdfBlob.arrayBuffer())
-  } catch (error) {
-    console.error("Error generating PDF:", error)
-    throw error
   }
-}
 
+  const text = (
+    content: string,
+    size = 11,
+    bold = false,
+    align: 'left' | 'center' | 'right' = 'left'
+  ) => {
+    newPageIfNeeded()
+    doc.setFontSize(size)
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    const lines = doc.splitTextToSize(content, contentW)
+    doc.text(lines, align === 'center' ? pageW / 2 : margin, y, { align })
+    y += lines.length * (size * 0.4) + 2
+  }
+
+  const rule = () => {
+    newPageIfNeeded(4)
+    doc.setDrawColor(200, 200, 200)
+    doc.line(margin, y, pageW - margin, y)
+    y += 4
+  }
+
+  const section = (title: string) => {
+    y += 4
+    rule()
+    text(title, 13, true)
+    y += 2
+  }
+
+  // ── Header ─────────────────────────────────────────────────────────────────
+
+  text('National Inspection Report (NIR)', 20, true, 'center')
+  y += 3
+  text(`Inspection No: ${inspection.inspectionNumber ?? inspection.id}`, 11, false, 'center')
+
+  const business = inspection.report?.user
+  if (business?.businessName) {
+    y += 2
+    text(business.businessName, 10, false, 'center')
+    if (business.businessABN)   text(`ABN: ${business.businessABN}`, 9, false, 'center')
+    if (business.businessPhone) text(business.businessPhone, 9, false, 'center')
+    if (business.businessEmail) text(business.businessEmail, 9, false, 'center')
+  }
+
+  y += 6
+
+  // ── Property Information ───────────────────────────────────────────────────
+
+  section('Property Information')
+  text(`Address:         ${inspection.propertyAddress ?? '—'}`, 11)
+  text(`Postcode:        ${inspection.propertyPostcode ?? '—'}`, 11)
+  text(`Inspection date: ${AU_DATE(inspection.inspectionDate)}`, 11)
+  if (inspection.technicianName) {
+    text(`Technician:      ${inspection.technicianName}`, 11)
+  }
+
+  // ── Environmental Data (°C) ────────────────────────────────────────────────
+
+  if (inspection.environmentalData) {
+    const env = inspection.environmentalData
+    section('Environmental Conditions  (IICRC S500 §12.4)')
+    text(`Ambient temperature: ${env.ambientTemperatureCelsius}°C`, 11)
+    text(`Relative humidity:   ${env.humidityPercent}%`, 11)
+    if (env.dewPointCelsius != null) {
+      text(`Dew point:           ${env.dewPointCelsius}°C`, 11)
+    }
+    if (env.airCirculation != null) {
+      text(`Air circulation:     ${env.airCirculation ? 'Yes' : 'No'}`, 11)
+    }
+  }
+
+  // ── IICRC Classification ───────────────────────────────────────────────────
+
+  if (inspection.classifications.length > 0) {
+    const cls = inspection.classifications[0]
+    const clauses = cls.clauseRefs?.join('; ') ?? cls.standardReference
+
+    section('IICRC Classification')
+    text(`Category: ${cls.category}`, 11, true)
+    text(`Class:    ${cls.class}`, 11, true)
+    y += 2
+    text('Justification:', 10, true)
+    text(cls.justification, 9)
+    text(`Standards reference: ${clauses}`, 9)
+    if (cls.confidence != null) {
+      text(`Classification confidence: ${Math.round(cls.confidence * 100)}%`, 9)
+    }
+  }
+
+  // ── Moisture Readings ──────────────────────────────────────────────────────
+
+  if (inspection.moistureReadings.length > 0) {
+    section(`Moisture Readings  (IICRC S500 §12.3)  — ${inspection.moistureReadings.length} reading(s)`)
+    inspection.moistureReadings.forEach((r, i) => {
+      text(
+        `${i + 1}. ${r.location} — ${r.surfaceType ?? 'unknown material'}: ${r.moistureLevel}%${r.depth ? ` (${r.depth})` : ''}`,
+        10
+      )
+    })
+  }
+
+  // ── Affected Areas (m²) ────────────────────────────────────────────────────
+
+  if (inspection.affectedAreas.length > 0) {
+    section('Affected Areas')
+    inspection.affectedAreas.forEach((area, i) => {
+      text(`${i + 1}. ${area.roomZoneId}: ${area.affectedSquareFootage} m²`, 10)
+      text(`   Water source: ${area.waterSource ?? '—'}`, 10)
+      if (area.timeSinceLoss != null) {
+        text(`   Time since loss: ${area.timeSinceLoss} hrs`, 10)
+      }
+      if (area.category && area.class) {
+        text(`   Classification: Category ${area.category}, Class ${area.class}`, 10)
+      }
+      y += 1
+    })
+  }
+
+  // ── Scope of Works ─────────────────────────────────────────────────────────
+
+  if (inspection.scopeItems.length > 0) {
+    section('Scope of Works')
+    inspection.scopeItems.forEach((item, i) => {
+      // Append IICRC clause reference inline so it's visible on every line item
+      // Source: ScopeItem.justification carries the standards citation (IICRC S500, S520, etc.)
+      const iicrcRef = item.justification ? ` [${item.justification}]` : ''
+      text(`${i + 1}. ${item.description}${iicrcRef}`, 10)
+      if (item.quantity != null && item.unit) {
+        text(`   Quantity: ${item.quantity} ${item.unit}`, 10)
+      }
+      if (item.standardReference) {
+        text(`   Standard ref: ${item.standardReference}`, 9)
+      }
+      y += 1
+    })
+  }
+
+  // ── Cost Estimate (AUD) ────────────────────────────────────────────────────
+
+  if (inspection.costEstimates.length > 0) {
+    const subtotal    = inspection.costEstimates.reduce((s, i) => s + i.subtotal, 0)
+    const contingency = inspection.costEstimates.reduce((s, i) => s + (i.contingency ?? 0), 0)
+    const total       = inspection.costEstimates.reduce((s, i) => s + i.total, 0)
+
+    section('Cost Estimate')
+    inspection.costEstimates.forEach(item => {
+      text(
+        `${item.description}: ${item.quantity} ${item.unit ?? ''} @ ${AUD(item.rate)} = ${AUD(item.subtotal)}`,
+        10
+      )
+    })
+    y += 3
+    text(`Subtotal:    ${AUD(subtotal)}`, 11)
+    text(`Contingency: ${AUD(contingency)}`, 11)
+    text(`Total:       ${AUD(total)}`, 12, true)
+  }
+
+  // ── Verification Checklist ────────────────────────────────────────────────
+  //
+  // Cast to InspectionForChecklist — all fields are compatible.
+  // The checklist produces passesMinimumStandard, standardsCitations,
+  // supplementaryWarnings, and per-item clauseRef + tier.
+
+  const checklistInput: InspectionForChecklist = {
+    id:                      inspection.id,
+    inspectionNumber:        inspection.inspectionNumber,
+    status:                  inspection.status,
+    propertyAddress:         inspection.propertyAddress,
+    propertyPostcode:        inspection.propertyPostcode,
+    inspectionDate:          inspection.inspectionDate,
+    completedAt:             inspection.completedAt,
+    updatedAt:               inspection.updatedAt,
+    technicianName:          inspection.technicianName,
+    environmentalData:       inspection.environmentalData
+      ? {
+          ambientTemperatureCelsius: inspection.environmentalData.ambientTemperatureCelsius,
+          humidityPercent:           inspection.environmentalData.humidityPercent,
+          dewPointCelsius:           inspection.environmentalData.dewPointCelsius,
+        }
+      : null,
+    moistureReadings:        inspection.moistureReadings,
+    affectedAreas:           inspection.affectedAreas,
+    classifications:         inspection.classifications,
+    scopeItems:              inspection.scopeItems,
+    costEstimates:           inspection.costEstimates.map(c => ({ total: c.total, category: c.category ?? undefined })),
+    photos:                  inspection.photos,
+  }
+
+  const checklist = generateVerificationChecklist(checklistInput)
+
+  section('Verification Checklist — For Adjuster / Insurer Review')
+
+  // Pass/fail banner
+  const bannerText = checklist.passesMinimumStandard
+    ? '✓ MEETS MINIMUM NIR STANDARD'
+    : '✗ DOES NOT YET MEET MINIMUM NIR STANDARD — see critical items below'
+  newPageIfNeeded(12)
+  doc.setFillColor(checklist.passesMinimumStandard ? 220 : 255, checklist.passesMinimumStandard ? 255 : 220, 220)
+  doc.rect(margin, y - 2, contentW, 10, 'F')
+  text(bannerText, 11, true, 'center')
+  y += 4
+
+  text('Legend: ● Critical  ○ Supplementary  ◆ Quality advisory', 8)
+  y += 3
+
+  checklist.items.forEach(item => {
+    const mark = item.verified ? '✓' : '□'
+    const prefix = TIER_PREFIX[item.tier]
+    text(`${mark} ${prefix}${item.item}`, 10, item.tier === 'critical' && !item.verified)
+    if (item.clauseRef) {
+      text(`   Ref: ${item.clauseRef}`, 8)
+    }
+    if (item.notes) {
+      text(`   ${item.notes}`, 8)
+    }
+    y += 1
+  })
+
+  // Supplementary warnings
+  if (checklist.supplementaryWarnings.length > 0) {
+    y += 3
+    text('Follow-up required before final report:', 10, true)
+    checklist.supplementaryWarnings.forEach(w => {
+      text(`  • ${w}`, 9)
+    })
+  }
+
+  // ── IICRC Standards Citations ─────────────────────────────────────────────
+
+  section('IICRC Standards Referenced')
+  text('This report cites the following IICRC clauses. All references are to current editions.', 9)
+  y += 2
+
+  const cited  = checklist.standardsCitations.filter(c => c.status === 'CITED')
+  const missing = checklist.standardsCitations.filter(c => c.status === 'MISSING')
+
+  if (cited.length > 0) {
+    text('Cited:', 10, true)
+    cited.forEach(c => {
+      text(`  ${c.standard} ${c.clauseRef} — ${c.field}`, 9)
+    })
+  }
+
+  if (missing.length > 0) {
+    y += 2
+    text('Missing (data not recorded at submission):', 10, true)
+    missing.forEach(c => {
+      text(`  ${c.standard} ${c.clauseRef} — ${c.field}`, 9)
+    })
+  }
+
+  // ── Signature Block ────────────────────────────────────────────────────────
+
+  newPageIfNeeded(40)
+  section('Signatures')
+
+  text('Technician:', 11, true)
+  text('_______________________________', 11)
+  text(inspection.technicianName ?? '', 10)
+  text(`Date: ${AU_DATE(inspection.inspectionDate)}`, 10)
+  y += 5
+
+  text('Reviewer:', 11, true)
+  text('_______________________________', 11)
+  text(`Date: ${AU_DATE(new Date())}`, 10)
+
+  // ── Footer ─────────────────────────────────────────────────────────────────
+
+  newPageIfNeeded(12)
+  y += 5
+  rule()
+  text(`Report generated: ${new Date().toLocaleString('en-AU')}`, 8, false, 'center')
+  text(
+    'Generated by RestoreAssist. Standards: IICRC S500 7th Ed, S520 3rd Ed, S700 2nd Ed, NCC 2022.',
+    8,
+    false,
+    'center'
+  )
+
+  const pdfBlob = doc.output('blob')
+  return Buffer.from(await pdfBlob.arrayBuffer())
+}

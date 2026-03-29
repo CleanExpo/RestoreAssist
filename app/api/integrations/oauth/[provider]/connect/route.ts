@@ -76,6 +76,32 @@ export async function POST(
       })
     }
 
+    // ── Ascora shortcut: static API key auth, no OAuth redirect needed ────
+    // Ascora uses a simple API key in the `Auth:` header (not OAuth).
+    // The key is stored in ASCORA_API_KEY env var. "Connecting" just means
+    // marking the Integration record as CONNECTED so the orchestrator finds it.
+    if (provider === 'ASCORA') {
+      if (!process.env.ASCORA_API_KEY) {
+        return NextResponse.json(
+          { error: 'ASCORA_API_KEY is not configured. Add it in Vercel environment variables under Administration → API Settings in Ascora.' },
+          { status: 500 }
+        )
+      }
+
+      await prisma.integration.update({
+        where: { id: integration.id },
+        data: { status: 'CONNECTED', syncError: null },
+      })
+
+      // Return a redirect URL that the frontend can navigate to directly
+      const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin
+      return NextResponse.json({
+        authUrl: `${baseUrl}/dashboard/integrations?success=ascora`,
+        integrationId: integration.id,
+        connected: true,
+      })
+    }
+
     // Generate OAuth state
     const state = generateOAuthState(session.user.id, provider)
 
