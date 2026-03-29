@@ -110,7 +110,7 @@ Triggered from `onModified` callback and explicit tool actions.
 # NODE_TLS_REJECT_UNAUTHORIZED=0   # Required — Ascora uses non-standard SSL cert
 #                                  # Set in .env.local (dev) or Vercel env vars (prod)
 #                                  # TODO: supply cert via NODE_EXTRA_CA_CERTS instead
-ANTHROPIC_API_KEY=                 # Claude API for scope narrative generation (RA-264)
+ANTHROPIC_API_KEY=                 # Claude API for scope narrative generation (RA-264) — SET IN VERCEL ✓
 ```
 
 Existing vars used:
@@ -165,12 +165,12 @@ Existing vars used:
 | M4: Moisture Mapping | Complete (RA-110–RA-113 ✓) |
 | M5: Equipment Placement | Complete (RA-260 integrated) |
 | M6: Reporting & Export | Mostly complete (RA-120 ✓, RA-121 ✓, RA-123 ✓, RA-124 ✓, RA-125 ✓; RA-122, RA-126 TBC) |
-| M7: AU Data Layer | Mostly complete (RA-260 ✓, RA-262 sync fixed ✓, RA-264 pending live test; RA-27 ✓) |
+| M7: AU Data Layer | Mostly complete (RA-260 ✓, RA-262 sync fixed ✓, RA-264 ANTHROPIC_API_KEY set in Vercel ✓; RA-27 ✓) |
 
 ### ⚠️ Blocked / Human Actions Required
 - **RA-262 live sync**: Set `NODE_TLS_REJECT_UNAUTHORIZED=0` in environment, then POST /api/ascora/sync
 - **RA-262 line items**: `/invoicedetails` doesn't exist — contact Ascora support for correct endpoint
-- **RA-264 live test**: Requires `ANTHROPIC_API_KEY` env var + completed inspection with classification
+- **RA-264 live test**: `ANTHROPIC_API_KEY` now set in Vercel ✓ — needs completed inspection with classification to test SSE stream
 - **Migration**: `npx prisma migrate deploy` (run against prod DB once Phill has access)
 - **Linear API key**: `lin_api_[REDACTED_FROM_HISTORY]` returning 401 — needs regeneration
 - **RA-4, RA-241, RA-246, RA-247**: Human actions (social accounts, App Store, Supabase, Google)
