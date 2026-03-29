@@ -5,15 +5,16 @@ import { authOptions } from '@/lib/auth'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await params
     const session = await getServerSession(authOptions)
     const isAuthenticated = !!session?.user
 
     const contractor = await prisma.contractorProfile.findUnique({
       where: {
-        slug: params.slug,
+        slug,
         isPubliclyVisible: true
       },
       include: {
