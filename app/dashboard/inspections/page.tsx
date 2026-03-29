@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import {
   Plus,
-  Search,
   ClipboardCheck,
   MapPin,
   Calendar,
@@ -16,9 +15,12 @@ import {
   Camera,
   AlertTriangle,
   Trash2,
+  ChevronLeft,
+  ChevronRightIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog"
+import InspectionFilters from "@/components/dashboard/InspectionFilters"
 
 interface Inspection {
   id: string
@@ -37,70 +39,100 @@ interface Inspection {
   photos: { id: string }[]
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT: { label: "Draft", color: "text-neutral-600 dark:text-slate-400", bg: "bg-neutral-100 dark:bg-slate-800" },
-  SUBMITTED: { label: "Submitted", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" },
-  PROCESSING: { label: "Processing", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30" },
-  CLASSIFIED: { label: "Classified", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/30" },
-  SCOPED: { label: "Scoped", color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/30" },
-  ESTIMATED: { label: "Estimated", color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/30" },
-  COMPLETED: { label: "Completed", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
-  REJECTED: { label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30" },
+interface Pagination {
+  page: number
+  limit: number
+  total: number
+  pages: number
 }
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  DRAFT:      { label: "Draft",      color: "text-neutral-600 dark:text-slate-400",  bg: "bg-neutral-100 dark:bg-slate-800" },
+  SUBMITTED:  { label: "Submitted",  color: "text-blue-600 dark:text-blue-400",      bg: "bg-blue-50 dark:bg-blue-900/30" },
+  PROCESSING: { label: "Processing", color: "text-amber-600 dark:text-amber-400",    bg: "bg-amber-50 dark:bg-amber-900/30" },
+  CLASSIFIED: { label: "Classified", color: "text-purple-600 dark:text-purple-400",  bg: "bg-purple-50 dark:bg-purple-900/30" },
+  SCOPED:     { label: "Scoped",     color: "text-indigo-600 dark:text-indigo-400",  bg: "bg-indigo-50 dark:bg-indigo-900/30" },
+  ESTIMATED:  { label: "Estimated",  color: "text-teal-600 dark:text-teal-400",      bg: "bg-teal-50 dark:bg-teal-900/30" },
+  COMPLETED:  { label: "Completed",  color: "text-emerald-600 dark:text-emerald-400",bg: "bg-emerald-50 dark:bg-emerald-900/30" },
+  REJECTED:   { label: "Rejected",   color: "text-red-600 dark:text-red-400",        bg: "bg-red-50 dark:bg-red-900/30" },
+}
+
+const PAGE_SIZE = 20
 
 export default function InspectionsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [inspections, setInspections] = useState<Inspection[]>([])
+  const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: "single" | "bulk"; id?: string } | null>(null)
 
-  useEffect(() => {
-    fetchInspections()
-  }, [])
+  // ── Derive filter values from URL params ──────────────────────
+  const search   = searchParams.get("search")   ?? ""
+  const status   = searchParams.get("status")   ?? ""
+  const category = searchParams.get("category") ?? ""
+  const from     = searchParams.get("from")     ?? ""
+  const to       = searchParams.get("to")       ?? ""
+  const sort     = searchParams.get("sort")     ?? "recent"
+  const page     = parseInt(searchParams.get("page") ?? "1", 10)
 
-  const fetchInspections = async () => {
+  // Map "sort" param → API sortBy + sortOrder
+  function sortToApi(s: string): { sortBy: string; sortOrder: string } {
+    if (s === "oldest")  return { sortBy: "createdAt", sortOrder: "asc" }
+    if (s === "address") return { sortBy: "address",   sortOrder: "asc" }
+    return { sortBy: "createdAt", sortOrder: "desc" }
+  }
+
+  // ── Fetch on any param change ──────────────────────────────────
+  const fetchInspections = useCallback(async () => {
+    setLoading(true)
+    setSelectedIds(new Set())
+
     try {
-      setLoading(true)
-      const response = await fetch("/api/inspections")
-      if (response.ok) {
-        const data = await response.json()
+      const params = new URLSearchParams()
+      params.set("limit", String(PAGE_SIZE))
+      params.set("page",  String(page))
+      if (search)   params.set("search",   search)
+      if (status)   params.set("status",   status)
+      if (category) params.set("category", category)
+      if (from)     params.set("from",     from)
+      if (to)       params.set("to",       to)
+
+      const { sortBy, sortOrder } = sortToApi(sort)
+      params.set("sortBy",    sortBy)
+      params.set("sortOrder", sortOrder)
+
+      const res = await fetch(`/api/inspections?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
         setInspections(data.inspections || [])
+        setPagination(data.pagination ?? null)
       } else {
         toast.error("Failed to fetch inspections")
       }
-    } catch (error) {
-      console.error("Error fetching inspections:", error)
+    } catch {
       toast.error("Failed to fetch inspections")
     } finally {
       setLoading(false)
     }
+  }, [search, status, category, from, to, sort, page])
+
+  useEffect(() => {
+    fetchInspections()
+  }, [fetchInspections])
+
+  // ── Pagination navigation ─────────────────────────────────────
+  function goToPage(p: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("page", String(p))
+    router.push(`/dashboard/inspections?${params.toString()}`, { scroll: false })
   }
 
-  const filtered = useMemo(() => {
-    return inspections.filter((insp) => {
-      const matchesSearch =
-        !searchTerm ||
-        insp.inspectionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        insp.propertyAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (insp.technicianName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
-      const matchesStatus = !statusFilter || insp.status === statusFilter
-      return matchesSearch && matchesStatus
-    })
-  }, [inspections, searchTerm, statusFilter])
-
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    inspections.forEach((i) => {
-      counts[i.status] = (counts[i.status] || 0) + 1
-    })
-    return counts
-  }, [inspections])
-
+  // ── Selection ─────────────────────────────────────────────────
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -111,13 +143,14 @@ export default function InspectionsPage() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
+    if (selectedIds.size === inspections.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(filtered.map((i) => i.id)))
+      setSelectedIds(new Set(inspections.map((i) => i.id)))
     }
   }
 
+  // ── Delete ────────────────────────────────────────────────────
   const handleDeleteOne = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
     setDeleteTarget({ type: "single", id })
@@ -160,6 +193,8 @@ export default function InspectionsPage() {
           setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)))
           setSelectedIds(new Set())
           toast.success(`${data.deletedCount ?? selectedIds.size} inspection(s) deleted`)
+          // Refresh to update pagination
+          fetchInspections()
         } else {
           toast.error(data.error || "Failed to delete inspections")
         }
@@ -172,6 +207,7 @@ export default function InspectionsPage() {
     }
   }
 
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -194,60 +230,20 @@ export default function InspectionsPage() {
         </button>
       </div>
 
-      {/* Status Filter Pills */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setStatusFilter("")}
-          className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-            !statusFilter
-              ? "bg-cyan-500 text-white"
-              : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700"
-          )}
-        >
-          All ({inspections.length})
-        </button>
-        {Object.entries(STATUS_CONFIG).map(([key, cfg]) =>
-          statusCounts[key] ? (
-            <button
-              key={key}
-              onClick={() => setStatusFilter(statusFilter === key ? "" : key)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                statusFilter === key
-                  ? "bg-cyan-500 text-white"
-                  : cn(cfg.bg, cfg.color, "hover:opacity-80")
-              )}
-            >
-              {cfg.label} ({statusCounts[key]})
-            </button>
-          ) : null
-        )}
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-        <input
-          type="text"
-          placeholder="Search by inspection number, address, or technician..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
-        />
-      </div>
+      {/* Filters (RA-270) */}
+      <InspectionFilters />
 
       {/* Bulk actions */}
-      {filtered.length > 0 && (
+      {inspections.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-600 dark:text-slate-400">
             <input
               type="checkbox"
-              checked={selectedIds.size === filtered.length && filtered.length > 0}
+              checked={selectedIds.size === inspections.length && inspections.length > 0}
               onChange={toggleSelectAll}
               className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
             />
-            Select all ({filtered.length})
+            Select all ({inspections.length})
           </label>
           {selectedIds.size > 0 && (
             <button
@@ -260,6 +256,12 @@ export default function InspectionsPage() {
               Delete selected ({selectedIds.size})
             </button>
           )}
+          {pagination && (
+            <span className="ml-auto text-xs text-neutral-400 dark:text-slate-500">
+              {pagination.total} inspection{pagination.total !== 1 ? "s" : ""}
+              {pagination.pages > 1 && ` · Page ${pagination.page} of ${pagination.pages}`}
+            </span>
+          )}
         </div>
       )}
 
@@ -268,18 +270,20 @@ export default function InspectionsPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : inspections.length === 0 ? (
         <div className="text-center py-20">
           <ClipboardCheck size={48} className="mx-auto text-neutral-300 dark:text-slate-600 mb-4" />
           <h3 className="text-lg font-semibold text-neutral-700 dark:text-slate-300">
-            {inspections.length === 0 ? "No inspections yet" : "No matching inspections"}
+            {!search && !status && !category && !from && !to
+              ? "No inspections yet"
+              : "No matching inspections"}
           </h3>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1 mb-4">
-            {inspections.length === 0
+            {!search && !status && !category && !from && !to
               ? "Create your first National Inspection Report"
-              : "Try adjusting your search or filters"}
+              : "Try adjusting your filters or clearing the search"}
           </p>
-          {inspections.length === 0 && (
+          {!search && !status && !category && !from && !to && (
             <button
               onClick={() => router.push("/dashboard/inspections/new")}
               className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
@@ -291,7 +295,7 @@ export default function InspectionsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((insp) => {
+          {inspections.map((insp) => {
             const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT
             const classification = insp.classifications?.[0]
             return (
@@ -313,52 +317,50 @@ export default function InspectionsPage() {
                   className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
                 />
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
-                        {insp.inspectionNumber}
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                      {insp.inspectionNumber}
+                    </span>
+                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", status.bg, status.color)}>
+                      {status.label}
+                    </span>
+                    {classification && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                        Cat {classification.category} / Class {classification.class}
                       </span>
-                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", status.bg, status.color)}>
-                        {status.label}
-                      </span>
-                      {classification && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                          Cat {classification.category} / Class {classification.class}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-neutral-900 dark:text-white font-medium">
-                      <MapPin size={14} className="text-neutral-400 flex-shrink-0" />
-                      <span className="truncate">{insp.propertyAddress}</span>
-                      <span className="text-neutral-400 dark:text-slate-500 text-sm">({insp.propertyPostcode})</span>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} />
-                        {new Date(insp.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
-                      </span>
-                      {insp.technicianName && (
-                        <span>Tech: {insp.technicianName}</span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Droplets size={12} />
-                        {insp.moistureReadings.length} readings
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <AlertTriangle size={12} />
-                        {insp.affectedAreas.length} areas
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Camera size={12} />
-                        {insp.photos?.length || 0} photos
-                      </span>
-                      {insp.environmentalData && (
-                        <span className="flex items-center gap-1">
-                          <Thermometer size={12} />
-                          {insp.environmentalData.ambientTemperature}°F / {insp.environmentalData.humidityLevel}%
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
+                  <div className="flex items-center gap-1.5 text-neutral-900 dark:text-white font-medium">
+                    <MapPin size={14} className="text-neutral-400 flex-shrink-0" />
+                    <span className="truncate">{insp.propertyAddress}</span>
+                    <span className="text-neutral-400 dark:text-slate-500 text-sm">({insp.propertyPostcode})</span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      {new Date(insp.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                    {insp.technicianName && <span>Tech: {insp.technicianName}</span>}
+                    <span className="flex items-center gap-1">
+                      <Droplets size={12} />
+                      {insp.moistureReadings.length} readings
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle size={12} />
+                      {insp.affectedAreas.length} areas
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Camera size={12} />
+                      {insp.photos?.length || 0} photos
+                    </span>
+                    {insp.environmentalData && (
+                      <span className="flex items-center gap-1">
+                        <Thermometer size={12} />
+                        {insp.environmentalData.ambientTemperature}°C / {insp.environmentalData.humidityLevel}%
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
@@ -374,6 +376,46 @@ export default function InspectionsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination && pagination.pages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            onClick={() => goToPage(pagination.page - 1)}
+            disabled={pagination.page <= 1 || loading}
+            className="p-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </button>
+
+          {/* Page numbers — show up to 5 around current */}
+          {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+            .filter((p) => Math.abs(p - pagination.page) <= 2)
+            .map((p) => (
+              <button
+                key={p}
+                onClick={() => goToPage(p)}
+                disabled={loading}
+                className={cn(
+                  "min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-colors",
+                  p === pagination.page
+                    ? "bg-cyan-500 text-white"
+                    : "border border-neutral-200 dark:border-slate-700 text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+
+          <button
+            onClick={() => goToPage(pagination.page + 1)}
+            disabled={pagination.page >= pagination.pages || loading}
+            className="p-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRightIcon size={16} />
+          </button>
         </div>
       )}
 

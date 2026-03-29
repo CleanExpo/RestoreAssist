@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import UpgradeBanner from "@/components/UpgradeBanner"
+import KPISummaryCards from "@/components/dashboard/KPISummaryCards"
 
 interface SubscriptionStatus {
   subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
@@ -344,6 +345,20 @@ export default function DashboardPage() {
                 </div>
               </motion.div>
             ))}
+          </motion.div>
+
+          {/* Inspections KPI Summary (V2) */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+          >
+            <h2
+              className={cn("text-sm font-semibold uppercase tracking-wide mb-3", "text-neutral-500 dark:text-slate-400")}
+            >
+              Inspections Overview
+            </h2>
+            <KPISummaryCards />
           </motion.div>
 
           {/* Main Content Grid */}

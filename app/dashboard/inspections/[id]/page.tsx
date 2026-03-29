@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
 import MoistureTrendChart from "@/components/inspection/MoistureTrendChart"
+import DryingProgressChart from "@/components/inspection/DryingProgressChart"
 import { MoistureReadingEntryForm } from "@/components/inspection/MoistureReadingEntryForm"
 import {
   ArrowLeft,
@@ -26,9 +27,10 @@ import {
   Clock,
   XCircle,
   Map,
+  TrendingDown,
 } from "lucide-react"
 
-type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+type Tab = "overview" | "environmental" | "moisture" | "drying-chart" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
 
 interface Inspection {
   id: string
@@ -216,6 +218,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "overview", label: "Overview", icon: ClipboardCheck },
     { key: "environmental", label: "Environmental", icon: Thermometer },
     { key: "moisture", label: "Moisture", icon: Droplets, count: inspection.moistureReadings.length },
+    { key: "drying-chart", label: "Drying Chart", icon: TrendingDown },
     { key: "moisture-map", label: "Moisture Map", icon: Map },
     { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: inspection.affectedAreas.length },
     { key: "classification", label: "Classification", icon: Shield, count: inspection.classifications.length },
@@ -500,6 +503,24 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             ) : (
               <div className="text-center py-12 text-neutral-400">No moisture readings recorded — use &quot;Add Reading&quot; above</div>
             )}
+          </div>
+        )}
+
+        {/* Drying Chart Tab (RA-266) */}
+        {activeTab === "drying-chart" && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
+                IICRC S500 Drying Progress Curve
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
+                Multi-day drying curve per location — target lines derived from IICRC S500:2021 dry standards per material type
+              </p>
+            </div>
+            <DryingProgressChart
+              readings={inspection.moistureReadings}
+              inspectionStartDate={inspection.createdAt}
+            />
           </div>
         )}
 

@@ -59,18 +59,25 @@ export async function GET(request: NextRequest) {
     // Get search and filter parameters
     const search = searchParams.get("search")
     const status = searchParams.get("status")
+    const category = searchParams.get("category") // e.g. "1", "2", "3"
+    const from = searchParams.get("from")         // ISO date string
+    const to = searchParams.get("to")             // ISO date string
     const sortBy = searchParams.get("sortBy") || "createdAt"
     const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc"
 
     // Build where clause
     const where: any = { userId: session.user.id }
 
-    // Add status filter
+    // Status filter — support "active" alias (not COMPLETED/REJECTED)
     if (status) {
-      where.status = status
+      if (status === "active") {
+        where.status = { notIn: ["COMPLETED", "REJECTED"] }
+      } else {
+        where.status = status.toUpperCase()
+      }
     }
 
-    // Add search filter (inspection number, property address, technician name)
+    // Search filter (inspection number, property address, technician name)
     if (search && search.trim()) {
       where.OR = [
         { inspectionNumber: { contains: search, mode: "insensitive" } },
@@ -79,10 +86,38 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Category filter — filter by InspectionClassification.category
+    if (category && category.trim()) {
+      where.classifications = {
+        some: { category: category.trim() }
+      }
+    }
+
+    // Date range filter (createdAt)
+    if (from || to) {
+      where.createdAt = {}
+      if (from) {
+        const fromDate = new Date(from)
+        if (!isNaN(fromDate.getTime())) {
+          where.createdAt.gte = fromDate
+        }
+      }
+      if (to) {
+        const toDate = new Date(to)
+        if (!isNaN(toDate.getTime())) {
+          // Include all of the "to" day by setting to end-of-day
+          toDate.setHours(23, 59, 59, 999)
+          where.createdAt.lte = toDate
+        }
+      }
+    }
+
     // Build orderBy clause
     const orderBy: any = {}
     if (sortBy === "createdAt" || sortBy === "submittedAt" || sortBy === "processedAt") {
       orderBy[sortBy] = sortOrder
+    } else if (sortBy === "address") {
+      orderBy.propertyAddress = sortOrder
     } else {
       orderBy.createdAt = "desc" // Default
     }
