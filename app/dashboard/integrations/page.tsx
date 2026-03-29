@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, X, XIcon, Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download } from "lucide-react"
+import { Check, X, XIcon, Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, Home, ToggleLeft, ToggleRight, Settings2 } from "lucide-react"
+import { PropertyDataSetupWizard } from "@/components/property-data/PropertyDataSetupWizard"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
 import ImportModal from "@/components/integrations/ImportModal"
@@ -75,6 +76,9 @@ export default function IntegrationsPage() {
   const [ascoraApiKey, setAscoraApiKey] = useState("")
   const [connectingAscora, setConnectingAscora] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showPropertyWizard, setShowPropertyWizard] = useState(false)
+  const [propertyDataEnabled, setPropertyDataEnabled] = useState(false)
+  const [domainSourceEnabled, setDomainSourceEnabled] = useState(false)
 
   // Show success/error messages from OAuth callback
   useEffect(() => {
@@ -837,6 +841,97 @@ export default function IntegrationsPage() {
               </div>
             </div>
           </div>
+
+          {/* Property Data */}
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+              <Home size={20} />
+              Property Data
+            </h2>
+            <div className="rounded-lg border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/30 p-6 space-y-5">
+              {/* Enable / disable row */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Auto-fill from OnTheHouse.com.au</h3>
+                  <p className="text-sm text-gray-600 dark:text-slate-400 mt-0.5">
+                    Pull property details and floor plans directly into inspections via Claude in Chrome.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPropertyDataEnabled(v => !v)}
+                  className={`flex-shrink-0 transition-colors ${propertyDataEnabled ? "text-cyan-500" : "text-gray-400 dark:text-slate-500"}`}
+                  title={propertyDataEnabled ? "Disable property data" : "Enable property data"}
+                >
+                  {propertyDataEnabled
+                    ? <ToggleRight size={40} />
+                    : <ToggleLeft size={40} />}
+                </button>
+              </div>
+
+              {/* Connection status */}
+              <div className="flex items-center gap-3 text-sm">
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${propertyDataEnabled ? "bg-emerald-400" : "bg-gray-300 dark:bg-slate-600"}`} />
+                <span className="text-gray-600 dark:text-slate-400">
+                  {propertyDataEnabled ? "Claude in Chrome connection active" : "Not connected — setup required"}
+                </span>
+                <button
+                  onClick={() => setShowPropertyWizard(true)}
+                  className="ml-auto flex items-center gap-1.5 text-xs text-blue-600 dark:text-cyan-400 hover:underline"
+                >
+                  <Settings2 size={13} />
+                  {propertyDataEnabled ? "Reconfigure" : "Setup wizard"}
+                </button>
+              </div>
+
+              {/* Data sources */}
+              <div className="border-t border-gray-100 dark:border-slate-700 pt-4 space-y-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-slate-500">Data Sources</p>
+
+                {/* OnTheHouse — always on when enabled */}
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏠</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">OnTheHouse.com.au</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-500">Free scraper · Primary source</p>
+                    </div>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    propertyDataEnabled
+                      ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400"
+                  }`}>
+                    {propertyDataEnabled ? "Active" : "Disabled"}
+                  </span>
+                </div>
+
+                {/* domain.com.au — optional toggle */}
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📍</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">domain.com.au</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-500">Optional fallback · Beta</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!propertyDataEnabled) {
+                        toast.error("Enable property data first")
+                        return
+                      }
+                      setDomainSourceEnabled(v => !v)
+                    }}
+                    className={`transition-colors ${domainSourceEnabled && propertyDataEnabled ? "text-cyan-500" : "text-gray-400 dark:text-slate-500"}`}
+                  >
+                    {domainSourceEnabled && propertyDataEnabled
+                      ? <ToggleRight size={30} />
+                      : <ToggleLeft size={30} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
@@ -1097,6 +1192,14 @@ export default function IntegrationsPage() {
           fetchExternalIntegrations()
         }}
       />
+
+      {/* Property Data Setup Wizard */}
+      {showPropertyWizard && (
+        <PropertyDataSetupWizard
+          onClose={() => setShowPropertyWizard(false)}
+          onComplete={() => setPropertyDataEnabled(true)}
+        />
+      )}
     </div>
   )
 }

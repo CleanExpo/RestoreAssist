@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
+import MoistureTrendChart from "@/components/inspection/MoistureTrendChart"
 import {
   ArrowLeft,
   Loader2,
@@ -54,6 +55,7 @@ interface Inspection {
     depth: string
     notes: string | null
     photoUrl: string | null
+    recordedAt: string
   }[]
   affectedAreas: {
     id: string
@@ -468,11 +470,17 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Moisture Map Tab */}
         {activeTab === "moisture-map" && (
-          <div>
+          <div className="space-y-6">
             {inspection.moistureReadings.length > 0 ? (
               <MoistureMappingCanvas readings={inspection.moistureReadings} />
             ) : (
               <div className="text-center py-12 text-neutral-400">No moisture readings to map — add readings first</div>
+            )}
+            {inspection.moistureReadings.length > 0 && (
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900 dark:text-white mb-3">Drying Progress</h3>
+                <MoistureTrendChart readings={inspection.moistureReadings} />
+              </div>
             )}
           </div>
         )}
