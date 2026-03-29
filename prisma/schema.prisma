@@ -1521,6 +1521,7 @@ model Inspection {
 
   // Relations
   propertyLookupCache PropertyLookup?
+  sketches            ClaimSketch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3662,6 +3663,61 @@ enum ReminderStatus {
   SENT
   FAILED
   CANCELLED
+}
+
+// ──────────────────────────────────────────────
+// V2: Sketch & Property Data (RA-89)
+// ──────────────────────────────────────────────
+
+/// Floor plan sketch saved per inspection, per floor.
+/// Stores SVG/canvas state as JSONB for Structural, Moisture, and Equipment layers.
+model ClaimSketch {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  floorNumber  Int     @default(0)
+  floorLabel   String  @default("Ground Floor") // "Ground Floor", "First Floor", etc.
+  sketchType   String  @default("structural")   // "structural" | "moisture" | "equipment"
+
+  // Canvas state (SVG/Fabric.js JSON serialised)
+  sketchData   Json?  // Full canvas state for Fabric.js / custom SVG
+  backgroundImageUrl String?  // Floor plan underlay image URL
+
+  // Overlay layer data (lightweight JSON, not full canvas state)
+  moisturePoints Json? // Array of { id, x, y, readingId } placements
+  equipmentPoints Json? // Array of { id, x, y, type: "dehu"|"air_mover"|"scrubber" }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  annotations SketchAnnotation[]
+
+  @@index([inspectionId])
+  @@index([inspectionId, floorNumber])
+}
+
+/// Annotations overlaid on a ClaimSketch: labels, arrows, damage zones, measurements, photos.
+model SketchAnnotation {
+  id       String      @id @default(cuid())
+  sketchId String
+  sketch   ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+
+  /// Type of annotation
+  type String // "label" | "arrow" | "damage_zone" | "measurement" | "photo_marker"
+
+  /// Type-specific JSON payload
+  /// label:        { text, x, y, color, fontSize }
+  /// arrow:        { x1, y1, x2, y2, color }
+  /// damage_zone:  { points: [{x,y}], fill, opacity, damageType: "water"|"fire"|"mould" }
+  /// measurement:  { x1, y1, x2, y2, value, unit: "m"|"cm" }
+  /// photo_marker: { x, y, photoUrl, caption }
+  data Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sketchId])
 }
 
 enum ExternalSyncStatus {
