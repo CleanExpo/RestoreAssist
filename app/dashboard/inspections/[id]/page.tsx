@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
 import MoistureTrendChart from "@/components/inspection/MoistureTrendChart"
+import { MoistureReadingEntryForm } from "@/components/inspection/MoistureReadingEntryForm"
 import {
   ArrowLeft,
   Loader2,
@@ -173,6 +174,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [showAddReading, setShowAddReading] = useState(false)
 
   useEffect(() => {
     fetchInspection()
@@ -433,6 +435,39 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Moisture Readings Tab */}
         {activeTab === "moisture" && (
           <div className="space-y-4">
+            {/* Add Reading toggle */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowAddReading(v => !v)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                  showAddReading
+                    ? "bg-neutral-100 dark:bg-slate-700 text-neutral-700 dark:text-slate-300"
+                    : "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/30"
+                )}
+              >
+                <Droplets size={15} />
+                {showAddReading ? "Cancel" : "Add Reading"}
+              </button>
+            </div>
+
+            {/* Inline entry form */}
+            {showAddReading && (
+              <div className="p-5 rounded-xl border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50/50 dark:bg-cyan-500/5">
+                <MoistureReadingEntryForm
+                  inspectionId={id}
+                  onSuccess={(reading) => {
+                    setInspection(prev => prev ? {
+                      ...prev,
+                      moistureReadings: [...prev.moistureReadings, reading]
+                    } : prev)
+                    setShowAddReading(false)
+                  }}
+                  onCancel={() => setShowAddReading(false)}
+                />
+              </div>
+            )}
+
             {inspection.moistureReadings.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
@@ -463,7 +498,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">No moisture readings recorded</div>
+              <div className="text-center py-12 text-neutral-400">No moisture readings recorded — use &quot;Add Reading&quot; above</div>
             )}
           </div>
         )}

@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { Droplets, ZoomIn, ZoomOut, RotateCcw, Download, Upload, Loader2 } from "lucide-react"
+import { Droplets, ZoomIn, ZoomOut, RotateCcw, Download, Upload, Loader2, Info } from "lucide-react"
+import { getMoistureStatus, STATUS_COLORS, getDryStandard } from "@/lib/iicrc-dry-standards"
 
 interface MoistureReading {
   id: string
@@ -31,18 +32,17 @@ interface MoistureMappingCanvasProps {
   readonly?: boolean
 }
 
-function getMoistureColor(level: number): string {
-  if (level < 15) return "#10b981" // emerald-500 (dry)
-  if (level < 25) return "#f59e0b" // amber-500 (caution)
-  if (level < 40) return "#f97316" // orange-500 (wet)
-  return "#ef4444" // red-500 (saturated)
+function getMoistureColor(level: number, material = "other"): string {
+  const status = getMoistureStatus(level, material)
+  return STATUS_COLORS[status].dot
 }
 
-function getMoistureLabel(level: number): string {
-  if (level < 15) return "Dry"
-  if (level < 25) return "Caution"
-  if (level < 40) return "Wet"
-  return "Saturated"
+function getMoistureLabel(level: number, material = "other"): string {
+  const status = getMoistureStatus(level, material)
+  const std = getDryStandard(material)
+  if (status === "dry") return `Dry (≤${std.dryThreshold}%)`
+  if (status === "drying") return `Drying (≤${std.wetThreshold}%)`
+  return `Wet (>${std.wetThreshold}%)`
 }
 
 export default function MoistureMappingCanvas({ 
@@ -250,20 +250,21 @@ export default function MoistureMappingCanvas({
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 text-xs">
-        <span className="font-medium text-neutral-500">Legend:</span>
-        {[
-          { label: "Dry (<15%)", color: "#10b981" },
-          { label: "Caution (15-25%)", color: "#f59e0b" },
-          { label: "Wet (25-40%)", color: "#f97316" },
-          { label: "Saturated (>40%)", color: "#ef4444" },
-        ].map((item) => (
-          <span key={item.label} className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-            {item.label}
+      {/* IICRC S500 Legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-xs">
+        <div className="flex items-center gap-1.5 text-neutral-500 dark:text-slate-400">
+          <Info size={11} className="flex-shrink-0" />
+          <span className="font-semibold">IICRC S500</span>
+        </div>
+        {(["dry", "drying", "wet"] as const).map((status) => (
+          <span key={status} className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[status].dot }} />
+            <span className={STATUS_COLORS[status].text.split(" ")[0]}>
+              {status === "dry" ? "Dry" : status === "drying" ? "Drying" : "Wet"}
+            </span>
           </span>
         ))}
+        <span className="text-neutral-400 dark:text-slate-500 ml-auto italic">Thresholds vary by material type</span>
       </div>
 
       <div className="flex gap-4">
@@ -304,7 +305,7 @@ export default function MoistureMappingCanvas({
 
             {/* Moisture points */}
             {points.map((point) => {
-              const color = getMoistureColor(point.reading.moistureLevel)
+              const color = getMoistureColor(point.reading.moistureLevel, point.reading.surfaceType)
               const isSelected = selectedPoint?.id === point.id
               return (
                 <g
@@ -376,11 +377,11 @@ export default function MoistureMappingCanvas({
               <div className="flex items-center gap-2">
                 <span
                   className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
-                  style={{ backgroundColor: getMoistureColor(selectedPoint.reading.moistureLevel) }}
+                  style={{ backgroundColor: getMoistureColor(selectedPoint.reading.moistureLevel, selectedPoint.reading.surfaceType) }}
                 >
                   {selectedPoint.reading.moistureLevel}%
                 </span>
-                <span className="text-xs text-neutral-500">{getMoistureLabel(selectedPoint.reading.moistureLevel)}</span>
+                <span className="text-xs text-neutral-500">{getMoistureLabel(selectedPoint.reading.moistureLevel, selectedPoint.reading.surfaceType)}</span>
               </div>
               <div className="text-xs text-neutral-500">
                 <p>Surface: {selectedPoint.reading.surfaceType}</p>
@@ -412,7 +413,7 @@ export default function MoistureMappingCanvas({
                       <span className="font-medium truncate">{reading.location}</span>
                       <span
                         className="px-1.5 py-0.5 rounded text-xs font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: getMoistureColor(reading.moistureLevel) }}
+                        style={{ backgroundColor: getMoistureColor(reading.moistureLevel, reading.surfaceType) }}
                       >
                         {reading.moistureLevel}%
                       </span>

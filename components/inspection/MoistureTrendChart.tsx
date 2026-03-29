@@ -13,9 +13,10 @@ import {
 } from "recharts"
 import { AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getMoistureStatus, STATUS_COLORS, getDryStandard } from "@/lib/iicrc-dry-standards"
 
-/** Dry standard thresholds (IICRC S500 guidance) */
-const DRY_STANDARD = 15 // ≤15% = dry for most materials
+/** Default reference line — timber/generic dry threshold */
+const DRY_STANDARD = 19 // IICRC S500 timber dry threshold (most common material)
 
 interface MoistureReading {
   id: string
