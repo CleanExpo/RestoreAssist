@@ -3735,7 +3735,8 @@ enum ExternalSyncStatus {
 // ============================================================
 // ASCORA INTEGRATION (RA-262)
 // Import real AU restoration job data to seed ScopePricingDatabase.
-// "SentToMyob" on job = provisional proxy for accepted_by_insurer.
+// NB: Ascora API uses camelCase fields; jobType is an { id, name } object.
+// SentToMyob does NOT exist in the Ascora API — totalExTax is the value proxy.
 // ============================================================
 
 model AscoraIntegration {
@@ -3765,7 +3766,8 @@ model AscoraJob {
   state           String?
   postcode        String?
   completedAt     DateTime?
-  sentToMyob      Boolean   @default(false) // Proxy for accepted_by_insurer (provisional)
+  sentToMyob      Boolean   @default(false) // NOTE: not in Ascora API — kept for manual future tagging
+  totalExTax      Float?    // Job total ex-GST — used for value-tier filtering (Private/Larger-Loss)
   importedAt      DateTime  @default(now())
   createdAt       DateTime  @default(now())
 
@@ -3776,6 +3778,7 @@ model AscoraJob {
   @@index([claimType])
   @@index([completedAt])
   @@index([sentToMyob])
+  @@index([totalExTax])
 }
 
 model AscoraLineItem {

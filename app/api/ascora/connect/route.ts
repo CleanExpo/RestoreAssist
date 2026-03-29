@@ -4,6 +4,13 @@
  *
  * DELETE /api/ascora/connect
  * Remove the Ascora integration for the authenticated user.
+ *
+ * GET /api/ascora/connect
+ * Return integration status (no apiKey in response).
+ *
+ * SSL NOTE: Ascora API uses a self-signed/non-standard cert.
+ *   Set NODE_TLS_REJECT_UNAUTHORIZED=0 in .env.local (dev) or Vercel env vars (prod)
+ *   if you receive SSL handshake errors.
  */
 
 import { NextRequest, NextResponse } from "next/server"

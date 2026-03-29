@@ -56,12 +56,16 @@ export async function generateNIRPDF(inspection: any): Promise<Buffer> {
     // Environmental Data
     if (inspection.environmentalData) {
       addText("Environmental Data", 16, true)
-      addText(`Ambient Temperature: ${inspection.environmentalData.ambientTemperature}°F`, 11)
-      addText(`Humidity Level: ${inspection.environmentalData.humidityLevel}%`, 11)
+      // Australian standard units: °C not °F
+      addText(`Dry Bulb Temperature: ${inspection.environmentalData.ambientTemperature}°C`, 11)
+      addText(`Relative Humidity: ${inspection.environmentalData.humidityLevel}%`, 11)
       if (inspection.environmentalData.dewPoint) {
-        addText(`Dew Point: ${inspection.environmentalData.dewPoint}°F`, 11)
+        addText(`Dew Point: ${inspection.environmentalData.dewPoint}°C`, 11)
       }
-      addText(`Air Circulation: ${inspection.environmentalData.airCirculation ? "Yes" : "No"}`, 11)
+      if (inspection.environmentalData.gpp) {
+        addText(`Grains Per Pound (GPP): ${inspection.environmentalData.gpp}`, 11)
+      }
+      addText(`Air Circulation Active: ${inspection.environmentalData.airCirculation ? "Yes" : "No"}`, 11)
       yPosition += 5
     }
     
@@ -101,8 +105,39 @@ export async function generateNIRPDF(inspection: any): Promise<Buffer> {
       yPosition += 3
     }
     
-    // Scope Items
-    if (inspection.scopeItems && inspection.scopeItems.length > 0) {
+    // Equipment Items (V2: autoDetermined=true — IICRC S500 ratio-calculated)
+    const equipmentItems = (inspection.scopeItems ?? []).filter((item: any) => item.autoDetermined)
+    if (equipmentItems.length > 0) {
+      addText("Drying Equipment — IICRC S500:2021 Ratio-Calculated", 16, true)
+      addText("All quantities calculated from measured affected area per IICRC S500:2021 §9.3–9.5.", 8)
+      yPosition += 3
+      equipmentItems.forEach((item: any) => {
+        addText(`• ${item.quantity ?? ""}× ${item.description.split(" — ")[0]}`, 10, true)
+        if (item.specification) {
+          addText(`   ${item.specification}`, 9)
+        }
+        addText(`   ${item.justification}`, 9)
+        yPosition += 1
+      })
+      yPosition += 4
+    }
+
+    // Scope Narrative (V2: autoDetermined=false — AI-generated 7-section format)
+    const narrativeItems = (inspection.scopeItems ?? []).filter((item: any) => !item.autoDetermined)
+    if (narrativeItems.length > 0) {
+      addText("Scope of Works", 16, true)
+      addText("Generated per IICRC S500:2021 — 7-section standard format.", 8)
+      yPosition += 3
+      narrativeItems.forEach((item: any, index: number) => {
+        addText(`${index + 1}. ${item.description}`, 10, true)
+        if (item.justification && item.justification !== "AI-generated per IICRC S500:2021") {
+          addText(`   Ref: ${item.justification}`, 9)
+        }
+        yPosition += 2
+      })
+      yPosition += 3
+    } else if (equipmentItems.length === 0 && inspection.scopeItems?.length > 0) {
+      // Legacy: show all scope items without V2 separation
       addText("Scope of Works", 16, true)
       inspection.scopeItems.forEach((item: any, index: number) => {
         addText(`${index + 1}. ${item.description}`, 10)
@@ -115,6 +150,41 @@ export async function generateNIRPDF(inspection: any): Promise<Buffer> {
         yPosition += 2
       })
       yPosition += 3
+    }
+
+    // Drying Goal Certificate (V2: IICRC S500:2021 §11.4)
+    if (inspection.dryingGoalRecord) {
+      const dg = inspection.dryingGoalRecord
+      if (dg.goalAchieved) {
+        checkNewPage(30)
+        addText("Drying Validation Certificate", 16, true)
+        yPosition += 2
+        // Certificate box — draw a light border via text rules
+        doc.setDrawColor(0, 120, 60) // green border
+        doc.setLineWidth(0.5)
+        doc.rect(margin, yPosition, doc.internal.pageSize.width - 2 * margin, 22)
+        yPosition += 5
+        doc.setTextColor(0, 120, 60)
+        addText("✓  DRYING GOAL: ACHIEVED", 13, true, "center")
+        doc.setTextColor(0, 0, 0)
+        addText(
+          `All materials at or below IICRC S500:2021 §11.4 target EMC.`,
+          9, false, "center"
+        )
+        addText(
+          `${dg.totalDryingDays} day(s) drying — Achieved: ${new Date(dg.goalAchievedAt).toLocaleDateString("en-AU")}` +
+          (dg.signedOffBy ? ` — Signed off by: ${dg.signedOffBy}` : ""),
+          9, false, "center"
+        )
+        yPosition += 5
+        addText(`IICRC Reference: ${dg.iicrcReference}`, 8, false, "center")
+        yPosition += 8
+      } else {
+        addText("Drying Validation", 16, true)
+        addText(`Status: IN PROGRESS — ${dg.iicrcReference}`, 10)
+        addText("Not all moisture readings are at or below target EMC.", 9)
+        yPosition += 4
+      }
     }
     
     // Cost Estimate

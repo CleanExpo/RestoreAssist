@@ -37,10 +37,15 @@ export async function GET(
       },
       include: {
         environmentalData: true,
-        moistureReadings: true,
+        moistureReadings: {
+          orderBy: { createdAt: "asc" },
+        },
         affectedAreas: true,
+        // autoDetermined=true: IICRC ratio equipment items from equipment-calculator
+        // autoDetermined=false: AI-generated scope narrative sections from generate-scope
         scopeItems: {
-          where: { isSelected: true }
+          where: { isSelected: true },
+          orderBy: [{ autoDetermined: "desc" }, { createdAt: "asc" }],
         },
         classifications: {
           orderBy: { createdAt: "desc" },
@@ -50,6 +55,8 @@ export async function GET(
         photos: {
           orderBy: { timestamp: "asc" }
         },
+        // V2: Drying goal validation record — contains certificate string when goalAchieved
+        dryingGoalRecord: true,
         report: {
           include: {
             user: {
@@ -100,6 +107,9 @@ export async function GET(
 
 // Generate JSON report
 function generateJSONReport(inspection: any) {
+  const equipmentItems = (inspection.scopeItems ?? []).filter((s: any) => s.autoDetermined)
+  const narrativeSections = (inspection.scopeItems ?? []).filter((s: any) => !s.autoDetermined)
+
   const report = {
     inspection: {
       id: inspection.id,
@@ -114,6 +124,9 @@ function generateJSONReport(inspection: any) {
     moistureReadings: inspection.moistureReadings,
     affectedAreas: inspection.affectedAreas,
     classification: inspection.classifications[0] || null,
+    // V2: separated equipment items (IICRC ratios) from AI narrative sections
+    equipmentItems,
+    narrativeSections,
     scopeItems: inspection.scopeItems,
     costEstimate: {
       items: inspection.costEstimates,
@@ -126,10 +139,23 @@ function generateJSONReport(inspection: any) {
       location: photo.location,
       timestamp: photo.timestamp
     })),
+    // V2: Drying validation certificate (null if goal not yet achieved or not initialised)
+    dryingGoal: inspection.dryingGoalRecord
+      ? {
+          goalAchieved: inspection.dryingGoalRecord.goalAchieved,
+          goalAchievedAt: inspection.dryingGoalRecord.goalAchievedAt,
+          totalDryingDays: inspection.dryingGoalRecord.totalDryingDays,
+          iicrcReference: inspection.dryingGoalRecord.iicrcReference,
+          signedOffBy: inspection.dryingGoalRecord.signedOffBy,
+          certificate: inspection.dryingGoalRecord.goalAchieved
+            ? `Drying Goal: ACHIEVED — ${inspection.dryingGoalRecord.goalAchievedAt?.toISOString()} — All materials at or below IICRC S500:2021 §11.4 target EMC — ${inspection.dryingGoalRecord.totalDryingDays} day(s) drying`
+            : null,
+        }
+      : null,
     verificationChecklist: generateVerificationChecklist(inspection),
     generatedAt: new Date().toISOString()
   }
-  
+
   return NextResponse.json(report)
 }
 
@@ -217,10 +243,13 @@ async function generateExcelReport(inspection: any) {
         { header: "Unit", key: "unit", width: 15 }
       ]
       
-      envSheet.addRow({ parameter: "Ambient Temperature", value: inspection.environmentalData.ambientTemperature, unit: "°F" })
-      envSheet.addRow({ parameter: "Humidity Level", value: inspection.environmentalData.humidityLevel, unit: "%" })
-      envSheet.addRow({ parameter: "Dew Point", value: inspection.environmentalData.dewPoint, unit: "°F" })
-      envSheet.addRow({ parameter: "Air Circulation", value: inspection.environmentalData.airCirculation ? "Yes" : "No", unit: "" })
+      envSheet.addRow({ parameter: "Dry Bulb Temperature", value: inspection.environmentalData.ambientTemperature, unit: "°C" })
+      envSheet.addRow({ parameter: "Relative Humidity", value: inspection.environmentalData.humidityLevel, unit: "%" })
+      envSheet.addRow({ parameter: "Dew Point", value: inspection.environmentalData.dewPoint, unit: "°C" })
+      if (inspection.environmentalData.gpp) {
+        envSheet.addRow({ parameter: "Grains Per Pound (GPP)", value: inspection.environmentalData.gpp, unit: "gr/lb" })
+      }
+      envSheet.addRow({ parameter: "Air Circulation Active", value: inspection.environmentalData.airCirculation ? "Yes" : "No", unit: "" })
     }
     
     // Moisture Readings Sheet
@@ -269,28 +298,73 @@ async function generateExcelReport(inspection: any) {
       })
     }
     
-    // Scope Items Sheet
-    if (inspection.scopeItems && inspection.scopeItems.length > 0) {
-      const scopeSheet = workbook.addWorksheet("Scope Items")
-      scopeSheet.columns = [
-        { header: "Item Type", key: "itemType", width: 30 },
-        { header: "Description", key: "description", width: 40 },
-        { header: "Quantity", key: "quantity", width: 15 },
+    // Equipment Sheet (V2: autoDetermined=true — IICRC S500 ratio-calculated)
+    const equipmentItems = (inspection.scopeItems ?? []).filter((s: any) => s.autoDetermined)
+    if (equipmentItems.length > 0) {
+      const equipSheet = workbook.addWorksheet("Equipment (IICRC S500)")
+      equipSheet.columns = [
+        { header: "Equipment", key: "description", width: 40 },
+        { header: "Qty", key: "quantity", width: 10 },
         { header: "Unit", key: "unit", width: 15 },
-        { header: "Justification", key: "justification", width: 50 },
-        { header: "Standard Reference", key: "standardReference", width: 30 }
+        { header: "Specification", key: "specification", width: 35 },
+        { header: "IICRC Justification", key: "justification", width: 60 },
       ]
-      
-      inspection.scopeItems.forEach((item: any) => {
+      equipmentItems.forEach((item: any) => {
+        equipSheet.addRow({
+          description: item.description.split(" — ")[0],
+          quantity: item.quantity ?? "",
+          unit: item.unit ?? "unit/day",
+          specification: item.specification ?? "",
+          justification: item.justification ?? "",
+        })
+      })
+      const headerRow = equipSheet.getRow(1)
+      headerRow.font = { bold: true }
+    }
+
+    // Scope of Works Sheet (V2: autoDetermined=false — AI 7-section narrative)
+    const narrativeItems = (inspection.scopeItems ?? []).filter((s: any) => !s.autoDetermined)
+    const scopeItemsToShow = narrativeItems.length > 0 ? narrativeItems : inspection.scopeItems ?? []
+    if (scopeItemsToShow.length > 0) {
+      const scopeSheet = workbook.addWorksheet("Scope of Works")
+      scopeSheet.columns = [
+        { header: "Section", key: "itemType", width: 30 },
+        { header: "Description", key: "description", width: 50 },
+        { header: "IICRC Reference", key: "justification", width: 40 },
+      ]
+      scopeItemsToShow.forEach((item: any) => {
         scopeSheet.addRow({
           itemType: item.itemType,
           description: item.description,
-          quantity: item.quantity || "",
-          unit: item.unit || "",
           justification: item.justification || "",
-          standardReference: item.standardReference || ""
         })
       })
+      const headerRow = scopeSheet.getRow(1)
+      headerRow.font = { bold: true }
+    }
+
+    // Drying Validation Sheet (V2: DryingGoalRecord)
+    if (inspection.dryingGoalRecord) {
+      const dg = inspection.dryingGoalRecord
+      const drySheet = workbook.addWorksheet("Drying Validation")
+      drySheet.columns = [
+        { header: "Field", key: "field", width: 35 },
+        { header: "Value", key: "value", width: 55 },
+      ]
+      drySheet.addRow({ field: "IICRC Reference", value: dg.iicrcReference })
+      drySheet.addRow({ field: "Status", value: dg.goalAchieved ? "✓ ACHIEVED" : "IN PROGRESS" })
+      drySheet.addRow({ field: "Target Category", value: dg.targetCategory })
+      drySheet.addRow({ field: "Target Class", value: dg.targetClass })
+      drySheet.addRow({ field: "Started", value: new Date(dg.startedAt).toLocaleDateString("en-AU") })
+      if (dg.goalAchieved) {
+        drySheet.addRow({ field: "Achieved", value: new Date(dg.goalAchievedAt).toLocaleDateString("en-AU") })
+        drySheet.addRow({ field: "Total Drying Days", value: dg.totalDryingDays })
+        drySheet.addRow({ field: "Signed Off By", value: dg.signedOffBy ?? "N/A" })
+        drySheet.addRow({})
+        drySheet.addRow({ field: "Certificate", value: `Drying Goal: ACHIEVED — All materials at or below IICRC S500:2021 §11.4 target EMC — ${dg.totalDryingDays} day(s)` })
+      }
+      const headerRow = drySheet.getRow(1)
+      headerRow.font = { bold: true }
     }
     
     // Cost Estimate Sheet

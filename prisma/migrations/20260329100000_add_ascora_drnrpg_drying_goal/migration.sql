@@ -37,6 +37,7 @@ CREATE TABLE "AscoraJob" (
     "postcode"        TEXT,
     "completedAt"     TIMESTAMP(3),
     "sentToMyob"      BOOLEAN NOT NULL DEFAULT false,
+    "totalExTax"      DOUBLE PRECISION,
     "importedAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "AscoraJob_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "AscoraIntegration"("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -46,6 +47,7 @@ CREATE INDEX "AscoraJob_integrationId_idx" ON "AscoraJob"("integrationId");
 CREATE INDEX "AscoraJob_claimType_idx"     ON "AscoraJob"("claimType");
 CREATE INDEX "AscoraJob_completedAt_idx"   ON "AscoraJob"("completedAt");
 CREATE INDEX "AscoraJob_sentToMyob_idx"    ON "AscoraJob"("sentToMyob");
+CREATE INDEX "AscoraJob_totalExTax_idx"    ON "AscoraJob"("totalExTax");
 
 CREATE TABLE "AscoraLineItem" (
     "id"             TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text,

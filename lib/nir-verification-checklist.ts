@@ -129,33 +129,55 @@ export function generateVerificationChecklist(inspection: any): VerificationChec
       : "Timeline not determined"
   })
   
-  // 11. Equipment appropriate for job size
-  // This would be determined from scope items
-  const hasEquipmentScope = hasScopeItems && inspection.scopeItems.some((item: any) => 
-    item.itemType?.includes('DEHUMIDIFICATION') || 
-    item.itemType?.includes('AIR_MOVERS') ||
-    item.description?.toLowerCase().includes('dehumidifier') ||
-    item.description?.toLowerCase().includes('air mover')
-  )
+  // 11. IICRC S500 equipment ratios applied (V2: autoDetermined ScopeItems from equipment-calculator)
+  const iicrcEquipmentItems = hasScopeItems
+    ? inspection.scopeItems.filter((item: any) => item.autoDetermined === true)
+    : []
+  const hasIicrcEquipment = iicrcEquipmentItems.length > 0
   items.push({
-    item: "Equipment appropriate for job size",
-    verified: hasEquipmentScope,
-    notes: hasEquipmentScope
-      ? "Equipment requirements determined from scope items"
-      : "Equipment requirements not specified"
+    item: "Equipment ratios per IICRC S500:2021 §9.3–9.5 applied",
+    verified: hasIicrcEquipment,
+    notes: hasIicrcEquipment
+      ? `${iicrcEquipmentItems.length} equipment item(s) calculated from IICRC S500 ratios (area-based)`
+      : "Run equipment calculator to generate IICRC-ratio-justified equipment quantities"
   })
-  
-  // 12. Report signed by technician & reviewer
-  // This would be tracked in the audit log or inspection status
+
+  // 12. Scope narrative generated (V2: AI-generated ScopeItems from generate-scope)
+  const narrativeItems = hasScopeItems
+    ? inspection.scopeItems.filter((item: any) => item.autoDetermined === false)
+    : []
+  const hasScopeNarrative = narrativeItems.length > 0
+  items.push({
+    item: "Scope of works narrative generated (7-section IICRC format)",
+    verified: hasScopeNarrative,
+    notes: hasScopeNarrative
+      ? `${narrativeItems.length} scope section(s) generated — IICRC S500:2021 cited throughout`
+      : "Run scope narrative generator to produce insurance-ready scope of works"
+  })
+
+  // 13. Drying goal validated per IICRC S500:2021 §11.4 (V2: DryingGoalRecord)
+  const dryingGoal = inspection.dryingGoalRecord ?? null
+  const dryingAchieved = dryingGoal?.goalAchieved === true
+  items.push({
+    item: "Drying goal validated per IICRC S500:2021 §11.4",
+    verified: dryingAchieved,
+    notes: dryingAchieved
+      ? `ACHIEVED — ${dryingGoal.totalDryingDays} day(s) drying — all materials at or below EMC target — ${new Date(dryingGoal.goalAchievedAt).toLocaleDateString("en-AU")}${dryingGoal.signedOffBy ? ` — signed off by ${dryingGoal.signedOffBy}` : ""}`
+      : dryingGoal
+        ? "Drying in progress — moisture readings still above IICRC S500 target EMC"
+        : "Drying goal not yet initialised. POST /drying-goal to begin monitoring."
+  })
+
+  // 14. Report signed by technician & reviewer
   const isCompleted = inspection.status === "COMPLETED"
   items.push({
     item: "Report signed by technician & reviewer",
     verified: isCompleted,
     notes: isCompleted
-      ? `Report completed on ${new Date(inspection.completedAt || inspection.updatedAt).toLocaleDateString()}`
+      ? `Report completed on ${new Date(inspection.completedAt || inspection.updatedAt).toLocaleDateString("en-AU")}`
       : "Report not yet completed"
   })
-  
+
   return {
     items,
     generatedAt: new Date(),
