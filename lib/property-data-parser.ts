@@ -253,6 +253,69 @@ export function parseOnTheHouseHTML(html: string, sourceUrl: string): ScrapedPro
 }
 
 /**
+ * Parse domain.com.au property page HTML.
+ * Domain uses Next.js so the existing parseOnTheHouseHTML strategy works.
+ * The address slug stripping regex differs slightly.
+ */
+export function parseDomainComAuHTML(html: string, sourceUrl: string): ScrapedPropertyData {
+  // Delegate to the generic parser — __NEXT_DATA__ + JSON-LD + HTML fallback works for Domain too
+  const data = parseOnTheHouseHTML(html, sourceUrl)
+  // Domain puts agent names in the title after " | " — strip that suffix
+  data.address = data.address.replace(/\s*\|.*$/, "").trim()
+  return data
+}
+
+/**
+ * Extract property page URLs from a domain.com.au search results page.
+ *
+ * Domain uses __NEXT_DATA__ with a `listingsMap` or `results` key,
+ * and property URLs follow the pattern /property-<type>/<suburb>-<state>-<postcode>/<id>/
+ */
+export function parseDomainComAuSearchResults(html: string, baseUrl: string): string[] {
+  const seen = new Set<string>()
+  const results: string[] = []
+
+  // Try __NEXT_DATA__ first
+  const nextData = extractNextData(html)
+  if (nextData) {
+    const props = (nextData.props as Record<string, unknown>)?.pageProps
+    if (props && typeof props === "object") {
+      const p = props as Record<string, unknown>
+      // Domain embeds listings in various keys
+      const items = (
+        p.listingsMap ?? p.listings ?? p.results ?? p.searchResults
+      ) as unknown[] | Record<string, unknown> | undefined
+
+      const listArray = Array.isArray(items) ? items : Object.values(items ?? {})
+
+      for (const item of listArray) {
+        const i = item as Record<string, unknown>
+        const link = (i.url ?? i.listingUrl ?? i.canonicalUrl) as string | undefined
+        if (link) {
+          const full = absoluteUrl(link, baseUrl)
+          if (!seen.has(full)) { seen.add(full); results.push(full) }
+        }
+        const slug = (i.propertySlug ?? i.slug) as string | undefined
+        if (slug) {
+          const full = `${baseUrl}/${slug}`
+          if (!seen.has(full)) { seen.add(full); results.push(full) }
+        }
+      }
+    }
+  }
+
+  // HTML fallback — Domain property URLs contain "property-"
+  if (results.length === 0) {
+    for (const m of html.matchAll(/href="(\/property-[^"?#]+\/\d+[^"?#]*)"/gi)) {
+      const full = absoluteUrl(m[1], baseUrl)
+      if (!seen.has(full)) { seen.add(full); results.push(full) }
+    }
+  }
+
+  return results
+}
+
+/**
  * Extract property page URLs from an OnTheHouse search results page.
  */
 export function parseOnTheHouseSearchResults(html: string, baseUrl: string): string[] {

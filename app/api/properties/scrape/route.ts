@@ -1,11 +1,17 @@
 /**
- * POST /api/properties/scrape — RA2-021 / RA2-022 (RA-103, RA-104)
+ * POST /api/properties/scrape — RA2-021 / RA2-022 / RA2-026 (RA-103, RA-104, RA-108)
  *
- * Scrapes OnTheHouse.com.au for property data given an address.
- * Results are cached in the PropertyLookup table (90-day TTL).
+ * Scrapes OnTheHouse.com.au for property data. Optionally falls back to
+ * domain.com.au if OTH returns no results (RA-108, off by default).
  *
- * Body: { address: string, postcode?: string, inspectionId?: string, url?: string }
- * Returns: { data: ScrapedPropertyData, cached: boolean }
+ * Body: {
+ *   address: string,
+ *   postcode?: string,
+ *   inspectionId?: string,
+ *   url?: string,
+ *   fallbackSources?: string[]  // e.g. ["domain"] to enable domain.com.au fallback
+ * }
+ * Returns: { data: ScrapedPropertyData, cached: boolean, source: string }
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -15,10 +21,13 @@ import { prisma } from "@/lib/prisma"
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
+  parseDomainComAuHTML,
+  parseDomainComAuSearchResults,
   type ScrapedPropertyData,
 } from "@/lib/property-data-parser"
 
 const OTH_BASE = "https://www.onthehouse.com.au"
+const DOMAIN_BASE = "https://www.domain.com.au"
 const TIMEOUT_MS = 15_000
 
 const SCRAPE_HEADERS: Record<string, string> = {
@@ -53,14 +62,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let body: Record<string, string>
+  let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { address, postcode, inspectionId, url: directUrl } = body
+  const { address, postcode, inspectionId, url: directUrl } = body as Record<string, string>
+  const fallbackSources = (body.fallbackSources as string[] | undefined) ?? []
+  const useDomainFallback = fallbackSources.includes("domain")
 
   if (!address && !directUrl) {
     return NextResponse.json({ error: "address or url is required" }, { status: 400 })
@@ -90,6 +101,7 @@ export async function POST(req: NextRequest) {
 
   // ── Resolve property URL ────────────────────────────────
   let propertyUrl = directUrl as string | undefined
+  let sourceLabel = "onthehouse"
 
   if (!propertyUrl) {
     const searchQuery = [address, postcode].filter(Boolean).join(" ")
@@ -111,25 +123,54 @@ export async function POST(req: NextRequest) {
 
     const urls = parseOnTheHouseSearchResults(searchHtml, OTH_BASE)
     if (urls.length === 0) {
-      return NextResponse.json(
-        { error: "No property found on OnTheHouse for this address.", data: null },
-        { status: 404 }
-      )
+      // ── domain.com.au fallback (RA-108) ─────────────────
+      if (!useDomainFallback) {
+        return NextResponse.json(
+          { error: "No property found on OnTheHouse for this address.", data: null },
+          { status: 404 }
+        )
+      }
+
+      // Try domain.com.au
+      const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`
+      const { html: domainHtml, status: domainStatus } = await fetchHtml(domainSearchUrl)
+
+      if (domainStatus !== 200 || !domainHtml) {
+        return NextResponse.json(
+          { error: "No property found on OnTheHouse or domain.com.au.", data: null },
+          { status: 404 }
+        )
+      }
+
+      const domainUrls = parseDomainComAuSearchResults(domainHtml, DOMAIN_BASE)
+      if (!domainUrls.length) {
+        return NextResponse.json(
+          { error: "No property found on OnTheHouse or domain.com.au.", data: null },
+          { status: 404 }
+        )
+      }
+      propertyUrl = domainUrls[0]
+      sourceLabel = "domain"
+    } else {
+      propertyUrl = urls[0]
     }
-    propertyUrl = urls[0]
   }
+
+  const isDomainUrl = propertyUrl?.startsWith(DOMAIN_BASE)
 
   // ── Fetch and parse property page ───────────────────────
   const { html: propertyHtml, status: propertyStatus } = await fetchHtml(propertyUrl)
 
   if (propertyStatus === 0) {
     return NextResponse.json(
-      { error: "Could not fetch property page from OnTheHouse." },
+      { error: "Could not fetch property page." },
       { status: 503 }
     )
   }
 
-  const data = parseOnTheHouseHTML(propertyHtml, propertyUrl)
+  const data = isDomainUrl
+    ? parseDomainComAuHTML(propertyHtml, propertyUrl)
+    : parseOnTheHouseHTML(propertyHtml, propertyUrl)
 
   // ── Cache the result ────────────────────────────────────
   if (normAddress && normPostcode) {
@@ -150,7 +191,7 @@ export async function POST(req: NextRequest) {
           lookupDate: now,
           expiresAt,
           apiResponseStatus: propertyStatus,
-          dataSource: "onthehouse",
+          dataSource: isDomainUrl ? "domain" : "onthehouse",
           lookupCost: 0,
           confidence: data.confidence,
           propertyData: data as unknown as Record<string, unknown>,
@@ -170,5 +211,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ data, cached: false })
+  // Update sourceLabel if we ended up on domain.com.au
+  if (isDomainUrl) sourceLabel = "domain"
+
+  return NextResponse.json({ data, cached: false, source: sourceLabel })
 }
