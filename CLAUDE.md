@@ -110,6 +110,10 @@ Triggered from `onModified` callback and explicit tool actions.
 # NODE_TLS_REJECT_UNAUTHORIZED=0   # Required — Ascora uses non-standard SSL cert
 #                                  # Set in .env.local (dev) or Vercel env vars (prod)
 #                                  # TODO: supply cert via NODE_EXTRA_CA_CERTS instead
+ASCORA_API_KEY=                    # System-level Ascora key — SET IN VERCEL ✓
+                                   # Enables /api/ascora/sync without per-user /connect step
+                                   # Auto-provisions AscoraIntegration DB record on first sync
+ASCORA_BASE_URL=                   # Optional override — defaults to https://api.ascora.com.au
 ANTHROPIC_API_KEY=                 # Claude API for scope narrative generation (RA-264) — SET IN VERCEL ✓
 ```
 
@@ -168,9 +172,8 @@ Existing vars used:
 | M7: AU Data Layer | Mostly complete (RA-260 ✓, RA-262 sync fixed ✓, RA-264 ANTHROPIC_API_KEY set in Vercel ✓; RA-27 ✓) |
 
 ### ⚠️ Blocked / Human Actions Required
-- **RA-262 live sync**: Set `NODE_TLS_REJECT_UNAUTHORIZED=0` in environment, then POST /api/ascora/sync
-- **RA-262 line items**: `/invoicedetails` doesn't exist — contact Ascora support for correct endpoint
-- **RA-264 live test**: `ANTHROPIC_API_KEY` now set in Vercel ✓ — needs completed inspection with classification to test SSE stream
+- **RA-262 live sync**: `ASCORA_API_KEY` now set in Vercel ✓ — still needs `NODE_TLS_REJECT_UNAUTHORIZED=0` set in Vercel env vars to bypass Ascora's self-signed SSL cert, then POST /api/ascora/sync
+- **RA-262 line items**: `/invoicedetails` doesn't exist — contact Ascora support for correct line item API endpoint
+- **RA-264 live test**: `ANTHROPIC_API_KEY` now set in Vercel ✓ — needs completed inspection with IICRC classification to test SSE stream
 - **Migration**: `npx prisma migrate deploy` (run against prod DB once Phill has access)
-- **Linear API key**: `lin_api_[REDACTED_FROM_HISTORY]` returning 401 — needs regeneration
 - **RA-4, RA-241, RA-246, RA-247**: Human actions (social accounts, App Store, Supabase, Google)

@@ -304,15 +304,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const integration = await prisma.ascoraIntegration.findUnique({
+    let integration = await prisma.ascoraIntegration.findUnique({
       where: { userId: session.user.id },
     })
+
+    // ── System-level env var fallback for automated LLM training syncs ──────
+    // When no per-user integration record exists, auto-provision one from the
+    // ASCORA_API_KEY Vercel env var.  This allows server-side cron / admin
+    // syncs without requiring each user to first POST /api/ascora/connect.
+    // If the user later connects their own key via the settings UI, the
+    // connect route's upsert will overwrite this record with their key.
     if (!integration) {
-      return NextResponse.json(
-        { error: "Ascora not connected. POST /api/ascora/connect first." },
-        { status: 404 }
+      const envApiKey = process.env.ASCORA_API_KEY
+      if (!envApiKey) {
+        return NextResponse.json(
+          {
+            error:
+              "Ascora not connected. POST /api/ascora/connect first, " +
+              "or set ASCORA_API_KEY env var for system-level sync.",
+          },
+          { status: 404 }
+        )
+      }
+      console.log(
+        "[ascora/sync] No user integration record — auto-provisioning from ASCORA_API_KEY env var"
       )
+      integration = await prisma.ascoraIntegration.create({
+        data: {
+          userId: session.user.id,
+          apiKey: envApiKey,
+          baseUrl: (process.env.ASCORA_BASE_URL ?? "https://api.ascora.com.au").replace(/\/$/, ""),
+          isActive: true,
+        },
+      })
     }
+
     if (!integration.isActive) {
       return NextResponse.json({ error: "Ascora integration is disabled." }, { status: 403 })
     }
