@@ -11,6 +11,7 @@ import {
 import dynamic from "next/dynamic"
 import { cn } from "@/lib/utils"
 import { SketchToolbar } from "./SketchToolbar"
+import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader"
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas"
 import {
   Plus,
@@ -53,6 +54,9 @@ interface Floor {
 
 interface SketchEditorProps {
   inspectionId?: string
+  /** Pre-fill the floor plan search with the property address */
+  propertyAddress?: string
+  propertyPostcode?: string
   readonly?: boolean
   className?: string
   width?: number
@@ -68,6 +72,8 @@ interface RoomDrawState {
 // ─── Component ────────────────────────────────────────────
 export function SketchEditor({
   inspectionId,
+  propertyAddress,
+  propertyPostcode,
   readonly = false,
   className,
   width = 1200,
@@ -80,6 +86,10 @@ export function SketchEditor({
     { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor", canvasRef: { current: null } },
   ])
   const [activeFloorIdx, setActiveFloorIdx] = useState(0)
+
+  // ── Floor plan underlay per floor ──
+  const [backgroundUrls, setBackgroundUrls] = useState<Record<string, string>>({})
+  const [backgroundOpacities, setBackgroundOpacities] = useState<Record<string, number>>({})
 
   // ── Tool state ──
   const [toolMode, setToolMode] = useState<ToolMode>("select")
@@ -96,6 +106,19 @@ export function SketchEditor({
 
   const activeFloor = floors[activeFloorIdx]
   const canvasRef = activeFloor?.canvasRef
+
+  // ── Floor plan underlay handlers ─────────────────────────
+  const handleApplyBackground = useCallback((imageUrl: string, opacity: number) => {
+    if (!activeFloor) return
+    setBackgroundUrls(prev => ({ ...prev, [activeFloor.id]: imageUrl }))
+    setBackgroundOpacities(prev => ({ ...prev, [activeFloor.id]: opacity }))
+  }, [activeFloor])
+
+  const handleClearBackground = useCallback(() => {
+    if (!activeFloor) return
+    setBackgroundUrls(prev => { const n = { ...prev }; delete n[activeFloor.id]; return n })
+    setBackgroundOpacities(prev => { const n = { ...prev }; delete n[activeFloor.id]; return n })
+  }, [activeFloor])
 
   // ── Get Fabric canvas ────────────────────────────────────
   const getFabric = useCallback(() => {
@@ -493,6 +516,18 @@ export function SketchEditor({
         )}
       </div>
 
+      {/* Floor plan underlay loader */}
+      {!readonly && (
+        <FloorPlanUnderlayLoader
+          defaultAddress={propertyAddress}
+          defaultPostcode={propertyPostcode}
+          inspectionId={inspectionId}
+          onApply={handleApplyBackground}
+          onClear={handleClearBackground}
+          hasBackground={!!backgroundUrls[activeFloor?.id ?? ""]}
+        />
+      )}
+
       {/* Canvas area */}
       <div className="flex gap-2">
         {/* Vertical toolbar */}
@@ -554,6 +589,8 @@ export function SketchEditor({
                   height={height}
                   toolMode={toolMode}
                   readonly={readonly}
+                  backgroundImageUrl={backgroundUrls[floor.id] ?? null}
+                  backgroundImageOpacity={backgroundOpacities[floor.id] ?? 0.35}
                   className="w-full h-auto"
                   onReady={(ref) => {
                     floor.canvasRef.current = ref

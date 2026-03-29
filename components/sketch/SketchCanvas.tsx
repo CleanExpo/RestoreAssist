@@ -18,6 +18,7 @@ export interface SketchCanvasProps {
   height?: number
   toolMode?: ToolMode
   backgroundImageUrl?: string | null
+  backgroundImageOpacity?: number
   onReady?: (canvas: FabricCanvasRef) => void
   onModified?: () => void
   readonly?: boolean
@@ -62,6 +63,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(function Ske
     height = 800,
     toolMode = "select",
     backgroundImageUrl,
+    backgroundImageOpacity = 0.4,
     onReady,
     onModified,
     readonly = false,
@@ -263,7 +265,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(function Ske
         const { FabricImage } = fabric as { FabricImage: { fromURL: (url: string) => Promise<unknown> } }
         const img = await FabricImage.fromURL(backgroundImageUrl)
         const imgEl = img as { set: (opts: object) => void; scaleToWidth: (w: number) => void }
-        imgEl.set({ selectable: false, evented: false, opacity: 0.4 })
+        imgEl.set({ selectable: false, evented: false, opacity: backgroundImageOpacity })
         imgEl.scaleToWidth(width)
         ;(canvas as unknown as { setBackgroundImage: (img: unknown, cb: () => void) => void })
           .setBackgroundImage(img, () => canvas.renderAll())
@@ -332,7 +334,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(function Ske
       imgEl.scaleToWidth(width)
       canvas.setBackgroundImage(img, () => canvas.renderAll())
     })()
-  }, [backgroundImageUrl, width])
+  }, [backgroundImageUrl, backgroundImageOpacity, width])
 
   return (
     <div className={className} style={{ overflow: "hidden", touchAction: "none" }}>
