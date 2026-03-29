@@ -105,9 +105,54 @@ Triggered from `onModified` callback and explicit tool actions.
 ---
 
 ## Environment Variables (V2 Additions)
-No new env vars added for V2. Existing vars used:
+```bash
+# Ascora integration (RA-262)
+# NODE_TLS_REJECT_UNAUTHORIZED=0   # Required — Ascora uses non-standard SSL cert
+#                                  # Set in .env.local (dev) or Vercel env vars (prod)
+#                                  # TODO: supply cert via NODE_EXTRA_CA_CERTS instead
+ANTHROPIC_API_KEY=                 # Claude API for scope narrative generation (RA-264)
+```
+
+Existing vars used:
 - `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase Storage
-- `DATABASE_URL` — Prisma (for PropertyLookup + ClaimSketch caching)
+- `DATABASE_URL` — Prisma (for PropertyLookup + ClaimSketch + Ascora caching)
+- `NEXTAUTH_URL` — Used to construct webhook URLs for DR-NRPG
+
+---
+
+## V2 Data Layer API (RA-260, RA-262, RA-264, RA-27)
+
+### Equipment Calculator
+`POST /api/inspections/[id]/equipment-calculator`
+- Calculates IICRC S500 equipment quantities from affected area + damage class/category
+- Creates autoDetermined=true ScopeItems with IICRC justifications
+- Performs AS/NZS 3012:2019 80% electrical load check
+
+### Scope Narrative Generator
+`POST /api/inspections/[id]/generate-scope`
+- Streaming Claude API response (SSE text/event-stream)
+- Produces 7-section IICRC-cited scope narrative
+- Uses prompt caching on system prompt for ~90% token savings on repeat calls
+
+### Drying Goal Validation
+`GET|POST|PUT /api/inspections/[id]/drying-goal`
+- POST: initialise with target Category/Class
+- PUT: evaluate all moisture readings vs IICRC S500 §11.4 EMC targets
+- Returns "Drying Goal: ACHIEVED" certificate when all readings ≤ target
+
+### Ascora Integration
+`GET|POST|DELETE /api/ascora/connect` — connect API key, verify connectivity
+`POST /api/ascora/sync` — full historical import with price uplift factor
+  - `?minValueAud=1000` — focus on Private/Larger-Loss scoped jobs
+  - `?priceUpliftFactor=1.12` — apply 12% CPI uplift (AU restoration 2025)
+  - `?dryRun=true` — analyse without writing to DB
+`GET|POST /api/ascora/pricing-database` — query + record acceptance/rejection
+
+### DR-NRPG Integration
+`GET|POST|DELETE /api/dr-nrpg/connect` — save credentials, get webhook URL
+`POST /api/webhooks/dr-nrpg` — inbound job dispatch events (HMAC verified)
+  - Events: job.dispatched, job.updated, job.completed, job.cancelled
+  - Auto-creates Inspection on job.dispatched
 
 ---
 
@@ -116,7 +161,16 @@ No new env vars added for V2. Existing vars used:
 |-----------|--------|
 | M1: Foundation | Partial (RA-88 ✓, RA-89 ✓, RA-91 ✓, RA-92 ✓; RA-90 pending) |
 | M2: Core Sketch Tool | Complete (RA-93–RA-101 ✓) |
-| M3: Property Data Scraper | Mostly complete (RA-102–RA-105 ✓; RA-108 pending) |
+| M3: Property Data Scraper | Mostly complete (RA-102–RA-105 ✓; RA-108 ✓) |
 | M4: Moisture Mapping | Complete (RA-110–RA-113 ✓) |
-| M5: Equipment Placement | Complete (integrated into M4) |
-| M6: Reporting & Export | In progress (RA-120–RA-126 pending) |
+| M5: Equipment Placement | Complete (RA-260 integrated) |
+| M6: Reporting & Export | Mostly complete (RA-120 ✓, RA-121 ✓, RA-123 ✓, RA-124 ✓, RA-125 ✓; RA-122, RA-126 TBC) |
+| M7: AU Data Layer | Mostly complete (RA-260 ✓, RA-262 sync fixed ✓, RA-264 pending live test; RA-27 ✓) |
+
+### ⚠️ Blocked / Human Actions Required
+- **RA-262 live sync**: Set `NODE_TLS_REJECT_UNAUTHORIZED=0` in environment, then POST /api/ascora/sync
+- **RA-262 line items**: `/invoicedetails` doesn't exist — contact Ascora support for correct endpoint
+- **RA-264 live test**: Requires `ANTHROPIC_API_KEY` env var + completed inspection with classification
+- **Migration**: `npx prisma migrate deploy` (run against prod DB once Phill has access)
+- **Linear API key**: `lin_api_[REDACTED_FROM_HISTORY]` returning 401 — needs regeneration
+- **RA-4, RA-241, RA-246, RA-247**: Human actions (social accounts, App Store, Supabase, Google)
