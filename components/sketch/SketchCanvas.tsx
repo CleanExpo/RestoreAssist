@@ -330,7 +330,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(function Ske
       const { FabricImage } = fabric as { FabricImage: { fromURL: (url: string) => Promise<unknown> } }
       const img = await FabricImage.fromURL(backgroundImageUrl)
       const imgEl = img as { set: (opts: object) => void; scaleToWidth: (w: number) => void }
-      imgEl.set({ selectable: false, evented: false, opacity: 0.4 })
+      imgEl.set({ selectable: false, evented: false, opacity: backgroundImageOpacity })
       imgEl.scaleToWidth(width)
       canvas.setBackgroundImage(img, () => canvas.renderAll())
     })()

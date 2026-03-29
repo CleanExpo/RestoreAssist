@@ -179,14 +179,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }
             if (event.type === "message_delta" && event.usage) {
               usageData = {
-                inputTokens: 0, // populated from message_start
+                inputTokens: usageData?.inputTokens ?? 0, // preserve from message_start
                 outputTokens: event.usage.output_tokens,
               }
             }
             if (event.type === "message_start" && event.message.usage) {
               usageData = {
                 inputTokens: event.message.usage.input_tokens,
-                outputTokens: 0,
+                outputTokens: usageData?.outputTokens ?? 0, // preserve from message_delta if already set
               }
             }
           }
