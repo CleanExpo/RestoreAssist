@@ -15,17 +15,17 @@ export default function Footer({ darkMode }: FooterProps) {
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-20 right-1/4 w-96 h-96 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 left-1/4 w-80 h-80 bg-[#8A6B4E]/8 rounded-full blur-3xl"></div>
-        <svg className="absolute top-1/4 left-1/3 w-60 h-60 opacity-10" viewBox="0 0 200 200">
+        <svg aria-hidden="true" className="absolute top-1/4 left-1/3 w-60 h-60 opacity-10" viewBox="0 0 200 200">
           <path d="M100 30 Q140 30 170 60 Q170 100 140 130 Q100 130 60 130 Q30 100 30 60 Q30 30 60 30 Z" fill="#8A6B4E"/>
           <path d="M100 60 Q130 60 150 80 Q150 100 130 120 Q100 120 70 120 Q50 100 50 80 Q50 60 70 60 Z" fill="#8A6B4E" opacity="0.4"/>
         </svg>
-        <svg className="absolute bottom-1/4 right-1/3 w-44 h-44 opacity-8" viewBox="0 0 200 200">
+        <svg aria-hidden="true" className="absolute bottom-1/4 right-1/3 w-44 h-44 opacity-8" viewBox="0 0 200 200">
           <ellipse cx="100" cy="100" rx="70" ry="50" fill="none" stroke="#8A6B4E" strokeWidth="3"/>
           <ellipse cx="100" cy="100" rx="40" ry="30" fill="#8A6B4E" opacity="0.3"/>
         </svg>
       </div>
       <div className="max-w-7xl mx-auto relative z-10">
-        <motion.h2
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -34,7 +34,7 @@ export default function Footer({ darkMode }: FooterProps) {
           style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
         >
           Inspection. Scoping. Estimating. Connected.
-        </motion.h2>
+        </motion.p>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

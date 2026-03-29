@@ -44,11 +44,12 @@ export default function Home() {
             <Link href="/" className="flex items-center gap-2">
               {/* White circular logo */}
               <div className=" flex items-center justify-center relative overflow-hidden">
-                <Image 
-                  src="/logo.png" 
-                  alt="Restore Assist Logo" 
-                  width={100} 
-                  height={100} 
+                <Image
+                  src="/logo.png"
+                  alt="Restore Assist Logo"
+                  width={100}
+                  height={100}
+                  priority
                   className="object-contain p-1 md:p-2"
                 />
               </div>
@@ -179,11 +180,11 @@ export default function Home() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/22 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
-          <svg className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20" viewBox="0 0 200 200">
+          <svg aria-hidden="true" className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20" viewBox="0 0 200 200">
             <polygon points="100,20 180,60 160,140 40,140 20,60" fill="#8A6B4E"/>
             <polygon points="100,50 150,75 135,125 65,125 50,75" fill="#8A6B4E" opacity="0.5"/>
           </svg>
-          <svg className="absolute bottom-1/3 left-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
+          <svg aria-hidden="true" className="absolute bottom-1/3 left-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
             <rect x="50" y="50" width="100" height="100" rx="20" fill="none" stroke="#8A6B4E" strokeWidth="3"/>
             <rect x="70" y="70" width="60" height="60" rx="10" fill="#8A6B4E" opacity="0.3"/>
           </svg>
@@ -239,16 +240,19 @@ export default function Home() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/22 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
-          <svg className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20" viewBox="0 0 200 200">
+          <svg aria-hidden="true" className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20" viewBox="0 0 200 200">
             <polygon points="100,20 180,60 160,140 40,140 20,60" fill="#8A6B4E"/>
             <polygon points="100,50 150,75 135,125 65,125 50,75" fill="#8A6B4E" opacity="0.5"/>
           </svg>
-          <svg className="absolute bottom-1/3 left-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
+          <svg aria-hidden="true" className="absolute bottom-1/3 left-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
             <rect x="50" y="50" width="100" height="100" rx="20" fill="none" stroke="#8A6B4E" strokeWidth="3"/>
             <rect x="70" y="70" width="60" height="60" rx="10" fill="#8A6B4E" opacity="0.3"/>
           </svg>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center text-[#1C2E47]" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+            Inspection to Report in One Flow
+          </h2>
           {/* Mobile Carousel */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -332,17 +336,17 @@ export default function Home() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-20 right-1/4 w-[550px] h-[550px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/18 rounded-full blur-3xl"></div>
-          <svg className="absolute top-1/4 left-1/3 w-96 h-96 opacity-20" viewBox="0 0 200 200">
+          <svg aria-hidden="true" className="absolute top-1/4 left-1/3 w-96 h-96 opacity-20" viewBox="0 0 200 200">
             <path d="M100 30 Q140 30 170 60 Q170 100 140 130 Q100 130 60 130 Q30 100 30 60 Q30 30 60 30 Z" fill="#8A6B4E"/>
             <path d="M100 60 Q130 60 150 80 Q150 100 130 120 Q100 120 70 120 Q50 100 50 80 Q50 60 70 60 Z" fill="#8A6B4E" opacity="0.4"/>
           </svg>
-          <svg className="absolute bottom-1/4 right-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
+          <svg aria-hidden="true" className="absolute bottom-1/4 right-1/3 w-80 h-80 opacity-15" viewBox="0 0 200 200">
             <ellipse cx="100" cy="100" rx="70" ry="50" fill="none" stroke="#8A6B4E" strokeWidth="3"/>
             <ellipse cx="100" cy="100" rx="40" ry="30" fill="#8A6B4E" opacity="0.3"/>
           </svg>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
-          <motion.h2
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -351,7 +355,7 @@ export default function Home() {
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
             Inspection. Scoping. Estimating. Connected.
-          </motion.h2>
+          </motion.p>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

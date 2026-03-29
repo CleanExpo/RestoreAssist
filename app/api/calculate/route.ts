@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getRestorationInvoiceTypeById } from '@/lib/restoration-invoice-types'
+import { applyRateLimit } from '@/lib/rate-limiter'
 import { z } from 'zod'
 
 /** Minimum charge enforced on all quotes (ex-GST). */
@@ -97,6 +98,9 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const rateLimited = applyRateLimit(request, { maxRequests: 30, prefix: 'calculate', key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const parsed = QuoteRequestSchema.safeParse(body)
