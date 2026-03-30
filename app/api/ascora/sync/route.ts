@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ruleBasedClassify } from "@/lib/ai/auto-classify"
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -37,17 +38,26 @@ interface AscoraJobType {
 interface AscoraJobRaw {
   jobId: string
   jobNumber?: string
+  /** Human-readable job name e.g. "FEN - Sanagozza - Loganholme" */
+  jobName?: string
+  /** Full scope narrative — goldmine for AI training / IICRC classification */
+  jobDescription?: string
   /** Ascora returns jobType as an { id, name } object */
   jobType?: AscoraJobType | string
+  addressLine1?: string
+  addressLine2?: string
   suburb?: string
   state?: string
   postcode?: string
   completedDate?: string | null
   /** Total job value ex-GST — key field for Private/Larger-Loss filtering */
   totalExTax?: number
+  totalIncTax?: number
   pricingMethod?: string
   clientOrderNumber?: string
   status?: string
+  siteCustomer?: { id?: string; name?: string }
+  billingCustomer?: { id?: string; name?: string }
 }
 
 interface AscoraLineItemRaw {
@@ -499,6 +509,66 @@ export async function POST(request: NextRequest) {
     }
 
     // ------------------------------------------------------------------
+    // Phase 4: Create HistoricalJob records for vector similarity search
+    // Uses ruleBasedClassify on jobDescription to infer IICRC water category/class
+    // since these fields are absent from the Ascora API.
+    // ------------------------------------------------------------------
+    let historicalJobsUpserted = 0
+    if (!dryRun) {
+      const tenantId = session.user.id
+      for (const job of filteredJobs) {
+        const jobTypeName = getJobTypeName(job.jobType)
+        const claimType = mapClaimType(jobTypeName) ?? "water"
+        const description = job.jobDescription?.trim() || job.jobName || `${jobTypeName} job`
+
+        // Infer IICRC water category/class from the job narrative
+        const classification = description
+          ? ruleBasedClassify({ description, notes: job.jobName })
+          : null
+
+        const address = [job.addressLine1, job.addressLine2]
+          .filter(Boolean)
+          .join(", ")
+        const customerName =
+          job.siteCustomer?.name || job.billingCustomer?.name || null
+
+        await prisma.historicalJob.upsert({
+          where: { source_externalId: { source: "ascora", externalId: job.jobId } },
+          create: {
+            tenantId,
+            source: "ascora",
+            externalId: job.jobId,
+            jobNumber: job.jobNumber ?? job.jobId,
+            jobName: job.jobName ?? `Job ${job.jobNumber ?? job.jobId}`,
+            description,
+            claimType,
+            waterCategory: classification?.damageCategory ?? null,
+            waterClass: classification?.damageClass ?? null,
+            address,
+            suburb: job.suburb ?? "",
+            state: job.state ?? "QLD",
+            postcode: job.postcode ?? "",
+            customerName,
+            totalExTax: job.totalExTax ?? 0,
+            totalIncTax: job.totalIncTax ?? (job.totalExTax ? job.totalExTax * 1.1 : 0),
+            completedDate: job.completedDate ? new Date(job.completedDate) : null,
+          },
+          update: {
+            description,
+            totalExTax: job.totalExTax ?? 0,
+            totalIncTax: job.totalIncTax ?? (job.totalExTax ? job.totalExTax * 1.1 : 0),
+            completedDate: job.completedDate ? new Date(job.completedDate) : null,
+            waterCategory: classification?.damageCategory ?? undefined,
+            waterClass: classification?.damageClass ?? undefined,
+          },
+        })
+        historicalJobsUpserted++
+      }
+    } else {
+      historicalJobsUpserted = filteredJobs.length
+    }
+
+    // ------------------------------------------------------------------
     // Update integration metadata
     // ------------------------------------------------------------------
     if (!dryRun) {
@@ -542,6 +612,7 @@ export async function POST(request: NextRequest) {
       jobsInWindow: windowedJobs.length,
       jobsAboveMinValue: filteredJobs.length,
       jobsImported,
+      historicalJobsUpserted,
       jobBreakdown: breakdown,
       minValueAud,
       priceUpliftFactor,
