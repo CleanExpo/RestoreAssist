@@ -204,6 +204,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     description: string; totalExTax: number; itemCount: number; equipmentCount: number; distance: number;
   }>>([])
   const [isLoadingSimilarJobs, setIsLoadingSimilarJobs] = useState(false)
+  const [isCalculatingEquipment, setIsCalculatingEquipment] = useState(false)
 
   const generateScopeNarrative = async () => {
     if (!inspection) return
@@ -211,8 +212,9 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     setScopeNarrative("")
     setScopeGenError(null)
 
-    const area = inspection.affectedAreas.reduce((sum, a) => sum + (a.areaM2 ?? 0), 0)
-    const rooms = inspection.affectedAreas.map((a) => a.roomName ?? a.roomType).filter(Boolean)
+    // affectedSquareFootage is sq ft → convert to m² (1 sq ft = 0.0929 m²)
+    const area = inspection.affectedAreas.reduce((sum, a) => sum + (a.affectedSquareFootage ?? 0) * 0.0929, 0)
+    const rooms = inspection.affectedAreas.map((a) => a.roomZoneId).filter(Boolean)
 
     try {
       const resp = await fetch(`/api/inspections/${inspection.id}/generate-scope`, {
@@ -307,6 +309,32 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       toast.error("Failed to load inspection")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const runEquipmentCalculator = async () => {
+    if (!inspection) return
+    // affectedSquareFootage is sq ft → convert to m² (1 sq ft = 0.0929 m²)
+    const totalAreaM2 = inspection.affectedAreas.reduce((sum, a) => sum + (a.affectedSquareFootage ?? 0) * 0.0929, 0)
+    if (totalAreaM2 === 0) {
+      toast.error("Add affected areas with m² measurements before calculating equipment")
+      return
+    }
+    setIsCalculatingEquipment(true)
+    try {
+      const resp = await fetch(`/api/inspections/${inspection.id}/equipment-calculator`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ affectedAreaM2: totalAreaM2, saveScopeItems: true }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data.error ?? "Equipment calculator failed")
+      toast.success(`Added ${data.equipmentItems?.length ?? 0} equipment scope items`)
+      await fetchInspection()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to calculate equipment")
+    } finally {
+      setIsCalculatingEquipment(false)
     }
   }
 
@@ -834,6 +862,21 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-6">
+            {/* Actions row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={runEquipmentCalculator}
+                disabled={isCalculatingEquipment}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              >
+                {isCalculatingEquipment ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Layers size={12} />
+                )}
+                {isCalculatingEquipment ? "Calculating…" : "Auto-Calculate Equipment (IICRC S500)"}
+              </button>
+            </div>
             {/* Scope line items */}
             <div className="space-y-3">
               {inspection.scopeItems.length > 0 ? (
