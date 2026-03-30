@@ -296,6 +296,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             console.warn("[generate-scope] ScopeItem parse failed:", parseErr)
           }
 
+          // Persist generated narrative so the page can restore it on reload
+          if (accumulatedText) {
+            await prisma.inspection.update({
+              where: { id: inspectionId },
+              data: { generatedNarrative: accumulatedText },
+            }).catch((e) => console.warn("[generate-scope] Narrative persist failed:", e))
+          }
+
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({

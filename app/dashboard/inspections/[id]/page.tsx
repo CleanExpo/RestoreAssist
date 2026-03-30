@@ -60,6 +60,7 @@ interface Inspection {
   signedByName: string | null
   signatureUrl: string | null
   lossDescription: string | null
+  generatedNarrative: string | null
   environmentalData: {
     ambientTemperature: number
     humidityLevel: number
@@ -308,6 +309,9 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       if (response.ok) {
         const data = await response.json()
         setInspection(data.inspection)
+        if (data.inspection.generatedNarrative) {
+          setScopeNarrative(data.inspection.generatedNarrative)
+        }
       } else {
         toast.error("Inspection not found")
         router.push("/dashboard/inspections")

@@ -1528,6 +1528,9 @@ model Inspection {
   // Loss Description (free-text from NIR form — feeds scope narrative generator)
   lossDescription String? @db.Text
 
+  // Generated Scope Narrative (persisted after streaming, survives page navigation)
+  generatedNarrative String? @db.Text
+
   // Visual Moisture Mapping
   floorPlanImageUrl String? // URL to uploaded floor plan image
 
