@@ -31,6 +31,9 @@ import {
   Map,
   TrendingDown,
   PencilRuler,
+  Sparkles,
+  Copy,
+  Check,
 } from "lucide-react"
 
 // Fabric.js canvas — must be client-only (no SSR)
@@ -186,6 +189,71 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
   const [showAddReading, setShowAddReading] = useState(false)
+  const [scopeNarrative, setScopeNarrative] = useState("")
+  const [isGeneratingScope, setIsGeneratingScope] = useState(false)
+  const [scopeGenError, setScopeGenError] = useState<string | null>(null)
+  const [narrativeCopied, setNarrativeCopied] = useState(false)
+
+  const generateScopeNarrative = async () => {
+    if (!inspection) return
+    setIsGeneratingScope(true)
+    setScopeNarrative("")
+    setScopeGenError(null)
+
+    const area = inspection.affectedAreas.reduce((sum, a) => sum + (a.areaM2 ?? 0), 0)
+    const rooms = inspection.affectedAreas.map((a) => a.roomName ?? a.roomType).filter(Boolean)
+
+    try {
+      const resp = await fetch(`/api/inspections/${inspection.id}/generate-scope`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          affectedAreaM2: area || 25,
+          affectedRooms: rooms,
+          lossSourceDescription: inspection.lossDescription ?? undefined,
+        }),
+      })
+
+      if (!resp.ok || !resp.body) {
+        setScopeGenError("Failed to start generation — check ANTHROPIC_API_KEY is set.")
+        return
+      }
+
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split("\n").filter((l) => l.startsWith("data: "))
+
+        for (const line of lines) {
+          try {
+            const payload = JSON.parse(line.slice(6))
+            if (payload.type === "delta" && payload.text) {
+              setScopeNarrative((prev) => prev + payload.text)
+            } else if (payload.type === "error") {
+              setScopeGenError(payload.error ?? "Generation error")
+            }
+          } catch {
+            // skip malformed SSE lines
+          }
+        }
+      }
+    } catch (err) {
+      setScopeGenError(err instanceof Error ? err.message : "Network error")
+    } finally {
+      setIsGeneratingScope(false)
+    }
+  }
+
+  const copyScopeNarrative = async () => {
+    await navigator.clipboard.writeText(scopeNarrative)
+    setNarrativeCopied(true)
+    setTimeout(() => setNarrativeCopied(false), 2000)
+  }
 
   useEffect(() => {
     fetchInspection()
@@ -647,43 +715,104 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
-          <div className="space-y-3">
-            {inspection.scopeItems.length > 0 ? (
-              inspection.scopeItems.map((item) => (
-                <div key={item.id} className={cn(
-                  "p-4 rounded-xl border bg-white dark:bg-slate-900/50 flex items-start gap-3",
-                  item.isSelected
-                    ? "border-emerald-200 dark:border-emerald-800/50"
-                    : "border-neutral-200 dark:border-slate-700/50 opacity-50"
-                )}>
-                  <div className={cn(
-                    "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5",
-                    item.isSelected ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-slate-700"
+          <div className="space-y-6">
+            {/* Scope line items */}
+            <div className="space-y-3">
+              {inspection.scopeItems.length > 0 ? (
+                inspection.scopeItems.map((item) => (
+                  <div key={item.id} className={cn(
+                    "p-4 rounded-xl border bg-white dark:bg-slate-900/50 flex items-start gap-3",
+                    item.isSelected
+                      ? "border-emerald-200 dark:border-emerald-800/50"
+                      : "border-neutral-200 dark:border-slate-700/50 opacity-50"
                   )}>
-                    {item.isSelected && <CheckCircle2 size={14} />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{item.description}</span>
-                      {item.autoDetermined && (
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">Auto</span>
+                    <div className={cn(
+                      "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5",
+                      item.isSelected ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-slate-700"
+                    )}>
+                      {item.isSelected && <CheckCircle2 size={14} />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{item.description}</span>
+                        {item.autoDetermined && (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">Auto</span>
+                        )}
+                        {item.isRequired && (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Required</span>
+                        )}
+                      </div>
+                      {item.justification && (
+                        <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">{item.justification}</p>
                       )}
-                      {item.isRequired && (
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Required</span>
+                      {item.quantity && (
+                        <p className="text-xs text-neutral-500 mt-1">Qty: {item.quantity} {item.unit}</p>
                       )}
                     </div>
-                    {item.justification && (
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">{item.justification}</p>
-                    )}
-                    {item.quantity && (
-                      <p className="text-xs text-neutral-500 mt-1">Qty: {item.quantity} {item.unit}</p>
-                    )}
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-neutral-400 text-sm">No scope items — submit the inspection to auto-determine scope</div>
+              )}
+            </div>
+
+            {/* AI Scope Narrative Generator */}
+            <div className="rounded-xl border border-cyan-200/50 dark:border-cyan-800/40 bg-cyan-50/30 dark:bg-cyan-900/10 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-cyan-500" />
+                  <h3 className="font-semibold text-sm text-neutral-900 dark:text-white">AI Scope Narrative</h3>
+                  <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                    IICRC S500
+                  </span>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-neutral-400">No scope items — submit the inspection to auto-determine scope</div>
-            )}
+                <div className="flex items-center gap-2">
+                  {scopeNarrative && (
+                    <button
+                      onClick={copyScopeNarrative}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      {narrativeCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                      {narrativeCopied ? "Copied" : "Copy"}
+                    </button>
+                  )}
+                  <button
+                    onClick={generateScopeNarrative}
+                    disabled={isGeneratingScope}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isGeneratingScope ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={12} />
+                        {scopeNarrative ? "Regenerate" : "Generate"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {scopeGenError && (
+                <div className="text-xs text-red-600 dark:text-red-400 mb-3 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40">
+                  {scopeGenError}
+                </div>
+              )}
+
+              {scopeNarrative ? (
+                <div className="text-xs text-neutral-700 dark:text-slate-300 leading-relaxed font-mono whitespace-pre-wrap bg-white dark:bg-slate-900/50 rounded-lg border border-neutral-100 dark:border-slate-700/50 p-4 max-h-96 overflow-y-auto">
+                  {scopeNarrative}
+                  {isGeneratingScope && <span className="inline-block w-1.5 h-3.5 bg-cyan-500 animate-pulse ml-0.5 align-middle" />}
+                </div>
+              ) : !isGeneratingScope && (
+                <p className="text-xs text-neutral-400 dark:text-slate-500">
+                  Generate a 7-section IICRC S500-cited scope narrative using AI. Draws on your moisture readings, affected areas, and similar historical jobs.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
