@@ -9,7 +9,7 @@
 
 A cinematic documentary series called **Decision Room** — eight 5-minute episodes, each revealing one major architectural decision made during the RestoreAssist build. Target audience: restoration industry professionals, solo founders, and developers building compliance software.
 
-**Series framing:** Every episode follows the same four-act structure:
+**Series framing:** Every episode follows the same six-act structure:
 > Methods Evaluated → SWOT Analysis → Decision Granted → Product Alive
 
 No competitor or tool names are mentioned. The narrative is entirely about the problem space, the methods considered, and the decision process that shaped the product.
@@ -37,7 +37,7 @@ No competitor or tool names are mentioned. The narrative is entirely about the p
 
 ### 3.1 Five Acts, 9,000 Frames (5:00 @ 30fps)
 
-```
+```text
 ACT 0  Cold Open          frames    0–270     0:00–0:09   9s
 ACT 1  The Problem        frames  270–1350    0:09–0:45  36s
 ACT 2  Methods Evaluated  frames 1350–3600    0:45–2:00  75s  (3 methods × 25s)
@@ -68,8 +68,8 @@ Full frame-by-frame beat map: `~/.claude/skills/decision-room-production/referen
 
 ### 4.1 File Structure
 
-```
-D:\Claude-Code-Remotion\RestoreAssist\src\
+```text
+src/
 ├── shared\
 │   ├── brand.tsx          — tokens, LogoMark, GlowOrb, GridOverlay, CyanRule
 │   ├── motion.ts          — 6 named easing curves, 2 spring configs
@@ -121,7 +121,7 @@ Full hex values with glow orb positions: `~/.claude/skills/decision-room-product
 
 ### 4.4 Typography
 
-```
+```text
 Display:  Inter Display 800   — headlines, decision statement (72–96px, tracking -2.5)
 Heading:  Inter 700            — method names, SWOT headers (40–52px, tracking -1.0)
 Body:     Inter 400            — facts, descriptions (20–24px, tracking 0)
@@ -275,7 +275,7 @@ After upload, review in YouTube Studio and set to Public/Unlisted manually.
 ## 9. Success Criteria
 
 - [ ] `BoardroomComposition` renders without TypeScript errors
-- [ ] Cold open: black screen for 8 frames before any logo
+- [ ] Cold open: black screen for 8 seconds (240 frames) before any logo
 - [ ] SWOT: Strengths and Weaknesses enter simultaneously from opposing sides
 - [ ] Decision Granted: 12-frame cut to black before product screenshot
 - [ ] "SHIPPED" visible over product screenshot at 60% opacity

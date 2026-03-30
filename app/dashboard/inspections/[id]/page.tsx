@@ -225,12 +225,19 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     const area = inspection.affectedAreas.reduce((sum, a) => sum + (a.affectedSquareFootage ?? 0) * 0.0929, 0)
     const rooms = inspection.affectedAreas.map((a) => a.roomZoneId).filter(Boolean)
 
+    // Block generation if no measured affected area exists — don't invent dimensions
+    if (!area || inspection.affectedAreas.length === 0) {
+      setScopeGenError("Please add at least one affected area with measurements before generating the scope narrative.")
+      setIsGeneratingScope(false)
+      return
+    }
+
     try {
       const resp = await fetch(`/api/inspections/${inspection.id}/generate-scope`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          affectedAreaM2: area || 25,
+          affectedAreaM2: area,
           affectedRooms: rooms,
           lossSourceDescription: inspection.lossDescription ?? undefined,
         }),
@@ -243,24 +250,32 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
+      let sseBuffer = ""
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n").filter((l) => l.startsWith("data: "))
+        // Accumulate chunks — SSE frames can split across reads
+        sseBuffer += decoder.decode(value, { stream: true })
+        const events = sseBuffer.split("\n\n")
+        sseBuffer = events.pop() ?? ""
 
-        for (const line of lines) {
+        for (const event of events) {
+          const line = event.split("\n").find((l) => l.startsWith("data: "))
+          if (!line) continue
           try {
             const payload = JSON.parse(line.slice(6))
             if (payload.type === "delta" && payload.text) {
               setScopeNarrative((prev) => prev + payload.text)
             } else if (payload.type === "error") {
               setScopeGenError(payload.error ?? "Generation error")
+            } else if (payload.type === "done") {
+              // Refresh inspection so scope items and tab counts reflect the persisted data
+              await fetchInspection()
             }
           } catch {
-            // skip malformed SSE lines
+            // skip malformed SSE events
           }
         }
       }

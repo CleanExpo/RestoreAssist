@@ -42,18 +42,17 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-interface RouteParams {
-  params: { id: string }
-}
-
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id: inspectionId } = params
+    const { id: inspectionId } = await context.params
     const body = await request.json()
     const {
       model = "claude-sonnet-4-6",
@@ -234,10 +233,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
           // Log usage event for billing metering
           if (usageData) {
-            // Sonnet pricing: $3/M input, $15/M output tokens
-            const inputCost = usageData.inputTokens * 0.000003
-            const outputCost = usageData.outputTokens * 0.000015
-            const totalCost = inputCost + outputCost
+            // Per-model USD pricing (Anthropic listed rates, as of 2025)
+            const isOpus = model.includes("opus")
+            const inputUnitCost  = isOpus ? 0.000005 : 0.000003  // $5 or $3 per M input tokens
+            const outputUnitCost = isOpus ? 0.000025 : 0.000015  // $25 or $15 per M output tokens
+            const inputCost  = usageData.inputTokens  * inputUnitCost
+            const outputCost = usageData.outputTokens * outputUnitCost
+            const totalCost  = inputCost + outputCost
             await prisma.usageEvent.create({
               data: {
                 userId: session.user.id,
@@ -249,15 +251,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                   inputTokens: usageData.inputTokens,
                   outputTokens: usageData.outputTokens,
                 }),
-                unitCost: 0.000015, // per output token (dominant cost)
+                unitCost: outputUnitCost, // per output token (dominant cost)
                 units: usageData.outputTokens,
                 totalCost,
-                currency: "AUD",
+                currency: "USD",
               },
             }).catch((e) => console.warn("[generate-scope] Usage log failed:", e))
           }
 
-          // Parse generated scope into ScopeItem records
+          // Parse generated scope into ScopeItem records (atomic swap)
           const savedScopeItemIds: string[] = []
           try {
             // Extract numbered sections from the generated markdown
@@ -265,35 +267,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             const sectionTitles = Array.from(sectionMatches).map((m) => m[1].trim())
 
             if (sectionTitles.length > 0) {
-              // Remove previous AI-generated (non-autoDetermined) scope items
-              await prisma.scopeItem.deleteMany({
-                where: { inspectionId, autoDetermined: false },
+              // Build replacement payloads in memory first (no side-effects yet)
+              const iicrcPattern = /IICRC S\d+:\d{4} §[\d.]+/
+              const newItems = sectionTitles.map((title) => {
+                // Use a static pattern to avoid RegExp-from-variable ReDoS risk
+                const titleFragment = title.slice(0, 20)
+                const contextStart = accumulatedText.indexOf(titleFragment)
+                const contextSlice = contextStart >= 0
+                  ? accumulatedText.slice(contextStart, contextStart + 300)
+                  : ""
+                const iicrcRef = contextSlice.match(iicrcPattern)?.[0]
+                return {
+                  inspectionId,
+                  itemType: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 50),
+                  description: title,
+                  autoDetermined: false,
+                  justification: iicrcRef ?? "AI-generated per IICRC S500:2021",
+                  isRequired: true,
+                  isSelected: true,
+                }
               })
 
-              for (const title of sectionTitles) {
-                const iicrcRef = accumulatedText.match(
-                  new RegExp(`${title.slice(0, 20)}[^§]*?(IICRC S\\d+:\\d{4} §[\\d.]+)`)
-                )?.[1]
-
-                const item = await prisma.scopeItem.create({
-                  data: {
-                    inspectionId,
-                    itemType: title
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, "_")
-                      .slice(0, 50),
-                    description: title,
-                    autoDetermined: false, // AI-generated (not ratio-calculated)
-                    justification: iicrcRef ?? "AI-generated per IICRC S500:2021",
-                    isRequired: true,
-                    isSelected: true,
-                  },
-                })
-                savedScopeItemIds.push(item.id)
-              }
+              // Atomic: delete stale items and create new ones in one transaction
+              await prisma.$transaction(async (tx) => {
+                await tx.scopeItem.deleteMany({ where: { inspectionId, autoDetermined: false } })
+                for (const item of newItems) {
+                  const created = await tx.scopeItem.create({ data: item })
+                  savedScopeItemIds.push(created.id)
+                }
+              })
             }
           } catch (parseErr) {
             console.warn("[generate-scope] ScopeItem parse failed:", parseErr)
+            throw parseErr // surface so the SSE error event fires and DB stays consistent
           }
 
           // Persist generated narrative so the page can restore it on reload
