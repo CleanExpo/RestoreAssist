@@ -85,7 +85,7 @@ const COST_PER_CALL_AUD = 0.02
 const MAX_BUDGET = 50
 
 /** Claude model for scope generation and meta-prompting */
-const MODEL = 'claude-sonnet-4-5' as const
+const MODEL = 'claude-sonnet-4-6' as const
 
 // ============================================================
 // Test case loader

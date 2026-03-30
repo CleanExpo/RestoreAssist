@@ -10,7 +10,7 @@
  *   data: { type: "error", error: "..." }
  *
  * Body: {
- *   model?: "claude-opus-4-5" | "claude-sonnet-4-5"   // default: sonnet (cost)
+ *   model?: "claude-opus-4-6" | "claude-sonnet-4-6"   // default: sonnet (cost)
  *   stream?: boolean                                     // default: true
  *   affectedAreaM2: number                              // required for scope completeness
  *   affectedRooms?: string[]
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id: inspectionId } = params
     const body = await request.json()
     const {
-      model = "claude-sonnet-4-5",
+      model = "claude-sonnet-4-6",
       affectedAreaM2,
       affectedRooms,
       lossSourceDescription,
