@@ -1481,6 +1481,11 @@ model Inspection {
   submittedAt DateTime?
   processedAt DateTime?
 
+  // E-Signature (RA-269)
+  signatureUrl  String?   // Supabase Storage URL for technician signature SVG/PNG
+  signedAt      DateTime? // When e-signature was captured
+  signedByName  String?   // Technician name at time of signing
+
   // Relations
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1589,6 +1594,10 @@ model MoistureReading {
   // Additional Context
   notes    String? @db.Text
   photoUrl String? // Link to photo if available
+
+  // Floor plan placement (for MoistureMappingCanvas)
+  mapX Float? // X position (0-1 normalised) on floor plan
+  mapY Float? // Y position (0-1 normalised) on floor plan
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -4003,4 +4012,122 @@ model DryingGoalRecord {
 
   @@index([goalAchieved])
   @@index([goalAchievedAt])
+}
+
+// ============================================================
+// HISTORICAL JOB AI LEARNING MODEL (RA-276 / RA-277)
+// Normalised view of imported restoration jobs for semantic search.
+// Seeded from Ascora via /api/ascora/sync.
+// Embedding vector managed via raw SQL (pgvector) — not tracked by Prisma
+// client types, but included here for schema documentation.
+// ============================================================
+
+/// Normalised historical job record for AI similarity search.
+/// embeddingVector (vector(1536)) is managed via raw SQL migrations
+/// and pgvector — kept as a comment here as Prisma does not support
+/// the vector type natively.
+model HistoricalJob {
+  id           String   @id @default(cuid())
+  /// User or org ID that owns this data — used as tenancy filter in similarity search
+  tenantId     String
+  /// Import source: "ascora" | "manual" | "dr-nrpg"
+  source       String
+  /// Native ID from the source system
+  externalId   String
+  jobNumber    String
+  jobName      String
+  description  String   @db.Text
+  claimType    String   // "water" | "fire" | "mould" | "storm" | "biohazard" | "other"
+  waterCategory Int?
+  waterClass    Int?
+  address      String
+  suburb       String
+  state        String
+  postcode     String
+  customerName String?
+
+  // Financial summary
+  totalExTax    Float
+  totalIncTax   Float
+  itemCount     Int     @default(0)
+  equipmentCount Int    @default(0)
+  photoCount    Int     @default(0)
+
+  completedDate DateTime?
+  customFields  Json?
+  rawJson       Json?
+
+  // Embedding metadata — vector column managed via raw SQL / pgvector
+  // embeddingVector Unsupported("vector(1536)")?  ← managed via migration, not Prisma
+  embeddingModel  String?
+  embeddedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([source, externalId])
+  @@index([tenantId])
+  @@index([claimType])
+  @@index([suburb, state])
+  @@index([completedDate])
+  @@index([totalExTax])
+  @@index([embeddedAt])
+}
+
+// ============================================================
+// Prompt Optimization (autoresearch pattern — RA-287)
+// ============================================================
+
+model PromptVariant {
+  id               String   @id @default(cuid())
+  claimType        String
+  promptText       String   @db.Text
+  version          Int      @default(1)
+  parentVariantId  String?
+  parentVariant    PromptVariant?  @relation("PromptLineage", fields: [parentVariantId], references: [id])
+  childVariants    PromptVariant[] @relation("PromptLineage")
+
+  compositeScore    Float?
+  structuralScore   Float?
+  citationScore     Float?
+  equipmentScore    Float?
+  specificityScore  Float?
+  categoryScore     Float?
+
+  isProduction     Boolean  @default(false)
+  description      String?  @db.Text
+
+  evaluationRuns   EvaluationRun[]
+
+  createdAt        DateTime @default(now())
+
+  @@index([claimType, isProduction])
+  @@index([claimType, compositeScore])
+}
+
+model EvaluationRun {
+  id              String   @id @default(cuid())
+  promptVariantId String?
+  promptVariant   PromptVariant? @relation(fields: [promptVariantId], references: [id])
+
+  testCaseId      String
+  generatedScope  String   @db.Text
+  compositeScore  Float
+  structuralScore Float?
+  citationScore   Float?
+  equipmentScore  Float?
+  specificityScore Float?
+  categoryScore   Float?
+
+  inputTokens     Int?
+  outputTokens    Int?
+  costAud         Float?
+  durationMs      Int?
+  model           String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([promptVariantId])
+  @@index([testCaseId])
+  @@index([createdAt])
 }
