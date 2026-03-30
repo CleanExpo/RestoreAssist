@@ -160,20 +160,25 @@ Existing vars used:
 
 ---
 
-## V2 Milestone Status (as of 2026-03-29)
+## V2 Milestone Status (as of 2026-03-30)
 | Milestone | Status |
 |-----------|--------|
-| M1: Foundation | Partial (RA-88 ✓, RA-89 ✓, RA-91 ✓, RA-92 ✓; RA-90 pending) |
+| M1: Foundation | Mostly complete (RA-88 ✓, RA-89 ✓, RA-91 ✓, RA-92 ✓; RA-90 code ✓ — Supabase bucket human action pending) |
 | M2: Core Sketch Tool | Complete (RA-93–RA-101 ✓) |
 | M3: Property Data Scraper | Mostly complete (RA-102–RA-105 ✓; RA-108 ✓) |
 | M4: Moisture Mapping | Complete (RA-110–RA-113 ✓) |
 | M5: Equipment Placement | Complete (RA-260 integrated) |
 | M6: Reporting & Export | Mostly complete (RA-120 ✓, RA-121 ✓, RA-123 ✓, RA-124 ✓, RA-125 ✓; RA-122, RA-126 TBC) |
 | M7: AU Data Layer | Mostly complete (RA-260 ✓, RA-262 sync fixed ✓, RA-264 ANTHROPIC_API_KEY set in Vercel ✓; RA-27 ✓) |
+| AI Lab (autoresearch) | Complete — PromptVariant/EvaluationRun DB ✓, scope quality evaluator ✓, evaluation harness ✓, prompt optimizer ✓, admin UI ✓ |
+| DR-NRPG Integration | Complete — API ✓, webhook ✓, UI ✓ |
+| lossDescription | Complete — schema ✓, migration ✓, PATCH endpoint ✓, NIR form ✓ |
 
 ### ⚠️ Blocked / Human Actions Required
 - **RA-262 live sync**: `ASCORA_API_KEY` now set in Vercel ✓ — still needs `NODE_TLS_REJECT_UNAUTHORIZED=0` set in Vercel env vars to bypass Ascora's self-signed SSL cert, then POST /api/ascora/sync
 - **RA-262 line items**: `/invoicedetails` doesn't exist — contact Ascora support for correct line item API endpoint
 - **RA-264 live test**: `ANTHROPIC_API_KEY` now set in Vercel ✓ — needs completed inspection with IICRC classification to test SSE stream
-- **Migration**: `npx prisma migrate deploy` (run against prod DB once Phill has access)
+- **Migrations**: `npx prisma migrate deploy` (run against prod DB — includes lossDescription, PromptVariant, EvaluationRun, e-signature, moisture map coords)
+- **Prisma generate**: Run `npx prisma generate` after migrate deploy to update client types (lossDescription field)
+- **RA-90 Supabase bucket**: Create `sketch-media` bucket in Supabase — SQL in `lib/sketch-storage.ts` header
 - **RA-4, RA-241, RA-246, RA-247**: Human actions (social accounts, App Store, Supabase, Google)
