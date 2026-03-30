@@ -99,7 +99,7 @@ function parseArgs(argv: string[]): CliArgs {
     voiceId: args["voice"] ?? "21m00Tcm4TlvDq8ikWAM", // ElevenLabs "Rachel" default
     step,
     dryRun: flags.has("dry-run"),
-    compositionId: args["composition"] ?? "RestoreAssistVideo",
+    compositionId: args["composition"] ?? "VideoGuide",
     durationInFrames: parseInt(args["frames"] ?? "5400", 10), // 180s @ 30fps default
     fps: parseInt(args["fps"] ?? "30", 10),
   };
@@ -191,6 +191,11 @@ async function runPipeline(): Promise<void> {
       compositionId: args.compositionId,
       durationInFrames: args.durationInFrames,
       fps: args.fps,
+      inputProps: {
+        voiceoverSrc: `/voiceovers/${args.slug}.mp3`,
+        slug: args.slug,
+        title: resource.title,
+      },
     });
   }
 
