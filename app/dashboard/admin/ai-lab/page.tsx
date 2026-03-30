@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  Database,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -134,6 +135,26 @@ export default function AILabPage() {
   const [evalReport, setEvalReport] = useState<EvaluationReport | null>(null)
   const [evalError, setEvalError] = useState<string | null>(null)
 
+  const [isVectorising, setIsVectorising] = useState(false)
+  const [vectoriseResult, setVectoriseResult] = useState<{ embedded: number; skipped: number; total: number; remaining: number; provider: string; durationMs: number } | null>(null)
+  const [vectoriseError, setVectoriseError] = useState<string | null>(null)
+
+  const runVectorise = async () => {
+    setIsVectorising(true)
+    setVectoriseResult(null)
+    setVectoriseError(null)
+    try {
+      const resp = await fetch("/api/admin/vectorise", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ batchSize: 50 }) })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data.error ?? "Vectorisation failed")
+      setVectoriseResult(data)
+    } catch (err) {
+      setVectoriseError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setIsVectorising(false)
+    }
+  }
+
   const [optClaimType, setOptClaimType] = useState<ClaimType>("water_damage")
   const [optBudget, setOptBudget] = useState(15)
   const [optThreshold, setOptThreshold] = useState(2)
@@ -204,6 +225,53 @@ export default function AILabPage() {
           </p>
         </div>
       </div>
+
+      {/* Vectorisation Panel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Database size={16} className="text-emerald-500" />
+            Ascora Job Vectorisation
+          </CardTitle>
+          <CardDescription>
+            Embed un-processed HistoricalJob records using OpenAI text-embedding-3-small. Required for RAG scope generation and similar-job lookup.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button onClick={runVectorise} disabled={isVectorising} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white">
+              {isVectorising ? <Loader2 size={14} className="animate-spin" /> : <PlayCircle size={14} />}
+              {isVectorising ? "Vectorising…" : "Vectorise 50 Jobs"}
+            </Button>
+            <span className="text-xs text-neutral-400">Processes 50 un-embedded jobs per run. Idempotent — safe to re-run.</span>
+          </div>
+
+          {vectoriseError && (
+            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+              <XCircle size={14} /> {vectoriseError}
+            </div>
+          )}
+
+          {vectoriseResult && (
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: "Embedded", value: vectoriseResult.embedded, color: "text-emerald-500" },
+                { label: "Skipped", value: vectoriseResult.skipped, color: "text-neutral-400" },
+                { label: "Remaining", value: vectoriseResult.remaining, color: vectoriseResult.remaining > 0 ? "text-amber-500" : "text-emerald-500" },
+                { label: "Duration", value: `${vectoriseResult.durationMs}ms`, color: "text-neutral-400" },
+              ].map((s) => (
+                <div key={s.label} className="text-center p-3 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-100 dark:border-slate-700/50">
+                  <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-neutral-400">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {vectoriseResult && (
+            <div className="text-xs text-neutral-400">Provider: {vectoriseResult.provider} · Total jobs: {vectoriseResult.total}</div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Evaluation Panel */}
       <Card>
