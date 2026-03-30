@@ -390,7 +390,6 @@ export default function Home() {
                   </p>
                   <div className={`text-xs space-y-1 text-white/70`} style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                     <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
-                    <p>ABN: [Company ABN]</p>
                   </div>
                 </div>
               </div>

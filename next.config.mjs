@@ -83,7 +83,13 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
         pathname: '/**',
-      }
+      },
+      {
+        // Google OAuth profile avatars (lh3 = Google user content CDN)
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
     ],
     // Supported image formats for automatic conversion
     formats: ['image/webp', 'image/avif'],
