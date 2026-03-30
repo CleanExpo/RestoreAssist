@@ -1551,6 +1551,8 @@ model Inspection {
   stormDamageAssessment       StormDamageAssessment?
   biohazardAssessment         BiohazardAssessment?
   carpetRestorationAssessment CarpetRestorationAssessment?
+  hvacAssessment              HVACAssessment?
+  australianCompliance        AustralianComplianceRecord?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4658,4 +4660,107 @@ model CarpetRestorationAssessment {
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
+}
+
+// ─── RA-261: NIR Phase 5 — HVAC, Odour, Australian Compliance Enums ──────────
+
+enum HVACContaminationLevel {
+  NONE
+  LIGHT
+  MODERATE
+  HEAVY
+}
+
+enum AustralianState {
+  NSW
+  VIC
+  QLD
+  WA
+  SA
+  TAS
+  ACT
+  NT
+}
+
+enum TechnicianCertification {
+  WRT   // Water Restoration Technician
+  ASD   // Applied Structural Drying
+  CMS   // Commercial Drying Specialist
+  HST   // Health and Safety Technician
+  OCT   // Odour Control Technician
+  CCT   // Carpet Cleaning Technician
+  MRS   // Mould Remediation Specialist
+  OTHER
+}
+
+enum NRPGCategory {
+  SMALL
+  MEDIUM
+  LARGE
+  CATASTROPHIC
+}
+
+// ─── RA-261: NIR Phase 5 — HVAC Assessment Model ─────────────────────────────
+
+/// HVAC Assessment (RA-261 Phase 5 — ANSI/IICRC S590:2023)
+model HVACAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  hvacSystemInspected       Boolean                  @default(false)
+  ductContaminationLevel    HVACContaminationLevel?
+  visibleSootInDucts        Boolean                  @default(false)
+  smokeOdourInDucts         Boolean                  @default(false)
+  filterCondition           String?                  // CLEAN | DUSTY | BLOCKED | SATURATED
+  coilContaminationLevel    HVACContaminationLevel?
+  hvacCleaningRequired      Boolean                  @default(false) // Auto-triggers line items
+  insulationResistanceMegaohm Float?
+  insulationTestPerformedBy String?                  // Licensed electrician required
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+}
+
+// ─── RA-261: NIR Phase 5 — Australian Compliance Fields ──────────────────────
+
+/// Australian-specific compliance and insurer fields — one per inspection (RA-261 Phase 5)
+model AustralianComplianceRecord {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Insurer
+  insurerName          String?   // IAG | Suncorp | Allianz | QBE | Other
+  claimNumber          String?
+  lossAdjusterName     String?
+  lossAdjusterReference String?
+  nrpgCategory         NRPGCategory?
+
+  // Technician credentials
+  iicrcCertifiedTechnician Boolean                @default(false)
+  technicianCertification  TechnicianCertification?
+  technicianLicenseNumber  String?                // IICRC member number
+
+  // Property
+  state            AustralianState?
+  propertyYearBuilt Int?             // Pre-1987 triggers asbestos flag
+  asbestosRiskAcknowledged Boolean   @default(false) // GATE if pre-1987
+
+  // Asbestos adjacent fields
+  friableAssessment   String?  // FRIABLE | NON_FRIABLE | UNKNOWN
+  workHalted          Boolean  @default(false)
+  licensedAssessorName String?
+  licensedAssessorLicense String?
+  removalQuoteAud     Decimal? @db.Decimal(10, 2)
+  separateInvoiceRequired Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([state])
+  @@index([nrpgCategory])
 }
