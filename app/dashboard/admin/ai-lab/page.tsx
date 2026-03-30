@@ -164,6 +164,7 @@ export default function AILabPage() {
 
   if (status === "loading") return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cyan-500" size={28} /></div>
   if (!session) { router.push("/login"); return null }
+  if (session.user.role !== "ADMIN") { router.push("/dashboard"); return null }
 
   const runEvaluation = async () => {
     setIsEvaluating(true)
@@ -175,7 +176,7 @@ export default function AILabPage() {
 
       const resp = await fetch("/api/admin/evaluation", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-key": process.env.NEXT_PUBLIC_ADMIN_KEY ?? "admin" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       const data = await resp.json()
