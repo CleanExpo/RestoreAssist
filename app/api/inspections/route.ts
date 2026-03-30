@@ -268,6 +268,7 @@ export async function POST(request: NextRequest) {
         propertyAddress: sanitizeString(body.propertyAddress, 500),
         propertyPostcode: sanitizeString(body.propertyPostcode, 20),
         technicianName: body.technicianName ? sanitizeString(body.technicianName, 200) : null,
+        lossDescription: body.lossDescription ? sanitizeString(body.lossDescription, 2000) : null,
         reportId: body.reportId || null, // Link to report if provided
         userId: session.user.id,
         status: "DRAFT"

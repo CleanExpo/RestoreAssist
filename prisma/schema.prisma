@@ -1525,6 +1525,9 @@ model Inspection {
   propertyDataSource    String? // "CORELOGIC" or "MANUAL"
   propertyDataFetchedAt DateTime? // Timestamp of fetch
 
+  // Loss Description (free-text from NIR form — feeds scope narrative generator)
+  lossDescription String? @db.Text
+
   // Visual Moisture Mapping
   floorPlanImageUrl String? // URL to uploaded floor plan image
 

@@ -990,6 +990,15 @@ export default function NIRTechnicianInputForm({
         }
       }
       
+      // Step 1b: Persist loss description if provided
+      if (damageDescription.trim()) {
+        await fetch(`/api/inspections/${currentInspectionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lossDescription: damageDescription.trim() })
+        })
+      }
+
       // Step 2: Save environmental data
       await fetch(`/api/inspections/${currentInspectionId}/environmental`, {
         method: "POST",
