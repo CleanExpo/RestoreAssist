@@ -193,6 +193,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [isGeneratingScope, setIsGeneratingScope] = useState(false)
   const [scopeGenError, setScopeGenError] = useState<string | null>(null)
   const [narrativeCopied, setNarrativeCopied] = useState(false)
+  const [similarJobs, setSimilarJobs] = useState<Array<{
+    id: string; claimType: string; suburb: string; state: string;
+    description: string; totalExTax: number; itemCount: number; equipmentCount: number; distance: number;
+  }>>([])
+  const [isLoadingSimilarJobs, setIsLoadingSimilarJobs] = useState(false)
 
   const generateScopeNarrative = async () => {
     if (!inspection) return
@@ -254,6 +259,27 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     setNarrativeCopied(true)
     setTimeout(() => setNarrativeCopied(false), 2000)
   }
+
+  const fetchSimilarJobs = async (inspectionId: string) => {
+    setIsLoadingSimilarJobs(true)
+    try {
+      const resp = await fetch(`/api/inspections/${inspectionId}/similar-jobs?limit=5`)
+      if (resp.ok) {
+        const data = await resp.json()
+        setSimilarJobs(data.results ?? [])
+      }
+    } catch {
+      // silent fail — similar jobs are non-critical
+    } finally {
+      setIsLoadingSimilarJobs(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "classification" && id && similarJobs.length === 0) {
+      fetchSimilarJobs(id)
+    }
+  }, [activeTab, id])
 
   useEffect(() => {
     fetchInspection()
@@ -710,6 +736,52 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             ) : (
               <div className="text-center py-12 text-neutral-400">No classification data — submit the inspection to auto-classify</div>
             )}
+
+            {/* Similar Historical Jobs from Ascora pgvector */}
+            <div className="mt-6 pt-6 border-t border-neutral-100 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-neutral-700 dark:text-slate-200">Similar Historical Jobs</h3>
+                {isLoadingSimilarJobs && <Loader2 size={12} className="animate-spin text-cyan-500" />}
+              </div>
+              {!isLoadingSimilarJobs && similarJobs.length === 0 && (
+                <p className="text-xs text-neutral-400">
+                  No similar jobs found. Vectorise your Ascora job history in Admin → AI Lab to enable this feature.
+                </p>
+              )}
+              {similarJobs.length > 0 && (
+                <div className="space-y-2">
+                  {similarJobs.map((job) => (
+                    <div key={job.id} className="p-3 rounded-lg border border-neutral-100 dark:border-slate-700/50 bg-neutral-50/50 dark:bg-slate-900/30">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400 capitalize">
+                              {job.claimType?.replace(/_/g, " ")}
+                            </span>
+                            {job.suburb && (
+                              <span className="text-xs text-neutral-400">{job.suburb}, {job.state}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-neutral-600 dark:text-slate-300 mt-0.5 line-clamp-2">{job.description || "No description"}</p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-neutral-400">
+                            <span>{job.itemCount ?? 0} items</span>
+                            <span>{job.equipmentCount ?? 0} equipment</span>
+                          </div>
+                        </div>
+                        {job.totalExTax > 0 && (
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-sm font-semibold text-neutral-800 dark:text-white">
+                              ${job.totalExTax.toLocaleString("en-AU", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </div>
+                            <div className="text-xs text-neutral-400">ex tax</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
