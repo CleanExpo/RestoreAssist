@@ -7,6 +7,18 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X } from "lucide-react"
 import Footer from "@/components/landing/Footer"
 
+// Video guides are statically generated at /resources/[slug]
+// Add new entries here as new content/resources/*.json files are created
+const VIDEO_GUIDES = [
+  {
+    slug: "water-damage-category-guide",
+    title: "Water Damage Categories Explained — IICRC S500 Guide for Australian Technicians",
+    description: "Learn the three IICRC S500 water damage categories and why they matter for scope, safety, and insurance claims in Australia.",
+    thumbnailUrl: "https://placehold.co/1280x720/06b6d4/white?text=RestoreAssist",
+    uploadDate: "2026-03-29T09:00:00+10:00",
+  },
+]
+
 export default function ResourcesPage() {
   const [darkMode, setDarkMode] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -264,6 +276,60 @@ export default function ResourcesPage() {
                   ))}
                 </div>
               </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Video Guides Section */}
+      <section className="py-20 px-6 relative bg-[#1C2E47] overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-10 right-1/3 w-80 h-80 bg-[#06b6d4]/8 rounded-full blur-3xl"></div>
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <h2
+            className="text-3xl font-bold text-[#F4F5F6] mb-2"
+            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+          >
+            Video Guides
+          </h2>
+          <p className="text-[#C4C8CA] mb-8">
+            IICRC S500 tutorials and restoration best practices from Australian professionals
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {VIDEO_GUIDES.map((guide) => (
+              <Link
+                key={guide.slug}
+                href={`/resources/${guide.slug}`}
+                className="group block rounded-2xl border border-[#5A6A7B]/30 overflow-hidden hover:border-cyan-400 transition-all bg-[#1C2E47]/50 backdrop-blur-sm"
+              >
+                <div className="aspect-video bg-[#5A6A7B]/20 relative overflow-hidden">
+                  <img
+                    src={guide.thumbnailUrl}
+                    alt={guide.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-cyan-600 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-sm text-[#F4F5F6] line-clamp-2 group-hover:text-cyan-400 transition-colors">
+                    {guide.title}
+                  </h3>
+                  <p className="text-xs text-[#C4C8CA] mt-1">
+                    {new Date(guide.uploadDate).toLocaleDateString('en-AU', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
