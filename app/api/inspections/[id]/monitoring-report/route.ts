@@ -41,6 +41,17 @@ function toDateKey(date: Date): string {
   return date.toISOString().substring(0, 10)
 }
 
+// ── Internal DB row type (matches Prisma select shape) ───────────────────────
+interface RawReading {
+  id: string
+  location: string
+  surfaceType: string
+  moistureLevel: number
+  depth: string
+  notes: string | null
+  recordedAt: Date
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface ReadingSnapshot {
@@ -130,8 +141,8 @@ async function buildReport(
   }
 
   // Group readings by date key
-  const byDate = new Map<string, typeof inspection.moistureReadings>()
-  for (const r of inspection.moistureReadings) {
+  const byDate = new Map<string, RawReading[]>()
+  for (const r of inspection.moistureReadings as RawReading[]) {
     const key = toDateKey(new Date(r.recordedAt))
     if (!byDate.has(key)) byDate.set(key, [])
     byDate.get(key)!.push(r)
@@ -143,7 +154,7 @@ async function buildReport(
   const dailyLogs: DailyLog[] = sortedDates.map((date, idx) => {
     const dayReadings = byDate.get(date)!
 
-    const snapshots: ReadingSnapshot[] = dayReadings.map((r) => {
+    const snapshots: ReadingSnapshot[] = dayReadings.map((r: RawReading) => {
       const target = getTarget(r.surfaceType)
       return {
         id: r.id,
@@ -180,14 +191,14 @@ async function buildReport(
       // Compare avgMoisture to previous day(s)
       const prevDate = sortedDates[idx - 1]
       const prevReadings = byDate.get(prevDate)!
-      const prevAvg = prevReadings.reduce((s, r) => s + r.moistureLevel, 0) / prevReadings.length
+      const prevAvg = prevReadings.reduce((s: number, r: RawReading) => s + r.moistureLevel, 0) / prevReadings.length
 
       // Check for plateau: no meaningful change for 2+ days
       let plateau = false
       if (idx >= 2) {
         const dayBeforePrev = sortedDates[idx - 2]
         const dbpReadings = byDate.get(dayBeforePrev)!
-        const dbpAvg = dbpReadings.reduce((s, r) => s + r.moistureLevel, 0) / dbpReadings.length
+        const dbpAvg = dbpReadings.reduce((s: number, r: RawReading) => s + r.moistureLevel, 0) / dbpReadings.length
         // Plateau = both today and yesterday within 0.5% of day before that
         plateau = Math.abs(avgMoisture - prevAvg) < 0.5 && Math.abs(prevAvg - dbpAvg) < 0.5
       }
@@ -314,7 +325,3 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// Suppress unused-variable warnings for inline constants used only as documentation
-void WOOD_TARGET_MC
-void DRYWALL_TARGET_MC
-void CONCRETE_TARGET_MC
