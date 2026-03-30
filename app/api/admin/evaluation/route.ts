@@ -14,22 +14,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import {
   runEvaluationSuite,
   type EvaluationOptions,
 } from '@/lib/ai/evaluation-harness'
 
 export async function POST(request: NextRequest) {
-  // TODO: Replace with proper admin auth (e.g. NextAuth role check)
-  // For now, check x-admin-key header against ADMIN_API_KEY env var
-  const adminKey = request.headers.get('x-admin-key')
-  const expectedKey = process.env.ADMIN_API_KEY
-
-  if (expectedKey && adminKey !== expectedKey) {
-    return NextResponse.json(
-      { error: 'Unauthorized. Provide valid x-admin-key header.' },
-      { status: 401 }
-    )
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
   }
 
   try {
@@ -60,14 +58,13 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : 'Evaluation failed'
     console.error('[admin/evaluation POST]', err)
 
-    // Distinguish configuration errors from runtime errors
     if (
       message.includes('ANTHROPIC_API_KEY') ||
       message.includes('Anthropic SDK')
     ) {
       return NextResponse.json(
         { error: message },
-        { status: 503 } // Service Unavailable — missing config
+        { status: 503 }
       )
     }
 

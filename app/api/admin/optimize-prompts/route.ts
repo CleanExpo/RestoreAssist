@@ -31,11 +31,12 @@ const VALID_CLAIM_TYPES = [
 export async function POST(request: NextRequest) {
   try {
     // ── Auth check ──
-    // TODO: Add admin role check — currently requires any authenticated user.
-    // When role-based auth is implemented, gate this behind `session.user.role === 'admin'`.
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
     // ── Parse body ──
