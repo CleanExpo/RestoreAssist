@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
         currentRevenue: Math.round(totalCurrentRevenue),
         previousRevenue: Math.round(totalPrevRevenue),
         revenueChangePct: Math.round(revenueChangePct * 10) / 10,
-        reportChangePct: Math.round(reportChangePct * 10) / 10,
+        reportChangePct: Math.round(reportChange * 10) / 10,
       },
       topHazard: { name: topHazard, count: topHazardCount },
       topGrowingClients,
