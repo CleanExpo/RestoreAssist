@@ -83,13 +83,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "No updatable fields provided" }, { status: 400 })
     }
 
-    const updated = await prisma.inspection.update({
+    await prisma.inspection.update({
       where: { id },
       data,
-      select: { id: true, lossDescription: true, technicianName: true },
     })
 
-    return NextResponse.json({ inspection: updated })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error patching inspection:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
