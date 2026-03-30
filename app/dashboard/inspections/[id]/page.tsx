@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
@@ -29,9 +30,16 @@ import {
   XCircle,
   Map,
   TrendingDown,
+  PencilRuler,
 } from "lucide-react"
 
-type Tab = "overview" | "environmental" | "moisture" | "drying-chart" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+// Fabric.js canvas — must be client-only (no SSR)
+const SketchEditor = dynamic(
+  () => import("@/components/sketch/SketchEditor").then((m) => ({ default: m.SketchEditor })),
+  { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-cyan-500" size={28} /></div> }
+)
+
+type Tab = "overview" | "environmental" | "moisture" | "drying-chart" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "sketch"
 
 interface Inspection {
   id: string
@@ -226,6 +234,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
+    { key: "sketch", label: "Sketch", icon: PencilRuler },
   ]
 
   return (
@@ -753,6 +762,26 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             ) : (
               <div className="text-center py-12 text-neutral-400">No photos uploaded</div>
             )}
+          </div>
+        )}
+
+        {/* Sketch Tab — Fabric.js multi-floor canvas with auto-loaded property floor plan */}
+        {activeTab === "sketch" && (
+          <div className="space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-800 dark:text-slate-200">Property Sketch</h2>
+                <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
+                  Floor plan loaded from OnTheHouse · Draw rooms, place moisture readings and equipment
+                </p>
+              </div>
+            </div>
+            <SketchEditor
+              inspectionId={inspection.id}
+              propertyAddress={inspection.propertyAddress}
+              propertyPostcode={inspection.propertyPostcode}
+              height={680}
+            />
           </div>
         )}
       </div>

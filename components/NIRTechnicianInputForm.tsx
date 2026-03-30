@@ -26,6 +26,7 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
+import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion"
 import {
   Dialog,
   DialogContent,
@@ -228,7 +229,10 @@ export default function NIRTechnicianInputForm({
     category: string
     class: string
   } | null>(null)
-  
+
+  // Damage description — feeds the auto-classifier
+  const [damageDescription, setDamageDescription] = useState('')
+
   // Equipment Selection
   const [equipmentSelection, setEquipmentSelection] = useState<Array<{
     id: string
@@ -1978,7 +1982,43 @@ export default function NIRTechnicianInputForm({
         <p className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}>
           The system will automatically classify based on your data. You can manually override the classification if needed.
         </p>
-        
+
+        {/* Damage description — feeds rule-based auto-classifier */}
+        <div className="mb-4">
+          <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            Describe the Damage (optional — improves auto-classification)
+          </label>
+          <textarea
+            rows={3}
+            value={damageDescription}
+            onChange={(e) => setDamageDescription(e.target.value)}
+            className={cn(
+              "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 resize-none",
+              "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+              "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400"
+            )}
+            placeholder="e.g. Burst pipe in bathroom, grey water from washing machine overflow, sewage backup in basement…"
+          />
+          <ClassificationSuggestion
+            description={damageDescription}
+            averageMoistureReading={
+              moistureReadings.length > 0
+                ? moistureReadings.reduce((sum: number, r: { moistureLevel: number }) => sum + r.moistureLevel, 0) / moistureReadings.length
+                : undefined
+            }
+            onApply={(result, _claimTypes) => {
+              if (result.damageCategory || result.damageClass) {
+                setManualClassification({
+                  category: result.damageCategory ? String(result.damageCategory) : manualClassification?.category ?? '',
+                  class: result.damageClass ? String(result.damageClass) : manualClassification?.class ?? '',
+                })
+              }
+              // _claimTypes carries the full multi-loss selection — available for future
+              // scope generation call-sites that accept claimTypes: string[].
+            }}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Water Category Selector */}
           <div>

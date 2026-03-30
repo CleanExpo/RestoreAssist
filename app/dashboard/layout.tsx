@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Fragment } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import {
@@ -262,10 +262,10 @@ const upgradeItem = {
                         )
                       }
                       return (
-                        <>
+                        <Fragment key={item.href}>
                           {divider}
                           <Link
-                            key={item.href}
+                            href={item.href}
                             href={item.href}
                             className={cn(
                               "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
@@ -289,7 +289,7 @@ const upgradeItem = {
                             <item.icon size={20} className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? 'group-hover:scale-110 group-hover:rotate-3' : 'group-hover:scale-110'}`} />
                             {sidebarOpen && <span className="text-sm">{item.label}</span>}
                           </Link>
-                        </>
+                        </Fragment>
                       )
                     })}
                     

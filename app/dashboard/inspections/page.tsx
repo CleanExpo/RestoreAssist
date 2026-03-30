@@ -65,6 +65,8 @@ export default function InspectionsPage() {
 
   const [inspections, setInspections] = useState<Inspection[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
@@ -80,37 +82,36 @@ export default function InspectionsPage() {
   const sort     = searchParams.get("sort")     ?? "recent"
   const page     = parseInt(searchParams.get("page") ?? "1", 10)
 
-  // Map "sort" param → API sortBy + sortOrder
-  function sortToApi(s: string): { sortBy: string; sortOrder: string } {
-    if (s === "oldest")  return { sortBy: "createdAt", sortOrder: "asc" }
-    if (s === "address") return { sortBy: "address",   sortOrder: "asc" }
-    return { sortBy: "createdAt", sortOrder: "desc" }
+  // ── Build common API params ────────────────────────────────────
+  function buildApiParams(extra?: Record<string, string>) {
+    const params = new URLSearchParams()
+    params.set("limit", String(PAGE_SIZE))
+    if (search)   params.set("search",   search)
+    if (status)   params.set("status",   status)
+    if (category) params.set("category", category)
+    if (from)     params.set("from",     from)
+    if (to)       params.set("to",       to)
+    if (sort)     params.set("sort",     sort)
+    if (extra) {
+      Object.entries(extra).forEach(([k, v]) => params.set(k, v))
+    }
+    return params
   }
 
   // ── Fetch on any param change ──────────────────────────────────
   const fetchInspections = useCallback(async () => {
     setLoading(true)
     setSelectedIds(new Set())
+    setNextCursor(null)
 
     try {
-      const params = new URLSearchParams()
-      params.set("limit", String(PAGE_SIZE))
-      params.set("page",  String(page))
-      if (search)   params.set("search",   search)
-      if (status)   params.set("status",   status)
-      if (category) params.set("category", category)
-      if (from)     params.set("from",     from)
-      if (to)       params.set("to",       to)
-
-      const { sortBy, sortOrder } = sortToApi(sort)
-      params.set("sortBy",    sortBy)
-      params.set("sortOrder", sortOrder)
-
+      const params = buildApiParams({ page: String(page) })
       const res = await fetch(`/api/inspections?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setInspections(data.inspections || [])
         setPagination(data.pagination ?? null)
+        setNextCursor(data.nextCursor ?? null)
       } else {
         toast.error("Failed to fetch inspections")
       }
@@ -119,11 +120,34 @@ export default function InspectionsPage() {
     } finally {
       setLoading(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, status, category, from, to, sort, page])
 
   useEffect(() => {
     fetchInspections()
   }, [fetchInspections])
+
+  // ── Load More (cursor-based) ──────────────────────────────────
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const params = buildApiParams({ cursor: nextCursor })
+      const res = await fetch(`/api/inspections?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setInspections((prev) => [...prev, ...(data.inspections || [])])
+        setNextCursor(data.nextCursor ?? null)
+      } else {
+        toast.error("Failed to load more inspections")
+      }
+    } catch {
+      toast.error("Failed to load more inspections")
+    } finally {
+      setLoadingMore(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextCursor, loadingMore, search, status, category, from, to, sort])
 
   // ── Pagination navigation ─────────────────────────────────────
   function goToPage(p: number) {
@@ -376,6 +400,22 @@ export default function InspectionsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Load More (cursor-based) */}
+      {nextCursor && !loading && (
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm font-medium text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loadingMore ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : null}
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
         </div>
       )}
 

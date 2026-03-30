@@ -52,9 +52,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get pagination parameters
+    const cursor = searchParams.get("cursor")     // cursor-based pagination (inspection id)
     const page = parseInt(searchParams.get("page") || "1")
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100) // Max 100
-    const skip = (page - 1) * limit
+    const skip = cursor ? 0 : (page - 1) * limit
 
     // Get search and filter parameters
     const search = searchParams.get("search")
@@ -62,8 +63,23 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category") // e.g. "1", "2", "3"
     const from = searchParams.get("from")         // ISO date string
     const to = searchParams.get("to")             // ISO date string
-    const sortBy = searchParams.get("sortBy") || "createdAt"
-    const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc"
+
+    // "sort" param: recent | oldest | address (RA-270 friendly names)
+    // "sortBy" / "sortOrder" are the legacy low-level params
+    const sortParam = searchParams.get("sort")
+    let sortBy: string
+    let sortOrder: "asc" | "desc"
+    if (sortParam === "oldest") {
+      sortBy = "createdAt"; sortOrder = "asc"
+    } else if (sortParam === "address") {
+      sortBy = "address"; sortOrder = "asc"
+    } else if (sortParam === "recent" || sortParam) {
+      sortBy = "createdAt"; sortOrder = "desc"
+    } else {
+      // Legacy sortBy / sortOrder params
+      sortBy = searchParams.get("sortBy") || "createdAt"
+      sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc"
+    }
 
     // Build where clause
     const where: any = { userId: session.user.id }
@@ -122,10 +138,14 @@ export async function GET(request: NextRequest) {
       orderBy.createdAt = "desc" // Default
     }
 
-    // Get total count for pagination
-    const total = await prisma.inspection.count({ where })
+    // Cursor-based pagination: fetch one extra row to determine if there is a next page
+    const isCursorMode = Boolean(cursor)
+    const fetchLimit = isCursorMode ? limit + 1 : limit
 
-    // Get inspections with pagination
+    // Get total count for page-based pagination (skip when using cursor)
+    const total = isCursorMode ? null : await prisma.inspection.count({ where })
+
+    // Get inspections
     const inspections = await prisma.inspection.findMany({
       where,
       include: {
@@ -140,17 +160,37 @@ export async function GET(request: NextRequest) {
         photos: true
       },
       orderBy,
-      skip,
-      take: limit
+      ...(isCursorMode
+        ? { cursor: { id: cursor! }, skip: 1, take: fetchLimit }
+        : { skip, take: fetchLimit }
+      ),
     })
+
+    // Determine next cursor
+    let nextCursor: string | null = null
+    if (isCursorMode) {
+      if (inspections.length > limit) {
+        const lastItem = inspections[limit] // the extra item
+        nextCursor = lastItem.id
+        inspections.splice(limit) // remove extra item from results
+      }
+      return NextResponse.json({ inspections, nextCursor })
+    }
+
+    // Page-based mode: also expose nextCursor so clients can switch to "Load More"
+    const pages = Math.ceil(total! / limit)
+    if (page < pages && inspections.length > 0) {
+      nextCursor = inspections[inspections.length - 1].id
+    }
 
     return NextResponse.json({
       inspections,
+      nextCursor,
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: total!,
+        pages,
       }
     })
   } catch (error) {

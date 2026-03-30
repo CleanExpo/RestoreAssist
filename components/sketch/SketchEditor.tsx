@@ -581,6 +581,7 @@ export function SketchEditor({
           onApply={handleApplyBackground}
           onClear={handleClearBackground}
           hasBackground={!!backgroundUrls[activeFloor?.id ?? ""]}
+          autoFetch={!!propertyAddress && !backgroundUrls[activeFloor?.id ?? ""]}
         />
       )}
 

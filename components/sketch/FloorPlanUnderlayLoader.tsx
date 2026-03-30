@@ -8,7 +8,7 @@
  * semi-transparent underlay on the Fabric.js canvas for tracing.
  */
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import {
   MapPin,
@@ -36,6 +36,12 @@ export interface FloorPlanUnderlayLoaderProps {
   onClear: () => void
   /** Whether a background image is currently set. */
   hasBackground?: boolean
+  /**
+   * When true AND defaultAddress is provided, automatically fetch the
+   * property listing on mount and apply the first floor plan found.
+   * The panel expands to show loading state.
+   */
+  autoFetch?: boolean
   className?: string
 }
 
@@ -46,9 +52,10 @@ export function FloorPlanUnderlayLoader({
   onApply,
   onClear,
   hasBackground = false,
+  autoFetch = false,
   className,
 }: FloorPlanUnderlayLoaderProps) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress)
   const [address, setAddress] = useState(defaultAddress)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +63,33 @@ export function FloorPlanUnderlayLoader({
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [opacity, setOpacity] = useState(0.35)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Track whether we've already auto-applied so we don't re-trigger on re-renders
+  const autoAppliedRef = useRef(false)
+
+  // Auto-fetch on mount when autoFetch=true and an address is available
+  useEffect(() => {
+    if (!autoFetch || !defaultAddress || hasBackground) return
+    // Small delay so the canvas is fully mounted before the background is set
+    const timer = setTimeout(() => {
+      fetchListing()
+    }, 400)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // mount-only — intentionally omitting deps to avoid re-triggering
+
+  // After results arrive from auto-fetch, apply the best image automatically
+  useEffect(() => {
+    if (!autoFetch || autoAppliedRef.current) return
+    if (!results) return
+    const autoSelect = results.floorPlanImages[0] ?? results.propertyImages[0] ?? null
+    if (autoSelect) {
+      autoAppliedRef.current = true
+      onApply(autoSelect, opacity)
+      // Collapse the panel once applied — the Active indicator will appear
+      setExpanded(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results])
 
   const allImages = results
     ? [...results.floorPlanImages, ...results.propertyImages]

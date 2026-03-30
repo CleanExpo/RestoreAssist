@@ -15,6 +15,8 @@
  *   affectedAreaM2: number                              // required for scope completeness
  *   affectedRooms?: string[]
  *   lossSourceDescription?: string
+ *   claimType?: "water_damage" | "fire_smoke" | "storm" | "mould" | "contents"  // default: water_damage (single)
+ *   claimTypes?: string[]   // multi-loss: ["water_damage","fire_smoke"]. Overrides claimType when provided.
  * }
  */
 
@@ -24,12 +26,17 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import {
-  SCOPE_SYSTEM_PROMPT,
   buildScopeUserMessage,
   type MoistureReadingInput,
   type EquipmentItemInput,
 } from "@/lib/scope-narrative-prompts"
 import { getDryStandard, getMoistureStatus } from "@/lib/iicrc-dry-standards"
+import { safeRetrieveSimilarJobs } from "@/lib/ai/rag-context"
+import {
+  getClaimTypePrompt,
+  getMultiClaimPrompt,
+  type ClaimType,
+} from "@/lib/ai/claim-type-prompts"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -53,12 +60,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       affectedAreaM2,
       affectedRooms,
       lossSourceDescription,
+      claimType = "water_damage",
+      claimTypes: claimTypesRaw,
     } = body as {
       model?: string
       affectedAreaM2: number
       affectedRooms?: string[]
       lossSourceDescription?: string
+      claimType?: ClaimType
+      claimTypes?: string[]
     }
+
+    // Resolve effective claim type(s): claimTypes[] overrides single claimType
+    const effectiveClaimTypes: string[] =
+      Array.isArray(claimTypesRaw) && claimTypesRaw.length > 0
+        ? claimTypesRaw
+        : [claimType]
+    const isMultiClaim = effectiveClaimTypes.length > 1
 
     if (!affectedAreaM2 || affectedAreaM2 <= 0) {
       return NextResponse.json({ error: "affectedAreaM2 is required" }, { status: 400 })
@@ -146,6 +164,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     })
 
     // ============================================================
+    // RAG: retrieve similar historical jobs for context
+    // ============================================================
+    const ragResult = await safeRetrieveSimilarJobs({
+      tenantId: session.user.id,
+      claimType: `CAT_${classification.category}`,
+      waterCategory: parseInt(classification.category, 10) || undefined,
+      waterClass: parseInt(classification.class, 10) || undefined,
+      description: lossSourceDescription ?? inspection.propertyAddress,
+      suburb: inspection.propertyAddress.split(",").slice(-2, -1)[0]?.trim(),
+    })
+    console.log('[RAG] Injected', ragResult.jobCount, 'similar historical jobs')
+
+    // Build claim-type-aware system prompt, injecting RAG context when available
+    const promptOptions = {
+      damageCategory: parseInt(classification.category, 10) || undefined,
+      damageClass: parseInt(classification.class, 10) || undefined,
+      ragContext: ragResult.jobCount > 0 ? ragResult.contextPrompt : undefined,
+    }
+    const effectiveSystemPrompt = isMultiClaim
+      ? getMultiClaimPrompt(effectiveClaimTypes, promptOptions)
+      : getClaimTypePrompt(claimType as ClaimType, promptOptions)
+
+    // ============================================================
     // Streaming response
     // ============================================================
     const encoder = new TextEncoder()
@@ -161,7 +202,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             system: [
               {
                 type: "text",
-                text: SCOPE_SYSTEM_PROMPT,
+                text: effectiveSystemPrompt,
                 // Enable prompt caching — system prompt rarely changes
                 cache_control: { type: "ephemeral" },
               },

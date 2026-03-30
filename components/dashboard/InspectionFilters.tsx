@@ -16,7 +16,7 @@
  */
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { useCallback, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import {
   Search,
   X,
@@ -84,6 +84,35 @@ export function useInspectionFilters() {
 
   const filters = parseFilters(searchParams)
 
+  // Local search input state — debounced 300ms before pushing to URL
+  const [searchInput, setSearchInput] = useState(filters.search)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep local input in sync when the URL search param changes externally (e.g. clear-all)
+  useEffect(() => {
+    setSearchInput(filters.search)
+  }, [filters.search])
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchInput(value)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (value) {
+          params.set("search", value)
+        } else {
+          params.delete("search")
+        }
+        params.delete("page")
+        startTransition(() => {
+          router.push(`${pathname}?${params.toString()}`, { scroll: false })
+        })
+      }, 300)
+    },
+    [router, pathname, searchParams]
+  )
+
   const setFilter = useCallback(
     (key: keyof FilterState, value: string) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -102,6 +131,7 @@ export function useInspectionFilters() {
   )
 
   const clearAll = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     startTransition(() => {
       router.push(pathname, { scroll: false })
     })
@@ -115,7 +145,7 @@ export function useInspectionFilters() {
     filters.to,
   ].filter(Boolean).length
 
-  return { filters, setFilter, clearAll, activeCount, isPending }
+  return { filters, searchInput, handleSearchChange, setFilter, clearAll, activeCount, isPending }
 }
 
 // ── Component ─────────────────────────────────────────────────────
@@ -125,7 +155,7 @@ interface InspectionFiltersProps {
 }
 
 export default function InspectionFilters({ className }: InspectionFiltersProps) {
-  const { filters, setFilter, clearAll, activeCount, isPending } = useInspectionFilters()
+  const { filters, searchInput, handleSearchChange, setFilter, clearAll, activeCount, isPending } = useInspectionFilters()
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -138,8 +168,8 @@ export default function InspectionFilters({ className }: InspectionFiltersProps)
           />
           <input
             type="text"
-            value={filters.search}
-            onChange={(e) => setFilter("search", e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search address, inspection #, or technician…"
             className={cn(
               "w-full pl-9 pr-3 py-2.5 rounded-lg text-sm",
