@@ -11,6 +11,7 @@ import DryingProgressChart from "@/components/inspection/DryingProgressChart"
 import { MoistureReadingEntryForm } from "@/components/inspection/MoistureReadingEntryForm"
 import InspectionSignOff from "@/components/inspection/InspectionSignOff"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
+import NIRClaimAssessmentPanel, { type NIRClaimType } from "@/components/inspection/NIRClaimAssessmentPanel"
 import {
   ArrowLeft,
   Loader2,
@@ -44,7 +45,7 @@ const SketchEditor = dynamic(
   { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-cyan-500" size={28} /></div> }
 )
 
-type Tab = "overview" | "environmental" | "moisture" | "drying-chart" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "sketch"
+type Tab = "overview" | "environmental" | "moisture" | "drying-chart" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "sketch" | "nir"
 
 interface Inspection {
   id: string
@@ -61,6 +62,7 @@ interface Inspection {
   signatureUrl: string | null
   lossDescription: string | null
   generatedNarrative: string | null
+  claimType: string | null
   environmentalData: {
     ambientTemperature: number
     humidityLevel: number
@@ -409,6 +411,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
     { key: "sketch", label: "Sketch", icon: PencilRuler },
+    { key: "nir", label: "NIR Assessment", icon: ClipboardCheck },
   ]
 
   return (
@@ -1170,6 +1173,21 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               propertyAddress={inspection.propertyAddress}
               propertyPostcode={inspection.propertyPostcode}
               height={680}
+            />
+          </div>
+        )}
+
+        {activeTab === "nir" && (
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-base font-semibold text-neutral-800 dark:text-slate-200">NIR Assessment</h2>
+              <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
+                Claim-type specific assessment data · Australian compliance · Insurance details
+              </p>
+            </div>
+            <NIRClaimAssessmentPanel
+              inspectionId={inspection.id}
+              initialClaimType={(inspection.claimType ?? null) as NIRClaimType | null}
             />
           </div>
         )}
