@@ -57,15 +57,17 @@ export default async function ResourceArticlePage({
       </div>
 
       <article className="max-w-4xl mx-auto px-4 py-8">
-        {/* JSON-LD VideoObject schema via RA-245 component */}
-        <VideoObjectSchema
-          title={resource.title}
-          description={resource.description}
-          thumbnailUrl={resource.thumbnailUrl}
-          uploadDate={resource.uploadDate}
-          duration={resource.duration}
-          embedUrl={resource.embedUrl}
-        />
+        {/* JSON-LD VideoObject schema — only emitted when a video embed exists */}
+        {resource.embedUrl && (
+          <VideoObjectSchema
+            title={resource.title}
+            description={resource.description}
+            thumbnailUrl={resource.thumbnailUrl}
+            uploadDate={resource.uploadDate}
+            duration={resource.duration}
+            embedUrl={resource.embedUrl}
+          />
+        )}
 
         {/* Title */}
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
@@ -85,16 +87,18 @@ export default async function ResourceArticlePage({
           <span>{resource.author}</span>
         </div>
 
-        {/* YouTube embed */}
-        <div className="relative aspect-video mb-10 rounded-xl overflow-hidden bg-black shadow-2xl">
-          <iframe
-            src={resource.embedUrl}
-            title={resource.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 w-full h-full"
-          />
-        </div>
+        {/* YouTube embed — only shown when embedUrl is present */}
+        {resource.embedUrl && (
+          <div className="relative aspect-video mb-10 rounded-xl overflow-hidden bg-black shadow-2xl">
+            <iframe
+              src={resource.embedUrl}
+              title={resource.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="absolute inset-0 w-full h-full"
+            />
+          </div>
+        )}
 
         {/* Article body from transcript */}
         <div className="space-y-6">
