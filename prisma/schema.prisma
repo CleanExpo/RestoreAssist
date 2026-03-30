@@ -1542,9 +1542,12 @@ model Inspection {
   sketches                   ClaimSketch[]
   drNrpgJobSync              DrNrpgJobSync?
   dryingGoalRecord           DryingGoalRecord?
-  waterDamageClassification  WaterDamageClassification?
-  psychrometricReadings      PsychrometricReading[]
-  circuitAssessments         CircuitAssessment[]
+  waterDamageClassification   WaterDamageClassification?
+  psychrometricReadings       PsychrometricReading[]
+  circuitAssessments          CircuitAssessment[]
+  fireSmokeDamageAssessment   FireSmokeDamageAssessment?
+  contentsPackOutItems        ContentsPackOutItem[]
+  mouldRemediationAssessment  MouldRemediationAssessment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4320,4 +4323,176 @@ model CircuitAssessment {
 
   @@index([inspectionId])
   @@index([circuitLoadSafe])
+}
+
+// ─── RA-261: NIR Full Data Depth — Phase 2: Fire & Smoke Enums ───────────────
+
+enum StructuralStability {
+  SAFE
+  UNCERTAIN
+  COMPROMISED
+}
+
+enum SmokeResidueType {
+  WET      // Wet soot — high heat, dense smoke
+  DRY      // Dry soot — fast-burning, low humidity
+  PROTEIN  // Protein fire — kitchen/food source
+  FUEL_OIL // Fuel oil — heating systems
+}
+
+enum OdourType {
+  SMOKE
+  PROTEIN
+  CHEMICAL
+  FUEL
+}
+
+enum PackOutDecision {
+  CLEAN_ONSITE
+  PACK_OUT
+  TOTAL_LOSS
+}
+
+enum ConditionGrade {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum MouldConditionLevel {
+  CONDITION_1  // Normal fungal ecology — no visible or olfactory evidence
+  CONDITION_2  // Settled spores — visible dust/debris, no active growth
+  CONDITION_3  // Active mould growth — visible or confirmed by testing
+}
+
+// ─── RA-261: NIR Phase 2 — Fire & Smoke Models ───────────────────────────────
+
+/// Fire & Smoke Damage Assessment (RA-261 Phase 2 — ANSI/IICRC S700:2025)
+/// Structural safety gate + smoke residue + odour assessment.
+model FireSmokeDamageAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Structural Safety Gate (blocks all other work if UNCERTAIN or COMPROMISED)
+  structuralStability          StructuralStability?
+  electricalDisconnectVerified Boolean              @default(false) // GATE: must be true before wet cleaning
+  gasShutoffVerified           Boolean              @default(false)
+  charringDepthMm              Float?               // Depth of visible charring
+  engineerClearanceRequired    Boolean              @default(false) // Auto-set if UNCERTAIN
+
+  // Smoke Residue Classification (drives cleaning method)
+  smokeResidueType  SmokeResidueType?
+  residueLocation   String?           // Specific area description
+  surfacePH         Float?            // 0–14; soot is alkaline, needs acid neutralisation if >8
+  pHMeterModel      String?
+
+  // Odour Assessment
+  odourSeverityScore Int?       // 0=none, 1=mild, 2=moderate, 3=severe
+  hvacAffected       Boolean    @default(false) // Auto-triggers HVAC cleaning line items
+  odourType          OdourType?
+
+  // Ozone/Deodorisation Treatment
+  ozoneTreatmentDuration     Float?    // hours
+  ozoneConcentrationPpm      Float?    // Target clearance: <0.05 ppm (EPA threshold)
+  evacuationOrderTimestamp   DateTime?
+  reentryApprovalTimestamp   DateTime?
+  spaceVolumeM3              Float?
+
+  // Gate states
+  gateStructuralCleared  Boolean @default(false) // structuralStability = SAFE
+  gateElectricalCleared  Boolean @default(false) // electricalDisconnectVerified
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([structuralStability])
+}
+
+/// Contents pack-out inventory item (RA-261 Phase 2 — used across Fire, Flood, Biohazard)
+/// One row per item — chain-of-custody tracking for insurer acceptance.
+model ContentsPackOutItem {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Item identification
+  itemDescription  String           // "Mahogany dining table, 6-seater"
+  make             String?
+  model            String?
+  serialNumber     String?
+  ageYears         Int?
+
+  // Condition assessment
+  conditionPreLoss  ConditionGrade?
+  conditionPostLoss ConditionGrade?
+
+  // Valuation
+  replacementValueAud     Decimal? @db.Decimal(10, 2)
+  restorationCostEstimate Decimal? @db.Decimal(10, 2)
+
+  // Decision
+  packOutDecision PackOutDecision?
+  packOutTag      String?           // Barcode/QR for chain of custody
+
+  // Evidence
+  beforePhotoUrl String?
+  afterPhotoUrl  String?
+
+  // Linked claim type
+  claimType ClaimType?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([packOutDecision])
+  @@index([claimType])
+}
+
+// ─── RA-261: NIR Phase 3 — Mould Remediation Model ──────────────────────────
+
+/// Mould Remediation Assessment (RA-261 Phase 3 — ANSI/IICRC S520:2024)
+/// Condition level drives containment requirements and air sampling gates.
+model MouldRemediationAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Classification (drives all downstream requirements)
+  mouldConditionLevel    MouldConditionLevel?
+  visibleGrowthObserved  Boolean              @default(false)
+  affectedAreaM2         Float?               // GATE: drives containment level
+  moistureSourceIdentified Boolean            @default(false) // GATE
+  rootCauseAddressed     Boolean              @default(false) // GATE
+
+  // Containment data (auto-calculated from affectedAreaM2)
+  pressureDifferentialPa     Float?   // Target: –5 to –12 Pa
+  airChangesPerHour          Float?   // Target: 10–15 ACH
+  containmentBarrierMaterial String?  // e.g., "6 mil polyethylene"
+  negativePressureMachineModel String?
+
+  // Air sampling (triggered when Condition 3 or area >10m²)
+  airSamplingRequired        Boolean    @default(false) // Auto-set
+  samplingDate               DateTime?
+  labName                    String?    // Accredited lab
+  labReportReference         String?
+  sporeType                  String?    // e.g., Cladosporium, Aspergillus, Stachybotrys
+  sporeCountPreRemediation   Float?     // spores/m³
+  outdoorBaselineCount       Float?     // spores/m³
+  sporeCountPostRemediation  Float?     // spores/m³
+  clearanceCriterion         String?    // MET | NOT_MET | PENDING
+  iepAssessmentRequired      Boolean    @default(false) // Auto-set if area >50m² or vulnerable
+
+  // Gate states
+  gateMoistureSourceFixed Boolean @default(false)
+  gateContainmentSufficient Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([mouldConditionLevel])
 }
