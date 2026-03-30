@@ -9,6 +9,7 @@ import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas
 import MoistureTrendChart from "@/components/inspection/MoistureTrendChart"
 import DryingProgressChart from "@/components/inspection/DryingProgressChart"
 import { MoistureReadingEntryForm } from "@/components/inspection/MoistureReadingEntryForm"
+import InspectionSignOff from "@/components/inspection/InspectionSignOff"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
 import {
   ArrowLeft,
@@ -34,6 +35,7 @@ import {
   Sparkles,
   Copy,
   Check,
+  PenLine,
 } from "lucide-react"
 
 // Fabric.js canvas — must be client-only (no SSR)
@@ -54,6 +56,10 @@ interface Inspection {
   createdAt: string
   submittedAt: string | null
   processedAt: string | null
+  signedAt: string | null
+  signedByName: string | null
+  signatureUrl: string | null
+  lossDescription: string | null
   environmentalData: {
     ambientTemperature: number
     humidityLevel: number
@@ -490,6 +496,19 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 </div>
               </div>
             )}
+
+            {/* Sign Off */}
+            <div className="md:col-span-full">
+              <InspectionSignOff
+                inspectionId={inspection.id}
+                inspectionNumber={inspection.inspectionNumber}
+                signedAt={inspection.signedAt}
+                signedByName={inspection.signedByName}
+                onSigned={(signedAt, signedByName) => {
+                  setInspection(prev => prev ? { ...prev, signedAt: signedAt.toISOString(), signedByName } : prev)
+                }}
+              />
+            </div>
           </div>
         )}
 
