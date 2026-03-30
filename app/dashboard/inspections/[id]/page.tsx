@@ -205,6 +205,14 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   }>>([])
   const [isLoadingSimilarJobs, setIsLoadingSimilarJobs] = useState(false)
   const [isCalculatingEquipment, setIsCalculatingEquipment] = useState(false)
+  const [dryingGoalStatus, setDryingGoalStatus] = useState<{
+    status: "ACHIEVED" | "IN_PROGRESS" | null
+    message?: string
+    certificate?: string
+    totalDryingDays?: number
+    failingReadings?: Array<{ location: string; surfaceType: string; moistureLevel: number; target: number; gap: number }>
+  } | null>(null)
+  const [isCheckingDryingGoal, setIsCheckingDryingGoal] = useState(false)
 
   const generateScopeNarrative = async () => {
     if (!inspection) return
@@ -335,6 +343,25 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       toast.error(err instanceof Error ? err.message : "Failed to calculate equipment")
     } finally {
       setIsCalculatingEquipment(false)
+    }
+  }
+
+  const checkDryingGoal = async () => {
+    if (!inspection) return
+    setIsCheckingDryingGoal(true)
+    setDryingGoalStatus(null)
+    try {
+      // First ensure a DryingGoalRecord exists (POST is idempotent)
+      await fetch(`/api/inspections/${inspection.id}/drying-goal`, { method: "POST" })
+      // Evaluate all readings
+      const resp = await fetch(`/api/inspections/${inspection.id}/drying-goal`, { method: "PUT" })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data.error ?? "Drying goal check failed")
+      setDryingGoalStatus(data)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to check drying goal")
+    } finally {
+      setIsCheckingDryingGoal(false)
     }
   }
 
@@ -687,14 +714,67 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Drying Chart Tab (RA-266) */}
         {activeTab === "drying-chart" && (
           <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
-                IICRC S500 Drying Progress Curve
-              </h3>
-              <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
-                Multi-day drying curve per location — target lines derived from IICRC S500:2021 dry standards per material type
-              </p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
+                  IICRC S500 Drying Progress Curve
+                </h3>
+                <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
+                  Multi-day drying curve per location — target lines derived from IICRC S500:2021 dry standards per material type
+                </p>
+              </div>
+              <button
+                onClick={checkDryingGoal}
+                disabled={isCheckingDryingGoal || inspection.moistureReadings.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors shrink-0"
+              >
+                {isCheckingDryingGoal ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <CheckCircle2 size={12} />
+                )}
+                {isCheckingDryingGoal ? "Checking…" : "Check Drying Goal"}
+              </button>
             </div>
+
+            {/* Drying Goal Result */}
+            {dryingGoalStatus && (
+              <div className={cn(
+                "p-4 rounded-xl border",
+                dryingGoalStatus.status === "ACHIEVED"
+                  ? "border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-950/20"
+                  : "border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20"
+              )}>
+                <div className="flex items-start gap-3">
+                  {dryingGoalStatus.status === "ACHIEVED" ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className={cn("font-semibold text-sm", dryingGoalStatus.status === "ACHIEVED" ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400")}>
+                      {dryingGoalStatus.status === "ACHIEVED" ? "Drying Goal: ACHIEVED" : "Drying In Progress"}
+                    </p>
+                    <p className="text-xs mt-0.5 text-neutral-600 dark:text-neutral-400">{dryingGoalStatus.message}</p>
+                    {dryingGoalStatus.certificate && (
+                      <p className="text-xs mt-2 font-mono text-green-600 dark:text-green-500 bg-green-100 dark:bg-green-900/20 rounded p-2">{dryingGoalStatus.certificate}</p>
+                    )}
+                    {dryingGoalStatus.failingReadings && dryingGoalStatus.failingReadings.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {dryingGoalStatus.failingReadings.map((r, i) => (
+                          <div key={i} className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                            <span className="font-medium">{r.location}</span>
+                            <span>{r.surfaceType}:</span>
+                            <span>{r.moistureLevel}% (target {r.target}%, gap +{r.gap}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <DryingProgressChart
               readings={inspection.moistureReadings}
               inspectionStartDate={inspection.createdAt}
