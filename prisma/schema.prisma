@@ -1548,6 +1548,9 @@ model Inspection {
   fireSmokeDamageAssessment   FireSmokeDamageAssessment?
   contentsPackOutItems        ContentsPackOutItem[]
   mouldRemediationAssessment  MouldRemediationAssessment?
+  stormDamageAssessment       StormDamageAssessment?
+  biohazardAssessment         BiohazardAssessment?
+  carpetRestorationAssessment CarpetRestorationAssessment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4495,4 +4498,164 @@ model MouldRemediationAssessment {
 
   @@index([inspectionId])
   @@index([mouldConditionLevel])
+}
+
+// ─── RA-261: NIR Phase 4 — Storm, Biohazard, Carpet Enums ────────────────────
+
+enum StormEventType {
+  STORM
+  CYCLONE
+  HAIL
+  DOWNBURST
+  TORNADO
+}
+
+enum DamagePenetration {
+  SURFACE
+  PARTIAL
+  FULL
+}
+
+enum RoofMaterialType {
+  COLORBOND
+  TERRACOTTA
+  SHINGLES
+  METAL
+  OTHER
+}
+
+enum BiohazardType {
+  SEWAGE_CAT3
+  BLOOD
+  BODILY_FLUIDS
+  CRIME_SCENE
+  UNATTENDED_DEATH
+}
+
+enum PPELevel {
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+}
+
+enum CarpetFiberType {
+  WOOL
+  NYLON
+  POLYESTER
+  POLYPROPYLENE
+  OTHER
+}
+
+enum CarpetPileType {
+  CUT
+  LOOP
+  CUT_LOOP
+  FRIEZE
+}
+
+enum StainRemovalResult {
+  COMPLETE
+  PARTIAL
+  UNSUCCESSFUL
+}
+
+// ─── RA-261: NIR Phase 4 — Storm Damage Model ────────────────────────────────
+
+/// Storm/Impact Damage Assessment (RA-261 Phase 4)
+model StormDamageAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // BOM event linkage
+  bomEventReference String?    // Bureau of Meteorology report ID
+  windSpeedKmh      Float?
+  eventType         StormEventType?
+  eventTimestamp    DateTime?
+
+  // Structural damage
+  roofMaterialType      RoofMaterialType?
+  roofDamageAreaM2      Float?
+  damagePenetration     DamagePenetration?
+  waterIngressPoints    String?            @db.Text // JSON array of location descriptions
+  engineerClearanceRequired Boolean         @default(false)
+
+  // Emergency tarping
+  emergencyTarpingCompleted  Boolean   @default(false)
+  emergencyTarpingM2         Float?
+  emergencyTarpingTimestamp  DateTime?
+
+  // Consequential water damage
+  waterCategory    WaterCategory?
+  asbestosRiskFlag Boolean        @default(false) // Auto-set if building pre-1987
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([eventType])
+}
+
+// ─── RA-261: NIR Phase 4 — Biohazard Assessment Model ────────────────────────
+
+/// Biohazard / Trauma / Sewage Assessment (RA-261 Phase 4 — IICRC S540)
+model BiohazardAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  biohazardType          BiohazardType?
+  contaminationAreaM2    Float?
+  atpReadingPre          Float?    // RLU pre-remediation
+  atpReadingPost         Float?    // RLU post-remediation; target: <15 RLU
+  swmsCompleted          Boolean   @default(false) // Safe Work Method Statement
+  ppeLevel               PPELevel?
+  wasteDisposalManifestId String?
+  disposalFacilityLicense String? // EPA license number
+  disposalCertificateUrl  String? // Required before job closure
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([biohazardType])
+}
+
+// ─── RA-261: NIR Phase 4 — Carpet Restoration Model ─────────────────────────
+
+/// Carpet & Textile Restoration Assessment (RA-261 Phase 4 — IICRC S100)
+model CarpetRestorationAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  fiberType             CarpetFiberType?
+  pileType              CarpetPileType?
+  backingType           String?           // jute | synthetic | latex | other
+  standingWaterHours    Float?            // 72h + Cat3 = mandatory replace
+
+  // Extraction data
+  extractionRateLitresPerHour     Float?
+  extractionPasses                Int?
+  residualMoisturePostExtraction  Float?  // %
+
+  // Delamination
+  delaminationTestResult String?  // PASS | FAIL | MARGINAL
+
+  // Final moisture
+  finalMoisturePercent Float?
+
+  // Stain assessment
+  stainType            String?
+  stainPH              Float?
+  stainTreatmentProduct String?
+  stainRemovalResult   StainRemovalResult?
+
+  // Decision
+  restorationDecision String?  // RESTORE | REPLACE
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
 }
