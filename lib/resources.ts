@@ -26,7 +26,14 @@ export async function getAllResources(): Promise<ResourceArticle[]> {
 
   const resources = files.map((file) => {
     const raw = fs.readFileSync(path.join(CONTENT_DIR, file), 'utf-8')
-    return JSON.parse(raw) as ResourceArticle
+    const data = JSON.parse(raw) as ResourceArticle & { youtubeId?: string }
+    // Derive embedUrl from youtubeId if not already present
+    if (!data.embedUrl && data.youtubeId) {
+      data.embedUrl = `https://www.youtube.com/embed/${data.youtubeId}`
+    } else if (!data.embedUrl) {
+      data.embedUrl = ''
+    }
+    return data as ResourceArticle
   })
 
   // Sort newest first by uploadDate
