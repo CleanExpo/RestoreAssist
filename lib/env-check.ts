@@ -15,6 +15,12 @@ const RECOMMENDED_VARS = [
 ] as const
 
 export function validateEnvironment(): boolean {
+  // During `next build`, Vercel env vars are not injected — skip the check.
+  // Validation runs at request time once the server is live.
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return true
+  }
+
   const missingRequired = REQUIRED_VARS.filter(v => !process.env[v])
   const missingRecommended = RECOMMENDED_VARS.filter(v => !process.env[v])
 
@@ -39,5 +45,5 @@ export function validateEnvironment(): boolean {
   return true
 }
 
-// Validate on module load in all environments
+// Validate on module load — safe because build phase is guarded above
 validateEnvironment()
