@@ -27,11 +27,11 @@ import {
   Clock,
   XCircle,
   Map,
-  Receipt,
+  TrendingDown,
 } from "lucide-react"
 import Link from "next/link"
 
-type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "monitoring"
 
 interface Inspection {
   id: string
@@ -223,6 +223,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
+    { key: "monitoring", label: "Monitoring", icon: TrendingDown },
   ]
 
   return (
@@ -708,6 +709,24 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             ) : (
               <div className="text-center py-12 text-neutral-400">No photos uploaded</div>
             )}
+          </div>
+        )}
+
+        {/* Monitoring Tab — links out to dedicated monitoring page */}
+        {activeTab === "monitoring" && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <TrendingDown size={40} className="text-cyan-500" />
+            <p className="text-neutral-700 dark:text-slate-300 font-semibold text-lg">Daily Drying Monitoring Report</p>
+            <p className="text-sm text-neutral-400 dark:text-slate-500 text-center max-w-sm">
+              View IICRC S500:2025 §11.4 daily drying logs, moisture trends, and drying status across all monitoring days.
+            </p>
+            <a
+              href={`/dashboard/inspections/${inspection.id}/monitoring`}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            >
+              <TrendingDown size={16} />
+              Open Monitoring Report
+            </a>
           </div>
         )}
       </div>
