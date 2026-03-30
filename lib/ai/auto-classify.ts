@@ -101,7 +101,7 @@ export async function vectorClassify(input: {
 }): Promise<ClassificationResult | null> {
   try {
     // Query HistoricalJob for top 3 similar jobs of same claim type
-    const { default: prisma } = await import('@/lib/prisma')
+    const { prisma } = await import('@/lib/prisma')
     const jobs = await (prisma as any).historicalJob.findMany({
       where: {
         tenantId: input.tenantId,
