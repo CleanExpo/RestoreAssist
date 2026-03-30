@@ -1534,11 +1534,17 @@ model Inspection {
   // Visual Moisture Mapping
   floorPlanImageUrl String? // URL to uploaded floor plan image
 
+  // RA-261: Claim type (gate for scope generation)
+  claimType ClaimType?
+
   // Relations
-  propertyLookupCache PropertyLookup?
-  sketches            ClaimSketch[]
-  drNrpgJobSync       DrNrpgJobSync?
-  dryingGoalRecord    DryingGoalRecord?
+  propertyLookupCache        PropertyLookup?
+  sketches                   ClaimSketch[]
+  drNrpgJobSync              DrNrpgJobSync?
+  dryingGoalRecord           DryingGoalRecord?
+  waterDamageClassification  WaterDamageClassification?
+  psychrometricReadings      PsychrometricReading[]
+  circuitAssessments         CircuitAssessment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1562,6 +1568,71 @@ enum InspectionStatus {
   ESTIMATED
   COMPLETED
   REJECTED
+}
+
+// ─── RA-261: NIR Full Data Depth — Phase 1 Enums ──────────────────────────────
+
+enum ClaimType {
+  WATER
+  FIRE
+  MOULD
+  STORM
+  CONTENTS
+  BIOHAZARD
+  ODOUR
+  CARPET
+  HVAC
+  ASBESTOS
+}
+
+enum WaterCategory {
+  CAT_1  // Clean water
+  CAT_2  // Grey water
+  CAT_3  // Black water
+}
+
+enum DamageClass {
+  CLASS_1  // Least amount of water absorption
+  CLASS_2  // Significant absorption (walls, carpet)
+  CLASS_3  // Greatest absorption (walls, ceilings, insulation)
+  CLASS_4  // Specialty drying (hardwood, plaster, concrete)
+}
+
+enum LossSourceType {
+  PLUMBING
+  ROOF
+  APPLIANCE
+  FLOOD
+  GROUNDWATER
+  CONDENSATION
+  HVAC
+  UNKNOWN
+}
+
+enum MeterType {
+  PIN
+  PINLESS
+  CALCIUM_CHLORIDE
+}
+
+enum ScopeUnit {
+  M2
+  LM
+  EACH
+  DAY
+  HOUR
+  LITRE
+}
+
+enum ScopeCategory {
+  EXTRACTION
+  STRUCTURAL_DRYING
+  EQUIPMENT
+  ANTIMICROBIAL
+  MONITORING
+  CONTENTS
+  HVAC
+  ODOUR
 }
 
 // Environmental Data (Temperature, Humidity, Dew Point, etc.)
@@ -1605,12 +1676,19 @@ model MoistureReading {
   mapX Float? // X position (0-1 normalised) on floor plan
   mapY Float? // Y position (0-1 normalised) on floor plan
 
+  // RA-261: Meter & drying goal tracking
+  meterType          MeterType? // pin / pinless / calcium_chloride
+  meterModel         String?    // For calibration audit trail
+  targetEMC          Float?     // Auto-populated from material type (% MC)
+  dryingGoalAchieved Boolean    @default(false)
+
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([surfaceType])
+  @@index([dryingGoalAchieved])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
@@ -1667,12 +1745,25 @@ model ScopeItem {
   isRequired Boolean @default(true)
   isSelected Boolean @default(true) // User can deselect if not needed
 
+  // RA-261: Pricing & compliance metadata
+  code             String?       // e.g., "WTR-EXT-CAT2"
+  scopeCategory    ScopeCategory? // extraction | structural_drying | equipment | …
+  iicrcStandard    String?        // e.g., "AS-IICRC S500:2025 §8.3.2"
+  scopeUnit        ScopeUnit?     // m2 | lm | each | day | hour | litre
+  auUnitPrice      Decimal?       @db.Decimal(10, 2) // AUD from Ascora historical data
+  acceptedByInsurer Boolean?      // Populated from beta programme + Ascora history
+  acceptanceRate   Float?         // % of times accepted without dispute
+  claimType        ClaimType?     // water | fire | mould | storm | …
+  lastPriceUpdate  DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([itemType])
   @@index([autoDetermined])
+  @@index([claimType])
+  @@index([scopeCategory])
 }
 
 // Cost Estimates (Line items with costs)
@@ -4136,4 +4227,97 @@ model EvaluationRun {
   @@index([promptVariantId])
   @@index([testCaseId])
   @@index([createdAt])
+}
+
+// ─── RA-261: NIR Full Data Depth — Phase 1 Models ────────────────────────────
+
+/// Water Damage Gate Classification (RA-261 Phase 1 — IICRC S500:2025)
+/// Stores the mandatory gate fields that must be complete before scope generation unlocks.
+model WaterDamageClassification {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Classification Gate Fields (drive all downstream generation)
+  waterCategory        WaterCategory?   // 1=clean, 2=grey, 3=black
+  damageClass          DamageClass?     // 1–4 drives equipment quantities & drying duration
+  lossSourceType       LossSourceType?
+  lossSourceIdentified Boolean          @default(false) // GATE: blocks scope if false
+  lossSourceAddressed  Boolean          @default(false) // GATE: blocks scope if false
+  hoursOfExposure      Float?           // <24h / 24-48h / >48h drives mould risk
+
+  // Computed gate states (server-side)
+  gateClassificationComplete Boolean @default(false)
+  gateLossSourceComplete      Boolean @default(false)
+  gatePhotosAttached          Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([waterCategory])
+  @@index([damageClass])
+}
+
+/// Daily psychrometric readings per drying visit (RA-261 Phase 1)
+/// Tracks drying progress over multiple visits — more granular than EnvironmentalData.
+model PsychrometricReading {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Visit context
+  visitDate   DateTime
+  visitNumber Int      // Drying day number (Day 1, 2, 3…)
+  technicianId String?
+
+  // Psychrometric measurements (AU metric)
+  dryBulbTempC     Float?  // °C — standard thermometer at equipment height
+  wetBulbTempC     Float?  // °C — evaporative cooling indicator
+  relativeHumidity Float?  // % — target during drying: 30–40%
+  dewPointC        Float?  // °C — auto-calculated; must be ≥3°C below all surfaces
+  grainsPerPound   Float?  // GPP — initial baseline + daily; target: 30–35 GPP
+  gramsPerKilogram Float?  // g/kg — metric equivalent for AU hygrometers
+
+  // Equipment context
+  equipmentRunning Boolean @default(true)
+  notes            String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([visitDate])
+  @@index([visitNumber])
+}
+
+/// Electrical circuit assessment for AS/NZS 3012:2019 compliance (RA-261 Phase 1)
+/// Validates that equipment electrical loads stay within 80% of circuit breaker rating.
+model CircuitAssessment {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Circuit identification
+  circuitId    String  // e.g., "Circuit A", "GPO North Wall"
+  locationZone String  // Where in the property
+
+  // Equipment on this circuit (JSON array of {type, model, serial, ampDraw})
+  equipmentList Json
+
+  // Circuit ratings
+  circuitBreakerRating Int     // amps: 15, 20, 32, 50
+  rcdProtected         Boolean @default(false)
+  extensionCordGauge   String? // mm² minimum (e.g., "2.5")
+
+  // Safety calculation (auto-populated server-side)
+  totalCircuitLoad    Float?   // Sum of all equipment amp draws on this circuit
+  circuitLoadSafe     Boolean? // true if totalCircuitLoad < (breaker × 0.8)
+  circuitLoadWarning  String?  @db.Text // Auto-generated warning text if unsafe
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([circuitLoadSafe])
 }
