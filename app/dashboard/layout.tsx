@@ -30,6 +30,7 @@ import {
   Shield,
   FlaskConical,
   Lock,
+  Activity,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -140,6 +141,7 @@ export default function DashboardLayout({
       { icon: Shield,        label: "Admin",         href: "/dashboard/admin",               adminOnly: true },
       { icon: FlaskConical,  label: "NIR Pilot",     href: "/dashboard/admin/pilot",          adminOnly: true },
       { icon: Lock,          label: "Content Gate",  href: "/dashboard/admin/content-gate",   adminOnly: true },
+      { icon: Activity,      label: "AI Lab",        href: "/dashboard/admin/ai-lab",         adminOnly: true },
     ] : []),
   ]
 
