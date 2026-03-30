@@ -41,3 +41,9 @@ nul
 .playwright/
 # Auth state (contains credentials — never commit)
 playwright/.auth/user.json
+
+# MCP testing artifacts
+.playwright-mcp/
+dev-server.log
+sketch-tab-test.png
+v2-signin.png
