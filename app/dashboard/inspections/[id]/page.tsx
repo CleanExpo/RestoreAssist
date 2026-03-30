@@ -348,7 +348,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
               {inspection.inspectionNumber}
             </h1>
@@ -357,6 +357,33 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
+            {inspection.signedAt && (
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 flex items-center gap-1">
+                <PenLine size={11} />
+                Signed
+              </span>
+            )}
+            {/* Report export buttons */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <a
+                href={`/api/inspections/${inspection.id}/report?format=pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-neutral-50 dark:hover:bg-slate-700 text-neutral-700 dark:text-slate-200 transition-colors"
+              >
+                <FileText size={12} />
+                PDF
+              </a>
+              <a
+                href={`/api/inspections/${inspection.id}/report?format=excel`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-neutral-50 dark:hover:bg-slate-700 text-neutral-700 dark:text-slate-200 transition-colors"
+              >
+                <Layers size={12} />
+                Excel
+              </a>
+            </div>
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
