@@ -97,20 +97,21 @@ export async function POST(request: NextRequest) {
   for (const job of toEmbed) {
     try {
       const text = buildJobEmbeddingText({
-        claimType: job.claimType ?? undefined,
-        waterCategory: job.waterCategory ?? undefined,
-        waterClass: job.waterClass ?? undefined,
-        suburb: job.suburb ?? undefined,
-        state: job.state ?? undefined,
-        description: job.description ?? undefined,
-        jobName: job.jobName ?? undefined,
+        claimType: job.claimType ?? "water",
+        waterCategory: job.waterCategory !== null ? Number(job.waterCategory) : undefined,
+        waterClass: job.waterClass !== null ? Number(job.waterClass) : undefined,
+        suburb: job.suburb ?? "Unknown",
+        state: job.state ?? "QLD",
+        description: job.description ?? `${job.claimType ?? "water"} restoration job`,
+        jobName: job.jobName ?? `Job ${job.id}`,
         customerName: job.customerName ?? undefined,
-        totalExTax: job.totalExTax ?? undefined,
-        itemCount: job.itemCount ?? undefined,
-        equipmentCount: job.equipmentCount ?? undefined,
+        totalExTax: job.totalExTax ?? 0,
+        itemCount: job.itemCount ?? 0,
+        equipmentCount: job.equipmentCount ?? 0,
       })
 
-      const vector = await embedText(text, provider)
+      const apiKey = process.env.OPENAI_API_KEY ?? ""
+      const vector = await embedText(text, provider, apiKey)
       const vectorLiteral = `[${vector.join(",")}]`
 
       await prisma.$executeRawUnsafe(

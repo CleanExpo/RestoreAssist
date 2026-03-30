@@ -55,18 +55,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const classification = inspection.classifications[0]
-    const totalAreaM2 = inspection.affectedAreas.reduce((sum, a) => sum + (a.areaM2 ?? 0), 0)
+    // affectedSquareFootage is in sq ft → convert to m² (1 sq ft = 0.0929 m²)
+    const totalAreaM2 = inspection.affectedAreas.reduce((sum, a) => sum + (a.affectedSquareFootage ?? 0) * 0.0929, 0)
     const suburb = inspection.propertyAddress?.split(",")?.[1]?.trim() ?? ""
+
+    // Inspection.claimType may exist as a scalar field (not in classifications)
+    const inspectionAny = inspection as Record<string, unknown>
+    const inspectionClaimType = (inspectionAny.claimType as string | undefined) ?? null
 
     // Build a query description from inspection data
     const queryInput = {
-      claimType: claimTypeFilter ?? classification?.claimType ?? "water_damage",
+      claimType: claimTypeFilter ?? inspectionClaimType ?? "water_damage",
       waterCategory: classification?.category ? parseInt(classification.category) : undefined,
       waterClass: classification?.class ? parseInt(classification.class) : undefined,
       suburb: suburb || "Unknown",
       state: "QLD",
-      description: inspection.lossDescription ?? `Water damage restoration job, ${totalAreaM2}m² affected`,
-      jobName: `Inspection ${inspection.inspectionNumber}`,
+      description: (inspectionAny.lossDescription as string | undefined) ?? `Water damage restoration job, ${totalAreaM2.toFixed(0)}m² affected`,
+      jobName: `Inspection ${(inspection as Record<string, unknown>).inspectionNumber as string}`,
       totalExTax: 0,
       itemCount: 0,
       equipmentCount: 0,
@@ -75,8 +80,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const queryText = buildJobEmbeddingText(queryInput)
 
     // Embed the query (use hash-fallback if no OpenAI key)
-    const provider = process.env.OPENAI_API_KEY ? "openai" : "hash-fallback"
-    const queryVector = await embedText(queryText, provider)
+    const provider: "openai" | "hash-fallback" = process.env.OPENAI_API_KEY ? "openai" : "hash-fallback"
+    const apiKey = process.env.OPENAI_API_KEY ?? ""
+    const queryVector = await embedText(queryText, provider, apiKey)
 
     // Search for similar jobs
     const results = await findSimilarJobs({
