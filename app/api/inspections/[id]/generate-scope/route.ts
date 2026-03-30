@@ -16,6 +16,7 @@
  *   affectedRooms?: string[]
  *   lossSourceDescription?: string
  *   claimType?: "water_damage" | "fire_smoke" | "storm" | "mould" | "contents"  // default: water_damage (single)
+ *             | "biohazard" | "odour" | "carpet" | "hvac" | "asbestos"          // RA-278 new claim types
  *   claimTypes?: string[]   // multi-loss: ["water_damage","fire_smoke"]. Overrides claimType when provided.
  * }
  */
