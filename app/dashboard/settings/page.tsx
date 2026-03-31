@@ -75,6 +75,10 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
+  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwSuccess, setPwSuccess] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
@@ -266,6 +270,42 @@ export default function SettingsPage() {
       toast.error('Failed to save business information. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    setPwError('')
+    setPwSuccess(false)
+    if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) {
+      setPwError('All fields are required')
+      return
+    }
+    if (pwForm.newPw.length < 8) {
+      setPwError('New password must be at least 8 characters')
+      return
+    }
+    if (pwForm.newPw !== pwForm.confirm) {
+      setPwError('New passwords do not match')
+      return
+    }
+    setPwLoading(true)
+    try {
+      const response = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.newPw })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setPwSuccess(true)
+        setPwForm({ current: '', newPw: '', confirm: '' })
+      } else {
+        setPwError(data.error || 'Failed to change password')
+      }
+    } catch {
+      setPwError('Failed to change password. Please try again.')
+    } finally {
+      setPwLoading(false)
     }
   }
 
@@ -786,6 +826,87 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+              <Key className="w-5 h-5" />
+              Change Password
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Current Password</label>
+                <input
+                  type="password"
+                  value={pwForm.current}
+                  onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500"
+                  )}
+                  placeholder="Enter current password"
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>New Password</label>
+                <input
+                  type="password"
+                  value={pwForm.newPw}
+                  onChange={(e) => setPwForm({ ...pwForm, newPw: e.target.value })}
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500"
+                  )}
+                  placeholder="Enter new password (min 8 characters)"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-slate-300")}>Confirm New Password</label>
+                <input
+                  type="password"
+                  value={pwForm.confirm}
+                  onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500"
+                  )}
+                  placeholder="Confirm new password"
+                  autoComplete="new-password"
+                />
+              </div>
+              {pwError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{pwError}</p>
+              )}
+              {pwSuccess && (
+                <p className="text-sm text-green-600 dark:text-green-400">Password updated successfully</p>
+              )}
+              <button
+                onClick={handleChangePassword}
+                disabled={pwLoading}
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-white"
+              >
+                {pwLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <span>Update Password</span>
+                )}
+              </button>
             </div>
           </div>
 
