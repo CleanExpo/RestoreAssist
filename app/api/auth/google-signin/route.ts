@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { getAdminAuth } from '@/lib/firebase-admin'
 import { applyRateLimit } from '@/lib/rate-limiter'
 import { sanitizeString } from '@/lib/sanitize'
 import { validateCsrf } from '@/lib/csrf'
 import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
+
+/** Generate a time-limited HMAC token proving the user just authenticated via Google */
+function generateGoogleAuthToken(email: string): string {
+  const timestamp = Date.now().toString()
+  const hmac = crypto.createHmac('sha256', process.env.NEXTAUTH_SECRET || 'fallback')
+    .update(`gauth:${email}:${timestamp}`)
+    .digest('hex')
+  return `gauth:${timestamp}:${hmac}`
+}
 
 // POST - Handle Google sign-in via Firebase
 // Creates user in database if doesn't exist, otherwise updates and returns user
@@ -101,7 +111,7 @@ export async function POST(request: NextRequest) {
         details: { isNewUser: false },
       }).catch(() => {})
 
-      return NextResponse.json(updatedUser)
+      return NextResponse.json({ ...updatedUser, googleAuthToken: generateGoogleAuthToken(userEmail) })
     }
 
     // Create new user - default role is ADMIN for self-signup (business owner creating account)
@@ -137,7 +147,7 @@ export async function POST(request: NextRequest) {
       details: { isNewUser: true },
     }).catch(() => {})
 
-    return NextResponse.json(newUser)
+    return NextResponse.json({ ...newUser, googleAuthToken: generateGoogleAuthToken(userEmail) })
   } catch (error: any) {
     console.error('Error in Google sign-in:', error)
     return NextResponse.json(
