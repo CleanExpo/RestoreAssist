@@ -25,7 +25,9 @@ import {
   Clock,
   XCircle,
   Map,
+  Receipt,
 } from "lucide-react"
+import Link from "next/link"
 
 type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
 
@@ -232,7 +234,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
               {inspection.inspectionNumber}
             </h1>
@@ -241,6 +243,13 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
+            <Link
+              href={`/dashboard/inspections/${inspection.id}/invoice`}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
+            >
+              <Receipt size={14} />
+              Generate Invoice
+            </Link>
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
