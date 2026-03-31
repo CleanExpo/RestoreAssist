@@ -38,6 +38,8 @@ import {
   Receipt,
   Upload,
   History,
+  Trash2,
+  Plus,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -187,6 +189,14 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [envData, setEnvData] = useState<Inspection["environmentalData"]>(null)
+  const [showEnvForm, setShowEnvForm] = useState(false)
+  const [envForm, setEnvForm] = useState({ ambientTemperature: 20, humidityLevel: 50, airCirculation: false, weatherConditions: '', notes: '' })
+  const [savingEnv, setSavingEnv] = useState(false)
+  const [moistureReadings, setMoistureReadings] = useState<Inspection["moistureReadings"]>([])
+  const [showAddMoisture, setShowAddMoisture] = useState(false)
+  const [moistureForm, setMoistureForm] = useState({ location: '', surfaceType: '', moistureLevel: 0, depth: 'Surface', notes: '' })
+  const [addingMoisture, setAddingMoisture] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -200,6 +210,10 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       if (response.ok) {
         const data = await response.json()
         setInspection(data.inspection)
+        setMoistureReadings(data.inspection.moistureReadings ?? [])
+        setEnvData(data.inspection.environmentalData)
+        const ed = data.inspection.environmentalData
+        if (ed) { setEnvForm({ ambientTemperature: ed.ambientTemperature ?? 20, humidityLevel: ed.humidityLevel ?? 50, airCirculation: ed.airCirculation ?? false, weatherConditions: ed.weatherConditions ?? '', notes: ed.notes ?? '' }) }
       } else {
         toast.error("Inspection not found")
         router.push("/dashboard/inspections")
@@ -232,6 +246,43 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  const calcDewPoint = (temp: number, humidity: number) =>
+    Math.round((temp - ((100 - humidity) / 5)) * 10) / 10
+
+  const handleEnvSave = async () => {
+    setSavingEnv(true)
+    try {
+      const dewPoint = calcDewPoint(envForm.ambientTemperature, envForm.humidityLevel)
+      const res = await fetch(`/api/inspections/${inspection!.id}/environmental`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...envForm, dewPoint }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setEnvData(data.environmentalData)
+      setShowEnvForm(false)
+      toast.success('Environmental data saved')
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to save') } finally { setSavingEnv(false) }
+  }
+
+  const handleAddMoisture = async () => {
+    setAddingMoisture(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection!.id}/moisture`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(moistureForm) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setMoistureReadings(prev => [...prev, data.moistureReading])
+      setMoistureForm({ location: '', surfaceType: '', moistureLevel: 0, depth: 'Surface', notes: '' })
+      setShowAddMoisture(false)
+      toast.success('Reading added')
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to add reading') } finally { setAddingMoisture(false) }
+  }
+
+  const handleDeleteMoisture = async (readingId: string) => {
+    setMoistureReadings(prev => prev.filter(r => r.id !== readingId))
+    try {
+      const res = await fetch(`/api/inspections/${inspection!.id}/moisture/${readingId}`, { method: 'DELETE' })
+      if (!res.ok) { setMoistureReadings(inspection!.moistureReadings); toast.error('Failed to delete reading') }
+    } catch { setMoistureReadings(inspection!.moistureReadings); toast.error('Failed to delete reading') }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -248,7 +299,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const TABS: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "overview", label: "Overview", icon: ClipboardCheck },
     { key: "environmental", label: "Environmental", icon: Thermometer },
-    { key: "moisture", label: "Moisture", icon: Droplets, count: inspection.moistureReadings.length },
+    { key: "moisture", label: "Moisture", icon: Droplets, count: moistureReadings.length },
     { key: "moisture-map", label: "Moisture Map", icon: Map },
     { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: inspection.affectedAreas.length },
     { key: "classification", label: "Classification", icon: Shield, count: inspection.classifications.length },
@@ -438,46 +489,91 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl">
-            {inspection.environmentalData ? (
+          <div className="max-w-2xl space-y-4">
+            {envData && !showEnvForm ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Thermometer className="text-cyan-500" size={20} />
-                  Environmental Data
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Thermometer className="text-cyan-500" size={20} />
+                    Environmental Data
+                  </h3>
+                  <button onClick={() => setShowEnvForm(true)} className="text-sm text-cyan-600 hover:underline">Edit</button>
+                </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Ambient Temperature</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.ambientTemperature}°C</p>
+                    <p className="text-2xl font-bold mt-1">{envData.ambientTemperature}°C</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Humidity Level</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.humidityLevel}%</p>
+                    <p className="text-2xl font-bold mt-1">{envData.humidityLevel}%</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Dew Point</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
+                    <p className="text-2xl font-bold mt-1">{envData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Air Circulation</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.airCirculation ? "Active" : "None"}</p>
+                    <p className="text-2xl font-bold mt-1">{envData.airCirculation ? "Active" : "None"}</p>
                   </div>
                 </div>
-                {inspection.environmentalData.weatherConditions && (
+                {envData.weatherConditions && (
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Weather Conditions</label>
-                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{inspection.environmentalData.weatherConditions}</p>
+                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{envData.weatherConditions}</p>
                   </div>
                 )}
-                {inspection.environmentalData.notes && (
+                {envData.notes && (
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Notes</label>
-                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{inspection.environmentalData.notes}</p>
+                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{envData.notes}</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">No environmental data recorded</div>
+              <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Thermometer className="text-cyan-500" size={20} />
+                  {envData ? 'Edit Environmental Data' : 'Add Environmental Data'}
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Temperature (°C)</label>
+                    <input type="number" value={envForm.ambientTemperature} onChange={e => setEnvForm(f => ({ ...f, ambientTemperature: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Humidity (%)</label>
+                    <input type="number" value={envForm.humidityLevel} onChange={e => setEnvForm(f => ({ ...f, humidityLevel: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300">
+                  Auto dew point: <strong>{calcDewPoint(envForm.ambientTemperature, envForm.humidityLevel)}°C</strong>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" id="airCirc" checked={envForm.airCirculation} onChange={e => setEnvForm(f => ({ ...f, airCirculation: e.target.checked }))} className="rounded" />
+                  <label htmlFor="airCirc" className="text-sm">Air Circulation Active</label>
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Weather Conditions</label>
+                  <input type="text" value={envForm.weatherConditions} onChange={e => setEnvForm(f => ({ ...f, weatherConditions: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. Sunny, 28°C" />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Notes</label>
+                  <textarea value={envForm.notes} onChange={e => setEnvForm(f => ({ ...f, notes: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm resize-none" />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleEnvSave} disabled={savingEnv} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+                    {savingEnv ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {savingEnv ? 'Saving...' : 'Save'}
+                  </button>
+                  {envData && <button onClick={() => setShowEnvForm(false)} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm">Cancel</button>}
+                </div>
+              </div>
+            )}
+            {!envData && !showEnvForm && (
+              <button onClick={() => setShowEnvForm(true)} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={16} /> Add Environmental Data
+              </button>
             )}
           </div>
         )}
@@ -485,7 +581,50 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Moisture Readings Tab */}
         {activeTab === "moisture" && (
           <div className="space-y-4">
-            {inspection.moistureReadings.length > 0 ? (
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">Moisture Readings ({moistureReadings.length})</h3>
+              <button onClick={() => setShowAddMoisture(v => !v)} className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={14} /> Add Reading
+              </button>
+            </div>
+            {showAddMoisture && (
+              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Location</label>
+                    <input type="text" value={moistureForm.location} onChange={e => setMoistureForm(f => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. Living Room Wall" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Surface Type</label>
+                    <input type="text" value={moistureForm.surfaceType} onChange={e => setMoistureForm(f => ({ ...f, surfaceType: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. drywall" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Moisture Level (%)</label>
+                    <input type="number" value={moistureForm.moistureLevel} onChange={e => setMoistureForm(f => ({ ...f, moistureLevel: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Depth</label>
+                    <select value={moistureForm.depth} onChange={e => setMoistureForm(f => ({ ...f, depth: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+                      <option>Surface</option>
+                      <option>Mid</option>
+                      <option>Deep</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Notes</label>
+                    <input type="text" value={moistureForm.notes} onChange={e => setMoistureForm(f => ({ ...f, notes: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddMoisture} disabled={addingMoisture || !moistureForm.location} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+                    {addingMoisture ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {addingMoisture ? 'Adding...' : 'Add Reading'}
+                  </button>
+                  <button onClick={() => setShowAddMoisture(false)} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+            {moistureReadings.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
                   <thead className="bg-neutral-50 dark:bg-slate-800/50">
@@ -495,10 +634,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Moisture %</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Depth</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Notes</th>
+                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 dark:divide-slate-800">
-                    {inspection.moistureReadings.map((reading) => (
+                    {moistureReadings.map((reading) => (
                       <tr key={reading.id} className="hover:bg-neutral-50 dark:hover:bg-slate-800/30">
                         <td className="px-4 py-3 font-medium text-sm">{reading.location}</td>
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300 capitalize">{reading.surfaceType}</td>
@@ -509,6 +649,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                         </td>
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300">{reading.depth}</td>
                         <td className="px-4 py-3 text-sm text-neutral-400 max-w-[200px] truncate">{reading.notes || "—"}</td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => handleDeleteMoisture(reading.id)} className="text-red-400 hover:text-red-600 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -523,8 +668,8 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Moisture Map Tab */}
         {activeTab === "moisture-map" && (
           <div>
-            {inspection.moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas readings={inspection.moistureReadings} />
+            {moistureReadings.length > 0 ? (
+              <MoistureMappingCanvas readings={moistureReadings} />
             ) : (
               <div className="text-center py-12 text-neutral-400">No moisture readings to map — add readings first</div>
             )}
