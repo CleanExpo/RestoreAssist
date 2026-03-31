@@ -16,6 +16,7 @@ import {
   Camera,
   AlertTriangle,
   Trash2,
+  Download,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog"
@@ -54,6 +55,9 @@ export default function InspectionsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
+  const [exporting, setExporting] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -82,6 +86,8 @@ export default function InspectionsPage() {
   }
 
   const filtered = useMemo(() => {
+    const fromDate = dateFrom ? new Date(dateFrom) : null
+    const toDate = dateTo ? new Date(dateTo + "T23:59:59.999") : null
     return inspections.filter((insp) => {
       const matchesSearch =
         !searchTerm ||
@@ -89,9 +95,12 @@ export default function InspectionsPage() {
         insp.propertyAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (insp.technicianName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
       const matchesStatus = !statusFilter || insp.status === statusFilter
-      return matchesSearch && matchesStatus
+      const inspDate = new Date(insp.createdAt)
+      const matchesFrom = !fromDate || inspDate >= fromDate
+      const matchesTo = !toDate || inspDate <= toDate
+      return matchesSearch && matchesStatus && matchesFrom && matchesTo
     })
-  }, [inspections, searchTerm, statusFilter])
+  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo])
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -172,6 +181,34 @@ export default function InspectionsPage() {
     }
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (dateFrom) params.set("from", dateFrom)
+      if (dateTo) params.set("to", dateTo)
+      if (statusFilter && statusFilter !== "ALL") params.set("status", statusFilter)
+      const res = await fetch(`/api/inspections/export?${params}`)
+      if (!res.ok) {
+        toast.error("Failed to export inspections")
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `inspections-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error("Export failed")
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -225,16 +262,62 @@ export default function InspectionsPage() {
         )}
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-        <input
-          type="text"
-          placeholder="Search by inspection number, address, or technician..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
-        />
+      {/* Search and Date Filters */}
+      <div className="flex flex-col gap-3">
+        <div className="relative">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="text"
+            placeholder="Search by inspection number, address, or technician..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+              From
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+              To
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => { setDateFrom(""); setDateTo("") }}
+              className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
+            >
+              Clear dates
+            </button>
+          )}
+          <div className="ml-auto">
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-700 dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
+            >
+              {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Export CSV
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Bulk actions */}
