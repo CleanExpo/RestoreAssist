@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Plus, Edit, Trash2, Download, Upload, X } from "lucide-react"
+import Link from "next/link"
 import toast from "react-hot-toast"
 
 interface CostItem {
@@ -347,7 +348,13 @@ export default function CostLibrariesPage() {
                     : "hover:bg-slate-700/50 text-slate-300"
                 }`}
               >
-                <p className="font-medium text-sm">{lib.name}</p>
+                <Link
+                  href={`/dashboard/cost-libraries/${lib.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-medium text-sm hover:underline"
+                >
+                  {lib.name}
+                </Link>
                 <p className="text-xs text-slate-400 mt-1">{lib.region}</p>
                 {lib.isDefault && (
                   <span className="inline-block mt-2 px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">
