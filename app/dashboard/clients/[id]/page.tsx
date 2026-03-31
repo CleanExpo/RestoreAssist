@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, Building, User, Calendar, DollarSign, FileText, AlertTriangle, Eye, ClipboardList } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, Building, User, Calendar, DollarSign, FileText, AlertTriangle, Eye, ClipboardList, Receipt } from "lucide-react"
 import toast from "react-hot-toast"
 import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection"
 
@@ -43,11 +43,23 @@ interface Client {
   }>
 }
 
+interface RestorationDoc {
+  id: string
+  documentType: string
+  documentNumber: string
+  title: string | null
+  reportId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export default function ClientDetailPage({ params }: { params: { id: string } }) {
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
   const [inspections, setInspections] = useState<LinkedInspection[]>([])
   const [loadingInspections, setLoadingInspections] = useState(false)
+  const [invoices, setInvoices] = useState<RestorationDoc[]>([])
+  const [invoicesLoading, setInvoicesLoading] = useState(false)
 
   useEffect(() => {
     fetchClient()
@@ -74,6 +86,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       if (response.ok) {
         const data = await response.json()
         setClient(data)
+        fetchInvoices(data)
       } else {
         toast.error("Failed to fetch client details")
       }
@@ -82,6 +95,47 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       toast.error("Failed to fetch client details")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchInvoices = async (clientData: Client) => {
+    setInvoicesLoading(true)
+    try {
+      const res = await fetch(`/api/restoration-documents?clientId=${clientData.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        const docs: RestorationDoc[] = data.documents ?? []
+        if (docs.length > 0) {
+          setInvoices(docs)
+          return
+        }
+      }
+      const reportIds = (clientData.reports ?? []).slice(0, 5).map((r) => r.id)
+      if (reportIds.length === 0) return
+      const results = await Promise.all(
+        reportIds.map((rid) =>
+          fetch(`/api/restoration-documents?reportId=${rid}`)
+            .then((r) => (r.ok ? r.json() : { documents: [] }))
+            .then((d) => (d.documents ?? []) as RestorationDoc[])
+            .catch(() => [] as RestorationDoc[])
+        )
+      )
+      const seen = new Set<string>()
+      const merged: RestorationDoc[] = []
+      for (const batch of results) {
+        for (const doc of batch) {
+          if (!seen.has(doc.id)) {
+            seen.add(doc.id)
+            merged.push(doc)
+          }
+        }
+      }
+      merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setInvoices(merged)
+    } catch (error) {
+      console.error("Error fetching invoices:", error)
+    } finally {
+      setInvoicesLoading(false)
     }
   }
 
@@ -114,6 +168,17 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       case "ARCHIVED": return "bg-slate-500/20 text-slate-400"
       default: return "bg-slate-500/20 text-slate-400"
     }
+  }
+
+  const getDocTypeLabel = (type: string) => {
+    if (type === "RESTORATION_INVOICE") return "Tax Invoice"
+    return type.replace(/_/g, " ")
+  }
+
+  const getDocTypeBadgeColor = (type: string) => {
+    if (type === "RESTORATION_INVOICE") return "bg-cyan-500/20 text-cyan-400"
+    if (type === "QUOTE" || type === "ESTIMATE") return "bg-amber-500/20 text-amber-400"
+    return "bg-slate-500/20 text-slate-400"
   }
 
   if (loading) {
@@ -396,6 +461,70 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                     View
                   </Link>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Restoration Invoices */}
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <Receipt className="text-emerald-400" size={20} />
+          Restoration Invoices
+          {!invoicesLoading && (
+            <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-600/60 text-slate-300">
+              {invoices.length}
+            </span>
+          )}
+        </h3>
+
+        {invoicesLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-14 bg-slate-700/30 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="text-center py-8">
+            <Receipt className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+            <p className="text-slate-400">No invoices for this client.</p>
+            <Link
+              href="/dashboard/restoration-documents/invoice/new"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            >
+              Create Invoice
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {invoices.map((doc) => (
+              <div key={doc.id} className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getDocTypeBadgeColor(doc.documentType)}`}>
+                      {getDocTypeLabel(doc.documentType)}
+                    </span>
+                    <span className="font-medium text-white">{doc.documentNumber}</span>
+                    {doc.title && (
+                      <span className="text-slate-400 text-sm truncate max-w-xs">{doc.title}</span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-400">
+                    {new Date(doc.createdAt).toLocaleDateString("en-AU", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+                </div>
+                <Link
+                  href={`/dashboard/restoration-documents/invoice/${doc.id}`}
+                  className="flex items-center gap-1 text-cyan-400 hover:underline text-sm ml-4"
+                >
+                  <Eye size={14} />
+                  View
+                </Link>
               </div>
             ))}
           </div>
