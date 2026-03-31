@@ -30,6 +30,7 @@ import {
   Shield,
   FlaskConical,
   Lock,
+  Activity,
 } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import dynamic from "next/dynamic"
@@ -127,6 +128,7 @@ export default function DashboardLayout({
     { icon: DollarSign, label: "Pricing Configuration", href: "/dashboard/pricing-config" },
     { icon: Calculator, label: "Quote Generator", href: "/dashboard/quote" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
+    { icon: Activity, label: "Webhook Logs", href: "/dashboard/integrations/webhooks" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     { icon: FileSearch, label: "Claims Analysis", href: "/dashboard/claims-analysis" },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
