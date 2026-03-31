@@ -3830,6 +3830,29 @@ model ContentAnalytics {
 }
 
 // ============================================
+// Content Topic Bank — Weighted rotation for automated video generation
+// ============================================
+
+model ContentTopic {
+  id          String    @id @default(cuid())
+  product     String    // "RestoreAssist", "Scope Generation", "IICRC Compliance", etc.
+  angle       String    // "problem/solution", "social proof", "how-to", "industry insight"
+  platform    String    // "youtube" | "tiktok" | "instagram" | "facebook"
+  duration    Int       // 60 | 90 | 120 | 150
+  category    String    // "feature-spotlight" | "industry-insight" | "compliance-tip" | "problem-solution" | "how-to" | "social-proof"
+  weight      Int       @default(10) // Higher = more likely to be selected
+  enabled     Boolean   @default(true)
+  lastUsedAt  DateTime?
+  useCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([enabled, lastUsedAt])
+  @@index([category])
+  @@index([platform])
+}
+
+// ============================================
 // RA-163: Customer Support Ticket Model
 // ============================================
 

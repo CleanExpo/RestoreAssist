@@ -332,7 +332,7 @@ export default function Home() {
           >
             <video
               ref={videoRef}
-              src="/sample.mp4"
+              src="/videos/landing-page-overview.mp4"
               controls
               playsInline
               className="w-full h-full object-contain"
