@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { CheckCircle, Clock, Gift, Shield, Zap } from "lucide-react"
 import Link from "next/link"
+import { BRAND } from '@/lib/brand'
 
 export default function HeroSection() {
   return (
@@ -209,32 +210,31 @@ export default function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
           >
-            <span className="block text-white">Transform Your Restoration</span>
-            <motion.span 
+            <span className="block text-white">One System. Fewer Gaps.</span>
+            <motion.span
               className="block bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent"
-              animate={{ 
+              animate={{
                 backgroundPosition: ["0%", "100%", "0%"]
               }}
-              transition={{ 
+              transition={{
                 duration: 4,
                 repeat: Infinity,
                 ease: "linear"
               }}
               style={{ backgroundSize: "200% 100%" }}
             >
-              Reports in Seconds
+              More Confidence.
             </motion.span>
           </motion.h1>
 
           {/* Clean Subheadline */}
-          <motion.p 
+          <motion.p
             className="text-xl text-slate-300 mb-12 max-w-4xl mx-auto text-balance leading-relaxed font-light"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
           >
-            Generate professional, compliant damage assessments in seconds with AI-powered precision. 
-            <span className="text-cyan-400 font-medium"> Built for Australian restoration professionals.</span>
+            {BRAND.description}
           </motion.p>
 
           {/* Clean CTA Buttons */}
@@ -249,11 +249,23 @@ export default function HeroSection() {
               whileTap={{ scale: 0.95 }}
             >
               <Link
-                href="/signup"
+                href={BRAND.cta.primary.href}
                 className="px-10 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full font-medium text-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300"
                 style={{ fontFamily: 'Titillium Web, sans-serif' }}
               >
-                Start Free Trial - 3 Reports
+                {BRAND.cta.primary.label}
+              </Link>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Link
+                href={BRAND.cta.secondary.href}
+                className="px-10 py-4 border-2 border-white/30 rounded-full font-medium text-lg hover:bg-white/10 transition-all duration-300"
+                style={{ fontFamily: 'Titillium Web, sans-serif' }}
+              >
+                {BRAND.cta.secondary.label}
               </Link>
             </motion.div>
           </motion.div>

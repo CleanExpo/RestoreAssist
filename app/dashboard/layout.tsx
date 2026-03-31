@@ -182,7 +182,10 @@ const upgradeItem = {
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
                           <span className="text-white font-bold text-xs">RA</span>
                         </div>
-                        <span className={cn("font-semibold text-sm", "text-neutral-900 dark:text-slate-50")}>Restore Assist</span>
+                        <div className="flex flex-col">
+                          <span className={cn("font-semibold text-sm", "text-neutral-900 dark:text-slate-50")}>Restore Assist</span>
+                          <span className={cn("text-[10px] font-normal leading-tight", "text-neutral-500 dark:text-slate-400")}>One System. Fewer Gaps. More Confidence.</span>
+                        </div>
                       </Link>
                     )}
                     <button

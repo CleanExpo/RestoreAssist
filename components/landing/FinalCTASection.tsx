@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { CheckCircle, Gift, Shield, Clock } from "lucide-react"
 import Link from "next/link"
+import { BRAND } from '@/lib/brand'
 import SectionWrapper from "./SectionWrapper"
 import SectionHeader from "./SectionHeader"
 
@@ -27,9 +28,9 @@ const benefits = [
 export default function FinalCTASection() {
   return (
     <SectionWrapper id="final-cta" background="gradient">
-      <SectionHeader 
-        title="Ready to Transform Your Damage Assessments?"
-        subtitle="Join Australian restoration professionals using AI to generate professional, compliant reports in seconds."
+      <SectionHeader
+        title={BRAND.slogan}
+        subtitle={BRAND.description}
       />
       
       <div className="max-w-4xl mx-auto text-center">
@@ -46,11 +47,23 @@ export default function FinalCTASection() {
             whileTap={{ scale: 0.95 }}
           >
             <Link
-              href="/signup"
+              href={BRAND.cta.primary.href}
               className="px-6 py-4 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 rounded-md font-medium text-xl hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105"
               style={{ fontFamily: 'Titillium Web, sans-serif' }}
             >
-              Start Free Trial
+              {BRAND.cta.primary.label}
+            </Link>
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Link
+              href={BRAND.cta.secondary.href}
+              className="px-6 py-4 border-2 border-white/30 rounded-md font-medium text-xl hover:bg-white/10 transition-all duration-300"
+              style={{ fontFamily: 'Titillium Web, sans-serif' }}
+            >
+              {BRAND.cta.secondary.label}
             </Link>
           </motion.div>
         </motion.div>
