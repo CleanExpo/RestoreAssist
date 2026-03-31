@@ -39,6 +39,11 @@ import {
   Upload,
   History,
   ListChecks,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  Save,
 } from "lucide-react"
 import {
   Dialog,
@@ -204,6 +209,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [scopeItems, setScopeItems] = useState<Inspection["scopeItems"]>([])
+  const [showAddScope, setShowAddScope] = useState(false)
+  const [editingScopeItem, setEditingScopeItem] = useState<string | null>(null)
+  const [addScopeForm, setAddScopeForm] = useState({ description: "", itemType: "", quantity: "", unit: "" })
+  const [editScopeForm, setEditScopeForm] = useState({ description: "", quantity: "", unit: "" })
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false)
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>("")
@@ -225,6 +235,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       if (response.ok) {
         const data = await response.json()
         setInspection(data.inspection)
+        setScopeItems(data.inspection.scopeItems ?? [])
       } else {
         toast.error("Inspection not found")
         router.push("/dashboard/inspections")
@@ -333,7 +344,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "moisture-map", label: "Moisture Map", icon: Map },
     { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: inspection.affectedAreas.length },
     { key: "classification", label: "Classification", icon: Shield, count: inspection.classifications.length },
-    { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
+    { key: "scope", label: "Scope Items", icon: Layers, count: scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
     { key: "activity", label: "Activity", icon: History },
@@ -477,8 +488,8 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             </div>
             <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">Scope Items</div>
-              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{inspection.scopeItems.filter(s => s.isSelected).length}</div>
-              <div className="text-xs text-neutral-500 mt-1">{inspection.scopeItems.filter(s => s.autoDetermined).length} auto-determined</div>
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{scopeItems.filter(s => s.isSelected).length}</div>
+              <div className="text-xs text-neutral-500 mt-1">{scopeItems.filter(s => s.autoDetermined).length} auto-determined</div>
             </div>
             <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">Estimated Cost</div>
@@ -744,14 +755,20 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-3">
-            {/* Apply IICRC Checklist button */}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setChecklistDialogOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors border border-indigo-200 dark:border-indigo-800/50"
               >
                 <ListChecks size={15} />
                 Apply IICRC Checklist
+              </button>
+              <button
+                onClick={() => { setShowAddScope(!showAddScope); setAddScopeForm({ description: "", itemType: "", quantity: "", unit: "" }) }}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+              >
+                <Plus size={15} />
+                Add Scope Item
               </button>
             </div>
 
@@ -793,41 +810,122 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               </DialogContent>
             </Dialog>
 
-            {inspection.scopeItems.length > 0 ? (
-              inspection.scopeItems.map((item) => (
-                <div key={item.id} className={cn(
-                  "p-4 rounded-xl border bg-white dark:bg-slate-900/50 flex items-start gap-3",
-                  item.isSelected
-                    ? "border-emerald-200 dark:border-emerald-800/50"
-                    : "border-neutral-200 dark:border-slate-700/50 opacity-50"
-                )}>
-                  <div className={cn(
-                    "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5",
-                    item.isSelected ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-slate-700"
-                  )}>
-                    {item.isSelected && <CheckCircle2 size={14} />}
+            {showAddScope && (
+              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+                <h4 className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">New Scope Item</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Description *</label>
+                    <input type="text" value={addScopeForm.description} onChange={e => setAddScopeForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Remove wet carpet and pad" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{item.description}</span>
-                      {item.autoDetermined && (
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">Auto</span>
-                      )}
-                      {item.isRequired && (
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Required</span>
-                      )}
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Item Type *</label>
+                    <input type="text" value={addScopeForm.itemType} onChange={e => setAddScopeForm(f => ({ ...f, itemType: e.target.value }))} placeholder="e.g. remove_carpet" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Quantity</label>
+                    <input type="number" value={addScopeForm.quantity} onChange={e => setAddScopeForm(f => ({ ...f, quantity: e.target.value }))} placeholder="e.g. 25" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Unit</label>
+                    <input type="text" value={addScopeForm.unit} onChange={e => setAddScopeForm(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. sq ft" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowAddScope(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"><X size={14} /> Cancel</button>
+                  <button
+                    onClick={async () => {
+                      if (!addScopeForm.description || !addScopeForm.itemType) { toast.error("Description and Item Type are required"); return }
+                      try {
+                        const res = await fetch(`/api/inspections/${id}/scope-items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: addScopeForm.description, itemType: addScopeForm.itemType, quantity: addScopeForm.quantity ? parseFloat(addScopeForm.quantity) : null, unit: addScopeForm.unit || null }) })
+                        if (!res.ok) throw new Error("Failed to add scope item")
+                        const data = await res.json()
+                        setScopeItems(prev => [...prev, data.scopeItem])
+                        setShowAddScope(false)
+                        setAddScopeForm({ description: "", itemType: "", quantity: "", unit: "" })
+                        toast.success("Scope item added")
+                      } catch { toast.error("Failed to add scope item") }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                  >
+                    <Save size={14} /> Add Item
+                  </button>
+                </div>
+              </div>
+            )}
+            {scopeItems.length > 0 ? (
+              scopeItems.map((item) => (
+                <div key={item.id} className={cn("p-4 rounded-xl border bg-white dark:bg-slate-900/50", item.isSelected ? "border-emerald-200 dark:border-emerald-800/50" : "border-neutral-200 dark:border-slate-700/50 opacity-60")}>
+                  {editingScopeItem === item.id ? (
+                    <div className="space-y-3">
+                      <div><label className="text-xs text-neutral-500 uppercase tracking-wider">Description</label><input type="text" value={editScopeForm.description} onChange={e => setEditScopeForm(f => ({ ...f, description: e.target.value }))} className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-xs text-neutral-500 uppercase tracking-wider">Quantity</label><input type="number" value={editScopeForm.quantity} onChange={e => setEditScopeForm(f => ({ ...f, quantity: e.target.value }))} className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+                        <div><label className="text-xs text-neutral-500 uppercase tracking-wider">Unit</label><input type="text" value={editScopeForm.unit} onChange={e => setEditScopeForm(f => ({ ...f, unit: e.target.value }))} className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setEditingScopeItem(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"><X size={14} /> Cancel</button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/inspections/${id}/scope-items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: editScopeForm.description, quantity: editScopeForm.quantity ? parseFloat(editScopeForm.quantity) : null, unit: editScopeForm.unit || null }) })
+                              if (!res.ok) throw new Error("Failed to update scope item")
+                              const data = await res.json()
+                              setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, ...data.scopeItem } : s))
+                              setEditingScopeItem(null)
+                              toast.success("Scope item updated")
+                            } catch { toast.error("Failed to update scope item") }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                        ><Save size={14} /> Save</button>
+                      </div>
                     </div>
-                    {item.justification && (
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">{item.justification}</p>
-                    )}
-                    {item.quantity && (
-                      <p className="text-xs text-neutral-500 mt-1">Qty: {item.quantity} {item.unit}</p>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={async () => {
+                          const newSelected = !item.isSelected
+                          setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, isSelected: newSelected } : s))
+                          try {
+                            const res = await fetch(`/api/inspections/${id}/scope-items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isSelected: newSelected }) })
+                            if (!res.ok) { setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, isSelected: !newSelected } : s)); toast.error("Failed to update scope item") }
+                          } catch { setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, isSelected: !newSelected } : s)); toast.error("Failed to update scope item") }
+                        }}
+                        className={cn("w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors", item.isSelected ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600")}
+                        title={item.isSelected ? "Deselect item" : "Select item"}
+                      >
+                        {item.isSelected && <CheckCircle2 size={14} />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{item.description}</span>
+                          {item.autoDetermined && <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">Auto</span>}
+                          {item.isRequired && <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Required</span>}
+                        </div>
+                        {item.justification && <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">{item.justification}</p>}
+                        {item.quantity && <p className="text-xs text-neutral-500 mt-1">Qty: {item.quantity} {item.unit}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => { setEditingScopeItem(item.id); setEditScopeForm({ description: item.description, quantity: item.quantity != null ? String(item.quantity) : "", unit: item.unit ?? "" }) }} className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors" title="Edit"><Pencil size={14} /></button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Delete this scope item?")) return
+                            try {
+                              const res = await fetch(`/api/inspections/${id}/scope-items/${item.id}`, { method: "DELETE" })
+                              if (!res.ok) throw new Error("Failed to delete scope item")
+                              setScopeItems(prev => prev.filter(s => s.id !== item.id))
+                              toast.success("Scope item deleted")
+                            } catch { toast.error("Failed to delete scope item") }
+                          }}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete"
+                        ><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 text-neutral-400">No scope items — submit the inspection to auto-determine scope</div>
+              <div className="text-center py-12 text-neutral-400">No scope items — submit the inspection to auto-determine scope, or add one above</div>
             )}
           </div>
         )}
