@@ -141,7 +141,7 @@ export default function InterviewsPage() {
     if (s.status === "IN_PROGRESS" || s.status === "STARTED") {
       router.push(`/dashboard/forms/interview?formTemplateId=${s.formTemplate.id}&sessionId=${s.id}`)
     } else if (s.status === "COMPLETED") {
-      router.push("/dashboard/interview-analytics")
+      router.push(`/dashboard/interviews/${s.id}`)
     }
   }
 
