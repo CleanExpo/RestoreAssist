@@ -6,6 +6,8 @@ import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
+import dynamic from "next/dynamic"
+const PortalInvitePanel = dynamic(() => import("@/components/inspection/PortalInvitePanel"), { ssr: false })
 import {
   ArrowLeft,
   Loader2,
@@ -380,6 +382,14 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 </div>
               </div>
             )}
+
+            {/* Portal Invite */}
+            <div className="lg:col-span-4 md:col-span-2">
+              <PortalInvitePanel
+                inspectionId={inspection.id}
+                preselectedClientId={null}
+              />
+            </div>
           </div>
         )}
 
