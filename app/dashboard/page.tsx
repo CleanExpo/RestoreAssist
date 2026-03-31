@@ -2,11 +2,11 @@
 
 import { motion } from "framer-motion"
 import {
-  FileText, 
-  Plus, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
+  FileText,
+  Plus,
+  TrendingUp,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Users,
   DollarSign,
@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Activity,
   Crown,
-  XIcon
+  XIcon,
+  ClipboardList
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
@@ -48,6 +49,9 @@ export default function DashboardPage() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
+  const [pendingInspections, setPendingInspections] = useState<any[]>([])
+  const [loadingPending, setLoadingPending] = useState(false)
+
   const [showGuidedModal, setShowGuidedModal] = useState(false)
   const [guidedStep, setGuidedStep] = useState<'api' | 'pricing' | 'client' | 'report'>('api')
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
@@ -59,6 +63,7 @@ export default function DashboardPage() {
       const welcomeFlag = searchParams.get('welcome')
       fetchSubscriptionStatus()
       fetchDashboardData()
+      fetchPendingInspections()
       
       // Show welcome/personalization popup after signup
       if (welcomeFlag === '1') {
@@ -176,6 +181,28 @@ export default function DashboardPage() {
     }
   }
 
+  const fetchPendingInspections = async () => {
+    try {
+      setLoadingPending(true)
+      const [draftRes, submittedRes] = await Promise.all([
+        fetch('/api/inspections?status=DRAFT&limit=5'),
+        fetch('/api/inspections?status=SUBMITTED&limit=5'),
+      ])
+      const draftData = draftRes.ok ? await draftRes.json() : { inspections: [] }
+      const submittedData = submittedRes.ok ? await submittedRes.json() : { inspections: [] }
+      const combined = [
+        ...(draftData.inspections || []),
+        ...(submittedData.inspections || []),
+      ]
+      combined.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setPendingInspections(combined.slice(0, 5))
+    } catch (error) {
+      console.error('Error fetching pending inspections:', error)
+    } finally {
+      setLoadingPending(false)
+    }
+  }
+
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -259,8 +286,15 @@ export default function DashboardPage() {
   }
 
   const quickActions = [
-    { 
-      title: "Create New Report", 
+    {
+      title: "Start New Inspection",
+      description: "Begin a new on-site field inspection",
+      icon: ClipboardList,
+      color: "from-teal-500 to-cyan-500",
+      href: "/dashboard/inspections/new"
+    },
+    {
+      title: "Create New Report",
       description: "Start a professional damage assessment",
       icon: Plus,
       color: "from-blue-500 to-cyan-500",
@@ -348,6 +382,120 @@ export default function DashboardPage() {
                 </div>
               </motion.div>
             ))}
+          </motion.div>
+
+          {/* Pending Inspections Widget */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className={cn("border rounded-xl p-4 sm:p-6", "bg-white/50 dark:bg-slate-800/50", "border-neutral-200 dark:border-slate-700/50")}
+          >
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <div className="flex items-center gap-3">
+                <h2
+                  className={cn("text-lg sm:text-xl font-medium", "text-neutral-900 dark:text-white")}
+                  style={{ fontFamily: 'Titillium Web, sans-serif' }}
+                >
+                  Pending Inspections
+                </h2>
+                {!loadingPending && pendingInspections.length > 0 && (
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                    {pendingInspections.length}
+                  </span>
+                )}
+              </div>
+              <a
+                href="/dashboard/inspections"
+                className={cn("text-sm font-medium transition-colors", "text-cyan-600 dark:text-cyan-400", "hover:text-cyan-700 dark:hover:text-cyan-300")}
+              >
+                View all inspections →
+              </a>
+            </div>
+
+            {loadingPending ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className={cn("h-14 rounded-lg animate-pulse", "bg-neutral-100 dark:bg-slate-700/40")} />
+                ))}
+              </div>
+            ) : pendingInspections.length === 0 ? (
+              <div className="text-center py-6">
+                <ClipboardList size={32} className={cn("mx-auto mb-2 opacity-40", "text-neutral-500 dark:text-slate-500")} />
+                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>No pending inspections</p>
+                <a
+                  href="/dashboard/inspections/new"
+                  className={cn("inline-block mt-2 text-sm font-medium", "text-cyan-600 dark:text-cyan-400", "hover:text-cyan-700 dark:hover:text-cyan-300")}
+                >
+                  Start your first inspection →
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pendingInspections.map((inspection: any) => {
+                  const isDraft = inspection.status === 'DRAFT'
+                  const createdDate = new Date(inspection.createdAt).toLocaleDateString('en-AU', {
+                    day: '2-digit', month: 'short', year: 'numeric'
+                  })
+                  const displayAddress = inspection.propertyAddress
+                    ? inspection.propertyAddress.length > 45
+                      ? inspection.propertyAddress.slice(0, 45) + '…'
+                      : inspection.propertyAddress
+                    : 'No address'
+                  return (
+                    <a
+                      key={inspection.id}
+                      href={`/dashboard/inspections/${inspection.id}`}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg transition-all duration-200",
+                        "bg-neutral-50 dark:bg-slate-700/30",
+                        "border border-neutral-200 dark:border-slate-600/30",
+                        "hover:border-neutral-300 dark:hover:border-slate-500/50",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                        "hover:shadow-sm"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-2 h-2 rounded-full flex-shrink-0",
+                        isDraft ? "bg-neutral-400 dark:bg-slate-400" : "bg-amber-400"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("text-sm font-medium truncate", "text-neutral-900 dark:text-white")}>
+                            {inspection.inspectionNumber || 'Untitled'}
+                          </span>
+                          <span className={cn(
+                            "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0",
+                            isDraft
+                              ? "bg-neutral-100 text-neutral-600 dark:bg-slate-600/50 dark:text-slate-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
+                          )}>
+                            {inspection.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={cn("text-xs truncate", "text-neutral-500 dark:text-slate-400")}>
+                            {displayAddress}
+                          </span>
+                          {inspection.technicianName && (
+                            <>
+                              <span className="text-neutral-300 dark:text-slate-600">·</span>
+                              <span className={cn("text-xs flex-shrink-0", "text-neutral-500 dark:text-slate-400")}>
+                                {inspection.technicianName}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <span className={cn("text-xs flex-shrink-0", "text-neutral-400 dark:text-slate-500")}>
+                        {createdDate}
+                      </span>
+                      <ArrowRight size={14} className={cn("flex-shrink-0", "text-neutral-400 dark:text-slate-500")} />
+                    </a>
+                  )
+                })}
+              </div>
+            )}
           </motion.div>
 
           {/* Main Content Grid */}
