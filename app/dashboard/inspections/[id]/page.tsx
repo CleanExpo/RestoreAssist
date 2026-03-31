@@ -1,13 +1,11 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useRef } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
-import dynamic from "next/dynamic"
-const PortalInvitePanel = dynamic(() => import("@/components/inspection/PortalInvitePanel"), { ssr: false })
 import {
   ArrowLeft,
   Loader2,
@@ -27,9 +25,8 @@ import {
   Clock,
   XCircle,
   Map,
-  Receipt,
+  Upload,
 } from "lucide-react"
-import Link from "next/link"
 
 type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
 
@@ -176,6 +173,10 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoLocation, setPhotoLocation] = useState("")
+  const [photos, setPhotos] = useState<Inspection["photos"]>([])
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchInspection()
@@ -188,6 +189,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       if (response.ok) {
         const data = await response.json()
         setInspection(data.inspection)
+        setPhotos(data.inspection.photos ?? [])
       } else {
         toast.error("Inspection not found")
         router.push("/dashboard/inspections")
@@ -197,6 +199,32 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       toast.error("Failed to load inspection")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      if (photoLocation) formData.append("location", photoLocation)
+      const res = await fetch(`/api/inspections/${inspection!.id}/photos`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!res.ok) throw new Error("Upload failed")
+      const data = await res.json()
+      const newPhoto = data.photo
+      setPhotos(prev => [...prev, newPhoto])
+      setPhotoLocation("")
+    } catch (err) {
+      console.error("Photo upload error:", err)
+      toast.error("Failed to upload photo")
+    } finally {
+      setUploadingPhoto(false)
+      if (photoInputRef.current) photoInputRef.current.value = ""
     }
   }
 
@@ -222,7 +250,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "classification", label: "Classification", icon: Shield, count: inspection.classifications.length },
     { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
-    { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
+    { key: "photos", label: "Photos", icon: Camera, count: photos.length },
   ]
 
   return (
@@ -236,7 +264,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
               {inspection.inspectionNumber}
             </h1>
@@ -245,13 +273,6 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/invoice`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
-            >
-              <Receipt size={14} />
-              Generate Invoice
-            </Link>
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
@@ -391,14 +412,6 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 </div>
               </div>
             )}
-
-            {/* Portal Invite */}
-            <div className="lg:col-span-4 md:col-span-2">
-              <PortalInvitePanel
-                inspectionId={inspection.id}
-                preselectedClientId={null}
-              />
-            </div>
           </div>
         )}
 
@@ -681,10 +694,41 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Photos Tab */}
         {activeTab === "photos" && (
-          <div>
-            {inspection.photos.length > 0 ? (
+          <div className="space-y-4">
+            {/* Upload section */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-neutral-50 dark:hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {uploadingPhoto ? (
+                  <Loader2 size={16} className="animate-spin text-cyan-500" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+              </button>
+              <input
+                type="text"
+                value={photoLocation}
+                onChange={e => setPhotoLocation(e.target.value)}
+                placeholder="Location (optional)"
+                className="flex-1 min-w-[180px] max-w-xs px-3 py-2 rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+              />
+              <input
+                type="file"
+                accept="image/*"
+                ref={photoInputRef}
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+            </div>
+
+            {/* Photo grid */}
+            {photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {inspection.photos.map((photo) => (
+                {photos.map((photo) => (
                   <a
                     key={photo.id}
                     href={photo.url}
