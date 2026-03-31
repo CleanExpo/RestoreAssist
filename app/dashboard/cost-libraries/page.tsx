@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Plus, Edit, Trash2, Download, Upload, X } from "lucide-react"
 import toast from "react-hot-toast"
 
@@ -54,6 +54,9 @@ export default function CostLibrariesPage() {
     rate: "",
     unit: ""
   })
+
+  const csvInputRef = useRef<HTMLInputElement>(null)
+  const [importingLibraryId, setImportingLibraryId] = useState<string | null>(null)
 
   const currentLibrary = libraries.find((l) => l.id === selectedLibrary)
 
@@ -307,6 +310,105 @@ export default function CostLibrariesPage() {
     setShowEditItemModal(true)
   }
 
+  function handleExport(libraryId: string, libraryName: string) {
+    const lib = libraries.find((l) => l.id === libraryId)
+    if (!lib?.items?.length) {
+      toast.error("No items to export")
+      return
+    }
+
+    const headers = ["category", "description", "unit", "rate"]
+    const rows = lib.items.map((item) =>
+      [
+        `"${(item.category ?? "").replace(/"/g, '""')}"`,
+        `"${(item.description ?? "").replace(/"/g, '""')}"`,
+        item.unit ?? "",
+        item.rate ?? "",
+      ].join(",")
+    )
+    const csv = [headers.join(","), ...rows].join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${libraryName.replace(/\s+/g, "-").toLowerCase()}-items.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleImportClick(libraryId: string) {
+    setImportingLibraryId(libraryId)
+    csvInputRef.current?.click()
+  }
+
+  async function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !importingLibraryId) return
+
+    const text = await file.text()
+    const lines = text.trim().split("\n")
+    if (lines.length < 2) {
+      toast.error("CSV must have a header row and at least one data row")
+      setImportingLibraryId(null)
+      if (csvInputRef.current) csvInputRef.current.value = ""
+      return
+    }
+
+    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""))
+    const items = lines.slice(1).map((line) => {
+      // Simple CSV parse — handles quoted fields
+      const cols: string[] = []
+      let inQuotes = false
+      let cur = ""
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i]
+        if (ch === '"') {
+          inQuotes = !inQuotes
+        } else if (ch === "," && !inQuotes) {
+          cols.push(cur.trim())
+          cur = ""
+        } else {
+          cur += ch
+        }
+      }
+      cols.push(cur.trim())
+
+      const item: Record<string, string | number> = {}
+      headers.forEach((h, i) => {
+        item[h] = cols[i] ?? ""
+      })
+      if (item.rate !== undefined) {
+        item.rate = parseFloat(String(item.rate)) || 0
+      }
+      return item
+    })
+
+    try {
+      const res = await fetch(`/api/cost-libraries/${importingLibraryId}/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      })
+      const result = await res.json()
+      if (res.ok) {
+        toast.success(`${result.imported} items imported${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}`)
+        // Refresh libraries to show newly imported items
+        fetchLibraries()
+      } else {
+        toast.error(result.error ?? "Import failed")
+      }
+    } catch (err) {
+      console.error("CSV import error:", err)
+      toast.error("Import failed")
+    } finally {
+      setImportingLibraryId(null)
+      if (csvInputRef.current) csvInputRef.current.value = ""
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -388,11 +490,17 @@ export default function CostLibrariesPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm">
+                <button
+                  onClick={() => handleExport(currentLibrary.id, currentLibrary.name)}
+                  className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                >
                   <Download size={16} />
                   Export to CSV
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm">
+                <button
+                  onClick={() => handleImportClick(currentLibrary.id)}
+                  className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                >
                   <Upload size={16} />
                   Import from CSV
                 </button>
@@ -797,6 +905,15 @@ export default function CostLibrariesPage() {
           </div>
         </div>
       )}
+
+      {/* Hidden CSV file input for import */}
+      <input
+        type="file"
+        ref={csvInputRef}
+        accept=".csv"
+        className="hidden"
+        onChange={handleCsvFile}
+      />
 
       {/* Delete Item Confirmation Modal */}
       {showDeleteItemModal && deletingItem && (
