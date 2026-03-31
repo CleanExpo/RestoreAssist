@@ -163,6 +163,9 @@ model User {
 
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
+
+  // Scope templates
+  scopeTemplates ScopeTemplate[]
 }
 
 model Feedback {
@@ -3727,4 +3730,27 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// ============================================
+// SCOPE TEMPLATES
+// ============================================
+
+model ScopeTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?  @db.Text
+  claimType   String?  // water_damage | fire_damage | mould_remediation | storm_damage | general
+
+  // Line items stored as JSON array
+  items       String?  @db.Text // JSON: Array<{ id, description, unit, quantity, iicrcRef? }>
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([claimType])
 }
