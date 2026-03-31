@@ -2,9 +2,18 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, Building, User, Calendar, DollarSign, FileText, AlertTriangle, Eye } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Phone, Mail, MapPin, Building, User, Calendar, DollarSign, FileText, AlertTriangle, Eye, ClipboardList } from "lucide-react"
 import toast from "react-hot-toast"
 import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection"
+
+interface LinkedInspection {
+  id: string
+  inspectionNumber: string
+  propertyAddress: string
+  status: string
+  createdAt: string
+  submittedAt: string | null
+}
 
 interface Client {
   id: string
@@ -37,10 +46,26 @@ interface Client {
 export default function ClientDetailPage({ params }: { params: { id: string } }) {
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
+  const [inspections, setInspections] = useState<LinkedInspection[]>([])
+  const [loadingInspections, setLoadingInspections] = useState(false)
 
   useEffect(() => {
     fetchClient()
+    fetchInspections()
   }, [params.id])
+
+  const fetchInspections = async () => {
+    setLoadingInspections(true)
+    try {
+      const res = await fetch(`/api/inspections?clientId=${params.id}&limit=50`)
+      if (res.ok) {
+        const data = await res.json()
+        setInspections(data.inspections ?? data ?? [])
+      }
+    } finally {
+      setLoadingInspections(false)
+    }
+  }
 
   const fetchClient = async () => {
     try {
@@ -57,6 +82,17 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       toast.error("Failed to fetch client details")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const getInspectionStatusColor = (status: string) => {
+    switch (status) {
+      case "PENDING": return "bg-amber-500/20 text-amber-400"
+      case "SUBMITTED": return "bg-blue-500/20 text-blue-400"
+      case "PROCESSED": return "bg-emerald-500/20 text-emerald-400"
+      case "CANCELLED": return "bg-red-500/20 text-red-400"
+      case "DRAFT": return "bg-slate-500/20 text-slate-400"
+      default: return "bg-slate-500/20 text-slate-400"
     }
   }
 
@@ -242,6 +278,74 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
         clientEmail={client.email}
         clientName={client.name}
       />
+
+      {/* Inspections */}
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <ClipboardList className="text-cyan-400" size={20} />
+          Inspections
+          {!loadingInspections && (
+            <span className="text-slate-400 text-sm font-normal">({inspections.length})</span>
+          )}
+        </h3>
+        {loadingInspections ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-14 bg-slate-700/30 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : inspections.length === 0 ? (
+          <div className="text-center py-8">
+            <ClipboardList className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+            <p className="text-slate-400">No inspections for this client yet.</p>
+            <Link
+              href="/dashboard/inspections/new"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            >
+              Create First Inspection
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-400 border-b border-slate-700/50">
+                  <th className="pb-3 pr-4 font-medium">#</th>
+                  <th className="pb-3 pr-4 font-medium">Address</th>
+                  <th className="pb-3 pr-4 font-medium">Status</th>
+                  <th className="pb-3 pr-4 font-medium">Date</th>
+                  <th className="pb-3 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/30">
+                {inspections.map((inspection) => (
+                  <tr key={inspection.id} className="hover:bg-slate-700/20 transition-colors">
+                    <td className="py-3 pr-4 font-mono text-slate-300">{inspection.inspectionNumber}</td>
+                    <td className="py-3 pr-4 text-slate-300">{inspection.propertyAddress}</td>
+                    <td className="py-3 pr-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getInspectionStatusColor(inspection.status)}`}>
+                        {inspection.status}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-slate-400">
+                      {new Date(inspection.submittedAt ?? inspection.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="py-3">
+                      <Link
+                        href={`/dashboard/inspections/${inspection.id}`}
+                        className="flex items-center gap-1 text-cyan-400 hover:underline"
+                      >
+                        <Eye size={14} />
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Reports History */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
