@@ -224,6 +224,10 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [moistureForm, setMoistureForm] = useState({ location: '', surfaceType: '', moistureLevel: 0, depth: 'Surface', notes: '' })
   const [addingMoisture, setAddingMoisture] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
+  const [affectedAreas, setAffectedAreas] = useState<Inspection["affectedAreas"]>([])
+  const [showAddAreaForm, setShowAddAreaForm] = useState(false)
+  const [areaForm, setAreaForm] = useState({ roomZoneId: "", affectedSquareFootage: "", waterSource: "", timeSinceLoss: "", description: "" })
+  const [areaSubmitting, setAreaSubmitting] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false)
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>("")
@@ -247,6 +251,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         setInspection(data.inspection)
         setScopeItems(data.inspection.scopeItems ?? [])
         setMoistureReadings(data.inspection.moistureReadings ?? [])
+        setAffectedAreas(data.inspection.affectedAreas ?? [])
         setEnvData(data.inspection.environmentalData)
         const ed = data.inspection.environmentalData
         if (ed) { setEnvForm({ ambientTemperature: ed.ambientTemperature ?? 20, humidityLevel: ed.humidityLevel ?? 50, airCirculation: ed.airCirculation ?? false, weatherConditions: ed.weatherConditions ?? '', notes: ed.notes ?? '' }) }
@@ -404,6 +409,53 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  async function handleAddArea() {
+    if (!inspection) return
+    if (!areaForm.roomZoneId.trim()) { toast.error("Room / Zone ID is required"); return }
+    const sqft = parseFloat(areaForm.affectedSquareFootage)
+    if (!sqft || sqft <= 0) { toast.error("Affected area must be greater than 0"); return }
+    if (!areaForm.waterSource.trim()) { toast.error("Water source is required"); return }
+    setAreaSubmitting(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection.id}/affected-areas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomZoneId: areaForm.roomZoneId.trim(),
+          affectedSquareFootage: sqft,
+          waterSource: areaForm.waterSource.trim(),
+          timeSinceLoss: areaForm.timeSinceLoss ? parseFloat(areaForm.timeSinceLoss) : null,
+          description: areaForm.description || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to add area")
+      }
+      const data = await res.json()
+      setAffectedAreas(prev => [...prev, data.affectedArea])
+      setAreaForm({ roomZoneId: "", affectedSquareFootage: "", waterSource: "", timeSinceLoss: "", description: "" })
+      setShowAddAreaForm(false)
+      toast.success("Area added")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add area")
+    } finally {
+      setAreaSubmitting(false)
+    }
+  }
+
+  async function handleDeleteArea(areaId: string) {
+    if (!inspection) return
+    try {
+      const res = await fetch(`/api/inspections/${inspection.id}/affected-areas/${areaId}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Delete failed")
+      setAffectedAreas(prev => prev.filter(a => a.id !== areaId))
+      toast.success("Area removed")
+    } catch {
+      toast.error("Failed to delete area")
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -422,7 +474,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "environmental", label: "Environmental", icon: Thermometer },
     { key: "moisture", label: "Moisture", icon: Droplets, count: moistureReadings.length },
     { key: "moisture-map", label: "Moisture Map", icon: Map },
-    { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: inspection.affectedAreas.length },
+    { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: affectedAreas.length },
     { key: "classification", label: "Classification", icon: Shield, count: inspection.classifications.length },
     { key: "scope", label: "Scope Items", icon: Layers, count: scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
@@ -847,49 +899,93 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Affected Areas Tab */}
         {activeTab === "areas" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {inspection.affectedAreas.length > 0 ? (
-              inspection.affectedAreas.map((area) => (
-                <div key={area.id} className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-neutral-900 dark:text-white">{area.roomZoneId}</h4>
-                    <div className="flex gap-2">
-                      {area.category && (
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600">
-                          Cat {area.category}
-                        </span>
-                      )}
-                      {area.class && (
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600">
-                          Class {area.class}
-                        </span>
-                      )}
-                    </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">Affected Areas ({affectedAreas.length})</h3>
+              <button onClick={() => setShowAddAreaForm(v => !v)} className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={14} /> Add Area
+              </button>
+            </div>
+            {showAddAreaForm && (
+              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Room / Zone ID *</label>
+                    <input type="text" value={areaForm.roomZoneId} onChange={e => setAreaForm(f => ({ ...f, roomZoneId: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. Living Room" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-neutral-400 text-xs">Area</span>
-                      <p className="font-medium">{area.affectedSquareFootage} sq ft</p>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 text-xs">Water Source</span>
-                      <p className="font-medium capitalize">{area.waterSource}</p>
-                    </div>
-                    {area.timeSinceLoss && (
-                      <div>
-                        <span className="text-neutral-400 text-xs">Time Since Loss</span>
-                        <p className="font-medium">{area.timeSinceLoss}h</p>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Affected Sq Ft *</label>
+                    <input type="number" value={areaForm.affectedSquareFootage} onChange={e => setAreaForm(f => ({ ...f, affectedSquareFootage: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. 200" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Water Source *</label>
+                    <input type="text" value={areaForm.waterSource} onChange={e => setAreaForm(f => ({ ...f, waterSource: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. burst pipe" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Time Since Loss (hours)</label>
+                    <input type="number" value={areaForm.timeSinceLoss} onChange={e => setAreaForm(f => ({ ...f, timeSinceLoss: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Description</label>
+                    <input type="text" value={areaForm.description} onChange={e => setAreaForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddArea} disabled={areaSubmitting} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+                    {areaSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {areaSubmitting ? 'Adding...' : 'Add Area'}
+                  </button>
+                  <button onClick={() => setShowAddAreaForm(false)} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {affectedAreas.length > 0 ? (
+                affectedAreas.map((area) => (
+                  <div key={area.id} className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-neutral-900 dark:text-white">{area.roomZoneId}</h4>
+                      <div className="flex items-center gap-2">
+                        {area.category && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600">
+                            Cat {area.category}
+                          </span>
+                        )}
+                        {area.class && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600">
+                            Class {area.class}
+                          </span>
+                        )}
+                        <button onClick={() => handleDeleteArea(area.id)} className="p-1 text-red-400 hover:text-red-600 transition-colors" title="Delete area">
+                          <Trash2 size={14} />
+                        </button>
                       </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-neutral-400 text-xs">Area</span>
+                        <p className="font-medium">{area.affectedSquareFootage} sq ft</p>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 text-xs">Water Source</span>
+                        <p className="font-medium capitalize">{area.waterSource}</p>
+                      </div>
+                      {area.timeSinceLoss && (
+                        <div>
+                          <span className="text-neutral-400 text-xs">Time Since Loss</span>
+                          <p className="font-medium">{area.timeSinceLoss}h</p>
+                        </div>
+                      )}
+                    </div>
+                    {area.description && (
+                      <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">{area.description}</p>
                     )}
                   </div>
-                  {area.description && (
-                    <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">{area.description}</p>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="col-span-2 text-center py-12 text-neutral-400">No affected areas recorded</div>
-            )}
+                ))
+              ) : (
+                <div className="col-span-2 text-center py-12 text-neutral-400">No affected areas recorded</div>
+              )}
+            </div>
           </div>
         )}
 
