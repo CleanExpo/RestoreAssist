@@ -44,6 +44,7 @@ import {
   Plus,
   X,
   Save,
+  FileDown,
 } from "lucide-react"
 import {
   Dialog,
@@ -222,6 +223,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [showAddMoisture, setShowAddMoisture] = useState(false)
   const [moistureForm, setMoistureForm] = useState({ location: '', surfaceType: '', moistureLevel: 0, depth: 'Surface', notes: '' })
   const [addingMoisture, setAddingMoisture] = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false)
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>("")
@@ -373,6 +375,35 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     } catch { setMoistureReadings(inspection!.moistureReadings); toast.error('Failed to delete reading') }
   }
 
+  async function handleGenerateReport() {
+    setGeneratingReport(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection!.id}/report?format=pdf`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'Report generation failed')
+      }
+      const contentType = res.headers.get('content-type') ?? ''
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ext = contentType.includes('pdf') ? 'pdf'
+                : contentType.includes('sheet') || contentType.includes('excel') ? 'xlsx'
+                : 'pdf'
+      a.download = `nir-report-${inspection!.id}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Report generation error:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to generate report')
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -418,6 +449,19 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
                 Category {classification.category} / Class {classification.class}
               </span>
+            )}
+            {inspection.status === "COMPLETED" && (
+              <button
+                onClick={handleGenerateReport}
+                disabled={generatingReport}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+              >
+                {generatingReport ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Generating...</>
+                ) : (
+                  <><FileDown className="h-4 w-4" />Generate NIR Report</>
+                )}
+              </button>
             )}
             <ExportPdfButton inspectionId={inspection.id} />
             <Button
