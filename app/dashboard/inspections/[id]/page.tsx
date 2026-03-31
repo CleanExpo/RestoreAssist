@@ -172,6 +172,16 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [envData, setEnvData] = useState<Inspection["environmentalData"]>(null)
+  const [showEnvForm, setShowEnvForm] = useState(false)
+  const [envForm, setEnvForm] = useState({
+    ambientTemperature: 20,
+    humidityLevel: 50,
+    airCirculation: false,
+    weatherConditions: '',
+    notes: '',
+  })
+  const [savingEnv, setSavingEnv] = useState(false)
 
   useEffect(() => {
     fetchInspection()
@@ -184,6 +194,17 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       if (response.ok) {
         const data = await response.json()
         setInspection(data.inspection)
+        setEnvData(data.inspection.environmentalData)
+        const ed = data.inspection.environmentalData
+        if (ed) {
+          setEnvForm({
+            ambientTemperature: ed.ambientTemperature ?? 20,
+            humidityLevel: ed.humidityLevel ?? 50,
+            airCirculation: ed.airCirculation ?? false,
+            weatherConditions: ed.weatherConditions ?? '',
+            notes: ed.notes ?? '',
+          })
+        }
       } else {
         toast.error("Inspection not found")
         router.push("/dashboard/inspections")
@@ -208,6 +229,30 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
   const classification = inspection.classifications?.[0]
   const totalCost = inspection.costEstimates.reduce((sum, c) => sum + c.total, 0)
+
+  const calcDewPoint = (temp: number, humidity: number) =>
+    Math.round((temp - ((100 - humidity) / 5)) * 10) / 10
+
+  const handleEnvSave = async () => {
+    setSavingEnv(true)
+    try {
+      const dewPoint = calcDewPoint(envForm.ambientTemperature, envForm.humidityLevel)
+      const res = await fetch(`/api/inspections/${inspection.id}/environmental`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...envForm, dewPoint }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setEnvData(data.environmentalData)
+      setShowEnvForm(false)
+      toast.success('Environmental data saved')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save')
+    } finally {
+      setSavingEnv(false)
+    }
+  }
 
   const TABS: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "overview", label: "Overview", icon: ClipboardCheck },
@@ -385,46 +430,181 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl">
-            {inspection.environmentalData ? (
-              <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
+          <div className="max-w-2xl space-y-4">
+            {!showEnvForm ? (
+              <>
+                {envData ? (
+                  <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Thermometer className="text-cyan-500" size={20} />
+                        Environmental Data
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setEnvForm({
+                            ambientTemperature: envData.ambientTemperature ?? 20,
+                            humidityLevel: envData.humidityLevel ?? 50,
+                            airCirculation: envData.airCirculation ?? false,
+                            weatherConditions: envData.weatherConditions ?? '',
+                            notes: envData.notes ?? '',
+                          })
+                          setShowEnvForm(true)
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-xs text-neutral-400 uppercase tracking-wider">Ambient Temperature</label>
+                        <p className="text-2xl font-bold mt-1">{envData.ambientTemperature}°C</p>
+                      </div>
+                      <div>
+                        <label className="text-xs text-neutral-400 uppercase tracking-wider">Humidity Level</label>
+                        <p className="text-2xl font-bold mt-1">{envData.humidityLevel}%</p>
+                      </div>
+                      <div>
+                        <label className="text-xs text-neutral-400 uppercase tracking-wider">Dew Point</label>
+                        <p className="text-2xl font-bold mt-1">{envData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
+                      </div>
+                      <div>
+                        <label className="text-xs text-neutral-400 uppercase tracking-wider">Air Circulation</label>
+                        <p className="text-2xl font-bold mt-1">{envData.airCirculation ? "Active" : "None"}</p>
+                      </div>
+                    </div>
+                    {envData.weatherConditions && (
+                      <div>
+                        <label className="text-xs text-neutral-400 uppercase tracking-wider">Weather Conditions</label>
+                        <p className="mt-1 text-neutral-700 dark:text-slate-300">{envData.weatherConditions}</p>
+                      </div>
+                    )}
+                    {envData.notes && (
+                      <div>
+                        <label className="text-xs text-neutral-400 uppercase tracking-wider">Notes</label>
+                        <p className="mt-1 text-neutral-700 dark:text-slate-300">{envData.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-xl border border-dashed border-neutral-200 dark:border-slate-700 text-center space-y-3">
+                    <p className="text-neutral-400">No environmental data recorded</p>
+                    <button
+                      onClick={() => setShowEnvForm(true)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                    >
+                      Add Environmental Data
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="p-6 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-white dark:bg-slate-900/50 space-y-5">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Thermometer className="text-cyan-500" size={20} />
-                  Environmental Data
+                  {envData ? "Edit Environmental Data" : "Add Environmental Data"}
                 </h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">Ambient Temperature</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.ambientTemperature}°C</p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      Ambient Temperature (°C)
+                    </label>
+                    <input
+                      type="number"
+                      value={envForm.ambientTemperature}
+                      onChange={e => setEnvForm(f => ({ ...f, ambientTemperature: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
                   </div>
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">Humidity Level</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.humidityLevel}%</p>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      Humidity Level (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={envForm.humidityLevel}
+                      onChange={e => setEnvForm(f => ({ ...f, humidityLevel: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
                   </div>
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">Dew Point</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      Dew Point (°C)
+                    </label>
+                    <div className="w-full px-3 py-2 rounded-lg border border-neutral-100 dark:border-slate-700/50 bg-neutral-100 dark:bg-slate-800/50 text-neutral-500 dark:text-slate-400 text-sm">
+                      {calcDewPoint(envForm.ambientTemperature, envForm.humidityLevel)}°C
+                      <span className="ml-2 text-xs text-neutral-400">(auto-calculated)</span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">Air Circulation</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.airCirculation ? "Active" : "None"}</p>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      Air Circulation
+                    </label>
+                    <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={envForm.airCirculation}
+                        onChange={e => setEnvForm(f => ({ ...f, airCirculation: e.target.checked }))}
+                        className="w-4 h-4 rounded accent-cyan-500"
+                      />
+                      <span className="text-sm text-neutral-700 dark:text-slate-300">
+                        {envForm.airCirculation ? "Active" : "None"}
+                      </span>
+                    </label>
                   </div>
                 </div>
-                {inspection.environmentalData.weatherConditions && (
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">Weather Conditions</label>
-                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{inspection.environmentalData.weatherConditions}</p>
-                  </div>
-                )}
-                {inspection.environmentalData.notes && (
-                  <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">Notes</label>
-                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{inspection.environmentalData.notes}</p>
-                  </div>
-                )}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                    Weather Conditions <span className="normal-case text-neutral-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={envForm.weatherConditions}
+                    onChange={e => setEnvForm(f => ({ ...f, weatherConditions: e.target.value }))}
+                    placeholder="e.g. Overcast, light rain"
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                    Notes <span className="normal-case text-neutral-400">(optional)</span>
+                  </label>
+                  <textarea
+                    value={envForm.notes}
+                    onChange={e => setEnvForm(f => ({ ...f, notes: e.target.value }))}
+                    rows={3}
+                    placeholder="Additional environmental observations..."
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={handleEnvSave}
+                    disabled={savingEnv}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 hover:bg-cyan-600 disabled:opacity-60 text-white transition-colors"
+                  >
+                    {savingEnv && <Loader2 size={14} className="animate-spin" />}
+                    {savingEnv ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setShowEnvForm(false)}
+                    disabled={savingEnv}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 text-neutral-600 dark:text-slate-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-12 text-neutral-400">No environmental data recorded</div>
             )}
           </div>
         )}
