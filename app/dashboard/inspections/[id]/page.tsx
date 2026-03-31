@@ -8,6 +8,10 @@ import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
 import dynamic from "next/dynamic"
 const PortalInvitePanel = dynamic(() => import("@/components/inspection/PortalInvitePanel"), { ssr: false })
+const ExportPdfButton = dynamic(
+  () => import("@/components/inspection/ExportPdfButton"),
+  { ssr: false }
+)
 import {
   ArrowLeft,
   Loader2,
@@ -268,6 +272,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
+            <ExportPdfButton inspectionId={inspection.id} />
             <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
