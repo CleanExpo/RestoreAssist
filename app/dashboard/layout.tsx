@@ -16,7 +16,6 @@ import {
   Menu,
   X,
   Plus,
-  Search,
   HelpCircle,
   CreditCard,
   Crown,
@@ -38,6 +37,7 @@ import toast from "react-hot-toast"
 import { NotificationBell } from "@/components/notifications"
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false })
+import GlobalSearch from "@/components/GlobalSearch"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
@@ -365,21 +365,7 @@ const upgradeItem = {
             </button>
 
             <div className="flex-1 max-w-xs sm:max-w-md">
-              <div className="relative">
-                <Search className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", "text-neutral-500 dark:text-slate-400")} size={18} />
-                <input
-                  type="text"
-                  placeholder="Search reports, clients..."
-                  className={cn(
-                    "w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500/50 text-sm",
-                    "bg-neutral-50 dark:bg-slate-800",
-                    "border border-neutral-300 dark:border-slate-700",
-                    "text-neutral-900 dark:text-white",
-                    "placeholder-neutral-500 dark:placeholder-slate-500",
-                    "focus:border-cyan-500"
-                  )}
-                />
-              </div>
+              <GlobalSearch />
             </div>
 
             <div className="flex items-center gap-4 ml-6">
