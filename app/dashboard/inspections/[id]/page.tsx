@@ -12,6 +12,10 @@ const ExportPdfButton = dynamic(
   () => import("@/components/inspection/ExportPdfButton"),
   { ssr: false }
 )
+const ActivityTimeline = dynamic(
+  () => import("@/components/inspection/ActivityTimeline"),
+  { ssr: false }
+)
 import {
   ArrowLeft,
   Loader2,
@@ -33,10 +37,11 @@ import {
   Map,
   Receipt,
   Upload,
+  History,
 } from "lucide-react"
 import Link from "next/link"
 
-type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "activity"
 
 interface Inspection {
   id: string
@@ -250,6 +255,7 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
     { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
+    { key: "activity", label: "Activity", icon: History },
   ]
 
   return (
@@ -705,6 +711,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               <div className="text-center py-12 text-neutral-400">No cost estimates — submit the inspection to auto-estimate costs</div>
             )}
           </div>
+        )}
+
+        {/* Activity Tab */}
+        {activeTab === "activity" && (
+          <ActivityTimeline inspectionId={inspection.id} />
         )}
 
         {/* Photos Tab */}
