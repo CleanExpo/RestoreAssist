@@ -9,6 +9,10 @@ const CRON_JOBS = [
   { id: 'dead-letter-review', name: 'Dead Letter Review', description: 'Reviews and requeues failed jobs', path: '/api/cron/dead-letter-review' },
   { id: 'process-emails', name: 'Process Emails', description: 'Sends queued email notifications', path: '/api/cron/process-emails' },
   { id: 'sync-invoices', name: 'Sync Invoices', description: 'Syncs invoices with accounting integrations', path: '/api/cron/sync-invoices' },
+  { id: 'generate-content', name: 'Generate Content', description: 'Daily: topic selection → AI script → voiceover → avatar video', path: '/api/cron/generate-content' },
+  { id: 'poll-heygen', name: 'Poll HeyGen', description: 'Every 5 min: checks HeyGen render status, updates videoUrl', path: '/api/cron/poll-heygen' },
+  { id: 'distribute-content', name: 'Distribute Content', description: 'Every 15 min: uploads VIDEO_READY videos to YouTube', path: '/api/cron/distribute-content' },
+  { id: 'collect-analytics', name: 'Collect Analytics', description: 'Daily: fetches YouTube view/like/comment stats', path: '/api/cron/collect-analytics' },
 ]
 
 // GET — list all cron jobs

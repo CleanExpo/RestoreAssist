@@ -156,12 +156,13 @@ export async function POST(request: NextRequest) {
     )
 
     // ── 3. Update ContentJob ───────────────────────────────────────────────
-    // Status moves to VIDEO_READY (async — HeyGen webhook will set videoUrl when done)
+    // Status moves to VIDEO_RENDERING — HeyGen is processing asynchronously.
+    // The poll-heygen cron or heygen webhook will set videoUrl + status=VIDEO_READY when done.
     await prisma.contentJob.update({
       where: { id: job.id },
       data: {
         heygenRenderJobId,
-        status: 'VIDEO_READY',
+        status: 'VIDEO_RENDERING',
       },
     })
 
