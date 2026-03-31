@@ -38,7 +38,24 @@ import {
   Receipt,
   Upload,
   History,
+  ListChecks,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists"
 import Link from "next/link"
 
 type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "activity"
@@ -188,6 +205,14 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [activeTab, setActiveTab] = useState<Tab>("overview")
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false)
+  const [selectedChecklistId, setSelectedChecklistId] = useState<string>("")
+  const [applyingChecklist, setApplyingChecklist] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareExpiry, setShareExpiry] = useState<string | null>(null)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
     fetchInspection()
@@ -229,6 +254,62 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       }
     } finally {
       setUploadingPhoto(false)
+    }
+  }
+
+  const handleShareWithClient = async () => {
+    if (!inspection) return
+    setShareLoading(true)
+    setShareDialogOpen(true)
+    try {
+      const res = await fetch("/api/portal/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inspectionId: inspection.id }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setShareUrl(data.portalUrl)
+        setShareExpiry(new Date(data.expiresAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }))
+      } else {
+        toast.error("Failed to generate portal link")
+        setShareDialogOpen(false)
+      }
+    } catch {
+      toast.error("Failed to generate portal link")
+      setShareDialogOpen(false)
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const handleCopyShareUrl = () => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    })
+  }
+
+  const applyChecklist = async () => {
+    if (!selectedChecklistId) return
+    setApplyingChecklist(true)
+    try {
+      const res = await fetch(`/api/inspections/${id}/apply-checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checklistId: selectedChecklistId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to apply checklist")
+      toast.success(`Added ${data.added} scope item${data.added !== 1 ? "s" : ""}${data.skipped > 0 ? ` (${data.skipped} already existed)` : ""}`)
+      setChecklistDialogOpen(false)
+      setSelectedChecklistId("")
+      fetchInspection()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to apply checklist")
+    } finally {
+      setApplyingChecklist(false)
     }
   }
 
@@ -279,6 +360,17 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               </span>
             )}
             <ExportPdfButton inspectionId={inspection.id} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareWithClient}
+              className="text-xs gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share with Client
+            </Button>
             <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
@@ -287,6 +379,30 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               Generate Invoice
             </Link>
           </div>
+
+          {/* Share Dialog */}
+          <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Share with Client</DialogTitle>
+              </DialogHeader>
+              <div className="py-2">
+                {shareLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="animate-spin text-cyan-500" size={24} />
+                  </div>
+                ) : shareUrl ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-neutral-600 dark:text-slate-300">Portal link valid until {shareExpiry}</p>
+                    <div className="flex items-center gap-2">
+                      <input readOnly value={shareUrl} className="flex-1 px-3 py-2 text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800" />
+                      <Button size="sm" onClick={handleCopyShareUrl}>{shareCopied ? "Copied!" : "Copy"}</Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </DialogContent>
+          </Dialog>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
               <MapPin size={14} />
@@ -628,6 +744,55 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-3">
+            {/* Apply IICRC Checklist button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setChecklistDialogOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors border border-indigo-200 dark:border-indigo-800/50"
+              >
+                <ListChecks size={15} />
+                Apply IICRC Checklist
+              </button>
+            </div>
+
+            {/* Apply Checklist Dialog */}
+            <Dialog open={checklistDialogOpen} onOpenChange={setChecklistDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ListChecks size={18} className="text-indigo-500" />
+                    Apply IICRC Checklist
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      Select Template
+                    </label>
+                    <Select value={selectedChecklistId} onValueChange={setSelectedChecklistId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a checklist template…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IICRC_CHECKLISTS.map((tpl) => (
+                          <SelectItem key={tpl.id} value={tpl.id}>
+                            {tpl.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setChecklistDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={applyChecklist} disabled={applyingChecklist || !selectedChecklistId}>
+                    {applyingChecklist ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+                    Apply Checklist
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             {inspection.scopeItems.length > 0 ? (
               inspection.scopeItems.map((item) => (
                 <div key={item.id} className={cn(
