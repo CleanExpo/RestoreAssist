@@ -406,11 +406,15 @@ async function countByStatus(db: IDBDatabase, status: string): Promise<number> {
 }
 
 async function countConflicts(db: IDBDatabase): Promise<number> {
+  // IDBIndex.count() requires a valid IDB key. Booleans are NOT valid IDB keys
+  // and passing `false` throws DataError. Use getAll() and filter in JS instead.
   return new Promise((resolve, reject) => {
     const tx = db.transaction(CONFLICT_STORE, 'readonly')
-    const index = tx.objectStore(CONFLICT_STORE).index('by-resolved')
-    const req = index.count(false)
-    req.onsuccess = () => resolve(req.result)
+    const req = tx.objectStore(CONFLICT_STORE).getAll()
+    req.onsuccess = () => {
+      const unresolved = (req.result as SyncConflict[]).filter(c => !c.resolved).length
+      resolve(unresolved)
+    }
     req.onerror = () => reject(req.error)
   })
 }

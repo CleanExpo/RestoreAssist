@@ -27,13 +27,27 @@ function resolveKey(keyString: string): Buffer {
 
 /**
  * Get the default encryption key from environment.
- * Uses CREDENTIAL_ENCRYPTION_KEY if set, falls back to INTEGRATION_ENCRYPTION_KEY.
+ *
+ * Priority order:
+ *  1. CREDENTIAL_ENCRYPTION_KEY   — dedicated 32-byte hex/base64 key (recommended)
+ *  2. INTEGRATION_ENCRYPTION_KEY  — legacy name, same format
+ *  3. NEXTAUTH_SECRET             — always present (required by NextAuth), used as
+ *                                   fallback so integrations work without extra config.
+ *                                   Safe because NEXTAUTH_SECRET is already a high-
+ *                                   entropy secret that never leaves the server.
+ *
+ * NOTE: Tokens encrypted with one key cannot be decrypted with another.
+ * Once a key is in use, do not change it without re-encrypting all stored tokens
+ * (or clearing the Integration table's accessToken / refreshToken columns first).
  */
 function getDefaultKey(): Buffer {
-  const key = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.INTEGRATION_ENCRYPTION_KEY
+  const key =
+    process.env.CREDENTIAL_ENCRYPTION_KEY ||
+    process.env.INTEGRATION_ENCRYPTION_KEY ||
+    process.env.NEXTAUTH_SECRET
   if (!key) {
     throw new Error(
-      'No encryption key configured. Set CREDENTIAL_ENCRYPTION_KEY or INTEGRATION_ENCRYPTION_KEY.'
+      'No encryption key configured. Set CREDENTIAL_ENCRYPTION_KEY, INTEGRATION_ENCRYPTION_KEY, or NEXTAUTH_SECRET.'
     )
   }
   return resolveKey(key)
