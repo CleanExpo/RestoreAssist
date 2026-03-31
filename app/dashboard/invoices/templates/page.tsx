@@ -1,20 +1,49 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import {
+  Copy,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CheckCircle, Eye, FileText, Plus, Search, Star } from 'lucide-react'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { Textarea } from '@/components/ui/textarea'
 
 interface InvoiceTemplate {
   id: string
@@ -31,393 +60,535 @@ interface InvoiceTemplate {
   updatedAt: string
 }
 
-function TemplateCardSkeleton() {
-  return (
-    <Card className="border border-slate-200 dark:border-slate-700">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-5 w-16 rounded-full" />
-        </div>
-        <Skeleton className="h-4 w-56 mt-1" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Colour swatch row */}
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-full rounded" />
-          <Skeleton className="h-8 w-full rounded" />
-          <Skeleton className="h-8 w-full rounded" />
-        </div>
-        {/* Toggle chips */}
-        <div className="flex gap-2 flex-wrap">
-          <Skeleton className="h-5 w-12 rounded-full" />
-          <Skeleton className="h-5 w-20 rounded-full" />
-          <Skeleton className="h-5 w-14 rounded-full" />
-        </div>
-        {/* Buttons */}
-        <div className="flex gap-2 pt-1">
-          <Skeleton className="h-9 flex-1 rounded-lg" />
-          <Skeleton className="h-9 flex-1 rounded-lg" />
-        </div>
-      </CardContent>
-    </Card>
-  )
+interface TemplateFormData {
+  name: string
+  description: string
+  isDefault: boolean
 }
 
-function TemplatePreviewModal({
-  template,
-  open,
-  onClose,
-}: {
-  template: InvoiceTemplate | null
-  open: boolean
-  onClose: () => void
-}) {
-  if (!template) return null
-
-  const rows: { label: string; value: string | number | boolean | null | undefined }[] = [
-    { label: 'Name', value: template.name },
-    { label: 'Description', value: template.description },
-    { label: 'Default', value: template.isDefault ? 'Yes' : 'No' },
-    { label: 'Primary Colour', value: template.primaryColor },
-    { label: 'Secondary Colour', value: template.secondaryColor },
-    { label: 'Accent Colour', value: template.accentColor },
-    { label: 'Logo URL', value: template.logoUrl },
-    { label: 'Usage Count', value: template.usageCount },
-    {
-      label: 'Last Used',
-      value: template.lastUsedAt
-        ? new Date(template.lastUsedAt).toLocaleDateString()
-        : 'Never',
-    },
-    { label: 'Created', value: new Date(template.createdAt).toLocaleDateString() },
-    { label: 'Updated', value: new Date(template.updatedAt).toLocaleDateString() },
-  ]
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-slate-900 dark:text-white">
-            {template.name}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Colour swatches preview */}
-        <div className="flex gap-2 mb-2">
-          {template.primaryColor && (
-            <div
-              className="h-10 flex-1 rounded"
-              style={{ backgroundColor: template.primaryColor }}
-              title={`Primary: ${template.primaryColor}`}
-            />
-          )}
-          {template.secondaryColor && (
-            <div
-              className="h-10 flex-1 rounded"
-              style={{ backgroundColor: template.secondaryColor }}
-              title={`Secondary: ${template.secondaryColor}`}
-            />
-          )}
-          {template.accentColor && (
-            <div
-              className="h-10 flex-1 rounded"
-              style={{ backgroundColor: template.accentColor }}
-              title={`Accent: ${template.accentColor}`}
-            />
-          )}
-        </div>
-
-        <div className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-          {rows.map(({ label, value }) =>
-            value !== null && value !== undefined ? (
-              <div
-                key={label}
-                className="flex justify-between py-2 gap-4"
-              >
-                <span className="text-slate-500 dark:text-slate-400 shrink-0">
-                  {label}
-                </span>
-                <span className="text-slate-900 dark:text-white text-right font-medium break-all">
-                  {String(value)}
-                </span>
-              </div>
-            ) : null
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
+const defaultFormData: TemplateFormData = {
+  name: '',
+  description: '',
+  isDefault: false,
 }
 
 export default function InvoiceTemplatesPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null)
-  const [previewTemplate, setPreviewTemplate] = useState<InvoiceTemplate | null>(null)
 
-  const fetchTemplates = async () => {
+  // Create dialog
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState<TemplateFormData>(defaultFormData)
+  const [creating, setCreating] = useState(false)
+
+  // Edit dialog
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<InvoiceTemplate | null>(null)
+  const [editForm, setEditForm] = useState<TemplateFormData>(defaultFormData)
+  const [editing, setEditing] = useState(false)
+
+  // Delete dialog
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deletingTemplate, setDeletingTemplate] = useState<InvoiceTemplate | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  // Duplicate loading state
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+
+  // Set default loading state
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchTemplates()
+    }
+  }, [status])
+
+  async function fetchTemplates() {
     setLoading(true)
     try {
       const res = await fetch('/api/invoices/templates')
-      if (!res.ok) throw new Error('Failed to fetch')
+      if (!res.ok) throw new Error('Failed to fetch templates')
       const data = await res.json()
-      setTemplates(data.templates || [])
-    } catch (err) {
-      console.error('Failed to fetch templates:', err)
+      setTemplates(data.templates ?? [])
+    } catch {
       toast.error('Failed to load invoice templates')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchTemplates()
-  }, [])
+  // ---- Create ----
+  function openCreateDialog() {
+    setCreateForm(defaultFormData)
+    setCreateOpen(true)
+  }
 
-  const handleSetDefault = async (id: string) => {
-    setSettingDefaultId(id)
+  async function handleCreate() {
+    if (!createForm.name.trim()) {
+      toast.error('Template name is required')
+      return
+    }
+    setCreating(true)
     try {
-      const res = await fetch(`/api/invoices/templates/${id}`, {
+      const res = await fetch('/api/invoices/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createForm.name.trim(),
+          description: createForm.description.trim() || null,
+          isDefault: createForm.isDefault,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to create template')
+      }
+      const data = await res.json()
+      // If new template is default, clear old defaults in local state
+      let updated = templates
+      if (createForm.isDefault) {
+        updated = updated.map(t => ({ ...t, isDefault: false }))
+      }
+      setTemplates([data.template, ...updated])
+      setCreateOpen(false)
+      toast.success('Template created')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create template')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // ---- Edit ----
+  function openEditDialog(template: InvoiceTemplate) {
+    setEditingTemplate(template)
+    setEditForm({
+      name: template.name,
+      description: template.description ?? '',
+      isDefault: template.isDefault,
+    })
+    setEditOpen(true)
+  }
+
+  async function handleEdit() {
+    if (!editingTemplate) return
+    if (!editForm.name.trim()) {
+      toast.error('Template name is required')
+      return
+    }
+    setEditing(true)
+    try {
+      const res = await fetch(`/api/invoices/templates/${editingTemplate.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          description: editForm.description.trim() || null,
+          isDefault: editForm.isDefault,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to update template')
+      }
+      const data = await res.json()
+      let updated = templates.map(t =>
+        t.id === editingTemplate.id ? data.template : t
+      )
+      // If set as default, clear other defaults
+      if (editForm.isDefault) {
+        updated = updated.map(t =>
+          t.id === editingTemplate.id ? t : { ...t, isDefault: false }
+        )
+      }
+      setTemplates(updated)
+      setEditOpen(false)
+      toast.success('Template updated')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update template')
+    } finally {
+      setEditing(false)
+    }
+  }
+
+  // ---- Delete ----
+  function openDeleteDialog(template: InvoiceTemplate) {
+    setDeletingTemplate(template)
+    setDeleteOpen(true)
+  }
+
+  async function handleDelete() {
+    if (!deletingTemplate) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/invoices/templates/${deletingTemplate.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to delete template')
+      }
+      setTemplates(prev => prev.filter(t => t.id !== deletingTemplate.id))
+      setDeleteOpen(false)
+      toast.success('Template deleted')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete template')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // ---- Duplicate ----
+  async function handleDuplicate(template: InvoiceTemplate) {
+    setDuplicatingId(template.id)
+    try {
+      const res = await fetch(`/api/invoices/templates/${template.id}/duplicate`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to duplicate template')
+      }
+      const data = await res.json()
+      setTemplates(prev => [...prev, data.template])
+      toast.success('Template duplicated')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to duplicate template')
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
+
+  // ---- Set Default ----
+  async function handleSetDefault(template: InvoiceTemplate) {
+    setSettingDefaultId(template.id)
+    try {
+      const res = await fetch(`/api/invoices/templates/${template.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isDefault: true }),
       })
-      if (!res.ok) throw new Error('Failed to set default')
-      toast.success('Default template updated')
-      await fetchTemplates()
-    } catch (err) {
-      console.error('Failed to set default template:', err)
-      toast.error('Failed to set default template')
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to set default')
+      }
+      setTemplates(prev =>
+        prev.map(t => ({
+          ...t,
+          isDefault: t.id === template.id,
+        }))
+      )
+      toast.success(`"${template.name}" is now the default template`)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to set default')
     } finally {
       setSettingDefaultId(null)
     }
   }
 
-  const filtered = templates.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase())
-  )
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Invoice Templates
-          </h1>
-          {!loading && (
-            <Badge
-              variant="secondary"
-              className="text-sm px-2.5 py-0.5"
-            >
-              {templates.length}
-            </Badge>
-          )}
+  if (status === 'loading' || loading) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-9 w-36" />
         </div>
-        <Link href="/dashboard/invoices/templates/new">
-          <Button className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0">
-            <Plus className="h-4 w-4" />
-            Create New Template
-          </Button>
-        </Link>
-      </div>
-
-      {/* Search bar */}
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search templates..."
-          className="pl-10"
-        />
-      </div>
-
-      {/* Loading skeletons */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <TemplateCardSkeleton key={i} />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-44" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <FileText className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
-          <p className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">
-            {search
-              ? 'No templates match your search'
-              : 'No templates yet'}
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Invoice Templates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your invoice layouts, branding, and display settings.
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-            {search
-              ? 'Try a different search term.'
-              : 'Create your first invoice template to get started.'}
-          </p>
-          {!search && (
-            <Link href="/dashboard/invoices/templates/new">
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Template
-              </Button>
-            </Link>
-          )}
         </div>
+        <Button onClick={openCreateDialog}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Template
+        </Button>
+      </div>
+
+      {/* Template list */}
+      {templates.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <Plus className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">No templates yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create your first invoice template to get started.
+            </p>
+            <Button onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Template
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        /* Template grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              onSetDefault={handleSetDefault}
-              settingDefaultId={settingDefaultId}
-              onPreview={() => setPreviewTemplate(template)}
-            />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {templates.map(template => (
+            <Card key={template.id} className="relative flex flex-col">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-base leading-snug truncate">
+                      {template.name}
+                    </CardTitle>
+                    {template.description && (
+                      <CardDescription className="mt-1 line-clamp-2 text-xs">
+                        {template.description}
+                      </CardDescription>
+                    )}
+                  </div>
+                  {template.isDefault && (
+                    <Badge className="shrink-0 bg-emerald-500 text-white hover:bg-emerald-600">
+                      Default
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 flex flex-col gap-4 flex-1">
+                {/* Colour swatches */}
+                <div className="flex items-center gap-2">
+                  {[
+                    template.primaryColor ?? '#0EA5E9',
+                    template.secondaryColor ?? '#1E293B',
+                    template.accentColor ?? '#10B981',
+                  ].map((colour, i) => (
+                    <span
+                      key={i}
+                      className="inline-block h-5 w-5 rounded-full border border-border"
+                      style={{ backgroundColor: colour }}
+                      title={colour}
+                    />
+                  ))}
+                  <span className="text-xs text-muted-foreground ml-1">
+                    {template.usageCount} use{template.usageCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Created {formatDate(template.createdAt)}
+                </p>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2 mt-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(template)}
+                    title="Edit template"
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDuplicate(template)}
+                    disabled={duplicatingId === template.id}
+                    title="Duplicate template"
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    {duplicatingId === template.id ? 'Copying…' : 'Duplicate'}
+                  </Button>
+                  {!template.isDefault && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSetDefault(template)}
+                      disabled={settingDefaultId === template.id}
+                      title="Set as default"
+                    >
+                      <Star className="h-3.5 w-3.5 mr-1" />
+                      {settingDefaultId === template.id ? 'Saving…' : 'Set Default'}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => openDeleteDialog(template)}
+                    title="Delete template"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
 
-      {/* Preview modal */}
-      <TemplatePreviewModal
-        template={previewTemplate}
-        open={!!previewTemplate}
-        onClose={() => setPreviewTemplate(null)}
-      />
+      {/* ---- Create Dialog ---- */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Invoice Template</DialogTitle>
+            <DialogDescription>
+              Give your template a name and optional description. You can customise
+              branding and layout settings afterwards.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="create-name">
+                Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="create-name"
+                placeholder="e.g. Standard Invoice"
+                value={createForm.name}
+                onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-description">Description</Label>
+              <Textarea
+                id="create-description"
+                placeholder="Optional description…"
+                rows={3}
+                value={createForm.description}
+                onChange={e =>
+                  setCreateForm(f => ({ ...f, description: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="create-isDefault"
+                checked={createForm.isDefault}
+                onCheckedChange={checked =>
+                  setCreateForm(f => ({ ...f, isDefault: checked === true }))
+                }
+              />
+              <Label htmlFor="create-isDefault" className="cursor-pointer">
+                Set as default template
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? 'Creating…' : 'Create Template'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Edit Dialog ---- */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Template</DialogTitle>
+            <DialogDescription>
+              Update the name, description, or default status of this template.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-name">
+                Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="edit-name"
+                placeholder="e.g. Standard Invoice"
+                value={editForm.name}
+                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                placeholder="Optional description…"
+                rows={3}
+                value={editForm.description}
+                onChange={e =>
+                  setEditForm(f => ({ ...f, description: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="edit-isDefault"
+                checked={editForm.isDefault}
+                onCheckedChange={checked =>
+                  setEditForm(f => ({ ...f, isDefault: checked === true }))
+                }
+              />
+              <Label htmlFor="edit-isDefault" className="cursor-pointer">
+                Set as default template
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={editing}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit} disabled={editing}>
+              {editing ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Delete Confirmation ---- */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{' '}
+              <span className="font-semibold">&ldquo;{deletingTemplate?.name}&rdquo;</span>?
+              This cannot be undone. Templates linked to existing invoices cannot be
+              deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
-  )
-}
-
-function TemplateCard({
-  template,
-  onSetDefault,
-  settingDefaultId,
-  onPreview,
-}: {
-  template: InvoiceTemplate
-  onSetDefault: (id: string) => void
-  settingDefaultId: string | null
-  onPreview: () => void
-}) {
-  const isSettingDefault = settingDefaultId === template.id
-
-  return (
-    <Card
-      className={`border transition-shadow hover:shadow-md ${
-        template.isDefault
-          ? 'ring-2 ring-cyan-500 border-cyan-500/30'
-          : 'border-slate-200 dark:border-slate-700'
-      }`}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="font-bold text-slate-900 dark:text-white leading-tight">
-            {template.name}
-          </h2>
-          {template.isDefault && (
-            <Badge className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 shrink-0 text-xs">
-              Default
-            </Badge>
-          )}
-        </div>
-        {template.description && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
-            {template.description}
-          </p>
-        )}
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Colour scheme swatches */}
-        <div className="flex gap-1.5 h-8">
-          {template.primaryColor ? (
-            <div
-              className="flex-1 rounded"
-              style={{ backgroundColor: template.primaryColor }}
-              title={`Primary: ${template.primaryColor}`}
-            />
-          ) : (
-            <div className="flex-1 rounded bg-slate-200 dark:bg-slate-700" title="No primary colour" />
-          )}
-          {template.secondaryColor ? (
-            <div
-              className="flex-1 rounded"
-              style={{ backgroundColor: template.secondaryColor }}
-              title={`Secondary: ${template.secondaryColor}`}
-            />
-          ) : (
-            <div className="flex-1 rounded bg-slate-200 dark:bg-slate-700" title="No secondary colour" />
-          )}
-          {template.accentColor ? (
-            <div
-              className="flex-1 rounded"
-              style={{ backgroundColor: template.accentColor }}
-              title={`Accent: ${template.accentColor}`}
-            />
-          ) : (
-            <div className="flex-1 rounded bg-slate-200 dark:bg-slate-700" title="No accent colour" />
-          )}
-        </div>
-
-        {/* Toggle indicators */}
-        <div className="flex flex-wrap gap-1.5">
-          {template.logoUrl && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-              Logo
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-            Terms
-          </span>
-          {template.usageCount > 0 && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-              Used {template.usageCount}x
-            </span>
-          )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={onPreview}
-          >
-            <Eye className="h-3.5 w-3.5 mr-1.5" />
-            Preview
-          </Button>
-
-          <Button
-            variant={template.isDefault ? 'secondary' : 'outline'}
-            size="sm"
-            className={`flex-1 ${
-              template.isDefault
-                ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20 cursor-default'
-                : ''
-            }`}
-            onClick={() => !template.isDefault && onSetDefault(template.id)}
-            disabled={template.isDefault || isSettingDefault}
-          >
-            {template.isDefault ? (
-              <>
-                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                Default
-              </>
-            ) : isSettingDefault ? (
-              <span className="inline-block h-3.5 w-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin mr-1.5" />
-            ) : (
-              <>
-                <Star className="h-3.5 w-3.5 mr-1.5" />
-                Set Default
-              </>
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   )
 }
