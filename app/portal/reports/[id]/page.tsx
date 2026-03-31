@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import PortalNav from '@/components/portal/PortalNav'
-import { ArrowLeft, FileText, MapPin, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
+import { ArrowLeft, FileText, MapPin, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle, Download, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -56,6 +56,7 @@ export default function PortalReportDetail({ params }: { params: { id: string } 
   const [approvalStatus, setApprovalStatus] = useState<'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED'>('APPROVED')
   const [comments, setComments] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   useEffect(() => {
     if (sessionStatus === 'unauthenticated') {
@@ -134,6 +135,41 @@ export default function PortalReportDetail({ params }: { params: { id: string } 
     return report?.approvals.find(a => a.approvalType === type && a.status === 'PENDING')
   }
 
+  const handleDownloadPdf = async () => {
+    if (!report) return
+    setDownloadingPdf(true)
+    try {
+      const res = await fetch(`/api/portal/reports/${report.id}/download`)
+      if (!res.ok) throw new Error('Download failed')
+
+      const contentType = res.headers.get('content-type') ?? ''
+
+      if (contentType.includes('json')) {
+        const data = await res.json()
+        if (data.url) {
+          window.open(data.url, '_blank')
+          return
+        }
+        throw new Error(data.error || 'Download failed')
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `report-${report.id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('PDF download failed:', err)
+      toast.error('Failed to download PDF')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const config = {
       APPROVED: { bg: 'bg-green-100', text: 'text-green-700', icon: <CheckCircle size={16} /> },
@@ -197,8 +233,23 @@ export default function PortalReportDetail({ params }: { params: { id: string } 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-3xl font-bold text-[#1C2E47]">{report.title}</h1>
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(report.status).bg} ${getStatusBadge(report.status).text}`}>
-              {report.status}
+            <div className="flex items-center gap-3">
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(report.status).bg} ${getStatusBadge(report.status).text}`}>
+                {report.status}
+              </div>
+              {report.status !== 'DRAFT' && (
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+                >
+                  {downloadingPdf ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Generating...</>
+                  ) : (
+                    <><Download className="h-4 w-4" />Download PDF</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
