@@ -1,0 +1,11 @@
+# Default — all PRs require owner review
+* @CleanExpo
+
+# Critical paths — require explicit approval
+prisma/schema.prisma @CleanExpo
+prisma/migrations/ @CleanExpo
+lib/auth.ts @CleanExpo
+lib/stripe.ts @CleanExpo
+app/api/webhooks/ @CleanExpo
+.github/workflows/ @CleanExpo
+.env* @CleanExpo
