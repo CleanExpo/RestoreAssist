@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
+import { BRAND } from '@/lib/brand'
 import { Menu, X } from "lucide-react"
 import MobileWorkflowCarousel from "@/components/landing/MobileWorkflowCarousel"
 
@@ -221,8 +222,42 @@ export default function Home() {
             className="text-xl md:text-2xl lg:text-3xl text-white/90 font-light italic text-left"
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Consistent Repeatable Process <br/> Management
+            One System. Fewer Gaps. <br/> More Confidence.
           </motion.p>
+
+          {/* Supporting Description */}
+          <motion.p
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-lg md:text-xl text-white/80 font-light max-w-2xl text-left mt-6 leading-relaxed"
+            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+          >
+            {BRAND.description}
+          </motion.p>
+
+          {/* CTA Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="flex flex-col sm:flex-row gap-4 mt-8"
+          >
+            <Link
+              href={BRAND.cta.primary.href}
+              className="px-8 py-3 bg-[#8A6B4E] text-white font-medium rounded-lg shadow-lg hover:bg-[#7A5B3E] transition-all duration-300 text-center"
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            >
+              {BRAND.cta.primary.label}
+            </Link>
+            <Link
+              href={BRAND.cta.secondary.href}
+              className="px-8 py-3 border-2 border-[#8A6B4E] text-white font-medium rounded-lg hover:bg-[#8A6B4E]/20 transition-all duration-300 text-center"
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            >
+              {BRAND.cta.secondary.label}
+            </Link>
+          </motion.div>
         </div>
       </section>
 
@@ -350,7 +385,7 @@ export default function Home() {
             className={`text-4xl md:text-5xl font-bold mb-6 text-center text-white`}
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Inspection. Scoping. Estimating. Connected.
+            {BRAND.slogan}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -360,7 +395,7 @@ export default function Home() {
             className={`text-lg md:text-xl max-w-4xl mx-auto leading-relaxed text-center mb-20 text-white/90`}
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            RestoreAssist turns verified site data into accurate, transparent, and auditable restoration reports — saving time, ensuring compliance, and building trust through evidence-based intelligence.
+            {BRAND.description}
           </motion.p>
           <div className="grid md:grid-cols-5 gap-12">
             {/* Left Side - Brand Information */}
