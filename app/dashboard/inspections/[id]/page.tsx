@@ -29,7 +29,13 @@ import {
   Map,
   Receipt,
 } from "lucide-react"
-import Link from "next/link"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
 
@@ -176,6 +182,45 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareExpiry, setShareExpiry] = useState<string | null>(null)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const handleShareWithClient = async () => {
+    if (!inspection) return
+    setShareLoading(true)
+    setShareDialogOpen(true)
+    try {
+      const res = await fetch("/api/portal/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inspectionId: inspection.id }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setShareUrl(data.portalUrl)
+        setShareExpiry(new Date(data.expiresAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }))
+      } else {
+        toast.error("Failed to generate portal link")
+        setShareDialogOpen(false)
+      }
+    } catch {
+      toast.error("Failed to generate portal link")
+      setShareDialogOpen(false)
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const handleCopyShareUrl = () => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    })
+  }
 
   useEffect(() => {
     fetchInspection()
@@ -245,13 +290,17 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/invoice`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareWithClient}
+              className="ml-auto text-xs gap-1.5"
             >
-              <Receipt size={14} />
-              Generate Invoice
-            </Link>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share with Client
+            </Button>
           </div>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
@@ -717,6 +766,38 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         inspectionId={inspection.id}
         inspectionStatus={inspection.status}
       />
+
+      {/* Share with Client dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={(open) => {
+        setShareDialogOpen(open)
+        if (!open) { setShareUrl(null); setShareExpiry(null); setShareCopied(false) }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Share with Client</DialogTitle>
+          </DialogHeader>
+          {shareLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="animate-spin text-cyan-500" size={24} />
+            </div>
+          ) : shareUrl ? (
+            <div className="space-y-3">
+              <p className="text-sm text-neutral-500 dark:text-slate-400">
+                Send this link to your client. It provides a read-only view of job status — no account needed.
+              </p>
+              <div className="p-2.5 bg-neutral-50 dark:bg-slate-800 rounded-lg border border-neutral-200 dark:border-slate-700">
+                <span className="text-xs text-neutral-600 dark:text-slate-300 break-all font-mono">{shareUrl}</span>
+              </div>
+              <Button onClick={handleCopyShareUrl} variant="outline" className="w-full gap-2">
+                {shareCopied ? "Copied!" : "Copy Link"}
+              </Button>
+              {shareExpiry && (
+                <p className="text-xs text-center text-neutral-400">Link expires in 7 days ({shareExpiry})</p>
+              )}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
