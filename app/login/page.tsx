@@ -127,7 +127,7 @@ function LoginForm() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
@@ -139,7 +139,7 @@ function LoginForm() {
                   id="email"
                   type="email"
                   name="email"
-                  autoComplete="email"
+                  autoComplete="off"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -160,7 +160,7 @@ function LoginForm() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   name="password"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
