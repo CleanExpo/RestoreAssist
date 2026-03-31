@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import crypto from "crypto"
 import { logSecurityEvent } from '@/lib/security-audit'
 
 export const authOptions: NextAuthOptions = {
@@ -58,6 +59,42 @@ export const authOptions: NextAuthOptions = {
             email: credentials.email,
             details: { reason: 'user_not_found' },
           }).catch(() => {})
+          return null
+        }
+
+        // Google auth token verification (HMAC-signed proof from /api/auth/google-signin)
+        // This allows existing password users to sign in via Google without clearing their password
+        if (credentials.password?.startsWith('gauth:')) {
+          const parts = credentials.password.split(':')
+          if (parts.length === 3) {
+            const [, timestamp, hmac] = parts
+            const age = Date.now() - parseInt(timestamp)
+            if (age >= 0 && age < 60_000) {
+              const expected = crypto.createHmac('sha256', process.env.NEXTAUTH_SECRET || 'fallback')
+                .update(`gauth:${credentials.email}:${timestamp}`)
+                .digest('hex')
+              if (hmac.length === expected.length && crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected))) {
+                console.log('[Contractor Credentials] Google auth token verified:', credentials.email)
+                logSecurityEvent({
+                  eventType: 'LOGIN_SUCCESS',
+                  userId: user.id,
+                  email: user.email!,
+                  details: { method: 'google_auth_token' },
+                }).catch(() => {})
+                return {
+                  id: user.id,
+                  email: user.email,
+                  name: user.name,
+                  image: user.image,
+                  role: user.role,
+                  mustChangePassword: user.mustChangePassword || false,
+                  organizationId: user.organizationId || null,
+                  userType: 'contractor',
+                }
+              }
+            }
+          }
+          console.log('[Contractor Credentials] Invalid Google auth token for:', credentials.email)
           return null
         }
 

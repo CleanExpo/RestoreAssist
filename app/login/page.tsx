@@ -75,7 +75,7 @@ function LoginForm() {
       // Sign in with NextAuth using credentials (email only, no password for Google users)
       const signInResult = await signIn("contractor-credentials", {
         email: googleUser.email,
-        password: "", // Empty password - contractor-credentials handles Google users
+        password: googleUser.googleAuthToken || "", // HMAC-signed proof from /api/auth/google-signin
         redirect: false,
       })
 
