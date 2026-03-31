@@ -37,6 +37,8 @@ async function main() {
   const outputDir = path.resolve(__dirname, "../../../../public/videos");
   fs.mkdirSync(outputDir, { recursive: true });
 
+  // Landing page overview — primary hero video for restoreassist.app
+  await renderVideo("LandingPageOverview", "landing-page-overview.mp4");
   await renderVideo("ProductExplainer", "product-explainer.mp4");
   await renderVideo("IndustryInsight", "industry-insight.mp4");
 

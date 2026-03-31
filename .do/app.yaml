@@ -16,3 +16,15 @@ services:
     envs:
       - key: NODE_ENV
         value: production
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: NEXTAUTH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: NEXTAUTH_URL
+        scope: RUN_TIME
+        type: GENERAL
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET

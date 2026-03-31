@@ -141,8 +141,56 @@ async function generateVoiceover(segment: VoiceoverSegment): Promise<void> {
   console.log(`[TTS] Done: ${segment.id} \u2192 ${segment.outputPath}`);
 }
 
+// ─── Landing Page Overview — 90-second product overview video ───────────────
+const LANDING_PAGE_OVERVIEW_SEGMENTS: VoiceoverSegment[] = [
+  {
+    id: "lp-intro",
+    text: "RestoreAssist. The all-in-one platform built specifically for restoration professionals. Whether you're dealing with water damage, mould, or fire and smoke restoration — RestoreAssist has you covered.",
+    outputPath: "src/assets/audio/lp-intro.mp3",
+  },
+  {
+    id: "lp-overview",
+    text: "RestoreAssist combines AI-powered scope generation with built-in IICRC standards compliance. From the moment you open a claim, the platform guides your inspection, captures evidence, generates your scope of works, and produces professional reports — automatically.",
+    outputPath: "src/assets/audio/lp-overview.mp3",
+  },
+  {
+    id: "lp-dashboard",
+    text: "Your dashboard gives you complete visibility over all active jobs. Create new inspections, track progress, and manage your entire team — all in one place.",
+    outputPath: "src/assets/audio/lp-dashboard.mp3",
+  },
+  {
+    id: "lp-advantages",
+    text: "The advantages are clear. Save over two hours on every inspection with AI scope generation. Never miss a line item — every scope item is evidence-linked and standards-referenced. Export directly to Xero, Ascora, ServiceM8, QuickBooks, or MYOB with a single click. And stay fully compliant with building codes across all Australian states.",
+    outputPath: "src/assets/audio/lp-advantages.mp3",
+  },
+  {
+    id: "lp-compliance",
+    text: "RestoreAssist is built from the ground up for Australian compliance. IICRC S500, S520, and S700 standards are automatically applied to every scope item. State-specific regulatory triggers cover all eight Australian states. And every inspection includes a court-ready evidence register — so you're always protected.",
+    outputPath: "src/assets/audio/lp-compliance.mp3",
+  },
+  {
+    id: "lp-scope",
+    text: "Watch AI generate a complete, standards-referenced scope of works in seconds. Every line item includes quantities, specifications, and the exact IICRC clause that supports it. Your reports are insurer-ready the moment the inspection is done.",
+    outputPath: "src/assets/audio/lp-scope.mp3",
+  },
+  {
+    id: "lp-stats",
+    text: "Restoration teams using RestoreAssist save over two hours per inspection. Every report is one hundred percent IICRC compliant. And the platform covers all eight Australian states with state-specific building codes and regulatory triggers already built in.",
+    outputPath: "src/assets/audio/lp-stats.mp3",
+  },
+  {
+    id: "lp-cta",
+    text: "Start your free trial today. Get three full reports — completely free. No credit card required. Just sign up at restoreassist dot app and start restoring with confidence. RestoreAssist — One System. Fewer Gaps. More Confidence.",
+    outputPath: "src/assets/audio/lp-cta.mp3",
+  },
+];
+
 async function generateAll(): Promise<void> {
-  const allSegments = [...PRODUCT_EXPLAINER_SEGMENTS, ...INDUSTRY_INSIGHT_SEGMENTS];
+  const allSegments = [
+    ...PRODUCT_EXPLAINER_SEGMENTS,
+    ...INDUSTRY_INSIGHT_SEGMENTS,
+    ...LANDING_PAGE_OVERVIEW_SEGMENTS,
+  ];
 
   console.log(`\nGenerating ${allSegments.length} voiceover segments...\n`);
 
