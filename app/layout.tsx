@@ -6,6 +6,7 @@ import SessionProvider from "@/components/providers/SessionProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
 import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
+import { NirOfflineProvider } from "@/components/nir-offline-provider"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -65,7 +66,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>{children}</SessionProvider>
+          <NirOfflineProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </NirOfflineProvider>
         <Toaster
           position="top-right"
           toastOptions={{
