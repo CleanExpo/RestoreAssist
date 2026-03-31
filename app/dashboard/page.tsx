@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 import UpgradeBanner from "@/components/UpgradeBanner"
+import KpiPanel from "@/components/dashboard/KpiPanel"
 
 interface SubscriptionStatus {
   subscriptionStatus?: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
@@ -314,6 +315,9 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main>
         <div className=" mx-auto space-y-8">
+          {/* KPI Analytics Panel */}
+          <KpiPanel />
+
           {/* Upgrade Banner for Free Users */}
           {!hasActiveSubscription() && (
             <UpgradeBanner variant="inline" />
