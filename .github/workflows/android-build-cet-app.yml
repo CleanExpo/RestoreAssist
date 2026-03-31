@@ -1,0 +1,74 @@
+name: Android Build — CET Kiosk App (com.restoreassist.cet)
+
+on:
+  push:
+    tags:
+      - 'cet-v*'              # e.g. cet-v1.0.0
+  workflow_dispatch:           # Manual trigger from GitHub Actions UI
+
+jobs:
+  build:
+    name: Build Signed CET AAB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install CET app dependencies
+        working-directory: apps/cet
+        run: npm ci
+
+      - name: Build CET Vite SPA
+        working-directory: apps/cet
+        run: npm run build
+        env:
+          VITE_API_BASE: https://restoreassist.com.au
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      - name: Sync CET Capacitor Android
+        working-directory: apps/cet
+        run: npx cap sync android
+
+      - name: Decode CET keystore
+        run: |
+          echo "${{ secrets.CET_ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > apps/cet/android/app/cet-release.jks
+
+      - name: Build signed CET AAB
+        working-directory: apps/cet/android
+        run: |
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/apps/cet/android/app/cet-release.jks \
+            -Pandroid.injected.signing.store.password="${{ secrets.CET_ANDROID_KEY_STORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.CET_ANDROID_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.CET_ANDROID_KEY_PASSWORD }}"
+
+      - name: Upload CET AAB as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: restoreassist-cet-release-${{ github.sha }}
+          path: apps/cet/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      # Uncomment after Play Store setup is complete
+      # - name: Upload CET to Google Play (Internal Testing)
+      #   uses: r0adkll/upload-google-play@v1
+      #   with:
+      #     serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      #     packageName: com.restoreassist.cet
+      #     releaseFiles: apps/cet/android/app/build/outputs/bundle/release/app-release.aab
+      #     track: internal
+      #     status: completed
