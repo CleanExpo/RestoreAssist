@@ -108,20 +108,16 @@ export default function InspectionsListScreen() {
     );
   }
 
-  if (error) {
-    return (
-      <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchInspections}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      {error && (
+        <TouchableOpacity style={styles.errorBanner} onPress={fetchInspections}>
+          <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
+          <Text style={styles.errorBannerText}>
+            {error} — tap to retry
+          </Text>
+        </TouchableOpacity>
+      )}
       <FlatList
         data={inspections}
         keyExtractor={(item) => item.id}
@@ -259,6 +255,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: spacing.sm,
     textAlign: 'center',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '18',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  errorBannerText: {
+    color: colors.warning,
+    fontSize: 13,
+    flex: 1,
   },
   fab: {
     position: 'absolute',
