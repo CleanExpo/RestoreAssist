@@ -6,20 +6,38 @@
     "orientation": "portrait",
     "scheme": "restoreassist",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "backgroundColor": "#050505"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.restoreassist.app"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#050505"
       },
-      "package": "com.restoreassist.app"
+      "package": "com.restoreassist.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-sqlite",
       "expo-image-picker"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "ec20d939-6ca6-4062-ad64-c900fe425ab9"
+      }
+    },
+    "owner": "phill_mcgurk"
   }
 }
