@@ -40,3 +40,7 @@ nul
 /test-results/
 .playwright/
 .env*.local
+
+# Android signing keystores (NEVER commit)
+*.jks
+.capacitor-native-notes/keystores/
