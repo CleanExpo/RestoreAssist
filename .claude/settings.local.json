@@ -2,8 +2,69 @@
   "permissions": {
     "allow": [
       "Bash(ls:*)",
-      "Bash(npm run build:*)",
-      "Bash(npx next build)"
+      "Bash(pnpm *)",
+      "Bash(npx *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(node *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(curl *)",
+      "Bash(sleep *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(*DROP TABLE*)",
+      "Bash(*TRUNCATE*)",
+      "Bash(*--no-verify*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qiE '(rm -rf|--force|--no-verify|DROP TABLE|TRUNCATE|reset --hard)' && echo 'BLOCKED: destructive command detected' && exit 1 || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_FILE_PATH\" | grep -qiE '(\\.env|\\.secret|\\.key|\\.pem|credentials)' && echo 'BLOCKED: editing sensitive file' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"\\n## $(date '+%Y-%m-%d %H:%M') — Session End\\n$(git diff --name-only 2>/dev/null | head -20)\" >> .claude/PROGRESS.md 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   }
 }
