@@ -3,14 +3,18 @@ import type { Inspection } from '@/shared/types';
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? 'https://restoreassist.com.au';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
       ...(options?.headers ?? {}),
     },
     credentials: 'include',
   });
+  clearTimeout(timeout);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const err = new Error((body as { error?: string }).error ?? `API error ${res.status}: ${path}`);
