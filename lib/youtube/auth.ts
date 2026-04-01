@@ -7,10 +7,18 @@
  * The refresh token is stored by the one-time consent flow at
  * /api/auth/youtube-consent — the admin visits that URL once, grants
  * youtube.upload + youtube.readonly scopes, and the token is persisted.
+ *
+ * Uses YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET if set (preferred),
+ * otherwise falls back to GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
  */
 
 import { google } from 'googleapis'
 import { prisma } from '@/lib/prisma'
+
+const youtubeClientId = () =>
+  process.env.YOUTUBE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID
+const youtubeClientSecret = () =>
+  process.env.YOUTUBE_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET
 
 /**
  * Get an authenticated YouTube Data API v3 client for the system user.
@@ -39,8 +47,8 @@ export async function getYouTubeClient(systemUserId: string) {
   }
 
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    youtubeClientId(),
+    youtubeClientSecret(),
     `${process.env.NEXTAUTH_URL}/api/auth/youtube-consent/callback`
   )
 
@@ -58,8 +66,8 @@ export async function getYouTubeClient(systemUserId: string) {
  */
 export function buildYouTubeConsentUrl(state: string): string {
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    youtubeClientId(),
+    youtubeClientSecret(),
     `${process.env.NEXTAUTH_URL}/api/auth/youtube-consent/callback`
   )
 
@@ -82,8 +90,8 @@ export async function exchangeYouTubeCode(
   userId: string
 ): Promise<void> {
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    youtubeClientId(),
+    youtubeClientSecret(),
     `${process.env.NEXTAUTH_URL}/api/auth/youtube-consent/callback`
   )
 
