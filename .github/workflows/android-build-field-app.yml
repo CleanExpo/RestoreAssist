@@ -15,25 +15,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
-
-      # Build the Next.js static export
-      # Note: for server-hosted WebView this step is only needed if
-      # there's a pre-export step. The Android WebView loads restoreassist.com.au.
-      # We still need a minimal web build for npx cap sync.
-      - name: Build web app
-        run: npm run build
-        env:
-          NEXTAUTH_URL: https://restoreassist.com.au
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+        run: pnpm install --frozen-lockfile
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -41,9 +35,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Capacitor CLI globally
-        run: npm install -g @capacitor/cli
-
+      # Server-hosted WebView — no Next.js build needed.
+      # The Android app loads https://restoreassist.com.au directly.
+      # We only need cap sync to copy native plugins.
       - name: Sync Capacitor Android
         run: npx cap sync android
 
