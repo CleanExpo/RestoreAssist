@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { colors, spacing, input } from '@/constants/theme';
 
@@ -23,17 +23,32 @@ export default function FieldInput({
   editable = true,
   multiline = false,
 }: FieldInputProps) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text
+        style={[
+          styles.label,
+          focused && styles.labelFocused,
+          !editable && styles.labelReadOnly,
+          !!error && styles.labelError,
+        ]}
+      >
+        {label}
+      </Text>
       <TextInput
         style={[
           styles.input,
           multiline && styles.multiline,
-          !editable && styles.disabled,
+          focused && styles.inputFocused,
+          !!error && styles.inputError,
+          !editable && styles.inputReadOnly,
         ]}
         value={value}
         onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         placeholderTextColor={colors.textSecondary}
         keyboardType={keyboardType}
@@ -41,41 +56,63 @@ export default function FieldInput({
         multiline={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   label: {
-    fontSize: 13,
+    fontSize: 11,
+    color: colors.label,
+    marginBottom: 6,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  labelFocused: {
+    color: colors.accent,
+  },
+  labelReadOnly: {
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    fontWeight: '600',
+  },
+  labelError: {
+    color: colors.error,
   },
   input: {
     height: input.height,
     backgroundColor: colors.card,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: input.borderRadius,
     paddingHorizontal: input.paddingHorizontal,
     fontSize: input.fontSize,
     color: colors.text,
   },
-  multiline: {
-    height: 100,
-    paddingTop: spacing.sm,
+  inputFocused: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentDim,
   },
-  disabled: {
+  inputError: {
+    borderColor: colors.error,
+    backgroundColor: colors.errorDim,
+  },
+  inputReadOnly: {
+    borderStyle: 'dashed',
+    borderColor: colors.border,
     opacity: 0.6,
   },
-  error: {
+  multiline: {
+    height: 96,
+    paddingTop: spacing.sm,
+  },
+  errorText: {
     fontSize: 12,
     color: colors.error,
-    marginTop: spacing.xs,
+    marginTop: 5,
+    fontWeight: '600',
   },
 });

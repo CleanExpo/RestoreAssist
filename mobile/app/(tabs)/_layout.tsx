@@ -6,15 +6,35 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
+        headerStyle: {
+          backgroundColor: colors.card,
+          borderBottomColor: colors.border,
+          borderBottomWidth: 1,
+        },
         headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontSize: 16,
+          fontWeight: '700',
+          letterSpacing: 0.3,
+          color: colors.text,
+        },
         tabBarStyle: {
-          backgroundColor: colors.bg,
+          backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 6,
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSecondary,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          letterSpacing: 0.4,
+          textTransform: 'uppercase',
+          marginTop: 2,
+        },
       }}
     >
       <Tabs.Screen
@@ -22,8 +42,12 @@ export default function TabLayout() {
         options={{
           title: 'Inspections',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="clipboard-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'clipboard' : 'clipboard-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
@@ -31,8 +55,13 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          headerTitle: 'Settings',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'settings' : 'settings-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />

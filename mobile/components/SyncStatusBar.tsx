@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing } from '@/constants/theme';
 import { useAppStore } from '@/lib/store';
 
 interface SyncStatusBarProps {
@@ -13,8 +14,9 @@ export default function SyncStatusBar({ submitting, error }: SyncStatusBarProps)
 
   if (error) {
     return (
-      <View style={styles.errorBar}>
-        <Text style={styles.errorText} numberOfLines={1}>
+      <View style={[styles.bar, styles.errorBar]}>
+        <Ionicons name="alert-circle" size={14} color={colors.error} />
+        <Text style={[styles.text, styles.errorText]} numberOfLines={1}>
           {error}
         </Text>
       </View>
@@ -23,83 +25,73 @@ export default function SyncStatusBar({ submitting, error }: SyncStatusBarProps)
 
   if (submitting) {
     return (
-      <View style={styles.submittingBar}>
+      <View style={[styles.bar, styles.submittingBar]}>
         <ActivityIndicator size="small" color={colors.accent} />
-        <Text style={styles.submittingText}>Submitting...</Text>
+        <Text style={[styles.text, styles.submittingText]}>Submitting to server...</Text>
       </View>
     );
   }
 
   if (!isOnline) {
     return (
-      <View style={styles.offlineBar}>
-        <Text style={styles.offlineText}>Offline</Text>
+      <View style={[styles.bar, styles.offlineBar]}>
+        <View style={[styles.dot, { backgroundColor: colors.warning }]} />
+        <Text style={[styles.text, styles.offlineText]}>Offline</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.onlineBar}>
-      <View style={styles.greenDot} />
-      <Text style={styles.onlineText}>Online</Text>
+    <View style={[styles.bar, styles.onlineBar]}>
+      <View style={[styles.dot, { backgroundColor: colors.success }]} />
+      <Text style={[styles.text, styles.onlineText]}>Online</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  onlineBar: {
-    height: 28,
-    backgroundColor: colors.bg,
+  bar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
   },
-  greenDot: {
-    width: 8,
-    height: 8,
+  dot: {
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: colors.success,
+  },
+  text: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  onlineBar: {
+    backgroundColor: colors.successDim,
   },
   onlineText: {
-    fontSize: 11,
     color: colors.success,
-    fontWeight: '600',
   },
   offlineBar: {
-    height: 28,
-    backgroundColor: colors.warning,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.warningDim,
   },
   offlineText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    color: colors.warning,
   },
   submittingBar: {
-    height: 28,
-    backgroundColor: colors.bg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    backgroundColor: colors.accentDim,
   },
   submittingText: {
-    fontSize: 11,
     color: colors.accent,
-    fontWeight: '600',
   },
   errorBar: {
-    height: 28,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+    backgroundColor: colors.errorDim,
   },
   errorText: {
-    fontSize: 11,
     color: colors.error,
-    fontWeight: '600',
+    flex: 1,
   },
 });
