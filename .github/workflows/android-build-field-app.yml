@@ -39,7 +39,9 @@ jobs:
       # The Android app loads https://restoreassist.com.au directly.
       # We only need cap sync to copy native plugins.
       - name: Sync Capacitor Android
-        run: npx cap sync android
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          npx cap sync android
 
       - name: Decode keystore
         run: |
