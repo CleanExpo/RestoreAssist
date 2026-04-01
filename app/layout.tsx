@@ -3,9 +3,11 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { BRAND } from '@/lib/brand'
 import SessionProvider from "@/components/providers/SessionProvider"
+import { CapacitorProvider } from "@/components/providers/CapacitorProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
 import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
+import { NirOfflineProvider } from "@/components/nir-offline-provider"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -65,7 +67,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>{children}</SessionProvider>
+          <NirOfflineProvider>
+            <SessionProvider>
+              <CapacitorProvider>{children}</CapacitorProvider>
+            </SessionProvider>
+          </NirOfflineProvider>
         <Toaster
           position="top-right"
           toastOptions={{

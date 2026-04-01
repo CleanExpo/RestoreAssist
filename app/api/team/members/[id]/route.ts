@@ -8,6 +8,115 @@ function canRemoveMember(role?: string) {
   return role === "ADMIN"
 }
 
+function canChangeRole(role?: string) {
+  return role === "ADMIN"
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const csrfError = validateCsrf(request)
+    if (csrfError) return csrfError
+
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (!canChangeRole(session.user.role)) {
+      return NextResponse.json(
+        { error: "Only Admins can change member roles" },
+        { status: 403 }
+      )
+    }
+
+    const { id: memberId } = await params
+
+    // Prevent changing own role
+    if (memberId === session.user.id) {
+      return NextResponse.json(
+        { error: "You cannot change your own role" },
+        { status: 400 }
+      )
+    }
+
+    const body = await request.json()
+    const { role } = body
+
+    // Only allow USER or MANAGER — not ADMIN/OWNER
+    if (!["USER", "MANAGER"].includes(role)) {
+      return NextResponse.json(
+        { error: "Role must be USER or MANAGER. ADMIN and OWNER roles cannot be assigned here." },
+        { status: 400 }
+      )
+    }
+
+    // Get the current user's organization
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true }
+    })
+
+    if (!currentUser?.organizationId) {
+      return NextResponse.json(
+        { error: "You are not part of an organization" },
+        { status: 400 }
+      )
+    }
+
+    // Get the member to update
+    const memberToUpdate = await prisma.user.findUnique({
+      where: { id: memberId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true
+      }
+    })
+
+    if (!memberToUpdate) {
+      return NextResponse.json({ error: "Member not found" }, { status: 404 })
+    }
+
+    // Verify the member is in the same organization
+    if (memberToUpdate.organizationId !== currentUser.organizationId) {
+      return NextResponse.json(
+        { error: "Member is not in your organization" },
+        { status: 403 }
+      )
+    }
+
+    // Update the role
+    const updatedUser = await prisma.user.update({
+      where: { id: memberId },
+      data: { role },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true,
+        createdAt: true
+      }
+    })
+
+    return NextResponse.json({
+      message: `${memberToUpdate.name || memberToUpdate.email}'s role has been updated to ${role}`,
+      user: updatedUser
+    })
+  } catch (error: any) {
+    console.error("❌ [TEAM] Error changing member role:", error)
+    return NextResponse.json(
+      { error: "Failed to change member role" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

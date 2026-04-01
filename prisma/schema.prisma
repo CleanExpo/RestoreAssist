@@ -163,6 +163,15 @@ model User {
 
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
+
+  // Scope templates
+  scopeTemplates ScopeTemplate[]
+
+  // Content automation pipeline (RA-158)
+  contentJobs ContentJob[]
+
+  // Support tickets (RA-163)
+  supportTickets SupportTicket[]
 }
 
 model Feedback {
@@ -3727,4 +3736,150 @@ enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
+}
+
+// ============================================
+// SCOPE TEMPLATES
+// ============================================
+
+model ScopeTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?  @db.Text
+  claimType   String?  // water_damage | fire_damage | mould_remediation | storm_damage | general
+
+  // Line items stored as JSON array
+  items       String?  @db.Text // JSON: Array<{ id, description, unit, quantity, iicrcRef? }>
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([claimType])
+}
+
+// ─── Content Automation Pipeline (RA-158) ─────────────────────────────────────
+
+model ContentJob {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  product         String
+  angle           String
+  platform        String   // 'tiktok' | 'instagram' | 'facebook' | 'pinterest'
+  duration        Int      // seconds (15/30/60)
+  status          String   @default("PENDING") // PENDING|SCRIPT_READY|VOICE_READY|VIDEO_READY|SCHEDULED|POSTED|FAILED
+  hook            String?
+  agitation       String?
+  solution        String?
+  cta             String?
+  voiceoverText   String?
+  caption         String?
+  hashtags        String?  // JSON array stored as string
+  audioUrl        String?  // Supabase Storage URL
+  videoUrl        String?  // HeyGen output URL
+  heygenRenderJobId String?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  posts           ContentPost[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([platform])
+  @@index([createdAt])
+}
+
+model ContentPost {
+  id              String      @id @default(cuid())
+  jobId           String
+  job             ContentJob  @relation(fields: [jobId], references: [id])
+  platform        String
+  externalPostId  String?
+  postUrl         String?
+  scheduledAt     DateTime?
+  postedAt        DateTime?
+  status          String      @default("DRAFT") // DRAFT|SCHEDULED|POSTED|FAILED
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  analytics       ContentAnalytics[]
+
+  @@index([jobId])
+  @@index([platform])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model ContentAnalytics {
+  id              String      @id @default(cuid())
+  postId          String
+  post            ContentPost @relation(fields: [postId], references: [id])
+  views           Int         @default(0)
+  likes           Int         @default(0)
+  shares          Int         @default(0)
+  comments        Int         @default(0)
+  reach           Int         @default(0)
+  recordedAt      DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+
+  @@index([postId])
+  @@index([recordedAt])
+}
+
+// ============================================
+// Content Topic Bank — Weighted rotation for automated video generation
+// ============================================
+
+model ContentTopic {
+  id          String    @id @default(cuid())
+  product     String    // "RestoreAssist", "Scope Generation", "IICRC Compliance", etc.
+  angle       String    // "problem/solution", "social proof", "how-to", "industry insight"
+  platform    String    // "youtube" | "tiktok" | "instagram" | "facebook"
+  duration    Int       // 60 | 90 | 120 | 150
+  category    String    // "feature-spotlight" | "industry-insight" | "compliance-tip" | "problem-solution" | "how-to" | "social-proof"
+  weight      Int       @default(10) // Higher = more likely to be selected
+  enabled     Boolean   @default(true)
+  lastUsedAt  DateTime?
+  useCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([enabled, lastUsedAt])
+  @@index([category])
+  @@index([platform])
+}
+
+// ============================================
+// RA-163: Customer Support Ticket Model
+// ============================================
+
+model SupportTicket {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  email   String
+  name    String
+  subject String
+  body    String @db.Text
+
+  // general | billing | technical | feature_request | bug
+  category String @default("general")
+  // low | normal | high | urgent
+  priority String @default("normal")
+  // open | in_progress | resolved | closed
+  status String @default("open")
+
+  responseDraft String?   @db.Text // Claude-generated response draft
+  resolvedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@index([email])
 }

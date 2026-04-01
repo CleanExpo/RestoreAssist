@@ -13,9 +13,8 @@ async function initializeAdminAuth() {
   }
 
   try {
-    const firebaseAdmin = await import('firebase-admin')
-    const { initializeApp, getApps, cert } = firebaseAdmin.app
-    const { getAuth } = firebaseAdmin.auth
+    const { initializeApp, getApps, cert } = await import('firebase-admin/app')
+    const { getAuth } = await import('firebase-admin/auth')
 
     if (getApps().length === 0) {
       const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY

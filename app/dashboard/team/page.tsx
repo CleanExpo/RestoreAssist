@@ -146,6 +146,9 @@ export default function TeamPage() {
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
   const [removing, setRemoving] = useState(false)
 
+  // Role change state
+  const [changingRoleFor, setChangingRoleFor] = useState<string | null>(null)
+
   const inviteLinkBase = useMemo(() => {
     if (typeof window === "undefined") return ""
     return `${window.location.origin}/signup?invite=`
@@ -369,6 +372,34 @@ export default function TeamPage() {
       toast.error("Failed to remove team member")
     } finally {
       setRemoving(false)
+    }
+  }
+
+  const changeRole = async (memberId: string, newRole: "USER" | "MANAGER") => {
+    setChangingRoleFor(memberId)
+    // Optimistic update
+    setMembers((prev) =>
+      prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m))
+    )
+    try {
+      const res = await fetch(`/api/team/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || "Failed to change role")
+        // Revert optimistic update on failure
+        await load()
+        return
+      }
+      toast.success(json.message || "Role updated successfully")
+    } catch {
+      toast.error("Failed to change role")
+      await load()
+    } finally {
+      setChangingRoleFor(null)
     }
   }
 
@@ -802,6 +833,32 @@ export default function TeamPage() {
                             </Button>
                           )}
                         </div>
+                        {isAdmin && member.role !== "ADMIN" && member.id !== session?.user?.id && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <label className={cn("text-xs font-medium", "text-neutral-500 dark:text-neutral-400")}>
+                              Role:
+                            </label>
+                            <select
+                              value={member.role}
+                              disabled={changingRoleFor === member.id}
+                              onChange={(e) => changeRole(member.id, e.target.value as "USER" | "MANAGER")}
+                              className={cn(
+                                "flex-1 px-2 py-1 rounded-md text-xs",
+                                "bg-white dark:bg-neutral-800",
+                                "border border-neutral-300 dark:border-neutral-700",
+                                "text-neutral-900 dark:text-neutral-50",
+                                "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                "disabled:opacity-50 disabled:cursor-not-allowed"
+                              )}
+                            >
+                              <option value="USER">Technician</option>
+                              <option value="MANAGER">Manager</option>
+                            </select>
+                            {changingRoleFor === member.id && (
+                              <Loader2 className="w-3 h-3 animate-spin text-cyan-500 shrink-0" />
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </motion.div>

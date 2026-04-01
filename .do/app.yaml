@@ -5,22 +5,56 @@ services:
     github:
       repo: CleanExpo/RestoreAssist
       branch: main
-  build_command: npm install --force --legacy-peer-deps && npm run build
-  run_command: npm start
-  environment_slug: node-js
+    build_command: npm run build
+    run_command: npm start
+    environment_slug: node-js
     instance_count: 1
-  instance_size_slug: basic-xxs
-  http_port: 3000
+    instance_size_slug: basic-xxs
+    http_port: 3000
     health_check:
-    http_path: /
+      http_path: /
     envs:
       - key: NODE_ENV
         value: production
-  - key: NPM_CONFIG_FORCE
-    value: "true"
-  - key: CI
-    value: "false"
-  - key: USE_NPM_INSTALL
-    value: "true"
-  - key: NPM_CONFIG_LEGACY_PEER_DEPS
-    value: "true"
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: NEXTAUTH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: NEXTAUTH_URL
+        scope: RUN_TIME
+        type: GENERAL
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: ELEVENLABS_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: ELEVENLABS_VOICE_ID
+        scope: RUN_TIME
+        type: GENERAL
+      - key: HEYGEN_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: HEYGEN_AVATAR_ID
+        scope: RUN_TIME
+        type: GENERAL
+      - key: HEYGEN_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: YOUTUBE_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: YOUTUBE_CHANNEL_ID
+        scope: RUN_TIME
+        type: GENERAL
+      - key: CONTENT_SYSTEM_USER_ID
+        scope: RUN_TIME
+        type: GENERAL
+      - key: CRON_SECRET
+        scope: RUN_TIME
+        type: SECRET

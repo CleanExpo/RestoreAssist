@@ -1,32 +1,37 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { Award, Plus, Pencil, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
 import {
-  Award,
-  Plus,
-  Pencil,
-  Trash2,
-  ExternalLink,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  XCircle,
-  RefreshCw,
-  X
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 
-type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED' | 'RENEWAL_NEEDED'
 type CertificationType =
   | 'IICRC_WRT'
   | 'IICRC_AMRT'
@@ -43,6 +48,8 @@ type CertificationType =
   | 'BUSINESS_GST_REGISTRATION'
   | 'OTHER'
 
+type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED'
+
 interface Certification {
   id: string
   certificationType: CertificationType
@@ -52,15 +59,11 @@ interface Certification {
   issueDate: string
   expiryDate: string | null
   verificationStatus: VerificationStatus
-  verifiedAt: string | null
-  verificationNotes: string | null
   documentUrl: string | null
-  createdAt: string
-  updatedAt: string
 }
 
-interface FormState {
-  certificationType: string
+interface CertFormState {
+  certificationType: CertificationType | ''
   certificationName: string
   issuingBody: string
   certificationNumber: string
@@ -69,23 +72,13 @@ interface FormState {
   documentUrl: string
 }
 
-const BLANK_FORM: FormState = {
-  certificationType: '',
-  certificationName: '',
-  issuingBody: '',
-  certificationNumber: '',
-  issueDate: '',
-  expiryDate: '',
-  documentUrl: ''
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ── Label maps ───────────────────────────────────────────────────────────────
 
 const CERT_TYPE_LABELS: Record<CertificationType, string> = {
-  IICRC_WRT: 'IICRC — Water Damage Restoration (WRT)',
-  IICRC_AMRT: 'IICRC — Applied Microbial Remediation (AMRT)',
-  IICRC_FSRT: 'IICRC — Fire & Smoke Restoration (FSRT)',
-  IICRC_CCT: 'IICRC — Commercial Carpet Cleaning (CCT)',
+  IICRC_WRT: 'IICRC — Water Restoration Technician',
+  IICRC_AMRT: 'IICRC — Applied Microbial Remediation',
+  IICRC_FSRT: 'IICRC — Fire & Smoke Restoration',
+  IICRC_CCT: 'IICRC — Commercial Carpet Cleaning',
   TRADE_PLUMBING: 'Trade — Plumbing',
   TRADE_ELECTRICAL: 'Trade — Electrical',
   TRADE_BUILDING: 'Trade — Building',
@@ -95,245 +88,122 @@ const CERT_TYPE_LABELS: Record<CertificationType, string> = {
   INSURANCE_WORKERS_COMP: 'Insurance — Workers Compensation',
   BUSINESS_ABN_REGISTRATION: 'Business — ABN Registration',
   BUSINESS_GST_REGISTRATION: 'Business — GST Registration',
-  OTHER: 'Other'
+  OTHER: 'Other',
 }
 
-function daysUntilExpiry(expiryDate: string): number {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const expiry = new Date(expiryDate)
-  expiry.setHours(0, 0, 0, 0)
-  return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-}
+const CERT_TYPE_VALUES: CertificationType[] = [
+  'IICRC_WRT',
+  'IICRC_AMRT',
+  'IICRC_FSRT',
+  'IICRC_CCT',
+  'TRADE_PLUMBING',
+  'TRADE_ELECTRICAL',
+  'TRADE_BUILDING',
+  'TRADE_CARPENTRY',
+  'INSURANCE_PUBLIC_LIABILITY',
+  'INSURANCE_PROFESSIONAL_INDEMNITY',
+  'INSURANCE_WORKERS_COMP',
+  'BUSINESS_ABN_REGISTRATION',
+  'BUSINESS_GST_REGISTRATION',
+  'OTHER',
+]
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-AU', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  })
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-interface StatusBadgeProps {
-  status: VerificationStatus
-}
-
-function StatusBadge({ status }: StatusBadgeProps) {
-  const configs: Record<VerificationStatus, { label: string; className: string; icon: React.ReactNode }> = {
-    PENDING: {
-      label: 'Pending',
-      className: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
-      icon: <Clock className="h-3 w-3" />
-    },
-    VERIFIED: {
-      label: 'Verified',
-      className: 'bg-green-500/10 text-green-400 border-green-500/30',
-      icon: <CheckCircle className="h-3 w-3" />
-    },
-    REJECTED: {
-      label: 'Rejected',
-      className: 'bg-red-500/10 text-red-400 border-red-500/30',
-      icon: <XCircle className="h-3 w-3" />
-    },
-    EXPIRED: {
-      label: 'Expired',
-      className: 'bg-red-500/10 text-red-400 border-red-500/30',
-      icon: <XCircle className="h-3 w-3" />
-    },
-    RENEWAL_NEEDED: {
-      label: 'Renewal Needed',
-      className: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-      icon: <RefreshCw className="h-3 w-3" />
+function getExpiryBadge(expiryDate: string | null): {
+  label: string
+  className: string
+} {
+  if (!expiryDate) {
+    return {
+      label: 'No Expiry',
+      className: 'bg-slate-500/10 text-slate-400 border border-slate-500/30',
     }
   }
+  const now = new Date()
+  const expiry = new Date(expiryDate)
+  const diffMs = expiry.getTime() - now.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-  const { label, className, icon } = configs[status]
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${className}`}>
-      {icon}
-      {label}
-    </span>
-  )
+  if (diffDays < 0) {
+    return {
+      label: 'Expired',
+      className: 'bg-red-500/10 text-red-400 border border-red-500/30',
+    }
+  }
+  if (diffDays <= 90) {
+    return {
+      label: 'Expiring Soon',
+      className: 'bg-amber-500/10 text-amber-400 border border-amber-500/30',
+    }
+  }
+  return {
+    label: 'Valid',
+    className: 'bg-green-500/10 text-green-400 border border-green-500/30',
+  }
 }
 
-// ─── Loading skeleton ─────────────────────────────────────────────────────────
-
-function LoadingSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {[1, 2, 3, 4].map((i) => (
-        <Card key={i} className="bg-slate-800/30 border-slate-700">
-          <CardHeader className="pb-3">
-            <Skeleton className="h-5 w-3/4 bg-slate-700" />
-            <Skeleton className="h-4 w-1/2 bg-slate-700 mt-1" />
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Skeleton className="h-4 w-full bg-slate-700" />
-            <Skeleton className="h-4 w-2/3 bg-slate-700" />
-            <Skeleton className="h-6 w-20 bg-slate-700 mt-3" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
+function getVerificationBadge(status: VerificationStatus): {
+  label: string
+  className: string
+} {
+  switch (status) {
+    case 'VERIFIED':
+      return {
+        label: 'Verified',
+        className: 'bg-green-500/10 text-green-400 border border-green-500/30',
+      }
+    case 'REJECTED':
+      return {
+        label: 'Rejected',
+        className: 'bg-red-500/10 text-red-400 border border-red-500/30',
+      }
+    default:
+      return {
+        label: 'Pending',
+        className: 'bg-amber-500/10 text-amber-400 border border-amber-500/30',
+      }
+  }
 }
 
-// ─── Add / Edit form ──────────────────────────────────────────────────────────
-
-interface CertFormProps {
-  form: FormState
-  onChange: (form: FormState) => void
-  onSave: () => void
-  onCancel: () => void
-  saving: boolean
-  errors: Partial<Record<keyof FormState, string>>
-  editMode: boolean
+function toDateInputValue(dateStr: string | null): string {
+  if (!dateStr) return ''
+  return new Date(dateStr).toISOString().split('T')[0]
 }
 
-function CertForm({ form, onChange, onSave, onCancel, saving, errors, editMode }: CertFormProps) {
-  const set = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    onChange({ ...form, [field]: e.target.value })
-
-  return (
-    <div className="bg-slate-700/20 border border-slate-600 rounded-xl p-6 space-y-5">
-      <h3 className="text-base font-semibold text-white">
-        {editMode ? 'Edit Certification' : 'Add Certification'}
-      </h3>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Certification Type */}
-        <div className="space-y-1.5">
-          <Label htmlFor="certType" className="text-slate-300">Certification Type <span className="text-red-400">*</span></Label>
-          <select
-            id="certType"
-            value={form.certificationType}
-            onChange={set('certificationType')}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-          >
-            <option value="">Select type…</option>
-            {(Object.entries(CERT_TYPE_LABELS) as [CertificationType, string][]).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-          {errors.certificationType && <p className="text-xs text-red-400">{errors.certificationType}</p>}
-        </div>
-
-        {/* Certification Name */}
-        <div className="space-y-1.5">
-          <Label htmlFor="certName" className="text-slate-300">Certification Name <span className="text-red-400">*</span></Label>
-          <Input
-            id="certName"
-            value={form.certificationName}
-            onChange={set('certificationName')}
-            placeholder="e.g. Water Damage Restoration Technician"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
-          />
-          {errors.certificationName && <p className="text-xs text-red-400">{errors.certificationName}</p>}
-        </div>
-
-        {/* Issuing Body */}
-        <div className="space-y-1.5">
-          <Label htmlFor="issuingBody" className="text-slate-300">Issuing Body <span className="text-red-400">*</span></Label>
-          <Input
-            id="issuingBody"
-            value={form.issuingBody}
-            onChange={set('issuingBody')}
-            placeholder="e.g. IICRC, QBCC"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
-          />
-          {errors.issuingBody && <p className="text-xs text-red-400">{errors.issuingBody}</p>}
-        </div>
-
-        {/* Cert Number */}
-        <div className="space-y-1.5">
-          <Label htmlFor="certNumber" className="text-slate-300">Certificate Number</Label>
-          <Input
-            id="certNumber"
-            value={form.certificationNumber}
-            onChange={set('certificationNumber')}
-            placeholder="e.g. WRT-123456"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 font-mono"
-          />
-        </div>
-
-        {/* Issue Date */}
-        <div className="space-y-1.5">
-          <Label htmlFor="issueDate" className="text-slate-300">Issue Date <span className="text-red-400">*</span></Label>
-          <Input
-            id="issueDate"
-            type="date"
-            value={form.issueDate}
-            onChange={set('issueDate')}
-            className="bg-slate-700/50 border-slate-600 text-white"
-          />
-          {errors.issueDate && <p className="text-xs text-red-400">{errors.issueDate}</p>}
-        </div>
-
-        {/* Expiry Date */}
-        <div className="space-y-1.5">
-          <Label htmlFor="expiryDate" className="text-slate-300">Expiry Date</Label>
-          <Input
-            id="expiryDate"
-            type="date"
-            value={form.expiryDate}
-            onChange={set('expiryDate')}
-            className="bg-slate-700/50 border-slate-600 text-white"
-          />
-        </div>
-
-        {/* Document URL — spans full width */}
-        <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="documentUrl" className="text-slate-300">Document / Certificate URL</Label>
-          <Input
-            id="documentUrl"
-            type="url"
-            value={form.documentUrl}
-            onChange={set('documentUrl')}
-            placeholder="https://…"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-2 pt-1">
-        <Button
-          onClick={onSave}
-          disabled={saving}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white"
-        >
-          {saving ? 'Saving…' : editMode ? 'Save Changes' : 'Add Certification'}
-        </Button>
-        <Button variant="outline" onClick={onCancel} className="border-slate-600 text-slate-300 hover:bg-slate-700">
-          Cancel
-        </Button>
-      </div>
-    </div>
-  )
+function emptyForm(): CertFormState {
+  return {
+    certificationType: '',
+    certificationName: '',
+    issuingBody: '',
+    certificationNumber: '',
+    issueDate: '',
+    expiryDate: '',
+    documentUrl: '',
+  }
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ── Page component ────────────────────────────────────────────────────────────
 
-export default function CertificationsPage() {
-  const { status } = useSession()
+export default function ContractorCertificationsPage() {
+  const { data: session, status } = useSession()
   const router = useRouter()
 
   const [certifications, setCertifications] = useState<Certification[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  // Form visibility
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<FormState>(BLANK_FORM)
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({})
-
-  // Inline delete confirm
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
-
-  // Toast-style message
+  const [profileMissing, setProfileMissing] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<CertFormState>(emptyForm())
+
+  // Delete confirm state
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+
+  // ── Auth redirect ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -341,384 +211,449 @@ export default function CertificationsPage() {
     } else if (status === 'authenticated') {
       fetchCertifications()
     }
-  }, [status])
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function fetchCertifications() {
+  // ── Data fetching ──────────────────────────────────────────────────────────
+
+  const fetchCertifications = async () => {
+    setLoading(true)
     try {
       const res = await fetch('/api/contractors/certifications')
-      if (res.ok) {
-        const data = await res.json()
-        setCertifications(data.certifications ?? [])
+      if (res.status === 404) {
+        setProfileMissing(true)
+        return
       }
+      if (!res.ok) throw new Error('Failed to fetch')
+      const data = await res.json()
+      setCertifications(data.certifications ?? [])
     } catch {
-      // silently ignore network errors on load
+      setMessage({ type: 'error', text: 'Failed to load certifications' })
     } finally {
       setLoading(false)
     }
   }
 
-  function showMessage(type: 'success' | 'error', text: string) {
-    setMessage({ type, text })
-    setTimeout(() => setMessage(null), 4000)
-  }
+  // ── Dialog helpers ─────────────────────────────────────────────────────────
 
-  function validateForm(): boolean {
-    const errs: Partial<Record<keyof FormState, string>> = {}
-    if (!form.certificationType) errs.certificationType = 'Please select a type'
-    if (!form.certificationName.trim()) errs.certificationName = 'Name is required'
-    if (!form.issuingBody.trim()) errs.issuingBody = 'Issuing body is required'
-    if (!form.issueDate) errs.issueDate = 'Issue date is required'
-    setFormErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
-  function openAdd() {
+  const openAddDialog = () => {
     setEditingId(null)
-    setForm(BLANK_FORM)
-    setFormErrors({})
-    setShowForm(true)
+    setForm(emptyForm())
+    setDialogOpen(true)
   }
 
-  function openEdit(cert: Certification) {
-    // Verified certs cannot be edited (API enforces this too)
-    if (cert.verificationStatus === 'VERIFIED') {
-      showMessage('error', 'Verified certifications cannot be edited.')
-      return
-    }
+  const openEditDialog = (cert: Certification) => {
     setEditingId(cert.id)
     setForm({
       certificationType: cert.certificationType,
       certificationName: cert.certificationName,
       issuingBody: cert.issuingBody,
       certificationNumber: cert.certificationNumber ?? '',
-      issueDate: cert.issueDate ? cert.issueDate.slice(0, 10) : '',
-      expiryDate: cert.expiryDate ? cert.expiryDate.slice(0, 10) : '',
-      documentUrl: cert.documentUrl ?? ''
+      issueDate: toDateInputValue(cert.issueDate),
+      expiryDate: toDateInputValue(cert.expiryDate),
+      documentUrl: cert.documentUrl ?? '',
     })
-    setFormErrors({})
-    setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setDialogOpen(true)
   }
 
-  function cancelForm() {
-    setShowForm(false)
+  const closeDialog = () => {
+    setDialogOpen(false)
     setEditingId(null)
-    setForm(BLANK_FORM)
-    setFormErrors({})
+    setForm(emptyForm())
   }
 
-  async function handleSave() {
-    if (!validateForm()) return
-    setSaving(true)
+  // ── Submit (add / edit) ────────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    if (!form.certificationType || !form.certificationName || !form.issuingBody || !form.issueDate) {
+      setMessage({ type: 'error', text: 'Please fill in all required fields (Type, Name, Issuing Body, Issue Date)' })
+      return
+    }
+
+    setSubmitting(true)
+    setMessage(null)
 
     try {
+      const payload = {
+        certificationType: form.certificationType,
+        certificationName: form.certificationName,
+        issuingBody: form.issuingBody,
+        certificationNumber: form.certificationNumber || null,
+        issueDate: form.issueDate,
+        expiryDate: form.expiryDate || null,
+        documentUrl: form.documentUrl || null,
+      }
+
       const url = editingId
         ? `/api/contractors/certifications/${editingId}`
         : '/api/contractors/certifications'
       const method = editingId ? 'PATCH' : 'POST'
 
-      const body = {
-        certificationType: form.certificationType,
-        certificationName: form.certificationName.trim(),
-        issuingBody: form.issuingBody.trim(),
-        certificationNumber: form.certificationNumber.trim() || null,
-        issueDate: form.issueDate,
-        expiryDate: form.expiryDate || null,
-        documentUrl: form.documentUrl.trim() || null
-      }
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload),
       })
 
-      if (res.ok) {
-        showMessage('success', editingId ? 'Certification updated.' : 'Certification added.')
-        cancelForm()
-        await fetchCertifications()
-      } else {
+      if (!res.ok) {
         const data = await res.json()
-        showMessage('error', data.error ?? 'Failed to save certification.')
+        setMessage({ type: 'error', text: data.error ?? 'Failed to save certification' })
+        return
       }
+
+      setMessage({
+        type: 'success',
+        text: editingId ? 'Certification updated' : 'Certification added',
+      })
+      closeDialog()
+      await fetchCertifications()
     } catch {
-      showMessage('error', 'Network error — please try again.')
+      setMessage({ type: 'error', text: 'Failed to save certification' })
     } finally {
-      setSaving(false)
+      setSubmitting(false)
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeleting(true)
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTargetId) return
+
     try {
-      const res = await fetch(`/api/contractors/certifications/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        showMessage('success', 'Certification deleted.')
-        setDeleteConfirmId(null)
-        await fetchCertifications()
-      } else {
-        const data = await res.json()
-        showMessage('error', data.error ?? 'Failed to delete.')
-        setDeleteConfirmId(null)
+      const res = await fetch(`/api/contractors/certifications/${deleteTargetId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        setMessage({ type: 'error', text: 'Failed to delete certification' })
+        return
       }
+
+      setCertifications((prev) => prev.filter((c) => c.id !== deleteTargetId))
+      setMessage({ type: 'success', text: 'Certification deleted' })
     } catch {
-      showMessage('error', 'Network error — please try again.')
-      setDeleteConfirmId(null)
+      setMessage({ type: 'error', text: 'Failed to delete certification' })
     } finally {
-      setDeleting(false)
+      setDeleteTargetId(null)
     }
   }
 
-  // ─── Derived data ─────────────────────────────────────────────────────────
-
-  const expiringSoon = certifications.filter((c) => {
-    if (!c.expiryDate) return false
-    const d = daysUntilExpiry(c.expiryDate)
-    return d >= 0 && d <= 60
-  })
-
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ── Render states ──────────────────────────────────────────────────────────
 
   if (status === 'loading' || loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-9 w-64 bg-slate-700" />
-          <Skeleton className="h-10 w-40 bg-slate-700" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Skeleton className="h-9 w-64 mb-8" />
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
         </div>
-        <LoadingSkeleton />
       </div>
     )
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-
-      {/* ── Toast message ── */}
-      {message && (
-        <div
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm ${
-            message.type === 'success'
-              ? 'bg-green-500/10 border-green-500/30 text-green-400'
-              : 'bg-red-500/10 border-red-500/30 text-red-400'
-          }`}
-        >
-          {message.type === 'success'
-            ? <CheckCircle className="h-4 w-4 shrink-0" />
-            : <XCircle className="h-4 w-4 shrink-0" />}
-          <span className="flex-1">{message.text}</span>
-          <button onClick={() => setMessage(null)} className="opacity-60 hover:opacity-100">
-            <X className="h-4 w-4" />
+  if (profileMissing) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <AlertCircle className="h-12 w-12 text-amber-400 mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Contractor Profile Not Found</h2>
+          <p className="text-slate-400 mb-6">
+            Complete your contractor profile first to manage certifications.
+          </p>
+          <button
+            onClick={() => router.push('/dashboard/contractors/profile')}
+            className="px-6 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          >
+            Go to Profile
           </button>
         </div>
-      )}
+      </div>
+    )
+  }
 
-      {/* ── Expiry warning banner ── */}
-      {expiringSoon.length > 0 && (
-        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-300">
-          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <span className="font-semibold">{expiringSoon.length} certification{expiringSoon.length > 1 ? 's' : ''} expiring within 60 days:</span>{' '}
-            {expiringSoon.map((c, i) => (
-              <span key={c.id}>
-                {c.certificationName}
-                {c.expiryDate && (
-                  <span className="opacity-75"> (expires {formatDate(c.expiryDate)})</span>
-                )}
-                {i < expiringSoon.length - 1 ? ', ' : ''}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+  // ── Main render ────────────────────────────────────────────────────────────
 
-      {/* ── Header row ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">Certifications &amp; Licences</h1>
-          <span className="inline-flex items-center justify-center h-6 min-w-6 px-2 rounded-full bg-slate-700 text-slate-300 text-xs font-semibold">
-            {certifications.length}
-          </span>
-        </div>
-        <Button
-          onClick={openAdd}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white gap-2"
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-white">Certifications</h1>
+        <button
+          onClick={openAddDialog}
+          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
           Add Certification
-        </Button>
+        </button>
       </div>
 
-      {/* ── Add / Edit form ── */}
-      {showForm && (
-        <CertForm
-          form={form}
-          onChange={setForm}
-          onSave={handleSave}
-          onCancel={cancelForm}
-          saving={saving}
-          errors={formErrors}
-          editMode={editingId !== null}
-        />
-      )}
-
-      {/* ── Empty state ── */}
-      {certifications.length === 0 && !showForm && (
-        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-          <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center">
-            <Award className="h-8 w-8 text-slate-500" />
-          </div>
-          <p className="text-slate-400 max-w-sm text-sm leading-relaxed">
-            No certifications added yet. Add your IICRC or trade certifications to demonstrate compliance and build trust with clients.
-          </p>
-          <Button onClick={openAdd} className="bg-cyan-500 hover:bg-cyan-600 text-white gap-2 mt-2">
-            <Plus className="h-4 w-4" />
-            Add your first certification
-          </Button>
+      {/* Feedback message */}
+      {message && (
+        <div
+          className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+            message.type === 'success'
+              ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border border-red-500/30 text-red-400'
+          }`}
+        >
+          {message.type === 'success' ? (
+            <CheckCircle className="h-5 w-5 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          )}
+          <span>{message.text}</span>
         </div>
       )}
 
-      {/* ── Certifications grid ── */}
-      {certifications.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* Empty state */}
+      {certifications.length === 0 ? (
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 flex flex-col items-center text-center">
+          <Award className="h-12 w-12 text-slate-500 mb-4" />
+          <h2 className="text-lg font-semibold text-white mb-2">No certifications yet</h2>
+          <p className="text-slate-400 mb-6">
+            Add your IICRC, trade licences, and insurance certificates to verify your profile.
+          </p>
+          <button
+            onClick={openAddDialog}
+            className="flex items-center gap-2 px-5 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          >
+            <Plus className="h-5 w-5" />
+            Add Certification
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
           {certifications.map((cert) => {
-            const days = cert.expiryDate ? daysUntilExpiry(cert.expiryDate) : null
-            const isExpired = days !== null && days < 0
-            const isUrgent = days !== null && days >= 0 && days < 30
-            const isWarning = days !== null && days >= 30 && days < 60
-            const isDeleting = deleteConfirmId === cert.id
-
+            const expiryBadge = getExpiryBadge(cert.expiryDate)
+            const verBadge = getVerificationBadge(cert.verificationStatus)
             return (
-              <Card key={cert.id} className="bg-slate-800/30 border-slate-700 flex flex-col">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <CardTitle className="text-white text-base leading-snug">
-                        {cert.certificationName}
-                      </CardTitle>
-                      <p className="text-sm text-slate-400 mt-0.5">{cert.issuingBody}</p>
+              <div
+                key={cert.id}
+                className="bg-slate-800/30 border border-slate-700 rounded-lg p-5 flex items-start justify-between gap-4"
+              >
+                <div className="flex items-start gap-4 min-w-0">
+                  <Award className="h-6 w-6 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-white truncate">{cert.certificationName}</div>
+                    <div className="text-sm text-slate-400 mt-0.5">
+                      <span className="inline-block px-2 py-0.5 rounded text-xs bg-slate-700/50 border border-slate-600 text-slate-300 mr-2">
+                        {CERT_TYPE_LABELS[cert.certificationType] ?? cert.certificationType}
+                      </span>
+                      {cert.issuingBody}
                     </div>
-                    <Award className="h-5 w-5 text-cyan-400 shrink-0 mt-0.5" />
-                  </div>
-                </CardHeader>
-
-                <CardContent className="flex-1 flex flex-col gap-3">
-                  {/* Cert number */}
-                  {cert.certificationNumber && (
-                    <p className="font-mono text-xs text-slate-300 bg-slate-700/40 px-2 py-1 rounded w-fit">
-                      {cert.certificationNumber}
-                    </p>
-                  )}
-
-                  {/* Dates */}
-                  <div className="text-xs text-slate-400 space-y-1">
-                    <div>Issued: <span className="text-slate-300">{formatDate(cert.issueDate)}</span></div>
-                    {cert.expiryDate && (
-                      <div>
-                        Expires:{' '}
-                        <span
-                          className={
-                            isExpired
-                              ? 'text-red-400 font-medium'
-                              : isUrgent
-                              ? 'text-red-300 font-medium'
-                              : isWarning
-                              ? 'text-amber-300 font-medium'
-                              : 'text-slate-300'
-                          }
-                        >
-                          {formatDate(cert.expiryDate)}
-                        </span>
+                    {cert.certificationNumber && (
+                      <div className="text-xs text-slate-500 mt-1">
+                        #{cert.certificationNumber}
                       </div>
                     )}
-                  </div>
-
-                  {/* Days until expiry pill */}
-                  {cert.expiryDate && (
-                    <div>
-                      {isExpired ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400">
-                          <XCircle className="h-3 w-3" />
-                          Expired {Math.abs(days!)} day{Math.abs(days!) !== 1 ? 's' : ''} ago
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-slate-400">
+                      <span>
+                        Issued: {new Date(cert.issueDate).toLocaleDateString('en-AU')}
+                      </span>
+                      {cert.expiryDate && (
+                        <span>
+                          Expires: {new Date(cert.expiryDate).toLocaleDateString('en-AU')}
                         </span>
-                      ) : isUrgent ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          {days} day{days !== 1 ? 's' : ''} remaining
-                        </span>
-                      ) : isWarning ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          {days} days remaining
-                        </span>
-                      ) : null}
+                      )}
                     </div>
-                  )}
-
-                  <Separator className="bg-slate-700/50" />
-
-                  {/* Status badge */}
-                  <StatusBadge status={cert.verificationStatus} />
-
-                  {/* Action row */}
-                  <div className="flex items-center gap-2 mt-auto pt-1 flex-wrap">
-                    {cert.documentUrl && (
-                      <a
-                        href={cert.documentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        View Doc
-                      </a>
-                    )}
-
-                    {cert.verificationStatus !== 'VERIFIED' && (
-                      <>
-                        <button
-                          onClick={() => openEdit(cert)}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-                        >
-                          <Pencil className="h-3 w-3" />
-                          Edit
-                        </button>
-
-                        {isDeleting ? (
-                          <span className="inline-flex items-center gap-2 text-xs">
-                            <span className="text-red-400">Delete?</span>
-                            <button
-                              onClick={() => handleDelete(cert.id)}
-                              disabled={deleting}
-                              className="px-2 py-1 rounded bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                            >
-                              {deleting ? '…' : 'Confirm'}
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              className="px-2 py-1 rounded border border-slate-600 text-slate-400 hover:text-white transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirmId(cert.id)}
-                            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-600 text-red-400 hover:text-red-300 hover:border-red-500/40 transition-colors"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Delete
-                          </button>
-                        )}
-                      </>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className={`px-2 py-0.5 rounded text-xs ${expiryBadge.className}`}>
+                        {expiryBadge.label}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs ${verBadge.className}`}>
+                        {verBadge.label}
+                      </span>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {cert.verificationStatus !== 'VERIFIED' && (
+                    <>
+                      <button
+                        onClick={() => openEditDialog(cert)}
+                        title="Edit"
+                        className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTargetId(cert.id)}
+                        title="Delete"
+                        className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             )
           })}
         </div>
       )}
+
+      {/* Add / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog() }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {editingId ? 'Edit Certification' : 'Add Certification'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Type */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Certification Type <span className="text-red-400">*</span>
+              </label>
+              <Select
+                value={form.certificationType}
+                onValueChange={(val) =>
+                  setForm((f) => ({ ...f, certificationType: val as CertificationType }))
+                }
+              >
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white focus:ring-cyan-500">
+                  <SelectValue placeholder="Select type…" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  {CERT_TYPE_VALUES.map((v) => (
+                    <SelectItem
+                      key={v}
+                      value={v}
+                      className="text-white hover:bg-slate-700 focus:bg-slate-700"
+                    >
+                      {CERT_TYPE_LABELS[v]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Certification Name <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.certificationName}
+                onChange={(e) => setForm((f) => ({ ...f, certificationName: e.target.value }))}
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="e.g. Water Restoration Technician"
+              />
+            </div>
+
+            {/* Issuing Body */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Issuing Body <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.issuingBody}
+                onChange={(e) => setForm((f) => ({ ...f, issuingBody: e.target.value }))}
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="e.g. IICRC"
+              />
+            </div>
+
+            {/* Certificate Number */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Certification Number
+              </label>
+              <input
+                type="text"
+                value={form.certificationNumber}
+                onChange={(e) => setForm((f) => ({ ...f, certificationNumber: e.target.value }))}
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="Optional"
+              />
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Issue Date <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={form.issueDate}
+                  onChange={(e) => setForm((f) => ({ ...f, issueDate: e.target.value }))}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Expiry Date
+                </label>
+                <input
+                  type="date"
+                  value={form.expiryDate}
+                  onChange={(e) => setForm((f) => ({ ...f, expiryDate: e.target.value }))}
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+            </div>
+
+            {/* Document URL */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Document URL
+              </label>
+              <input
+                type="url"
+                value={form.documentUrl}
+                onChange={(e) => setForm((f) => ({ ...f, documentUrl: e.target.value }))}
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="https://…"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <button
+              onClick={closeDialog}
+              className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+            >
+              {submitting ? 'Saving…' : editingId ? 'Save Changes' : 'Add Certification'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete AlertDialog */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => { if (!open) setDeleteTargetId(null) }}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete this certification?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This action cannot be undone. The certification record will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-white border-slate-600 hover:bg-slate-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -1,16 +1,29 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { MapPin, Plus, Trash2, X, Check } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import {
+  MapPin,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -27,469 +40,440 @@ interface ServiceArea {
   radius: number | null
   isActive: boolean
   priority: number
-  createdAt: string
-  updatedAt: string
 }
 
-const AU_STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'] as const
+const AU_STATES = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT']
 
-const STATE_LABELS: Record<string, string> = {
-  ACT: 'Australian Capital Territory',
-  NSW: 'New South Wales',
-  NT: 'Northern Territory',
-  QLD: 'Queensland',
-  SA: 'South Australia',
-  TAS: 'Tasmania',
-  VIC: 'Victoria',
-  WA: 'Western Australia',
-}
-
-// priority is Int: 0 = low, 1 = medium, 2 = high
-function priorityLabel(priority: number): string {
-  if (priority >= 2) return 'HIGH'
-  if (priority === 1) return 'MEDIUM'
-  return 'LOW'
-}
-
-function priorityBadgeVariant(priority: number): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (priority >= 2) return 'default'
-  if (priority === 1) return 'secondary'
-  return 'outline'
-}
-
-function priorityValue(label: string): number {
-  if (label === 'HIGH') return 2
-  if (label === 'MEDIUM') return 1
-  return 0
+const defaultForm = {
+  postcode: '',
+  suburb: '',
+  state: '',
+  radius: '',
+  priority: '0',
 }
 
 export default function ServiceAreasPage() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
 
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [savingId, setSavingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [profileNotFound, setProfileNotFound] = useState(false)
 
-  // Add form state
-  const [formSuburb, setFormSuburb] = useState('')
-  const [formPostcode, setFormPostcode] = useState('')
-  const [formState, setFormState] = useState('')
-  const [formIsActive, setFormIsActive] = useState(true)
-  const [formPriority, setFormPriority] = useState('LOW')
-  const [formError, setFormError] = useState<string | null>(null)
-  const [formSaving, setFormSaving] = useState(false)
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState(defaultForm)
+
+  // Collapsible state per state group
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
     } else if (status === 'authenticated') {
-      fetchServiceAreas()
+      loadServiceAreas()
     }
   }, [status])
 
-  async function fetchServiceAreas() {
+  function loadServiceAreas() {
     setLoading(true)
-    try {
-      const res = await fetch('/api/contractors/service-areas')
-      if (res.ok) {
-        const data = await res.json()
-        setServiceAreas(data.serviceAreas ?? [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch service areas:', err)
-    } finally {
-      setLoading(false)
-    }
+    fetch('/api/contractors/service-areas')
+      .then(r => r.json())
+      .then(data => {
+        if (data.error === 'Contractor profile not found') {
+          setProfileNotFound(true)
+        } else {
+          setServiceAreas(data.serviceAreas || [])
+        }
+      })
+      .catch(() => toast.error('Failed to load service areas'))
+      .finally(() => setLoading(false))
   }
 
-  async function toggleActive(area: ServiceArea) {
-    setSavingId(area.id)
+  // Summary stats
+  const totalAreas = serviceAreas.length
+  const activeAreas = serviceAreas.filter(a => a.isActive).length
+  const statesCovered = [...new Set(serviceAreas.map(a => a.state))].sort().join(', ') || '—'
+
+  // Group by state
+  const grouped = serviceAreas.reduce((acc, area) => {
+    if (!acc[area.state]) acc[area.state] = []
+    acc[area.state].push(area)
+    return acc
+  }, {} as Record<string, ServiceArea[]>)
+  const states = Object.keys(grouped).sort()
+
+  function toggleCollapse(state: string) {
+    setCollapsed(prev => ({ ...prev, [state]: !prev[state] }))
+  }
+
+  async function handleToggleActive(area: ServiceArea) {
+    // Optimistic update
+    setServiceAreas(prev =>
+      prev.map(a => a.id === area.id ? { ...a, isActive: !a.isActive } : a)
+    )
     try {
       const res = await fetch(`/api/contractors/service-areas/${area.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !area.isActive }),
       })
-      if (res.ok) {
-        const data = await res.json()
+      if (!res.ok) {
+        // Revert on failure
         setServiceAreas(prev =>
-          prev.map(a => (a.id === area.id ? { ...a, isActive: data.serviceArea.isActive } : a))
+          prev.map(a => a.id === area.id ? { ...a, isActive: area.isActive } : a)
         )
+        toast.error('Failed to update service area')
       }
-    } catch (err) {
-      console.error('Failed to update service area:', err)
-    } finally {
-      setSavingId(null)
+    } catch {
+      setServiceAreas(prev =>
+        prev.map(a => a.id === area.id ? { ...a, isActive: area.isActive } : a)
+      )
+      toast.error('Failed to update service area')
     }
   }
 
-  async function deleteArea(id: string) {
-    setDeletingId(id)
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this service area?')) return
+    const previous = serviceAreas
+    setServiceAreas(prev => prev.filter(a => a.id !== id))
     try {
       const res = await fetch(`/api/contractors/service-areas/${id}`, {
         method: 'DELETE',
       })
-      if (res.ok) {
-        setServiceAreas(prev => prev.filter(a => a.id !== id))
+      if (!res.ok) {
+        setServiceAreas(previous)
+        toast.error('Failed to delete service area')
+      } else {
+        toast.success('Service area removed')
       }
-    } catch (err) {
-      console.error('Failed to delete service area:', err)
-    } finally {
-      setDeletingId(null)
-      setConfirmDeleteId(null)
+    } catch {
+      setServiceAreas(previous)
+      toast.error('Failed to delete service area')
     }
   }
 
-  function resetForm() {
-    setFormSuburb('')
-    setFormPostcode('')
-    setFormState('')
-    setFormIsActive(true)
-    setFormPriority('LOW')
-    setFormError(null)
-  }
-
-  async function handleAddSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setFormError(null)
-
-    if (!formPostcode.trim() || !formState) {
-      setFormError('Postcode and state are required.')
+  async function handleAdd() {
+    if (!form.postcode || !form.state) {
+      toast.error('Postcode and state are required')
       return
     }
-    if (!/^\d{4}$/.test(formPostcode.trim())) {
-      setFormError('Postcode must be exactly 4 digits.')
-      return
-    }
-
-    setFormSaving(true)
+    setSubmitting(true)
     try {
       const res = await fetch('/api/contractors/service-areas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          suburb: formSuburb.trim() || undefined,
-          postcode: formPostcode.trim(),
-          state: formState,
-          isActive: formIsActive,
-          priority: priorityValue(formPriority),
+          postcode: form.postcode,
+          suburb: form.suburb || undefined,
+          state: form.state,
+          radius: form.radius ? parseInt(form.radius) : undefined,
+          priority: form.priority ? parseInt(form.priority) : 0,
         }),
       })
-
-      if (res.ok) {
-        const data = await res.json()
-        setServiceAreas(prev => [...prev, data.serviceArea])
-        resetForm()
-        setShowAddForm(false)
-      } else {
-        const data = await res.json()
-        setFormError(data.error ?? 'Failed to add service area.')
+      const data = await res.json()
+      if (res.status === 409) {
+        toast.error('This postcode is already added')
+        return
       }
-    } catch (err) {
-      setFormError('An unexpected error occurred.')
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to add service area')
+        return
+      }
+      setServiceAreas(prev => [...prev, data.serviceArea])
+      setDialogOpen(false)
+      setForm(defaultForm)
+      toast.success('Service area added')
+    } catch {
+      toast.error('Failed to add service area')
     } finally {
-      setFormSaving(false)
+      setSubmitting(false)
     }
   }
 
-  // Group by state, sorted by state label
-  const grouped = serviceAreas.reduce<Record<string, ServiceArea[]>>((acc, area) => {
-    if (!acc[area.state]) acc[area.state] = []
-    acc[area.state].push(area)
-    return acc
-  }, {})
+  function openDialog() {
+    setForm(defaultForm)
+    setDialogOpen(true)
+  }
 
-  const sortedStates = Object.keys(grouped).sort()
-
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-40" />
-            <Skeleton className="h-6 w-10 rounded-full" />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-72" />
           </div>
-          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-10 w-40" />
         </div>
+        <div className="grid grid-cols-3 gap-4">
+          {[0, 1, 2].map(i => <Skeleton key={i} className="h-20 rounded-lg" />)}
+        </div>
+        <div className="space-y-3">
+          {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-lg" />)}
+        </div>
+      </div>
+    )
+  }
 
-        {/* Group skeletons */}
-        {[0, 1, 2].map(g => (
-          <div key={g} className="mb-8">
-            <Skeleton className="h-5 w-48 mb-3" />
-            <Separator className="mb-4" />
-            <div className="space-y-3">
-              {[0, 1, 2].map(r => (
-                <div
-                  key={r}
-                  className="flex items-center justify-between p-4 bg-slate-800/30 border border-slate-700 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-12" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-5 w-10 rounded-full" />
-                    <Skeleton className="h-8 w-8 rounded" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+  // Profile not found
+  if (profileNotFound) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <MapPin className="h-12 w-12 text-slate-500 mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Profile Not Set Up</h2>
+          <p className="text-slate-400 max-w-sm">
+            Complete your contractor profile first to manage service areas.
+          </p>
+          <Button
+            className="mt-6"
+            onClick={() => router.push('/dashboard/contractors/profile')}
+          >
+            Go to Profile
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Page header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-6 w-6 text-cyan-400" />
-            <h1 className="text-2xl font-bold text-white">Service Areas</h1>
-          </div>
-          <Badge variant="secondary" className="text-sm">
-            {serviceAreas.length}
-          </Badge>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Service Areas</h1>
+          <p className="text-slate-400 mt-1">Postcodes and suburbs you cover for restoration work</p>
         </div>
-        {!showAddForm && (
-          <Button
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add Service Area
-          </Button>
-        )}
+        <Button onClick={openDialog} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Service Area
+        </Button>
       </div>
 
-      {/* Add form */}
-      {showAddForm && (
-        <div className="mb-8 p-6 bg-slate-800/30 border border-slate-700 rounded-lg">
-          <h2 className="text-lg font-semibold text-white mb-5">New Service Area</h2>
-          <form onSubmit={handleAddSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="suburb" className="text-slate-300">
-                  Suburb
-                </Label>
-                <Input
-                  id="suburb"
-                  value={formSuburb}
-                  onChange={e => setFormSuburb(e.target.value)}
-                  placeholder="e.g. Fortitude Valley"
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="postcode" className="text-slate-300">
-                  Postcode <span className="text-red-400">*</span>
-                </Label>
-                <Input
-                  id="postcode"
-                  value={formPostcode}
-                  onChange={e => setFormPostcode(e.target.value)}
-                  placeholder="e.g. 4006"
-                  maxLength={4}
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="state" className="text-slate-300">
-                  State <span className="text-red-400">*</span>
-                </Label>
-                <Select value={formState} onValueChange={setFormState}>
-                  <SelectTrigger
-                    id="state"
-                    className="bg-slate-700/50 border-slate-600 text-white"
-                  >
-                    <SelectValue placeholder="Select state" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
-                    {AU_STATES.map(s => (
-                      <SelectItem key={s} value={s} className="text-white hover:bg-slate-700">
-                        {s} — {STATE_LABELS[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="priority" className="text-slate-300">
-                  Priority
-                </Label>
-                <Select value={formPriority} onValueChange={setFormPriority}>
-                  <SelectTrigger
-                    id="priority"
-                    className="bg-slate-700/50 border-slate-600 text-white"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
-                    <SelectItem value="HIGH" className="text-white hover:bg-slate-700">HIGH</SelectItem>
-                    <SelectItem value="MEDIUM" className="text-white hover:bg-slate-700">MEDIUM</SelectItem>
-                    <SelectItem value="LOW" className="text-white hover:bg-slate-700">LOW</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 mb-5">
-              <Switch
-                id="isActive"
-                checked={formIsActive}
-                onCheckedChange={setFormIsActive}
-              />
-              <Label htmlFor="isActive" className="text-slate-300 cursor-pointer">
-                Active
-              </Label>
-            </div>
-
-            {formError && (
-              <p className="text-sm text-red-400 mb-4">{formError}</p>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                type="submit"
-                disabled={formSaving}
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
-              >
-                {formSaving ? 'Saving...' : 'Save'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  resetForm()
-                  setShowAddForm(false)
-                }}
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
+      {/* Summary bar */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-white">{totalAreas}</div>
+          <div className="text-sm text-slate-400 mt-1">Total Areas</div>
         </div>
-      )}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-cyan-400">{activeAreas}</div>
+          <div className="text-sm text-slate-400 mt-1">Active Areas</div>
+        </div>
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-lg font-semibold text-white truncate">{statesCovered}</div>
+          <div className="text-sm text-slate-400 mt-1">States Covered</div>
+        </div>
+      </div>
 
       {/* Empty state */}
-      {serviceAreas.length === 0 && !showAddForm && (
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 text-center">
-          <MapPin className="h-10 w-10 text-slate-500 mx-auto mb-4" />
-          <p className="text-slate-400 text-base">
-            No service areas configured. Add the postcodes and suburbs you cover.
+      {serviceAreas.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <MapPin className="h-12 w-12 text-slate-500 mb-4" />
+          <p className="text-slate-400 max-w-sm">
+            No service areas yet. Add your first postcode to start appearing in contractor searches.
           </p>
-          <Button
-            onClick={() => setShowAddForm(true)}
-            className="mt-5 bg-cyan-500 hover:bg-cyan-600 text-white"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Service Area
+          <Button onClick={openDialog} className="mt-6 flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add First Service Area
           </Button>
         </div>
-      )}
-
-      {/* Grouped list */}
-      {sortedStates.length > 0 && (
-        <div className="space-y-8">
-          {sortedStates.map(state => {
+      ) : (
+        <div className="space-y-4">
+          {states.map(state => {
             const areas = grouped[state]
+            const isCollapsed = collapsed[state]
             return (
-              <div key={state}>
-                <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  {STATE_LABELS[state] ?? state}{' '}
-                  <span className="text-slate-500 normal-case tracking-normal font-normal">
-                    ({areas.length})
-                  </span>
-                </h2>
-                <Separator className="mb-4 bg-slate-700" />
+              <div
+                key={state}
+                className="bg-slate-800/30 border border-slate-700 rounded-lg overflow-hidden"
+              >
+                {/* State group header */}
+                <button
+                  onClick={() => toggleCollapse(state)}
+                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-4 w-4 text-cyan-400" />
+                    <span className="font-semibold text-white">
+                      {state}
+                    </span>
+                    <Badge variant="secondary" className="text-xs">
+                      {areas.length} {areas.length === 1 ? 'area' : 'areas'}
+                    </Badge>
+                  </div>
+                  {isCollapsed
+                    ? <ChevronRight className="h-4 w-4 text-slate-400" />
+                    : <ChevronDown className="h-4 w-4 text-slate-400" />
+                  }
+                </button>
 
-                <div className="space-y-2">
-                  {areas.map(area => (
-                    <div
-                      key={area.id}
-                      className="flex items-center justify-between px-4 py-3 bg-slate-800/30 border border-slate-700 rounded-lg"
-                    >
-                      {/* Left: suburb + postcode + priority badge */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-white font-medium truncate">
-                          {area.suburb ? `${area.suburb}, ` : ''}
-                          {area.state} {area.postcode}
-                        </span>
-                        <Badge variant={priorityBadgeVariant(area.priority)} className="shrink-0 text-xs">
-                          {priorityLabel(area.priority)}
-                        </Badge>
-                      </div>
-
-                      {/* Right: active toggle + delete */}
-                      <div className="flex items-center gap-4 shrink-0 ml-4">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={area.isActive}
-                            disabled={savingId === area.id}
-                            onCheckedChange={() => toggleActive(area)}
-                            aria-label={`Toggle active for ${area.suburb ?? area.postcode}`}
-                          />
-                          <span className="text-xs text-slate-400 w-14">
-                            {area.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                {/* Areas list */}
+                {!isCollapsed && (
+                  <div className="divide-y divide-slate-700/50">
+                    {areas.map(area => (
+                      <div
+                        key={area.id}
+                        className="flex items-center justify-between px-5 py-4 hover:bg-slate-700/20 transition-colors"
+                      >
+                        {/* Left: postcode + suburb + state */}
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xl font-bold text-white">{area.postcode}</span>
+                              {area.suburb && (
+                                <span className="text-slate-300 text-sm">{area.suburb}</span>
+                              )}
+                              <span className="text-slate-500 text-xs">{area.state}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {area.radius != null && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs border-cyan-500/40 text-cyan-400"
+                                >
+                                  {area.radius} km radius
+                                </Badge>
+                              )}
+                              <span className="text-xs text-slate-500">
+                                Priority: {area.priority}
+                              </span>
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Delete with inline confirm */}
-                        {confirmDeleteId === area.id ? (
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-slate-400 mr-1">Remove?</span>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              disabled={deletingId === area.id}
-                              onClick={() => deleteArea(area.id)}
-                              className="h-7 px-2 text-xs"
-                            >
-                              <Check className="h-3 w-3 mr-1" />
-                              Yes
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="h-7 px-2 text-xs border-slate-600 text-slate-300 hover:bg-slate-700"
-                            >
-                              <X className="h-3 w-3 mr-1" />
-                              No
-                            </Button>
+                        {/* Right: active toggle + delete */}
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs ${area.isActive ? 'text-green-400' : 'text-slate-500'}`}>
+                              {area.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                            <Switch
+                              checked={area.isActive}
+                              onCheckedChange={() => handleToggleActive(area)}
+                              aria-label={`Toggle ${area.postcode} active`}
+                            />
                           </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setConfirmDeleteId(area.id)}
-                            className="h-7 w-7 p-0 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
-                            aria-label={`Delete ${area.suburb ?? area.postcode}`}
+                          <button
+                            onClick={() => handleDelete(area.id)}
+                            className="text-red-400 hover:text-red-300 transition-colors"
+                            aria-label={`Delete ${area.postcode}`}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       )}
+
+      {/* Add Service Area Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Add Service Area</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Postcode */}
+            <div className="space-y-1.5">
+              <Label htmlFor="postcode" className="text-slate-300">
+                Postcode <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                id="postcode"
+                value={form.postcode}
+                onChange={e => setForm(f => ({ ...f, postcode: e.target.value }))}
+                placeholder="e.g. 2000"
+                maxLength={4}
+                className="bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+              />
+            </div>
+
+            {/* Suburb */}
+            <div className="space-y-1.5">
+              <Label htmlFor="suburb" className="text-slate-300">Suburb (optional)</Label>
+              <Input
+                id="suburb"
+                value={form.suburb}
+                onChange={e => setForm(f => ({ ...f, suburb: e.target.value }))}
+                placeholder="e.g. Sydney CBD"
+                className="bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+              />
+            </div>
+
+            {/* State */}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300">
+                State <span className="text-red-400">*</span>
+              </Label>
+              <Select
+                value={form.state}
+                onValueChange={val => setForm(f => ({ ...f, state: val }))}
+              >
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                  <SelectValue placeholder="Select state..." />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  {AU_STATES.map(s => (
+                    <SelectItem key={s} value={s} className="text-white hover:bg-slate-700">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Radius */}
+            <div className="space-y-1.5">
+              <Label htmlFor="radius" className="text-slate-300">Radius (km, optional)</Label>
+              <Input
+                id="radius"
+                type="number"
+                min={0}
+                value={form.radius}
+                onChange={e => setForm(f => ({ ...f, radius: e.target.value }))}
+                placeholder="e.g. 25"
+                className="bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+              />
+            </div>
+
+            {/* Priority */}
+            <div className="space-y-1.5">
+              <Label htmlFor="priority" className="text-slate-300">Priority (default 0)</Label>
+              <Input
+                id="priority"
+                type="number"
+                value={form.priority}
+                onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAdd} disabled={submitting}>
+              {submitting ? 'Adding...' : 'Add Service Area'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

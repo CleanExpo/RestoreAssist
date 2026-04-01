@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useRef } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
@@ -8,6 +8,14 @@ import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas
 import { NirPilotSurvey } from "@/components/nir-pilot-survey"
 import dynamic from "next/dynamic"
 const PortalInvitePanel = dynamic(() => import("@/components/inspection/PortalInvitePanel"), { ssr: false })
+const ExportPdfButton = dynamic(
+  () => import("@/components/inspection/ExportPdfButton"),
+  { ssr: false }
+)
+const ActivityTimeline = dynamic(
+  () => import("@/components/inspection/ActivityTimeline"),
+  { ssr: false }
+)
 import {
   ArrowLeft,
   Loader2,
@@ -28,10 +36,35 @@ import {
   XCircle,
   Map,
   Receipt,
+  Upload,
+  History,
+  ListChecks,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  Save,
+  FileDown,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists"
 import Link from "next/link"
 
-type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos"
+type Tab = "overview" | "environmental" | "moisture" | "moisture-map" | "areas" | "classification" | "scope" | "costs" | "photos" | "activity"
 
 interface Inspection {
   id: string
@@ -176,6 +209,34 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [scopeItems, setScopeItems] = useState<Inspection["scopeItems"]>([])
+  const [showAddScope, setShowAddScope] = useState(false)
+  const [editingScopeItem, setEditingScopeItem] = useState<string | null>(null)
+  const [addScopeForm, setAddScopeForm] = useState({ description: "", itemType: "", quantity: "", unit: "" })
+  const [editScopeForm, setEditScopeForm] = useState({ description: "", quantity: "", unit: "" })
+  const [envData, setEnvData] = useState<Inspection["environmentalData"]>(null)
+  const [showEnvForm, setShowEnvForm] = useState(false)
+  const [envForm, setEnvForm] = useState({ ambientTemperature: 20, humidityLevel: 50, airCirculation: false, weatherConditions: '', notes: '' })
+  const [savingEnv, setSavingEnv] = useState(false)
+  const [moistureReadings, setMoistureReadings] = useState<Inspection["moistureReadings"]>([])
+  const [showAddMoisture, setShowAddMoisture] = useState(false)
+  const [moistureForm, setMoistureForm] = useState({ location: '', surfaceType: '', moistureLevel: 0, depth: 'Surface', notes: '' })
+  const [addingMoisture, setAddingMoisture] = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
+  const [affectedAreas, setAffectedAreas] = useState<Inspection["affectedAreas"]>([])
+  const [showAddAreaForm, setShowAddAreaForm] = useState(false)
+  const [areaForm, setAreaForm] = useState({ roomZoneId: "", affectedSquareFootage: "", waterSource: "", timeSinceLoss: "", description: "" })
+  const [areaSubmitting, setAreaSubmitting] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false)
+  const [selectedChecklistId, setSelectedChecklistId] = useState<string>("")
+  const [applyingChecklist, setApplyingChecklist] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareExpiry, setShareExpiry] = useState<string | null>(null)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
     fetchInspection()
@@ -188,6 +249,12 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       if (response.ok) {
         const data = await response.json()
         setInspection(data.inspection)
+        setScopeItems(data.inspection.scopeItems ?? [])
+        setMoistureReadings(data.inspection.moistureReadings ?? [])
+        setAffectedAreas(data.inspection.affectedAreas ?? [])
+        setEnvData(data.inspection.environmentalData)
+        const ed = data.inspection.environmentalData
+        if (ed) { setEnvForm({ ambientTemperature: ed.ambientTemperature ?? 20, humidityLevel: ed.humidityLevel ?? 50, airCirculation: ed.airCirculation ?? false, weatherConditions: ed.weatherConditions ?? '', notes: ed.notes ?? '' }) }
       } else {
         toast.error("Inspection not found")
         router.push("/dashboard/inspections")
@@ -197,6 +264,195 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
       toast.error("Failed to load inspection")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handlePhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploadingPhoto(true)
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch(`/api/inspections/${inspection!.id}/photos`, {
+          method: 'POST',
+          body: formData,
+        })
+        if (!res.ok) { toast.error('Failed to upload photo'); continue }
+        const data = await res.json()
+        setInspection(prev => prev ? { ...prev, photos: [...prev.photos, data.photo] } : prev)
+      }
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handleShareWithClient = async () => {
+    if (!inspection) return
+    setShareLoading(true)
+    setShareDialogOpen(true)
+    try {
+      const res = await fetch("/api/portal/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inspectionId: inspection.id }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setShareUrl(data.portalUrl)
+        setShareExpiry(new Date(data.expiresAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }))
+      } else {
+        toast.error("Failed to generate portal link")
+        setShareDialogOpen(false)
+      }
+    } catch {
+      toast.error("Failed to generate portal link")
+      setShareDialogOpen(false)
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const handleCopyShareUrl = () => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    })
+  }
+
+  const applyChecklist = async () => {
+    if (!selectedChecklistId) return
+    setApplyingChecklist(true)
+    try {
+      const res = await fetch(`/api/inspections/${id}/apply-checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checklistId: selectedChecklistId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to apply checklist")
+      toast.success(`Added ${data.added} scope item${data.added !== 1 ? "s" : ""}${data.skipped > 0 ? ` (${data.skipped} already existed)` : ""}`)
+      setChecklistDialogOpen(false)
+      setSelectedChecklistId("")
+      fetchInspection()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to apply checklist")
+    } finally {
+      setApplyingChecklist(false)
+    }
+  }
+
+  const calcDewPoint = (temp: number, humidity: number) =>
+    Math.round((temp - ((100 - humidity) / 5)) * 10) / 10
+
+  const handleEnvSave = async () => {
+    setSavingEnv(true)
+    try {
+      const dewPoint = calcDewPoint(envForm.ambientTemperature, envForm.humidityLevel)
+      const res = await fetch(`/api/inspections/${inspection!.id}/environmental`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...envForm, dewPoint }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setEnvData(data.environmentalData)
+      setShowEnvForm(false)
+      toast.success('Environmental data saved')
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to save') } finally { setSavingEnv(false) }
+  }
+
+  const handleAddMoisture = async () => {
+    setAddingMoisture(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection!.id}/moisture`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(moistureForm) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setMoistureReadings(prev => [...prev, data.moistureReading])
+      setMoistureForm({ location: '', surfaceType: '', moistureLevel: 0, depth: 'Surface', notes: '' })
+      setShowAddMoisture(false)
+      toast.success('Reading added')
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Failed to add reading') } finally { setAddingMoisture(false) }
+  }
+
+  const handleDeleteMoisture = async (readingId: string) => {
+    setMoistureReadings(prev => prev.filter(r => r.id !== readingId))
+    try {
+      const res = await fetch(`/api/inspections/${inspection!.id}/moisture/${readingId}`, { method: 'DELETE' })
+      if (!res.ok) { setMoistureReadings(inspection!.moistureReadings); toast.error('Failed to delete reading') }
+    } catch { setMoistureReadings(inspection!.moistureReadings); toast.error('Failed to delete reading') }
+  }
+
+  async function handleGenerateReport() {
+    setGeneratingReport(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection!.id}/report?format=pdf`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'Report generation failed')
+      }
+      const contentType = res.headers.get('content-type') ?? ''
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ext = contentType.includes('pdf') ? 'pdf'
+                : contentType.includes('sheet') || contentType.includes('excel') ? 'xlsx'
+                : 'pdf'
+      a.download = `nir-report-${inspection!.id}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Report generation error:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to generate report')
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
+
+  async function handleAddArea() {
+    if (!inspection) return
+    if (!areaForm.roomZoneId.trim()) { toast.error("Room / Zone ID is required"); return }
+    const sqft = parseFloat(areaForm.affectedSquareFootage)
+    if (!sqft || sqft <= 0) { toast.error("Affected area must be greater than 0"); return }
+    if (!areaForm.waterSource.trim()) { toast.error("Water source is required"); return }
+    setAreaSubmitting(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection.id}/affected-areas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomZoneId: areaForm.roomZoneId.trim(),
+          affectedSquareFootage: sqft,
+          waterSource: areaForm.waterSource.trim(),
+          timeSinceLoss: areaForm.timeSinceLoss ? parseFloat(areaForm.timeSinceLoss) : null,
+          description: areaForm.description || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to add area")
+      }
+      const data = await res.json()
+      setAffectedAreas(prev => [...prev, data.affectedArea])
+      setAreaForm({ roomZoneId: "", affectedSquareFootage: "", waterSource: "", timeSinceLoss: "", description: "" })
+      setShowAddAreaForm(false)
+      toast.success("Area added")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add area")
+    } finally {
+      setAreaSubmitting(false)
+    }
+  }
+
+  async function handleDeleteArea(areaId: string) {
+    if (!inspection) return
+    try {
+      const res = await fetch(`/api/inspections/${inspection.id}/affected-areas/${areaId}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Delete failed")
+      setAffectedAreas(prev => prev.filter(a => a.id !== areaId))
+      toast.success("Area removed")
+    } catch {
+      toast.error("Failed to delete area")
     }
   }
 
@@ -216,13 +472,14 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
   const TABS: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "overview", label: "Overview", icon: ClipboardCheck },
     { key: "environmental", label: "Environmental", icon: Thermometer },
-    { key: "moisture", label: "Moisture", icon: Droplets, count: inspection.moistureReadings.length },
+    { key: "moisture", label: "Moisture", icon: Droplets, count: moistureReadings.length },
     { key: "moisture-map", label: "Moisture Map", icon: Map },
-    { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: inspection.affectedAreas.length },
+    { key: "areas", label: "Affected Areas", icon: AlertTriangle, count: affectedAreas.length },
     { key: "classification", label: "Classification", icon: Shield, count: inspection.classifications.length },
-    { key: "scope", label: "Scope Items", icon: Layers, count: inspection.scopeItems.length },
+    { key: "scope", label: "Scope Items", icon: Layers, count: scopeItems.length },
     { key: "costs", label: "Cost Estimates", icon: DollarSign, count: inspection.costEstimates.length },
     { key: "photos", label: "Photos", icon: Camera, count: inspection.photos.length },
+    { key: "activity", label: "Activity", icon: History },
   ]
 
   return (
@@ -245,6 +502,31 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                 Category {classification.category} / Class {classification.class}
               </span>
             )}
+            {inspection.status === "COMPLETED" && (
+              <button
+                onClick={handleGenerateReport}
+                disabled={generatingReport}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
+              >
+                {generatingReport ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Generating...</>
+                ) : (
+                  <><FileDown className="h-4 w-4" />Generate NIR Report</>
+                )}
+              </button>
+            )}
+            <ExportPdfButton inspectionId={inspection.id} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareWithClient}
+              className="text-xs gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share with Client
+            </Button>
             <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
@@ -253,6 +535,30 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
               Generate Invoice
             </Link>
           </div>
+
+          {/* Share Dialog */}
+          <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Share with Client</DialogTitle>
+              </DialogHeader>
+              <div className="py-2">
+                {shareLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="animate-spin text-cyan-500" size={24} />
+                  </div>
+                ) : shareUrl ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-neutral-600 dark:text-slate-300">Portal link valid until {shareExpiry}</p>
+                    <div className="flex items-center gap-2">
+                      <input readOnly value={shareUrl} className="flex-1 px-3 py-2 text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800" />
+                      <Button size="sm" onClick={handleCopyShareUrl}>{shareCopied ? "Copied!" : "Copy"}</Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </DialogContent>
+          </Dialog>
           <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
               <MapPin size={14} />
@@ -327,8 +633,8 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
             </div>
             <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">Scope Items</div>
-              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{inspection.scopeItems.filter(s => s.isSelected).length}</div>
-              <div className="text-xs text-neutral-500 mt-1">{inspection.scopeItems.filter(s => s.autoDetermined).length} auto-determined</div>
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{scopeItems.filter(s => s.isSelected).length}</div>
+              <div className="text-xs text-neutral-500 mt-1">{scopeItems.filter(s => s.autoDetermined).length} auto-determined</div>
             </div>
             <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">Estimated Cost</div>
@@ -404,46 +710,91 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl">
-            {inspection.environmentalData ? (
+          <div className="max-w-2xl space-y-4">
+            {envData && !showEnvForm ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Thermometer className="text-cyan-500" size={20} />
-                  Environmental Data
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Thermometer className="text-cyan-500" size={20} />
+                    Environmental Data
+                  </h3>
+                  <button onClick={() => setShowEnvForm(true)} className="text-sm text-cyan-600 hover:underline">Edit</button>
+                </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Ambient Temperature</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.ambientTemperature}°C</p>
+                    <p className="text-2xl font-bold mt-1">{envData.ambientTemperature}°C</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Humidity Level</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.humidityLevel}%</p>
+                    <p className="text-2xl font-bold mt-1">{envData.humidityLevel}%</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Dew Point</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
+                    <p className="text-2xl font-bold mt-1">{envData.dewPoint?.toFixed(1) ?? "Not calculated"}°C</p>
                   </div>
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Air Circulation</label>
-                    <p className="text-2xl font-bold mt-1">{inspection.environmentalData.airCirculation ? "Active" : "None"}</p>
+                    <p className="text-2xl font-bold mt-1">{envData.airCirculation ? "Active" : "None"}</p>
                   </div>
                 </div>
-                {inspection.environmentalData.weatherConditions && (
+                {envData.weatherConditions && (
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Weather Conditions</label>
-                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{inspection.environmentalData.weatherConditions}</p>
+                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{envData.weatherConditions}</p>
                   </div>
                 )}
-                {inspection.environmentalData.notes && (
+                {envData.notes && (
                   <div>
                     <label className="text-xs text-neutral-400 uppercase tracking-wider">Notes</label>
-                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{inspection.environmentalData.notes}</p>
+                    <p className="mt-1 text-neutral-700 dark:text-slate-300">{envData.notes}</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">No environmental data recorded</div>
+              <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Thermometer className="text-cyan-500" size={20} />
+                  {envData ? 'Edit Environmental Data' : 'Add Environmental Data'}
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Temperature (°C)</label>
+                    <input type="number" value={envForm.ambientTemperature} onChange={e => setEnvForm(f => ({ ...f, ambientTemperature: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Humidity (%)</label>
+                    <input type="number" value={envForm.humidityLevel} onChange={e => setEnvForm(f => ({ ...f, humidityLevel: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300">
+                  Auto dew point: <strong>{calcDewPoint(envForm.ambientTemperature, envForm.humidityLevel)}°C</strong>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" id="airCirc" checked={envForm.airCirculation} onChange={e => setEnvForm(f => ({ ...f, airCirculation: e.target.checked }))} className="rounded" />
+                  <label htmlFor="airCirc" className="text-sm">Air Circulation Active</label>
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Weather Conditions</label>
+                  <input type="text" value={envForm.weatherConditions} onChange={e => setEnvForm(f => ({ ...f, weatherConditions: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. Sunny, 28°C" />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Notes</label>
+                  <textarea value={envForm.notes} onChange={e => setEnvForm(f => ({ ...f, notes: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm resize-none" />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleEnvSave} disabled={savingEnv} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+                    {savingEnv ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {savingEnv ? 'Saving...' : 'Save'}
+                  </button>
+                  {envData && <button onClick={() => setShowEnvForm(false)} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm">Cancel</button>}
+                </div>
+              </div>
+            )}
+            {!envData && !showEnvForm && (
+              <button onClick={() => setShowEnvForm(true)} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={16} /> Add Environmental Data
+              </button>
             )}
           </div>
         )}
@@ -451,7 +802,50 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Moisture Readings Tab */}
         {activeTab === "moisture" && (
           <div className="space-y-4">
-            {inspection.moistureReadings.length > 0 ? (
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">Moisture Readings ({moistureReadings.length})</h3>
+              <button onClick={() => setShowAddMoisture(v => !v)} className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={14} /> Add Reading
+              </button>
+            </div>
+            {showAddMoisture && (
+              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Location</label>
+                    <input type="text" value={moistureForm.location} onChange={e => setMoistureForm(f => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. Living Room Wall" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Surface Type</label>
+                    <input type="text" value={moistureForm.surfaceType} onChange={e => setMoistureForm(f => ({ ...f, surfaceType: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. drywall" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Moisture Level (%)</label>
+                    <input type="number" value={moistureForm.moistureLevel} onChange={e => setMoistureForm(f => ({ ...f, moistureLevel: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Depth</label>
+                    <select value={moistureForm.depth} onChange={e => setMoistureForm(f => ({ ...f, depth: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+                      <option>Surface</option>
+                      <option>Mid</option>
+                      <option>Deep</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Notes</label>
+                    <input type="text" value={moistureForm.notes} onChange={e => setMoistureForm(f => ({ ...f, notes: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddMoisture} disabled={addingMoisture || !moistureForm.location} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+                    {addingMoisture ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {addingMoisture ? 'Adding...' : 'Add Reading'}
+                  </button>
+                  <button onClick={() => setShowAddMoisture(false)} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+            {moistureReadings.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
                   <thead className="bg-neutral-50 dark:bg-slate-800/50">
@@ -461,10 +855,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Moisture %</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Depth</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Notes</th>
+                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 dark:divide-slate-800">
-                    {inspection.moistureReadings.map((reading) => (
+                    {moistureReadings.map((reading) => (
                       <tr key={reading.id} className="hover:bg-neutral-50 dark:hover:bg-slate-800/30">
                         <td className="px-4 py-3 font-medium text-sm">{reading.location}</td>
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300 capitalize">{reading.surfaceType}</td>
@@ -475,6 +870,11 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
                         </td>
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300">{reading.depth}</td>
                         <td className="px-4 py-3 text-sm text-neutral-400 max-w-[200px] truncate">{reading.notes || "—"}</td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => handleDeleteMoisture(reading.id)} className="text-red-400 hover:text-red-600 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -489,8 +889,8 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Moisture Map Tab */}
         {activeTab === "moisture-map" && (
           <div>
-            {inspection.moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas readings={inspection.moistureReadings} />
+            {moistureReadings.length > 0 ? (
+              <MoistureMappingCanvas readings={moistureReadings} />
             ) : (
               <div className="text-center py-12 text-neutral-400">No moisture readings to map — add readings first</div>
             )}
@@ -499,49 +899,93 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
 
         {/* Affected Areas Tab */}
         {activeTab === "areas" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {inspection.affectedAreas.length > 0 ? (
-              inspection.affectedAreas.map((area) => (
-                <div key={area.id} className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-neutral-900 dark:text-white">{area.roomZoneId}</h4>
-                    <div className="flex gap-2">
-                      {area.category && (
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600">
-                          Cat {area.category}
-                        </span>
-                      )}
-                      {area.class && (
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600">
-                          Class {area.class}
-                        </span>
-                      )}
-                    </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">Affected Areas ({affectedAreas.length})</h3>
+              <button onClick={() => setShowAddAreaForm(v => !v)} className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Plus size={14} /> Add Area
+              </button>
+            </div>
+            {showAddAreaForm && (
+              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Room / Zone ID *</label>
+                    <input type="text" value={areaForm.roomZoneId} onChange={e => setAreaForm(f => ({ ...f, roomZoneId: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. Living Room" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-neutral-400 text-xs">Area</span>
-                      <p className="font-medium">{area.affectedSquareFootage} sq ft</p>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 text-xs">Water Source</span>
-                      <p className="font-medium capitalize">{area.waterSource}</p>
-                    </div>
-                    {area.timeSinceLoss && (
-                      <div>
-                        <span className="text-neutral-400 text-xs">Time Since Loss</span>
-                        <p className="font-medium">{area.timeSinceLoss}h</p>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Affected Sq Ft *</label>
+                    <input type="number" value={areaForm.affectedSquareFootage} onChange={e => setAreaForm(f => ({ ...f, affectedSquareFootage: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. 200" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Water Source *</label>
+                    <input type="text" value={areaForm.waterSource} onChange={e => setAreaForm(f => ({ ...f, waterSource: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" placeholder="e.g. burst pipe" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Time Since Loss (hours)</label>
+                    <input type="number" value={areaForm.timeSinceLoss} onChange={e => setAreaForm(f => ({ ...f, timeSinceLoss: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">Description</label>
+                    <input type="text" value={areaForm.description} onChange={e => setAreaForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddArea} disabled={areaSubmitting} className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+                    {areaSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {areaSubmitting ? 'Adding...' : 'Add Area'}
+                  </button>
+                  <button onClick={() => setShowAddAreaForm(false)} className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {affectedAreas.length > 0 ? (
+                affectedAreas.map((area) => (
+                  <div key={area.id} className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-neutral-900 dark:text-white">{area.roomZoneId}</h4>
+                      <div className="flex items-center gap-2">
+                        {area.category && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600">
+                            Cat {area.category}
+                          </span>
+                        )}
+                        {area.class && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600">
+                            Class {area.class}
+                          </span>
+                        )}
+                        <button onClick={() => handleDeleteArea(area.id)} className="p-1 text-red-400 hover:text-red-600 transition-colors" title="Delete area">
+                          <Trash2 size={14} />
+                        </button>
                       </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-neutral-400 text-xs">Area</span>
+                        <p className="font-medium">{area.affectedSquareFootage} sq ft</p>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 text-xs">Water Source</span>
+                        <p className="font-medium capitalize">{area.waterSource}</p>
+                      </div>
+                      {area.timeSinceLoss && (
+                        <div>
+                          <span className="text-neutral-400 text-xs">Time Since Loss</span>
+                          <p className="font-medium">{area.timeSinceLoss}h</p>
+                        </div>
+                      )}
+                    </div>
+                    {area.description && (
+                      <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">{area.description}</p>
                     )}
                   </div>
-                  {area.description && (
-                    <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">{area.description}</p>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="col-span-2 text-center py-12 text-neutral-400">No affected areas recorded</div>
-            )}
+                ))
+              ) : (
+                <div className="col-span-2 text-center py-12 text-neutral-400">No affected areas recorded</div>
+              )}
+            </div>
           </div>
         )}
 
@@ -594,41 +1038,177 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-3">
-            {inspection.scopeItems.length > 0 ? (
-              inspection.scopeItems.map((item) => (
-                <div key={item.id} className={cn(
-                  "p-4 rounded-xl border bg-white dark:bg-slate-900/50 flex items-start gap-3",
-                  item.isSelected
-                    ? "border-emerald-200 dark:border-emerald-800/50"
-                    : "border-neutral-200 dark:border-slate-700/50 opacity-50"
-                )}>
-                  <div className={cn(
-                    "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5",
-                    item.isSelected ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-slate-700"
-                  )}>
-                    {item.isSelected && <CheckCircle2 size={14} />}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setChecklistDialogOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors border border-indigo-200 dark:border-indigo-800/50"
+              >
+                <ListChecks size={15} />
+                Apply IICRC Checklist
+              </button>
+              <button
+                onClick={() => { setShowAddScope(!showAddScope); setAddScopeForm({ description: "", itemType: "", quantity: "", unit: "" }) }}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+              >
+                <Plus size={15} />
+                Add Scope Item
+              </button>
+            </div>
+
+            {/* Apply Checklist Dialog */}
+            <Dialog open={checklistDialogOpen} onOpenChange={setChecklistDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ListChecks size={18} className="text-indigo-500" />
+                    Apply IICRC Checklist
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                      Select Template
+                    </label>
+                    <Select value={selectedChecklistId} onValueChange={setSelectedChecklistId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a checklist template…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IICRC_CHECKLISTS.map((tpl) => (
+                          <SelectItem key={tpl.id} value={tpl.id}>
+                            {tpl.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{item.description}</span>
-                      {item.autoDetermined && (
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">Auto</span>
-                      )}
-                      {item.isRequired && (
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Required</span>
-                      )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setChecklistDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={applyChecklist} disabled={applyingChecklist || !selectedChecklistId}>
+                    {applyingChecklist ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+                    Apply Checklist
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {showAddScope && (
+              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+                <h4 className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">New Scope Item</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Description *</label>
+                    <input type="text" value={addScopeForm.description} onChange={e => setAddScopeForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Remove wet carpet and pad" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Item Type *</label>
+                    <input type="text" value={addScopeForm.itemType} onChange={e => setAddScopeForm(f => ({ ...f, itemType: e.target.value }))} placeholder="e.g. remove_carpet" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Quantity</label>
+                    <input type="number" value={addScopeForm.quantity} onChange={e => setAddScopeForm(f => ({ ...f, quantity: e.target.value }))} placeholder="e.g. 25" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-500 uppercase tracking-wider">Unit</label>
+                    <input type="text" value={addScopeForm.unit} onChange={e => setAddScopeForm(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. sq ft" className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowAddScope(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"><X size={14} /> Cancel</button>
+                  <button
+                    onClick={async () => {
+                      if (!addScopeForm.description || !addScopeForm.itemType) { toast.error("Description and Item Type are required"); return }
+                      try {
+                        const res = await fetch(`/api/inspections/${id}/scope-items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: addScopeForm.description, itemType: addScopeForm.itemType, quantity: addScopeForm.quantity ? parseFloat(addScopeForm.quantity) : null, unit: addScopeForm.unit || null }) })
+                        if (!res.ok) throw new Error("Failed to add scope item")
+                        const data = await res.json()
+                        setScopeItems(prev => [...prev, data.scopeItem])
+                        setShowAddScope(false)
+                        setAddScopeForm({ description: "", itemType: "", quantity: "", unit: "" })
+                        toast.success("Scope item added")
+                      } catch { toast.error("Failed to add scope item") }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                  >
+                    <Save size={14} /> Add Item
+                  </button>
+                </div>
+              </div>
+            )}
+            {scopeItems.length > 0 ? (
+              scopeItems.map((item) => (
+                <div key={item.id} className={cn("p-4 rounded-xl border bg-white dark:bg-slate-900/50", item.isSelected ? "border-emerald-200 dark:border-emerald-800/50" : "border-neutral-200 dark:border-slate-700/50 opacity-60")}>
+                  {editingScopeItem === item.id ? (
+                    <div className="space-y-3">
+                      <div><label className="text-xs text-neutral-500 uppercase tracking-wider">Description</label><input type="text" value={editScopeForm.description} onChange={e => setEditScopeForm(f => ({ ...f, description: e.target.value }))} className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-xs text-neutral-500 uppercase tracking-wider">Quantity</label><input type="number" value={editScopeForm.quantity} onChange={e => setEditScopeForm(f => ({ ...f, quantity: e.target.value }))} className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+                        <div><label className="text-xs text-neutral-500 uppercase tracking-wider">Unit</label><input type="text" value={editScopeForm.unit} onChange={e => setEditScopeForm(f => ({ ...f, unit: e.target.value }))} className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setEditingScopeItem(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"><X size={14} /> Cancel</button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/inspections/${id}/scope-items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: editScopeForm.description, quantity: editScopeForm.quantity ? parseFloat(editScopeForm.quantity) : null, unit: editScopeForm.unit || null }) })
+                              if (!res.ok) throw new Error("Failed to update scope item")
+                              const data = await res.json()
+                              setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, ...data.scopeItem } : s))
+                              setEditingScopeItem(null)
+                              toast.success("Scope item updated")
+                            } catch { toast.error("Failed to update scope item") }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                        ><Save size={14} /> Save</button>
+                      </div>
                     </div>
-                    {item.justification && (
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">{item.justification}</p>
-                    )}
-                    {item.quantity && (
-                      <p className="text-xs text-neutral-500 mt-1">Qty: {item.quantity} {item.unit}</p>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={async () => {
+                          const newSelected = !item.isSelected
+                          setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, isSelected: newSelected } : s))
+                          try {
+                            const res = await fetch(`/api/inspections/${id}/scope-items/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isSelected: newSelected }) })
+                            if (!res.ok) { setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, isSelected: !newSelected } : s)); toast.error("Failed to update scope item") }
+                          } catch { setScopeItems(prev => prev.map(s => s.id === item.id ? { ...s, isSelected: !newSelected } : s)); toast.error("Failed to update scope item") }
+                        }}
+                        className={cn("w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors", item.isSelected ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600")}
+                        title={item.isSelected ? "Deselect item" : "Select item"}
+                      >
+                        {item.isSelected && <CheckCircle2 size={14} />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{item.description}</span>
+                          {item.autoDetermined && <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">Auto</span>}
+                          {item.isRequired && <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">Required</span>}
+                        </div>
+                        {item.justification && <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">{item.justification}</p>}
+                        {item.quantity && <p className="text-xs text-neutral-500 mt-1">Qty: {item.quantity} {item.unit}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => { setEditingScopeItem(item.id); setEditScopeForm({ description: item.description, quantity: item.quantity != null ? String(item.quantity) : "", unit: item.unit ?? "" }) }} className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors" title="Edit"><Pencil size={14} /></button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Delete this scope item?")) return
+                            try {
+                              const res = await fetch(`/api/inspections/${id}/scope-items/${item.id}`, { method: "DELETE" })
+                              if (!res.ok) throw new Error("Failed to delete scope item")
+                              setScopeItems(prev => prev.filter(s => s.id !== item.id))
+                              toast.success("Scope item deleted")
+                            } catch { toast.error("Failed to delete scope item") }
+                          }}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete"
+                        ><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 text-neutral-400">No scope items — submit the inspection to auto-determine scope</div>
+              <div className="text-center py-12 text-neutral-400">No scope items — submit the inspection to auto-determine scope, or add one above</div>
             )}
           </div>
         )}
@@ -679,9 +1259,33 @@ export default function InspectionDetailPage({ params }: { params: Promise<{ id:
           </div>
         )}
 
+        {/* Activity Tab */}
+        {activeTab === "activity" && (
+          <ActivityTimeline inspectionId={inspection.id} />
+        )}
+
         {/* Photos Tab */}
         {activeTab === "photos" && (
           <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">Photos ({inspection.photos.length})</h3>
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {uploadingPhoto ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handlePhotoUpload(e.target.files)}
+              />
+            </div>
             {inspection.photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {inspection.photos.map((photo) => (
