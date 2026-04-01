@@ -8,11 +8,12 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, spacing, input } from '@/constants/theme';
+import { colors, spacing, input, shadows } from '@/constants/theme';
 import { api } from '@/lib/api/client';
 import { calculateDewPoint } from '@/lib/utils/dew-point';
 import { checkTieredCompletion } from '@/lib/validation/tiered-completion';
@@ -42,9 +43,9 @@ const SURFACE_TYPES = [
 const DEPTH_OPTIONS = ['Surface', 'Subsurface'] as const;
 
 const WATER_SOURCES = [
-  { label: 'Clean Water', value: 'CLEAN' },
-  { label: 'Grey Water', value: 'GREY' },
-  { label: 'Black Water', value: 'BLACK' },
+  { label: 'Clean Water', value: 'CLEAN', color: colors.accent },
+  { label: 'Grey Water', value: 'GREY', color: colors.warning },
+  { label: 'Black Water', value: 'BLACK', color: colors.error },
 ] as const;
 
 const STATUS_COLORS: Record<string, string> = {
@@ -57,6 +58,18 @@ const STATUS_COLORS: Record<string, string> = {
   COMPLETED: colors.success,
   REJECTED: colors.error,
 };
+
+const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
+
+function formatDate(d: string) {
+  try {
+    return new Date(d).toLocaleDateString('en-AU', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
+  } catch {
+    return d;
+  }
+}
 
 // ---------- Screen ----------
 
@@ -110,7 +123,6 @@ export default function InspectionDetailScreen() {
       const { inspection: data } = await api.inspections.get(id);
       setInspection(data);
 
-      // Pre-fill environmental data if it exists
       if (data.environmentalData) {
         setEnvTemp(String(data.environmentalData.ambientTemperature));
         setEnvHumidity(String(data.environmentalData.humidityLevel));
@@ -127,7 +139,7 @@ export default function InspectionDetailScreen() {
     fetchInspection();
   }, [fetchInspection]);
 
-  // ---------- Dew point calc ----------
+  // ---------- Dew point ----------
 
   const dewPoint = (() => {
     const t = parseFloat(envTemp);
@@ -145,10 +157,7 @@ export default function InspectionDetailScreen() {
     const temp = parseFloat(envTemp);
     const humidity = parseFloat(envHumidity);
 
-    if (isNaN(temp)) {
-      setEnvError('Temperature is required');
-      return;
-    }
+    if (isNaN(temp)) { setEnvError('Temperature is required'); return; }
     if (isNaN(humidity) || humidity <= 0 || humidity > 100) {
       setEnvError('Humidity must be between 0 and 100');
       return;
@@ -180,18 +189,9 @@ export default function InspectionDetailScreen() {
     if (!id) return;
     const moisture = parseFloat(mrMoisture);
 
-    if (!mrLocation.trim()) {
-      setMrError('Location is required');
-      return;
-    }
-    if (!mrSurface) {
-      setMrError('Select a surface type');
-      return;
-    }
-    if (isNaN(moisture) || moisture < 0) {
-      setMrError('Enter a valid moisture level');
-      return;
-    }
+    if (!mrLocation.trim()) { setMrError('Location is required'); return; }
+    if (!mrSurface) { setMrError('Select a surface type'); return; }
+    if (isNaN(moisture) || moisture < 0) { setMrError('Enter a valid moisture level'); return; }
 
     setMrSaving(true);
     setMrError(null);
@@ -204,13 +204,8 @@ export default function InspectionDetailScreen() {
         depth: mrDepth,
         notes: mrNotes.trim() || undefined,
       });
-      // Clear form
-      setMrLocation('');
-      setMrSurface('');
-      setMrMoisture('');
-      setMrDepth('Surface');
-      setMrNotes('');
-      setMrFormOpen(false);
+      setMrLocation(''); setMrSurface(''); setMrMoisture('');
+      setMrDepth('Surface'); setMrNotes(''); setMrFormOpen(false);
       await fetchInspection();
     } catch (err: any) {
       setMrError(err.message ?? 'Failed to save moisture reading');
@@ -225,18 +220,9 @@ export default function InspectionDetailScreen() {
     if (!id) return;
     const area = parseFloat(aaArea);
 
-    if (!aaRoom.trim()) {
-      setAaError('Room/Zone ID is required');
-      return;
-    }
-    if (isNaN(area) || area <= 0) {
-      setAaError('Enter a valid area in m\u00B2');
-      return;
-    }
-    if (!aaSource) {
-      setAaError('Select a water source');
-      return;
-    }
+    if (!aaRoom.trim()) { setAaError('Room/Zone ID is required'); return; }
+    if (isNaN(area) || area <= 0) { setAaError('Enter a valid area in m\u00B2'); return; }
+    if (!aaSource) { setAaError('Select a water source'); return; }
 
     setAaSaving(true);
     setAaError(null);
@@ -249,11 +235,7 @@ export default function InspectionDetailScreen() {
         waterSource: aaSource,
         timeSinceLoss: !isNaN(timeSinceLoss) ? timeSinceLoss : undefined,
       });
-      // Clear form
-      setAaRoom('');
-      setAaArea('');
-      setAaSource('');
-      setAaTime('');
+      setAaRoom(''); setAaArea(''); setAaSource(''); setAaTime('');
       setAaFormOpen(false);
       await fetchInspection();
     } catch (err: any) {
@@ -268,7 +250,6 @@ export default function InspectionDetailScreen() {
   async function pickPhoto(source: 'camera' | 'gallery') {
     if (!id) return;
 
-    // Request permissions for camera
     if (source === 'camera') {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
@@ -279,14 +260,8 @@ export default function InspectionDetailScreen() {
 
     const result =
       source === 'camera'
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
-          });
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
 
     if (result.canceled || !result.assets?.[0]) return;
 
@@ -295,11 +270,7 @@ export default function InspectionDetailScreen() {
     const filename = uri.split('/').pop() ?? 'photo.jpg';
 
     const formData = new FormData();
-    formData.append('photo', {
-      uri,
-      name: filename,
-      type: asset.mimeType ?? 'image/jpeg',
-    } as any);
+    formData.append('photo', { uri, name: filename, type: asset.mimeType ?? 'image/jpeg' } as any);
 
     setPhotoUploading(true);
     try {
@@ -321,23 +292,16 @@ export default function InspectionDetailScreen() {
 
     try {
       const result = await api.inspections.submit(id);
-
       setSubmitted(true);
       await fetchInspection();
 
-      // Show warnings if any
       const warnings = [
         ...(result.warnings ?? []),
-        ...(result.missingSupplementary?.map(
-          (s) => `Missing: ${s.label} (${s.clauseRef})`
-        ) ?? []),
+        ...(result.missingSupplementary?.map((s) => `Missing: ${s.label} (${s.clauseRef})`) ?? []),
       ];
 
       if (warnings.length > 0) {
-        Alert.alert(
-          'Submitted with notes',
-          `Inspection submitted successfully.\n\n${warnings.join('\n')}`,
-        );
+        Alert.alert('Submitted with notes', `Inspection submitted successfully.\n\n${warnings.join('\n')}`);
       } else {
         Alert.alert('Success', 'Inspection submitted successfully.');
       }
@@ -346,11 +310,11 @@ export default function InspectionDetailScreen() {
       if (status === 400) {
         const body = (err as any).body;
         const fields = body?.missingFields;
-        if (fields && Array.isArray(fields)) {
-          setSubmitError(`Missing required fields: ${fields.join(', ')}`);
-        } else {
-          setSubmitError(err.message ?? 'Validation failed — check required fields');
-        }
+        setSubmitError(
+          fields && Array.isArray(fields)
+            ? `Missing required fields: ${fields.join(', ')}`
+            : err.message ?? 'Validation failed — check required fields'
+        );
       } else if (status === 401) {
         setSubmitError('Session expired — please log in again');
       } else {
@@ -375,16 +339,19 @@ export default function InspectionDetailScreen() {
   if (error || !inspection) {
     return (
       <View style={styles.centered}>
+        <Ionicons name="alert-circle-outline" size={40} color={colors.error} />
         <Text style={styles.errorText}>{error ?? 'Inspection not found'}</Text>
       </View>
     );
   }
 
-  // ---------- Render ----------
+  // ---------- Derived data ----------
 
   const moistureReadings = inspection.moistureReadings ?? [];
   const affectedAreas = inspection.affectedAreas ?? [];
   const statusColor = STATUS_COLORS[inspection.status] ?? colors.muted;
+
+  // ---------- Render ----------
 
   return (
     <View style={styles.root}>
@@ -393,30 +360,36 @@ export default function InspectionDetailScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* ---- Header ---- */}
-        <Text style={styles.address}>{inspection.propertyAddress}</Text>
-
-        <View style={styles.headerRow}>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-            <Text style={styles.statusText}>{inspection.status}</Text>
+        {/* ---- Inspection Header Card ---- */}
+        <View style={[styles.headerCard, shadows.card]}>
+          <View style={[styles.headerAccent, { backgroundColor: statusColor }]} />
+          <View style={styles.headerBody}>
+            <Text style={[styles.headerNum, { fontFamily: MONO }]}>
+              #{inspection.inspectionNumber}
+            </Text>
+            <Text style={styles.headerAddress} numberOfLines={2}>
+              {inspection.propertyAddress}
+            </Text>
+            <View style={styles.headerMeta}>
+              <View style={[styles.statusPill, { borderColor: statusColor + '80' }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                <Text style={[styles.statusPillText, { color: statusColor }]}>
+                  {inspection.status}
+                </Text>
+              </View>
+              <Text style={styles.headerDate}>{formatDate(inspection.inspectionDate)}</Text>
+            </View>
           </View>
         </View>
-
-        <Text style={styles.subtitle}>
-          #{inspection.inspectionNumber} &middot;{' '}
-          {new Date(inspection.inspectionDate).toLocaleDateString('en-AU')}
-        </Text>
 
         {/* ---- Section 1: Environmental Data ---- */}
         <SectionCard title="Environmental Data" defaultOpen>
           <FieldInput
-            label="Temperature \u00B0C"
+            label="Temperature °C"
             value={envTemp}
-            onChangeText={(t) => {
-              setEnvTemp(t);
-              setEnvSuccess(false);
-            }}
+            onChangeText={(t) => { setEnvTemp(t); setEnvSuccess(false); }}
             placeholder="e.g. 24.5"
             keyboardType="decimal-pad"
           />
@@ -424,16 +397,13 @@ export default function InspectionDetailScreen() {
           <FieldInput
             label="Humidity %"
             value={envHumidity}
-            onChangeText={(h) => {
-              setEnvHumidity(h);
-              setEnvSuccess(false);
-            }}
+            onChangeText={(h) => { setEnvHumidity(h); setEnvSuccess(false); }}
             placeholder="e.g. 65"
             keyboardType="decimal-pad"
           />
 
           <FieldInput
-            label="Dew Point \u00B0C (auto-calculated)"
+            label="Dew Point °C — auto-calculated"
             value={dewPoint}
             onChangeText={() => {}}
             editable={false}
@@ -449,14 +419,17 @@ export default function InspectionDetailScreen() {
 
           {envError ? <Text style={styles.formError}>{envError}</Text> : null}
           {envSuccess ? (
-            <Text style={styles.formSuccess}>Saved successfully</Text>
+            <View style={styles.successRow}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={styles.formSuccess}>Saved successfully</Text>
+            </View>
           ) : null}
 
           <TouchableOpacity
             style={styles.saveBtn}
             onPress={saveEnvironmental}
             disabled={envSaving}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
             {envSaving ? (
               <ActivityIndicator size="small" color={colors.bg} />
@@ -467,32 +440,37 @@ export default function InspectionDetailScreen() {
         </SectionCard>
 
         {/* ---- Section 2: Moisture Readings ---- */}
-        <SectionCard
-          title="Moisture Readings"
-          badge={moistureReadings.length}
-        >
-          {/* Existing readings */}
+        <SectionCard title="Moisture Readings" badge={moistureReadings.length}>
           {moistureReadings.map((r: MoistureReading) => (
-            <View key={r.id} style={styles.listItem}>
-              <Text style={styles.listPrimary}>{r.location}</Text>
-              <Text style={styles.listSecondary}>
-                {r.surfaceType} &middot; {r.moistureLevel}% &middot; {r.depth}
-              </Text>
+            <View key={r.id} style={styles.dataRow}>
+              <View style={[styles.dataRowAccent, { backgroundColor: colors.accent }]} />
+              <View style={styles.dataRowContent}>
+                <Text style={styles.dataRowPrimary}>{r.location}</Text>
+                <View style={styles.dataRowTags}>
+                  <Text style={[styles.dataTag, { fontFamily: MONO }]}>
+                    {r.moistureLevel}%
+                  </Text>
+                  <Text style={styles.dataTagDot}>·</Text>
+                  <Text style={styles.dataTagText}>{r.surfaceType}</Text>
+                  <Text style={styles.dataTagDot}>·</Text>
+                  <Text style={styles.dataTagText}>{r.depth}</Text>
+                </View>
+              </View>
             </View>
           ))}
 
           {moistureReadings.length === 0 && !mrFormOpen && (
-            <Text style={styles.emptyText}>No readings yet</Text>
+            <Text style={styles.emptyText}>No readings recorded yet</Text>
           )}
 
-          {/* Add reading toggle */}
           {!mrFormOpen ? (
             <TouchableOpacity
               style={styles.addBtn}
               onPress={() => setMrFormOpen(true)}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
             >
-              <Text style={styles.addBtnText}>+ Add Reading</Text>
+              <Ionicons name="add" size={18} color={colors.accent} />
+              <Text style={styles.addBtnText}>Add Reading</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.formBlock}>
@@ -500,28 +478,19 @@ export default function InspectionDetailScreen() {
                 label="Location"
                 value={mrLocation}
                 onChangeText={setMrLocation}
-                placeholder="e.g. Kitchen - North Wall"
+                placeholder="e.g. Kitchen — North Wall"
               />
 
-              {/* Surface type chips */}
               <Text style={styles.chipLabel}>Surface Type</Text>
               <View style={styles.chipRow}>
                 {SURFACE_TYPES.map((st) => (
                   <TouchableOpacity
                     key={st}
-                    style={[
-                      styles.chip,
-                      mrSurface === st && styles.chipActive,
-                    ]}
+                    style={[styles.chip, mrSurface === st && styles.chipActive]}
                     onPress={() => setMrSurface(st)}
                     activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        mrSurface === st && styles.chipTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.chipText, mrSurface === st && styles.chipTextActive]}>
                       {st}
                     </Text>
                   </TouchableOpacity>
@@ -536,25 +505,16 @@ export default function InspectionDetailScreen() {
                 keyboardType="decimal-pad"
               />
 
-              {/* Depth toggles */}
               <Text style={styles.chipLabel}>Depth</Text>
               <View style={styles.chipRow}>
                 {DEPTH_OPTIONS.map((d) => (
                   <TouchableOpacity
                     key={d}
-                    style={[
-                      styles.chip,
-                      mrDepth === d && styles.chipActive,
-                    ]}
+                    style={[styles.chip, styles.chipWide, mrDepth === d && styles.chipActive]}
                     onPress={() => setMrDepth(d)}
                     activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        mrDepth === d && styles.chipTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.chipText, mrDepth === d && styles.chipTextActive]}>
                       {d}
                     </Text>
                   </TouchableOpacity>
@@ -569,17 +529,12 @@ export default function InspectionDetailScreen() {
                 multiline
               />
 
-              {mrError ? (
-                <Text style={styles.formError}>{mrError}</Text>
-              ) : null}
+              {mrError ? <Text style={styles.formError}>{mrError}</Text> : null}
 
               <View style={styles.formActions}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
-                  onPress={() => {
-                    setMrFormOpen(false);
-                    setMrError(null);
-                  }}
+                  onPress={() => { setMrFormOpen(false); setMrError(null); }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -588,7 +543,7 @@ export default function InspectionDetailScreen() {
                   style={styles.saveBtn}
                   onPress={saveMoistureReading}
                   disabled={mrSaving}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
                   {mrSaving ? (
                     <ActivityIndicator size="small" color={colors.bg} />
@@ -603,29 +558,48 @@ export default function InspectionDetailScreen() {
 
         {/* ---- Section 3: Affected Areas ---- */}
         <SectionCard title="Affected Areas" badge={affectedAreas.length}>
-          {/* Existing areas */}
-          {affectedAreas.map((a: AffectedArea) => (
-            <View key={a.id} style={styles.listItem}>
-              <Text style={styles.listPrimary}>{a.roomZoneId}</Text>
-              <Text style={styles.listSecondary}>
-                {a.affectedSquareFootage} m\u00B2 &middot; {a.waterSource}
-                {a.category ? ` \u00B7 Cat ${a.category}` : ''}
-              </Text>
-            </View>
-          ))}
+          {affectedAreas.map((a: AffectedArea) => {
+            const srcColor =
+              a.waterSource === 'CLEAN' ? colors.accent
+              : a.waterSource === 'GREY' ? colors.warning
+              : colors.error;
+            return (
+              <View key={a.id} style={styles.dataRow}>
+                <View style={[styles.dataRowAccent, { backgroundColor: srcColor }]} />
+                <View style={styles.dataRowContent}>
+                  <Text style={styles.dataRowPrimary}>{a.roomZoneId}</Text>
+                  <View style={styles.dataRowTags}>
+                    <Text style={[styles.dataTag, { fontFamily: MONO }]}>
+                      {a.affectedSquareFootage} m²
+                    </Text>
+                    <Text style={styles.dataTagDot}>·</Text>
+                    <Text style={[styles.dataTagText, { color: srcColor }]}>
+                      {a.waterSource}
+                    </Text>
+                    {a.category ? (
+                      <>
+                        <Text style={styles.dataTagDot}>·</Text>
+                        <Text style={styles.dataTagText}>Cat {a.category}</Text>
+                      </>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            );
+          })}
 
           {affectedAreas.length === 0 && !aaFormOpen && (
             <Text style={styles.emptyText}>No areas recorded yet</Text>
           )}
 
-          {/* Add area toggle */}
           {!aaFormOpen ? (
             <TouchableOpacity
               style={styles.addBtn}
               onPress={() => setAaFormOpen(true)}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
             >
-              <Text style={styles.addBtnText}>+ Add Area</Text>
+              <Ionicons name="add" size={18} color={colors.accent} />
+              <Text style={styles.addBtnText}>Add Area</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.formBlock}>
@@ -637,14 +611,13 @@ export default function InspectionDetailScreen() {
               />
 
               <FieldInput
-                label="Affected Area (m\u00B2)"
+                label="Affected Area (m²)"
                 value={aaArea}
                 onChangeText={setAaArea}
                 placeholder="e.g. 12.5"
                 keyboardType="decimal-pad"
               />
 
-              {/* Water source chips */}
               <Text style={styles.chipLabel}>Water Source</Text>
               <View style={styles.chipRow}>
                 {WATER_SOURCES.map((ws) => (
@@ -652,7 +625,11 @@ export default function InspectionDetailScreen() {
                     key={ws.value}
                     style={[
                       styles.chip,
-                      aaSource === ws.value && styles.chipActive,
+                      styles.chipWide,
+                      aaSource === ws.value && {
+                        borderColor: ws.color,
+                        backgroundColor: ws.color + '18',
+                      },
                     ]}
                     onPress={() => setAaSource(ws.value)}
                     activeOpacity={0.7}
@@ -660,7 +637,7 @@ export default function InspectionDetailScreen() {
                     <Text
                       style={[
                         styles.chipText,
-                        aaSource === ws.value && styles.chipTextActive,
+                        aaSource === ws.value && { color: ws.color, fontWeight: '700' },
                       ]}
                     >
                       {ws.label}
@@ -677,17 +654,12 @@ export default function InspectionDetailScreen() {
                 keyboardType="numeric"
               />
 
-              {aaError ? (
-                <Text style={styles.formError}>{aaError}</Text>
-              ) : null}
+              {aaError ? <Text style={styles.formError}>{aaError}</Text> : null}
 
               <View style={styles.formActions}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
-                  onPress={() => {
-                    setAaFormOpen(false);
-                    setAaError(null);
-                  }}
+                  onPress={() => { setAaFormOpen(false); setAaError(null); }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -696,7 +668,7 @@ export default function InspectionDetailScreen() {
                   style={styles.saveBtn}
                   onPress={saveAffectedArea}
                   disabled={aaSaving}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
                   {aaSaving ? (
                     <ActivityIndicator size="small" color={colors.bg} />
@@ -710,11 +682,7 @@ export default function InspectionDetailScreen() {
         </SectionCard>
 
         {/* ---- Section 4: Photos ---- */}
-        <SectionCard
-          title="Photos"
-          badge={inspection.photos?.length}
-        >
-          {/* Existing photos */}
+        <SectionCard title="Photos" badge={inspection.photos?.length}>
           {(inspection.photos?.length ?? 0) > 0 && (
             <View style={styles.photoGrid}>
               {inspection.photos!.map((photo) => (
@@ -727,7 +695,7 @@ export default function InspectionDetailScreen() {
                     />
                   ) : (
                     <View style={styles.photoPlaceholder}>
-                      <Ionicons name="image-outline" size={24} color={colors.textSecondary} />
+                      <Ionicons name="image-outline" size={22} color={colors.textSecondary} />
                     </View>
                   )}
                   {photo.location ? (
@@ -744,7 +712,6 @@ export default function InspectionDetailScreen() {
             <Text style={styles.emptyText}>No photos yet</Text>
           )}
 
-          {/* Upload state */}
           {photoUploading && (
             <View style={styles.uploadingRow}>
               <ActivityIndicator size="small" color={colors.accent} />
@@ -752,7 +719,6 @@ export default function InspectionDetailScreen() {
             </View>
           )}
 
-          {/* Action buttons */}
           <View style={styles.photoActions}>
             <TouchableOpacity
               style={styles.photoBtn}
@@ -760,7 +726,7 @@ export default function InspectionDetailScreen() {
               disabled={photoUploading}
               activeOpacity={0.7}
             >
-              <Ionicons name="camera" size={20} color={colors.accent} />
+              <Ionicons name="camera" size={18} color={colors.accent} />
               <Text style={styles.photoBtnText}>Take Photo</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -769,8 +735,8 @@ export default function InspectionDetailScreen() {
               disabled={photoUploading}
               activeOpacity={0.7}
             >
-              <Ionicons name="images" size={20} color={colors.accent} />
-              <Text style={styles.photoBtnText}>Choose from Gallery</Text>
+              <Ionicons name="images" size={18} color={colors.accent} />
+              <Text style={styles.photoBtnText}>From Gallery</Text>
             </TouchableOpacity>
           </View>
         </SectionCard>
@@ -779,61 +745,54 @@ export default function InspectionDetailScreen() {
         <SectionCard title="Submit">
           {(() => {
             const completion = checkTieredCompletion(inspection);
-            const isAlreadySubmitted =
-              submitted || inspection.status !== 'DRAFT';
+            const isAlreadySubmitted = submitted || inspection.status !== 'DRAFT';
 
             return (
               <View>
-                {/* Checklist */}
                 {completion.items.map((item) => (
                   <View key={item.label} style={styles.checkItem}>
                     <Ionicons
-                      name={item.met ? 'checkmark-circle' : 'close-circle'}
-                      size={20}
-                      color={item.met ? colors.success : colors.error}
+                      name={item.met ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={18}
+                      color={item.met ? colors.success : colors.border}
                     />
-                    <Text
-                      style={[
-                        styles.checkLabel,
-                        item.met && styles.checkLabelMet,
-                      ]}
-                    >
+                    <Text style={[styles.checkLabel, item.met && styles.checkLabelMet]}>
                       {item.label}
                     </Text>
                   </View>
                 ))}
 
-                {/* Status message */}
+                <View style={styles.checkDivider} />
+
                 {isAlreadySubmitted ? (
-                  <Text style={styles.submittedMsg}>
-                    This inspection has been submitted ({inspection.status})
-                  </Text>
+                  <View style={styles.statusMessageRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={colors.accent} />
+                    <Text style={styles.submittedMsg}>
+                      Inspection {inspection.status.toLowerCase()}
+                    </Text>
+                  </View>
                 ) : completion.canSubmit ? (
-                  <Text style={styles.readyMsg}>Ready to submit</Text>
+                  <View style={styles.statusMessageRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    <Text style={styles.readyMsg}>Ready to submit</Text>
+                  </View>
                 ) : (
-                  <Text style={styles.notReadyMsg}>
-                    Cannot submit — complete required fields
-                  </Text>
+                  <View style={styles.statusMessageRow}>
+                    <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                    <Text style={styles.notReadyMsg}>Complete required fields to submit</Text>
+                  </View>
                 )}
 
-                {/* Sync status bar inline */}
-                <SyncStatusBar
-                  submitting={submitting}
-                  error={submitError}
-                />
+                <SyncStatusBar submitting={submitting} error={submitError} />
 
-                {/* Submit button */}
                 <TouchableOpacity
                   style={[
                     styles.submitBtn,
-                    (!completion.canSubmit || isAlreadySubmitted) &&
-                      styles.submitBtnDisabled,
+                    (!completion.canSubmit || isAlreadySubmitted) && styles.submitBtnDisabled,
                   ]}
                   onPress={handleSubmit}
-                  disabled={
-                    !completion.canSubmit || isAlreadySubmitted || submitting
-                  }
-                  activeOpacity={0.7}
+                  disabled={!completion.canSubmit || isAlreadySubmitted || submitting}
+                  activeOpacity={0.8}
                 >
                   {submitting ? (
                     <ActivityIndicator size="small" color={colors.bg} />
@@ -841,8 +800,7 @@ export default function InspectionDetailScreen() {
                     <Text
                       style={[
                         styles.submitBtnText,
-                        (!completion.canSubmit || isAlreadySubmitted) &&
-                          styles.submitBtnTextDisabled,
+                        (!completion.canSubmit || isAlreadySubmitted) && styles.submitBtnTextDisabled,
                       ]}
                     >
                       {isAlreadySubmitted ? 'Already Submitted' : 'Submit Inspection'}
@@ -854,7 +812,6 @@ export default function InspectionDetailScreen() {
           })()}
         </SectionCard>
 
-        {/* Bottom spacer for safe area */}
         <View style={{ height: spacing.xl }} />
       </ScrollView>
     </View>
@@ -872,135 +829,214 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bg,
+    gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   loadingText: {
     color: colors.textSecondary,
     fontSize: 14,
-    marginTop: spacing.md,
+    fontWeight: '500',
   },
   errorText: {
     color: colors.error,
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
+    fontWeight: '600',
   },
 
-  // Header
-  address: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.xs,
+  // ---- Header card ----
+  headerCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
   },
-  headerRow: {
+  headerAccent: {
+    width: 6,
+  },
+  headerBody: {
+    flex: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  headerNum: {
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  headerAddress: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    lineHeight: 24,
+  },
+  headerMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    gap: spacing.sm,
+    marginTop: 4,
   },
-  statusBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  statusText: {
-    fontSize: 12,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusPillText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.bg,
+    letterSpacing: 0.3,
   },
-  subtitle: {
-    fontSize: 14,
+  headerDate: {
+    fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: spacing.lg,
+    fontWeight: '500',
   },
 
-  // List items
-  listItem: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  // ---- Data rows ----
+  dataRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  listPrimary: {
-    fontSize: 15,
-    fontWeight: '600',
+  dataRowAccent: {
+    width: 3,
+  },
+  dataRowContent: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    gap: 3,
+  },
+  dataRowPrimary: {
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.text,
   },
-  listSecondary: {
+  dataRowTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  dataTag: {
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: '700',
+  },
+  dataTagDot: {
+    fontSize: 13,
+    color: colors.border,
+  },
+  dataTagText: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 2,
+    fontWeight: '500',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     fontStyle: 'italic',
     paddingVertical: spacing.sm,
   },
 
-  // Chips
+  // ---- Chips ----
   chipLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    fontSize: 11,
+    color: colors.label,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
     marginTop: spacing.xs,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   chip: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  chipWide: {
+    flex: 1,
+    alignItems: 'center',
   },
   chipActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentDim,
     borderColor: colors.accent,
   },
   chipText: {
     fontSize: 13,
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   chipTextActive: {
-    color: colors.bg,
+    color: colors.accent,
     fontWeight: '700',
   },
 
-  // Form blocks
+  // ---- Form blocks ----
   formBlock: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    marginTop: spacing.xs,
   },
   formActions: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   formError: {
     fontSize: 13,
     color: colors.error,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
   },
   formSuccess: {
     fontSize: 13,
     color: colors.success,
-    marginBottom: spacing.xs,
+    fontWeight: '600',
+  },
+  successRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
 
-  // Buttons
+  // ---- Buttons ----
   saveBtn: {
     flex: 1,
     backgroundColor: colors.accent,
@@ -1011,13 +1047,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   saveBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: colors.bg,
+    letterSpacing: 0.2,
   },
   cancelBtn: {
     flex: 1,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: input.borderRadius,
     height: input.height,
@@ -1026,26 +1063,29 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   addBtn: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: input.borderRadius,
-    height: input.height,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
+    borderWidth: 1.5,
+    borderColor: colors.accent + '60',
+    borderRadius: input.borderRadius,
+    height: 48,
     marginTop: spacing.sm,
+    backgroundColor: colors.accentDim,
   },
   addBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.accent,
   },
 
-  // Photos
+  // ---- Photos ----
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1053,11 +1093,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   photoThumb: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: 86,
+    height: 86,
+    borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   photoImage: {
     width: '100%',
@@ -1068,18 +1110,18 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
   },
   photoLabel: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     color: colors.text,
     fontSize: 9,
     paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingVertical: 3,
+    fontWeight: '600',
   },
   uploadingRow: {
     flexDirection: 'row',
@@ -1090,6 +1132,7 @@ const styles = StyleSheet.create({
   uploadingText: {
     fontSize: 13,
     color: colors.accent,
+    fontWeight: '600',
   },
   photoActions: {
     flexDirection: 'row',
@@ -1102,67 +1145,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.accent,
+    borderWidth: 1.5,
+    borderColor: colors.accent + '60',
     borderRadius: input.borderRadius,
-    height: input.height,
+    height: 48,
+    backgroundColor: colors.accentDim,
   },
   photoBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.accent,
   },
 
-  // Submit
+  // ---- Submit section ----
   checkItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 7,
   },
   checkLabel: {
     fontSize: 14,
     color: colors.textSecondary,
+    fontWeight: '500',
   },
   checkLabelMet: {
     color: colors.text,
+    fontWeight: '600',
+  },
+  checkDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  statusMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
   readyMsg: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.success,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
   },
   notReadyMsg: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.error,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
   },
   submittedMsg: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.accent,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+    textTransform: 'capitalize',
   },
   submitBtn: {
-    height: 56,
+    height: 58,
     backgroundColor: colors.accent,
-    borderRadius: input.borderRadius,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   submitBtnDisabled: {
     backgroundColor: colors.border,
   },
   submitBtnText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.bg,
+    letterSpacing: 0.2,
   },
   submitBtnTextDisabled: {
     color: colors.textSecondary,

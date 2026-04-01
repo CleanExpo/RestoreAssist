@@ -7,24 +7,50 @@ import {
   RefreshControl,
   ActivityIndicator,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '@/constants/theme';
+import { colors, spacing, shadows } from '@/constants/theme';
 import { useAppStore } from '@/lib/store';
 import { api } from '@/lib/api/client';
 import type { Inspection } from '@/shared/types';
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: colors.warning,
+  DRAFT: colors.muted,
   SUBMITTED: colors.accent,
-  PROCESSING: colors.accent,
-  CLASSIFIED: colors.muted,
-  SCOPED: colors.muted,
-  ESTIMATED: colors.muted,
+  PROCESSING: colors.warning,
+  CLASSIFIED: colors.accent,
+  SCOPED: colors.accent,
+  ESTIMATED: colors.accent,
   COMPLETED: colors.success,
   REJECTED: colors.error,
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Draft',
+  SUBMITTED: 'Submitted',
+  PROCESSING: 'Processing',
+  CLASSIFIED: 'Classified',
+  SCOPED: 'Scoped',
+  ESTIMATED: 'Estimated',
+  COMPLETED: 'Completed',
+  REJECTED: 'Rejected',
+};
+
+function formatDate(dateStr: string) {
+  try {
+    return new Date(dateStr).toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
 export default function InspectionsListScreen() {
   const router = useRouter();
@@ -55,49 +81,46 @@ export default function InspectionsListScreen() {
     fetchInspections();
   }, [fetchInspections]);
 
-  const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-AU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  const renderItem = ({ item }: { item: Inspection }) => {
+    const statusColor = STATUS_COLORS[item.status] ?? colors.muted;
+    return (
+      <TouchableOpacity
+        style={[styles.card, shadows.card]}
+        onPress={() => router.push(`/(tabs)/inspections/${item.id}`)}
+        activeOpacity={0.75}
+      >
+        {/* Left status accent */}
+        <View style={[styles.cardAccent, { backgroundColor: statusColor }]} />
 
-  const renderItem = ({ item }: { item: Inspection }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/(tabs)/inspections/${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.inspectionNumber}>#{item.inspectionNumber}</Text>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: (STATUS_COLORS[item.status] ?? colors.muted) + '22' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.statusText,
-              { color: STATUS_COLORS[item.status] ?? colors.muted },
-            ]}
-          >
-            {item.status}
+        <View style={styles.cardContent}>
+          <View style={styles.cardRow}>
+            <Text style={[styles.inspectionNum, { fontFamily: MONO }]}>
+              #{item.inspectionNumber}
+            </Text>
+            <View style={[styles.statusPill, { borderColor: statusColor + '88' }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {STATUS_LABELS[item.status] ?? item.status}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.address} numberOfLines={2}>
+            {item.propertyAddress}
           </Text>
+
+          <Text style={styles.date}>{formatDate(item.inspectionDate)}</Text>
         </View>
-      </View>
-      <Text style={styles.address} numberOfLines={2}>
-        {item.propertyAddress}
-      </Text>
-      <Text style={styles.date}>{formatDate(item.inspectionDate)}</Text>
-    </TouchableOpacity>
-  );
+
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={colors.border}
+          style={styles.cardChevron}
+        />
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -110,14 +133,25 @@ export default function InspectionsListScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header bar */}
+      <View style={styles.screenHeader}>
+        <View>
+          <Text style={styles.screenTitle}>Inspections</Text>
+          <Text style={styles.screenSubtitle}>
+            {inspections.length > 0
+              ? `${inspections.length} record${inspections.length !== 1 ? 's' : ''}`
+              : 'NIR Pilot Phase 2'}
+          </Text>
+        </View>
+      </View>
+
       {error && (
         <TouchableOpacity style={styles.errorBanner} onPress={fetchInspections}>
-          <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
-          <Text style={styles.errorBannerText}>
-            {error} — tap to retry
-          </Text>
+          <Ionicons name="cloud-offline-outline" size={15} color={colors.warning} />
+          <Text style={styles.errorBannerText}>{error} — tap to retry</Text>
         </TouchableOpacity>
       )}
+
       <FlatList
         data={inspections}
         keyExtractor={(item) => item.id}
@@ -135,10 +169,12 @@ export default function InspectionsListScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="clipboard-outline" size={64} color={colors.textSecondary} />
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="clipboard-outline" size={40} color={colors.muted} />
+            </View>
             <Text style={styles.emptyTitle}>No Inspections</Text>
             <Text style={styles.emptySubtitle}>
-              Tap the + button to create your first inspection
+              Tap the + button to create{'\n'}your first field inspection
             </Text>
           </View>
         }
@@ -146,9 +182,9 @@ export default function InspectionsListScreen() {
 
       {/* Floating Action Button */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, shadows.fab]}
         onPress={() => router.push('/(tabs)/inspections/new')}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
         <Ionicons name="add" size={28} color={colors.bg} />
       </TouchableOpacity>
@@ -166,123 +202,164 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bg,
-    paddingHorizontal: spacing.lg,
   },
   loadingText: {
     color: colors.textSecondary,
     fontSize: 14,
     marginTop: spacing.md,
+    fontWeight: '500',
   },
-  errorText: {
-    color: colors.error,
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  retryButton: {
-    backgroundColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-  },
-  retryText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: spacing.md,
-    paddingBottom: 100, // room for FAB
-  },
-  emptyContainer: {
-    flexGrow: 1,
-  },
-  card: {
+  screenHeader: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
   },
-  inspectionNumber: {
-    color: colors.textSecondary,
-    fontSize: 13,
+  screenSubtitle: {
+    fontSize: 12,
+    color: colors.muted,
     fontWeight: '600',
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-  address: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  date: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 120,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: spacing.md,
-  },
-  emptySubtitle: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: spacing.sm,
-    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginTop: 2,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.warning + '18',
+    backgroundColor: colors.warningDim,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.warning + '30',
   },
   errorBannerText: {
     color: colors.warning,
     fontSize: 13,
     flex: 1,
+    fontWeight: '600',
+  },
+  listContent: {
+    padding: spacing.md,
+    paddingBottom: 120,
+  },
+  emptyContainer: {
+    flexGrow: 1,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+    alignItems: 'stretch',
+  },
+  cardAccent: {
+    width: 4,
+  },
+  cardContent: {
+    flex: 1,
+    padding: spacing.md,
+    gap: 4,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  inspectionNum: {
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  address: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  date: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  cardChevron: {
+    alignSelf: 'center',
+    marginRight: spacing.md,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 21,
+    fontWeight: '500',
   },
   fab: {
     position: 'absolute',
-    bottom: spacing.lg,
+    bottom: spacing.xl,
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
 });
