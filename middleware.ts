@@ -1,37 +1,31 @@
-import { withAuth } from "next-auth/middleware"
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default withAuth(
-  function middleware(req) {
-    // Add any additional middleware logic here
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        // Allow access to public routes
-        if (req.nextUrl.pathname.startsWith("/login") || 
-            req.nextUrl.pathname.startsWith("/signup") ||
-            req.nextUrl.pathname === "/" ||
-            req.nextUrl.pathname.startsWith("/api/auth") ||
-            req.nextUrl.pathname.startsWith("/_next") ||
-            req.nextUrl.pathname.startsWith("/favicon")) {
-          return true
-        }
-        
-        // Allow access to change-password page (requires auth but handled in layout)
-        if (req.nextUrl.pathname.startsWith("/dashboard/change-password")) {
-          return !!token
-        }
-        
-        // Require authentication for protected routes
-        if (req.nextUrl.pathname.startsWith("/dashboard")) {
-          return !!token
-        }
-        
-        return true
-      },
-    },
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Allow access to public routes
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname === "/" ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return NextResponse.next();
   }
-)
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  if (!token) {
+    const signInUrl = new URL("/login", req.url);
+    signInUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
@@ -42,6 +36,6 @@ export const config = {
     "/analytics/:path*",
     "/integrations/:path*",
     "/cost-libraries/:path*",
-    "/help/:path*"
-  ]
-}
+    "/help/:path*",
+  ],
+};
