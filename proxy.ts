@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/reports",
+  "/clients",
+  "/settings",
+  "/analytics",
+  "/integrations",
+  "/cost-libraries",
+  "/help",
+];
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow access to public routes
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname === "/" ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
-  ) {
+  // Only run auth check on protected routes — everything else passes through
+  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+  if (!isProtected) {
     return NextResponse.next();
   }
 
@@ -26,16 +33,3 @@ export async function proxy(req: NextRequest) {
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/reports/:path*",
-    "/clients/:path*",
-    "/settings/:path*",
-    "/analytics/:path*",
-    "/integrations/:path*",
-    "/cost-libraries/:path*",
-    "/help/:path*",
-  ],
-};
