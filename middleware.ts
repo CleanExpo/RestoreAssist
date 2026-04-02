@@ -12,7 +12,7 @@ const PROTECTED_PREFIXES = [
   "/help",
 ];
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Only run auth check on protected routes — everything else passes through
