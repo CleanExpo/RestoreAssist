@@ -25,20 +25,24 @@
  * Response 500: Claude API or DB error
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import Anthropic from '@anthropic-ai/sdk'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import Anthropic from "@anthropic-ai/sdk";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 // ─── PLATFORM GUIDANCE ──────────────────────────────────────────────────────
 
 const PLATFORM_CONTEXT: Record<string, string> = {
-  tiktok: 'TikTok short-form video — fast cuts, trending audio, Gen-Z/Millennial tone, 3-second hook',
-  instagram: 'Instagram Reels/Feed — polished but authentic, hashtag-rich caption, lifestyle aspirational',
-  facebook: 'Facebook — slightly longer copy acceptable, trust-focused, community tone, broad demographic',
-  pinterest: 'Pinterest — aspirational, keyword-optimised description, link to resource, helpful tone',
-}
+  tiktok:
+    "TikTok short-form video — fast cuts, trending audio, Gen-Z/Millennial tone, 3-second hook",
+  instagram:
+    "Instagram Reels/Feed — polished but authentic, hashtag-rich caption, lifestyle aspirational",
+  facebook:
+    "Facebook — slightly longer copy acceptable, trust-focused, community tone, broad demographic",
+  pinterest:
+    "Pinterest — aspirational, keyword-optimised description, link to resource, helpful tone",
+};
 
 // ─── SYSTEM PROMPT ───────────────────────────────────────────────────────────
 
@@ -63,7 +67,7 @@ You MUST respond with a single JSON object — no markdown, no preamble, no expl
   "voiceoverText": "string — full narration script optimised for the given duration in seconds",
   "caption": "string — platform-optimised post caption (includes relevant emojis)",
   "hashtags": ["array", "of", "hashtag", "strings", "without", "the", "hash"]
-}`
+}`;
 }
 
 // ─── USER PROMPT ─────────────────────────────────────────────────────────────
@@ -72,9 +76,9 @@ function buildUserPrompt(
   product: string,
   angle: string,
   platform: string,
-  duration: number
+  duration: number,
 ): string {
-  const platformCtx = PLATFORM_CONTEXT[platform] ?? platform
+  const platformCtx = PLATFORM_CONTEXT[platform] ?? platform;
 
   return `Generate a ${duration}-second ${platform} content script for the following:
 
@@ -84,45 +88,61 @@ Platform context: ${platformCtx}
 
 The voiceoverText must be naturally speakable in exactly ${duration} seconds at a comfortable conversational pace (roughly ${Math.round(duration * 2.5)} words).
 
-Return only the JSON object.`
+Return only the JSON object.`;
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function extractJSON(text: string): Record<string, unknown> {
   // Strip any accidental markdown code fences
-  const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim()
-  return JSON.parse(stripped)
+  const stripped = text
+    .replace(/```(?:json)?\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  return JSON.parse(stripped);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await request.json()
+    body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { product, angle, platform, duration, jobId } = (body ?? {}) as Record<string, unknown>
+  const { product, angle, platform, duration, jobId } = (body ?? {}) as Record<
+    string,
+    unknown
+  >;
 
-  if (!product || typeof product !== 'string') {
-    return NextResponse.json({ error: 'product is required' }, { status: 400 })
+  if (!product || typeof product !== "string") {
+    return NextResponse.json({ error: "product is required" }, { status: 400 });
   }
-  if (!angle || typeof angle !== 'string') {
-    return NextResponse.json({ error: 'angle is required' }, { status: 400 })
+  if (!angle || typeof angle !== "string") {
+    return NextResponse.json({ error: "angle is required" }, { status: 400 });
   }
-  if (!platform || typeof platform !== 'string') {
-    return NextResponse.json({ error: 'platform is required' }, { status: 400 })
+  if (!platform || typeof platform !== "string") {
+    return NextResponse.json(
+      { error: "platform is required" },
+      { status: 400 },
+    );
   }
-  if (!duration || typeof duration !== 'number' || ![15, 30, 60].includes(duration)) {
-    return NextResponse.json({ error: 'duration must be 15, 30, or 60' }, { status: 400 })
+  if (
+    !duration ||
+    typeof duration !== "number" ||
+    ![15, 30, 60].includes(duration)
+  ) {
+    return NextResponse.json(
+      { error: "duration must be 15, 30, or 60" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -131,10 +151,13 @@ export async function POST(request: NextRequest) {
       ? await prisma.contentJob.findFirst({
           where: { id: jobId as string, userId: session.user.id },
         })
-      : null
+      : null;
 
     if (jobId && !job) {
-      return NextResponse.json({ error: 'ContentJob not found or not owned by user' }, { status: 404 })
+      return NextResponse.json(
+        { error: "ContentJob not found or not owned by user" },
+        { status: 404 },
+      );
     }
 
     if (!job) {
@@ -145,82 +168,99 @@ export async function POST(request: NextRequest) {
           angle: angle as string,
           platform: platform as string,
           duration: duration as number,
-          status: 'PENDING',
+          status: "PENDING",
         },
-      })
+      });
     }
 
     // ── 2. Call Claude API with streaming ──────────────────────────────────
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    let fullText = ''
+    let fullText = "";
 
     const stream = anthropic.messages.stream({
-      model: 'claude-sonnet-4-5',
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: buildSystemPrompt(),
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: buildUserPrompt(
             product as string,
             angle as string,
             platform as string,
-            duration as number
+            duration as number,
           ),
         },
       ],
-    })
+    });
 
     for await (const chunk of stream) {
       if (
-        chunk.type === 'content_block_delta' &&
-        chunk.delta.type === 'text_delta'
+        chunk.type === "content_block_delta" &&
+        chunk.delta.type === "text_delta"
       ) {
-        fullText += chunk.delta.text
+        fullText += chunk.delta.text;
       }
     }
 
     // ── 3. Parse JSON from model response ─────────────────────────────────
-    let scriptData: Record<string, unknown>
+    let scriptData: Record<string, unknown>;
     try {
-      scriptData = extractJSON(fullText)
+      scriptData = extractJSON(fullText);
     } catch {
-      console.error('[generate-script] Failed to parse Claude response:', fullText)
+      console.error(
+        "[generate-script] Failed to parse Claude response:",
+        fullText,
+      );
       await prisma.contentJob.update({
         where: { id: job.id },
-        data: { status: 'FAILED', errorMessage: 'Claude response was not valid JSON' },
-      })
+        data: {
+          status: "FAILED",
+          errorMessage: "Claude response was not valid JSON",
+        },
+      });
       return NextResponse.json(
-        { error: 'Failed to parse script from Claude response' },
-        { status: 500 }
-      )
+        { error: "Failed to parse script from Claude response" },
+        { status: 500 },
+      );
     }
 
     // ── 4. Persist script to ContentJob ───────────────────────────────────
     const hashtags = Array.isArray(scriptData.hashtags)
       ? JSON.stringify(scriptData.hashtags)
-      : typeof scriptData.hashtags === 'string'
+      : typeof scriptData.hashtags === "string"
         ? scriptData.hashtags
-        : null
+        : null;
 
     const updatedJob = await prisma.contentJob.update({
       where: { id: job.id },
       data: {
-        hook: typeof scriptData.hook === 'string' ? scriptData.hook : null,
-        agitation: typeof scriptData.agitation === 'string' ? scriptData.agitation : null,
-        solution: typeof scriptData.solution === 'string' ? scriptData.solution : null,
-        cta: typeof scriptData.cta === 'string' ? scriptData.cta : null,
-        voiceoverText: typeof scriptData.voiceoverText === 'string' ? scriptData.voiceoverText : null,
-        caption: typeof scriptData.caption === 'string' ? scriptData.caption : null,
+        hook: typeof scriptData.hook === "string" ? scriptData.hook : null,
+        agitation:
+          typeof scriptData.agitation === "string"
+            ? scriptData.agitation
+            : null,
+        solution:
+          typeof scriptData.solution === "string" ? scriptData.solution : null,
+        cta: typeof scriptData.cta === "string" ? scriptData.cta : null,
+        voiceoverText:
+          typeof scriptData.voiceoverText === "string"
+            ? scriptData.voiceoverText
+            : null,
+        caption:
+          typeof scriptData.caption === "string" ? scriptData.caption : null,
         hashtags,
-        status: 'SCRIPT_READY',
+        status: "SCRIPT_READY",
       },
-    })
+    });
 
-    return NextResponse.json(updatedJob, { status: 200 })
+    return NextResponse.json(updatedJob, { status: 200 });
   } catch (err) {
-    console.error('[generate-script] Error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("[generate-script] Error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

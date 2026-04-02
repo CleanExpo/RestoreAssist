@@ -1,26 +1,26 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import Anthropic from "@anthropic-ai/sdk"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import Anthropic from "@anthropic-ai/sdk";
 
 interface RouteContext {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
 // ---------------------------------------------------------------------------
 // Anthropic lazy singleton
 // ---------------------------------------------------------------------------
 
-let _anthropic: Anthropic | null = null
+let _anthropic: Anthropic | null = null;
 
 function getAnthropicClient(): Anthropic {
-  if (_anthropic) return _anthropic
+  if (_anthropic) return _anthropic;
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not set")
+    throw new Error("ANTHROPIC_API_KEY is not set");
   }
-  _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  return _anthropic
+  _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _anthropic;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,24 +30,30 @@ function getAnthropicClient(): Anthropic {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = await context.params
+    const { id } = await context.params;
 
     const ticket = await prisma.supportTicket.findUnique({
       where: { id },
-      select: { id: true, subject: true, body: true, category: true, priority: true },
-    })
+      select: {
+        id: true,
+        subject: true,
+        body: true,
+        category: true,
+        priority: true,
+      },
+    });
 
     if (!ticket) {
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    const client = getAnthropicClient()
+    const client = getAnthropicClient();
 
     const systemPrompt = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
 
@@ -60,10 +66,10 @@ The response must:
 - Be warm but professional
 - Use Australian English spelling
 
-Respond with only the response text — no JSON, no preamble.`
+Respond with only the response text — no JSON, no preamble.`;
 
     const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
@@ -72,19 +78,24 @@ Respond with only the response text — no JSON, no preamble.`
           content: `Category: ${ticket.category}\nPriority: ${ticket.priority}\nSubject: ${ticket.subject}\n\n${ticket.body}`,
         },
       ],
-    })
+    });
 
     const responseDraft =
-      response.content[0].type === "text" ? response.content[0].text.trim() : ""
+      response.content[0].type === "text"
+        ? response.content[0].text.trim()
+        : "";
 
     await prisma.supportTicket.update({
       where: { id },
       data: { responseDraft },
-    })
+    });
 
-    return NextResponse.json({ responseDraft })
+    return NextResponse.json({ responseDraft });
   } catch (error) {
-    console.error("[support/tickets/[id]/draft POST]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[support/tickets/[id]/draft POST]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
