@@ -11,7 +11,8 @@ TypeScript / Next.js App Router compliance platform for Australian water damage 
 - **Test (e2e)**: `npx playwright test` (single: `npx playwright test e2e/auth.spec.ts`)
 - **Test (unit)**: `npx vitest run` (single: `npx vitest run lib/interview/__tests__/question-generation-engine.test.ts`)
 - **DB studio**: `pnpm db:studio`
-- **Prisma generate**: `pnpm prisma:generate`
+- **Prisma generate**: `pnpm prisma:generate` (run after every schema change before type-check)
+- **Prisma validate**: `npx prisma validate` (verify schema syntax without DB connection)
 
 ## Rules
 
@@ -26,7 +27,7 @@ TypeScript / Next.js App Router compliance platform for Australian water damage 
 9. Environment secrets go in `.env.local` (never committed) — reference `.env.example` for the full variable list
 10. Mobile app uses Capacitor (server-hosted WebView at restoreassist.com.au) — no static export needed for Android/iOS builds
 11. All Prisma schema changes require a migration — run `npx prisma migrate dev --name descriptive_name` locally before committing
-12. Read source files before modifying — this codebase has 102 Prisma models and 779 source files; never assume structure
+12. Read source files before modifying — this codebase has 120+ Prisma models and 800+ source files; never assume structure
 
 ## Architecture
 
@@ -53,6 +54,7 @@ context concerns. When compacting, preserve: modified file list, test
 commands, active task state from PROGRESS.md, and uncommitted decisions.
 
 When starting a fresh context window:
+
 1. Read `.claude/PROGRESS.md` for current state
 2. Read `git log --oneline -10` for recent changes
 3. Run `pnpm type-check` to verify environment
