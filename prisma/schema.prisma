@@ -131,6 +131,9 @@ model User {
   interviewTier                        SubscriptionTierLevel @default(STANDARD)
   preferredQuestionStyle               String? // verbose, concise, technical
   autoAcceptSuggestionsAboveConfidence Float? // e.g., 90
+
+  // Sprint G: guided capture experience level (RA-400)
+  experienceMode ExperienceMode @default(EXPERIENCED)
   subscriptionTier                     SubscriptionTier?     @relation(fields: [subscriptionTierId], references: [id], onDelete: SetNull)
   subscriptionTierId                   String?
   interviewSessions                    InterviewSession[]
@@ -1508,6 +1511,12 @@ model Inspection {
 
   // AI Assistant Tier (Phase 4 - Voice AI)
   voiceNotes VoiceNote[]
+
+  // Sprint G: Inspection Intelligence — Evidence capture
+  evidenceItems EvidenceItem[]
+
+  // Sprint H: Contents Manifest AI Draft (RA-405)
+  contentsManifestDraft Json? // ContentsManifestDraft serialised as JSON
 
   // AI Assistant Tier (Phase 5 - Property Data Integration)
   propertyYearBuilt        Int? // Exact year built
@@ -3739,6 +3748,64 @@ enum ExternalSyncStatus {
 }
 
 // ============================================
+// SPRINT G: INSPECTION INTELLIGENCE — EVIDENCE SCHEMA (RA-397)
+// ============================================
+
+enum EvidenceClass {
+  SITE_OVERVIEW
+  DAMAGE_CLOSE_UP
+  MOISTURE_READING
+  THERMAL_IMAGE
+  EQUIPMENT_PLACEMENT
+  CONTAINMENT_SETUP
+  AIR_QUALITY_READING
+  MATERIAL_SAMPLE
+  FLOOR_PLAN_ANNOTATION
+  PROGRESS_PHOTO
+  COMPLETION_PHOTO
+  AFFECTED_CONTENTS
+  STRUCTURAL_ASSESSMENT
+  SAFETY_HAZARD
+  UTILITY_STATUS
+  ENVIRONMENTAL_CONDITION
+  OTHER
+}
+
+enum EvidenceStatus {
+  CAPTURED
+  REVIEWED
+  APPROVED
+  FLAGGED
+  REJECTED
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  AUDIO
+  NOTE
+  READING
+  SKETCH
+  DOCUMENT
+}
+
+enum CustodyAction {
+  CAPTURED
+  UPLOADED
+  REVIEWED
+  ANNOTATED
+  EXPORTED
+  SHARED
+  ARCHIVED
+  DELETED
+}
+
+enum ExperienceMode {
+  APPRENTICE  // Full guidance — step-by-step explanations, IICRC rationale, example photos
+  EXPERIENCED // Compact view — form fields only, no instructional text
+}
+
+// ============================================
 // SCOPE TEMPLATES
 // ============================================
 
@@ -3882,4 +3949,136 @@ model SupportTicket {
   @@index([status])
   @@index([userId])
   @@index([email])
+}
+
+// ============================================
+// SPRINT G: EVIDENCE ITEM — Chain-of-custody evidence model (RA-397)
+// ============================================
+
+model EvidenceItem {
+  id           String   @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Classification
+  evidenceClass EvidenceClass
+  mediaType     MediaType
+  status        EvidenceStatus @default(CAPTURED)
+
+  // Content
+  title       String?
+  description String?  @db.Text
+  fileUrl     String?  // Supabase Storage URL
+  fileName    String?
+  fileSizeMb  Float?
+  mimeType    String?
+
+  // Measurement data (for MOISTURE_READING, AIR_QUALITY_READING, etc.)
+  measurementValue Float?
+  measurementUnit  String?   // "%WME", "g/kg", "ppm", "°C", "Pa"
+  instrumentType   String?   // "Pin moisture meter", "Thermo-hygrometer", etc.
+  instrumentSerial String?   // Calibration traceability
+
+  // Location metadata
+  capturedAt   DateTime  @default(now())
+  latitude     Float?
+  longitude    Float?
+  floorLevel   String?   // "Ground", "First", "Basement", "Roof"
+  roomName     String?   // "Kitchen", "Bathroom 1", "Master Bedroom"
+  zoneRef      String?   // Links to AffectedArea zone reference
+
+  // IICRC compliance references
+  iicrcStandard String?  // "S500:2025", "S520:2015", "S700:2021"
+  iicrcSection  String?  // "§7.3.2", "§10.2.3"
+  iicrcNote     String?  @db.Text // Specific compliance note
+
+  // QA scoring (0–100)
+  qualityScore Int?      // AI-assessed image quality / completeness
+  qaNote       String?   @db.Text
+
+  // Chain of custody
+  capturedById String?   // User who captured the evidence
+  contentHash  String?   // SHA-256 of original file for tamper detection
+
+  // Relations
+  custodyEvents CustodyEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([evidenceClass])
+  @@index([status])
+  @@index([capturedAt])
+  @@index([inspectionId, evidenceClass])
+}
+
+// Chain-of-custody audit trail — tamper-evident log of all evidence actions
+model CustodyEvent {
+  id             String   @id @default(cuid())
+  evidenceItemId String
+  evidenceItem   EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
+
+  action      CustodyAction
+  actorId     String         // User ID who performed the action
+  actorName   String?        // Denormalised for audit readability
+  contentHash String?        // SHA-256 at time of action (tamper detection)
+  metadata    String?        @db.Text // JSON: additional context per action type
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([evidenceItemId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── Sprint H: Insurer Profile Templates (RA-406) ────────────────────────────
+
+/// Per-insurer evidence and reporting requirements.
+/// Pre-seeded with major Australian insurers. Admins can add custom profiles.
+model InsurerProfile {
+  id        String   @id @default(cuid())
+  slug      String   @unique // e.g. "iag", "suncorp", "qbe"
+  name      String   // Display name: "IAG (NRMA / CGU)"
+  aliases   String[] // Alternative brand names: ["NRMA", "CGU", "SGIO"]
+
+  // Evidence requirements
+  requiredEvidenceClasses  String[] // EvidenceClass values that MUST be present
+  preferredEvidenceClasses String[] // Strongly recommended but not blocking
+  minPhotoCount            Int      @default(5) // Minimum total evidence photos
+
+  // Report format preferences
+  reportFormat            InsurerReportFormat @default(STANDARD)
+  requiresSignedScope     Boolean             @default(false) // Signed scope of works
+  requiresThirdPartyScope Boolean             @default(false) // Independent scoper required
+
+  // Invoice / billing preferences
+  preferredInvoiceFormat  String? // "xero" | "myob" | "quickbooks" | "standard"
+  gstRegistrationRequired Boolean @default(true) // Must be GST registered
+
+  // Contact / identification
+  claimsEmailDomain String? // e.g. "iag.com.au" — used for auto-match
+  portalUrl         String? // Insurer's claims portal URL
+
+  // Compliance notes
+  specialInstructions String?  @db.Text // Free-text for unusual requirements
+  iicrcComplianceNote String?  @db.Text // Any IICRC-specific notes for this insurer
+  isActive            Boolean  @default(true)
+  isSystemProfile     Boolean  @default(false) // true = seeded, false = user-created
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+enum InsurerReportFormat {
+  STANDARD   // Basic NIR report
+  ENHANCED   // Detailed narrative report
+  FORENSIC   // Forensic-level documentation
+  SCOPE_ONLY // Scope of works without full report
 }
