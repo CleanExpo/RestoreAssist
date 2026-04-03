@@ -13,15 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Camera,
-  Upload,
-  FileText,
-  AlertTriangle,
-  Clock,
-  Image,
-} from "lucide-react";
-import type { EvidenceClass, MediaType } from "@prisma/client";
+import { Camera, Upload, FileText, Clock, Info, BookOpen } from "lucide-react";
+import type { EvidenceClass, MediaType, ExperienceMode } from "@prisma/client";
 import type { PhaseEvidenceRule, EvidenceClassMeta } from "@/lib/evidence";
 
 export interface EvidenceCaptureFormData {
@@ -43,6 +36,7 @@ interface EvidenceCaptureFormProps {
   rule: PhaseEvidenceRule;
   classMeta: EvidenceClassMeta;
   isUploading: boolean;
+  experienceMode?: ExperienceMode;
   onSubmit: (data: EvidenceCaptureFormData) => void;
 }
 
@@ -59,8 +53,10 @@ export function EvidenceCaptureForm({
   rule,
   classMeta,
   isUploading,
+  experienceMode = "EXPERIENCED",
   onSubmit,
 }: EvidenceCaptureFormProps) {
+  const isApprentice = experienceMode === "APPRENTICE";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -158,9 +154,30 @@ export function EvidenceCaptureForm({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-zinc-400">{rule.guidance}</p>
-          <p className="mt-2 text-xs text-zinc-500">
+        <CardContent className="space-y-3">
+          {/* Guidance — always show in apprentice mode; compact in experienced */}
+          {isApprentice ? (
+            <>
+              <div className="flex gap-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                <p className="text-sm text-zinc-300">{rule.guidance}</p>
+              </div>
+              <div className="flex gap-2 rounded-md border border-[#8A6B4E]/20 bg-[#8A6B4E]/5 p-3">
+                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A574]" />
+                <div>
+                  <p className="text-xs font-medium text-[#D4A574]">
+                    IICRC {classMeta.iicrcRef}
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    {classMeta.description}
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-zinc-400">{rule.guidance}</p>
+          )}
+          <p className="text-xs text-zinc-500">
             Minimum {rule.minCount} item{rule.minCount !== 1 ? "s" : ""}{" "}
             required &middot; Accepted:{" "}
             {classMeta.mediaTypes.join(", ").toLowerCase()}
