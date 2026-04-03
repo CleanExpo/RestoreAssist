@@ -18,7 +18,7 @@ async function renderVideo(compositionId: string, outputFileName: string) {
   const outputPath = path.resolve(
     __dirname,
     "../../../../public/videos",
-    outputFileName
+    outputFileName,
   );
 
   await renderMedia({
@@ -39,6 +39,7 @@ async function main() {
 
   await renderVideo("ProductExplainer", "product-explainer.mp4");
   await renderVideo("IndustryInsight", "industry-insight.mp4");
+  await renderVideo("LandingPageOverview", "landing-page-overview.mp4");
 
   console.log("\nAll videos rendered successfully.");
 }
