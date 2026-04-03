@@ -622,6 +622,9 @@ model Report {
   businessInterruption String? @db.Text
   additionalCover      String? @db.Text
 
+  // Contents Manifest AI Draft (RA-405)
+  contentsManifestDraft Json? // ContentsManifestDraft serialised as JSON
+
   // AI-Generated Detailed Report
   detailedReport String? @db.Text
 
