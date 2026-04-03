@@ -15,6 +15,8 @@ import {
   Clock,
   Save,
   Loader2,
+  GraduationCap,
+  Zap,
 } from "lucide-react";
 import {
   getWorkflowForClaimType,
@@ -27,7 +29,7 @@ import type {
   WorkflowPhase,
   PhaseEvidenceRule,
 } from "@/lib/evidence";
-import type { EvidenceClass, MediaType } from "@prisma/client";
+import type { EvidenceClass, MediaType, ExperienceMode } from "@prisma/client";
 import { PhaseSidebar } from "@/components/inspection/capture/phase-sidebar";
 import {
   EvidenceCaptureForm,
@@ -81,6 +83,8 @@ export default function CaptureWorkflowPage() {
   const [currentRuleIndex, setCurrentRuleIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [experienceMode, setExperienceMode] =
+    useState<ExperienceMode>("EXPERIENCED");
   const startTimeRef = useRef(Date.now());
 
   // ─── Data Loading ───────────────────────────────────────────────────────
@@ -108,14 +112,45 @@ export default function CaptureWorkflowPage() {
     }
   }, [inspectionId]);
 
+  const loadExperienceMode = useCallback(async () => {
+    try {
+      const res = await fetch("/api/user/experience-mode");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.experienceMode) setExperienceMode(json.experienceMode);
+    } catch {
+      // Non-blocking — default to EXPERIENCED
+    }
+  }, []);
+
+  async function toggleExperienceMode() {
+    const next: ExperienceMode =
+      experienceMode === "APPRENTICE" ? "EXPERIENCED" : "APPRENTICE";
+    setExperienceMode(next);
+    try {
+      await fetch("/api/user/experience-mode", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ experienceMode: next }),
+      });
+    } catch {
+      // Revert on failure
+      setExperienceMode(experienceMode);
+    }
+  }
+
   useEffect(() => {
     async function init() {
       setLoading(true);
-      await Promise.all([loadInspection(), loadEvidence()]);
+      await Promise.all([
+        loadInspection(),
+        loadEvidence(),
+        loadExperienceMode(),
+      ]);
       setLoading(false);
     }
     init();
-  }, [loadInspection, loadEvidence]);
+  }, [loadInspection, loadEvidence, loadExperienceMode]);
 
   // Derive workflow from inspection claim type
   useEffect(() => {
@@ -350,6 +385,32 @@ export default function CaptureWorkflowPage() {
           </Badge>
         </div>
         <div className="flex items-center gap-3">
+          {/* Experience mode toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleExperienceMode}
+            className={
+              experienceMode === "APPRENTICE"
+                ? "border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20"
+                : "text-zinc-500 hover:text-zinc-300"
+            }
+            title={
+              experienceMode === "APPRENTICE"
+                ? "Apprentice mode — tap to switch to Experienced"
+                : "Experienced mode — tap to switch to Apprentice"
+            }
+          >
+            {experienceMode === "APPRENTICE" ? (
+              <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
+            ) : (
+              <Zap className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            <span className="text-xs">
+              {experienceMode === "APPRENTICE" ? "Apprentice" : "Experienced"}
+            </span>
+          </Button>
+          <div className="h-4 w-px bg-white/10" />
           <span className="text-xs text-zinc-500">
             Step {currentStepGlobal} of {totalSteps}
           </span>
@@ -394,6 +455,7 @@ export default function CaptureWorkflowPage() {
                     rule={currentRule}
                     classMeta={classMeta}
                     isUploading={isUploading}
+                    experienceMode={experienceMode}
                     onSubmit={handleEvidenceCapture}
                   />
 

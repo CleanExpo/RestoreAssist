@@ -131,6 +131,9 @@ model User {
   interviewTier                        SubscriptionTierLevel @default(STANDARD)
   preferredQuestionStyle               String? // verbose, concise, technical
   autoAcceptSuggestionsAboveConfidence Float? // e.g., 90
+
+  // Sprint G: guided capture experience level (RA-400)
+  experienceMode ExperienceMode @default(EXPERIENCED)
   subscriptionTier                     SubscriptionTier?     @relation(fields: [subscriptionTierId], references: [id], onDelete: SetNull)
   subscriptionTierId                   String?
   interviewSessions                    InterviewSession[]
@@ -3792,6 +3795,11 @@ enum CustodyAction {
   SHARED
   ARCHIVED
   DELETED
+}
+
+enum ExperienceMode {
+  APPRENTICE  // Full guidance — step-by-step explanations, IICRC rationale, example photos
+  EXPERIENCED // Compact view — form fields only, no instructional text
 }
 
 // ============================================
