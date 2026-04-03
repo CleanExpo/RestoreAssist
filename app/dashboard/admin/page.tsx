@@ -319,6 +319,14 @@ export default function AdminDashboardPage() {
               <FileCheck className="h-5 w-5" />
               <span className="text-sm">Evidence Review</span>
             </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2 border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+              onClick={() => router.push("/dashboard/admin/ai-lab")}
+            >
+              <Activity className="h-5 w-5" />
+              <span className="text-sm">AI Lab</span>
+            </Button>
           </div>
         </CardContent>
       </Card>

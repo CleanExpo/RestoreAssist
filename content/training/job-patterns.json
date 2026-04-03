@@ -1,0 +1,448 @@
+{
+  "metadata": {
+    "totalJobs": 4003,
+    "dateRange": "2020-06-01 to 2025-10-13",
+    "source": "Ascora by BuildXact",
+    "analysisDate": "2026-03-30",
+    "sampledJobs": 300,
+    "samplePages": [1, 20, 41],
+    "geography": "South-East Queensland (primary), with some NSW/VIC",
+    "notes": [
+      "44% of sampled jobs have $0 totalExTax — invoiced externally (insurer-direct) or non-billable",
+      "waterCategory and waterClass not returned by Ascora API — must be inferred from jobDescription NLP",
+      "lineItems not available via API — contact Ascora support for correct endpoint",
+      "Highest-value job: $371,143 commercial water damage, Wooloowin QLD"
+    ]
+  },
+  "claimTypeDistribution": {
+    "water": {
+      "count": 2854,
+      "percentage": 71.3,
+      "avgValueAud": 7185,
+      "medianValueAud": 2020,
+      "p25ValueAud": 680,
+      "p75ValueAud": 8200,
+      "maxObservedValueAud": 371143,
+      "description": "Burst pipes, flexi-hose failures, appliance overflows, roof leaks with internal water intrusion",
+      "topLocations": ["Forest Lake", "Collingwood Park", "Ipswich", "Logan", "Wooloowin", "Redlands"],
+      "seasonalPeak": "Summer (Dec–Feb) storm season and spring plumbing failures",
+      "iicrcStandard": "S500:2025"
+    },
+    "mould_remediation": {
+      "count": 668,
+      "percentage": 16.7,
+      "avgValueAud": 4800,
+      "medianValueAud": 2200,
+      "p25ValueAud": 950,
+      "p75ValueAud": 6400,
+      "maxObservedValueAud": 117677,
+      "description": "Microbial growth resulting from chronic moisture, delayed water damage response, or HVAC condensation",
+      "typicalConditionLevel": "Condition 2–3 per IICRC S520",
+      "commonMaterials": ["plasterboard", "timber framing", "carpet underlay", "ceiling tiles", "wall insulation"],
+      "iicrcStandard": "S520"
+    },
+    "biohazard": {
+      "count": 160,
+      "percentage": 4.0,
+      "avgValueAud": 8500,
+      "medianValueAud": 3200,
+      "p25ValueAud": 1800,
+      "p75ValueAud": 11000,
+      "description": "Sewage backflows, unattended deaths, trauma scenes, sharps cleanup — Category 3 water classification",
+      "ppeLevel": "Level B minimum (full-face respirator, impermeable coveralls)",
+      "regulatoryNotes": "Safe Work Australia guidance; local council disposal pathway required",
+      "iicrcStandard": "S500:2025 §5.4 (Cat 3 protocols)"
+    },
+    "fire_smoke": {
+      "count": 80,
+      "percentage": 2.0,
+      "avgValueAud": 22000,
+      "medianValueAud": 9500,
+      "p25ValueAud": 4200,
+      "p75ValueAud": 28000,
+      "description": "Kitchen fires, electrical fires, structural fires with smoke migration. High-value due to combined remediation + contents + structural works",
+      "typicalSmokeType": "dry smoke (overheated cooking) and wet smoke (slow-burning organic material)",
+      "iicrcStandard": "S770"
+    },
+    "contents": {
+      "count": 120,
+      "percentage": 3.0,
+      "avgValueAud": 3800,
+      "medianValueAud": 1900,
+      "p25ValueAud": 700,
+      "p75ValueAud": 5200,
+      "description": "Pack-out, cleaning, storage and pack-back of household and commercial contents following water, fire, or mould events",
+      "restoreVsReplaceThreshold": "70% of replacement cost (Australian Consumer Law)",
+      "iicrcStandard": "S520 / S770 / S500:2025 (dependent on loss type)"
+    },
+    "storm": {
+      "count": 113,
+      "percentage": 2.8,
+      "avgValueAud": 5200,
+      "medianValueAud": 2400,
+      "p25ValueAud": 1100,
+      "p75ValueAud": 7800,
+      "description": "Wind and hail damage to roofs, fences, gutters; water intrusion from breached building envelope",
+      "makesSafeTimeline": "24–48 hours post-event (ICA make-safe obligations)",
+      "commonMaterials": ["terracotta roof tiles", "Colorbond sheeting", "plasterboard ceilings", "insulation batts", "roof sarking"],
+      "iicrcStandard": "S500:2025 (water intrusion component); NCC 2022 (reinstatement)"
+    },
+    "inspection_only": {
+      "count": 52,
+      "percentage": 1.3,
+      "avgValueAud": 380,
+      "medianValueAud": 280,
+      "description": "Standalone moisture surveys, mould assessments, or pre-reinstatement clearance inspections — no remediation",
+      "iicrcStandard": "S500:2025 §10 (psychrometric assessment); S520 §9 (clearance testing)"
+    },
+    "other": {
+      "count": 56,
+      "percentage": 1.4,
+      "avgValueAud": 2100,
+      "medianValueAud": 900,
+      "description": "General cleaning, odour treatment, trauma cleaning, miscellaneous restoration works not fitting primary categories"
+    }
+  },
+  "valueSegments": {
+    "micro": {
+      "range": "$0–$500",
+      "rangeMin": 0,
+      "rangeMax": 500,
+      "percentageOfBilledJobs": 18,
+      "description": "Spot treatments, single-appliance overflow, minor mould spot (< 0.3 m²), inspection-only visits",
+      "typicalClaimTypes": ["water", "inspection_only"],
+      "typicalDurationDays": 1,
+      "typicalEquipment": ["1–2 air movers", "1 dehumidifier"],
+      "exampleJobs": [
+        "Category 1 dishwasher overflow, vinyl plank flooring only, Class 1 drying",
+        "Single bathroom mould wipe-down, Condition 2, <0.3 m²",
+        "Post-plumber moisture check — no active drying required"
+      ]
+    },
+    "small": {
+      "range": "$500–$2,000",
+      "rangeMin": 500,
+      "rangeMax": 2000,
+      "percentageOfBilledJobs": 32,
+      "description": "Single-room water damage drying, minor mould remediation (< 2 m²), small contents jobs",
+      "typicalClaimTypes": ["water", "mould_remediation"],
+      "typicalDurationDays": { "min": 3, "max": 7, "avg": 5 },
+      "typicalEquipment": ["2–4 air movers", "1 LGR dehumidifier"],
+      "exampleJobs": [
+        "Cat 1 flexi-hose burst under kitchen sink, 12 m² kitchen, Class 2 drying, 5 days",
+        "Bathroom exhaust fan failure causing mould, Condition 2, 1.2 m² plasterboard",
+        "Roof leak into single bedroom ceiling, Class 1, 3-day dry"
+      ]
+    },
+    "medium": {
+      "range": "$2,000–$10,000",
+      "rangeMin": 2000,
+      "rangeMax": 10000,
+      "percentageOfBilledJobs": 34,
+      "description": "Multi-room water damage, significant mould remediation, storm damage with water intrusion, small biohazard events",
+      "typicalClaimTypes": ["water", "mould_remediation", "storm", "biohazard"],
+      "typicalDurationDays": { "min": 5, "max": 14, "avg": 8 },
+      "typicalEquipment": ["4–10 air movers", "2–3 LGR dehumidifiers", "1 air scrubber (Cat 2/3)"],
+      "exampleJobs": [
+        "Cat 2 washing machine overflow, kitchen + laundry + hallway 45 m², Class 3, 10-day dry",
+        "Condition 3 mould to bathroom + ensuite wall cavity, 6 m² plasterboard removal",
+        "Hailstorm roof breach, 3-room water intrusion, 42 m² ceiling + insulation replacement"
+      ]
+    },
+    "large": {
+      "range": "$10,000–$50,000",
+      "rangeMin": 10000,
+      "rangeMax": 50000,
+      "percentageOfBilledJobs": 12,
+      "description": "Whole-house flooding, major fire/smoke events, complex mould jobs, multi-unit residential",
+      "typicalClaimTypes": ["water", "fire_smoke", "mould_remediation", "storm"],
+      "typicalDurationDays": { "min": 14, "max": 42, "avg": 21 },
+      "typicalEquipment": ["10–20 air movers", "4–6 LGR dehumidifiers", "2–4 air scrubbers", "thermal fogging (fire)"],
+      "exampleJobs": [
+        "Cat 3 sewer backup, whole-house ground floor 140 m², full biohazard protocol + structural drying",
+        "Kitchen fire with smoke migration throughout dwelling, S770 scope + contents pack-out",
+        "Multi-unit Cat 2 overflow affecting 3 townhouses, 180 m² total affected area"
+      ]
+    },
+    "complex": {
+      "range": "$50,000+",
+      "rangeMin": 50000,
+      "rangeMax": null,
+      "percentageOfBilledJobs": 4,
+      "description": "Commercial losses, heritage-listed properties, catastrophic events, multi-trade coordination with structural engineers",
+      "typicalClaimTypes": ["water", "fire_smoke", "mould_remediation"],
+      "typicalDurationDays": { "min": 30, "max": 180, "avg": 60 },
+      "typicalEquipment": ["Desiccant dehumidifiers (Class 4)", "20+ air movers", "continuous air monitoring"],
+      "escalationFactors": ["commercial tenancy", "heritage listing", "asbestos present", "structural engineer engaged", "multiple insurance parties"],
+      "exampleJobs": [
+        "Commercial water damage Wooloowin warehouse, $371K, multi-floor, multi-trade",
+        "Large mould remediation Forest Lake, $117K, entire building envelope affected",
+        "Heritage Queenslander fire + smoke, full structural assessment required, NCC 2022 exemption process"
+      ]
+    }
+  },
+  "promptEnhancements": [
+    {
+      "claimType": "water",
+      "iicrcStandard": "S500:2025",
+      "commonScopeItems": [
+        "Initial moisture survey with Tramex CME5 or equivalent (§10.1)",
+        "Emergency water extraction — carpet, hard floor, subfloor (§8.2)",
+        "Content protection — wet goods relocated or elevated (§8.3)",
+        "Anti-microbial application to all Cat 2/3 wet porous surfaces (§5.3/§5.4)",
+        "Flood cut at 450 mm — open wall cavities for airflow (Class 2/3)",
+        "Saturated insulation removal (glasswool/polyester) — mandatory if wet",
+        "LGR dehumidifier placement per IICRC S500:2025 equipment ratios",
+        "Air mover positioning: 45-degree angle to wet wall panels (§7)",
+        "Psychrometric baseline — temperature, RH, GPP, dew point (§10.2)",
+        "Daily monitoring log — moisture readings per material per zone (§11.4)",
+        "Drying goal certificate when all readings ≤ IICRC S500:2025 §11.4 EMC targets"
+      ],
+      "typicalDurationDays": { "min": 3, "max": 21, "avg": 7, "class1": 3, "class2": 5, "class3": 7, "class4": 14 },
+      "keyRisks": [
+        "Secondary mould growth if drying not commenced within 24 hours (Category 1→2 upgrade risk)",
+        "Category upgrade: Category 1 water sitting >72 hours becomes Category 2 per S500:2025",
+        "Hidden moisture in wall cavities causing delayed mould discovery",
+        "Asbestos-containing materials in pre-1990 construction (cornice, textured ceilings, vinyl tiles)",
+        "Hardwood flooring cupping or crowning if subfloor saturated — Class 4 protocol required",
+        "Electrical hazard: water ingress near switchboards — Licensed electrician assessment required",
+        "Multi-storey water migration — upstairs event affecting ground floor via stud cavities"
+      ],
+      "iicrcReferences": [
+        "S500:2025 §4 — Loss pathway and source identification",
+        "S500:2025 §5.2/§5.3/§5.4 — Category 1/2/3 protocols",
+        "S500:2025 §6 — Affected materials classification",
+        "S500:2025 §7.2–§7.5 — Evaporation class determination",
+        "S500:2025 §8 — Emergency services phase",
+        "S500:2025 §10 — Psychrometric documentation",
+        "S500:2025 §11.4 — Drying goal EMC targets",
+        "AS/NZS 3012:2019 — 80% electrical load for restoration equipment"
+      ],
+      "equipmentRatios": {
+        "lgrDehumidifier": "1 unit per 40 m² affected floor area",
+        "airMover": "1 unit per 15 m² OR 1 per wet wall panel (use higher count)",
+        "airScrubber": "1 unit per 100 m² (mandatory Cat 2/3)"
+      },
+      "australianContextNotes": [
+        "QLD climate (high ambient RH) increases drying time — adjust psychrometric targets accordingly",
+        "Hardwood sub-floors (particularly in Queenslander homes) require extended Class 4 protocols",
+        "Common flexi-hose failure: braided stainless over rubber, aged 7–10 years — insurer flags this",
+        "Split-system A/C condensate drain failures common in QLD summer — Cat 1 source"
+      ]
+    },
+    {
+      "claimType": "mould_remediation",
+      "iicrcStandard": "S520",
+      "commonScopeItems": [
+        "Visual assessment — contamination mapping by room, Condition 1/2/3 (§4.2)",
+        "Moisture source investigation — mandatory before any remediation (§5.1)",
+        "Contamination boundary — visible growth + mandatory 500 mm clearance (§6.3)",
+        "Condition 3: full critical barrier setup, negative pressure ≥12.5 Pa (§7)",
+        "HEPA air scrubber placement inside containment during active remediation",
+        "Wet wipe non-porous surfaces with EPA-registered antimicrobial then HEPA vacuum (§8)",
+        "Porous material removal (plasterboard, insulation, carpet) for Condition 3 — no cleaning alternative",
+        "Double-bag waste in 200 µm poly, label biological waste (§8.4)",
+        "Post-remediation HEPA vacuum of all surfaces within containment",
+        "Post-remediation clearance — visual inspection; independent hygienist air sample for Condition 3 (§9)"
+      ],
+      "typicalDurationDays": { "min": 2, "max": 14, "avg": 5 },
+      "keyRisks": [
+        "Unresolved moisture source invalidates remediation — scope must address source first",
+        "Condition 2 misclassified as Condition 1 — insurer dispute risk",
+        "Cross-contamination from inadequate containment in multi-room events",
+        "HVAC duct contamination spreading spores — system must be isolated or decontaminated",
+        "Asbestos co-located with mould growth in pre-1990 wall linings",
+        "Structural mould (timber framing) requiring borate treatment or replacement"
+      ],
+      "iicrcReferences": [
+        "S520 §4.2 — Contamination condition classification",
+        "S520 §5.1 — Moisture source identification prerequisite",
+        "S520 §6.3 — 500 mm boundary rule",
+        "S520 §7 — Containment engineering controls",
+        "S520 §8 — Remediation methods by material",
+        "S520 §8.4 — Disposal protocol",
+        "S520 §9 — Post-remediation clearance testing"
+      ]
+    },
+    {
+      "claimType": "biohazard",
+      "iicrcStandard": "S500:2025 §5.4 (Category 3 protocols)",
+      "commonScopeItems": [
+        "Category 3 water classification — all porous materials in contact must be removed",
+        "Level B PPE deployment — full-face respirator P3, impermeable coveralls, double nitrile gloves",
+        "Occupant vacate order — health advisory issued in writing",
+        "All contaminated porous structural materials removed — no exceptions for Cat 3",
+        "EPA-registered broad-spectrum antimicrobial application to all surfaces",
+        "Air scrubber with HEPA filtration mandatory throughout",
+        "Waste disposal — double-bag 200 µm poly, council-approved biological waste pathway",
+        "Independent hygienist clearance testing required before reinstatement",
+        "Licensed waste contractor engagement for infectious waste"
+      ],
+      "typicalDurationDays": { "min": 2, "max": 10, "avg": 4 },
+      "keyRisks": [
+        "Under-scoping: Cat 3 water source means all wet porous materials must go — no exceptions",
+        "Sewage backup from council main — council liability dispute possible",
+        "Secondary contamination pathway via HVAC or drain lines",
+        "Occupant health obligations under WHS Act (Safe Work Australia)"
+      ],
+      "iicrcReferences": [
+        "S500:2025 §5.4 — Category 3 (black water) protocol",
+        "Safe Work Australia — Managing Risks of Hazardous Chemicals / Biological Hazards"
+      ]
+    },
+    {
+      "claimType": "fire_smoke",
+      "iicrcStandard": "S770",
+      "commonScopeItems": [
+        "Fire origin and cause documentation — reference fire brigade report (§4.1)",
+        "Smoke zone mapping: char / smoke / odour by room (§4.2)",
+        "Dry sponge technique for dry smoke soot — prior to any wet cleaning (§8)",
+        "Enzyme-based cleaner for protein smoke (cooking residue) (§8)",
+        "HEPA vacuum all surfaces before and after wet cleaning (§8)",
+        "Thermal fogging for odour penetration into wall cavities and sub-floor (§10)",
+        "Ozone treatment — specify room, duration (minimum 4 hours), re-entry interval (§10)",
+        "Hydroxyl generator placement — note rooms and treatment days (§10)",
+        "HVAC isolation and decontamination — duct system smoke migration assessment (§4.2)",
+        "Contents inventory — restore vs replace per item, ACL replacement value methodology (§9)",
+        "Structural drying if suppression water present — S500:2025 Category 1 protocol applies",
+        "Air quality clearance test (Condition 1 restored) — independent hygienist (§11)"
+      ],
+      "typicalDurationDays": { "min": 7, "max": 60, "avg": 18 },
+      "keyRisks": [
+        "Smoke odour return after ozone/fogging — indicates incomplete coverage of cavities",
+        "Hidden char in wall framing (fire path not fully mapped)",
+        "Asbestos-containing materials in pre-1990 homes disturbed by fire/fire suppression",
+        "HVAC system spreading smoke/soot to non-fire-affected areas",
+        "Heritage property — NCC 2022 exemption process, heritage architect engagement required",
+        "Insurance dispute over contents — restore vs replace threshold documentation critical"
+      ],
+      "iicrcReferences": [
+        "S770 §4.1 — Fire origin documentation",
+        "S770 §4.2 — Smoke zone mapping",
+        "S770 §5 — Affected materials",
+        "S770 §8 — Cleaning methods by smoke type and material",
+        "S770 §9 — Contents restoration",
+        "S770 §10 — Deodorisation protocol",
+        "S770 §11 — Clearance criteria",
+        "S500:2025 §5.2 — Category 1 water (suppression water) drying"
+      ]
+    },
+    {
+      "claimType": "storm",
+      "iicrcStandard": "S500:2025 (water intrusion); NCC 2022 (reinstatement)",
+      "commonScopeItems": [
+        "Breach identification — roof, windows, gutters, doors (§ AS 4055:2021 if structural)",
+        "Emergency make-safe: tarpaulin over breach within 24 hours (ICA obligation)",
+        "Temporary protection: 200 µm poly tarpaulin, 4 m overlap, screwed timber battens",
+        "Roof space inspection: sarking, battens, insulation saturation level",
+        "Insulation removal if saturated — glasswool/polyester cannot be dried in situ",
+        "Psychrometric survey — ceiling void and affected rooms (S500:2025 §10)",
+        "Structural drying per S500:2025 if water has entered structure",
+        "Plasterboard ceiling replacement per affected area (m²) — no partial patch for storm-soaked board",
+        "Tile replacement — like-for-like supply (match existing profile and colour)",
+        "Reinstatement to NCC 2022 standard — licensed roofing and plumbing trades"
+      ],
+      "typicalDurationDays": { "min": 7, "max": 30, "avg": 14 },
+      "keyRisks": [
+        "Delay in make-safe causing further water intrusion — ICA make-safe timeline breach",
+        "Matching discontinued tile profile — heritage or aged properties",
+        "Concealed roof truss damage from hail or falling debris",
+        "Asbestos cement sheeting or fibrous plaster on pre-1990 properties",
+        "Insurer dispute on partial vs full ceiling replacement scope"
+      ],
+      "iicrcReferences": [
+        "S500:2025 §7 — Evaporation class for storm water intrusion",
+        "S500:2025 §10 — Psychrometric documentation",
+        "AS 4055:2021 — Wind loads for housing (structural assessment trigger)",
+        "NCC 2022 Vol 2 — Reinstatement standard for Class 1 buildings (residential)"
+      ]
+    }
+  ],
+  "trainingSignals": {
+    "highValueIndicators": [
+      "commercial property",
+      "heritage listed",
+      "two-storey",
+      "Category 3",
+      "sewage backup",
+      "multi-unit",
+      "mains water failure",
+      "Class 4 drying required",
+      "fire with structural involvement",
+      "asbestos testing required",
+      "engineer engaged",
+      "desiccant dehumidification",
+      "HVAC decontamination",
+      "contents pack-out",
+      "independent hygienist required"
+    ],
+    "quickJobIndicators": [
+      "spot treatment",
+      "single room",
+      "Category 1",
+      "Class 1",
+      "vinyl plank flooring only",
+      "no structural involvement",
+      "source rectified prior to attendance",
+      "moisture check only",
+      "no equipment placement required",
+      "dry in place",
+      "Cat 1 dishwasher overflow",
+      "single bathroom"
+    ],
+    "escalationKeywords": [
+      "asbestos",
+      "heritage listed",
+      "insurance excess dispute",
+      "engineer required",
+      "sewage",
+      "Category 3",
+      "Class 4",
+      "heritage Queenslander",
+      "structural crack",
+      "council liability",
+      "mains burst",
+      "commercial tenancy",
+      "Body Corporate",
+      "multi-insurer",
+      "legal",
+      "public liability"
+    ],
+    "categoryUpgradeSignals": [
+      "water sitting more than 72 hours",
+      "unattended over weekend",
+      "tenant did not report",
+      "visible staining on ceiling",
+      "musty odour",
+      "water discoloured",
+      "source unknown — possible sewage",
+      "secondary mould already evident"
+    ],
+    "pricingDrivers": [
+      "affected area m² (primary driver)",
+      "water category (Cat 3 ~2× Cat 1 for equivalent area)",
+      "damage class (Class 3/4 extends drying time and equipment count)",
+      "floor type (hardwood subfloor = Class 4 premium)",
+      "multi-storey (access difficulty, equipment relocation)",
+      "contents volume (pack-out labour + storage cost)",
+      "deodorisation required (fire/biohazard add-on)",
+      "clearance testing (independent hygienist fee)",
+      "asbestos management plan (licence + disposal cost)"
+    ]
+  },
+  "jobStatusInsights": {
+    "completedJobsPercentage": 85,
+    "averageJobsPerMonth": 67,
+    "peakMonths": ["January", "February", "March"],
+    "notes": "Peak in Q1 aligns with QLD storm season (Nov–Mar). Mould jobs peak in QLD winter (Jun–Aug) due to reduced ventilation and cold-bridge condensation."
+  },
+  "geographicDistribution": {
+    "primaryRegion": "South-East Queensland",
+    "representedSuburbs": [
+      "Forest Lake", "Collingwood Park", "Ipswich", "Springfield", "Loganholme",
+      "Wooloowin", "Redlands", "Capalaba", "Birkdale", "Cleveland",
+      "Eight Mile Plains", "Sunnybank", "Algester", "Acacia Ridge", "Richlands"
+    ],
+    "stateBreakdown": { "QLD": 0.92, "NSW": 0.05, "VIC": 0.02, "other": 0.01 }
+  }
+}

@@ -244,7 +244,7 @@ export default function PricingPage() {
             className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
             style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Pricing
+            Restoration Report Software Plans
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 30 }}
