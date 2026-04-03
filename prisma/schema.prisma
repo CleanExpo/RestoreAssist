@@ -172,6 +172,9 @@ model User {
 
   // Support tickets (RA-163)
   supportTickets SupportTicket[]
+
+  // Release notifications — tracks which releases this user has dismissed
+  releaseSeen UserReleaseSeen[]
 }
 
 model Feedback {
@@ -3882,4 +3885,33 @@ model SupportTicket {
   @@index([status])
   @@index([userId])
   @@index([email])
+}
+
+// ============================================
+// App Release Notes — auto-generated on sandbox → main merge
+// ============================================
+
+model AppRelease {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  title     String
+  notes     String   @db.Text
+  commitSha String?
+  mergedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  seenBy    UserReleaseSeen[]
+
+  @@index([createdAt])
+}
+
+model UserReleaseSeen {
+  id        String     @id @default(cuid())
+  userId    String
+  releaseId String
+  seenAt    DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release   AppRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseId])
+  @@index([userId])
 }
