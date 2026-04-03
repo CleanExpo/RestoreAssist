@@ -1,0 +1,21 @@
+# Next.js build output
+.next/
+out/
+build/
+
+# Dependencies
+node_modules/
+mobile/node_modules/
+packages/videos/node_modules/
+
+# Dev tooling
+.claude/
+.superpowers/
+.vercel/
+
+# Logs
+*.log
+dev-server*.log
+
+# Env files
+.env*

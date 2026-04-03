@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -21,3 +22,10 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#1C2E47', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
 });
+=======
+import { Redirect } from 'expo-router';
+
+export default function Index() {
+  return <Redirect href="/(tabs)/inspections" />;
+}
+>>>>>>> feat/ra-384-mobile-scaffold

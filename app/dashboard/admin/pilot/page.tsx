@@ -282,13 +282,29 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
           </p>
         )}
 
-        {/* CLAIM-002 specific: link to cost entry form */}
+        {/* Claim-specific entry form links */}
         {claim.id === "CLAIM-002" && (
           <a
             href="/dashboard/admin/pilot/claim-002"
             className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
           >
             Record cost observation <ArrowRight size={12} />
+          </a>
+        )}
+        {claim.id === "CLAIM-003" && (
+          <a
+            href="/dashboard/admin/pilot/claim-003"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+          >
+            Enter control group data <ArrowRight size={12} />
+          </a>
+        )}
+        {claim.id === "CLAIM-004" && (
+          <a
+            href="/dashboard/admin/pilot/claim-004"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+          >
+            Record adjuster sessions <ArrowRight size={12} />
           </a>
         )}
       </CardContent>
