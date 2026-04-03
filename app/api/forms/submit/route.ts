@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 /**
  * Generate submission number (e.g., "WO-2026-001")
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const rateLimited = applyRateLimit(request, { maxRequests: 15, prefix: 'forms-submit', key: session.user.email })
+    if (rateLimited) return rateLimited
 
     // Get user from database
     const user = await prisma.user.findUnique({
