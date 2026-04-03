@@ -27,11 +27,15 @@
 | RA-400 adaptive guidance    | Done    | ExperienceMode enum + User field + toggle UI + API endpoint                          |
 | RA-401 submission gate      | Done    | lib/evidence/submission-gate.ts + enforced in submit route                           |
 | RA-402 evidence review      | Done    | app/dashboard/admin/evidence-review/ — completeness dashboard                        |
+| RA-403 Gemma-4-31B-IT tier  | Done    | lib/ai/gemma-client.ts — OpenAI-compat client for self-hosted VLM                    |
+| RA-404 model router         | Done    | lib/ai/model-router.ts — 11 task types, Gemma→BYOK fallback                          |
+| RA-405 contents manifest    | Done    | API + UI — VLM item ID from AFFECTED_CONTENTS photos, CSV export                     |
+| RA-406 insurer profiles     | In Prog | InsurerProfile model + admin UI — per-insurer evidence/report requirements           |
 | RA-287 V2 deploy to prod    | Blocked | Needs human: merge PR #33 + set DO/Vercel env vars                                   |
 | RA-238 YouTube rebrand      | Blocked | Needs human: YouTube Studio channel rename                                           |
 | RA-246 mobile env config    | Blocked | Needs human: Supabase env vars + EAS project ID                                      |
 | RA-383 pilot pipeline       | Blocked | Needs human: IICRC Australasia contacts                                              |
-| RA-247 Google OAuth fix     | In Prog | 5 bugs identified: clock skew, callbackUrl, Firebase env docs, error messages        |
+| RA-247 Google OAuth fix     | Done    | Clock skew, callbackUrl, Firebase env docs, error message sanitization               |
 
 ## Decisions
 
@@ -65,3 +69,5 @@
 ## 2026-04-03 03:14 — Session End
 
 ## 2026-04-03 06:17 — Session End
+
+## 2026-04-03 18:31 — Session End

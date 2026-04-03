@@ -622,9 +622,6 @@ model Report {
   businessInterruption String? @db.Text
   additionalCover      String? @db.Text
 
-  // Contents Manifest AI Draft (RA-405)
-  contentsManifestDraft Json? // ContentsManifestDraft serialised as JSON
-
   // AI-Generated Detailed Report
   detailedReport String? @db.Text
 
@@ -1517,6 +1514,9 @@ model Inspection {
 
   // Sprint G: Inspection Intelligence — Evidence capture
   evidenceItems EvidenceItem[]
+
+  // Sprint H: Contents Manifest AI Draft (RA-405)
+  contentsManifestDraft Json? // ContentsManifestDraft serialised as JSON
 
   // AI Assistant Tier (Phase 5 - Property Data Integration)
   propertyYearBuilt        Int? // Exact year built
@@ -4033,4 +4033,52 @@ model CustodyEvent {
   @@index([actorId])
   @@index([action])
   @@index([createdAt])
+}
+
+// ─── Sprint H: Insurer Profile Templates (RA-406) ────────────────────────────
+
+/// Per-insurer evidence and reporting requirements.
+/// Pre-seeded with major Australian insurers. Admins can add custom profiles.
+model InsurerProfile {
+  id        String   @id @default(cuid())
+  slug      String   @unique // e.g. "iag", "suncorp", "qbe"
+  name      String   // Display name: "IAG (NRMA / CGU)"
+  aliases   String[] // Alternative brand names: ["NRMA", "CGU", "SGIO"]
+
+  // Evidence requirements
+  requiredEvidenceClasses  String[] // EvidenceClass values that MUST be present
+  preferredEvidenceClasses String[] // Strongly recommended but not blocking
+  minPhotoCount            Int      @default(5) // Minimum total evidence photos
+
+  // Report format preferences
+  reportFormat            InsurerReportFormat @default(STANDARD)
+  requiresSignedScope     Boolean             @default(false) // Signed scope of works
+  requiresThirdPartyScope Boolean             @default(false) // Independent scoper required
+
+  // Invoice / billing preferences
+  preferredInvoiceFormat  String? // "xero" | "myob" | "quickbooks" | "standard"
+  gstRegistrationRequired Boolean @default(true) // Must be GST registered
+
+  // Contact / identification
+  claimsEmailDomain String? // e.g. "iag.com.au" — used for auto-match
+  portalUrl         String? // Insurer's claims portal URL
+
+  // Compliance notes
+  specialInstructions String?  @db.Text // Free-text for unusual requirements
+  iicrcComplianceNote String?  @db.Text // Any IICRC-specific notes for this insurer
+  isActive            Boolean  @default(true)
+  isSystemProfile     Boolean  @default(false) // true = seeded, false = user-created
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+enum InsurerReportFormat {
+  STANDARD   // Basic NIR report
+  ENHANCED   // Detailed narrative report
+  FORENSIC   // Forensic-level documentation
+  SCOPE_ONLY // Scope of works without full report
 }
