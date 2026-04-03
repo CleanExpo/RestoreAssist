@@ -93,25 +93,48 @@ export async function GET(request: NextRequest) {
     }
 
     // Get pagination parameters
+    const cursor = searchParams.get("cursor")     // cursor-based pagination (inspection id)
     const page = parseInt(searchParams.get("page") || "1")
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100) // Max 100
-    const skip = (page - 1) * limit
+    const skip = cursor ? 0 : (page - 1) * limit
 
     // Get search and filter parameters
     const search = searchParams.get("search")
     const status = searchParams.get("status")
-    const sortBy = searchParams.get("sortBy") || "createdAt"
-    const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc"
+    const category = searchParams.get("category") // e.g. "1", "2", "3"
+    const from = searchParams.get("from")         // ISO date string
+    const to = searchParams.get("to")             // ISO date string
+
+    // "sort" param: recent | oldest | address (RA-270 friendly names)
+    // "sortBy" / "sortOrder" are the legacy low-level params
+    const sortParam = searchParams.get("sort")
+    let sortBy: string
+    let sortOrder: "asc" | "desc"
+    if (sortParam === "oldest") {
+      sortBy = "createdAt"; sortOrder = "asc"
+    } else if (sortParam === "address") {
+      sortBy = "address"; sortOrder = "asc"
+    } else if (sortParam === "recent" || sortParam) {
+      sortBy = "createdAt"; sortOrder = "desc"
+    } else {
+      // Legacy sortBy / sortOrder params
+      sortBy = searchParams.get("sortBy") || "createdAt"
+      sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc"
+    }
 
     // Build where clause
     const where: any = { userId: session.user.id }
 
-    // Add status filter
+    // Status filter — support "active" alias (not COMPLETED/REJECTED)
     if (status) {
-      where.status = status
+      if (status === "active") {
+        where.status = { notIn: ["COMPLETED", "REJECTED"] }
+      } else {
+        where.status = status.toUpperCase()
+      }
     }
 
-    // Add search filter (inspection number, property address, technician name)
+    // Search filter (inspection number, property address, technician name)
     if (search && search.trim()) {
       where.OR = [
         { inspectionNumber: { contains: search, mode: "insensitive" } },
@@ -120,18 +143,50 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Category filter — filter by InspectionClassification.category
+    if (category && category.trim()) {
+      where.classifications = {
+        some: { category: category.trim() }
+      }
+    }
+
+    // Date range filter (createdAt)
+    if (from || to) {
+      where.createdAt = {}
+      if (from) {
+        const fromDate = new Date(from)
+        if (!isNaN(fromDate.getTime())) {
+          where.createdAt.gte = fromDate
+        }
+      }
+      if (to) {
+        const toDate = new Date(to)
+        if (!isNaN(toDate.getTime())) {
+          // Include all of the "to" day by setting to end-of-day
+          toDate.setHours(23, 59, 59, 999)
+          where.createdAt.lte = toDate
+        }
+      }
+    }
+
     // Build orderBy clause
     const orderBy: any = {}
     if (sortBy === "createdAt" || sortBy === "submittedAt" || sortBy === "processedAt") {
       orderBy[sortBy] = sortOrder
+    } else if (sortBy === "address") {
+      orderBy.propertyAddress = sortOrder
     } else {
       orderBy.createdAt = "desc" // Default
     }
 
-    // Get total count for pagination
-    const total = await prisma.inspection.count({ where })
+    // Cursor-based pagination: fetch one extra row to determine if there is a next page
+    const isCursorMode = Boolean(cursor)
+    const fetchLimit = isCursorMode ? limit + 1 : limit
 
-    // Get inspections with pagination
+    // Get total count for page-based pagination (skip when using cursor)
+    const total = isCursorMode ? null : await prisma.inspection.count({ where })
+
+    // Get inspections
     const inspections = await prisma.inspection.findMany({
       where,
       include: {
@@ -146,17 +201,37 @@ export async function GET(request: NextRequest) {
         photos: true
       },
       orderBy,
-      skip,
-      take: limit
+      ...(isCursorMode
+        ? { cursor: { id: cursor! }, skip: 1, take: fetchLimit }
+        : { skip, take: fetchLimit }
+      ),
     })
+
+    // Determine next cursor
+    let nextCursor: string | null = null
+    if (isCursorMode) {
+      if (inspections.length > limit) {
+        const lastItem = inspections[limit] // the extra item
+        nextCursor = lastItem.id
+        inspections.splice(limit) // remove extra item from results
+      }
+      return NextResponse.json({ inspections, nextCursor })
+    }
+
+    // Page-based mode: also expose nextCursor so clients can switch to "Load More"
+    const pages = Math.ceil(total! / limit)
+    if (page < pages && inspections.length > 0) {
+      nextCursor = inspections[inspections.length - 1].id
+    }
 
     return NextResponse.json({
       inspections,
+      nextCursor,
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: total!,
+        pages,
       }
     })
   } catch (error) {
@@ -234,6 +309,7 @@ export async function POST(request: NextRequest) {
         propertyAddress: sanitizeString(body.propertyAddress, 500),
         propertyPostcode: sanitizeString(body.propertyPostcode, 20),
         technicianName: body.technicianName ? sanitizeString(body.technicianName, 200) : null,
+        lossDescription: body.lossDescription ? sanitizeString(body.lossDescription, 2000) : null,
         reportId: body.reportId || null, // Link to report if provided
         userId: session.user.id,
         status: "DRAFT"

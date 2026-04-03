@@ -212,7 +212,7 @@ export default function FeaturesPage() {
             className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
             style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
-            Features
+            AI Damage Assessment & IICRC S500 Compliance
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 30 }}

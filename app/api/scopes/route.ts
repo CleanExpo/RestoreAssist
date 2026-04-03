@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "scopes", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const body = await request.json()
     const { reportId, scopeType, siteVariables, labourParameters, equipmentParameters, chemicalApplication, timeCalculations, summary, complianceNotes, assumptions } = body

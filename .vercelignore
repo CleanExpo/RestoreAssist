@@ -1,0 +1,4 @@
+# Exclude Prisma TypeScript config — it calls env("DATABASE_URL") at load time
+# which throws PrismaConfigEnvError during prisma generate on some build hosts.
+# Prisma falls back to reading DATABASE_URL from the environment via schema.prisma.
+prisma.config.ts
