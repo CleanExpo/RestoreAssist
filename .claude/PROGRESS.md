@@ -1,7 +1,7 @@
 # Progress — RestoreAssist
 
 **Phase:** Active Build — V2 stabilisation + mobile launch prep
-**Last updated:** 2026-04-01
+**Last updated:** 2026-04-03
 
 ## Active Tasks
 
@@ -21,10 +21,17 @@
 | UNI-1760 model audit (RA)   | Done    | All legacy model strings migrated to claude-haiku-4-5-20251001 / claude-sonnet-4-6   |
 | RA-389 demo dataset seed    | Done    | prisma/seed-demo.ts — Cat 2, 150m², 9 moisture readings, equipment log, S500 report  |
 | Video pipeline triggers     | Done    | 4 cloud triggers on claude.ai/code/scheduled (generate, poll, distribute, analytics) |
+| RA-397 evidence schema      | Done    | EvidenceItem/CustodyEvent models + enums in prisma/schema.prisma                     |
+| RA-398 workflow definitions | Done    | lib/evidence/ — evidence-classes.ts, workflow-definitions.ts, index.ts               |
+| RA-399 guided capture UI    | Done    | app/dashboard/inspections/[id]/capture/ — step-by-step workflow engine               |
+| RA-400 adaptive guidance    | Done    | ExperienceMode enum + User field + toggle UI + API endpoint                          |
+| RA-401 submission gate      | Done    | lib/evidence/submission-gate.ts + enforced in submit route                           |
+| RA-402 evidence review      | Done    | app/dashboard/admin/evidence-review/ — completeness dashboard                        |
 | RA-287 V2 deploy to prod    | Blocked | Needs human: merge PR #33 + set DO/Vercel env vars                                   |
 | RA-238 YouTube rebrand      | Blocked | Needs human: YouTube Studio channel rename                                           |
 | RA-246 mobile env config    | Blocked | Needs human: Supabase env vars + EAS project ID                                      |
 | RA-383 pilot pipeline       | Blocked | Needs human: IICRC Australasia contacts                                              |
+| RA-247 Google OAuth fix     | In Prog | 5 bugs identified: clock skew, callbackUrl, Firebase env docs, error messages        |
 
 ## Decisions
 
@@ -44,86 +51,17 @@
 - Video pipeline cron triggers were set up on claude.ai/code/scheduled in a prior session (not local cron)
 - Keystore passwords are temporary (`RestoreAssist2026!` / `RestoreAssistCET2026!`) — should be rotated and backed up
 - The `android-v1.0.0` tag points to commit `466316fa` — first successful AAB build
-  \n## 2026-04-01 17:24 — Session End\n.claude/settings.local.json
-  CLAUDE.md
-  tsconfig.json
-  \n## 2026-04-01 19:27 — Session End\n.capacitor-native-notes/APP-STORE-SETUP-GUIDE.md
-  .capacitor-native-notes/SE-SETUP-INSTRUCTIONS.md
-  .capacitor-native-notes/app-store-metadata.md
-  .claude/ARCHITECTURE.md
-  .claude/PROGRESS.md
-  .claude/STANDARDS.md
-  .claude/TESTING.md
-  .claude/WORKFLOWS.md
-  .claude/commands/orchestrator-reviewer.md
-  .claude/commands/pr-manager.md
-  .claude/commands/review-batch.md
-  .claude/commands/review-pr.md
-  .claude/plans/V1.1-NIR-DATA-ENTRY.md
-  .claude/rules/review-dimensions.md
-  .claude/rules/verification-gate.md
-  .claude/senior-pm-backlog-analysis.md
-  .claude/senior-pm-phase-2-plan.md
-  .claude/settings.local.json
-  .claude/sql-validation-report.md
-  .claude/uni-171-phase-2-completion.md
-  \n## 2026-04-01 19:47 — Session End\n.capacitor-native-notes/APP-STORE-SETUP-GUIDE.md
-  .capacitor-native-notes/SE-SETUP-INSTRUCTIONS.md
-  .capacitor-native-notes/app-store-metadata.md
-  .claude/ARCHITECTURE.md
-  .claude/PROGRESS.md
-  .claude/STANDARDS.md
-  .claude/TESTING.md
-  .claude/WORKFLOWS.md
-  .claude/commands/orchestrator-reviewer.md
-  .claude/commands/pr-manager.md
-  .claude/commands/review-batch.md
-  .claude/commands/review-pr.md
-  .claude/plans/V1.1-NIR-DATA-ENTRY.md
-  .claude/rules/review-dimensions.md
-  .claude/rules/verification-gate.md
-  .claude/senior-pm-backlog-analysis.md
-  .claude/senior-pm-phase-2-plan.md
-  .claude/settings.local.json
-  .claude/sql-validation-report.md
-  .claude/uni-171-phase-2-completion.md
-  \n## 2026-04-02 05:47 — Session End\n.capacitor-native-notes/APP-STORE-SETUP-GUIDE.md
-  .capacitor-native-notes/SE-SETUP-INSTRUCTIONS.md
-  .capacitor-native-notes/app-store-metadata.md
-  .claude/ARCHITECTURE.md
-  .claude/PROGRESS.md
-  .claude/STANDARDS.md
-  .claude/TESTING.md
-  .claude/WORKFLOWS.md
-  .claude/commands/orchestrator-reviewer.md
-  .claude/commands/pr-manager.md
-  .claude/commands/review-batch.md
-  .claude/commands/review-pr.md
-  .claude/plans/V1.1-NIR-DATA-ENTRY.md
-  .claude/rules/review-dimensions.md
-  .claude/rules/verification-gate.md
-  .claude/senior-pm-backlog-analysis.md
-  .claude/senior-pm-phase-2-plan.md
-  .claude/settings.local.json
-  .claude/sql-validation-report.md
-  .claude/uni-171-phase-2-completion.md
-  \n## 2026-04-02 06:07 — Session End\n.capacitor-native-notes/APP-STORE-SETUP-GUIDE.md
-  .capacitor-native-notes/SE-SETUP-INSTRUCTIONS.md
-  .capacitor-native-notes/app-store-metadata.md
-  .claude/ARCHITECTURE.md
-  .claude/PROGRESS.md
-  .claude/STANDARDS.md
-  .claude/TESTING.md
-  .claude/WORKFLOWS.md
-  .claude/commands/orchestrator-reviewer.md
-  .claude/commands/pr-manager.md
-  .claude/commands/review-batch.md
-  .claude/commands/review-pr.md
-  .claude/plans/V1.1-NIR-DATA-ENTRY.md
-  .claude/rules/review-dimensions.md
-  .claude/rules/verification-gate.md
-  .claude/senior-pm-backlog-analysis.md
-  .claude/senior-pm-phase-2-plan.md
-  .claude/settings.local.json
-  .claude/sql-validation-report.md
-  .claude/uni-171-phase-2-completion.md
+
+## 2026-04-01 20:15 — Session End
+
+## 2026-04-02 03:09 — Session End
+
+## 2026-04-02 17:17 — Session End
+
+## 2026-04-02 20:19 — Session End
+
+## 2026-04-03 02:03 — Session End
+
+## 2026-04-03 03:14 — Session End
+
+## 2026-04-03 06:17 — Session End
