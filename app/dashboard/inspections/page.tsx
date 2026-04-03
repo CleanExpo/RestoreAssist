@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import toast from "react-hot-toast"
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   Plus,
   Search,
@@ -17,197 +17,250 @@ import {
   AlertTriangle,
   Trash2,
   Download,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog"
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 
 interface Inspection {
-  id: string
-  inspectionNumber: string
-  propertyAddress: string
-  propertyPostcode: string
-  technicianName: string | null
-  status: string
-  createdAt: string
-  submittedAt: string | null
-  processedAt: string | null
-  moistureReadings: { id: string }[]
-  affectedAreas: { id: string }[]
-  environmentalData: { ambientTemperature: number; humidityLevel: number } | null
-  classifications: { category: string; class: string }[]
-  photos: { id: string }[]
+  id: string;
+  inspectionNumber: string;
+  propertyAddress: string;
+  propertyPostcode: string;
+  technicianName: string | null;
+  status: string;
+  createdAt: string;
+  submittedAt: string | null;
+  processedAt: string | null;
+  moistureReadings: { id: string }[];
+  affectedAreas: { id: string }[];
+  environmentalData: {
+    ambientTemperature: number;
+    humidityLevel: number;
+  } | null;
+  classifications: { category: string; class: string }[];
+  photos: { id: string }[];
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT: { label: "Draft", color: "text-neutral-600 dark:text-slate-400", bg: "bg-neutral-100 dark:bg-slate-800" },
-  SUBMITTED: { label: "Submitted", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" },
-  PROCESSING: { label: "Processing", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30" },
-  CLASSIFIED: { label: "Classified", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/30" },
-  SCOPED: { label: "Scoped", color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/30" },
-  ESTIMATED: { label: "Estimated", color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-50 dark:bg-teal-900/30" },
-  COMPLETED: { label: "Completed", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
-  REJECTED: { label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30" },
-}
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  DRAFT: {
+    label: "Draft",
+    color: "text-neutral-600 dark:text-slate-400",
+    bg: "bg-neutral-100 dark:bg-slate-800",
+  },
+  SUBMITTED: {
+    label: "Submitted",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-900/30",
+  },
+  PROCESSING: {
+    label: "Processing",
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-900/30",
+  },
+  CLASSIFIED: {
+    label: "Classified",
+    color: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-50 dark:bg-purple-900/30",
+  },
+  SCOPED: {
+    label: "Scoped",
+    color: "text-indigo-600 dark:text-indigo-400",
+    bg: "bg-indigo-50 dark:bg-indigo-900/30",
+  },
+  ESTIMATED: {
+    label: "Estimated",
+    color: "text-teal-600 dark:text-teal-400",
+    bg: "bg-teal-50 dark:bg-teal-900/30",
+  },
+  COMPLETED: {
+    label: "Completed",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-50 dark:bg-emerald-900/30",
+  },
+  REJECTED: {
+    label: "Rejected",
+    color: "text-red-600 dark:text-red-400",
+    bg: "bg-red-50 dark:bg-red-900/30",
+  },
+};
 
 export default function InspectionsPage() {
-  const router = useRouter()
-  const [inspections, setInspections] = useState<Inspection[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
-  const [dateFrom, setDateFrom] = useState("")
-  const [dateTo, setDateTo] = useState("")
-  const [exporting, setExporting] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [deleting, setDeleting] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "single" | "bulk"; id?: string } | null>(null)
+  const router = useRouter();
+  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: "single" | "bulk";
+    id?: string;
+  } | null>(null);
 
   useEffect(() => {
-    fetchInspections()
-  }, [])
+    fetchInspections();
+  }, []);
 
   const fetchInspections = async () => {
     try {
-      setLoading(true)
-      const response = await fetch("/api/inspections")
+      setLoading(true);
+      const response = await fetch("/api/inspections");
       if (response.ok) {
-        const data = await response.json()
-        setInspections(data.inspections || [])
+        const data = await response.json();
+        setInspections(data.inspections || []);
       } else {
-        toast.error("Failed to fetch inspections")
+        toast.error("Failed to fetch inspections");
       }
     } catch (error) {
-      console.error("Error fetching inspections:", error)
-      toast.error("Failed to fetch inspections")
+      console.error("Error fetching inspections:", error);
+      toast.error("Failed to fetch inspections");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const filtered = useMemo(() => {
-    const fromDate = dateFrom ? new Date(dateFrom) : null
-    const toDate = dateTo ? new Date(dateTo + "T23:59:59.999") : null
+    const fromDate = dateFrom ? new Date(dateFrom) : null;
+    const toDate = dateTo ? new Date(dateTo + "T23:59:59.999") : null;
     return inspections.filter((insp) => {
       const matchesSearch =
         !searchTerm ||
-        insp.inspectionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        insp.inspectionNumber
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         insp.propertyAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (insp.technicianName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
-      const matchesStatus = !statusFilter || insp.status === statusFilter
-      const inspDate = new Date(insp.createdAt)
-      const matchesFrom = !fromDate || inspDate >= fromDate
-      const matchesTo = !toDate || inspDate <= toDate
-      return matchesSearch && matchesStatus && matchesFrom && matchesTo
-    })
-  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo])
+        (insp.technicianName
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ??
+          false);
+      const matchesStatus = !statusFilter || insp.status === statusFilter;
+      const inspDate = new Date(insp.createdAt);
+      const matchesFrom = !fromDate || inspDate >= fromDate;
+      const matchesTo = !toDate || inspDate <= toDate;
+      return matchesSearch && matchesStatus && matchesFrom && matchesTo;
+    });
+  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo]);
 
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
+    const counts: Record<string, number> = {};
     inspections.forEach((i) => {
-      counts[i.status] = (counts[i.status] || 0) + 1
-    })
-    return counts
-  }, [inspections])
+      counts[i.status] = (counts[i.status] || 0) + 1;
+    });
+    return counts;
+  }, [inspections]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const toggleSelectAll = () => {
     if (selectedIds.size === filtered.length) {
-      setSelectedIds(new Set())
+      setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filtered.map((i) => i.id)))
+      setSelectedIds(new Set(filtered.map((i) => i.id)));
     }
-  }
+  };
 
   const handleDeleteOne = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation()
-    setDeleteTarget({ type: "single", id })
-    setDeleteDialogOpen(true)
-  }
+    e.stopPropagation();
+    setDeleteTarget({ type: "single", id });
+    setDeleteDialogOpen(true);
+  };
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return
-    setDeleteTarget({ type: "bulk" })
-    setDeleteDialogOpen(true)
-  }
+    if (selectedIds.size === 0) return;
+    setDeleteTarget({ type: "bulk" });
+    setDeleteDialogOpen(true);
+  };
 
   const performDelete = async () => {
-    if (!deleteTarget) return
+    if (!deleteTarget) return;
 
     try {
-      setDeleting(true)
+      setDeleting(true);
       if (deleteTarget.type === "single" && deleteTarget.id) {
-        const res = await fetch(`/api/inspections/${deleteTarget.id}`, { method: "DELETE" })
+        const res = await fetch(`/api/inspections/${deleteTarget.id}`, {
+          method: "DELETE",
+        });
         if (res.ok) {
-          setInspections((prev) => prev.filter((i) => i.id !== deleteTarget.id))
+          setInspections((prev) =>
+            prev.filter((i) => i.id !== deleteTarget.id),
+          );
           setSelectedIds((prev) => {
-            const next = new Set(prev)
-            next.delete(deleteTarget.id!)
-            return next
-          })
-          toast.success("Inspection deleted")
+            const next = new Set(prev);
+            next.delete(deleteTarget.id!);
+            return next;
+          });
+          toast.success("Inspection deleted");
         } else {
-          const data = await res.json().catch(() => ({}))
-          toast.error(data.error || "Failed to delete inspection")
+          const data = await res.json().catch(() => ({}));
+          toast.error(data.error || "Failed to delete inspection");
         }
       } else if (deleteTarget.type === "bulk") {
         const res = await fetch("/api/inspections/bulk-delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ids: Array.from(selectedIds) }),
-        })
-        const data = await res.json().catch(() => ({}))
+        });
+        const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
-          setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)))
-          setSelectedIds(new Set())
-          toast.success(`${data.deletedCount ?? selectedIds.size} inspection(s) deleted`)
+          setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)));
+          setSelectedIds(new Set());
+          toast.success(
+            `${data.deletedCount ?? selectedIds.size} inspection(s) deleted`,
+          );
         } else {
-          toast.error(data.error || "Failed to delete inspections")
+          toast.error(data.error || "Failed to delete inspections");
         }
       }
     } catch {
-      toast.error("Failed to delete inspection(s)")
+      toast.error("Failed to delete inspection(s)");
     } finally {
-      setDeleting(false)
-      setDeleteTarget(null)
+      setDeleting(false);
+      setDeleteTarget(null);
     }
-  }
+  };
 
   const handleExport = async () => {
-    setExporting(true)
+    setExporting(true);
     try {
-      const params = new URLSearchParams()
-      if (dateFrom) params.set("from", dateFrom)
-      if (dateTo) params.set("to", dateTo)
-      if (statusFilter && statusFilter !== "ALL") params.set("status", statusFilter)
-      const res = await fetch(`/api/inspections/export?${params}`)
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("from", dateFrom);
+      if (dateTo) params.set("to", dateTo);
+      if (statusFilter && statusFilter !== "ALL")
+        params.set("status", statusFilter);
+      const res = await fetch(`/api/inspections/export?${params}`);
       if (!res.ok) {
-        toast.error("Failed to export inspections")
-        return
+        toast.error("Failed to export inspections");
+        return;
       }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `inspections-${new Date().toISOString().slice(0, 10)}.csv`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `inspections-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch {
-      toast.error("Export failed")
+      toast.error("Export failed");
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -219,7 +272,8 @@ export default function InspectionsPage() {
             Inspections
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
-            National Inspection Reports (NIR) — Field data capture and IICRC classification
+            National Inspection Reports (NIR) — Field data capture and IICRC
+            classification
           </p>
         </div>
         <button
@@ -239,7 +293,7 @@ export default function InspectionsPage() {
             "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
             !statusFilter
               ? "bg-cyan-500 text-white"
-              : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700"
+              : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
           All ({inspections.length})
@@ -253,19 +307,22 @@ export default function InspectionsPage() {
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                 statusFilter === key
                   ? "bg-cyan-500 text-white"
-                  : cn(cfg.bg, cfg.color, "hover:opacity-80")
+                  : cn(cfg.bg, cfg.color, "hover:opacity-80"),
               )}
             >
               {cfg.label} ({statusCounts[key]})
             </button>
-          ) : null
+          ) : null,
         )}
       </div>
 
       {/* Search and Date Filters */}
       <div className="flex flex-col gap-3">
         <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+          />
           <input
             type="text"
             placeholder="Search by inspection number, address, or technician..."
@@ -300,7 +357,10 @@ export default function InspectionsPage() {
           {(dateFrom || dateTo) && (
             <button
               type="button"
-              onClick={() => { setDateFrom(""); setDateTo("") }}
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
               className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
             >
               Clear dates
@@ -313,7 +373,11 @@ export default function InspectionsPage() {
               disabled={exporting}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-700 dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
             >
-              {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {exporting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
               Export CSV
             </button>
           </div>
@@ -326,7 +390,9 @@ export default function InspectionsPage() {
           <label className="flex items-center gap-2 cursor-pointer text-sm text-neutral-600 dark:text-slate-400">
             <input
               type="checkbox"
-              checked={selectedIds.size === filtered.length && filtered.length > 0}
+              checked={
+                selectedIds.size === filtered.length && filtered.length > 0
+              }
               onChange={toggleSelectAll}
               className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
             />
@@ -339,7 +405,11 @@ export default function InspectionsPage() {
               disabled={deleting}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
             >
-              {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              {deleting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Trash2 size={14} />
+              )}
               Delete selected ({selectedIds.size})
             </button>
           )}
@@ -353,9 +423,14 @@ export default function InspectionsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20">
-          <ClipboardCheck size={48} className="mx-auto text-neutral-300 dark:text-slate-600 mb-4" />
+          <ClipboardCheck
+            size={48}
+            className="mx-auto text-neutral-300 dark:text-slate-600 mb-4"
+          />
           <h3 className="text-lg font-semibold text-neutral-700 dark:text-slate-300">
-            {inspections.length === 0 ? "No inspections yet" : "No matching inspections"}
+            {inspections.length === 0
+              ? "No inspections yet"
+              : "No matching inspections"}
           </h3>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1 mb-4">
             {inspections.length === 0
@@ -375,8 +450,8 @@ export default function InspectionsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((insp) => {
-            const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT
-            const classification = insp.classifications?.[0]
+            const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT;
+            const classification = insp.classifications?.[0];
             return (
               <div
                 key={insp.id}
@@ -385,7 +460,7 @@ export default function InspectionsPage() {
                   "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
                   selectedIds.has(insp.id)
                     ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
-                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md",
                 )}
               >
                 <input
@@ -396,53 +471,73 @@ export default function InspectionsPage() {
                   className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
                 />
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
-                        {insp.inspectionNumber}
-                      </span>
-                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", status.bg, status.color)}>
-                        {status.label}
-                      </span>
-                      {classification && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                          Cat {classification.category} / Class {classification.class}
-                        </span>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                      {insp.inspectionNumber}
+                    </span>
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-xs font-medium",
+                        status.bg,
+                        status.color,
                       )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-neutral-900 dark:text-white font-medium">
-                      <MapPin size={14} className="text-neutral-400 flex-shrink-0" />
-                      <span className="truncate">{insp.propertyAddress}</span>
-                      <span className="text-neutral-400 dark:text-slate-500 text-sm">({insp.propertyPostcode})</span>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} />
-                        {new Date(insp.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                    >
+                      {status.label}
+                    </span>
+                    {classification && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                        Cat {classification.category} / Class{" "}
+                        {classification.class}
                       </span>
-                      {insp.technicianName && (
-                        <span>Tech: {insp.technicianName}</span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Droplets size={12} />
-                        {insp.moistureReadings.length} readings
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <AlertTriangle size={12} />
-                        {insp.affectedAreas.length} areas
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Camera size={12} />
-                        {insp.photos?.length || 0} photos
-                      </span>
-                      {insp.environmentalData && (
-                        <span className="flex items-center gap-1">
-                          <Thermometer size={12} />
-                          {insp.environmentalData.ambientTemperature}°C / {insp.environmentalData.humidityLevel}%
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
-                <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 text-neutral-900 dark:text-white font-medium">
+                    <MapPin
+                      size={14}
+                      className="text-neutral-400 flex-shrink-0"
+                    />
+                    <span className="truncate">{insp.propertyAddress}</span>
+                    <span className="text-neutral-400 dark:text-slate-500 text-sm">
+                      ({insp.propertyPostcode})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      {new Date(insp.createdAt).toLocaleDateString("en-AU", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                    {insp.technicianName && (
+                      <span>Tech: {insp.technicianName}</span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Droplets size={12} />
+                      {insp.moistureReadings.length} readings
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle size={12} />
+                      {insp.affectedAreas.length} areas
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Camera size={12} />
+                      {insp.photos?.length || 0} photos
+                    </span>
+                    {insp.environmentalData && (
+                      <span className="flex items-center gap-1">
+                        <Thermometer size={12} />
+                        {insp.environmentalData.ambientTemperature}°C /{" "}
+                        {insp.environmentalData.humidityLevel}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div
+                  className="flex items-center gap-1 flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button
                     type="button"
                     onClick={(e) => handleDeleteOne(e, insp.id)}
@@ -452,10 +547,13 @@ export default function InspectionsPage() {
                   >
                     <Trash2 size={18} />
                   </button>
-                  <ChevronRight size={20} className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1" />
+                  <ChevronRight
+                    size={20}
+                    className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1"
+                  />
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
@@ -479,5 +577,5 @@ export default function InspectionsPage() {
         isLoading={deleting}
       />
     </div>
-  )
+  );
 }
