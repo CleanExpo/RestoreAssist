@@ -1,10 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { BRAND } from '@/lib/brand'
 import SessionProvider from "@/components/providers/SessionProvider"
+import { CapacitorProvider } from "@/components/providers/CapacitorProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "react-hot-toast"
 import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
+import { NirOfflineProvider } from "@/components/nir-offline-provider"
 import "@/lib/env-check"
 import "./globals.css"
 
@@ -12,11 +15,10 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: {
-    default: "Restore Assist - AI-Powered Restoration Reports for Australia",
+    default: BRAND.meta.title,
     template: "%s | Restore Assist",
   },
-  description:
-    "Generate comprehensive, legally defensible inspection reports and cost estimates for property restoration claims backed by IICRC standards and Australian compliance.",
+  description: BRAND.meta.description,
   keywords: [
     "restoration reports",
     "IICRC compliance",
@@ -29,9 +31,8 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Restore Assist" }],
   openGraph: {
-    title: "Restore Assist - AI-Powered Restoration Reports for Australia",
-    description:
-      "Generate comprehensive, legally defensible inspection reports backed by IICRC standards.",
+    title: BRAND.meta.title,
+    description: BRAND.meta.ogDescription,
     type: "website",
     locale: "en_AU",
     siteName: "Restore Assist",
@@ -41,8 +42,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Restore Assist",
-    description:
-      "Professional restoration reports backed by IICRC standards and Australian compliance.",
+    description: BRAND.meta.ogDescription,
   },
   robots: {
     index: true,
@@ -67,7 +67,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>{children}</SessionProvider>
+          <NirOfflineProvider>
+            <SessionProvider>
+              <CapacitorProvider>{children}</CapacitorProvider>
+            </SessionProvider>
+          </NirOfflineProvider>
         <Toaster
           position="top-right"
           toastOptions={{

@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "RestoreAssist",
+    "slug": "restoreassist",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "restoreassist",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.restoreassist.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#050505"
+      },
+      "package": "com.restoreassist.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ]
+  }
+}

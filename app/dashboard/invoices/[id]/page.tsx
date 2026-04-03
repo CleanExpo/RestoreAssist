@@ -62,6 +62,16 @@ interface AuditLog {
   }
 }
 
+interface VariationInvoice {
+  id: string
+  invoiceNumber: string
+  status: string
+  invoiceDate: string
+  dueDate: string
+  totalIncGST: number
+  amountDue: number
+}
+
 interface Invoice {
   id: string
   invoiceNumber: string
@@ -133,6 +143,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [variations, setVariations] = useState<VariationInvoice[]>([])
+  const [loadingVariations, setLoadingVariations] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -145,6 +157,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (!invoiceId) return
     fetchInvoice()
+  }, [invoiceId])
+
+  useEffect(() => {
+    if (!invoiceId) return
+    const fetchVariations = async () => {
+      setLoadingVariations(true)
+      try {
+        const response = await fetch(`/api/invoices/${invoiceId}/variations`)
+        if (response.ok) {
+          const data = await response.json()
+          setVariations(data.variations ?? [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch variations:', error)
+      } finally {
+        setLoadingVariations(false)
+      }
+    }
+    fetchVariations()
   }, [invoiceId])
 
   const fetchInvoice = async () => {
@@ -778,6 +809,79 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           )}
+
+          {/* Variations */}
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Variations
+              </h2>
+              {!loadingVariations && (
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                  {variations.length}
+                </span>
+              )}
+            </div>
+            {loadingVariations ? (
+              <div className="space-y-3">
+                {[1, 2].map((n) => (
+                  <div key={n} className="h-14 bg-slate-100 dark:bg-slate-700/50 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : variations.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No variations for this invoice
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {variations.map((v) => {
+                  const vEffectiveStatus = getEffectiveStatus({
+                    status: v.status,
+                    dueDate: v.dueDate,
+                    amountDue: v.amountDue,
+                  })
+                  const vStatusConfig = getStatusConfig(vEffectiveStatus)
+                  return (
+                    <div
+                      key={v.id}
+                      className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div>
+                          <a
+                            href={`/dashboard/invoices/${v.id}`}
+                            className="text-sm font-medium text-cyan-500 hover:text-cyan-600 transition-colors"
+                          >
+                            {v.invoiceNumber}
+                          </a>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {new Date(v.invoiceDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${vStatusConfig.badgeClass}`}
+                        >
+                          {vStatusConfig.label}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                          ${(v.totalIncGST / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <a
+                          href={`/dashboard/invoices/${v.id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Notes */}
           {(invoice.notes || invoice.terms) && (

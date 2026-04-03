@@ -15,6 +15,47 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const reportId = searchParams.get("reportId")
+    const clientId = searchParams.get("clientId")
+
+    if (clientId) {
+      // Get pagination parameters
+      const page = parseInt(searchParams.get("page") || "1")
+      const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
+      const skip = (page - 1) * limit
+
+      // Find all reportIds for this client
+      const clientReports = await prisma.report.findMany({
+        where: { clientId, userId: session.user.id },
+        select: { id: true }
+      })
+      const reportIds = clientReports.map((r: { id: string }) => r.id)
+
+      const where: any = {
+        userId: session.user.id,
+        reportId: { in: reportIds }
+      }
+
+      const total = await prisma.inspection.count({ where })
+      const inspections = await prisma.inspection.findMany({
+        where,
+        select: {
+          id: true,
+          inspectionNumber: true,
+          propertyAddress: true,
+          status: true,
+          createdAt: true,
+          submittedAt: true
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      })
+
+      return NextResponse.json({
+        inspections,
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+      })
+    }
 
     if (reportId) {
       // Note: reportId column doesn't exist, so find by property address instead

@@ -47,3 +47,9 @@ playwright/.auth/user.json
 dev-server.log
 sketch-tab-test.png
 v2-signin.png
+
+.env*.local
+
+# Android signing keystores (NEVER commit)
+*.jks
+.capacitor-native-notes/keystores/

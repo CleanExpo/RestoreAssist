@@ -2,23 +2,69 @@
   "permissions": {
     "allow": [
       "Bash(ls:*)",
-      "Bash(npm run build:*)",
-      "Bash(npx next build)",
-      "Read(//d/RestoreAssist/**)",
-      "Bash(gh pr:*)",
-      "Bash(npx vercel:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(mkdir -p \"D:/Claude-Code-Remotion/RestoreAssist/scripts/video-pipeline\")",
-      "Bash(mkdir -p \"D:/Claude-Code-Remotion/RestoreAssist/content/resources\")",
-      "Bash(find /d/Claude-Code-Remotion/RestoreAssist -maxdepth 1 -name *.json)",
-      "Bash(grep -r Easing /d/Claude-Code-Remotion/RestoreAssist/node_modules/remotion/dist/*.d.ts)",
-      "Bash(cmd /c \"dir /b D:\\\\Claude-Code-Remotion\\\\RestoreAssist\\\\node_modules 2>&1\")",
-      "Bash(cmd /c \"dir /b D:\\\\Claude-Code-Remotion\\\\RestoreAssist\"\")",
-      "Bash(powershell -Command \"Get-ChildItem ''D:\\\\Claude-Code-Remotion\\\\RestoreAssist'' | Select-Object Name\")",
-      "Bash(powershell -Command \"Get-ChildItem ''D:\\\\Claude-Code-Remotion\\\\RestoreAssist\\\\src'' | Select-Object Name\")",
-      "Bash(powershell -Command \":*)"
+      "Bash(pnpm *)",
+      "Bash(npx *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(node *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(curl *)",
+      "Bash(sleep *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(*DROP TABLE*)",
+      "Bash(*TRUNCATE*)",
+      "Bash(*--no-verify*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qiE '(rm -rf|--force|--no-verify|DROP TABLE|TRUNCATE|reset --hard)' && echo 'BLOCKED: destructive command detected' && exit 1 || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_FILE_PATH\" | grep -qiE '(\\.env|\\.secret|\\.key|\\.pem|credentials)' && echo 'BLOCKED: editing sensitive file' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"\\n## $(date '+%Y-%m-%d %H:%M') — Session End\\n$(git diff --name-only 2>/dev/null | head -20)\" >> .claude/PROGRESS.md 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   }
 }

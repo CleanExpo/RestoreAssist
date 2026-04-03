@@ -9,6 +9,7 @@ export interface GoogleAuthUser {
   name: string | null
   image: string | null
   role?: string
+  googleAuthToken?: string
 }
 
 /**
@@ -61,6 +62,7 @@ export async function signInWithGoogleFirebase(): Promise<GoogleAuthUser> {
     name: dbUser.name,
     image: dbUser.image,
     role: dbUser.role,
+    googleAuthToken: dbUser.googleAuthToken,
   }
 }
 

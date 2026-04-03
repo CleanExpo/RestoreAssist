@@ -3,6 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { BRAND } from '@/lib/brand'
 
 interface FooterProps {
   darkMode: boolean
@@ -33,8 +34,8 @@ export default function Footer({ darkMode }: FooterProps) {
           className={`text-4xl md:text-5xl font-bold mb-6 text-center ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
           style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
         >
-          Inspection. Scoping. Estimating. Connected.
-        </motion.p>
+          {BRAND.slogan}
+        </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -43,7 +44,7 @@ export default function Footer({ darkMode }: FooterProps) {
           className={`text-lg md:text-xl max-w-4xl mx-auto leading-relaxed text-center mb-20 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
           style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
         >
-          RestoreAssist turns verified site data into accurate, transparent, and auditable restoration reports — saving time, ensuring compliance, and building trust through evidence-based intelligence.
+          {BRAND.description}
         </motion.p>
         <div className="grid md:grid-cols-5 gap-12">
           {/* Left Side - Brand Information */}
@@ -63,7 +64,7 @@ export default function Footer({ darkMode }: FooterProps) {
                   Restore Assist
                 </h3>
                 <p className={`text-sm mb-4 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                  AI-powered damage assessment platform for Australian restoration professionals.
+                  {BRAND.shortDescription}
                 </p>
                 <div className={`text-xs space-y-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                   <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>

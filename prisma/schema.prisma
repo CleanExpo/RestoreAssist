@@ -164,9 +164,14 @@ model User {
   // Restoration documentation (Australian-law invoices, estimates)
   restorationDocuments RestorationDocument[]
 
-  // Third-party integrations
-  ascoraIntegration  AscoraIntegration?
-  drNrpgIntegration  DrNrpgIntegration?
+  // Scope templates
+  scopeTemplates ScopeTemplate[]
+
+  // Content automation pipeline (RA-158)
+  contentJobs ContentJob[]
+
+  // Support tickets (RA-163)
+  supportTickets SupportTicket[]
 }
 
 model Feedback {
@@ -1481,11 +1486,6 @@ model Inspection {
   submittedAt DateTime?
   processedAt DateTime?
 
-  // E-Signature (RA-269)
-  signatureUrl  String?   // Supabase Storage URL for technician signature SVG/PNG
-  signedAt      DateTime? // When e-signature was captured
-  signedByName  String?   // Technician name at time of signing
-
   // Relations
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1525,34 +1525,11 @@ model Inspection {
   propertyDataSource    String? // "CORELOGIC" or "MANUAL"
   propertyDataFetchedAt DateTime? // Timestamp of fetch
 
-  // Loss Description (free-text from NIR form — feeds scope narrative generator)
-  lossDescription String? @db.Text
-
-  // Generated Scope Narrative (persisted after streaming, survives page navigation)
-  generatedNarrative String? @db.Text
-
   // Visual Moisture Mapping
   floorPlanImageUrl String? // URL to uploaded floor plan image
 
-  // RA-261: Claim type (gate for scope generation)
-  claimType ClaimType?
-
   // Relations
-  propertyLookupCache        PropertyLookup?
-  sketches                   ClaimSketch[]
-  drNrpgJobSync              DrNrpgJobSync?
-  dryingGoalRecord           DryingGoalRecord?
-  waterDamageClassification   WaterDamageClassification?
-  psychrometricReadings       PsychrometricReading[]
-  circuitAssessments          CircuitAssessment[]
-  fireSmokeDamageAssessment   FireSmokeDamageAssessment?
-  contentsPackOutItems        ContentsPackOutItem[]
-  mouldRemediationAssessment  MouldRemediationAssessment?
-  stormDamageAssessment       StormDamageAssessment?
-  biohazardAssessment         BiohazardAssessment?
-  carpetRestorationAssessment CarpetRestorationAssessment?
-  hvacAssessment              HVACAssessment?
-  australianCompliance        AustralianComplianceRecord?
+  propertyLookupCache PropertyLookup?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1576,71 +1553,6 @@ enum InspectionStatus {
   ESTIMATED
   COMPLETED
   REJECTED
-}
-
-// ─── RA-261: NIR Full Data Depth — Phase 1 Enums ──────────────────────────────
-
-enum ClaimType {
-  WATER
-  FIRE
-  MOULD
-  STORM
-  CONTENTS
-  BIOHAZARD
-  ODOUR
-  CARPET
-  HVAC
-  ASBESTOS
-}
-
-enum WaterCategory {
-  CAT_1  // Clean water
-  CAT_2  // Grey water
-  CAT_3  // Black water
-}
-
-enum DamageClass {
-  CLASS_1  // Least amount of water absorption
-  CLASS_2  // Significant absorption (walls, carpet)
-  CLASS_3  // Greatest absorption (walls, ceilings, insulation)
-  CLASS_4  // Specialty drying (hardwood, plaster, concrete)
-}
-
-enum LossSourceType {
-  PLUMBING
-  ROOF
-  APPLIANCE
-  FLOOD
-  GROUNDWATER
-  CONDENSATION
-  HVAC
-  UNKNOWN
-}
-
-enum MeterType {
-  PIN
-  PINLESS
-  CALCIUM_CHLORIDE
-}
-
-enum ScopeUnit {
-  M2
-  LM
-  EACH
-  DAY
-  HOUR
-  LITRE
-}
-
-enum ScopeCategory {
-  EXTRACTION
-  STRUCTURAL_DRYING
-  EQUIPMENT
-  ANTIMICROBIAL
-  MONITORING
-  CONTENTS
-  HVAC
-  ODOUR
 }
 
 // Environmental Data (Temperature, Humidity, Dew Point, etc.)
@@ -1680,23 +1592,12 @@ model MoistureReading {
   notes    String? @db.Text
   photoUrl String? // Link to photo if available
 
-  // Floor plan placement (for MoistureMappingCanvas)
-  mapX Float? // X position (0-1 normalised) on floor plan
-  mapY Float? // Y position (0-1 normalised) on floor plan
-
-  // RA-261: Meter & drying goal tracking
-  meterType          MeterType? // pin / pinless / calcium_chloride
-  meterModel         String?    // For calibration audit trail
-  targetEMC          Float?     // Auto-populated from material type (% MC)
-  dryingGoalAchieved Boolean    @default(false)
-
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([surfaceType])
-  @@index([dryingGoalAchieved])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
@@ -1753,25 +1654,12 @@ model ScopeItem {
   isRequired Boolean @default(true)
   isSelected Boolean @default(true) // User can deselect if not needed
 
-  // RA-261: Pricing & compliance metadata
-  code             String?       // e.g., "WTR-EXT-CAT2"
-  scopeCategory    ScopeCategory? // extraction | structural_drying | equipment | …
-  iicrcStandard    String?        // e.g., "AS-IICRC S500:2025 §8.3.2"
-  scopeUnit        ScopeUnit?     // m2 | lm | each | day | hour | litre
-  auUnitPrice      Decimal?       @db.Decimal(10, 2) // AUD from Ascora historical data
-  acceptedByInsurer Boolean?      // Populated from beta programme + Ascora history
-  acceptanceRate   Float?         // % of times accepted without dispute
-  claimType        ClaimType?     // water | fire | mould | storm | …
-  lastPriceUpdate  DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([itemType])
   @@index([autoDetermined])
-  @@index([claimType])
-  @@index([scopeCategory])
 }
 
 // Cost Estimates (Line items with costs)
@@ -3844,923 +3732,154 @@ enum ReminderStatus {
   CANCELLED
 }
 
-// ──────────────────────────────────────────────
-// V2: Sketch & Property Data (RA-89)
-// ──────────────────────────────────────────────
-
-/// Floor plan sketch saved per inspection, per floor.
-/// Stores SVG/canvas state as JSONB for Structural, Moisture, and Equipment layers.
-model ClaimSketch {
-  id           String     @id @default(cuid())
-  inspectionId String
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  floorNumber  Int     @default(0)
-  floorLabel   String  @default("Ground Floor") // "Ground Floor", "First Floor", etc.
-  sketchType   String  @default("structural")   // "structural" | "moisture" | "equipment"
-
-  // Canvas state (SVG/Fabric.js JSON serialised)
-  sketchData   Json?  // Full canvas state for Fabric.js / custom SVG
-  backgroundImageUrl String?  // Floor plan underlay image URL
-
-  // Overlay layer data (lightweight JSON, not full canvas state)
-  moisturePoints Json? // Array of { id, x, y, readingId } placements
-  equipmentPoints Json? // Array of { id, x, y, type: "dehu"|"air_mover"|"scrubber" }
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  annotations SketchAnnotation[]
-
-  @@index([inspectionId])
-  @@index([inspectionId, floorNumber])
-}
-
-/// Annotations overlaid on a ClaimSketch: labels, arrows, damage zones, measurements, photos.
-model SketchAnnotation {
-  id       String      @id @default(cuid())
-  sketchId String
-  sketch   ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-
-  /// Type of annotation
-  type String // "label" | "arrow" | "damage_zone" | "measurement" | "photo_marker"
-
-  /// Type-specific JSON payload
-  /// label:        { text, x, y, color, fontSize }
-  /// arrow:        { x1, y1, x2, y2, color }
-  /// damage_zone:  { points: [{x,y}], fill, opacity, damageType: "water"|"fire"|"mould" }
-  /// measurement:  { x1, y1, x2, y2, value, unit: "m"|"cm" }
-  /// photo_marker: { x, y, photoUrl, caption }
-  data Json
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([sketchId])
-}
-
 enum ExternalSyncStatus {
   PENDING
   SYNCED
   FAILED
 }
 
-// ============================================================
-// ASCORA INTEGRATION (RA-262)
-// Import real AU restoration job data to seed ScopePricingDatabase.
-// NB: Ascora API uses camelCase fields; jobType is an { id, name } object.
-// SentToMyob does NOT exist in the Ascora API — totalExTax is the value proxy.
-// ============================================================
+// ============================================
+// SCOPE TEMPLATES
+// ============================================
 
-model AscoraIntegration {
-  id        String    @id @default(cuid())
-  userId    String    @unique // TODO: migrate to businessProfileId when BusinessProfile model lands
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKey    String    // encrypted at rest via Supabase Vault
-  baseUrl   String    @default("https://api.ascora.com.au")
-  isActive  Boolean   @default(true)
-  lastSyncAt          DateTime?
-  totalJobsImported   Int       @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+model ScopeTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  jobs AscoraJob[]
-}
+  name        String
+  description String?  @db.Text
+  claimType   String?  // water_damage | fire_damage | mould_remediation | storm_damage | general
 
-model AscoraJob {
-  id              String            @id @default(cuid())
-  integrationId   String
-  integration     AscoraIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  ascoraJobId     String            @unique // Ascora native JobID
-  ascoraJobNumber String?           // Human-readable job number
-  jobType         String?           // e.g. "Water Damage", "Fire Restoration"
-  claimType       String?           // Mapped from jobType to RA claim type enum
-  suburb          String?
-  state           String?
-  postcode        String?
-  completedAt     DateTime?
-  sentToMyob      Boolean   @default(false) // NOTE: not in Ascora API — kept for manual future tagging
-  totalExTax      Float?    // Job total ex-GST — used for value-tier filtering (Private/Larger-Loss)
-  importedAt      DateTime  @default(now())
-  createdAt       DateTime  @default(now())
+  // Line items stored as JSON array
+  items       String?  @db.Text // JSON: Array<{ id, description, unit, quantity, iicrcRef? }>
 
-  lineItems AscoraLineItem[]
-  notes     AscoraNote[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  @@index([integrationId])
+  @@index([userId])
   @@index([claimType])
-  @@index([completedAt])
-  @@index([sentToMyob])
-  @@index([totalExTax])
 }
 
-model AscoraLineItem {
-  id             String    @id @default(cuid())
-  ascoraJobId    String
-  job            AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
-  partNumber     String    // Ascora PartNumber → maps to ScopePricingDatabase.partNumber
-  description    String
-  quantity       Float
-  unitPriceExTax Float
-  amountExTax    Float
-  invoiceDate    DateTime?
-  importedAt     DateTime  @default(now())
+// ─── Content Automation Pipeline (RA-158) ─────────────────────────────────────
 
-  @@index([ascoraJobId])
-  @@index([partNumber])
-}
-
-model AscoraNote {
-  id          String    @id @default(cuid())
-  ascoraJobId String
-  job         AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
-  noteText    String    @db.Text
-  importedAt  DateTime  @default(now())
-
-  @@index([ascoraJobId])
-}
-
-/// AU-native scope pricing database — seeded from Ascora + beta contractor data.
-/// The compounding moat: acceptanceRate compounds with every accepted/rejected line item.
-/// After 500 jobs this is the only AU-specific insurer acceptance dataset in existence.
-model ScopePricingDatabase {
-  id                 String   @id @default(cuid())
-  partNumber         String   @unique // Ascora PartNumber / internal code
-  description        String
-  claimTypes         String[] // ["water", "fire", "mould", "storm", ...]
-  usageCount         Int      @default(0)
-  averageUnitPriceAU Float    // Average from real AU contractor data
-  medianUnitPriceAU  Float?
-  minPriceAU         Float?
-  maxPriceAU         Float?
-  averageQuantity    Float?
-  /// 0.0–1.0 fraction of usages accepted by AU insurer — the proprietary differentiator
-  acceptanceRate     Float?
-  acceptedCount      Int      @default(0)
-  rejectedCount      Int      @default(0)
-  /// Array of { date: ISO-8601, avgPrice: float } for trend analysis
-  priceHistory       Json?
-  source             String   @default("ascora") // "ascora" | "manual" | "beta_contractor"
-  isActive           Boolean  @default(true)
-  lastUpdated        DateTime @updatedAt
-  createdAt          DateTime @default(now())
-
-  @@index([claimTypes])
-  @@index([acceptanceRate])
-  @@index([isActive])
-  @@index([source])
-}
-
-// ============================================================
-// DR-NRPG INTEGRATION (RA-27)
-// Bidirectional job sync: DR-NRPG dispatch → RestoreAssist inspection
-// Eliminates double data-entry; assessor gets report URL automatically.
-// ============================================================
-
-model DrNrpgIntegration {
-  id            String    @id @default(cuid())
-  userId        String    @unique // TODO: migrate to businessProfileId when BusinessProfile model lands
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  drNrpgApiKey  String    // encrypted at rest
-  drNrpgBaseUrl String    @default("https://api.dr-nrpg.com.au")
-  webhookSecret String    // HMAC-SHA256 signing secret
-  isActive      Boolean   @default(true)
-  lastSyncAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  syncedJobs DrNrpgJobSync[]
-}
-
-model DrNrpgJobSync {
-  id              String             @id @default(cuid())
-  integrationId   String
-  integration     DrNrpgIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  inspectionId    String?            @unique // null until RA auto-creates the inspection
-  inspection      Inspection?        @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
-  drNrpgJobId     String             @unique
-  claimNumber     String
-  insurer         String?
-  policyHolder    String?
-  propertyAddress String?
-  lossType        String?            // "water" | "fire" | "mould" | "storm" | "biohazard" | "other"
-  status          String             @default("dispatched")
-  lastEventAt     DateTime           @default(now())
-  lastEventType   String?
-  syncErrors      Json?              // [{ timestamp, error, context }]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  webhookLogs DrNrpgWebhookLog[]
-
-  @@index([integrationId])
-  @@index([status])
-  @@index([lastEventAt])
-}
-
-model DrNrpgWebhookLog {
-  id             String        @id @default(cuid())
-  jobSyncId      String
-  jobSync        DrNrpgJobSync @relation(fields: [jobSyncId], references: [id], onDelete: Cascade)
-  direction      String        // "inbound" | "outbound"
-  eventType      String        // "inspection.complete" | "scope.approved" | "drying.complete" | etc.
-  payload        Json
-  responseStatus Int?
-  responseBody   String?       @db.Text
-  deliveredAt    DateTime      @default(now())
-  retryCount     Int           @default(0)
-
-  @@index([jobSyncId])
-  @@index([eventType])
-  @@index([direction])
-}
-
-// ============================================================
-// DRYING GOAL VALIDATION (RA-260 Phase 5)
-// The feature no AU competitor offers — timestamped psychrometric
-// proof that drying completed to IICRC S500 material EMC targets.
-// ============================================================
-
-/// One record per inspection — tracks drying goal progress against
-/// IICRC S500 material EMC targets. When goalAchieved = true, the
-/// system generates a timestamped "Drying Goal: ACHIEVED" certificate
-/// that is assessor-proof: proves drying was completed to standard.
-model DryingGoalRecord {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  /// IICRC S500 Category + Class (drives which EMC targets apply)
-  targetCategory String // "CAT_1" | "CAT_2" | "CAT_3"
-  targetClass    String // "CLASS_1" | "CLASS_2" | "CLASS_3" | "CLASS_4"
-  startedAt      DateTime @default(now())
-
-  /// Per-material EMC targets in JSON:
-  /// { "drywall": 15.0, "timber": 19.0, "concrete": 3.5, "carpet": 3.0 }
-  /// Populated automatically from IICRC_DRY_STANDARDS on record creation.
-  materialTargets Json
-
-  /// Validation state — updated each time moisture readings are logged
-  goalAchieved          Boolean   @default(false)
-  goalAchievedAt        DateTime? // Exact timestamp when ALL readings ≤ EMC targets
-  totalDryingDays       Int?      // (goalAchievedAt - startedAt) in whole days
-  /// Snapshot of all moisture readings at the moment of goal achievement
-  finalReadingsSnapshot Json?
-
-  /// Certificate fields — included in PDF report
-  iicrcReference String    @default("IICRC S500:2021 §11.4")
-  signedOffBy    String?   // Technician name
-  signedOffAt    DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([goalAchieved])
-  @@index([goalAchievedAt])
-}
-
-// ============================================================
-// HISTORICAL JOB AI LEARNING MODEL (RA-276 / RA-277)
-// Normalised view of imported restoration jobs for semantic search.
-// Seeded from Ascora via /api/ascora/sync.
-// Embedding vector managed via raw SQL (pgvector) — not tracked by Prisma
-// client types, but included here for schema documentation.
-// ============================================================
-
-/// Normalised historical job record for AI similarity search.
-/// embeddingVector (vector(1536)) is managed via raw SQL migrations
-/// and pgvector — kept as a comment here as Prisma does not support
-/// the vector type natively.
-model HistoricalJob {
-  id           String   @id @default(cuid())
-  /// User or org ID that owns this data — used as tenancy filter in similarity search
-  tenantId     String
-  /// Import source: "ascora" | "manual" | "dr-nrpg"
-  source       String
-  /// Native ID from the source system
-  externalId   String
-  jobNumber    String
-  jobName      String
-  description  String   @db.Text
-  claimType    String   // "water" | "fire" | "mould" | "storm" | "biohazard" | "other"
-  waterCategory Int?
-  waterClass    Int?
-  address      String
-  suburb       String
-  state        String
-  postcode     String
-  customerName String?
-
-  // Financial summary
-  totalExTax    Float
-  totalIncTax   Float
-  itemCount     Int     @default(0)
-  equipmentCount Int    @default(0)
-  photoCount    Int     @default(0)
-
-  completedDate DateTime?
-  customFields  Json?
-  rawJson       Json?
-
-  // Embedding metadata — vector column managed via raw SQL / pgvector
-  // embeddingVector Unsupported("vector(1536)")?  ← managed via migration, not Prisma
-  embeddingModel  String?
-  embeddedAt      DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([source, externalId])
-  @@index([tenantId])
-  @@index([claimType])
-  @@index([suburb, state])
-  @@index([completedDate])
-  @@index([totalExTax])
-  @@index([embeddedAt])
-}
-
-// ============================================================
-// Prompt Optimization (autoresearch pattern — RA-287)
-// ============================================================
-
-model PromptVariant {
-  id               String   @id @default(cuid())
-  claimType        String
-  promptText       String   @db.Text
-  version          Int      @default(1)
-  parentVariantId  String?
-  parentVariant    PromptVariant?  @relation("PromptLineage", fields: [parentVariantId], references: [id])
-  childVariants    PromptVariant[] @relation("PromptLineage")
-
-  compositeScore    Float?
-  structuralScore   Float?
-  citationScore     Float?
-  equipmentScore    Float?
-  specificityScore  Float?
-  categoryScore     Float?
-
-  isProduction     Boolean  @default(false)
-  description      String?  @db.Text
-
-  evaluationRuns   EvaluationRun[]
-
-  createdAt        DateTime @default(now())
-
-  @@index([claimType, isProduction])
-  @@index([claimType, compositeScore])
-}
-
-model EvaluationRun {
+model ContentJob {
   id              String   @id @default(cuid())
-  promptVariantId String?
-  promptVariant   PromptVariant? @relation(fields: [promptVariantId], references: [id])
-
-  testCaseId      String
-  generatedScope  String   @db.Text
-  compositeScore  Float
-  structuralScore Float?
-  citationScore   Float?
-  equipmentScore  Float?
-  specificityScore Float?
-  categoryScore   Float?
-
-  inputTokens     Int?
-  outputTokens    Int?
-  costAud         Float?
-  durationMs      Int?
-  model           String?
-
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  product         String
+  angle           String
+  platform        String   // 'tiktok' | 'instagram' | 'facebook' | 'pinterest'
+  duration        Int      // seconds (15/30/60)
+  status          String   @default("PENDING") // PENDING|SCRIPT_READY|VOICE_READY|VIDEO_READY|SCHEDULED|POSTED|FAILED
+  hook            String?
+  agitation       String?
+  solution        String?
+  cta             String?
+  voiceoverText   String?
+  caption         String?
+  hashtags        String?  // JSON array stored as string
+  audioUrl        String?  // Supabase Storage URL
+  videoUrl        String?  // HeyGen output URL
+  heygenRenderJobId String?
+  errorMessage    String?
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  posts           ContentPost[]
 
-  @@index([promptVariantId])
-  @@index([testCaseId])
+  @@index([userId])
+  @@index([status])
+  @@index([platform])
   @@index([createdAt])
 }
 
-// ─── RA-261: NIR Full Data Depth — Phase 1 Models ────────────────────────────
+model ContentPost {
+  id              String      @id @default(cuid())
+  jobId           String
+  job             ContentJob  @relation(fields: [jobId], references: [id])
+  platform        String
+  externalPostId  String?
+  postUrl         String?
+  scheduledAt     DateTime?
+  postedAt        DateTime?
+  status          String      @default("DRAFT") // DRAFT|SCHEDULED|POSTED|FAILED
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  analytics       ContentAnalytics[]
 
-/// Water Damage Gate Classification (RA-261 Phase 1 — IICRC S500:2025)
-/// Stores the mandatory gate fields that must be complete before scope generation unlocks.
-model WaterDamageClassification {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  @@index([jobId])
+  @@index([platform])
+  @@index([status])
+  @@index([scheduledAt])
+}
 
-  // Classification Gate Fields (drive all downstream generation)
-  waterCategory        WaterCategory?   // 1=clean, 2=grey, 3=black
-  damageClass          DamageClass?     // 1–4 drives equipment quantities & drying duration
-  lossSourceType       LossSourceType?
-  lossSourceIdentified Boolean          @default(false) // GATE: blocks scope if false
-  lossSourceAddressed  Boolean          @default(false) // GATE: blocks scope if false
-  hoursOfExposure      Float?           // <24h / 24-48h / >48h drives mould risk
+model ContentAnalytics {
+  id              String      @id @default(cuid())
+  postId          String
+  post            ContentPost @relation(fields: [postId], references: [id])
+  views           Int         @default(0)
+  likes           Int         @default(0)
+  shares          Int         @default(0)
+  comments        Int         @default(0)
+  reach           Int         @default(0)
+  recordedAt      DateTime    @default(now())
+  createdAt       DateTime    @default(now())
 
-  // Computed gate states (server-side)
-  gateClassificationComplete Boolean @default(false)
-  gateLossSourceComplete      Boolean @default(false)
-  gatePhotosAttached          Boolean @default(false)
+  @@index([postId])
+  @@index([recordedAt])
+}
+
+// ============================================
+// Content Topic Bank — Weighted rotation for automated video generation
+// ============================================
+
+model ContentTopic {
+  id          String    @id @default(cuid())
+  product     String    // "RestoreAssist", "Scope Generation", "IICRC Compliance", etc.
+  angle       String    // "problem/solution", "social proof", "how-to", "industry insight"
+  platform    String    // "youtube" | "tiktok" | "instagram" | "facebook"
+  duration    Int       // 60 | 90 | 120 | 150
+  category    String    // "feature-spotlight" | "industry-insight" | "compliance-tip" | "problem-solution" | "how-to" | "social-proof"
+  weight      Int       @default(10) // Higher = more likely to be selected
+  enabled     Boolean   @default(true)
+  lastUsedAt  DateTime?
+  useCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([enabled, lastUsedAt])
+  @@index([category])
+  @@index([platform])
+}
+
+// ============================================
+// RA-163: Customer Support Ticket Model
+// ============================================
+
+model SupportTicket {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  email   String
+  name    String
+  subject String
+  body    String @db.Text
+
+  // general | billing | technical | feature_request | bug
+  category String @default("general")
+  // low | normal | high | urgent
+  priority String @default("normal")
+  // open | in_progress | resolved | closed
+  status String @default("open")
+
+  responseDraft String?   @db.Text // Claude-generated response draft
+  resolvedAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([inspectionId])
-  @@index([waterCategory])
-  @@index([damageClass])
-}
-
-/// Daily psychrometric readings per drying visit (RA-261 Phase 1)
-/// Tracks drying progress over multiple visits — more granular than EnvironmentalData.
-model PsychrometricReading {
-  id           String     @id @default(cuid())
-  inspectionId String
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // Visit context
-  visitDate   DateTime
-  visitNumber Int      // Drying day number (Day 1, 2, 3…)
-  technicianId String?
-
-  // Psychrometric measurements (AU metric)
-  dryBulbTempC     Float?  // °C — standard thermometer at equipment height
-  wetBulbTempC     Float?  // °C — evaporative cooling indicator
-  relativeHumidity Float?  // % — target during drying: 30–40%
-  dewPointC        Float?  // °C — auto-calculated; must be ≥3°C below all surfaces
-  grainsPerPound   Float?  // GPP — initial baseline + daily; target: 30–35 GPP
-  gramsPerKilogram Float?  // g/kg — metric equivalent for AU hygrometers
-
-  // Equipment context
-  equipmentRunning Boolean @default(true)
-  notes            String? @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([visitDate])
-  @@index([visitNumber])
-}
-
-/// Electrical circuit assessment for AS/NZS 3012:2019 compliance (RA-261 Phase 1)
-/// Validates that equipment electrical loads stay within 80% of circuit breaker rating.
-model CircuitAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // Circuit identification
-  circuitId    String  // e.g., "Circuit A", "GPO North Wall"
-  locationZone String  // Where in the property
-
-  // Equipment on this circuit (JSON array of {type, model, serial, ampDraw})
-  equipmentList Json
-
-  // Circuit ratings
-  circuitBreakerRating Int     // amps: 15, 20, 32, 50
-  rcdProtected         Boolean @default(false)
-  extensionCordGauge   String? // mm² minimum (e.g., "2.5")
-
-  // Safety calculation (auto-populated server-side)
-  totalCircuitLoad    Float?   // Sum of all equipment amp draws on this circuit
-  circuitLoadSafe     Boolean? // true if totalCircuitLoad < (breaker × 0.8)
-  circuitLoadWarning  String?  @db.Text // Auto-generated warning text if unsafe
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([circuitLoadSafe])
-}
-
-// ─── RA-261: NIR Full Data Depth — Phase 2: Fire & Smoke Enums ───────────────
-
-enum StructuralStability {
-  SAFE
-  UNCERTAIN
-  COMPROMISED
-}
-
-enum SmokeResidueType {
-  WET      // Wet soot — high heat, dense smoke
-  DRY      // Dry soot — fast-burning, low humidity
-  PROTEIN  // Protein fire — kitchen/food source
-  FUEL_OIL // Fuel oil — heating systems
-}
-
-enum OdourType {
-  SMOKE
-  PROTEIN
-  CHEMICAL
-  FUEL
-}
-
-enum PackOutDecision {
-  CLEAN_ONSITE
-  PACK_OUT
-  TOTAL_LOSS
-}
-
-enum ConditionGrade {
-  EXCELLENT
-  GOOD
-  FAIR
-  POOR
-}
-
-enum MouldConditionLevel {
-  CONDITION_1  // Normal fungal ecology — no visible or olfactory evidence
-  CONDITION_2  // Settled spores — visible dust/debris, no active growth
-  CONDITION_3  // Active mould growth — visible or confirmed by testing
-}
-
-// ─── RA-261: NIR Phase 2 — Fire & Smoke Models ───────────────────────────────
-
-/// Fire & Smoke Damage Assessment (RA-261 Phase 2 — ANSI/IICRC S700:2025)
-/// Structural safety gate + smoke residue + odour assessment.
-model FireSmokeDamageAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // Structural Safety Gate (blocks all other work if UNCERTAIN or COMPROMISED)
-  structuralStability          StructuralStability?
-  electricalDisconnectVerified Boolean              @default(false) // GATE: must be true before wet cleaning
-  gasShutoffVerified           Boolean              @default(false)
-  charringDepthMm              Float?               // Depth of visible charring
-  engineerClearanceRequired    Boolean              @default(false) // Auto-set if UNCERTAIN
-
-  // Smoke Residue Classification (drives cleaning method)
-  smokeResidueType  SmokeResidueType?
-  residueLocation   String?           // Specific area description
-  surfacePH         Float?            // 0–14; soot is alkaline, needs acid neutralisation if >8
-  pHMeterModel      String?
-
-  // Odour Assessment
-  odourSeverityScore Int?       // 0=none, 1=mild, 2=moderate, 3=severe
-  hvacAffected       Boolean    @default(false) // Auto-triggers HVAC cleaning line items
-  odourType          OdourType?
-
-  // Ozone/Deodorisation Treatment
-  ozoneTreatmentDuration     Float?    // hours
-  ozoneConcentrationPpm      Float?    // Target clearance: <0.05 ppm (EPA threshold)
-  evacuationOrderTimestamp   DateTime?
-  reentryApprovalTimestamp   DateTime?
-  spaceVolumeM3              Float?
-
-  // Gate states
-  gateStructuralCleared  Boolean @default(false) // structuralStability = SAFE
-  gateElectricalCleared  Boolean @default(false) // electricalDisconnectVerified
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([structuralStability])
-}
-
-/// Contents pack-out inventory item (RA-261 Phase 2 — used across Fire, Flood, Biohazard)
-/// One row per item — chain-of-custody tracking for insurer acceptance.
-model ContentsPackOutItem {
-  id           String     @id @default(cuid())
-  inspectionId String
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // Item identification
-  itemDescription  String           // "Mahogany dining table, 6-seater"
-  make             String?
-  model            String?
-  serialNumber     String?
-  ageYears         Int?
-
-  // Condition assessment
-  conditionPreLoss  ConditionGrade?
-  conditionPostLoss ConditionGrade?
-
-  // Valuation
-  replacementValueAud     Decimal? @db.Decimal(10, 2)
-  restorationCostEstimate Decimal? @db.Decimal(10, 2)
-
-  // Decision
-  packOutDecision PackOutDecision?
-  packOutTag      String?           // Barcode/QR for chain of custody
-
-  // Evidence
-  beforePhotoUrl String?
-  afterPhotoUrl  String?
-
-  // Linked claim type
-  claimType ClaimType?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([packOutDecision])
-  @@index([claimType])
-}
-
-// ─── RA-261: NIR Phase 3 — Mould Remediation Model ──────────────────────────
-
-/// Mould Remediation Assessment (RA-261 Phase 3 — ANSI/IICRC S520:2024)
-/// Condition level drives containment requirements and air sampling gates.
-model MouldRemediationAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // Classification (drives all downstream requirements)
-  mouldConditionLevel    MouldConditionLevel?
-  visibleGrowthObserved  Boolean              @default(false)
-  affectedAreaM2         Float?               // GATE: drives containment level
-  moistureSourceIdentified Boolean            @default(false) // GATE
-  rootCauseAddressed     Boolean              @default(false) // GATE
-
-  // Containment data (auto-calculated from affectedAreaM2)
-  pressureDifferentialPa     Float?   // Target: –5 to –12 Pa
-  airChangesPerHour          Float?   // Target: 10–15 ACH
-  containmentBarrierMaterial String?  // e.g., "6 mil polyethylene"
-  negativePressureMachineModel String?
-
-  // Air sampling (triggered when Condition 3 or area >10m²)
-  airSamplingRequired        Boolean    @default(false) // Auto-set
-  samplingDate               DateTime?
-  labName                    String?    // Accredited lab
-  labReportReference         String?
-  sporeType                  String?    // e.g., Cladosporium, Aspergillus, Stachybotrys
-  sporeCountPreRemediation   Float?     // spores/m³
-  outdoorBaselineCount       Float?     // spores/m³
-  sporeCountPostRemediation  Float?     // spores/m³
-  clearanceCriterion         String?    // MET | NOT_MET | PENDING
-  iepAssessmentRequired      Boolean    @default(false) // Auto-set if area >50m² or vulnerable
-
-  // Gate states
-  gateMoistureSourceFixed Boolean @default(false)
-  gateContainmentSufficient Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([mouldConditionLevel])
-}
-
-// ─── RA-261: NIR Phase 4 — Storm, Biohazard, Carpet Enums ────────────────────
-
-enum StormEventType {
-  STORM
-  CYCLONE
-  HAIL
-  DOWNBURST
-  TORNADO
-}
-
-enum DamagePenetration {
-  SURFACE
-  PARTIAL
-  FULL
-}
-
-enum RoofMaterialType {
-  COLORBOND
-  TERRACOTTA
-  SHINGLES
-  METAL
-  OTHER
-}
-
-enum BiohazardType {
-  SEWAGE_CAT3
-  BLOOD
-  BODILY_FLUIDS
-  CRIME_SCENE
-  UNATTENDED_DEATH
-}
-
-enum PPELevel {
-  LEVEL_1
-  LEVEL_2
-  LEVEL_3
-}
-
-enum CarpetFiberType {
-  WOOL
-  NYLON
-  POLYESTER
-  POLYPROPYLENE
-  OTHER
-}
-
-enum CarpetPileType {
-  CUT
-  LOOP
-  CUT_LOOP
-  FRIEZE
-}
-
-enum StainRemovalResult {
-  COMPLETE
-  PARTIAL
-  UNSUCCESSFUL
-}
-
-// ─── RA-261: NIR Phase 4 — Storm Damage Model ────────────────────────────────
-
-/// Storm/Impact Damage Assessment (RA-261 Phase 4)
-model StormDamageAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // BOM event linkage
-  bomEventReference String?    // Bureau of Meteorology report ID
-  windSpeedKmh      Float?
-  eventType         StormEventType?
-  eventTimestamp    DateTime?
-
-  // Structural damage
-  roofMaterialType      RoofMaterialType?
-  roofDamageAreaM2      Float?
-  damagePenetration     DamagePenetration?
-  waterIngressPoints    String?            @db.Text // JSON array of location descriptions
-  engineerClearanceRequired Boolean         @default(false)
-
-  // Emergency tarping
-  emergencyTarpingCompleted  Boolean   @default(false)
-  emergencyTarpingM2         Float?
-  emergencyTarpingTimestamp  DateTime?
-
-  // Consequential water damage
-  waterCategory    WaterCategory?
-  asbestosRiskFlag Boolean        @default(false) // Auto-set if building pre-1987
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([eventType])
-}
-
-// ─── RA-261: NIR Phase 4 — Biohazard Assessment Model ────────────────────────
-
-/// Biohazard / Trauma / Sewage Assessment (RA-261 Phase 4 — IICRC S540)
-model BiohazardAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  biohazardType          BiohazardType?
-  contaminationAreaM2    Float?
-  atpReadingPre          Float?    // RLU pre-remediation
-  atpReadingPost         Float?    // RLU post-remediation; target: <15 RLU
-  swmsCompleted          Boolean   @default(false) // Safe Work Method Statement
-  ppeLevel               PPELevel?
-  wasteDisposalManifestId String?
-  disposalFacilityLicense String? // EPA license number
-  disposalCertificateUrl  String? // Required before job closure
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([biohazardType])
-}
-
-// ─── RA-261: NIR Phase 4 — Carpet Restoration Model ─────────────────────────
-
-/// Carpet & Textile Restoration Assessment (RA-261 Phase 4 — IICRC S100)
-model CarpetRestorationAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  fiberType             CarpetFiberType?
-  pileType              CarpetPileType?
-  backingType           String?           // jute | synthetic | latex | other
-  standingWaterHours    Float?            // 72h + Cat3 = mandatory replace
-
-  // Extraction data
-  extractionRateLitresPerHour     Float?
-  extractionPasses                Int?
-  residualMoisturePostExtraction  Float?  // %
-
-  // Delamination
-  delaminationTestResult String?  // PASS | FAIL | MARGINAL
-
-  // Final moisture
-  finalMoisturePercent Float?
-
-  // Stain assessment
-  stainType            String?
-  stainPH              Float?
-  stainTreatmentProduct String?
-  stainRemovalResult   StainRemovalResult?
-
-  // Decision
-  restorationDecision String?  // RESTORE | REPLACE
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-}
-
-// ─── RA-261: NIR Phase 5 — HVAC, Odour, Australian Compliance Enums ──────────
-
-enum HVACContaminationLevel {
-  NONE
-  LIGHT
-  MODERATE
-  HEAVY
-}
-
-enum AustralianState {
-  NSW
-  VIC
-  QLD
-  WA
-  SA
-  TAS
-  ACT
-  NT
-}
-
-enum TechnicianCertification {
-  WRT   // Water Restoration Technician
-  ASD   // Applied Structural Drying
-  CMS   // Commercial Drying Specialist
-  HST   // Health and Safety Technician
-  OCT   // Odour Control Technician
-  CCT   // Carpet Cleaning Technician
-  MRS   // Mould Remediation Specialist
-  OTHER
-}
-
-enum NRPGCategory {
-  SMALL
-  MEDIUM
-  LARGE
-  CATASTROPHIC
-}
-
-// ─── RA-261: NIR Phase 5 — HVAC Assessment Model ─────────────────────────────
-
-/// HVAC Assessment (RA-261 Phase 5 — ANSI/IICRC S590:2023)
-model HVACAssessment {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  hvacSystemInspected       Boolean                  @default(false)
-  ductContaminationLevel    HVACContaminationLevel?
-  visibleSootInDucts        Boolean                  @default(false)
-  smokeOdourInDucts         Boolean                  @default(false)
-  filterCondition           String?                  // CLEAN | DUSTY | BLOCKED | SATURATED
-  coilContaminationLevel    HVACContaminationLevel?
-  hvacCleaningRequired      Boolean                  @default(false) // Auto-triggers line items
-  insulationResistanceMegaohm Float?
-  insulationTestPerformedBy String?                  // Licensed electrician required
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-}
-
-// ─── RA-261: NIR Phase 5 — Australian Compliance Fields ──────────────────────
-
-/// Australian-specific compliance and insurer fields — one per inspection (RA-261 Phase 5)
-model AustralianComplianceRecord {
-  id           String     @id @default(cuid())
-  inspectionId String     @unique
-  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-
-  // Insurer
-  insurerName          String?   // IAG | Suncorp | Allianz | QBE | Other
-  claimNumber          String?
-  lossAdjusterName     String?
-  lossAdjusterReference String?
-  nrpgCategory         NRPGCategory?
-
-  // Technician credentials
-  iicrcCertifiedTechnician Boolean                @default(false)
-  technicianCertification  TechnicianCertification?
-  technicianLicenseNumber  String?                // IICRC member number
-
-  // Property
-  state            AustralianState?
-  propertyYearBuilt Int?             // Pre-1987 triggers asbestos flag
-  asbestosRiskAcknowledged Boolean   @default(false) // GATE if pre-1987
-
-  // Asbestos adjacent fields
-  friableAssessment   String?  // FRIABLE | NON_FRIABLE | UNKNOWN
-  workHalted          Boolean  @default(false)
-  licensedAssessorName String?
-  licensedAssessorLicense String?
-  removalQuoteAud     Decimal? @db.Decimal(10, 2)
-  separateInvoiceRequired Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([inspectionId])
-  @@index([state])
-  @@index([nrpgCategory])
+  @@index([status])
+  @@index([userId])
+  @@index([email])
 }

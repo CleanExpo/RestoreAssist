@@ -1,0 +1,24 @@
+<!--
+  iOS Info.plist additions for RestoreAssist native shell.
+
+  After running: npx cap add ios
+  Add these keys inside the <dict> block in ios/App/App/Info.plist
+-->
+
+<key>NSCameraUsageDescription</key>
+<string>RestoreAssist uses your camera to photograph moisture meters, thermo-hygrometers, and laser measures so readings can be automatically extracted into your inspection report.</string>
+
+<key>NSPhotoLibraryUsageDescription</key>
+<string>RestoreAssist accesses your photo library to attach existing inspection photos to reports.</string>
+
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>RestoreAssist saves inspection photos to your photo library.</string>
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>RestoreAssist uses your location to tag inspection photos with the site address.</string>
+
+<key>NSBluetoothAlwaysUsageDescription</key>
+<string>RestoreAssist pairs with Tramex, Delmhorst, and Testo meters via Bluetooth to capture readings directly into your report.</string>
+
+<key>NSBluetoothPeripheralUsageDescription</key>
+<string>RestoreAssist pairs with Bluetooth moisture meters and environmental sensors.</string>

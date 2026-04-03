@@ -1,8 +1,8 @@
-import Stripe from 'stripe';
+import Stripe from "stripe";
 
 // NOTE: rotate the old test key (pk_test_51SK3Z3BY5KE…) in the Stripe dashboard
 // — it was previously hardcoded here and is now in git history.
-export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY ?? '';
+export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
 
 // Lazy singleton — avoids throwing at module evaluation time during `next build`.
 // The error is deferred to the first actual Stripe API call (request time), which
@@ -12,10 +12,10 @@ let _instance: Stripe | null = null;
 function getInstance(): Stripe {
   if (_instance) return _instance;
   if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is not set');
+    throw new Error("STRIPE_SECRET_KEY is not set");
   }
   _instance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2024-12-18.acacia',
+    apiVersion: "2025-10-29.clover",
     typescript: true,
   });
   return _instance;
