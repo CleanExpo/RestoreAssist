@@ -4,9 +4,17 @@
  * Missing items flagged. Exception reasons required for skipped items.
  * Admin notification on submission.
  *
+ * [RA-411] QA score integration — evidence quality check before submission.
+ *
  * This validator checks the InspectionWorkflow and its steps to ensure
  * all mandatory evidence has been captured or properly excepted.
  */
+
+import {
+  scoreInspectionEvidence,
+  type EvidenceItemForQA,
+  type InspectionQAResult,
+} from "./qa-scorer";
 
 // ============================================
 // TYPES
@@ -231,4 +239,62 @@ export function formatValidationSummary(
   }
 
   return lines.join(" | ");
+}
+
+// ============================================
+// QA SCORE INTEGRATION (RA-411)
+// ============================================
+
+/**
+ * Enrich a submission validation result with evidence quality scoring.
+ *
+ * If the aggregate QA score is below 70, a blocking gap is added
+ * so the inspection cannot be submitted until evidence quality improves.
+ *
+ * @param result - The existing submission validation result
+ * @param inspectionId - The inspection ID for scoring context
+ * @param evidenceItems - All evidence items to score
+ * @returns Updated result with QA scoring gaps (if any) and the QA result
+ */
+export function applyQAScoreGate(
+  result: SubmissionValidationResult,
+  inspectionId: string,
+  evidenceItems: EvidenceItemForQA[],
+): { validation: SubmissionValidationResult; qaResult: InspectionQAResult } {
+  const qaResult = scoreInspectionEvidence(inspectionId, evidenceItems);
+
+  // If no evidence items, skip QA gate (the step-level checks handle missing evidence)
+  if (evidenceItems.length === 0) {
+    return { validation: result, qaResult };
+  }
+
+  // Clone the result to avoid mutating the original
+  const updated: SubmissionValidationResult = {
+    ...result,
+    blockingGaps: [...result.blockingGaps],
+    warningGaps: [...result.warningGaps],
+  };
+
+  if (qaResult.aggregateScore < 70) {
+    updated.blockingGaps.push({
+      stepKey: "_qa_score",
+      stepTitle: "Evidence Quality Check",
+      riskTier: 2,
+      issue: "below_minimum",
+      detail: `Evidence quality score ${qaResult.aggregateScore}/100 is below the 70-point threshold. Review flagged items.`,
+    });
+    updated.canSubmit = false;
+  } else if (!qaResult.passesGate) {
+    // aggregate >= 70 but a mandatory item is below 50
+    updated.blockingGaps.push({
+      stepKey: "_qa_score",
+      stepTitle: "Evidence Quality Check",
+      riskTier: 2,
+      issue: "below_minimum",
+      detail: `One or more mandatory evidence items scored below 50/100. Review and improve flagged items before submission.`,
+    });
+    updated.canSubmit = false;
+  }
+
+  return { validation: updated, qaResult };
 }
