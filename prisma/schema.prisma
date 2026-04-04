@@ -688,6 +688,11 @@ model Organization {
   owner     User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members   User[]
   invites   UserInvite[]
+
+  // RA-408: Pluggable storage abstraction (BYOE)
+  storageProvider StorageProviderType @default(SUPABASE)
+  storageBucketUrl String?            // For BYOS — S3/GCS/Azure bucket endpoint
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 }
@@ -1533,6 +1538,10 @@ model Inspection {
 
   // Relations
   propertyLookupCache PropertyLookup?
+
+  // Sprint G: Inspection Intelligence — Evidence & Workflow
+  evidenceItems       EvidenceItem[]
+  inspectionWorkflow  InspectionWorkflow?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3914,4 +3923,201 @@ model UserReleaseSeen {
 
   @@unique([userId, releaseId])
   @@index([userId])
+}
+
+
+// ============================================
+// Sprint G: Inspection Intelligence — Evidence Schema
+// 17 evidence classes with chain-of-custody metadata
+// IICRC S500:2025 compliant evidence tracking
+// ============================================
+
+// 17 evidence classes covering all restoration inspection documentation needs
+enum EvidenceClass {
+  MOISTURE_READING        // Moisture meter readings (pin/pinless)
+  THERMAL_IMAGE           // Thermal/infrared camera captures
+  AMBIENT_ENVIRONMENTAL   // Temperature, humidity, dew point readings
+  PHOTO_DAMAGE            // Photos of visible damage
+  PHOTO_EQUIPMENT         // Photos of deployed equipment
+  PHOTO_PROGRESS          // Progress/drying verification photos
+  PHOTO_COMPLETION        // Final completion/restoration photos
+  VIDEO_WALKTHROUGH       // Video documentation of affected areas
+  FLOOR_PLAN              // Annotated floor plans / sketches
+  SCOPE_DOCUMENT          // Scope of works documentation
+  LAB_RESULT              // Lab analysis results (mould, asbestos, contamination)
+  AUTHORITY_FORM          // Authority to proceed / client sign-off
+  EQUIPMENT_LOG           // Equipment deployment and runtime logs
+  TECHNICIAN_NOTE         // Field technician written observations
+  VOICE_MEMO              // Transcribed voice notes from field
+  THIRD_PARTY_REPORT      // External specialist reports (structural, electrical)
+  COMPLIANCE_CERTIFICATE  // IICRC/regulatory compliance certificates
+}
+
+// Workflow step status for guided capture state machine
+enum WorkflowStepStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED       // Requires ExceptionReason
+  BLOCKED       // Waiting on external dependency
+}
+
+// Evidence item — individual piece of evidence with chain-of-custody
+model EvidenceItem {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Evidence classification
+  evidenceClass EvidenceClass
+  title         String        // Short description e.g. "Kitchen moisture reading — north wall"
+  description   String?       @db.Text // Detailed notes
+
+  // Chain of custody — WHO captured WHAT, WHEN, WHERE, with WHAT device
+  capturedById   String        // User ID of the person who captured this evidence
+  capturedByName String        // Denormalised name for audit trail immutability
+  capturedAt     DateTime      @default(now()) // When the evidence was captured in the field
+  capturedLat    Float?        // GPS latitude at capture
+  capturedLng    Float?        // GPS longitude at capture
+  deviceId       String?       // Device identifier (phone IMEI, meter serial, etc.)
+  deviceType     String?       // "iPhone 15 Pro", "Tramex MRH III", "FLIR C5"
+
+  // Storage
+  fileUrl        String?       // Supabase Storage URL for file-based evidence
+  fileMimeType   String?       // MIME type of the stored file
+  fileSizeBytes  Int?          // File size for storage tracking
+  thumbnailUrl   String?       // Auto-generated thumbnail for photos/videos
+
+  // Structured data (JSON) — for readings, measurements, structured results
+  structuredData String?       @db.Text // JSON: { value: 42, unit: "%WME", material: "drywall" }
+
+  // Workflow linkage
+  workflowStepId String?
+  workflowStep   WorkflowStep? @relation(fields: [workflowStepId], references: [id], onDelete: SetNull)
+
+  // Affected area linkage (optional — some evidence is inspection-wide)
+  affectedAreaId String?
+
+  // Integrity
+  hashSha256     String?       // SHA-256 hash of the original file for tamper detection
+  isVerified     Boolean       @default(false) // Admin/office has verified this evidence
+  verifiedById   String?       // Who verified it
+  verifiedAt     DateTime?     // When it was verified
+
+  // Exception handling — if this evidence replaces a required but unobtainable item
+  exceptionReason ExceptionReason?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([evidenceClass])
+  @@index([capturedById])
+  @@index([capturedAt])
+  @@index([workflowStepId])
+  @@index([inspectionId, evidenceClass])
+}
+
+// Inspection workflow — state machine for guided capture
+model InspectionWorkflow {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Workflow configuration
+  jobType         String        // water, mould, fire, sewage, storm, impact, vandalism, etc.
+  experienceLevel String        @default("APPRENTICE") // APPRENTICE | EXPERIENCED
+
+  // State machine
+  currentStepOrder Int          @default(0) // Which step the technician is currently on
+  totalSteps       Int          @default(0) // Total steps in this workflow
+  completedSteps   Int          @default(0) // How many steps are done
+  skippedSteps     Int          @default(0) // How many steps were skipped (with exception)
+
+  // Submission gate
+  isReadyToSubmit  Boolean      @default(false) // All mandatory evidence collected
+  submissionScore  Float?       // 0-100 completeness percentage
+  lastValidatedAt  DateTime?    // When the submission gate last ran
+
+  // Timestamps
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Steps
+  steps WorkflowStep[]
+
+  @@index([inspectionId])
+  @@index([jobType])
+}
+
+// Individual step within an inspection workflow
+model WorkflowStep {
+  id         String             @id @default(cuid())
+  workflowId String
+  workflow   InspectionWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  // Step definition
+  stepOrder       Int               // Sequential order within the workflow
+  stepKey         String            // Machine-readable key e.g. "initial_moisture_survey"
+  stepTitle       String            // Human-readable title e.g. "Initial Moisture Survey"
+  stepDescription String?           @db.Text // Full instructions (verbose for apprentice mode)
+  stepDescriptionShort String?      // Condensed instructions (for experienced mode)
+
+  // Evidence requirements
+  requiredEvidenceClasses  String   @db.Text // JSON array: ["MOISTURE_READING", "PHOTO_DAMAGE"]
+  optionalEvidenceClasses  String?  @db.Text // JSON array: ["THERMAL_IMAGE", "VIDEO_WALKTHROUGH"]
+  minimumEvidenceCount     Int      @default(1) // Minimum pieces of evidence to complete step
+  isMandatory              Boolean  @default(true) // If false, step can be skipped without exception
+
+  // Risk escalation
+  riskTier         Int     @default(1) // 1=standard, 2=elevated, 3=critical (triggers extra evidence)
+  escalationNote   String? @db.Text    // Why this step has elevated risk
+
+  // Status
+  status      WorkflowStepStatus @default(NOT_STARTED)
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Evidence collected for this step
+  evidenceItems EvidenceItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workflowId, stepOrder])
+  @@unique([workflowId, stepKey])
+  @@index([workflowId])
+  @@index([status])
+}
+
+// Exception reason — documents WHY required evidence was skipped
+model ExceptionReason {
+  id             String       @id @default(cuid())
+  evidenceItemId String       @unique
+  evidenceItem   EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
+
+  // Exception details
+  reasonCode    String    // ACCESS_DENIED, EQUIPMENT_UNAVAILABLE, SAFETY_HAZARD, CLIENT_REFUSED, OTHER
+  reasonText    String    @db.Text // Free-text explanation
+  approvedById  String?   // Admin who approved the exception (null = pending)
+  approvedAt    DateTime? // When exception was approved
+
+  // Notification
+  notifiedAdminAt DateTime? // When office was alerted about the exception
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reasonCode])
+  @@index([approvedById])
+}
+
+// RA-408: Storage provider enum
+enum StorageProviderType {
+  SUPABASE
+  S3
+  GCS
+  AZURE
 }
