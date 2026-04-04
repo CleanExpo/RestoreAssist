@@ -58,3 +58,5 @@
 | RA-402 admin evidence dashboard | Done   | Committed `e5a5ab87`                                                                    |
 | RA-247 Google OAuth fix         | Done   | Committed `f708275e`                                                                    |
 | RA-408 pluggable storage        | Done   | Committed `b6be01d6` — Supabase Storage + Sharp compression + batch upload endpoint     |
+
+## 2026-04-04 — RA-408 Complete
