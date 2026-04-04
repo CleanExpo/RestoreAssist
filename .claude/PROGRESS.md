@@ -1,22 +1,26 @@
 # Progress — RestoreAssist
 
-**Phase:** Active Build — V2 stabilisation + mobile launch prep
-**Last updated:** 2026-04-03
+**Phase:** Active Build — Sprint I complete, sandbox→main PR open
+**Last updated:** 2026-04-04
 
 ## Active Tasks
 
-| Task                      | Status  | Notes                                                               |
-| ------------------------- | ------- | ------------------------------------------------------------------- |
-| Android CI/CD pipeline    | Done    | PR #127 merged — first signed AAB built (Java 21, pnpm, gradlew +x) |
-| iOS native project init   | Done    | `ios/` directory committed (builds require macOS / Capgo cloud)     |
-| RA-384 mobile scaffold    | Done    | PR #132 merged — Expo SDK 52 / React Native 0.76 / expo-router      |
-| RA-317 environmental edit | Done    | Already in main (confirmed 2026-04-01)                              |
-| RA-321 photo upload       | Done    | Already in main (confirmed 2026-04-01)                              |
-| RA-328 cost CSV import    | Done    | PR #129 merged                                                      |
-| RA-287 V2 deploy to prod  | Blocked | Needs human: merge PR #33 + set DO/Vercel env vars                  |
-| RA-238 YouTube rebrand    | Blocked | Needs human: YouTube Studio channel rename                          |
-| RA-246 mobile env config  | Blocked | Needs human: Supabase env vars + EAS project ID                     |
-| RA-383 pilot pipeline     | Blocked | Needs human: IICRC Australasia contacts                             |
+| Task                                   | Status  | Notes                                                                                |
+| -------------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| Sprint I — RA-410 Dispute Defence Pack | Done    | `d0604617` — 7-section PDF, `/api/inspections/[id]/dispute-pack`, UI button          |
+| Sprint I — RA-411 Evidence QA scoring  | Done    | `20e1b050` — qa-scorer.ts, `/api/inspections/[id]/evidence/qa-scores`, badge         |
+| Sprint F/G/H untracked files committed | Done    | `4c1e5cd1` — 9,295 lines: evidence schema, BYOK vision, contents manifest, first-run |
+| sandbox → main PR                      | Open    | PR #138 — migrations pending on production DB before merge                           |
+| Android CI/CD pipeline                 | Done    | PR #127 merged — first signed AAB built (Java 21, pnpm, gradlew +x)                  |
+| iOS native project init                | Done    | `ios/` directory committed (builds require macOS / Capgo cloud)                      |
+| RA-384 mobile scaffold                 | Done    | PR #132 merged — Expo SDK 52 / React Native 0.76 / expo-router                       |
+| RA-317 environmental edit              | Done    | Already in main (confirmed 2026-04-01)                                               |
+| RA-321 photo upload                    | Done    | Already in main (confirmed 2026-04-01)                                               |
+| RA-328 cost CSV import                 | Done    | PR #129 merged                                                                       |
+| RA-287 V2 deploy to prod               | Blocked | Needs human: merge PR #33 + set DO/Vercel env vars                                   |
+| RA-238 YouTube rebrand                 | Blocked | Needs human: YouTube Studio channel rename                                           |
+| RA-246 mobile env config               | Blocked | Needs human: Supabase env vars + EAS project ID                                      |
+| RA-383 pilot pipeline                  | Blocked | Needs human: IICRC Australasia contacts                                              |
 
 ## Decisions
 
@@ -60,3 +64,7 @@
 | RA-408 pluggable storage        | Done   | Committed `b6be01d6` — Supabase Storage + Sharp compression + batch upload endpoint     |
 
 ## 2026-04-04 — RA-408 Complete
+
+## 2026-04-04 20:21 — Session End
+
+## 2026-04-04 20:30 — Session End
