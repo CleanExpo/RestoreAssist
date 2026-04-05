@@ -4218,6 +4218,9 @@ model Workspace {
   // RA-416: media assets
   mediaAssets MediaAsset[] @relation("WorkspaceMediaAssets")
 
+  // RA-417: media asset tags
+  mediaAssetTags MediaAssetTag[] @relation("WorkspaceMediaAssetTags")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4311,6 +4314,36 @@ model MemberRoleBinding {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RA-417: MediaAssetTag — flexible cataloging (many-to-many)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// MediaAssetTag — a single cataloging label attached to a MediaAsset
+// Categories: job, room, damage_type, date_bucket, location, technician, device
+model MediaAssetTag {
+  id          String     @id @default(cuid())
+  assetId     String
+  asset       MediaAsset @relation("MediaAssetTags", fields: [assetId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace  @relation("WorkspaceMediaAssetTags", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Tag structure: category + value (e.g. category="room", value="Kitchen")
+  category String // "job" | "room" | "damage_type" | "date_bucket" | "location" | "technician" | "device"
+  value    String // Human-readable value
+
+  // Optional FK links for structured dimensions
+  inspectionId String? // For "job" tags
+  evidenceId   String? // For "damage_type" tags sourced from EvidenceItem
+
+  createdAt DateTime @default(now())
+
+  @@unique([assetId, category, value])
+  @@index([workspaceId, category])
+  @@index([workspaceId, category, value])
+  @@index([assetId])
+  @@index([inspectionId])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // RA-416: MediaAsset — EXIF metadata + media intelligence
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -4370,6 +4403,9 @@ model MediaAsset {
 
   // Full raw EXIF dump (JSONB) for future use
   rawExifData Json?
+
+  // RA-417: cataloging tags
+  tags MediaAssetTag[] @relation("MediaAssetTags")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -65,6 +65,69 @@
 
 ## 2026-04-04 — RA-408 Complete
 
+## 2026-04-05 — Vercel Build Fixed + RA-412 Complete
+
+| Task                                     | Status | Notes                                                                                  |
+| ---------------------------------------- | ------ | -------------------------------------------------------------------------------------- |
+| Vercel prod build timeout                | Done   | Added `eslint: { ignoreDuringBuilds: true }` to next.config.mjs — commit `45942667`   |
+| Vercel Enhanced Build Machine            | Done   | Upgraded prod project to 8 vCPU / 16 GB via Settings → Build and Deployment           |
+| NEXT_TELEMETRY_DISABLED env var          | Done   | Added to Vercel prod + preview via API                                                 |
+| Supabase sandbox — evidence schema       | Done   | Applied `add_evidence_schema` migration to sandbox (oxeiaavuspvpvanzcrjc)              |
+| Supabase sandbox — workspace foundation  | Done   | Applied `add_workspace_foundation` migration to sandbox                                |
+| Sandbox SQL files updated                | Done   | Added evidence schema + StorageProviderType + workspace tables to all 6 SQL files      |
+| RA-412 Multi-tenant workspace foundation | Done   | Prisma schema + migration + seed data committed `9088b923`; applied to sandbox         |
+| Linear RA-412                            | Done   | Marked Done in unite-hub workspace                                                     |
+
+## 2026-04-05 — RA-413 + RA-414 + RA-415 + RA-416 + RA-417 Complete
+
+| Task                                          | Status | Notes                                                                                          |
+| --------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
+| RA-413 workspaceId FK to customer tables      | Done   | Prisma schema + migration committed `9d5b6a24`; applied to sandbox; Linear marked Done        |
+| Sandbox SQL files updated (RA-413)            | Done   | tables1/2, indexes, fkeys all include workspaceId columns/FKs/indexes                         |
+| Models scoped: Client, Report, Inspection     | Done   | Nullable `workspaceId String?` + relation + index                                             |
+| Models scoped: Invoice, Integration           | Done   | Nullable `workspaceId String?` + relation + index                                             |
+| Models scoped: CostLibrary, FormTemplate      | Done   | Nullable `workspaceId String?` + relation + index                                             |
+| RA-414 ProviderConnection + AiUsageLog        | Done   | Prisma schema + migration committed `cb880fba`; applied to sandbox; Linear marked Done        |
+| lib/usage/log-usage.ts                        | Done   | Fire-and-forget logAiUsage() + estimateCostUsd() with pricing for all 4 providers             |
+| RA-415 Stripe → workspace provisioning        | Done   | lib/workspace/provision.ts — fire-and-forget on checkout.session.completed; Linear Done       |
+| RA-416 EXIF metadata extraction               | Done   | lib/media/exif-extract.ts — extractAndSaveMediaAsset(); photos route wired; Linear Done       |
+| RA-417 Media asset auto-cataloging            | Done   | lib/media/catalog.ts, app/api/media/route.ts, /dashboard/media page; sandbox migrated         |
+| MediaAssetTag migration                       | Done   | 20260405040000_add_media_asset_tag applied to sandbox (oxeiaavuspvpvanzcrjc)                   |
+| exif-extract.ts → scheduleCatalog wired       | Done   | asset.id captured from create(); scheduleCatalog() called fire-and-forget                     |
+| /dashboard/media page                         | Done   | Grid/list view, filter sidebar (7 dimensions), cursor pagination, empty state                  |
+| Dashboard nav — Media Library added           | Done   | Camera icon nav item added to layout.tsx                                                       |
+| Sandbox SQL files updated (RA-417)            | Done   | sandbox-tables2, sandbox-indexes, sandbox-fkeys all include MediaAssetTag DDL                 |
+
 ## 2026-04-04 20:21 — Session End
 
 ## 2026-04-04 20:30 — Session End
+
+## 2026-04-05 10:07 — Session End
+
+## 2026-04-05 10:09 — Session End
+
+## 2026-04-05 11:07 — Session End
+
+## 2026-04-05 11:09 — Session End
+
+## 2026-04-05 12:03 — Session End
+
+## 2026-04-05 12:07 — Session End
+
+## 2026-04-05 12:10 — Session End
+
+## 2026-04-05 13:08 — Session End
+
+## 2026-04-05 13:10 — Session End
+
+## 2026-04-05 14:07 — Session End
+
+## 2026-04-05 14:09 — Session End
+
+## 2026-04-05 15:07 — Session End
+
+## 2026-04-05 15:09 — Session End
+
+## 2026-04-05 16:07 — Session End
+
+## 2026-04-05 16:09 — Session End
