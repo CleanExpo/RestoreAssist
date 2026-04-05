@@ -138,6 +138,7 @@ CREATE TABLE "Client" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT NOT NULL,
     "search_vector" tsvector,
+    "workspaceId" TEXT,
 
     CONSTRAINT "Client_pkey" PRIMARY KEY ("id")
 );
@@ -395,6 +396,7 @@ CREATE TABLE "Report" (
     "inspectionPdfUrl" TEXT,
     "search_vector" tsvector,
     "includeRegulatoryCitations" BOOLEAN NOT NULL DEFAULT false,
+    "workspaceId" TEXT,
 
     CONSTRAINT "Report_pkey" PRIMARY KEY ("id")
 );
@@ -447,6 +449,7 @@ CREATE TABLE "Integration" (
     "syncError" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "workspaceId" TEXT,
 
     CONSTRAINT "Integration_pkey" PRIMARY KEY ("id")
 );
@@ -461,6 +464,7 @@ CREATE TABLE "CostLibrary" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT NOT NULL,
+    "workspaceId" TEXT,
 
     CONSTRAINT "CostLibrary_pkey" PRIMARY KEY ("id")
 );
@@ -865,6 +869,7 @@ CREATE TABLE "Inspection" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "search_vector" tsvector,
+    "workspaceId" TEXT,
 
     CONSTRAINT "Inspection_pkey" PRIMARY KEY ("id")
 );

@@ -147,6 +147,7 @@ CREATE TABLE "FormTemplate" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "createdBy" TEXT NOT NULL,
+    "workspaceId" TEXT,
 
     CONSTRAINT "FormTemplate_pkey" PRIMARY KEY ("id")
 );
@@ -726,6 +727,7 @@ CREATE TABLE "Invoice" (
     "poNumber" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "workspaceId" TEXT,
 
     CONSTRAINT "Invoice_pkey" PRIMARY KEY ("id")
 );
