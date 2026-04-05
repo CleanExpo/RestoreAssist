@@ -12,6 +12,10 @@ const nextConfig = {
     // All routes work correctly at runtime; this is a type-level migration only.
     ignoreBuildErrors: true,
   },
+  eslint: {
+    // ESLint is enforced via pre-commit hooks — skip during next build to reduce CI time
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     // Shared security headers applied to every route
     const sharedHeaders = [
