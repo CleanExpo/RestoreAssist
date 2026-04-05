@@ -135,3 +135,35 @@
 ## 2026-04-05 16:07 — Session End
 
 ## 2026-04-05 16:09 — Session End
+
+## 2026-04-05 17:07 — Session End
+
+## 2026-04-05 — Sprint I Finalisation + PR #138 Merge Prep
+
+| Task                                              | Status  | Notes                                                                                              |
+| ------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| Merge conflict: sandbox ← main                    | Done    | Resolved package.json, pnpm-lock.yaml, layout.tsx, .vercelignore conflicts                        |
+| CI fix: prisma.config.ts DATABASE_URL             | Done    | `0d0281e0` — use process.env ?? fallback to avoid PrismaConfigEnvError on postinstall             |
+| CI fix: fabric + lightningcss missing             | Done    | `9afcb2a0` — added fabric@6.9.1 + lightningcss-win32 from main's V2 merge                        |
+| CI fix: pnpm frozen-lockfile (fabric+exifr)       | Done    | `f6115216` — manually merged lockfiles; exifr entries inserted at 3 locations                     |
+| CI fix: pnpm frozen-lockfile (sharp specifier)    | Done    | `e33bb4c1` — aligned sharp version to ^0.34.5 + added importer specifier entry                   |
+| Turbopack fix: motion.p→motion.h2 mismatch        | Done    | `b5c93b6f` — app/page.tsx + Footer.tsx had mismatched open/close tags; Turbopack strict parse     |
+| RA-420 Competitive intelligence report            | Done    | `4a28b1e5` — 364-line MISSION_REPORTS/COMPETITIVE-INTEL-INSURER-SOFTWARE-2026.md; Linear Done     |
+| PR #138 sandbox → main                            | Pending | Vercel builds running — awaiting green; Quality Checks running                                    |
+
+## Blocked (requires Phill input)
+
+| Issue | Block reason |
+| ----- | ------------ |
+| RA-421 Brand consolidation | Founder decision needed on DR/NRPG → RestoreAssist brand structure |
+| RA-422 Workspace spec reconciliation | Founder acknowledgment on OpenRouter/Gemma-4/Obsidian board decisions |
+| RA-396 Voice copilot requirements | Founder to document domain expertise (15+ yrs field experience) |
+
+## Notes for Next Context Window
+
+- PR #138 is mergeable once Vercel builds green — then apply 7 Prisma migrations to production Supabase DB
+- Production migrations to apply (in order): add_evidence_schema, add_workspace_foundation, add_workspaceid_fks, add_provider_connection_and_ai_usage_log, add_media_asset, add_media_asset_tag, add_media_asset_seo_fields
+- Google Play Console ($38 AUD) + Apple Developer Program ($149 AUD/yr) still not registered
+- Keystore passwords are temporary (`RestoreAssist2026!` / `RestoreAssistCET2026!`) — rotate before first Play Store upload
+
+## 2026-04-05 17:09 — Session End
