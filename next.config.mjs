@@ -61,42 +61,82 @@ const nextConfig = {
       },
     ]
   },
-  // Keep heavy native packages external — do NOT bundle into serverless functions.
-  // sharp alone adds ~150 MB of multi-platform libvips binaries when bundled,
-  // pushing functions over Vercel's 250 MB uncompressed limit.
-  // Vercel's Lambda runtime provides sharp natively; puppeteer/firebase-admin
-  // have their own native binaries that also benefit from being kept external.
-  serverExternalPackages: ['sharp', 'puppeteer', 'firebase-admin', 'exifr'],
+  // Keep heavy server-only packages external — do NOT bundle into serverless functions.
+  // Prevents Turbopack from compiling these packages during `next build`, which was
+  // the root cause of the 45-minute build timeout. All packages listed here are
+  // server-only (only imported in app/api/ or server lib/ files, never in client components).
+  //
+  // Categories:
+  //   Native binaries:   sharp, puppeteer, exifr — platform-specific .node files
+  //   AI SDKs:           @anthropic-ai/sdk, openai, @google/generative-ai
+  //   Cloud/infra:       firebase-admin, googleapis, cloudinary, stripe, resend, nodemailer
+  //   PDF generation:    pdf-lib, jspdf, pdf-parse, pdfjs-dist
+  //   Office formats:    exceljs, mammoth
+  //   Media/video:       @remotion/lambda
+  //   Utilities:         archiver, jsonwebtoken, bcryptjs, qrcode
+  serverExternalPackages: [
+    // Native binaries (original set)
+    'sharp',
+    'puppeteer',
+    'firebase-admin',
+    'exifr',
+    // AI SDKs — large dependency trees, server-only
+    '@anthropic-ai/sdk',
+    'openai',
+    '@google/generative-ai',
+    // Cloud / infrastructure
+    'googleapis',
+    'google-auth-library',
+    'cloudinary',
+    'stripe',
+    'resend',
+    'nodemailer',
+    // PDF generation / parsing — heavy, server-only
+    'pdf-lib',
+    'jspdf',
+    'pdf-parse',
+    'pdfjs-dist',
+    // Office formats — server-only
+    'exceljs',
+    'mammoth',
+    // Media / video rendering
+    '@remotion/lambda',
+    // Utilities — crypto, archiving, QR
+    'archiver',
+    'jsonwebtoken',
+    'bcryptjs',
+    'qrcode',
+  ],
+
+  // Exclude non-Linux-x64 sharp platform binaries from serverless function bundles.
+  // Vercel runs on Linux x64 — the 10 other platform-specific libvips packages
+  // add ~140 MB of dead weight that pushes functions over the 250 MB limit.
+  // Only @img/sharp-libvips-linux-x64 and @img/sharp-linux-x64 are kept.
+  // NOTE: Moved from experimental.outputFileTracingExcludes (deprecated in Next.js 16).
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@img/sharp-libvips-darwin-x64/**',
+      'node_modules/@img/sharp-libvips-darwin-arm64/**',
+      'node_modules/@img/sharp-libvips-linux-arm/**',
+      'node_modules/@img/sharp-libvips-linux-arm64/**',
+      'node_modules/@img/sharp-libvips-linux-ppc64/**',
+      'node_modules/@img/sharp-libvips-linux-riscv64/**',
+      'node_modules/@img/sharp-libvips-linux-s390x/**',
+      'node_modules/@img/sharp-libvips-linuxmusl-arm64/**',
+      'node_modules/@img/sharp-libvips-linuxmusl-x64/**',
+      'node_modules/@img/sharp-wasm32/**',
+      // Exclude Darwin/Windows sharp native addons (not needed on Vercel Lambda)
+      'node_modules/@img/sharp-darwin-x64/**',
+      'node_modules/@img/sharp-darwin-arm64/**',
+      'node_modules/@img/sharp-win32-x64/**',
+    ],
+  },
 
   experimental: {
     // optimizeCss: true, // Disabled - requires critters
 
-    // Exclude non-Linux-x64 sharp platform binaries from serverless function bundles.
-    // Vercel runs on Linux x64 — the 10 other platform-specific libvips packages
-    // add ~140 MB of dead weight that pushes functions over the 250 MB limit.
-    // Only @img/sharp-libvips-linux-x64 and @img/sharp-linux-x64 are kept.
-    outputFileTracingExcludes: {
-      '*': [
-        'node_modules/@img/sharp-libvips-darwin-x64/**',
-        'node_modules/@img/sharp-libvips-darwin-arm64/**',
-        'node_modules/@img/sharp-libvips-linux-arm/**',
-        'node_modules/@img/sharp-libvips-linux-arm64/**',
-        'node_modules/@img/sharp-libvips-linux-ppc64/**',
-        'node_modules/@img/sharp-libvips-linux-riscv64/**',
-        'node_modules/@img/sharp-libvips-linux-s390x/**',
-        'node_modules/@img/sharp-libvips-linuxmusl-arm64/**',
-        'node_modules/@img/sharp-libvips-linuxmusl-x64/**',
-        'node_modules/@img/sharp-wasm32/**',
-        // Exclude Darwin/Windows sharp native addons (not needed on Vercel Lambda)
-        'node_modules/@img/sharp-darwin-x64/**',
-        'node_modules/@img/sharp-darwin-arm64/**',
-        'node_modules/@img/sharp-win32-x64/**',
-      ],
-    },
-
     optimizePackageImports: [
-      '@anthropic-ai/sdk',
-      '@google/generative-ai',
+      // Note: packages in serverExternalPackages must NOT be listed here too
       '@hookform/resolvers',
       '@radix-ui/react-accordion',
       '@radix-ui/react-alert-dialog',
@@ -108,10 +148,8 @@ const nextConfig = {
       '@radix-ui/react-tooltip',
       'cmdk',
       'date-fns',
-      'exceljs',
       'framer-motion',
       'lucide-react',
-      'pdfjs-dist',
       'react-day-picker',
       'react-hook-form',
       'recharts',
