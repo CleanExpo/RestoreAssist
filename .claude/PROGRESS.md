@@ -97,6 +97,8 @@
 | /dashboard/media page                         | Done   | Grid/list view, filter sidebar (7 dimensions), cursor pagination, empty state                  |
 | Dashboard nav — Media Library added           | Done   | Camera icon nav item added to layout.tsx                                                       |
 | Sandbox SQL files updated (RA-417)            | Done   | sandbox-tables2, sandbox-indexes, sandbox-fkeys all include MediaAssetTag DDL                 |
+| RA-418 SEO/AEO/GEO structured data           | Done   | lib/media/seo-output.ts + /api/media/[id]/seo GET+POST; altText/seoJsonLd added to MediaAsset |
+| MediaAsset SEO migration                      | Done   | 20260405050000_add_media_asset_seo_fields applied to sandbox                                   |
 
 ## 2026-04-04 20:21 — Session End
 
