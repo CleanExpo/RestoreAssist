@@ -74,6 +74,30 @@ const nextConfig = {
 
   experimental: {
     // optimizeCss: true, // Disabled - requires critters
+
+    // Exclude non-Linux-x64 sharp platform binaries from serverless function bundles.
+    // Vercel runs on Linux x64 — the 10 other platform-specific libvips packages
+    // add ~140 MB of dead weight that pushes functions over the 250 MB limit.
+    // Only @img/sharp-libvips-linux-x64 and @img/sharp-linux-x64 are kept.
+    outputFileTracingExcludes: {
+      '*': [
+        'node_modules/@img/sharp-libvips-darwin-x64/**',
+        'node_modules/@img/sharp-libvips-darwin-arm64/**',
+        'node_modules/@img/sharp-libvips-linux-arm/**',
+        'node_modules/@img/sharp-libvips-linux-arm64/**',
+        'node_modules/@img/sharp-libvips-linux-ppc64/**',
+        'node_modules/@img/sharp-libvips-linux-riscv64/**',
+        'node_modules/@img/sharp-libvips-linux-s390x/**',
+        'node_modules/@img/sharp-libvips-linuxmusl-arm64/**',
+        'node_modules/@img/sharp-libvips-linuxmusl-x64/**',
+        'node_modules/@img/sharp-wasm32/**',
+        // Exclude Darwin/Windows sharp native addons (not needed on Vercel Lambda)
+        'node_modules/@img/sharp-darwin-x64/**',
+        'node_modules/@img/sharp-darwin-arm64/**',
+        'node_modules/@img/sharp-win32-x64/**',
+      ],
+    },
+
     optimizePackageImports: [
       '@anthropic-ai/sdk',
       '@google/generative-ai',
