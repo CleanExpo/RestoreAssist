@@ -1,47 +1,35 @@
-import { withAuth } from "next-auth/middleware"
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default withAuth(
-  function middleware(req) {
-    // Add any additional middleware logic here
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        // Allow access to public routes
-        if (req.nextUrl.pathname.startsWith("/login") || 
-            req.nextUrl.pathname.startsWith("/signup") ||
-            req.nextUrl.pathname === "/" ||
-            req.nextUrl.pathname.startsWith("/api/auth") ||
-            req.nextUrl.pathname.startsWith("/_next") ||
-            req.nextUrl.pathname.startsWith("/favicon")) {
-          return true
-        }
-        
-        // Allow access to change-password page (requires auth but handled in layout)
-        if (req.nextUrl.pathname.startsWith("/dashboard/change-password")) {
-          return !!token
-        }
-        
-        // Require authentication for protected routes
-        if (req.nextUrl.pathname.startsWith("/dashboard")) {
-          return !!token
-        }
-        
-        return true
-      },
-    },
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/reports",
+  "/clients",
+  "/settings",
+  "/analytics",
+  "/integrations",
+  "/cost-libraries",
+  "/help",
+];
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Only run auth check on protected routes — everything else passes through
+  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+  if (!isProtected) {
+    return NextResponse.next();
   }
-)
 
-export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/reports/:path*",
-    "/clients/:path*",
-    "/settings/:path*",
-    "/analytics/:path*",
-    "/integrations/:path*",
-    "/cost-libraries/:path*",
-    "/help/:path*"
-  ]
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  if (!token) {
+    const signInUrl = new URL("/login", req.url);
+    signInUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  return NextResponse.next();
 }

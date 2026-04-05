@@ -7,6 +7,7 @@ import { PRICING_CONFIG } from "@/lib/pricing"
 import { sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/email"
 import { notifyPaymentFailed, notifySubscriptionCancelled } from "@/lib/notifications"
 import { applyRateLimit } from "@/lib/rate-limiter"
+import { provisionWorkspace } from "@/lib/workspace/provision"
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -493,6 +494,23 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
     })
 
     console.log(`✅ SUBSCRIPTION ACTIVATED for user ${userId}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
+
+    // RA-415: Provision workspace — fire-and-forget, never blocks webhook response
+    const userDetails = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    })
+    if (userDetails) {
+      provisionWorkspace({
+        userId,
+        userEmail: userDetails.email,
+        userName: userDetails.name,
+        stripeCustomerId: session.customer as string | undefined,
+        stripeSubscriptionId: session.subscription as string | undefined,
+      }).catch((err) =>
+        console.error(`[Stripe webhook] provisionWorkspace failed for user ${userId}:`, err)
+      )
+    }
   } else if (session.customer_email) {
     const userByEmail = await prisma.user.findFirst({
       where: { email: session.customer_email },
@@ -525,6 +543,17 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
       })
 
       console.log(`✅ SUBSCRIPTION ACTIVATED for email ${session.customer_email}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
+
+      // RA-415: Provision workspace for email-identified user
+      provisionWorkspace({
+        userId: userByEmail.id,
+        userEmail: session.customer_email,
+        userName: null,
+        stripeCustomerId: session.customer as string | undefined,
+        stripeSubscriptionId: session.subscription as string | undefined,
+      }).catch((err) =>
+        console.error(`[Stripe webhook] provisionWorkspace failed for email ${session.customer_email}:`, err)
+      )
     }
   }
 }
