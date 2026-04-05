@@ -4404,6 +4404,10 @@ model MediaAsset {
   // Full raw EXIF dump (JSONB) for future use
   rawExifData Json?
 
+  // RA-418: SEO/AEO structured data
+  altText   String? // AI-generated SEO-optimised alt text
+  seoJsonLd Json?   // Cached schema.org/ImageObject JSON-LD
+
   // RA-417: cataloging tags
   tags MediaAssetTag[] @relation("MediaAssetTags")
 

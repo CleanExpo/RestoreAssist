@@ -1267,3 +1267,8 @@ CREATE TABLE "MediaAssetTag" (
   "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "MediaAssetTag_pkey" PRIMARY KEY ("id")
 );
+
+-- AlterTable (RA-418: SEO fields on MediaAsset)
+ALTER TABLE "MediaAsset"
+  ADD COLUMN IF NOT EXISTS "altText"   TEXT,
+  ADD COLUMN IF NOT EXISTS "seoJsonLd" JSONB;
