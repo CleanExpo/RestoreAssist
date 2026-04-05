@@ -67,40 +67,40 @@
 
 ## 2026-04-05 — Vercel Build Fixed + RA-412 Complete
 
-| Task                                     | Status | Notes                                                                                  |
-| ---------------------------------------- | ------ | -------------------------------------------------------------------------------------- |
-| Vercel prod build timeout                | Done   | Added `eslint: { ignoreDuringBuilds: true }` to next.config.mjs — commit `45942667`   |
-| Vercel Enhanced Build Machine            | Done   | Upgraded prod project to 8 vCPU / 16 GB via Settings → Build and Deployment           |
-| NEXT_TELEMETRY_DISABLED env var          | Done   | Added to Vercel prod + preview via API                                                 |
-| Supabase sandbox — evidence schema       | Done   | Applied `add_evidence_schema` migration to sandbox (oxeiaavuspvpvanzcrjc)              |
-| Supabase sandbox — workspace foundation  | Done   | Applied `add_workspace_foundation` migration to sandbox                                |
-| Sandbox SQL files updated                | Done   | Added evidence schema + StorageProviderType + workspace tables to all 6 SQL files      |
-| RA-412 Multi-tenant workspace foundation | Done   | Prisma schema + migration + seed data committed `9088b923`; applied to sandbox         |
-| Linear RA-412                            | Done   | Marked Done in unite-hub workspace                                                     |
+| Task                                     | Status | Notes                                                                               |
+| ---------------------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| Vercel prod build timeout                | Done   | Added `eslint: { ignoreDuringBuilds: true }` to next.config.mjs — commit `45942667` |
+| Vercel Enhanced Build Machine            | Done   | Upgraded prod project to 8 vCPU / 16 GB via Settings → Build and Deployment         |
+| NEXT_TELEMETRY_DISABLED env var          | Done   | Added to Vercel prod + preview via API                                              |
+| Supabase sandbox — evidence schema       | Done   | Applied `add_evidence_schema` migration to sandbox (oxeiaavuspvpvanzcrjc)           |
+| Supabase sandbox — workspace foundation  | Done   | Applied `add_workspace_foundation` migration to sandbox                             |
+| Sandbox SQL files updated                | Done   | Added evidence schema + StorageProviderType + workspace tables to all 6 SQL files   |
+| RA-412 Multi-tenant workspace foundation | Done   | Prisma schema + migration + seed data committed `9088b923`; applied to sandbox      |
+| Linear RA-412                            | Done   | Marked Done in unite-hub workspace                                                  |
 
 ## 2026-04-05 — RA-413 + RA-414 + RA-415 + RA-416 + RA-417 Complete
 
-| Task                                          | Status | Notes                                                                                          |
-| --------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
-| RA-413 workspaceId FK to customer tables      | Done   | Prisma schema + migration committed `9d5b6a24`; applied to sandbox; Linear marked Done        |
-| Sandbox SQL files updated (RA-413)            | Done   | tables1/2, indexes, fkeys all include workspaceId columns/FKs/indexes                         |
-| Models scoped: Client, Report, Inspection     | Done   | Nullable `workspaceId String?` + relation + index                                             |
-| Models scoped: Invoice, Integration           | Done   | Nullable `workspaceId String?` + relation + index                                             |
-| Models scoped: CostLibrary, FormTemplate      | Done   | Nullable `workspaceId String?` + relation + index                                             |
-| RA-414 ProviderConnection + AiUsageLog        | Done   | Prisma schema + migration committed `cb880fba`; applied to sandbox; Linear marked Done        |
-| lib/usage/log-usage.ts                        | Done   | Fire-and-forget logAiUsage() + estimateCostUsd() with pricing for all 4 providers             |
-| RA-415 Stripe → workspace provisioning        | Done   | lib/workspace/provision.ts — fire-and-forget on checkout.session.completed; Linear Done       |
-| RA-416 EXIF metadata extraction               | Done   | lib/media/exif-extract.ts — extractAndSaveMediaAsset(); photos route wired; Linear Done       |
-| RA-417 Media asset auto-cataloging            | Done   | lib/media/catalog.ts, app/api/media/route.ts, /dashboard/media page; sandbox migrated         |
-| MediaAssetTag migration                       | Done   | 20260405040000_add_media_asset_tag applied to sandbox (oxeiaavuspvpvanzcrjc)                   |
-| exif-extract.ts → scheduleCatalog wired       | Done   | asset.id captured from create(); scheduleCatalog() called fire-and-forget                     |
-| /dashboard/media page                         | Done   | Grid/list view, filter sidebar (7 dimensions), cursor pagination, empty state                  |
-| Dashboard nav — Media Library added           | Done   | Camera icon nav item added to layout.tsx                                                       |
-| Sandbox SQL files updated (RA-417)            | Done   | sandbox-tables2, sandbox-indexes, sandbox-fkeys all include MediaAssetTag DDL                 |
-| RA-418 SEO/AEO/GEO structured data           | Done   | lib/media/seo-output.ts + /api/media/[id]/seo GET+POST; altText/seoJsonLd added to MediaAsset |
-| MediaAsset SEO migration                      | Done   | 20260405050000_add_media_asset_seo_fields applied to sandbox                                   |
-| RA-419 Contractor media library UI            | Done   | /dashboard/media extended: stats cards, bulk select, JSON-LD copy, embed copy, spark chart     |
-| /api/media/stats                              | Done   | Workspace stats: total, storageBytes, byDamageType, byMonth (12m), topLocations                |
+| Task                                      | Status | Notes                                                                                         |
+| ----------------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| RA-413 workspaceId FK to customer tables  | Done   | Prisma schema + migration committed `9d5b6a24`; applied to sandbox; Linear marked Done        |
+| Sandbox SQL files updated (RA-413)        | Done   | tables1/2, indexes, fkeys all include workspaceId columns/FKs/indexes                         |
+| Models scoped: Client, Report, Inspection | Done   | Nullable `workspaceId String?` + relation + index                                             |
+| Models scoped: Invoice, Integration       | Done   | Nullable `workspaceId String?` + relation + index                                             |
+| Models scoped: CostLibrary, FormTemplate  | Done   | Nullable `workspaceId String?` + relation + index                                             |
+| RA-414 ProviderConnection + AiUsageLog    | Done   | Prisma schema + migration committed `cb880fba`; applied to sandbox; Linear marked Done        |
+| lib/usage/log-usage.ts                    | Done   | Fire-and-forget logAiUsage() + estimateCostUsd() with pricing for all 4 providers             |
+| RA-415 Stripe → workspace provisioning    | Done   | lib/workspace/provision.ts — fire-and-forget on checkout.session.completed; Linear Done       |
+| RA-416 EXIF metadata extraction           | Done   | lib/media/exif-extract.ts — extractAndSaveMediaAsset(); photos route wired; Linear Done       |
+| RA-417 Media asset auto-cataloging        | Done   | lib/media/catalog.ts, app/api/media/route.ts, /dashboard/media page; sandbox migrated         |
+| MediaAssetTag migration                   | Done   | 20260405040000_add_media_asset_tag applied to sandbox (oxeiaavuspvpvanzcrjc)                  |
+| exif-extract.ts → scheduleCatalog wired   | Done   | asset.id captured from create(); scheduleCatalog() called fire-and-forget                     |
+| /dashboard/media page                     | Done   | Grid/list view, filter sidebar (7 dimensions), cursor pagination, empty state                 |
+| Dashboard nav — Media Library added       | Done   | Camera icon nav item added to layout.tsx                                                      |
+| Sandbox SQL files updated (RA-417)        | Done   | sandbox-tables2, sandbox-indexes, sandbox-fkeys all include MediaAssetTag DDL                 |
+| RA-418 SEO/AEO/GEO structured data        | Done   | lib/media/seo-output.ts + /api/media/[id]/seo GET+POST; altText/seoJsonLd added to MediaAsset |
+| MediaAsset SEO migration                  | Done   | 20260405050000_add_media_asset_seo_fields applied to sandbox                                  |
+| RA-419 Contractor media library UI        | Done   | /dashboard/media extended: stats cards, bulk select, JSON-LD copy, embed copy, spark chart    |
+| /api/media/stats                          | Done   | Workspace stats: total, storageBytes, byDamageType, byMonth (12m), topLocations               |
 
 ## 2026-04-04 20:21 — Session End
 
@@ -140,39 +140,59 @@
 
 ## 2026-04-05 — Sprint I Finalisation + PR #138 Merge Prep
 
-| Task                                              | Status  | Notes                                                                                              |
-| ------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| Merge conflict: sandbox ← main                    | Done    | Resolved package.json, pnpm-lock.yaml, layout.tsx, .vercelignore conflicts                        |
-| CI fix: prisma.config.ts DATABASE_URL             | Done    | `0d0281e0` — use process.env ?? fallback to avoid PrismaConfigEnvError on postinstall             |
-| CI fix: fabric + lightningcss missing             | Done    | `9afcb2a0` — added fabric@6.9.1 + lightningcss-win32 from main's V2 merge                        |
-| CI fix: pnpm frozen-lockfile (fabric+exifr)       | Done    | `f6115216` — manually merged lockfiles; exifr entries inserted at 3 locations                     |
-| CI fix: pnpm frozen-lockfile (sharp specifier)    | Done    | `e33bb4c1` — aligned sharp version to ^0.34.5 + added importer specifier entry                   |
-| Turbopack fix: motion.p→motion.h2 mismatch        | Done    | `b5c93b6f` — app/page.tsx + Footer.tsx had mismatched open/close tags; Turbopack strict parse     |
-| RA-420 Competitive intelligence report            | Done    | `4a28b1e5` — 364-line MISSION_REPORTS/COMPETITIVE-INTEL-INSURER-SOFTWARE-2026.md; Linear Done     |
-| PR #138 sandbox → main                            | Pending | Vercel builds running — awaiting green; Quality Checks running                                    |
+| Task                                           | Status  | Notes                                                                                         |
+| ---------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
+| Merge conflict: sandbox ← main                 | Done    | Resolved package.json, pnpm-lock.yaml, layout.tsx, .vercelignore conflicts                    |
+| CI fix: prisma.config.ts DATABASE_URL          | Done    | `0d0281e0` — use process.env ?? fallback to avoid PrismaConfigEnvError on postinstall         |
+| CI fix: fabric + lightningcss missing          | Done    | `9afcb2a0` — added fabric@6.9.1 + lightningcss-win32 from main's V2 merge                     |
+| CI fix: pnpm frozen-lockfile (fabric+exifr)    | Done    | `f6115216` — manually merged lockfiles; exifr entries inserted at 3 locations                 |
+| CI fix: pnpm frozen-lockfile (sharp specifier) | Done    | `e33bb4c1` — aligned sharp version to ^0.34.5 + added importer specifier entry                |
+| Turbopack fix: motion.p→motion.h2 mismatch     | Done    | `b5c93b6f` — app/page.tsx + Footer.tsx had mismatched open/close tags; Turbopack strict parse |
+| RA-420 Competitive intelligence report         | Done    | `4a28b1e5` — 364-line MISSION_REPORTS/COMPETITIVE-INTEL-INSURER-SOFTWARE-2026.md; Linear Done |
+| PR #138 sandbox → main                         | Pending | Vercel builds running — awaiting green; Quality Checks running                                |
 
 ## Blocked (requires Phill input)
 
-| Issue | Block reason |
-| ----- | ------------ |
-| RA-421 Brand consolidation | Founder decision needed on DR/NRPG → RestoreAssist brand structure |
+| Issue                                | Block reason                                                          |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| RA-421 Brand consolidation           | Founder decision needed on DR/NRPG → RestoreAssist brand structure    |
 | RA-422 Workspace spec reconciliation | Founder acknowledgment on OpenRouter/Gemma-4/Obsidian board decisions |
-| RA-396 Voice copilot requirements | Founder to document domain expertise (15+ yrs field experience) |
+| RA-396 Voice copilot requirements    | Founder to document domain expertise (15+ yrs field experience)       |
 
 ## 2026-04-05 — Sprint I Merge Complete
 
-| Task                                              | Status  | Notes                                                                                              |
-| ------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| PR #138 merged (sandbox → main)                   | Done    | Merged 07:38 UTC — all 5 CI checks green (Quality Checks, CodeRabbit, Vercel ×2, Preview)       |
-| Production DB migrations applied                  | Done    | 8 migrations applied to `udooysjajglluvuxkijp` via Supabase MCP; `_prisma_migrations` synced     |
-| Firebase env vars — Preview + Development         | Done    | All 7 NEXT_PUBLIC_FIREBASE_* vars now in Production + Preview + Development                      |
-| Vercel build timeout fix (PR #139)                | Done    | `next build --no-lint`; deprecated `eslint.ignoreDuringBuilds` removed from next.config.mjs      |
-| Production deployment (post PR#139)               | Pending | Build `restoreassist-imft0g1n6` running; check https://vercel.com/unite-group/restoreassist      |
+| Task                                      | Status     | Notes                                                                                        |
+| ----------------------------------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| PR #138 merged (sandbox → main)           | Done       | Merged 07:38 UTC — all 5 CI checks green (Quality Checks, CodeRabbit, Vercel ×2, Preview)    |
+| Production DB migrations applied          | Done       | 8 migrations applied to `udooysjajglluvuxkijp` via Supabase MCP; `_prisma_migrations` synced |
+| Firebase env vars — Preview + Development | Done       | All 7 NEXT*PUBLIC_FIREBASE*\* vars now in Production + Preview + Development                 |
+| Vercel build timeout fix (PR #139)        | Superseded | `--no-lint` was invalid in Next.js 16 — caused immediate failure on preview builds           |
+| Production deployment (post PR#139)       | Failed     | 45m 28s timeout — `--no-lint` accepted in cached build but Turbopack still timed out         |
+
+## 2026-04-05 — Production Build Fix (PR #140)
+
+| Task                                                   | Status | Notes                                                                                                        |
+| ------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------ |
+| Root cause diagnosis — 45min build timeout             | Done   | 5 distinct issues found by running `next build` locally + reading Vercel build logs                          |
+| Fix 1: Remove `--no-lint` (invalid in Next.js 16)      | Done   | ESLint removed from build pipeline in Next.js 16; flag caused "unknown option" error on fresh installs       |
+| Fix 2: Delete `middleware.ts` (use `proxy.ts` only)    | Done   | Next.js 16 renamed middleware → proxy; having both caused hard build failure                                 |
+| Fix 3: Move `outputFileTracingExcludes` to top-level   | Done   | Key moved out of `experimental{}` in Next.js 16; was causing config validation warning/error                 |
+| Fix 4: Add 24 packages to `serverExternalPackages`     | Done   | Turbopack was compiling @remotion/lambda, pdfjs-dist, exceljs, mammoth, googleapis, AI SDKs etc — root cause |
+| Fix 5: Remove exceljs+pdfjs-dist from optimizePackages | Done   | Can't be in both serverExternalPackages and optimizePackageImports                                           |
+| PR #140 merged → main                                  | Done   | Preview build: Ready 2m 16s ✅; Production build `BzRpTctWp` building (7m+ elapsed)                          |
+
+## 2026-04-05 — Production Build Fix (PR #141)
+
+| Task                                                        | Status | Notes                                                                                                                  |
+| ----------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Fix 6: Remove prisma steps from build command               | Done   | `prisma generate` runs in `postinstall`; `prisma migrate deploy` applied manually — both wastefully added ~30s overhead |
+| PR #141 merged → main (`b5ee7225`)                          | Done   | Squash merged; production deployment `4274686636` triggered                                                            |
+| Production deployment `4274686636` — state                  | Done   | Completed successfully ✅ — commit `b5ee7225` live on Production – restoreassist                                       |
 
 ## Notes for Next Context Window
 
-- Production Vercel build may still be running — check https://vercel.com/unite-group/restoreassist/deployments
-- If green, restoreassist.com.au will serve Sprint G/H/I (Evidence Intelligence, Media Library, Workspace Foundation)
+- Production deployment `4274686636` completed on commit `b5ee7225` — restoreassist.com.au now serving Sprint G/H/I
+- Build command simplified to `next build` only (postinstall handles prisma generate; migrations applied manually)
 - RA-421 (brand consolidation), RA-422 (workspace spec reconciliation), RA-396 (voice copilot requirements) all blocked on Phill input
 - DigitalOcean deploy workflow failing (pre-existing) — DO_TOKEN GitHub secret not set; RA-287 blocked
 - Google Play Console ($38 AUD) + Apple Developer Program ($149 AUD/yr) still not registered
@@ -183,3 +203,21 @@
 ## 2026-04-05 18:07 — Session End
 
 ## 2026-04-05 18:10 — Session End
+
+## 2026-04-05 19:07 — Session End
+
+## 2026-04-05 19:09 — Session End
+
+## 2026-04-05 20:07 — Session End
+
+## 2026-04-05 20:10 — Session End
+
+## 2026-04-05 20:15 — Session End
+
+## 2026-04-05 20:22 — Session End
+
+## 2026-04-05 20:22 — Session End
+
+## 2026-04-05 20:28 — Session End
+
+## 2026-04-05 20:35 — Session End
