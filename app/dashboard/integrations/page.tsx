@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, BarChart2, Briefcase, Zap } from "lucide-react"
+import { Plus, Trash2, Crown, RefreshCw, Loader2, ExternalLink, Download, BarChart2, Briefcase, Zap, Network, Copy, Check } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
@@ -82,6 +82,21 @@ export default function IntegrationsPage() {
   // Connect flow now goes through the generic handleConnectExternal path.
   const [showImportModal, setShowImportModal] = useState(false)
 
+  // DR-NRPG state
+  interface DrNrpgStatus {
+    connected: boolean
+    webhookUrl?: string
+    lastSyncAt?: string
+  }
+  const [drNrpg, setDrNrpg] = useState<DrNrpgStatus>({ connected: false })
+  const [showDrNrpgModal, setShowDrNrpgModal] = useState(false)
+  const [drNrpgApiKey, setDrNrpgApiKey] = useState("")
+  const [drNrpgBaseUrl, setDrNrpgBaseUrl] = useState("")
+  const [drNrpgConnecting, setDrNrpgConnecting] = useState(false)
+  const [drNrpgWebhookUrl, setDrNrpgWebhookUrl] = useState("")
+  const [drNrpgWebhookSecret, setDrNrpgWebhookSecret] = useState("")
+  const [drNrpgCopied, setDrNrpgCopied] = useState<"url" | "secret" | null>(null)
+
   // Show success/error messages from OAuth callback
   useEffect(() => {
     if (successMessage) {
@@ -99,6 +114,7 @@ export default function IntegrationsPage() {
     fetchIntegrations()
     fetchExternalIntegrations()
     fetchSubscriptionStatus()
+    fetchDrNrpg()
   }, [])
 
   const fetchSubscriptionStatus = async () => {
@@ -250,6 +266,82 @@ export default function IntegrationsPage() {
       toast.error("Failed to sync integration")
     } finally {
       setSyncingProvider(null)
+    }
+  }
+
+  const fetchDrNrpg = async () => {
+    try {
+      const res = await fetch("/api/dr-nrpg/connect")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.integration) {
+          setDrNrpg({
+            connected: data.integration.isActive,
+            webhookUrl: data.integration.webhookUrl,
+            lastSyncAt: data.integration.lastSyncAt,
+          })
+          setDrNrpgWebhookUrl(data.integration.webhookUrl ?? "")
+        }
+      }
+    } catch {
+      // non-critical
+    }
+  }
+
+  const handleConnectDrNrpg = async () => {
+    if (!drNrpgApiKey.trim()) {
+      toast.error("API key is required")
+      return
+    }
+    setDrNrpgConnecting(true)
+    try {
+      const res = await fetch("/api/dr-nrpg/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          drNrpgApiKey: drNrpgApiKey.trim(),
+          drNrpgBaseUrl: drNrpgBaseUrl.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setDrNrpgWebhookUrl(data.webhookUrl ?? "")
+        setDrNrpgWebhookSecret(data.webhookSecret ?? "")
+        setDrNrpg({ connected: true, webhookUrl: data.webhookUrl })
+        toast.success("DR-NRPG connected! Copy your webhook URL and secret below.")
+        setDrNrpgApiKey("")
+      } else {
+        toast.error(data.error || "Failed to connect")
+      }
+    } catch {
+      toast.error("Failed to connect to DR-NRPG")
+    } finally {
+      setDrNrpgConnecting(false)
+    }
+  }
+
+  const handleDisconnectDrNrpg = async () => {
+    try {
+      const res = await fetch("/api/dr-nrpg/connect", { method: "DELETE" })
+      if (res.ok) {
+        setDrNrpg({ connected: false })
+        setDrNrpgWebhookUrl("")
+        setDrNrpgWebhookSecret("")
+        setShowDrNrpgModal(false)
+        toast.success("DR-NRPG disconnected")
+      }
+    } catch {
+      toast.error("Failed to disconnect")
+    }
+  }
+
+  const copyToClipboard = async (text: string, type: "url" | "secret") => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setDrNrpgCopied(type)
+      setTimeout(() => setDrNrpgCopied(null), 2000)
+    } catch {
+      toast.error("Copy failed — please copy manually")
     }
   }
 
@@ -817,8 +909,162 @@ export default function IntegrationsPage() {
               </Card>
             </div>
           </div>
+          {/* ── Referral Networks ───────────────────── */}
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/10 dark:bg-teal-500/15 border border-teal-500/20">
+                <Network size={16} className="text-teal-600 dark:text-teal-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Referral Networks</h2>
+                <p className="text-xs text-muted-foreground">Receive dispatched jobs from restoration referral networks</p>
+              </div>
+            </div>
+            <Separator className="mt-4 mb-5" />
+            <div className="grid md:grid-cols-3 gap-4">
+              {/* DR-NRPG card */}
+              <Card className="group transition-all duration-200 hover:shadow-md dark:hover:shadow-black/30 hover:-translate-y-0.5">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-12 h-12 shrink-0 rounded-xl bg-teal-500/10 border border-teal-500/20">
+                      <Network size={22} className="text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <CardTitle className="text-sm">DR-NRPG</CardTitle>
+                        {drNrpg.connected
+                          ? <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">Connected</Badge>
+                          : <Badge variant="secondary" className="shrink-0 text-xs">Not connected</Badge>
+                        }
+                      </div>
+                      <CardDescription className="mt-0.5 text-xs leading-relaxed">
+                        Disaster Recovery NRPG — receive job dispatch events via webhook
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                {drNrpg.connected && drNrpg.lastSyncAt && (
+                  <CardContent className="pt-0 pb-3">
+                    <Separator className="mb-3" />
+                    <p className="text-xs text-muted-foreground">
+                      Last job: {new Date(drNrpg.lastSyncAt).toLocaleDateString("en-AU")}
+                    </p>
+                  </CardContent>
+                )}
+                <CardFooter className="pt-0 gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
+                    onClick={() => setShowDrNrpgModal(true)}
+                  >
+                    {drNrpg.connected ? "Settings" : <><ExternalLink size={13} /> Connect</>}
+                  </Button>
+                  {drNrpg.connected && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                      onClick={handleDisconnectDrNrpg}
+                    >
+                      Disconnect
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            </div>
+          </div>
         </>
       )}
+
+      {/* ── DR-NRPG Modal ─────────────────────────── */}
+      <Dialog open={showDrNrpgModal} onOpenChange={setShowDrNrpgModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>DR-NRPG Integration</DialogTitle>
+            <DialogDescription>
+              {drNrpg.connected
+                ? "Your webhook URL and secret for DR-NRPG. Re-enter your API key to rotate the webhook secret."
+                : "Enter your DR-NRPG API key to connect. A webhook URL will be generated for you to configure in DR-NRPG."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">DR-NRPG API Key</label>
+              <input
+                type="password"
+                value={drNrpgApiKey}
+                onChange={(e) => setDrNrpgApiKey(e.target.value)}
+                placeholder={drNrpg.connected ? "Enter new key to rotate secret" : "Enter your DR-NRPG API key"}
+                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Base URL <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <input
+                type="url"
+                value={drNrpgBaseUrl}
+                onChange={(e) => setDrNrpgBaseUrl(e.target.value)}
+                placeholder="https://api.dr-nrpg.com.au"
+                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* Webhook details — shown after connecting OR if already connected */}
+            {(drNrpgWebhookUrl || (drNrpg.connected && drNrpgWebhookUrl === "" && drNrpg.webhookUrl)) && (
+              <div className="rounded-md border border-teal-200 dark:border-teal-500/30 bg-teal-50 dark:bg-teal-500/10 p-3 space-y-2">
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-300">Configure in DR-NRPG Dashboard</p>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Webhook URL</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-background border border-border rounded px-2 py-1 truncate">
+                      {drNrpgWebhookUrl || drNrpg.webhookUrl}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => copyToClipboard(drNrpgWebhookUrl || drNrpg.webhookUrl!, "url")}
+                    >
+                      {drNrpgCopied === "url" ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                    </Button>
+                  </div>
+                </div>
+                {drNrpgWebhookSecret && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Webhook Secret <span className="text-amber-600 dark:text-amber-400">(save this now — not shown again)</span></p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-background border border-border rounded px-2 py-1 truncate font-mono">
+                        {drNrpgWebhookSecret}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => copyToClipboard(drNrpgWebhookSecret, "secret")}
+                      >
+                        {drNrpgCopied === "secret" ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Signature header: <code className="text-xs">X-DRNRPG-Signature</code> · Format: <code className="text-xs">sha256=&lt;hmac&gt;</code>
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowDrNrpgModal(false)}>
+              Close
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
+              onClick={handleConnectDrNrpg}
+              disabled={drNrpgConnecting || !drNrpgApiKey.trim()}
+            >
+              {drNrpgConnecting ? <><Loader2 className="animate-spin" /> Connecting...</> : drNrpg.connected ? "Update" : "Connect"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── API Key Modal ──────────────────────────── */}
       <Dialog open={showApiModal} onOpenChange={setShowApiModal}>

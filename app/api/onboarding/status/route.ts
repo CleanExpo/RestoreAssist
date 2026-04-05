@@ -146,6 +146,11 @@ export async function GET(request: NextRequest) {
     // Check if user is on trial (free user)
     const isTrial = effectiveSub?.subscriptionStatus === 'TRIAL' || user.subscriptionStatus === 'TRIAL'
 
+    // Check if user has connected property data (any PropertyLookup linked to their inspections)
+    const propertyLookupCount = await prisma.propertyLookup.count({
+      where: { inspection: { userId: session.user.id } },
+    })
+
     // Define onboarding steps - Simplified for free users
     // For team members, use Admin's onboarding status; for Admins, use their own
     const steps = {
@@ -162,6 +167,13 @@ export async function GET(request: NextRequest) {
         title: 'Pricing Configuration',
         description: 'Set up your company pricing rates',
         route: '/dashboard/pricing-config'
+      },
+      property_data: {
+        completed: propertyLookupCount > 0,
+        required: false, // Optional — skippable
+        title: 'Connect Property Data',
+        description: 'Auto-fill inspections with property details and floor plans via Claude in Chrome',
+        route: '/dashboard/integrations'
       },
       first_report: {
         completed: reportCount > 0,

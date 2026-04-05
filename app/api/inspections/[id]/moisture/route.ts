@@ -53,18 +53,23 @@ export async function POST(
     }
     
     // Create moisture reading
-    const moistureReading = await prisma.moistureReading.create({
-      data: {
-        inspectionId: id,
-        location: body.location.trim(),
-        surfaceType: body.surfaceType,
-        moistureLevel: body.moistureLevel,
-        depth: body.depth || "Surface",
-        notes: body.notes || null,
-        photoUrl: body.photoUrl || null,
-        mapX: body.mapX !== undefined && body.mapX !== null ? parseFloat(body.mapX) : null,
-        mapY: body.mapY !== undefined && body.mapY !== null ? parseFloat(body.mapY) : null
-      }
+    // Note: mapX/mapY are set separately when user places reading on the floor plan map
+    const createData: Record<string, unknown> = {
+      inspectionId: id,
+      location: body.location.trim(),
+      surfaceType: body.surfaceType,
+      moistureLevel: body.moistureLevel,
+      depth: body.depth || "Surface",
+      notes: body.notes || null,
+      photoUrl: body.photoUrl || null,
+    }
+    // Include mapX/mapY only if provided (schema fields added in migration 20260330)
+    if (body.mapX !== undefined && body.mapX !== null) createData.mapX = parseFloat(body.mapX)
+    if (body.mapY !== undefined && body.mapY !== null) createData.mapY = parseFloat(body.mapY)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const moistureReading = await (prisma.moistureReading.create as any)({
+      data: createData,
     })
     
     // Create audit log

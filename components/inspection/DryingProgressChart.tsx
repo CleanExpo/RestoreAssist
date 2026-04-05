@@ -1,6 +1,22 @@
 "use client"
 
-import React from "react"
+/**
+ * DryingProgressChart
+ *
+ * Plots moisture readings as a multi-day drying curve per location/material.
+ * X-axis: Day 1, Day 2, Day 3 … (relative to first reading per location)
+ * Y-axis: Moisture level (%)
+ * Reference line: IICRC S500 dry threshold for each material type
+ *
+ * Each location-material pair becomes its own series.
+ * Lines are coloured:
+ *   green  — latest reading is at or below dry standard
+ *   amber  — latest reading is in drying range (between dry and wet threshold)
+ *   red    — latest reading exceeds wet threshold
+ *
+ * Tooltip shows exact reading, day label, meter type (if available).
+ */
+
 import {
   LineChart,
   Line,
@@ -9,104 +25,170 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
   ReferenceLine,
+  ResponsiveContainer,
 } from "recharts"
+import { CheckCircle2, AlertTriangle, TrendingDown, Droplets } from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+  getDryStandard,
+  getMoistureStatus,
+  STATUS_COLORS,
+  IICRC_DRY_STANDARDS,
+} from "@/lib/iicrc-dry-standards"
 
-const IICRC_TARGETS: Record<string, number> = {
-  timber: 19,
-  softwood: 19,
-  plasterboard: 1.5,
-  concrete: 3.5,
-  carpet: 3,
-  vinyl: 3.5,
-  particleboard: 10,
-  brick: 4,
-  insulation: 2,
-  other: 15,
-}
+// ── Types ────────────────────────────────────────────────────────
 
-const MATERIAL_COLOURS: Record<string, string> = {
-  timber: "#8B5CF6",
-  plasterboard: "#3B82F6",
-  concrete: "#6B7280",
-  carpet: "#F59E0B",
-  vinyl: "#10B981",
-  other: "#EF4444",
-  softwood: "#A78BFA",
-  particleboard: "#F97316",
-  brick: "#92400E",
-  insulation: "#06B6D4",
-}
-
-function getMaterialColour(material: string): string {
-  return MATERIAL_COLOURS[material.toLowerCase()] ?? "#94A3B8"
-}
-
-function getIicrcTarget(material: string): number {
-  return IICRC_TARGETS[material.toLowerCase()] ?? IICRC_TARGETS.other
-}
-
-function formatDay(dateStr: string): string {
-  const d = new Date(dateStr)
-  const dd = String(d.getDate()).padStart(2, "0")
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  return `${dd}/${mm}`
-}
-
-interface MoistureReading {
+export interface DryingMoistureReading {
   id: string
-  surfaceType: string
+  location: string
+  surfaceType: string // matches material keys in IICRC_DRY_STANDARDS
   moistureLevel: number
+  depth: string
   recordedAt: string
+  meterType?: string
 }
 
-interface ChartDataPoint {
+interface DryingProgressChartProps {
+  readings: DryingMoistureReading[]
+  inspectionStartDate?: string
+  className?: string
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+
+const SERIES_COLORS = [
+  "#06b6d4", // cyan-500
+  "#f59e0b", // amber-500
+  "#8b5cf6", // violet-500
+  "#f97316", // orange-500
+  "#ec4899", // pink-500
+  "#3b82f6", // blue-500
+  "#14b8a6", // teal-500
+  "#84cc16", // lime-500
+]
+
+/** Build a series key from location + surfaceType */
+function seriesKey(location: string, surfaceType: string) {
+  return `${location} (${surfaceType})`
+}
+
+/** Map surfaceType string → IICRC material key */
+function toMaterial(surfaceType: string): string {
+  const s = surfaceType.toLowerCase()
+  if (s.includes("timber") || s.includes("hardwood") || s.includes("wood")) return "timber"
+  if (s.includes("softwood") || s.includes("pine")) return "softwood"
+  if (s.includes("plasterboard") || s.includes("drywall") || s.includes("gypsum")) return "plasterboard"
+  if (s.includes("concrete") || s.includes("masonry") || s.includes("slab")) return "concrete"
+  if (s.includes("carpet")) return "carpet"
+  if (s.includes("vinyl") || s.includes("lvt") || s.includes("lvp")) return "vinyl"
+  if (s.includes("particleboard") || s.includes("mdf") || s.includes("chipboard")) return "particleboard"
+  if (s.includes("brick") || s.includes("render")) return "brick"
+  if (s.includes("insulation") || s.includes("batts") || s.includes("fibreglass")) return "insulation"
+  return "other"
+}
+
+/** Day label relative to a start date */
+function dayLabel(recordedAt: string, startMs: number): string {
+  const day = Math.floor((new Date(recordedAt).getTime() - startMs) / 86_400_000) + 1
+  return `Day ${day}`
+}
+
+interface SeriesPoint {
   day: string
-  isoDate: string
-  [material: string]: string | number
+  dayNum: number
+  [key: string]: number | string
 }
 
-interface TooltipPayloadEntry {
-  name: string
-  value: number
-  color: string
+function buildChartData(readings: DryingMoistureReading[], startMs: number) {
+  // Group readings into day buckets per series
+  const dayMap: Record<string, SeriesPoint> = {}
+  const seriesSet = new Set<string>()
+
+  // Sort chronologically
+  const sorted = [...readings].sort(
+    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+  )
+
+  for (const r of sorted) {
+    const dayNum = Math.floor((new Date(r.recordedAt).getTime() - startMs) / 86_400_000) + 1
+    const day = `Day ${dayNum}`
+    const key = seriesKey(r.location, r.surfaceType)
+
+    if (!dayMap[day]) {
+      dayMap[day] = { day, dayNum }
+    }
+
+    // If multiple readings in same day for same series, take the latest
+    const existing = dayMap[day][key] as number | undefined
+    if (existing === undefined || r.moistureLevel > 0) {
+      dayMap[day][key] = r.moistureLevel
+    }
+
+    seriesSet.add(key)
+  }
+
+  return {
+    data: Object.values(dayMap).sort((a, b) => (a.dayNum as number) - (b.dayNum as number)),
+    series: Array.from(seriesSet),
+  }
 }
 
-interface CustomTooltipProps {
-  active?: boolean
-  label?: string
-  payload?: TooltipPayloadEntry[]
+/** Latest reading per series */
+function getLatestReadings(readings: DryingMoistureReading[]) {
+  const latest: Record<string, DryingMoistureReading> = {}
+  for (const r of readings) {
+    const key = seriesKey(r.location, r.surfaceType)
+    if (!latest[key] || new Date(r.recordedAt) > new Date(latest[key].recordedAt)) {
+      latest[key] = r
+    }
+  }
+  return latest
 }
 
-function CustomTooltip({ active, label, payload }: CustomTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null
+/** Colour for a series based on latest moisture status */
+function seriesColor(
+  seriesK: string,
+  latestMap: Record<string, DryingMoistureReading>,
+  index: number
+): string {
+  const reading = latestMap[seriesK]
+  if (!reading) return SERIES_COLORS[index % SERIES_COLORS.length]
+  const material = toMaterial(reading.surfaceType)
+  const status = getMoistureStatus(reading.moistureLevel, material)
+  if (status === "dry") return "#10b981"   // emerald
+  if (status === "drying") return "#f59e0b" // amber
+  return "#ef4444"                          // red
+}
+
+// ── Custom Tooltip ────────────────────────────────────────────────
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-neutral-200 dark:border-slate-700 rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-semibold text-neutral-700 dark:text-slate-300 mb-2">{label}</p>
-      {payload.map((entry) => {
-        const target = getIicrcTarget(entry.name)
-        const isAbove = entry.value > target
+    <div className="bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 rounded-xl p-3 shadow-lg text-xs space-y-1.5 min-w-[180px]">
+      <p className="font-semibold text-neutral-700 dark:text-slate-200 mb-1">{label}</p>
+      {payload.map((entry: any) => {
+        // Parse location and surfaceType back from series key
+        const match = entry.dataKey.match(/^(.+) \((.+)\)$/)
+        const location = match?.[1] ?? entry.dataKey
+        const surfaceType = match?.[2] ?? ""
+        const material = toMaterial(surfaceType)
+        const std = getDryStandard(material)
+        const status = getMoistureStatus(entry.value, material)
+        const colors = STATUS_COLORS[status]
+
         return (
-          <div key={entry.name} className="flex items-center gap-2 mb-1">
-            <span
-              className="inline-block w-3 h-3 rounded-full flex-shrink-0"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-neutral-600 dark:text-slate-400 capitalize">{entry.name}:</span>
-            <span className="font-medium" style={{ color: entry.color }}>
-              {entry.value.toFixed(1)}%
-            </span>
-            <span
-              className={
-                isAbove
-                  ? "text-red-500 dark:text-red-400 text-xs font-medium"
-                  : "text-emerald-500 dark:text-emerald-400 text-xs font-medium"
-              }
-            >
-              {isAbove ? `▲ above target (${target}%)` : `✓ at target (${target}%)`}
-            </span>
+          <div key={entry.dataKey} className="flex items-start gap-2 py-0.5">
+            <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: entry.color }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-neutral-600 dark:text-slate-400 truncate">{location}</p>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("font-bold", colors.text)}>{entry.value}%</span>
+                <span className="text-neutral-400 dark:text-slate-500">/ target ≤{std.dryThreshold}%</span>
+              </div>
+            </div>
           </div>
         )
       })}
@@ -114,164 +196,222 @@ function CustomTooltip({ active, label, payload }: CustomTooltipProps) {
   )
 }
 
-export interface DryingProgressChartProps {
-  inspectionId: string
-}
+// ── Main Component ────────────────────────────────────────────────
 
-export default function DryingProgressChart({ inspectionId }: DryingProgressChartProps) {
-  const [readings, setReadings] = React.useState<MoistureReading[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        const res = await fetch(`/api/inspections/${inspectionId}`)
-        if (!res.ok) throw new Error("Failed to fetch inspection data")
-        const data = await res.json()
-        const raw: MoistureReading[] = (data.inspection?.moistureReadings ?? []).map(
-          (r: { id: string; surfaceType: string; moistureLevel: number; recordedAt: string; createdAt: string }) => ({
-            id: r.id,
-            surfaceType: r.surfaceType,
-            moistureLevel: r.moistureLevel,
-            recordedAt: r.recordedAt ?? r.createdAt,
-          })
-        )
-        setReadings(raw)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [inspectionId])
-
-  if (loading) {
+export default function DryingProgressChart({
+  readings,
+  inspectionStartDate,
+  className,
+}: DryingProgressChartProps) {
+  // ── Empty state ──
+  if (!readings || readings.length < 2) {
     return (
-      <div className="flex items-center justify-center h-48 text-neutral-400 dark:text-slate-500 text-sm">
-        Loading moisture data…
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center gap-3 py-12 rounded-xl border border-dashed",
+          "border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800/20",
+          className
+        )}
+      >
+        <Droplets size={32} className="text-neutral-300 dark:text-slate-600" />
+        <div className="text-center">
+          <p className="text-sm font-medium text-neutral-600 dark:text-slate-400">
+            Not enough data yet
+          </p>
+          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+            At least 2 moisture readings are required to plot a drying curve
+          </p>
+        </div>
       </div>
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-48 text-red-400 dark:text-red-500 text-sm">
-        {error}
-      </div>
-    )
-  }
+  // ── Determine start date ──
+  const startMs = inspectionStartDate
+    ? new Date(inspectionStartDate).getTime()
+    : Math.min(...readings.map((r) => new Date(r.recordedAt).getTime()))
 
-  if (readings.length === 0) {
-    return (
-      <div className="rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 p-8 text-center">
-        <p className="text-neutral-400 dark:text-slate-500 text-sm">No moisture readings recorded yet</p>
-      </div>
-    )
-  }
+  const { data, series } = buildChartData(readings, startMs)
+  const latestMap = getLatestReadings(readings)
 
-  // Derive unique materials
-  const materials = Array.from(new Set(readings.map((r) => r.surfaceType.toLowerCase())))
+  // Summary stats
+  const dryCount = series.filter((s) => {
+    const r = latestMap[s]
+    if (!r) return false
+    return getMoistureStatus(r.moistureLevel, toMaterial(r.surfaceType)) === "dry"
+  }).length
+  const dryingCount = series.filter((s) => {
+    const r = latestMap[s]
+    if (!r) return false
+    return getMoistureStatus(r.moistureLevel, toMaterial(r.surfaceType)) === "drying"
+  }).length
+  const wetCount = series.length - dryCount - dryingCount
 
-  // Group by day: for each (day, material) take the average moisture level
-  const dayMaterialMap = new Map<string, Map<string, number[]>>()
-
+  // Find the most common material for the primary reference line
+  const materialCounts: Record<string, number> = {}
   for (const r of readings) {
-    const dayKey = new Date(r.recordedAt).toISOString().slice(0, 10) // YYYY-MM-DD
-    if (!dayMaterialMap.has(dayKey)) dayMaterialMap.set(dayKey, new Map())
-    const matMap = dayMaterialMap.get(dayKey)!
-    const mat = r.surfaceType.toLowerCase()
-    if (!matMap.has(mat)) matMap.set(mat, [])
-    matMap.get(mat)!.push(r.moistureLevel)
+    const m = toMaterial(r.surfaceType)
+    materialCounts[m] = (materialCounts[m] || 0) + 1
   }
-
-  const sortedDays = Array.from(dayMaterialMap.keys()).sort()
-
-  const chartData: ChartDataPoint[] = sortedDays.map((day) => {
-    const point: ChartDataPoint = { day: formatDay(day), isoDate: day }
-    const matMap = dayMaterialMap.get(day)!
-    for (const mat of materials) {
-      const values = matMap.get(mat)
-      if (values && values.length > 0) {
-        const avg = values.reduce((a, b) => a + b, 0) / values.length
-        point[mat] = Math.round(avg * 10) / 10
-      }
-    }
-    return point
-  })
-
-  // Reference lines: one per material at IICRC target
-  const referenceLines = materials.map((mat) => ({
-    material: mat,
-    target: getIicrcTarget(mat),
-    colour: getMaterialColour(mat),
-  }))
+  const primaryMaterial = Object.entries(materialCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "other"
+  const primaryStd = getDryStandard(primaryMaterial)
 
   return (
-    <div className="rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 p-4">
-      <ResponsiveContainer width="100%" height={320}>
-        <LineChart data={chartData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-neutral-100 dark:text-slate-800" />
-          <XAxis
-            dataKey="day"
-            tick={{ fontSize: 12 }}
-            tickLine={false}
-            axisLine={false}
-            stroke="currentColor"
-            className="text-neutral-400 dark:text-slate-500"
-          />
-          <YAxis
-            domain={[0, 30]}
-            tickCount={7}
-            tick={{ fontSize: 12 }}
-            tickLine={false}
-            axisLine={false}
-            label={{ value: "MC%", angle: -90, position: "insideLeft", offset: 12, fontSize: 11 }}
-            stroke="currentColor"
-            className="text-neutral-400 dark:text-slate-500"
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend
-            wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-            formatter={(value: string) => (
-              <span className="capitalize text-neutral-600 dark:text-slate-300">{value}</span>
-            )}
-          />
+    <div className={cn("space-y-4", className)}>
+      {/* Status summary */}
+      <div className="flex flex-wrap gap-2">
+        {dryCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+            <CheckCircle2 size={12} />
+            {dryCount} location{dryCount > 1 ? "s" : ""} dry
+          </span>
+        )}
+        {dryingCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+            <TrendingDown size={12} />
+            {dryingCount} drying
+          </span>
+        )}
+        {wetCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30">
+            <AlertTriangle size={12} />
+            {wetCount} still wet
+          </span>
+        )}
+      </div>
 
-          {/* Reference lines at IICRC targets */}
-          {referenceLines.map(({ material, target, colour }) => (
+      {/* Chart */}
+      <div className="rounded-xl border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 p-4">
+        <div className="flex items-start justify-between mb-4 gap-2">
+          <div>
+            <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
+              Drying Progress Curve
+            </h4>
+            <p className="text-xs text-neutral-500 dark:text-slate-500 mt-0.5">
+              IICRC S500:2021 — moisture % per location over drying period
+            </p>
+          </div>
+          <div className="text-right text-xs text-neutral-400 dark:text-slate-500 flex-shrink-0">
+            <p className="font-medium">{primaryStd.label}</p>
+            <p>Target ≤{primaryStd.dryThreshold}%</p>
+          </div>
+        </div>
+
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+            <XAxis
+              dataKey="day"
+              tick={{ fontSize: 11, fill: "currentColor" }}
+              className="text-neutral-400 dark:text-slate-500"
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fontSize: 11, fill: "currentColor" }}
+              className="text-neutral-400 dark:text-slate-500"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v) => `${v}%`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend
+              iconType="circle"
+              iconSize={8}
+              wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+            />
+
+            {/* Primary material dry threshold reference line */}
             <ReferenceLine
-              key={`ref-${material}`}
-              y={target}
-              stroke={colour}
-              strokeDasharray="5 3"
-              strokeOpacity={0.6}
-              strokeWidth={1.5}
+              y={primaryStd.dryThreshold}
+              stroke="#10b981"
+              strokeDasharray="6 3"
+              label={{
+                value: `Dry target ≤${primaryStd.dryThreshold}%`,
+                position: "insideTopRight",
+                fontSize: 10,
+                fill: "#10b981",
+              }}
             />
-          ))}
 
-          {/* One line per material */}
-          {materials.map((mat) => (
-            <Line
-              key={mat}
-              type="monotone"
-              dataKey={mat}
-              name={mat}
-              stroke={getMaterialColour(mat)}
-              strokeWidth={2}
-              dot={{ r: 4, fill: getMaterialColour(mat), strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              connectNulls={false}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-      <p className="text-xs text-neutral-400 dark:text-slate-500 mt-2 text-center">
-        Dashed lines indicate IICRC S500:2025 §11.4 drying targets per material
-      </p>
+            {/* One line per location-material series */}
+            {series.map((s, i) => {
+              const color = seriesColor(s, latestMap, i)
+              return (
+                <Line
+                  key={s}
+                  type="monotone"
+                  dataKey={s}
+                  name={s}
+                  stroke={color}
+                  strokeWidth={2.5}
+                  dot={{ r: 4.5, fill: color, strokeWidth: 0 }}
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: "#fff" }}
+                  connectNulls
+                />
+              )
+            })}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Per-location status table */}
+      {series.length > 0 && (
+        <div className="rounded-xl border border-neutral-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-4 py-2.5 bg-neutral-50 dark:bg-slate-800/50 border-b border-neutral-200 dark:border-slate-700">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+              Location Summary — Latest Readings
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left">
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500">Location</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500">Material</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500 text-right">Reading</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500 text-right">Target</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100 dark:divide-slate-700">
+              {series.map((s) => {
+                const r = latestMap[s]
+                if (!r) return null
+                const material = toMaterial(r.surfaceType)
+                const std = getDryStandard(material)
+                const status = getMoistureStatus(r.moistureLevel, material)
+                const colors = STATUS_COLORS[status]
+
+                return (
+                  <tr key={s} className="bg-white dark:bg-slate-800/20 hover:bg-neutral-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">
+                      {r.location}
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-500 dark:text-slate-400">
+                      {std.label}
+                    </td>
+                    <td className={cn("px-4 py-2.5 text-right font-semibold tabular-nums", colors.text)}>
+                      {r.moistureLevel}%
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-neutral-400 dark:text-slate-500 tabular-nums">
+                      ≤{std.dryThreshold}%
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <span className={cn("inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full", colors.bg, colors.text, colors.border, "border")}>
+                        {status === "dry" && <CheckCircle2 size={10} />}
+                        {status === "drying" && <TrendingDown size={10} />}
+                        {status === "wet" && <AlertTriangle size={10} />}
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
-
