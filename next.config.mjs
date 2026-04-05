@@ -65,6 +65,13 @@ const nextConfig = {
       },
     ]
   },
+  // Keep heavy native packages external — do NOT bundle into serverless functions.
+  // sharp alone adds ~150 MB of multi-platform libvips binaries when bundled,
+  // pushing functions over Vercel's 250 MB uncompressed limit.
+  // Vercel's Lambda runtime provides sharp natively; puppeteer/firebase-admin
+  // have their own native binaries that also benefit from being kept external.
+  serverExternalPackages: ['sharp', 'puppeteer', 'firebase-admin', 'exifr'],
+
   experimental: {
     // optimizeCss: true, // Disabled - requires critters
     optimizePackageImports: [
