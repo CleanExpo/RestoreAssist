@@ -175,6 +175,10 @@ model User {
 
   // Release notifications — tracks which releases this user has dismissed
   releaseSeen UserReleaseSeen[]
+
+  // RA-412: Multi-tenant workspace memberships
+  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
+  workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
 }
 
 model Feedback {
@@ -4120,4 +4124,131 @@ enum StorageProviderType {
   S3
   GCS
   AZURE
+}
+
+// ============================================================
+// RA-412: Multi-tenant Workspace Foundation
+// H1 Schema Foundation — Sprint I
+// ============================================================
+
+enum WorkspaceStatus {
+  PROVISIONING
+  READY
+  SUSPENDED
+}
+
+enum WorkspaceMemberStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+// Workspace — top-level multi-tenant unit (one per business entity)
+model Workspace {
+  id   String          @id @default(cuid())
+  name String
+  slug String          @unique // URL-safe identifier e.g. "acme-restoration"
+
+  // Ownership & billing
+  ownerId              String
+  owner                User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status               WorkspaceStatus   @default(PROVISIONING)
+  stripeCustomerId     String?           @unique
+  stripeSubscriptionId String?           @unique
+
+  // Relations
+  members     WorkspaceMember[]
+  roles       WorkspaceRole[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([status])
+}
+
+// WorkspaceMember — user membership in a workspace
+model WorkspaceMember {
+  id          String                @id @default(cuid())
+  workspaceId String
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                  @relation("WorkspaceMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  status      WorkspaceMemberStatus @default(INVITED)
+  joinedAt    DateTime?
+  removedAt   DateTime?
+
+  // RBAC bindings for this member
+  roleBindings MemberRoleBinding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([status])
+}
+
+// WorkspaceRole — named role within a workspace (or system-wide if workspaceId is null)
+model WorkspaceRole {
+  id          String     @id @default(cuid())
+  workspaceId String?    // null = system role (Owner, Manager, Technician)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String     // e.g. "Owner", "Manager", "Technician", "Auditor"
+  description String?
+  isSystem    Boolean    @default(false) // System roles cannot be deleted
+
+  // Relations
+  permissions  RolePermission[]
+  roleBindings MemberRoleBinding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@index([isSystem])
+}
+
+// Permission — atomic capability key (e.g. 'reports.create', 'ai.use_premium')
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique // e.g. 'membership.invite', 'workspace.settings', 'reports.create'
+  description String?
+  category    String           // e.g. 'membership', 'workspace', 'reporting', 'ai'
+  roles       RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+// RolePermission — junction: which permissions a role has
+model RolePermission {
+  id           String        @id @default(cuid())
+  roleId       String
+  role         WorkspaceRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission    @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// MemberRoleBinding — assigns a role to a workspace member
+model MemberRoleBinding {
+  id       String          @id @default(cuid())
+  memberId String
+  member   WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  roleId   String
+  role     WorkspaceRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, roleId])
+  @@index([memberId])
+  @@index([roleId])
 }
