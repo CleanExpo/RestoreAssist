@@ -9,6 +9,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    // ESLint runs separately via pre-commit hooks and CI — skip during next build
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     // Shared security headers applied to every route
     const sharedHeaders = [
