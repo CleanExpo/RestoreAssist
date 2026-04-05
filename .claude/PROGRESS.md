@@ -159,11 +159,27 @@
 | RA-422 Workspace spec reconciliation | Founder acknowledgment on OpenRouter/Gemma-4/Obsidian board decisions |
 | RA-396 Voice copilot requirements | Founder to document domain expertise (15+ yrs field experience) |
 
+## 2026-04-05 — Sprint I Merge Complete
+
+| Task                                              | Status  | Notes                                                                                              |
+| ------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| PR #138 merged (sandbox → main)                   | Done    | Merged 07:38 UTC — all 5 CI checks green (Quality Checks, CodeRabbit, Vercel ×2, Preview)       |
+| Production DB migrations applied                  | Done    | 8 migrations applied to `udooysjajglluvuxkijp` via Supabase MCP; `_prisma_migrations` synced     |
+| Firebase env vars — Preview + Development         | Done    | All 7 NEXT_PUBLIC_FIREBASE_* vars now in Production + Preview + Development                      |
+| Vercel build timeout fix (PR #139)                | Done    | `next build --no-lint`; deprecated `eslint.ignoreDuringBuilds` removed from next.config.mjs      |
+| Production deployment (post PR#139)               | Pending | Build `restoreassist-imft0g1n6` running; check https://vercel.com/unite-group/restoreassist      |
+
 ## Notes for Next Context Window
 
-- PR #138 is mergeable once Vercel builds green — then apply 7 Prisma migrations to production Supabase DB
-- Production migrations to apply (in order): add_evidence_schema, add_workspace_foundation, add_workspaceid_fks, add_provider_connection_and_ai_usage_log, add_media_asset, add_media_asset_tag, add_media_asset_seo_fields
+- Production Vercel build may still be running — check https://vercel.com/unite-group/restoreassist/deployments
+- If green, restoreassist.com.au will serve Sprint G/H/I (Evidence Intelligence, Media Library, Workspace Foundation)
+- RA-421 (brand consolidation), RA-422 (workspace spec reconciliation), RA-396 (voice copilot requirements) all blocked on Phill input
+- DigitalOcean deploy workflow failing (pre-existing) — DO_TOKEN GitHub secret not set; RA-287 blocked
 - Google Play Console ($38 AUD) + Apple Developer Program ($149 AUD/yr) still not registered
-- Keystore passwords are temporary (`RestoreAssist2026!` / `RestoreAssistCET2026!`) — rotate before first Play Store upload
+- Keystore passwords temporary (`RestoreAssist2026!` / `RestoreAssistCET2026!`) — rotate before Play Store upload
 
 ## 2026-04-05 17:09 — Session End
+
+## 2026-04-05 18:07 — Session End
+
+## 2026-04-05 18:10 — Session End
