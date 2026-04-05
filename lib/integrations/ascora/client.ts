@@ -223,10 +223,10 @@ export class AscoraClient extends BaseIntegrationClient {
       throw new Error('No access token available')
     }
 
-    // Re-fetch tokens after refresh so the request uses the NEW access token
-    // (mirrors base-client.ts:98-106 pattern)
     if (tokens.isExpired && tokens.refreshToken) {
       await this.refreshAccessToken()
+      // Re-fetch tokens after refresh so the request uses the NEW access token
+      // (mirrors base-client.ts:98-106 pattern)
       tokens = await getTokens(this.integrationId)
       if (!tokens.accessToken) {
         throw new Error('Token refresh failed — no access token after refresh')

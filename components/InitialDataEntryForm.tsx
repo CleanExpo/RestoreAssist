@@ -2,6 +2,7 @@
 
 import { PropertyDataDisplay } from "@/components/property-data-display";
 import { PropertyLookupButton } from "@/components/property-lookup-button";
+import { AustralianAddressSearch, type ParsedAddress } from "@/components/forms/AustralianAddressSearch";
 import {
   Dialog,
   DialogContent,
@@ -2642,20 +2643,15 @@ export default function InitialDataEntryForm({
               <label className={cn("block text-sm font-medium mb-2", "text-neutral-700 dark:text-neutral-300")}>
                 Property Address <span className="text-error-500 dark:text-error-400">*</span>
               </label>
-              <input
-                type="text"
+              <AustralianAddressSearch
                 required
                 value={formData.propertyAddress}
-                onChange={(e) =>
-                  handleInputChange("propertyAddress", e.target.value)
-                }
-                className={cn(
-                "w-full px-4 py-2 rounded-lg",
-                "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
-                "text-neutral-900 dark:text-neutral-50",
-                "focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50"
-              )}
-                placeholder="Full property address"
+                onChange={(v) => handleInputChange("propertyAddress", v)}
+                onSelect={(parsed: ParsedAddress) => {
+                  handleInputChange("propertyAddress", parsed.fullAddress)
+                  if (parsed.postcode) handleInputChange("propertyPostcode", parsed.postcode)
+                }}
+                placeholder="Start typing an address to search…"
               />
             </div>
 
