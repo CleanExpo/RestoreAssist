@@ -289,6 +289,7 @@ export default function InspectionDetailPage({
   });
   const [addingMoisture, setAddingMoisture] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [generatingDisputePack, setGeneratingDisputePack] = useState(false);
   const [affectedAreas, setAffectedAreas] = useState<
     Inspection["affectedAreas"]
   >([]);
@@ -550,6 +551,40 @@ export default function InspectionDetailPage({
     }
   }
 
+  async function handleGenerateDisputePack() {
+    if (!inspection) return;
+    setGeneratingDisputePack(true);
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspection.id}/dispute-pack`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string }).error ?? "Dispute pack generation failed",
+        );
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dispute-pack-${inspection.inspectionNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Dispute Defence Pack downloaded");
+    } catch (err) {
+      console.error("Dispute pack generation error:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to generate dispute pack",
+      );
+    } finally {
+      setGeneratingDisputePack(false);
+    }
+  }
+
   async function handleAddArea() {
     if (!inspection) return;
     if (!areaForm.roomZoneId.trim()) {
@@ -727,6 +762,25 @@ export default function InspectionDetailPage({
               </button>
             )}
             <ExportPdfButton inspectionId={inspection.id} />
+            {(inspection.status === "SUBMITTED" ||
+              inspection.status === "COMPLETED") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateDisputePack}
+                disabled={generatingDisputePack}
+                className="text-xs gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10"
+              >
+                {generatingDisputePack ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Shield className="h-3.5 w-3.5" />
+                )}
+                {generatingDisputePack
+                  ? "Generating..."
+                  : "Dispute Defence Pack"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

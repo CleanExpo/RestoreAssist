@@ -31,11 +31,13 @@ import {
   Lock,
   Activity,
   Smartphone,
+  Camera,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
+import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
@@ -172,6 +174,7 @@ export default function DashboardLayout({
       href: "/dashboard/claims-analysis",
     },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
+    { icon: Camera, label: "Media Library", href: "/dashboard/media" },
     // Hide Subscription for team members (Managers and Technicians)
     ...(isTeamMember
       ? []
@@ -550,6 +553,8 @@ export default function DashboardLayout({
       </div>
       {/* Chatbot */}
       <Chatbot />
+      {/* What's New — shown once per release after login */}
+      <WhatsNewModal />
     </>
   );
 }

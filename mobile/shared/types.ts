@@ -113,6 +113,7 @@ export interface Inspection {
   moistureReadings?: MoistureReading[];
   affectedAreas?: AffectedArea[];
   scopeItems?: ScopeItem[];
+  photos?: Array<{ id: string; url?: string | null; location?: string | null }>;
 }
 
 export type ReportStatus =

@@ -13,7 +13,25 @@
       "Bash(wc *)",
       "Bash(find *)",
       "Bash(curl *)",
-      "Bash(sleep *)"
+      "Bash(sleep *)",
+      "Bash(printf *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(echo *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(diff *)",
+      "Bash(vercel *)",
+      "Bash(jq *)",
+      "Bash(tsc *)",
+      "Bash(prettier *)",
+      "Bash(pwd *)",
+      "Bash(which *)",
+      "Bash(date *)",
+      "Bash(touch *)"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -56,12 +74,27 @@
         ]
       }
     ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"== Post-Compaction Context ==\" && echo \"Branch: $(git branch --show-current 2>/dev/null)\" && echo \"Recent commits:\" && git log --oneline -5 2>/dev/null && echo \"Modified files:\" && git diff --name-only HEAD~3 2>/dev/null | head -20 && echo \"== End Context ==\""
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
+            "type": "prompt",
+            "prompt": "Check if the user's original request was fully addressed. If there are incomplete tasks in the todo list or the verification gate hasn't been satisfied, respond with {\"ok\": false, \"reason\": \"describe what remains\"}. If everything appears complete, respond with {\"ok\": true}."
+          },
+          {
             "type": "command",
-            "command": "echo \"\\n## $(date '+%Y-%m-%d %H:%M') — Session End\\n$(git diff --name-only 2>/dev/null | head -20)\" >> .claude/PROGRESS.md 2>/dev/null || true"
+            "command": "printf '\\n## %s — Session End\\n' \"$(date '+%Y-%m-%d %H:%M')\" >> \"$CLAUDE_PROJECT_DIR\"/.claude/PROGRESS.md 2>/dev/null || true"
           }
         ]
       }

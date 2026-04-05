@@ -172,6 +172,13 @@ model User {
 
   // Support tickets (RA-163)
   supportTickets SupportTicket[]
+
+  // Release notifications — tracks which releases this user has dismissed
+  releaseSeen UserReleaseSeen[]
+
+  // RA-412: Multi-tenant workspace memberships
+  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
+  workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
 }
 
 model Feedback {
@@ -248,6 +255,11 @@ model Client {
   updatedAt     DateTime                 @updatedAt
   userId        String
   user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("ClientWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   reports       Report[]
   clientUser    ClientUser?
   invitations   PortalInvitation[]
@@ -261,6 +273,7 @@ model Client {
   @@index([userId, name])
   @@index([userId, email])
   @@index([userId, createdAt])
+  @@index([workspaceId])
 }
 
 model ClientUser {
@@ -664,12 +677,17 @@ model Report {
   // NEW: Optional Regulatory Citations (Phase 5 - Tick and Flick feature)
   includeRegulatoryCitations Boolean @default(false) // Client preference for regulatory citations
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("ReportWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
   @@index([userId, hazardType])
   @@index([userId, status])
   @@index([clientId, createdAt])
   @@index([includeRegulatoryCitations]) // Index for efficient filtering
+  @@index([workspaceId])
 }
 
 enum Role {
@@ -685,6 +703,11 @@ model Organization {
   owner     User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members   User[]
   invites   UserInvite[]
+
+  // RA-408: Pluggable storage abstraction (BYOE)
+  storageProvider StorageProviderType @default(SUPABASE)
+  storageBucketUrl String?            // For BYOS — S3/GCS/Azure bucket endpoint
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 }
@@ -793,6 +816,10 @@ model Integration {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("IntegrationWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   // Service identification
   provider    IntegrationProvider
   name        String // Display name
@@ -831,6 +858,7 @@ model Integration {
   @@index([userId])
   @@index([provider])
   @@index([status])
+  @@index([workspaceId])
 }
 
 model CostLibrary {
@@ -844,6 +872,13 @@ model CostLibrary {
   userId      String
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items       CostItem[]
+
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("CostLibraryWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([workspaceId])
 }
 
 model CostItem {
@@ -1531,17 +1566,29 @@ model Inspection {
   // Relations
   propertyLookupCache PropertyLookup?
 
+  // Sprint G: Inspection Intelligence — Evidence & Workflow
+  evidenceItems       EvidenceItem[]
+  inspectionWorkflow  InspectionWorkflow?
+
+  // RA-416: media assets with EXIF metadata
+  mediaAssets MediaAsset[] @relation("InspectionMediaAssets")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("InspectionWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
   @@index([propertyPostcode])
   @@index([search_vector], type: Gin)
+  @@index([workspaceId])
 }
 
 enum InspectionStatus {
@@ -2129,11 +2176,16 @@ model FormTemplate {
   versions          FormTemplateVersion[]
   interviewSessions InterviewSession[]
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("FormTemplateWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([formType])
   @@index([category])
   @@index([status])
   @@index([isSystemTemplate])
+  @@index([workspaceId])
 }
 
 // Form Submission - instance of completed/in-progress form
@@ -3142,6 +3194,10 @@ model Invoice {
   userId String
   user   User   @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("InvoiceWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   // Invoice variations (for change orders)
   originalInvoiceId String?
   originalInvoice   Invoice?  @relation("InvoiceVariations", fields: [originalInvoiceId], references: [id], onDelete: SetNull)
@@ -3197,6 +3253,7 @@ model Invoice {
   @@index([status, dueDate])
   @@index([externalInvoiceId])
   @@index([publicToken])
+  @@index([workspaceId])
 }
 
 // Invoice Line Items (snapshot from estimate)
@@ -3882,4 +3939,564 @@ model SupportTicket {
   @@index([status])
   @@index([userId])
   @@index([email])
+}
+
+// ============================================
+// App Release Notes — auto-generated on sandbox → main merge
+// ============================================
+
+model AppRelease {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  title     String
+  notes     String   @db.Text
+  commitSha String?
+  mergedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  seenBy    UserReleaseSeen[]
+
+  @@index([createdAt])
+}
+
+model UserReleaseSeen {
+  id        String     @id @default(cuid())
+  userId    String
+  releaseId String
+  seenAt    DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release   AppRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseId])
+  @@index([userId])
+}
+
+
+// ============================================
+// Sprint G: Inspection Intelligence — Evidence Schema
+// 17 evidence classes with chain-of-custody metadata
+// IICRC S500:2025 compliant evidence tracking
+// ============================================
+
+// 17 evidence classes covering all restoration inspection documentation needs
+enum EvidenceClass {
+  MOISTURE_READING        // Moisture meter readings (pin/pinless)
+  THERMAL_IMAGE           // Thermal/infrared camera captures
+  AMBIENT_ENVIRONMENTAL   // Temperature, humidity, dew point readings
+  PHOTO_DAMAGE            // Photos of visible damage
+  PHOTO_EQUIPMENT         // Photos of deployed equipment
+  PHOTO_PROGRESS          // Progress/drying verification photos
+  PHOTO_COMPLETION        // Final completion/restoration photos
+  VIDEO_WALKTHROUGH       // Video documentation of affected areas
+  FLOOR_PLAN              // Annotated floor plans / sketches
+  SCOPE_DOCUMENT          // Scope of works documentation
+  LAB_RESULT              // Lab analysis results (mould, asbestos, contamination)
+  AUTHORITY_FORM          // Authority to proceed / client sign-off
+  EQUIPMENT_LOG           // Equipment deployment and runtime logs
+  TECHNICIAN_NOTE         // Field technician written observations
+  VOICE_MEMO              // Transcribed voice notes from field
+  THIRD_PARTY_REPORT      // External specialist reports (structural, electrical)
+  COMPLIANCE_CERTIFICATE  // IICRC/regulatory compliance certificates
+}
+
+// Workflow step status for guided capture state machine
+enum WorkflowStepStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED       // Requires ExceptionReason
+  BLOCKED       // Waiting on external dependency
+}
+
+// Evidence item — individual piece of evidence with chain-of-custody
+model EvidenceItem {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Evidence classification
+  evidenceClass EvidenceClass
+  title         String        // Short description e.g. "Kitchen moisture reading — north wall"
+  description   String?       @db.Text // Detailed notes
+
+  // Chain of custody — WHO captured WHAT, WHEN, WHERE, with WHAT device
+  capturedById   String        // User ID of the person who captured this evidence
+  capturedByName String        // Denormalised name for audit trail immutability
+  capturedAt     DateTime      @default(now()) // When the evidence was captured in the field
+  capturedLat    Float?        // GPS latitude at capture
+  capturedLng    Float?        // GPS longitude at capture
+  deviceId       String?       // Device identifier (phone IMEI, meter serial, etc.)
+  deviceType     String?       // "iPhone 15 Pro", "Tramex MRH III", "FLIR C5"
+
+  // Storage
+  fileUrl        String?       // Supabase Storage URL for file-based evidence
+  fileMimeType   String?       // MIME type of the stored file
+  fileSizeBytes  Int?          // File size for storage tracking
+  thumbnailUrl   String?       // Auto-generated thumbnail for photos/videos
+
+  // Structured data (JSON) — for readings, measurements, structured results
+  structuredData String?       @db.Text // JSON: { value: 42, unit: "%WME", material: "drywall" }
+
+  // Workflow linkage
+  workflowStepId String?
+  workflowStep   WorkflowStep? @relation(fields: [workflowStepId], references: [id], onDelete: SetNull)
+
+  // Affected area linkage (optional — some evidence is inspection-wide)
+  affectedAreaId String?
+
+  // Integrity
+  hashSha256     String?       // SHA-256 hash of the original file for tamper detection
+  isVerified     Boolean       @default(false) // Admin/office has verified this evidence
+  verifiedById   String?       // Who verified it
+  verifiedAt     DateTime?     // When it was verified
+
+  // Exception handling — if this evidence replaces a required but unobtainable item
+  exceptionReason ExceptionReason?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([evidenceClass])
+  @@index([capturedById])
+  @@index([capturedAt])
+  @@index([workflowStepId])
+  @@index([inspectionId, evidenceClass])
+}
+
+// Inspection workflow — state machine for guided capture
+model InspectionWorkflow {
+  id           String     @id @default(cuid())
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // Workflow configuration
+  jobType         String        // water, mould, fire, sewage, storm, impact, vandalism, etc.
+  experienceLevel String        @default("APPRENTICE") // APPRENTICE | EXPERIENCED
+
+  // State machine
+  currentStepOrder Int          @default(0) // Which step the technician is currently on
+  totalSteps       Int          @default(0) // Total steps in this workflow
+  completedSteps   Int          @default(0) // How many steps are done
+  skippedSteps     Int          @default(0) // How many steps were skipped (with exception)
+
+  // Submission gate
+  isReadyToSubmit  Boolean      @default(false) // All mandatory evidence collected
+  submissionScore  Float?       // 0-100 completeness percentage
+  lastValidatedAt  DateTime?    // When the submission gate last ran
+
+  // Timestamps
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Steps
+  steps WorkflowStep[]
+
+  @@index([inspectionId])
+  @@index([jobType])
+}
+
+// Individual step within an inspection workflow
+model WorkflowStep {
+  id         String             @id @default(cuid())
+  workflowId String
+  workflow   InspectionWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  // Step definition
+  stepOrder       Int               // Sequential order within the workflow
+  stepKey         String            // Machine-readable key e.g. "initial_moisture_survey"
+  stepTitle       String            // Human-readable title e.g. "Initial Moisture Survey"
+  stepDescription String?           @db.Text // Full instructions (verbose for apprentice mode)
+  stepDescriptionShort String?      // Condensed instructions (for experienced mode)
+
+  // Evidence requirements
+  requiredEvidenceClasses  String   @db.Text // JSON array: ["MOISTURE_READING", "PHOTO_DAMAGE"]
+  optionalEvidenceClasses  String?  @db.Text // JSON array: ["THERMAL_IMAGE", "VIDEO_WALKTHROUGH"]
+  minimumEvidenceCount     Int      @default(1) // Minimum pieces of evidence to complete step
+  isMandatory              Boolean  @default(true) // If false, step can be skipped without exception
+
+  // Risk escalation
+  riskTier         Int     @default(1) // 1=standard, 2=elevated, 3=critical (triggers extra evidence)
+  escalationNote   String? @db.Text    // Why this step has elevated risk
+
+  // Status
+  status      WorkflowStepStatus @default(NOT_STARTED)
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Evidence collected for this step
+  evidenceItems EvidenceItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workflowId, stepOrder])
+  @@unique([workflowId, stepKey])
+  @@index([workflowId])
+  @@index([status])
+}
+
+// Exception reason — documents WHY required evidence was skipped
+model ExceptionReason {
+  id             String       @id @default(cuid())
+  evidenceItemId String       @unique
+  evidenceItem   EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
+
+  // Exception details
+  reasonCode    String    // ACCESS_DENIED, EQUIPMENT_UNAVAILABLE, SAFETY_HAZARD, CLIENT_REFUSED, OTHER
+  reasonText    String    @db.Text // Free-text explanation
+  approvedById  String?   // Admin who approved the exception (null = pending)
+  approvedAt    DateTime? // When exception was approved
+
+  // Notification
+  notifiedAdminAt DateTime? // When office was alerted about the exception
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reasonCode])
+  @@index([approvedById])
+}
+
+// RA-408: Storage provider enum
+enum StorageProviderType {
+  SUPABASE
+  S3
+  GCS
+  AZURE
+}
+
+// ============================================================
+// RA-412: Multi-tenant Workspace Foundation
+// H1 Schema Foundation — Sprint I
+// ============================================================
+
+enum WorkspaceStatus {
+  PROVISIONING
+  READY
+  SUSPENDED
+}
+
+enum WorkspaceMemberStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+// Workspace — top-level multi-tenant unit (one per business entity)
+model Workspace {
+  id   String          @id @default(cuid())
+  name String
+  slug String          @unique // URL-safe identifier e.g. "acme-restoration"
+
+  // Ownership & billing
+  ownerId              String
+  owner                User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status               WorkspaceStatus   @default(PROVISIONING)
+  stripeCustomerId     String?           @unique
+  stripeSubscriptionId String?           @unique
+
+  // Relations
+  members     WorkspaceMember[]
+  roles       WorkspaceRole[]
+
+  // RA-413: scoped customer data
+  clients       Client[]       @relation("ClientWorkspace")
+  reports       Report[]       @relation("ReportWorkspace")
+  inspections   Inspection[]   @relation("InspectionWorkspace")
+  invoices      Invoice[]      @relation("InvoiceWorkspace")
+  integrations  Integration[]  @relation("IntegrationWorkspace")
+  costLibraries CostLibrary[]  @relation("CostLibraryWorkspace")
+  formTemplates FormTemplate[] @relation("FormTemplateWorkspace")
+
+  // RA-414: AI provider connections and usage logs
+  providerConnections ProviderConnection[] @relation("WorkspaceProviderConnections")
+  aiUsageLogs         AiUsageLog[]         @relation("WorkspaceAiUsageLogs")
+
+  // RA-416: media assets
+  mediaAssets MediaAsset[] @relation("WorkspaceMediaAssets")
+
+  // RA-417: media asset tags
+  mediaAssetTags MediaAssetTag[] @relation("WorkspaceMediaAssetTags")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([status])
+}
+
+// WorkspaceMember — user membership in a workspace
+model WorkspaceMember {
+  id          String                @id @default(cuid())
+  workspaceId String
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                  @relation("WorkspaceMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  status      WorkspaceMemberStatus @default(INVITED)
+  joinedAt    DateTime?
+  removedAt   DateTime?
+
+  // RBAC bindings for this member
+  roleBindings MemberRoleBinding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([status])
+}
+
+// WorkspaceRole — named role within a workspace (or system-wide if workspaceId is null)
+model WorkspaceRole {
+  id          String     @id @default(cuid())
+  workspaceId String?    // null = system role (Owner, Manager, Technician)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String     // e.g. "Owner", "Manager", "Technician", "Auditor"
+  description String?
+  isSystem    Boolean    @default(false) // System roles cannot be deleted
+
+  // Relations
+  permissions  RolePermission[]
+  roleBindings MemberRoleBinding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@index([isSystem])
+}
+
+// Permission — atomic capability key (e.g. 'reports.create', 'ai.use_premium')
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique // e.g. 'membership.invite', 'workspace.settings', 'reports.create'
+  description String?
+  category    String           // e.g. 'membership', 'workspace', 'reporting', 'ai'
+  roles       RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+// RolePermission — junction: which permissions a role has
+model RolePermission {
+  id           String        @id @default(cuid())
+  roleId       String
+  role         WorkspaceRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission    @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// MemberRoleBinding — assigns a role to a workspace member
+model MemberRoleBinding {
+  id       String          @id @default(cuid())
+  memberId String
+  member   WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  roleId   String
+  role     WorkspaceRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, roleId])
+  @@index([memberId])
+  @@index([roleId])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RA-417: MediaAssetTag — flexible cataloging (many-to-many)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// MediaAssetTag — a single cataloging label attached to a MediaAsset
+// Categories: job, room, damage_type, date_bucket, location, technician, device
+model MediaAssetTag {
+  id          String     @id @default(cuid())
+  assetId     String
+  asset       MediaAsset @relation("MediaAssetTags", fields: [assetId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace  @relation("WorkspaceMediaAssetTags", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Tag structure: category + value (e.g. category="room", value="Kitchen")
+  category String // "job" | "room" | "damage_type" | "date_bucket" | "location" | "technician" | "device"
+  value    String // Human-readable value
+
+  // Optional FK links for structured dimensions
+  inspectionId String? // For "job" tags
+  evidenceId   String? // For "damage_type" tags sourced from EvidenceItem
+
+  createdAt DateTime @default(now())
+
+  @@unique([assetId, category, value])
+  @@index([workspaceId, category])
+  @@index([workspaceId, category, value])
+  @@index([assetId])
+  @@index([inspectionId])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RA-416: MediaAsset — EXIF metadata + media intelligence
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// MediaAsset — stores EXIF metadata extracted from every uploaded inspection image/video
+model MediaAsset {
+  id           String     @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace  @relation("WorkspaceMediaAssets", fields: [workspaceId], references: [id], onDelete: Cascade)
+  inspectionId String
+  inspection   Inspection @relation("InspectionMediaAssets", fields: [inspectionId], references: [id], onDelete: Cascade)
+  evidenceId   String?    // Links to EvidenceItem if uploaded through evidence flow
+
+  // File identity
+  originalFilename String
+  mimeType         String  // e.g. "image/jpeg", "video/mp4", "image/heic"
+  fileSize         Int     // bytes
+  storagePath      String  // Path in Supabase Storage
+
+  // GPS
+  latitude  Float?
+  longitude Float?
+  altitude  Float?
+  accuracy  Float?  // metres
+
+  // Timestamps
+  capturedAt DateTime? // From EXIF DateTimeOriginal
+  uploadedAt DateTime  @default(now())
+  timezone   String?   // e.g. "Australia/Sydney"
+
+  // Device
+  deviceMake  String? // e.g. "Apple"
+  deviceModel String? // e.g. "iPhone 15 Pro"
+  software    String? // e.g. "iOS 17.4"
+  lensModel   String?
+
+  // Image dimensions
+  width       Int?
+  height      Int?
+  orientation Int?    // EXIF orientation tag (1-8)
+  colorSpace  String?
+  dpiX        Float?
+  dpiY        Float?
+
+  // Camera settings
+  focalLength  Float?  // mm
+  aperture     Float?  // f-number
+  exposureTime String? // e.g. "1/125"
+  iso          Int?
+  flash        Boolean?
+
+  // Video metadata (when mimeType is video/*)
+  durationSeconds Float?
+  videoWidth      Int?
+  videoHeight     Int?
+  videoCodec      String?
+  frameRate       Float?
+
+  // Full raw EXIF dump (JSONB) for future use
+  rawExifData Json?
+
+  // RA-418: SEO/AEO structured data
+  altText   String? // AI-generated SEO-optimised alt text
+  seoJsonLd Json?   // Cached schema.org/ImageObject JSON-LD
+
+  // RA-417: cataloging tags
+  tags MediaAssetTag[] @relation("MediaAssetTags")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([inspectionId])
+  @@index([evidenceId])
+  @@index([capturedAt])
+  @@index([latitude, longitude])
+  @@index([mimeType])
+}
+
+// ━━━━━━��━━━━━━━━━━━━━━���━━━━━���━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RA-414: ProviderConnection + AiUsageLog
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+enum AiProvider {
+  ANTHROPIC
+  OPENAI
+  GOOGLE
+  GEMMA
+}
+
+enum ProviderConnectionStatus {
+  ACTIVE
+  FAILED
+  DISABLED
+}
+
+// ProviderConnection — replaces ad-hoc BYOK config with a proper per-workspace credential store
+model ProviderConnection {
+  id          String                   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace                @relation("WorkspaceProviderConnections", fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider    AiProvider
+  status      ProviderConnectionStatus @default(ACTIVE)
+
+  // Encrypted credentials (server-side only; never sent to client)
+  encryptedCredentials String @db.Text // AES-256-GCM encrypted JSON
+
+  // Validation tracking
+  lastValidatedAt DateTime?
+  lastError       String?   @db.Text
+
+  // Audit
+  createdByMemberId String? // WorkspaceMember.id of the member who added this key
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+  @@index([provider])
+  @@index([status])
+}
+
+// AiUsageLog — immutable per-call AI usage record (token tracking, cost, latency)
+// Separate from UsageEvent (billing metering) — this is the granular AI call log
+model AiUsageLog {
+  id          String     @id @default(cuid())
+  workspaceId String
+  workspace   Workspace  @relation("WorkspaceAiUsageLogs", fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberId    String?    // WorkspaceMember.id — null for system-initiated calls
+
+  provider  AiProvider
+  model     String     // e.g. "claude-opus-4-5", "gpt-4o", "gemma-3-27b-it"
+  taskType  String     // AiTaskType from model-router.ts
+
+  // Token accounting
+  inputTokens     Int
+  outputTokens    Int
+  estimatedCostUsd Float
+
+  // Performance
+  latencyMs Int
+  success   Boolean @default(true)
+  errorType String? // e.g. "rate_limit", "context_length", "auth"
+
+  // Structured event metadata (JSONB)
+  metadata Json? // inspectionId, reportId, etc.
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([memberId])
+  @@index([provider])
+  @@index([taskType])
+  @@index([success])
+  @@index([createdAt])
 }
