@@ -4208,6 +4208,10 @@ model Workspace {
   costLibraries CostLibrary[]  @relation("CostLibraryWorkspace")
   formTemplates FormTemplate[] @relation("FormTemplateWorkspace")
 
+  // RA-414: AI provider connections and usage logs
+  providerConnections ProviderConnection[] @relation("WorkspaceProviderConnections")
+  aiUsageLogs         AiUsageLog[]         @relation("WorkspaceAiUsageLogs")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4298,4 +4302,83 @@ model MemberRoleBinding {
   @@unique([memberId, roleId])
   @@index([memberId])
   @@index([roleId])
+}
+
+// ━━━━━━��━━━━━━━━━━━━━━���━━━━━���━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RA-414: ProviderConnection + AiUsageLog
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+enum AiProvider {
+  ANTHROPIC
+  OPENAI
+  GOOGLE
+  GEMMA
+}
+
+enum ProviderConnectionStatus {
+  ACTIVE
+  FAILED
+  DISABLED
+}
+
+// ProviderConnection — replaces ad-hoc BYOK config with a proper per-workspace credential store
+model ProviderConnection {
+  id          String                   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace                @relation("WorkspaceProviderConnections", fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider    AiProvider
+  status      ProviderConnectionStatus @default(ACTIVE)
+
+  // Encrypted credentials (server-side only; never sent to client)
+  encryptedCredentials String @db.Text // AES-256-GCM encrypted JSON
+
+  // Validation tracking
+  lastValidatedAt DateTime?
+  lastError       String?   @db.Text
+
+  // Audit
+  createdByMemberId String? // WorkspaceMember.id of the member who added this key
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+  @@index([provider])
+  @@index([status])
+}
+
+// AiUsageLog — immutable per-call AI usage record (token tracking, cost, latency)
+// Separate from UsageEvent (billing metering) — this is the granular AI call log
+model AiUsageLog {
+  id          String     @id @default(cuid())
+  workspaceId String
+  workspace   Workspace  @relation("WorkspaceAiUsageLogs", fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberId    String?    // WorkspaceMember.id — null for system-initiated calls
+
+  provider  AiProvider
+  model     String     // e.g. "claude-opus-4-5", "gpt-4o", "gemma-3-27b-it"
+  taskType  String     // AiTaskType from model-router.ts
+
+  // Token accounting
+  inputTokens     Int
+  outputTokens    Int
+  estimatedCostUsd Float
+
+  // Performance
+  latencyMs Int
+  success   Boolean @default(true)
+  errorType String? // e.g. "rate_limit", "context_length", "auth"
+
+  // Structured event metadata (JSONB)
+  metadata Json? // inspectionId, reportId, etc.
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([memberId])
+  @@index([provider])
+  @@index([taskType])
+  @@index([success])
+  @@index([createdAt])
 }

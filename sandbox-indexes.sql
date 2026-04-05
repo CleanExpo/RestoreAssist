@@ -955,3 +955,15 @@ CREATE INDEX "Integration_workspaceId_idx" ON "Integration"("workspaceId");
 CREATE INDEX "CostLibrary_workspaceId_idx" ON "CostLibrary"("workspaceId");
 CREATE INDEX "FormTemplate_workspaceId_idx" ON "FormTemplate"("workspaceId");
 
+-- CreateIndex (RA-414: ProviderConnection + AiUsageLog)
+CREATE UNIQUE INDEX "ProviderConnection_workspaceId_provider_key" ON "ProviderConnection"("workspaceId", "provider");
+CREATE INDEX "ProviderConnection_workspaceId_idx" ON "ProviderConnection"("workspaceId");
+CREATE INDEX "ProviderConnection_provider_idx" ON "ProviderConnection"("provider");
+CREATE INDEX "ProviderConnection_status_idx" ON "ProviderConnection"("status");
+CREATE INDEX "AiUsageLog_workspaceId_createdAt_idx" ON "AiUsageLog"("workspaceId", "createdAt");
+CREATE INDEX "AiUsageLog_memberId_idx" ON "AiUsageLog"("memberId");
+CREATE INDEX "AiUsageLog_provider_idx" ON "AiUsageLog"("provider");
+CREATE INDEX "AiUsageLog_taskType_idx" ON "AiUsageLog"("taskType");
+CREATE INDEX "AiUsageLog_success_idx" ON "AiUsageLog"("success");
+CREATE INDEX "AiUsageLog_createdAt_idx" ON "AiUsageLog"("createdAt");
+
