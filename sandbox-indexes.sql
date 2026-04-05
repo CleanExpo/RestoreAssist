@@ -946,3 +946,12 @@ CREATE UNIQUE INDEX "ExceptionReason_evidenceItemId_key" ON "ExceptionReason"("e
 CREATE INDEX "ExceptionReason_reasonCode_idx" ON "ExceptionReason"("reasonCode");
 CREATE INDEX "ExceptionReason_approvedById_idx" ON "ExceptionReason"("approvedById");
 
+-- CreateIndex (RA-413: workspace scoping)
+CREATE INDEX "Client_workspaceId_idx" ON "Client"("workspaceId");
+CREATE INDEX "Report_workspaceId_idx" ON "Report"("workspaceId");
+CREATE INDEX "Inspection_workspaceId_idx" ON "Inspection"("workspaceId");
+CREATE INDEX "Invoice_workspaceId_idx" ON "Invoice"("workspaceId");
+CREATE INDEX "Integration_workspaceId_idx" ON "Integration"("workspaceId");
+CREATE INDEX "CostLibrary_workspaceId_idx" ON "CostLibrary"("workspaceId");
+CREATE INDEX "FormTemplate_workspaceId_idx" ON "FormTemplate"("workspaceId");
+

@@ -255,6 +255,11 @@ model Client {
   updatedAt     DateTime                 @updatedAt
   userId        String
   user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("ClientWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   reports       Report[]
   clientUser    ClientUser?
   invitations   PortalInvitation[]
@@ -268,6 +273,7 @@ model Client {
   @@index([userId, name])
   @@index([userId, email])
   @@index([userId, createdAt])
+  @@index([workspaceId])
 }
 
 model ClientUser {
@@ -671,12 +677,17 @@ model Report {
   // NEW: Optional Regulatory Citations (Phase 5 - Tick and Flick feature)
   includeRegulatoryCitations Boolean @default(false) // Client preference for regulatory citations
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("ReportWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
   @@index([userId, hazardType])
   @@index([userId, status])
   @@index([clientId, createdAt])
   @@index([includeRegulatoryCitations]) // Index for efficient filtering
+  @@index([workspaceId])
 }
 
 enum Role {
@@ -805,6 +816,10 @@ model Integration {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("IntegrationWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   // Service identification
   provider    IntegrationProvider
   name        String // Display name
@@ -843,6 +858,7 @@ model Integration {
   @@index([userId])
   @@index([provider])
   @@index([status])
+  @@index([workspaceId])
 }
 
 model CostLibrary {
@@ -856,6 +872,13 @@ model CostLibrary {
   userId      String
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items       CostItem[]
+
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("CostLibraryWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([workspaceId])
 }
 
 model CostItem {
@@ -1553,11 +1576,16 @@ model Inspection {
   // Full-Text Search
   search_vector Unsupported("tsvector")?
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("InspectionWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
   @@index([propertyPostcode])
   @@index([search_vector], type: Gin)
+  @@index([workspaceId])
 }
 
 enum InspectionStatus {
@@ -2145,11 +2173,16 @@ model FormTemplate {
   versions          FormTemplateVersion[]
   interviewSessions InterviewSession[]
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("FormTemplateWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([formType])
   @@index([category])
   @@index([status])
   @@index([isSystemTemplate])
+  @@index([workspaceId])
 }
 
 // Form Submission - instance of completed/in-progress form
@@ -3158,6 +3191,10 @@ model Invoice {
   userId String
   user   User   @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
 
+  // RA-413: workspace scoping
+  workspaceId String?
+  workspace   Workspace? @relation("InvoiceWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
   // Invoice variations (for change orders)
   originalInvoiceId String?
   originalInvoice   Invoice?  @relation("InvoiceVariations", fields: [originalInvoiceId], references: [id], onDelete: SetNull)
@@ -3213,6 +3250,7 @@ model Invoice {
   @@index([status, dueDate])
   @@index([externalInvoiceId])
   @@index([publicToken])
+  @@index([workspaceId])
 }
 
 // Invoice Line Items (snapshot from estimate)
@@ -4160,6 +4198,15 @@ model Workspace {
   // Relations
   members     WorkspaceMember[]
   roles       WorkspaceRole[]
+
+  // RA-413: scoped customer data
+  clients       Client[]       @relation("ClientWorkspace")
+  reports       Report[]       @relation("ReportWorkspace")
+  inspections   Inspection[]   @relation("InspectionWorkspace")
+  invoices      Invoice[]      @relation("InvoiceWorkspace")
+  integrations  Integration[]  @relation("IntegrationWorkspace")
+  costLibraries CostLibrary[]  @relation("CostLibraryWorkspace")
+  formTemplates FormTemplate[] @relation("FormTemplateWorkspace")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
