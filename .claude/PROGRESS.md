@@ -99,6 +99,8 @@
 | Sandbox SQL files updated (RA-417)            | Done   | sandbox-tables2, sandbox-indexes, sandbox-fkeys all include MediaAssetTag DDL                 |
 | RA-418 SEO/AEO/GEO structured data           | Done   | lib/media/seo-output.ts + /api/media/[id]/seo GET+POST; altText/seoJsonLd added to MediaAsset |
 | MediaAsset SEO migration                      | Done   | 20260405050000_add_media_asset_seo_fields applied to sandbox                                   |
+| RA-419 Contractor media library UI            | Done   | /dashboard/media extended: stats cards, bulk select, JSON-LD copy, embed copy, spark chart     |
+| /api/media/stats                              | Done   | Workspace stats: total, storageBytes, byDamageType, byMonth (12m), topLocations                |
 
 ## 2026-04-04 20:21 — Session End
 
