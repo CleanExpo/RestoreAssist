@@ -1254,3 +1254,16 @@ CREATE TABLE "AiUsageLog" (
   CONSTRAINT "AiUsageLog_pkey" PRIMARY KEY ("id")
 );
 
+
+-- CreateTable (RA-417: MediaAssetTag — auto-cataloging by dimension)
+CREATE TABLE "MediaAssetTag" (
+  "id"           TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+  "assetId"      TEXT NOT NULL,
+  "workspaceId"  TEXT NOT NULL,
+  "category"     TEXT NOT NULL,
+  "value"        TEXT NOT NULL,
+  "inspectionId" TEXT,
+  "evidenceId"   TEXT,
+  "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "MediaAssetTag_pkey" PRIMARY KEY ("id")
+);

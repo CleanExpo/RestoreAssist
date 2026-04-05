@@ -31,6 +31,7 @@ import {
   Lock,
   Activity,
   Smartphone,
+  Camera,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
@@ -173,6 +174,7 @@ export default function DashboardLayout({
       href: "/dashboard/claims-analysis",
     },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
+    { icon: Camera, label: "Media Library", href: "/dashboard/media" },
     // Hide Subscription for team members (Managers and Technicians)
     ...(isTeamMember
       ? []

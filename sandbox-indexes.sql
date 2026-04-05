@@ -975,3 +975,11 @@ CREATE INDEX "AiUsageLog_taskType_idx" ON "AiUsageLog"("taskType");
 CREATE INDEX "AiUsageLog_success_idx" ON "AiUsageLog"("success");
 CREATE INDEX "AiUsageLog_createdAt_idx" ON "AiUsageLog"("createdAt");
 
+
+-- CreateIndex (RA-417: MediaAssetTag)
+CREATE UNIQUE INDEX "MediaAssetTag_assetId_category_value_key" ON "MediaAssetTag"("assetId", "category", "value");
+CREATE INDEX "MediaAssetTag_assetId_idx" ON "MediaAssetTag"("assetId");
+CREATE INDEX "MediaAssetTag_workspaceId_idx" ON "MediaAssetTag"("workspaceId");
+CREATE INDEX "MediaAssetTag_category_value_idx" ON "MediaAssetTag"("category", "value");
+CREATE INDEX "MediaAssetTag_inspectionId_idx" ON "MediaAssetTag"("inspectionId") WHERE "inspectionId" IS NOT NULL;
+CREATE INDEX "MediaAssetTag_evidenceId_idx" ON "MediaAssetTag"("evidenceId") WHERE "evidenceId" IS NOT NULL;

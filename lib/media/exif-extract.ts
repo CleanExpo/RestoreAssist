@@ -13,6 +13,7 @@
  */
 
 import { prisma } from "../prisma";
+import { scheduleCatalog } from "./catalog";
 
 export interface ExifExtractionInput {
   buffer: Buffer;
@@ -144,7 +145,7 @@ export function extractAndSaveMediaAsset(input: ExifExtractionInput): void {
     try {
       const exif = await extractExif(input.buffer);
 
-      await prisma.mediaAsset.create({
+      const asset = await prisma.mediaAsset.create({
         data: {
           workspaceId: input.workspaceId,
           inspectionId: input.inspectionId,
@@ -176,7 +177,11 @@ export function extractAndSaveMediaAsset(input: ExifExtractionInput): void {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           rawExifData: exif.raw ? (exif.raw as any) : undefined,
         },
+        select: { id: true },
       });
+
+      // RA-417: Auto-catalog the asset by all available dimensions (fire-and-forget)
+      scheduleCatalog(asset.id, input.workspaceId);
     } catch (err) {
       // Intentionally swallowed — EXIF logging must never fail uploads
       console.error("[extractAndSaveMediaAsset] Failed to save MediaAsset:", err);

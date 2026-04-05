@@ -13,6 +13,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
+import { scheduleCatalog } from "@/lib/media/catalog";
 
 // POST - Upload photo
 export async function POST(
