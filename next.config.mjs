@@ -61,12 +61,52 @@ const nextConfig = {
       },
     ]
   },
-  // Keep heavy native packages external — do NOT bundle into serverless functions.
-  // sharp alone adds ~150 MB of multi-platform libvips binaries when bundled,
-  // pushing functions over Vercel's 250 MB uncompressed limit.
-  // Vercel's Lambda runtime provides sharp natively; puppeteer/firebase-admin
-  // have their own native binaries that also benefit from being kept external.
-  serverExternalPackages: ['sharp', 'puppeteer', 'firebase-admin', 'exifr'],
+  // Keep heavy server-only packages external — do NOT bundle into serverless functions.
+  // Prevents Turbopack from compiling these packages during `next build`, which was
+  // the root cause of the 45-minute build timeout. All packages listed here are
+  // server-only (only imported in app/api/ or server lib/ files, never in client components).
+  //
+  // Categories:
+  //   Native binaries:   sharp, puppeteer, exifr — platform-specific .node files
+  //   AI SDKs:           @anthropic-ai/sdk, openai, @google/generative-ai
+  //   Cloud/infra:       firebase-admin, googleapis, cloudinary, stripe, resend, nodemailer
+  //   PDF generation:    pdf-lib, jspdf, pdf-parse, pdfjs-dist
+  //   Office formats:    exceljs, mammoth
+  //   Media/video:       @remotion/lambda
+  //   Utilities:         archiver, jsonwebtoken, bcryptjs, qrcode
+  serverExternalPackages: [
+    // Native binaries (original set)
+    'sharp',
+    'puppeteer',
+    'firebase-admin',
+    'exifr',
+    // AI SDKs — large dependency trees, server-only
+    '@anthropic-ai/sdk',
+    'openai',
+    '@google/generative-ai',
+    // Cloud / infrastructure
+    'googleapis',
+    'google-auth-library',
+    'cloudinary',
+    'stripe',
+    'resend',
+    'nodemailer',
+    // PDF generation / parsing — heavy, server-only
+    'pdf-lib',
+    'jspdf',
+    'pdf-parse',
+    'pdfjs-dist',
+    // Office formats — server-only
+    'exceljs',
+    'mammoth',
+    // Media / video rendering
+    '@remotion/lambda',
+    // Utilities — crypto, archiving, QR
+    'archiver',
+    'jsonwebtoken',
+    'bcryptjs',
+    'qrcode',
+  ],
 
   experimental: {
     // optimizeCss: true, // Disabled - requires critters
