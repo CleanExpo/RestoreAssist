@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
 
 // POST - Upload photo
 export async function POST(
@@ -33,6 +34,7 @@ export async function POST(
         id,
         userId: session.user.id,
       },
+      select: { id: true, workspaceId: true },
     });
 
     if (!inspection) {
@@ -100,6 +102,19 @@ export async function POST(
         }),
       },
     });
+
+    // RA-416: Extract EXIF metadata — fire-and-forget, never blocks upload response
+    if (inspection.workspaceId) {
+      extractAndSaveMediaAsset({
+        buffer,
+        originalFilename: file.name,
+        mimeType: file.type || "image/jpeg",
+        fileSize: file.size,
+        storagePath: uploadResult.storagePath,
+        inspectionId: id,
+        workspaceId: inspection.workspaceId,
+      });
+    }
 
     return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {
