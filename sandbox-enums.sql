@@ -181,3 +181,7 @@ CREATE TYPE "WorkflowStepStatus" AS ENUM (
   'BLOCKED'
 );
 
+-- CreateEnum (RA-414: AI provider connections)
+CREATE TYPE "AiProvider" AS ENUM ('ANTHROPIC', 'OPENAI', 'GOOGLE', 'GEMMA');
+CREATE TYPE "ProviderConnectionStatus" AS ENUM ('ACTIVE', 'FAILED', 'DISABLED');
+

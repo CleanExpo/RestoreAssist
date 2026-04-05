@@ -1177,3 +1177,37 @@ CREATE TABLE "ExceptionReason" (
   CONSTRAINT "ExceptionReason_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (RA-414: workspace-scoped AI provider credential store)
+CREATE TABLE "ProviderConnection" (
+  "id" TEXT NOT NULL,
+  "workspaceId" TEXT NOT NULL,
+  "provider" "AiProvider" NOT NULL,
+  "status" "ProviderConnectionStatus" NOT NULL DEFAULT 'ACTIVE',
+  "encryptedCredentials" TEXT NOT NULL,
+  "lastValidatedAt" TIMESTAMP(3),
+  "lastError" TEXT,
+  "createdByMemberId" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "ProviderConnection_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable (RA-414: immutable per-call AI usage log)
+CREATE TABLE "AiUsageLog" (
+  "id" TEXT NOT NULL,
+  "workspaceId" TEXT NOT NULL,
+  "memberId" TEXT,
+  "provider" "AiProvider" NOT NULL,
+  "model" TEXT NOT NULL,
+  "taskType" TEXT NOT NULL,
+  "inputTokens" INTEGER NOT NULL,
+  "outputTokens" INTEGER NOT NULL,
+  "estimatedCostUsd" DOUBLE PRECISION NOT NULL,
+  "latencyMs" INTEGER NOT NULL,
+  "success" BOOLEAN NOT NULL DEFAULT true,
+  "errorType" TEXT,
+  "metadata" JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "AiUsageLog_pkey" PRIMARY KEY ("id")
+);
+
