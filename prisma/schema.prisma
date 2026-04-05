@@ -1570,6 +1570,9 @@ model Inspection {
   evidenceItems       EvidenceItem[]
   inspectionWorkflow  InspectionWorkflow?
 
+  // RA-416: media assets with EXIF metadata
+  mediaAssets MediaAsset[] @relation("InspectionMediaAssets")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4212,6 +4215,9 @@ model Workspace {
   providerConnections ProviderConnection[] @relation("WorkspaceProviderConnections")
   aiUsageLogs         AiUsageLog[]         @relation("WorkspaceAiUsageLogs")
 
+  // RA-416: media assets
+  mediaAssets MediaAsset[] @relation("WorkspaceMediaAssets")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4302,6 +4308,78 @@ model MemberRoleBinding {
   @@unique([memberId, roleId])
   @@index([memberId])
   @@index([roleId])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RA-416: MediaAsset — EXIF metadata + media intelligence
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// MediaAsset — stores EXIF metadata extracted from every uploaded inspection image/video
+model MediaAsset {
+  id           String     @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace  @relation("WorkspaceMediaAssets", fields: [workspaceId], references: [id], onDelete: Cascade)
+  inspectionId String
+  inspection   Inspection @relation("InspectionMediaAssets", fields: [inspectionId], references: [id], onDelete: Cascade)
+  evidenceId   String?    // Links to EvidenceItem if uploaded through evidence flow
+
+  // File identity
+  originalFilename String
+  mimeType         String  // e.g. "image/jpeg", "video/mp4", "image/heic"
+  fileSize         Int     // bytes
+  storagePath      String  // Path in Supabase Storage
+
+  // GPS
+  latitude  Float?
+  longitude Float?
+  altitude  Float?
+  accuracy  Float?  // metres
+
+  // Timestamps
+  capturedAt DateTime? // From EXIF DateTimeOriginal
+  uploadedAt DateTime  @default(now())
+  timezone   String?   // e.g. "Australia/Sydney"
+
+  // Device
+  deviceMake  String? // e.g. "Apple"
+  deviceModel String? // e.g. "iPhone 15 Pro"
+  software    String? // e.g. "iOS 17.4"
+  lensModel   String?
+
+  // Image dimensions
+  width       Int?
+  height      Int?
+  orientation Int?    // EXIF orientation tag (1-8)
+  colorSpace  String?
+  dpiX        Float?
+  dpiY        Float?
+
+  // Camera settings
+  focalLength  Float?  // mm
+  aperture     Float?  // f-number
+  exposureTime String? // e.g. "1/125"
+  iso          Int?
+  flash        Boolean?
+
+  // Video metadata (when mimeType is video/*)
+  durationSeconds Float?
+  videoWidth      Int?
+  videoHeight     Int?
+  videoCodec      String?
+  frameRate       Float?
+
+  // Full raw EXIF dump (JSONB) for future use
+  rawExifData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([inspectionId])
+  @@index([evidenceId])
+  @@index([capturedAt])
+  @@index([latitude, longitude])
+  @@index([mimeType])
 }
 
 // ━━━━━━��━━━━━━━━━━━━━━���━━━━━���━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

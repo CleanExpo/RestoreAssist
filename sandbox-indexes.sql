@@ -955,6 +955,14 @@ CREATE INDEX "Integration_workspaceId_idx" ON "Integration"("workspaceId");
 CREATE INDEX "CostLibrary_workspaceId_idx" ON "CostLibrary"("workspaceId");
 CREATE INDEX "FormTemplate_workspaceId_idx" ON "FormTemplate"("workspaceId");
 
+-- CreateIndex (RA-416: MediaAsset)
+CREATE INDEX "MediaAsset_workspaceId_idx" ON "MediaAsset"("workspaceId");
+CREATE INDEX "MediaAsset_inspectionId_idx" ON "MediaAsset"("inspectionId");
+CREATE INDEX "MediaAsset_evidenceId_idx" ON "MediaAsset"("evidenceId");
+CREATE INDEX "MediaAsset_capturedAt_idx" ON "MediaAsset"("capturedAt");
+CREATE INDEX "MediaAsset_latitude_longitude_idx" ON "MediaAsset"("latitude", "longitude");
+CREATE INDEX "MediaAsset_mimeType_idx" ON "MediaAsset"("mimeType");
+
 -- CreateIndex (RA-414: ProviderConnection + AiUsageLog)
 CREATE UNIQUE INDEX "ProviderConnection_workspaceId_provider_key" ON "ProviderConnection"("workspaceId", "provider");
 CREATE INDEX "ProviderConnection_workspaceId_idx" ON "ProviderConnection"("workspaceId");

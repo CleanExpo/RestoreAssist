@@ -1192,6 +1192,49 @@ CREATE TABLE "ProviderConnection" (
   CONSTRAINT "ProviderConnection_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable (RA-416: EXIF metadata for inspection photos/videos)
+CREATE TABLE "MediaAsset" (
+  "id" TEXT NOT NULL,
+  "workspaceId" TEXT NOT NULL,
+  "inspectionId" TEXT NOT NULL,
+  "evidenceId" TEXT,
+  "originalFilename" TEXT NOT NULL,
+  "mimeType" TEXT NOT NULL,
+  "fileSize" INTEGER NOT NULL,
+  "storagePath" TEXT NOT NULL,
+  "latitude" DOUBLE PRECISION,
+  "longitude" DOUBLE PRECISION,
+  "altitude" DOUBLE PRECISION,
+  "accuracy" DOUBLE PRECISION,
+  "capturedAt" TIMESTAMP(3),
+  "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "timezone" TEXT,
+  "deviceMake" TEXT,
+  "deviceModel" TEXT,
+  "software" TEXT,
+  "lensModel" TEXT,
+  "width" INTEGER,
+  "height" INTEGER,
+  "orientation" INTEGER,
+  "colorSpace" TEXT,
+  "dpiX" DOUBLE PRECISION,
+  "dpiY" DOUBLE PRECISION,
+  "focalLength" DOUBLE PRECISION,
+  "aperture" DOUBLE PRECISION,
+  "exposureTime" TEXT,
+  "iso" INTEGER,
+  "flash" BOOLEAN,
+  "durationSeconds" DOUBLE PRECISION,
+  "videoWidth" INTEGER,
+  "videoHeight" INTEGER,
+  "videoCodec" TEXT,
+  "frameRate" DOUBLE PRECISION,
+  "rawExifData" JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "MediaAsset_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateTable (RA-414: immutable per-call AI usage log)
 CREATE TABLE "AiUsageLog" (
   "id" TEXT NOT NULL,
