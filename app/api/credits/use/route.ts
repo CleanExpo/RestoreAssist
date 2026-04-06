@@ -17,13 +17,31 @@ export async function POST(request: NextRequest) {
     const rateLimited = applyRateLimit(request, { maxRequests: 30, prefix: "credits-use", key: session.user.id })
     if (rateLimited) return rateLimited
 
-    const { credits = 1 } = await request.json()
+    const body = await request.json()
+    const rawCredits = body.credits ?? 1
+    // Validate: credits must be a positive integer between 1 and 100
+    if (!Number.isInteger(rawCredits) || rawCredits < 1 || rawCredits > 100) {
+      return NextResponse.json(
+        { error: "credits must be an integer between 1 and 100" },
+        { status: 400 }
+      )
+    }
+    const credits = rawCredits as number
 
     // Get effective subscription (Admin's for Managers/Technicians)
     const effectiveSub = await getEffectiveSubscription(session.user.id)
-    
+
     if (!effectiveSub) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Only TRIAL, ACTIVE, and LIFETIME subscriptions may consume credits
+    const ALLOWED_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"]
+    if (!ALLOWED_STATUSES.includes(effectiveSub.subscriptionStatus ?? "")) {
+      return NextResponse.json(
+        { error: "Active subscription required", upgradeRequired: true },
+        { status: 402 }
+      )
     }
 
     const ownerId = await getOrganizationOwner(session.user.id)

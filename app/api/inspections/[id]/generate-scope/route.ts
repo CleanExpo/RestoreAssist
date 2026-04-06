@@ -55,6 +55,17 @@ export async function POST(
 
     const { id: inspectionId } = await context.params
     const body = await request.json()
+
+    // Allowlist model IDs — prevents cost manipulation via expensive/arbitrary model names
+    const ALLOWED_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5"] as const
+    const rawModel = body.model ?? "claude-sonnet-4-6"
+    if (!ALLOWED_MODELS.includes(rawModel)) {
+      return NextResponse.json(
+        { error: `model must be one of: ${ALLOWED_MODELS.join(", ")}` },
+        { status: 400 }
+      )
+    }
+
     const {
       model = "claude-sonnet-4-6",
       affectedAreaM2,

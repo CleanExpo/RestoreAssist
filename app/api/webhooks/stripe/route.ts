@@ -110,7 +110,19 @@ export async function POST(request: NextRequest) {
   // worker already claimed this event — bail out immediately.
   // This replaces the non-atomic isEventProcessed() + logWebhookEvent(PROCESSING) pattern
   // which had a TOCTOU window allowing duplicate processing on Stripe retries.
-  if (await hasWebhookEventModel()) {
+  //
+  // WARNING: If the StripeWebhookEvent migration has not been applied in production,
+  // idempotency is disabled and Stripe retries CAN cause duplicate credit grants.
+  // This is a deployment risk — always apply migrations before enabling the webhook endpoint.
+  const modelAvailable = await hasWebhookEventModel()
+  if (!modelAvailable) {
+    console.error(
+      '[Stripe Webhook] CRITICAL: StripeWebhookEvent model is not available. ' +
+      'Idempotency is DISABLED — Stripe retries may cause duplicate processing. ' +
+      'Apply the pending database migration immediately.'
+    )
+  }
+  if (modelAvailable) {
     try {
       await prisma.stripeWebhookEvent.create({
         data: {

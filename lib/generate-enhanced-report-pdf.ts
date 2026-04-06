@@ -30,16 +30,24 @@ export async function generateEnhancedReportPDF(data: EnhancedReportData): Promi
   const lineHeight = 16
   const sectionSpacing = 20
 
-  // Helper function to sanitize text for WinAnsi encoding
+  // Helper function to sanitize text for WinAnsi encoding.
+  // pdf-lib's StandardFonts.Helvetica uses WinAnsi (cp1252) — characters outside
+  // that codepage cause a runtime exception that leaks encoding details to callers.
+  // We replace common Unicode punctuation and strip anything outside WinAnsi.
   const sanitizeText = (text: string): string => {
     if (!text) return ""
-    // Replace newlines with spaces
     return text
-      .replace(/\r\n/g, ' ')  // Windows line breaks
-      .replace(/\n/g, ' ')    // Unix line breaks
-      .replace(/\r/g, ' ')    // Old Mac line breaks
-      .replace(/\t/g, ' ')    // Tabs
-      .replace(/\s+/g, ' ')   // Multiple spaces to single space
+      .replace(/\r\n/g, ' ')          // Windows line breaks
+      .replace(/\n/g, ' ')            // Unix line breaks
+      .replace(/\r/g, ' ')            // Old Mac line breaks
+      .replace(/\t/g, ' ')            // Tabs
+      .replace(/[\u2018\u2019]/g, "'") // Smart single quotes
+      .replace(/[\u201C\u201D]/g, '"') // Smart double quotes
+      .replace(/\u2014/g, '--')        // Em-dash
+      .replace(/\u2013/g, '-')         // En-dash
+      .replace(/\u2026/g, '...')       // Ellipsis
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, '') // Strip non-WinAnsi (emoji, CJK, etc.)
+      .replace(/\s+/g, ' ')           // Collapse multiple spaces
       .trim()
   }
 

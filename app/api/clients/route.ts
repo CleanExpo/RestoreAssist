@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { sanitizeString } from "@/lib/sanitize"
-
-const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,13 +37,16 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
-    // Also get clients from reports that don't have a Client record yet
-    // Fetch all reports without clientId and filter for non-null clientName in JavaScript
+    // Also get clients from reports that don't have a Client record yet.
+    // Cap at 1000 to prevent OOM on large accounts — clients page only needs
+    // a representative sample; full enumeration is not required here.
     const allReportsWithoutClientId = await prisma.report.findMany({
       where: {
         userId: session.user.id,
         clientId: null
       },
+      take: 1000,
+      orderBy: { createdAt: "desc" },
       select: {
         clientName: true,
         clientContactDetails: true,

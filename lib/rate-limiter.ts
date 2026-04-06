@@ -58,13 +58,21 @@ export function rateLimit(
 
 /**
  * Extract client IP from request headers.
+ *
+ * On Vercel, the platform appends the true client IP as the LAST entry in
+ * x-forwarded-for, making it the only value that cannot be spoofed by the
+ * client sending a crafted X-Forwarded-For header. Taking the first entry
+ * is the classic IP-spoofing vector for rate-limit bypass.
  */
 export function getClientIp(req: NextRequest): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown"
-  )
+  const xff = req.headers.get("x-forwarded-for")
+  if (xff) {
+    // Use the rightmost (last) IP — added by Vercel's trusted edge layer
+    const ips = xff.split(",").map((s) => s.trim()).filter(Boolean)
+    const lastIp = ips[ips.length - 1]
+    if (lastIp) return lastIp
+  }
+  return req.headers.get("x-real-ip") || "unknown"
 }
 
 /**
