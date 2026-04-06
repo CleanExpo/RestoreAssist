@@ -49,8 +49,8 @@ const EXTERNAL_INTEGRATIONS: {
 }[] = [
   { slug: 'xero', name: 'Xero', description: 'Sync clients and invoices from Xero', icon: '📊', logo: '/integrations/xero.svg', category: 'bookkeeping' },
   { slug: 'quickbooks', name: 'QuickBooks', description: 'Sync customers and transactions from QuickBooks', icon: '📊', logo: '/integrations/quickbooks.svg', category: 'bookkeeping', comingSoon: true },
-  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', logo: '/integrations/myob.svg', category: 'bookkeeping', comingSoon: true },
-  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', logo: '/integrations/servicem8.svg', category: 'jobmanagement', comingSoon: true },
+  { slug: 'myob', name: 'MYOB', description: 'Sync contacts and jobs from MYOB', icon: '📊', logo: '/integrations/myob.svg', category: 'bookkeeping' },
+  { slug: 'servicem8', name: 'ServiceM8', description: 'Sync clients and jobs from ServiceM8', icon: '📋', logo: '/integrations/servicem8.svg', category: 'jobmanagement' },
   { slug: 'ascora', name: 'Ascora', description: 'Sync customers and work orders from Ascora', icon: '📋', logo: '/integrations/ascora.svg', category: 'jobmanagement' },
 ]
 
