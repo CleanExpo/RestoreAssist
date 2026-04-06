@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Building2,
@@ -16,95 +16,122 @@ import {
   Clock,
   RefreshCw,
   BarChart2,
-} from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+  Database,
+  Loader2,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface AdminStats {
-  totalUsers: number
-  activeUsers: number
-  totalOrganizations: number
-  activeSubscriptions: number
-  totalReports: number
-  reportsThisMonth: number
+  totalUsers: number;
+  activeUsers: number;
+  totalOrganizations: number;
+  activeSubscriptions: number;
+  totalReports: number;
+  reportsThisMonth: number;
   systemHealth: {
-    database: 'healthy' | 'degraded' | 'down'
-    api: 'healthy' | 'degraded' | 'down'
-    integrations: 'healthy' | 'degraded' | 'down'
-  }
+    database: "healthy" | "degraded" | "down";
+    api: "healthy" | "degraded" | "down";
+    integrations: "healthy" | "degraded" | "down";
+  };
 }
 
 export default function AdminDashboardPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedDemo = async () => {
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/admin/seed-demo", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        if (data.seeded) fetchStats();
+      } else {
+        alert(data.error || "Failed to seed demo data");
+      }
+    } catch {
+      alert("Network error — seed not run");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (status === 'unauthenticated') {
-      router.push('/login')
-      return
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      router.push("/login");
+      return;
     }
-    if (session?.user?.role !== 'ADMIN') {
-      router.push('/dashboard')
-      return
+    if (session?.user?.role !== "ADMIN") {
+      router.push("/dashboard");
+      return;
     }
-    fetchStats()
-  }, [status, session, router])
+    fetchStats();
+  }, [status, session, router]);
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/admin/stats')
+      const response = await fetch("/api/admin/stats");
       if (response.ok) {
-        const data = await response.json()
-        setStats(data)
+        const data = await response.json();
+        setStats(data);
       }
     } catch (error) {
-      console.error('Error fetching admin stats:', error)
+      console.error("Error fetching admin stats:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleRefresh = async () => {
-    setRefreshing(true)
-    await fetchStats()
-    setRefreshing(false)
-  }
+    setRefreshing(true);
+    await fetchStats();
+    setRefreshing(false);
+  };
 
-  const getHealthBadge = (status: 'healthy' | 'degraded' | 'down') => {
+  const getHealthBadge = (status: "healthy" | "degraded" | "down") => {
     const variants = {
-      healthy: 'bg-green-500/10 text-green-600 dark:text-green-400',
-      degraded: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-      down: 'bg-red-500/10 text-red-600 dark:text-red-400',
-    }
+      healthy: "bg-green-500/10 text-green-600 dark:text-green-400",
+      degraded: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      down: "bg-red-500/10 text-red-600 dark:text-red-400",
+    };
     const icons = {
       healthy: CheckCircle,
       degraded: Clock,
       down: AlertCircle,
-    }
-    const Icon = icons[status]
+    };
+    const Icon = icons[status];
     return (
-      <Badge className={cn('gap-1', variants[status])}>
+      <Badge className={cn("gap-1", variants[status])}>
         <Icon className="h-3 w-3" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
-    )
-  }
+    );
+  };
 
-  if (status === 'loading' || loading) {
+  if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
       </div>
-    )
+    );
   }
 
-  if (session?.user?.role !== 'ADMIN') {
+  if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Shield className="h-12 w-12 text-neutral-400" />
@@ -112,7 +139,7 @@ export default function AdminDashboardPage() {
           Admin access required
         </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -134,7 +161,7 @@ export default function AdminDashboardPage() {
           disabled={refreshing}
           className="gap-2"
         >
-          <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
           Refresh
         </Button>
       </div>
@@ -146,21 +173,35 @@ export default function AdminDashboardPage() {
             <Activity className="h-5 w-5 text-cyan-500" />
             System Health
           </CardTitle>
-          <CardDescription>Real-time status of system components</CardDescription>
+          <CardDescription>
+            Real-time status of system components
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-              <span className="text-neutral-600 dark:text-neutral-400">Database</span>
-              {stats ? getHealthBadge(stats.systemHealth.database) : getHealthBadge('healthy')}
+              <span className="text-neutral-600 dark:text-neutral-400">
+                Database
+              </span>
+              {stats
+                ? getHealthBadge(stats.systemHealth.database)
+                : getHealthBadge("healthy")}
             </div>
             <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-              <span className="text-neutral-600 dark:text-neutral-400">API Services</span>
-              {stats ? getHealthBadge(stats.systemHealth.api) : getHealthBadge('healthy')}
+              <span className="text-neutral-600 dark:text-neutral-400">
+                API Services
+              </span>
+              {stats
+                ? getHealthBadge(stats.systemHealth.api)
+                : getHealthBadge("healthy")}
             </div>
             <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-              <span className="text-neutral-600 dark:text-neutral-400">Integrations</span>
-              {stats ? getHealthBadge(stats.systemHealth.integrations) : getHealthBadge('healthy')}
+              <span className="text-neutral-600 dark:text-neutral-400">
+                Integrations
+              </span>
+              {stats
+                ? getHealthBadge(stats.systemHealth.integrations)
+                : getHealthBadge("healthy")}
             </div>
           </div>
         </CardContent>
@@ -176,7 +217,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
-                  {stats?.totalUsers ?? '-'}
+                  {stats?.totalUsers ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Users</p>
                 <p className="text-xs text-green-500">
@@ -195,7 +236,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
-                  {stats?.totalOrganizations ?? '-'}
+                  {stats?.totalOrganizations ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Organizations</p>
               </div>
@@ -211,7 +252,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
-                  {stats?.activeSubscriptions ?? '-'}
+                  {stats?.activeSubscriptions ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Active Subscriptions</p>
               </div>
@@ -227,7 +268,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
-                  {stats?.totalReports ?? '-'}
+                  {stats?.totalReports ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Reports</p>
                 <p className="text-xs text-cyan-500">
@@ -253,7 +294,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
-              onClick={() => router.push('/dashboard/team')}
+              onClick={() => router.push("/dashboard/team")}
             >
               <Users className="h-5 w-5" />
               <span className="text-sm">Manage Team</span>
@@ -261,7 +302,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
-              onClick={() => router.push('/dashboard/subscription')}
+              onClick={() => router.push("/dashboard/subscription")}
             >
               <CreditCard className="h-5 w-5" />
               <span className="text-sm">Subscription</span>
@@ -269,7 +310,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
-              onClick={() => router.push('/dashboard/analytics')}
+              onClick={() => router.push("/dashboard/analytics")}
             >
               <TrendingUp className="h-5 w-5" />
               <span className="text-sm">Analytics</span>
@@ -277,7 +318,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2"
-              onClick={() => router.push('/dashboard/settings')}
+              onClick={() => router.push("/dashboard/settings")}
             >
               <Settings className="h-5 w-5" />
               <span className="text-sm">Settings</span>
@@ -285,7 +326,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2 border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
-              onClick={() => router.push('/dashboard/admin/pilot')}
+              onClick={() => router.push("/dashboard/admin/pilot")}
             >
               <BarChart2 className="h-5 w-5" />
               <span className="text-sm">NIR Pilot</span>
@@ -293,14 +334,29 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               className="flex-col h-auto py-4 gap-2 border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
-              onClick={() => router.push('/dashboard/admin/ai-lab')}
+              onClick={() => router.push("/dashboard/admin/ai-lab")}
             >
               <Activity className="h-5 w-5" />
               <span className="text-sm">AI Lab</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2 border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              onClick={handleSeedDemo}
+              disabled={seeding}
+            >
+              {seeding ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Database className="h-5 w-5" />
+              )}
+              <span className="text-sm">
+                {seeding ? "Seeding…" : "Load Demo"}
+              </span>
             </Button>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
