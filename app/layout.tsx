@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { BRAND } from '@/lib/brand'
 import SessionProvider from "@/components/providers/SessionProvider"
@@ -49,6 +49,15 @@ export const metadata: Metadata = {
     follow: true,
   },
   metadataBase: new URL(process.env.NEXTAUTH_URL || "https://restoreassist.com.au"),
+}
+
+// viewport-fit=cover is required for iPhone notch (iPhone 13+) in Capacitor WebView
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 }
 
 export default function RootLayout({
