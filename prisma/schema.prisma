@@ -861,6 +861,7 @@ model Integration {
   @@index([provider])
   @@index([status])
   @@index([workspaceId])
+  @@index([userId, status]) // health/metrics: WHERE userId=? AND status='CONNECTED'
 }
 
 model CostLibrary {
@@ -1802,6 +1803,7 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([timestamp])
+  @@index([inspectionId, timestamp]) // ordered audit trail: WHERE inspectionId=? ORDER BY timestamp DESC
 }
 
 // Building Code Database (State-specific requirements)
@@ -2008,6 +2010,7 @@ model InspectionPhoto {
 
   @@index([inspectionId])
   @@index([timestamp])
+  @@index([inspectionId, timestamp]) // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
 }
 
 model ChatMessage {
@@ -2070,6 +2073,7 @@ model UsageEvent {
   @@index([voiceNoteId])
   @@index([billingStatus])
   @@index([eventType])
+  @@index([timestamp]) // admin billing query: WHERE timestamp BETWEEN ? AND ? (no userId filter)
 }
 
 // Email Delivery System Models

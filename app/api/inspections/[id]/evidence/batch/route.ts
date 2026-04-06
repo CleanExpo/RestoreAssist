@@ -116,6 +116,17 @@ export async function POST(
     );
   }
 
+  // Per-file size guard before any arrayBuffer() call. Without this, a batch of
+  // 20 × 500MB files = 10GB buffered into the serverless function heap.
+  const MAX_EVIDENCE_BYTES = 50 * 1024 * 1024; // 50 MB per file
+  const oversized = files.find((f) => f.size > MAX_EVIDENCE_BYTES);
+  if (oversized) {
+    return NextResponse.json(
+      { error: `File "${oversized.name}" exceeds the 50 MB per-file limit` },
+      { status: 413 },
+    );
+  }
+
   const storageProvider = await getStorageProvider(user?.organizationId);
 
   // Build upload inputs
