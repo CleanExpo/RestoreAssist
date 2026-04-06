@@ -28,59 +28,61 @@ export async function POST(request: NextRequest) {
 
     const ownerId = await getOrganizationOwner(session.user.id)
     const targetUserId = ownerId || session.user.id
-    const owner = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: {
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-        subscriptionStatus: true,
-      }
-    })
-
-    if (!owner) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
 
     // Trial users: unlimited reports during 30-day trial - no deduction
     const isTrialWithinPeriod = effectiveSub.subscriptionStatus === 'TRIAL' &&
       (!effectiveSub.trialEndsAt || new Date() <= new Date(effectiveSub.trialEndsAt))
     if (isTrialWithinPeriod) {
+      const owner = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { totalCreditsUsed: true },
+      })
       return NextResponse.json({
         success: true,
         creditsRemaining: null,
-        totalCreditsUsed: owner.totalCreditsUsed ?? 0,
+        totalCreditsUsed: owner?.totalCreditsUsed ?? 0,
         subscriptionStatus: 'TRIAL',
       })
     }
 
-    if (effectiveSub.subscriptionStatus === 'TRIAL' && (effectiveSub.creditsRemaining || 0) < credits) {
-      return NextResponse.json({
-        error: "Insufficient credits",
-        creditsRemaining: effectiveSub.creditsRemaining || 0,
-        upgradeRequired: true
-      }, { status: 402 })
-    }
+    let updatedUser: { creditsRemaining: number | null; totalCreditsUsed: number | null; subscriptionStatus: string | null } | null
 
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: {
-        creditsRemaining: effectiveSub.subscriptionStatus === 'TRIAL'
-          ? Math.max(0, (owner.creditsRemaining || 0) - credits)
-          : owner.creditsRemaining,
-        totalCreditsUsed: (owner.totalCreditsUsed || 0) + credits,
-      },
-      select: {
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-        subscriptionStatus: true,
+    if (effectiveSub.subscriptionStatus === 'TRIAL') {
+      // Atomic compare-and-decrement: only succeeds if balance covers the cost.
+      // Prevents two simultaneous requests from both passing the balance check and
+      // both spending from the same credit balance (classic read-modify-write race).
+      const result = await prisma.user.updateMany({
+        where: { id: targetUserId, creditsRemaining: { gte: credits } },
+        data: {
+          creditsRemaining: { decrement: credits },
+          totalCreditsUsed: { increment: credits },
+        },
+      })
+      if (result.count === 0) {
+        return NextResponse.json({
+          error: "Insufficient credits",
+          creditsRemaining: 0,
+          upgradeRequired: true,
+        }, { status: 402 })
       }
-    })
+      updatedUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { creditsRemaining: true, totalCreditsUsed: true, subscriptionStatus: true },
+      })
+    } else {
+      // ACTIVE/LIFETIME subscribers: track usage only, no credit deduction
+      updatedUser = await prisma.user.update({
+        where: { id: targetUserId },
+        data: { totalCreditsUsed: { increment: credits } },
+        select: { creditsRemaining: true, totalCreditsUsed: true, subscriptionStatus: true },
+      })
+    }
 
     return NextResponse.json({
       success: true,
-      creditsRemaining: updatedUser.creditsRemaining,
-      totalCreditsUsed: updatedUser.totalCreditsUsed,
-      subscriptionStatus: updatedUser.subscriptionStatus,
+      creditsRemaining: updatedUser?.creditsRemaining ?? null,
+      totalCreditsUsed: updatedUser?.totalCreditsUsed ?? 0,
+      subscriptionStatus: updatedUser?.subscriptionStatus ?? null,
     })
   } catch (error) {
     console.error("Error using credits:", error)
