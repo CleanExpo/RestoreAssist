@@ -121,7 +121,7 @@ export async function POST(
       )
     }
 
-    // Look up the signature record
+    // Look up the signature record to get the id and instanceId
     const signature = await prisma.authorityFormSignature.findUnique({
       where: { signatureRequestToken: token },
     })
@@ -133,13 +133,6 @@ export async function POST(
       )
     }
 
-    if (signature.signedAt) {
-      return NextResponse.json(
-        { error: "This form has already been signed" },
-        { status: 400 }
-      )
-    }
-
     // Capture verification data
     const ipAddress =
       request.headers.get("x-forwarded-for") ||
@@ -147,9 +140,11 @@ export async function POST(
       "unknown"
     const userAgent = request.headers.get("user-agent") || "unknown"
 
-    // Save the signature
-    const updated = await prisma.authorityFormSignature.update({
-      where: { id: signature.id },
+    // Atomic check-and-sign: updateMany with WHERE signedAt IS NULL prevents the
+    // double-tap race where two simultaneous submissions both read signedAt=null,
+    // both pass the guard, and both record the signature (firing completion emails twice).
+    const result = await prisma.authorityFormSignature.updateMany({
+      where: { id: signature.id, signedAt: null },
       data: {
         signatureData,
         signatoryName: signatoryName || signature.signatoryName,
@@ -158,6 +153,21 @@ export async function POST(
         userAgent,
       },
     })
+
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: "This form has already been signed" },
+        { status: 400 }
+      )
+    }
+
+    // Fetch the updated record for instanceId-based checks below
+    const updated = await prisma.authorityFormSignature.findUnique({
+      where: { id: signature.id },
+    })
+    if (!updated) {
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     // Check if all signatures for this form are now complete
     const allSignatures = await prisma.authorityFormSignature.findMany({

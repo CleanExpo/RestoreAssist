@@ -88,24 +88,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
     }
 
-    const existing = await prisma.dryingGoalRecord.findUnique({ where: { inspectionId } })
-    if (existing) {
-      return NextResponse.json(
-        { error: "Drying goal already initialised for this inspection. Use PUT to evaluate." },
-        { status: 409 }
-      )
+    // Use create-and-catch instead of findUnique+create to eliminate the TOCTOU
+    // race where two simultaneous POST requests both read null and both attempt create.
+    let record
+    try {
+      record = await prisma.dryingGoalRecord.create({
+        data: {
+          inspectionId,
+          targetCategory,
+          targetClass,
+          materialTargets: buildMaterialTargets(),
+          goalAchieved: false,
+          iicrcReference: "IICRC S500:2021 §11.4",
+        },
+      })
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        return NextResponse.json(
+          { error: "Drying goal already initialised for this inspection. Use PUT to evaluate." },
+          { status: 409 },
+        )
+      }
+      throw err
     }
-
-    const record = await prisma.dryingGoalRecord.create({
-      data: {
-        inspectionId,
-        targetCategory,
-        targetClass,
-        materialTargets: buildMaterialTargets(),
-        goalAchieved: false,
-        iicrcReference: "IICRC S500:2021 §11.4",
-      },
-    })
 
     return NextResponse.json({
       dryingGoal: record,
