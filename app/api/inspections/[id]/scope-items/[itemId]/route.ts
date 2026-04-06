@@ -20,6 +20,10 @@ export async function PATCH(
 
   const body = await request.json()
   // Update only provided fields
+  // Scope update to this inspection — prevents cross-inspection IDOR
+  const item = await prisma.scopeItem.findFirst({ where: { id: itemId, inspectionId: id }, select: { id: true } })
+  if (!item) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const updated = await prisma.scopeItem.update({
     where: { id: itemId },
     data: {
@@ -47,6 +51,8 @@ export async function DELETE(
   })
   if (!inspection) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  await prisma.scopeItem.delete({ where: { id: itemId } })
+  // deleteMany scopes the delete to this inspection — prevents cross-inspection IDOR
+  const deleted = await prisma.scopeItem.deleteMany({ where: { id: itemId, inspectionId: id } })
+  if (deleted.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ success: true })
 }
