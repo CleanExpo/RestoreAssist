@@ -111,23 +111,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       })
 
-      for (const item of result.equipmentList) {
-        const scopeItem = await prisma.scopeItem.create({
-          data: {
-            inspectionId,
-            itemType: item.type,
-            description: `${item.label} — ${item.suggestedModel}`,
-            quantity: item.quantity,
-            unit: "unit/day",
-            specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
-            autoDetermined: true,
-            justification: `${item.justification} — ${item.iicrcReference}`,
-            isRequired: true,
-            isSelected: true,
-          },
-        })
-        savedScopeItems.push(scopeItem.id)
-      }
+      const { randomUUID } = await import("crypto")
+      const equipmentPayloads = result.equipmentList.map((item) => ({
+        id: randomUUID(),
+        inspectionId,
+        itemType: item.type,
+        description: `${item.label} — ${item.suggestedModel}`,
+        quantity: item.quantity,
+        unit: "unit/day",
+        specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
+        autoDetermined: true,
+        justification: `${item.justification} — ${item.iicrcReference}`,
+        isRequired: true,
+        isSelected: true,
+      }))
+      await prisma.scopeItem.createMany({ data: equipmentPayloads })
+      savedScopeItems.push(...equipmentPayloads.map((p) => p.id))
     }
 
     return NextResponse.json({

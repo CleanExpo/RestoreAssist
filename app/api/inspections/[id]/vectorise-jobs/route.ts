@@ -112,8 +112,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       tenantId = session.user.id
     }
 
-    // ── Fetch all un-embedded jobs for this tenant ───────────────────────────
-    const allJobs = await prisma.$queryRawUnsafe<HistoricalJobRow[]>(
+    // ── Count total jobs (cheap) and fetch only un-embedded rows ─────────────
+    const [{ count: totalCount }] = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+      `SELECT COUNT(*) AS count FROM "HistoricalJob" WHERE "tenantId" = $1`,
+      tenantId
+    )
+    const total = Number(totalCount)
+
+    // MAX_EMBED_PER_RUN caps one invocation to 1 000 rows — prevents Vercel timeout
+    const MAX_EMBED_PER_RUN = 1000
+    const unembedded = await prisma.$queryRawUnsafe<HistoricalJobRow[]>(
       `
       SELECT
         id, "tenantId", "claimType", "waterCategory", "waterClass",
@@ -122,13 +130,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         "embeddedAt"
       FROM "HistoricalJob"
       WHERE "tenantId" = $1
+        AND "embeddedAt" IS NULL
       ORDER BY "createdAt" ASC
+      LIMIT $2
       `,
-      tenantId
+      tenantId,
+      MAX_EMBED_PER_RUN
     )
 
-    const total = allJobs.length
-    const unembedded = allJobs.filter((j) => j.embeddedAt === null)
     const skipped = total - unembedded.length
 
     console.log(
