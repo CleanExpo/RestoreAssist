@@ -257,16 +257,32 @@
 | RA-426 | Wire checkPaymentGate() to workspace-scoped API routes        | Done   | `ef7304db` |
 | RA-427 | Demo seed admin trigger + workspace onboarding checklist      | Done   | `588cb6a2` |
 
+## 2026-04-06 — Production Cleanup + Sprint J Finalisation
+
+| Task                                              | Status | Notes                                                                                   |
+| ------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| Fix placeholder ABN strings                       | Done   | brand.ts → env var, Footer.tsx conditional, InvoiceForm → empty defaults                |
+| Remove 9 tracked SQL artefacts from root          | Done   | `git rm` + `/*.sql` in .gitignore                                                      |
+| Close stale PRs (#136, #137, #142)                | Done   | Content already in main via #138 or superseded by #140/#141                             |
+| Remove 13 stale git worktrees                     | Done   | Only `trusting-einstein` remains active                                                 |
+| RA-424 BYOK settings UI verified complete         | Done   | Page + API routes already built; marked Done in Linear                                  |
+| RA-426 Payment gate wired to media + validate     | Done   | checkPaymentGate() on 4 workspace-scoped routes                                        |
+| RA-427 Demo seed + onboarding checklist           | Done   | Admin "Load Demo" button + OnboardingChecklist on dashboard                             |
+| PR #143 updated — Sprint J + cleanup              | Open   | Pushed `ad90cace`; Vercel CI running                                                    |
+
 ## Notes for Next Context Window
 
-- PR #142 (`fix/turbopack-build`) — switches production build to Turbopack; monitor CI
-- PR #143 (`feat/sprint-j-workspace-byok-insurer`) — Sprint J complete; 5 issues Done, pushed
-- Production DB has both RLS migrations applied (udooysjajglluvuxkijp)
-- Sandbox DB has both RLS migrations applied (oxeiaavuspvpvanzcrjc)
-- Sprint J queue is EMPTY — all 5 issues (RA-423 to RA-427) Done in Linear
-- `WorkspaceOnboardingChecklist` at `components/workspace/WorkspaceOnboardingChecklist.tsx` — not yet wired to dashboard home (next sprint)
-- RA-421/422/396 remain blocked on Phill input (brand consolidation, workspace spec, voice copilot)
+- PR #143 — Sprint J complete + cleanup; awaiting CI green → squash merge to main
+- All Sprint J (RA-423 to RA-427) Done in Linear; Sprint J queue EMPTY
+- Set NEXT_PUBLIC_COMPANY_ABN env var on Vercel to show ABN in footer
+- PRs #136/#137 closed (content in main via #138); PR #142 closed (superseded)
+- RA-421/422/396 blocked on Phill input (brand, workspace spec, voice copilot)
+- RA-287 blocked (DO_TOKEN GitHub secret not set)
 
 ## 2026-04-06 09:25 — Session End
 
 ## 2026-04-06 10:07 — Session End
+
+## 2026-04-06 10:43 — Session End
+
+## 2026-04-06 10:44 — Session End
