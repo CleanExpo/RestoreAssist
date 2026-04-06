@@ -211,9 +211,9 @@ export function MoistureReadingEntryForm({
         />
       </div>
 
-      {/* Error */}
+      {/* Error — role="alert" ensures screen readers announce on insertion without focus change */}
       {error && (
-        <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
           <AlertTriangle size={12} />
           {error}
         </p>
