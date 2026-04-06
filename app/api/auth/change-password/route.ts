@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError
 
     // Rate limit: 5 attempts per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "change-password" })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 5, prefix: "change-password" })
     if (rateLimited) return rateLimited
 
     const session = await getServerSession(authOptions)

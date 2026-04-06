@@ -24,7 +24,7 @@ export async function GET(
     }
 
     // Rate limit: 10 forensic PDF generations per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-forensic", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "gen-forensic", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const { id: reportId } = await params

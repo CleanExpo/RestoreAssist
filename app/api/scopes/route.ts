@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "scopes", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 20, prefix: "scopes", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

@@ -27,7 +27,7 @@ export async function POST(
     }
 
     // Rate limit: 30 execution polls per minute
-    const rateLimited = applyRateLimit(request, {
+    const rateLimited = await applyRateLimit(request, {
       maxRequests: 30,
       windowMs: 60_000,
       prefix: 'agent-execute',

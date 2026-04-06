@@ -13,7 +13,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Rate limit: 10 bulk deletes per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "reports-bulk-delete" })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "reports-bulk-delete" })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

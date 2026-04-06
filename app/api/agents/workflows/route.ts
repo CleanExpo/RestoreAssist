@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 10 workflow creations per 15 minutes
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: 'agent-workflows' })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: 'agent-workflows' })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limit: 5 report creations per minute per user to close the TOCTOU window
     // on the canCreateReport → deductCreditsAndTrackUsage two-step check
-    const rateLimited = applyRateLimit(request, {
+    const rateLimited = await applyRateLimit(request, {
       maxRequests: 5,
       prefix: 'report-create',
       key: session.user.id,

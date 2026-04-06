@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id
 
     // Rate limit: 60 chat history fetches per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 60, prefix: "chatbot-get", key: userId })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 60, prefix: "chatbot-get", key: userId })
     if (rateLimited) return rateLimited
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get("limit") || "50")
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 20 AI chat messages per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "chatbot", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 20, prefix: "chatbot", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

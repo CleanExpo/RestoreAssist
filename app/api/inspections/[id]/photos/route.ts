@@ -73,7 +73,7 @@ export async function POST(
     }
 
     // Rate limit: 20 photo uploads per minute per user
-    const rateLimited = applyRateLimit(request, {
+    const rateLimited = await applyRateLimit(request, {
       maxRequests: 20,
       prefix: "photo-upload",
       key: session.user.id,

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 10 technician report analyses per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "analyze-tech", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "analyze-tech", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const user = await prisma.user.findUnique({

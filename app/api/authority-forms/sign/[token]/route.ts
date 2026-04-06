@@ -13,7 +13,7 @@ export async function GET(
 ) {
   try {
     // Rate limit: 20 requests per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 20, prefix: "form-sign" })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 20, prefix: "form-sign" })
     if (rateLimited) return rateLimited
 
     const { token } = await params
@@ -103,7 +103,7 @@ export async function POST(
 ) {
   try {
     // Rate limit: 10 submissions per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "form-sign-submit" })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "form-sign-submit" })
     if (rateLimited) return rateLimited
 
     const { token } = await params

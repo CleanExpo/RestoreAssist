@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 20 requests per minute per authenticated user
-    const rateLimitResponse = applyRateLimit(request, {
+    const rateLimitResponse = await applyRateLimit(request, {
       windowMs: 60 * 1000,
       maxRequests: 20,
       prefix: "vision",

@@ -80,7 +80,7 @@ async function isEventProcessed(stripeEventId: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   // Rate limit: 200 requests per minute per IP (generous to allow Stripe retries)
-  const rateLimited = applyRateLimit(request, { maxRequests: 200, windowMs: 60_000, prefix: "webhook-stripe" })
+  const rateLimited = await applyRateLimit(request, { maxRequests: 200, windowMs: 60_000, prefix: "webhook-stripe" })
   if (rateLimited) return rateLimited
 
   const body = await request.text()

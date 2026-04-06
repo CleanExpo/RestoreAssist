@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 5 reactivation attempts per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "reactivate-sub", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 5, prefix: "reactivate-sub", key: session.user.id })
     if (rateLimited) return rateLimited
 
     // Find customer
