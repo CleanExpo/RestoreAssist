@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
+import { MobileNav } from "@/components/mobile/MobileNav";
 import dynamic from "next/dynamic";
 const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
@@ -2372,6 +2373,9 @@ export default function InspectionDetailPage({
         inspectionId={inspection.id}
         inspectionStatus={inspection.status}
       />
+
+      {/* Mobile bottom nav — field shortcuts on small screens */}
+      <MobileNav inspectionId={inspection.id} />
     </div>
   );
 }

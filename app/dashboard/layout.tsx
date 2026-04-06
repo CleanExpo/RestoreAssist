@@ -166,7 +166,7 @@ export default function DashboardLayout({
       label: "Webhook Logs",
       href: "/dashboard/integrations/webhooks",
     },
-    { icon: Smartphone, label: "Mobile App", href: "/dashboard/mobile" },
+    { icon: Smartphone, label: "Field Mode", href: "/dashboard/field" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     {
       icon: FileSearch,
