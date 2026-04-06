@@ -64,7 +64,21 @@ export function buildJobEmbeddingText(job: JobEmbeddingInput): string {
   }
 
   if (job.customFields) {
-    lines.push(`Custom fields: ${JSON.stringify(job.customFields)}`)
+    // SECURITY: customFields come from external sync (Ascora, ServiceM8).
+    // An attacker who controls their job data can inject prompt-override strings.
+    // Sanitise: strip control chars, truncate, and wrap with a DATA: prefix so
+    // the AI model can distinguish user data from instructions.
+    const raw = typeof job.customFields === "string"
+      ? job.customFields
+      : JSON.stringify(job.customFields)
+    const sanitised = raw
+      .replace(/[\x00-\x1F\x7F]/g, " ") // strip control characters
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 500)
+    if (sanitised) {
+      lines.push(`DATA:custom_fields: ${sanitised}`)
+    }
   }
 
   return lines.filter(Boolean).join("\n")
@@ -171,11 +185,13 @@ export async function findSimilarJobs(options: {
   const { queryVector, tenantId, claimType, limit = 5 } = options
 
   // Serialize vector as pgvector literal e.g. "[0.1,0.2,...]"
+  // SECURITY: pass as bind parameter $1::vector — NEVER interpolate into SQL string.
+  // String interpolation of queryVector allows injection via crafted float values.
   const vectorStr = `[${queryVector.join(",")}]`
 
-  // Use numbered parameters for claimType to prevent SQL injection via $queryRawUnsafe
-  const claimTypeFilter = claimType ? `AND "claimType" = $3` : ""
-  const queryArgs: unknown[] = [tenantId, limit, ...(claimType ? [claimType] : [])]
+  // Bind param layout: $1=vector, $2=tenantId, $3=limit, $4=claimType (optional)
+  const claimTypeFilter = claimType ? `AND "claimType" = $4` : ""
+  const queryArgs: unknown[] = [vectorStr, tenantId, limit, ...(claimType ? [claimType] : [])]
 
   const rows = await prisma.$queryRawUnsafe<SimilarJobResult[]>(
     `
@@ -191,13 +207,13 @@ export async function findSimilarJobs(options: {
       "totalExTax",
       "itemCount",
       "equipmentCount",
-      "embeddingVector" <=> '${vectorStr}'::vector AS distance
+      "embeddingVector" <=> $1::vector AS distance
     FROM "HistoricalJob"
-    WHERE "tenantId" = $1
+    WHERE "tenantId" = $2
       AND "embeddedAt" IS NOT NULL
       ${claimTypeFilter}
     ORDER BY distance ASC
-    LIMIT $2
+    LIMIT $3
     `,
     ...queryArgs
   )

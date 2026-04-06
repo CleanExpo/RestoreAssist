@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 // POST - Add moisture reading
 export async function POST(
@@ -45,22 +46,30 @@ export async function POST(
       )
     }
     
-    if (body.moistureLevel === undefined || body.moistureLevel < 0 || body.moistureLevel > 100) {
+    // Explicit typeof + isNaN guards: JS comparisons on null/NaN both return false,
+    // allowing null/NaN to silently pass a < 0 || > 100 check and corrupt the DB.
+    const rawLevel = body.moistureLevel
+    if (
+      typeof rawLevel !== "number" ||
+      isNaN(rawLevel) ||
+      rawLevel < 0 ||
+      rawLevel > 100
+    ) {
       return NextResponse.json(
-        { error: "Moisture level must be between 0% and 100%" },
+        { error: "Moisture level must be a number between 0 and 100" },
         { status: 400 }
       )
     }
-    
+
     // Create moisture reading
     // Note: mapX/mapY are set separately when user places reading on the floor plan map
     const createData: Record<string, unknown> = {
       inspectionId: id,
-      location: body.location.trim(),
-      surfaceType: body.surfaceType,
-      moistureLevel: body.moistureLevel,
-      depth: body.depth || "Surface",
-      notes: body.notes || null,
+      location: sanitizeString(body.location.trim(), 200),
+      surfaceType: sanitizeString(body.surfaceType, 100),
+      moistureLevel: rawLevel,
+      depth: sanitizeString(body.depth || "Surface", 50),
+      notes: body.notes ? sanitizeString(body.notes, 2000) : null,
       photoUrl: body.photoUrl || null,
     }
     // Include mapX/mapY only if provided (schema fields added in migration 20260330)
