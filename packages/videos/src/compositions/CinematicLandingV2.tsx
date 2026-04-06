@@ -28,10 +28,10 @@ const tryAudio = (path: string, volume = 1) => {
 export const CinematicLandingV2: React.FC = () => {
   const frame = useCurrentFrame();
 
-  // Background music: fade in over 30f, fade out over last 30f of 2700
+  // Background music: fade in over 30f, fade out over last 30f of 2730
   const bgMusicVolume = interpolate(
     frame,
-    [0, 30, 2670, 2700],
+    [0, 30, 2700, 2730],
     [0, 0.12, 0.12, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
@@ -109,8 +109,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-advantages.mp3")}
       </Sequence>
 
-      {/* Scene 5: Australian Compliance — 45–56s (1350–1680f) */}
-      <Sequence from={1350} durationInFrames={330}>
+      {/* Scene 5: Australian Compliance — 45–57s (1350–1710f) — extended 30f for audio fit */}
+      <Sequence from={1350} durationInFrames={360}>
         <FullBleedScene
           screenshotPath="screenshots/mock/compliance-mock.png"
           primaryStatement="Built for Australian Law"
@@ -119,8 +119,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-compliance.mp3")}
       </Sequence>
 
-      {/* Scene 6: AI Scope Generation — 56–67s (1680–2010f) */}
-      <Sequence from={1680} durationInFrames={330}>
+      {/* Scene 6: AI Scope Generation — 57–68s (1710–2040f) */}
+      <Sequence from={1710} durationInFrames={330}>
         <FullBleedScene
           screenshotPath="screenshots/mock/scope-mock.png"
           primaryStatement="Scope in 30 Seconds"
@@ -129,8 +129,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-scope.mp3")}
       </Sequence>
 
-      {/* Scene 7: Impact Stats — 67–80s (2010–2400f) */}
-      <Sequence from={2010} durationInFrames={390}>
+      {/* Scene 7: Impact Stats — 68–81s (2040–2430f) */}
+      <Sequence from={2040} durationInFrames={390}>
         <StatCounterScene
           heading="Why Restoration Teams Choose RestoreAssist"
           stats={[
@@ -160,8 +160,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-stats.mp3")}
       </Sequence>
 
-      {/* Scene 8: Cinematic CTA Outro — 80–90s (2400–2700f) */}
-      <Sequence from={2400} durationInFrames={300}>
+      {/* Scene 8: Cinematic CTA Outro — 81–91s (2430–2730f) */}
+      <Sequence from={2430} durationInFrames={300}>
         <CinematicCTA />
         {tryAudio("audio/lp-cta.mp3")}
       </Sequence>
