@@ -52,7 +52,7 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user) {
-          console.log('[Contractor Credentials] User not found:', credentials.email)
+          console.log('[Contractor Credentials] User not found for provided credentials')
           logSecurityEvent({
             eventType: 'LOGIN_FAILED',
             severity: 'WARNING',
@@ -74,7 +74,7 @@ export const authOptions: NextAuthOptions = {
                 .update(`gauth:${credentials.email}:${timestamp}`)
                 .digest('hex')
               if (hmac.length === expected.length && crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected))) {
-                console.log('[Contractor Credentials] Google auth token verified:', credentials.email)
+                console.log('[Contractor Credentials] Google auth token verified for user')
                 logSecurityEvent({
                   eventType: 'LOGIN_SUCCESS',
                   userId: user.id,
@@ -94,7 +94,7 @@ export const authOptions: NextAuthOptions = {
               }
             }
           }
-          console.log('[Contractor Credentials] Invalid Google auth token for:', credentials.email)
+          console.log('[Contractor Credentials] Invalid Google auth token')
           return null
         }
 
@@ -105,7 +105,7 @@ export const authOptions: NextAuthOptions = {
         if (isPasswordEmpty) {
           // Check if user was created via Google (no password set in DB)
           if (!user.password) {
-            console.log('[Contractor Credentials] Google user authenticated:', credentials.email)
+            console.log('[Contractor Credentials] Google user authenticated')
             logSecurityEvent({
               eventType: 'LOGIN_SUCCESS',
               userId: user.id,
@@ -124,13 +124,13 @@ export const authOptions: NextAuthOptions = {
             }
           }
           // User has password but none provided - invalid
-          console.log('[Contractor Credentials] Password required for user:', credentials.email)
+          console.log('[Contractor Credentials] Password required for user')
           return null
         }
 
         // Regular password check for email/password users
         if (!user.password) {
-          console.log('[Contractor Credentials] User has no password but password was provided:', credentials.email)
+          console.log('[Contractor Credentials] User has no password but password was provided')
           return null
         }
 
@@ -140,7 +140,7 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
-          console.log('[Contractor Credentials] Invalid password for user:', credentials.email)
+          console.log('[Contractor Credentials] Invalid password for user')
           logSecurityEvent({
             eventType: 'LOGIN_FAILED',
             severity: 'WARNING',
@@ -151,7 +151,7 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        console.log('[Contractor Credentials] User authenticated successfully:', credentials.email)
+        console.log('[Contractor Credentials] User authenticated successfully')
         logSecurityEvent({
           eventType: 'LOGIN_SUCCESS',
           userId: user.id,
@@ -199,7 +199,7 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!clientUser) {
-          console.log('[Client Credentials] Client user not found:', credentials.email)
+          console.log('[Client Credentials] Client user not found')
           logSecurityEvent({
             eventType: 'LOGIN_FAILED',
             severity: 'WARNING',
@@ -215,7 +215,7 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
-          console.log('[Client Credentials] Invalid password for client:', credentials.email)
+          console.log('[Client Credentials] Invalid password for client')
           logSecurityEvent({
             eventType: 'LOGIN_FAILED',
             severity: 'WARNING',
@@ -226,7 +226,7 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        console.log('[Client Credentials] Client authenticated successfully:', credentials.email)
+        console.log('[Client Credentials] Client authenticated successfully')
 
         // Update last login time
         await prisma.clientUser.update({

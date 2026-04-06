@@ -7,6 +7,7 @@ import fs from "fs/promises"
 import path from "path"
 import Anthropic from "@anthropic-ai/sdk"
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
+import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function GET(
   request: NextRequest,
@@ -14,10 +15,14 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Rate limit: 10 PDF downloads per 15 minutes — prevents Anthropic API cost DoS
+    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "report-download", key: session.user.id })
+    if (rateLimited) return rateLimited
 
     const { id } = await params
 
