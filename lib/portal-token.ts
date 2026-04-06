@@ -1,7 +1,14 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-const PORTAL_SECRET =
-  process.env.PORTAL_SECRET ?? "default-dev-secret-change-in-prod";
+// Fail hard at module load if secret is absent — prevents silent fallback to
+// a known string that would allow any attacker to forge valid portal tokens
+if (!process.env.PORTAL_SECRET) {
+  throw new Error(
+    "PORTAL_SECRET environment variable is required. " +
+    "Generate with: openssl rand -hex 32"
+  );
+}
+const PORTAL_SECRET = process.env.PORTAL_SECRET;
 const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 function toBase64Url(input: string): string {
