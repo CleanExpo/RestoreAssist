@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError
 
     // Rate limit: 10 attempts per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: 'google-signin' })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: 'google-signin' })
     if (rateLimited) return rateLimited
 
     // Verify Firebase token

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This offer is not available for your account." }, { status: 403 })
     }
 
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "checkout-lifetime", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "checkout-lifetime", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const user = await prisma.user.findUnique({

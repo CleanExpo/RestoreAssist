@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 10 checkout sessions per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "checkout", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "checkout", key: session.user.id })
     if (rateLimited) return rateLimited
 
     // Get the base URL from the request headers (works in both dev and production)

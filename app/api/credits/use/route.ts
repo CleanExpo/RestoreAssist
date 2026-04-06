@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 30 credit operations per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 30, prefix: "credits-use", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 30, prefix: "credits-use", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

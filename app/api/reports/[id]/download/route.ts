@@ -21,7 +21,7 @@ export async function GET(
     }
 
     // Rate limit: 10 PDF downloads per 15 minutes — prevents Anthropic API cost DoS
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "report-download", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "report-download", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const { id } = await params
