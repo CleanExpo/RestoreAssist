@@ -11,12 +11,12 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { id: session.user.id }
     })
 
     if (!user) {
@@ -62,12 +62,12 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { id: session.user.id }
     })
 
     if (!user) {
