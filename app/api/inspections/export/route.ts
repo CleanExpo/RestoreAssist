@@ -26,9 +26,11 @@ export async function GET(request: NextRequest) {
   }
   if (status && status !== 'ALL') where.status = status;
 
+  const EXPORT_LIMIT = 5000
   const inspections = await prisma.inspection.findMany({
     where,
     orderBy: { createdAt: 'desc' },
+    take: EXPORT_LIMIT,
     select: {
       id: true,
       inspectionNumber: true,
@@ -69,11 +71,13 @@ export async function GET(request: NextRequest) {
   );
 
   const csv = [headers.join(','), ...rows].join('\n');
+  const truncated = inspections.length === EXPORT_LIMIT
 
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv',
       'Content-Disposition': `attachment; filename="inspections-export-${new Date().toISOString().slice(0, 10)}.csv"`,
+      ...(truncated ? { 'X-Export-Truncated': 'true', 'X-Export-Limit': String(EXPORT_LIMIT) } : {}),
     },
   });
 }

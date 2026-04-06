@@ -1593,6 +1593,8 @@ model Inspection {
   @@index([propertyPostcode])
   @@index([search_vector], type: Gin)
   @@index([workspaceId])
+  @@index([userId, createdAt])
+  @@index([userId, status])
 }
 
 enum InspectionStatus {
@@ -1649,6 +1651,7 @@ model MoistureReading {
 
   @@index([inspectionId])
   @@index([surfaceType])
+  @@index([inspectionId, recordedAt])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
