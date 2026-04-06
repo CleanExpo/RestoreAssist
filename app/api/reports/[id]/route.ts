@@ -91,6 +91,39 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // ── Allowlist validation on the most dangerous scalar fields ─────────────
+    const VALID_WATER_CATEGORIES = ["Category 1", "Category 2", "Category 3", null, undefined]
+    const VALID_WATER_CLASSES    = ["Class 1", "Class 2", "Class 3", "Class 4", null, undefined]
+    const VALID_DEPTH_LEVELS     = ["Basic", "Enhanced", "Optimised", null, undefined]
+
+    if (body.waterCategory !== undefined && !VALID_WATER_CATEGORIES.includes(body.waterCategory)) {
+      return NextResponse.json({ error: `Invalid waterCategory` }, { status: 400 })
+    }
+    if (body.waterClass !== undefined && !VALID_WATER_CLASSES.includes(body.waterClass)) {
+      return NextResponse.json({ error: `Invalid waterClass` }, { status: 400 })
+    }
+    if (body.reportDepthLevel !== undefined && !VALID_DEPTH_LEVELS.includes(body.reportDepthLevel)) {
+      return NextResponse.json({ error: `Invalid reportDepthLevel` }, { status: 400 })
+    }
+    if (body.totalCost !== undefined && body.totalCost !== null) {
+      const tc = Number(body.totalCost)
+      if (!isFinite(tc) || tc < 0 || tc > 100_000_000) {
+        return NextResponse.json({ error: "totalCost must be a non-negative finite number up to 100,000,000" }, { status: 400 })
+      }
+    }
+    if (body.dryingPlan?.targetHumidity !== undefined) {
+      const h = Number(body.dryingPlan.targetHumidity)
+      if (!isFinite(h) || h < 0 || h > 100) {
+        return NextResponse.json({ error: "targetHumidity must be between 0 and 100" }, { status: 400 })
+      }
+    }
+    if (body.dryingPlan?.targetTemperature !== undefined) {
+      const t = Number(body.dryingPlan.targetTemperature)
+      if (!isFinite(t) || t < -20 || t > 100) {
+        return NextResponse.json({ error: "targetTemperature must be between -20 and 100" }, { status: 400 })
+      }
+    }
+
     // Check if report exists and belongs to user
     const existingReport = await prisma.report.findFirst({
       where: {

@@ -72,9 +72,17 @@ export async function POST(
       notes: body.notes ? sanitizeString(body.notes, 2000) : null,
       photoUrl: body.photoUrl || null,
     }
-    // Include mapX/mapY only if provided (schema fields added in migration 20260330)
-    if (body.mapX !== undefined && body.mapX !== null) createData.mapX = parseFloat(body.mapX)
-    if (body.mapY !== undefined && body.mapY !== null) createData.mapY = parseFloat(body.mapY)
+    // Include mapX/mapY only if provided — clamp to [0, 1] normalised range; reject non-finite
+    if (body.mapX !== undefined && body.mapX !== null) {
+      const mx = parseFloat(body.mapX)
+      if (!isFinite(mx)) return NextResponse.json({ error: "mapX must be a finite number" }, { status: 400 })
+      createData.mapX = Math.min(1, Math.max(0, mx))
+    }
+    if (body.mapY !== undefined && body.mapY !== null) {
+      const my = parseFloat(body.mapY)
+      if (!isFinite(my)) return NextResponse.json({ error: "mapY must be a finite number" }, { status: 400 })
+      createData.mapY = Math.min(1, Math.max(0, my))
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const moistureReading = await (prisma.moistureReading.create as any)({

@@ -24,14 +24,21 @@ export async function PATCH(
   const item = await prisma.scopeItem.findFirst({ where: { id: itemId, inspectionId: id }, select: { id: true } })
   if (!item) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  if (body.quantity !== undefined && body.quantity !== null) {
+    const qty = Number(body.quantity)
+    if (!isFinite(qty) || qty < 0 || qty > 100_000) {
+      return NextResponse.json({ error: "quantity must be a non-negative finite number up to 100,000" }, { status: 400 })
+    }
+  }
+
   const updated = await prisma.scopeItem.update({
     where: { id: itemId },
     data: {
-      ...(body.description !== undefined && { description: body.description }),
+      ...(body.description !== undefined && { description: String(body.description).slice(0, 2000) }),
       ...(body.quantity !== undefined && { quantity: body.quantity !== null ? Number(body.quantity) : null }),
-      ...(body.unit !== undefined && { unit: body.unit }),
-      ...(body.isSelected !== undefined && { isSelected: body.isSelected }),
-      ...(body.justification !== undefined && { justification: body.justification }),
+      ...(body.unit !== undefined && { unit: body.unit ? String(body.unit).slice(0, 50) : null }),
+      ...(body.isSelected !== undefined && { isSelected: Boolean(body.isSelected) }),
+      ...(body.justification !== undefined && { justification: body.justification ? String(body.justification).slice(0, 2000) : null }),
     }
   })
   return NextResponse.json({ scopeItem: updated })

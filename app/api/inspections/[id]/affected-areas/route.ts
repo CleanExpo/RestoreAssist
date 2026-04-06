@@ -38,9 +38,10 @@ export async function POST(
       )
     }
     
-    if (!body.affectedSquareFootage || body.affectedSquareFootage <= 0) {
+    const sqft = Number(body.affectedSquareFootage)
+    if (!isFinite(sqft) || sqft <= 0 || sqft > 100_000) {
       return NextResponse.json(
-        { error: "Affected square footage must be greater than 0" },
+        { error: "Affected square footage must be a finite number between 0 and 100,000" },
         { status: 400 }
       )
     }
@@ -52,15 +53,22 @@ export async function POST(
       )
     }
     
+    // Validate photos array length before serialising
+    if (body.photos !== undefined && body.photos !== null) {
+      if (!Array.isArray(body.photos) || body.photos.length > 50) {
+        return NextResponse.json({ error: "photos must be an array of up to 50 items" }, { status: 400 })
+      }
+    }
+
     // Create affected area
     const affectedArea = await prisma.affectedArea.create({
       data: {
         inspectionId: id,
-        roomZoneId: body.roomZoneId.trim(),
-        affectedSquareFootage: body.affectedSquareFootage,
-        waterSource: body.waterSource,
-        timeSinceLoss: body.timeSinceLoss || null,
-        description: body.description || null,
+        roomZoneId: String(body.roomZoneId).trim().slice(0, 200),
+        affectedSquareFootage: sqft,
+        waterSource: String(body.waterSource).slice(0, 100),
+        timeSinceLoss: body.timeSinceLoss ? String(body.timeSinceLoss).slice(0, 100) : null,
+        description: body.description ? String(body.description).slice(0, 2000) : null,
         photos: body.photos ? JSON.stringify(body.photos) : null
       }
     })
