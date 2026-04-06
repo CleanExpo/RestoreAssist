@@ -50,6 +50,9 @@ v2-signin.png
 
 .env*.local
 
+# Root-level SQL scripts (development artefacts — migrations live in prisma/migrations/)
+/*.sql
+
 # Android signing keystores (NEVER commit)
 *.jks
 .capacitor-native-notes/keystores/
