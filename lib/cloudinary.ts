@@ -102,7 +102,21 @@ export async function uploadToCloudinary(
   ensureCloudinaryConfigured()
   try {
     const base64 = buffer.toString('base64')
-    const dataUri = `data:image/jpeg;base64,${base64}`
+    // Detect MIME type from magic bytes to avoid hardcoding image/jpeg for all uploads
+    let mimeType = 'application/octet-stream'
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+      mimeType = 'image/jpeg'
+    } else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+      mimeType = 'image/png'
+    } else if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+      mimeType = 'image/gif'
+    } else if (
+      buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+    ) {
+      mimeType = 'image/webp'
+    }
+    const dataUri = `data:${mimeType};base64,${base64}`
 
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: options.folder || 'uploads',

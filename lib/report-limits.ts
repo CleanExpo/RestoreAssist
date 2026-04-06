@@ -320,17 +320,21 @@ export async function deductCreditsAndTrackUsage(creatorUserId: string): Promise
     throw new Error("Admin user not found")
   }
 
-  // Handle trial users - atomically deduct credits from admin.
-  // Using decrement/increment prevents the read-modify-write race where two
-  // concurrent report generations both read the same balance and both succeed.
+  // Handle trial users - atomically check-and-deduct credits from admin.
+  // Using updateMany with creditsRemaining >= 1 as a WHERE condition makes the
+  // check and deduct a single atomic operation, preventing the TOCTOU race where
+  // two concurrent requests both read balance > 0 and both succeed.
   if (admin.subscriptionStatus === 'TRIAL') {
-    await prisma.user.update({
-      where: { id: adminId },
+    const result = await prisma.user.updateMany({
+      where: { id: adminId, creditsRemaining: { gte: 1 } },
       data: {
         creditsRemaining: { decrement: 1 },
         totalCreditsUsed: { increment: 1 },
       }
     })
+    if (result.count === 0) {
+      throw new Error('INSUFFICIENT_CREDITS')
+    }
   } else if (admin.subscriptionStatus === 'ACTIVE') {
     // Handle active subscribers - increment monthly usage on admin's account
     const now = new Date()
