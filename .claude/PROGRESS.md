@@ -285,6 +285,52 @@
 
 ## 2026-04-06 10:43 — Session End
 
+## 2026-04-06 — Sprint K: Insurer Report Portal + IICRC PDF
+
+| Task                                            | Status | Notes                                                                                      |
+| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| lib/portal-token.ts — insurer token (30d TTL)   | Done   | generateInsurerToken/verifyInsurerToken; HMAC-SHA256, `ins:` prefix, timing-safe compare   |
+| lib/generate-iicrc-report-pdf.ts                | Done   | 10-section pdf-lib PDF: property, water class, moisture, equipment, psychro, declaration   |
+| GET /api/reports/[id]/pdf                       | Done   | Dual auth: session OR insurer share token; streams PDF                                     |
+| POST /api/reports/[id]/insurer-link             | Done   | Generates 30-day tokenized insurer URL, returns expiresInDays                              |
+| /app/portal/insurer/[token]/page.tsx            | Done   | Public read-only portal: classification/moisture/equipment/narrative + PDF CTA             |
+| Report detail page — PDF + Share buttons        | Done   | handleDownloadPDF + handleShareWithInsurer with clipboard copy + toast                     |
+| Linear RA-434 (pgvector) + RA-435 (insurer PDF) | Done   | Marked Done in unite-hub RestoreAssist team                                                |
+
+## 2026-04-06 — Sprint L: AI Capabilities + App Store CI/CD
+
+| Task                                              | Status | Notes                                                                                             |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| lib/ai/constants.ts                               | Done   | IICRC_S500_2025_SYSTEM_PROMPT, SCOPE_OF_WORKS_SYSTEM_PROMPT, COST_ESTIMATION_SYSTEM_PROMPT        |
+| IicrcChunk Prisma model + pgvector migration      | Done   | vector(1536) embedding, ivfflat index (lists=100), CREATE EXTENSION vector                        |
+| lib/rag/embed.ts                                  | Done   | embedText/embedBatch via OpenAI text-embedding-3-small (1536-dim)                                 |
+| lib/rag/retrieve.ts                               | Done   | retrieveChunks with cosine distance (<=>), formatChunksAsContext                                  |
+| scripts/ingest-iicrc.ts                           | Done   | Sliding-window chunking (500 chars, 100 overlap), batch embed, idempotent upsert by contentHash   |
+| lib/vision/meter-prompts.ts                       | Done   | MeterReadingResult type, Delmhorst/Protimeter/Tramex system prompt, parseMeterResponse            |
+| POST /api/vision/extract-reading                  | Done   | Claude Vision (claude-sonnet-4-20250514), auth-gated, 5MB guard, 422 on parse fail                |
+| GET+POST /api/admin/publish/google-play           | Done   | googleapis androidpublisher v3 — track status + release promotion, ADMIN-gated                   |
+| GET+POST /api/admin/publish/app-store             | Done   | jose ES256 JWT + ASC REST API v1 — build status + TestFlight submission, ADMIN-gated             |
+| GET+POST /api/admin/publish/assets                | Done   | Fire-and-forget Playwright screenshot trigger (npx tsx)                                           |
+| scripts/generate-store-assets.ts                  | Done   | 5 viewports: iPhone 8+, iPhone 14 Pro Max, iPad Pro, Android Phone, Android Tablet               |
+| .github/workflows/android-release.yml            | Done   | Tag v*.*.* → Gradle bundleRelease → r0adkll/upload-google-play internal track                    |
+| .github/workflows/ios-release.yml                | Done   | Tag v*.*.* → macOS + Fastlane gym → Fastlane pilot → TestFlight                                  |
+| fix: jose install + npx tsx Turbopack fix         | Done   | Resolved Vercel build failure on PR #145                                                          |
+| PR #145 merged to main                           | Done   | `eef3e7c6` — all 4 CI checks green                                                               |
+| Linear RA-437 (pgvector RAG) + RA-438 (vision)   | Done   | Created and marked Done in unite-hub RestoreAssist team                                           |
+
+## Notes for Next Context Window (updated 2026-04-06)
+
+- Sprint K + Sprint L complete and on main (`eef3e7c6`)
+- Google Play Developer account ($25 USD) — user action required to enable live Android publishing
+- Apple Developer Program ($149 AUD/yr) — user action required to enable live iOS publishing
+- GitHub secrets needed: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON, ASC_API_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_BASE64, APPLE_TEAM_ID, IOS_CERTIFICATE_BASE64, KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+- PORTAL_SECRET env var needed on Vercel for insurer share token HMAC
+- NEXT_PUBLIC_COMPANY_ABN=62 580 077 456 needed on Vercel for footer ABN display
+- pgvector migration (20260406_iicrc_chunk_pgvector) needs to be applied to production Supabase DB
+- To ingest IICRC PDFs: pdftotext IICRC_S500_2025.pdf IICRC_S500_2025.txt && npx tsx scripts/ingest-iicrc.ts --dir ./iicrc-pdfs --standard S500 --edition 2025
+- RA-421/422/396 blocked on Phill input (brand, workspace spec, voice copilot)
+- RA-287 blocked (DO_TOKEN GitHub secret not set)
+
 ## 2026-04-06 10:44 — Session End
 
 ## 2026-04-06 05:22 — Session End
