@@ -173,7 +173,9 @@ export async function findSimilarJobs(options: {
   // Serialize vector as pgvector literal e.g. "[0.1,0.2,...]"
   const vectorStr = `[${queryVector.join(",")}]`
 
-  const claimTypeFilter = claimType ? `AND "claimType" = '${claimType.replace(/'/g, "''")}'` : ""
+  // Use numbered parameters for claimType to prevent SQL injection via $queryRawUnsafe
+  const claimTypeFilter = claimType ? `AND "claimType" = $3` : ""
+  const queryArgs: unknown[] = [tenantId, limit, ...(claimType ? [claimType] : [])]
 
   const rows = await prisma.$queryRawUnsafe<SimilarJobResult[]>(
     `
@@ -197,8 +199,7 @@ export async function findSimilarJobs(options: {
     ORDER BY distance ASC
     LIMIT $2
     `,
-    tenantId,
-    limit
+    ...queryArgs
   )
 
   return rows

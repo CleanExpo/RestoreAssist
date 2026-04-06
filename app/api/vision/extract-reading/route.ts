@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   buildMeterExtractionMessages,
@@ -27,6 +28,15 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Rate limit: 20 requests per minute per authenticated user
+    const rateLimitResponse = applyRateLimit(request, {
+      windowMs: 60 * 1000,
+      maxRequests: 20,
+      prefix: "vision",
+      key: session.user.id,
+    });
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
     const { image, mediaType = "image/jpeg" } = body as {
