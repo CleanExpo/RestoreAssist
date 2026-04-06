@@ -432,7 +432,8 @@ export default function Home() {
           >
             <video
               ref={videoRef}
-              src="/videos/landing-page-overview.mp4"
+              src="/videos/landing-page-overview-v2.mp4"
+              poster="/videos/landing-page-overview-v2-poster.jpg"
               controls
               playsInline
               className="w-full h-full object-contain"
