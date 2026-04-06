@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import {
   generateImageObjectJsonLd,
   generateLocalBusinessJsonLd,
@@ -30,13 +31,17 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // RA-426: Workspace payment gate
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
 
     const { id } = await params;
 
@@ -106,7 +111,9 @@ export async function GET(
       : generateImageObjectJsonLd(seoInput, publicUrl);
 
     // Collect workspace service postcodes from this inspection + others
-    const servicePostcodes = await getWorkspaceServicePostcodes(asset.workspace?.id);
+    const servicePostcodes = await getWorkspaceServicePostcodes(
+      asset.workspace?.id,
+    );
 
     // LocalBusiness JSON-LD
     const localBusiness = generateLocalBusinessJsonLd({
@@ -137,7 +144,9 @@ export async function GET(
     const assetCount = await prisma.mediaAsset.count({
       where: {
         workspaceId: asset.workspace?.id,
-        inspection: { propertyPostcode: asset.inspection?.propertyPostcode ?? "" },
+        inspection: {
+          propertyPostcode: asset.inspection?.propertyPostcode ?? "",
+        },
       },
     });
 
@@ -155,7 +164,10 @@ export async function GET(
     // Embed code (ImageObject + LocalBusiness combined)
     const allSchemas = [imageObject, localBusiness, faqPage];
     const embedCode = allSchemas
-      .map((s) => `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`)
+      .map(
+        (s) =>
+          `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`,
+      )
       .join("\n\n");
 
     return NextResponse.json({
@@ -168,7 +180,10 @@ export async function GET(
     });
   } catch (error) {
     console.error("[GET /api/media/[id]/seo] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -176,7 +191,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -189,7 +204,10 @@ export async function POST(
     const { altText } = body as { altText?: string };
 
     if (!altText || typeof altText !== "string" || !altText.trim()) {
-      return NextResponse.json({ error: "altText is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "altText is required" },
+        { status: 400 },
+      );
     }
 
     // Verify ownership
@@ -220,7 +238,10 @@ export async function POST(
     return NextResponse.json({ asset: updated });
   } catch (error) {
     console.error("[POST /api/media/[id]/seo] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -233,7 +254,7 @@ function deriveSuburbFromAddress(address?: string): string | undefined {
 }
 
 async function getWorkspaceServicePostcodes(
-  workspaceId?: string
+  workspaceId?: string,
 ): Promise<string[]> {
   if (!workspaceId) return [];
   const results = await prisma.inspection.findMany({
@@ -265,9 +286,12 @@ function buildSocialMeta(params: {
 }): SocialMetaOutput {
   const { asset, publicUrl, suburb } = params;
   const damageType =
-    asset.tags.find((t) => t.category === "damage_type")?.value ?? "Restoration";
+    asset.tags.find((t) => t.category === "damage_type")?.value ??
+    "Restoration";
   const postcode = asset.inspection?.propertyPostcode ?? "";
-  const location = suburb ? `${suburb}${postcode ? ` ${postcode}` : ""}` : postcode;
+  const location = suburb
+    ? `${suburb}${postcode ? ` ${postcode}` : ""}`
+    : postcode;
 
   const title = `${damageType} — ${location} Inspection`.trim();
   const description = asset.altText
@@ -281,7 +305,6 @@ function buildSocialMeta(params: {
     twitterCard: "summary_large_image",
     twitterTitle: title,
     twitterDescription: description,
-    gbpReady:
-      (asset.width ?? 0) >= 720 && (asset.height ?? 0) >= 720,
+    gbpReady: (asset.width ?? 0) >= 720 && (asset.height ?? 0) >= 720,
   };
 }
