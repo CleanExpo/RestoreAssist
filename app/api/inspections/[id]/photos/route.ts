@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
 import { scheduleCatalog } from "@/lib/media/catalog";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 // GET - List photos for inspection
 export async function GET(
@@ -70,6 +71,14 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Rate limit: 20 photo uploads per minute per user
+    const rateLimited = applyRateLimit(request, {
+      maxRequests: 20,
+      prefix: "photo-upload",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     const { id } = await params;
 

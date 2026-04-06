@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error generating scope of works:', error)
     return NextResponse.json(
-      { error: 'Failed to generate scope of works', details: error instanceof Error ? error.message : String(error) },
+      { error: 'Failed to generate scope of works' },
       { status: 500 }
     )
   }

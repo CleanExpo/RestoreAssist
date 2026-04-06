@@ -4,6 +4,16 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 
+/** Escape special HTML characters to prevent XSS in email bodies */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
 // Lazy initialize Resend to avoid build errors if API key is missing
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
@@ -164,15 +174,15 @@ export async function POST(request: NextRequest) {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>You've been invited to the Client Portal</h2>
-            <p>Hi ${client.name},</p>
-            <p>${contractorName} has invited you to access the Client Portal where you can:</p>
+            <p>Hi ${escapeHtml(client.name)},</p>
+            <p>${escapeHtml(contractorName)} has invited you to access the Client Portal where you can:</p>
             <ul>
               <li>View your restoration project reports</li>
               <li>Review and approve scope of work</li>
               <li>Track project status and progress</li>
               <li>Download important documents</li>
             </ul>
-            ${message ? `<p><strong>Message from ${contractorName}:</strong><br/>${message}</p>` : ''}
+            ${message ? `<p><strong>Message from ${escapeHtml(contractorName)}:</strong><br/>${escapeHtml(message)}</p>` : ''}
             <p style="margin: 30px 0;">
               <a href="${inviteUrl}" style="background-color: #8A6B4E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Accept Invitation & Create Account
