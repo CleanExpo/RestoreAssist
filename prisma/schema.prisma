@@ -273,7 +273,7 @@ model Client {
 
   @@index([search_vector], type: Gin)
   @@index([userId, name])
-  @@index([userId, email])
+  @@unique([userId, email])
   @@index([userId, createdAt])
   @@index([workspaceId])
 }
@@ -331,7 +331,7 @@ model ReportApproval {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  @@index([reportId, approvalType])
+  @@unique([reportId, approvalType])
   @@index([status])
 }
 
@@ -2657,9 +2657,10 @@ model InterviewSession {
   report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   // Relations
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  formTemplate FormTemplate        @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
-  responses    InterviewResponse[]
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formTemplate      FormTemplate               @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
+  responses         InterviewResponse[]
+  standardsMappings InterviewStandardsMapping[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2710,6 +2711,9 @@ model InterviewStandardsMapping {
   usageCount  Int      @default(1)
 
   createdAt DateTime @default(now())
+
+  // FK relation — ensures orphan rows are removed when the session is deleted
+  interviewSession InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
 
   @@index([interviewSessionId])
   @@index([standardCode])
