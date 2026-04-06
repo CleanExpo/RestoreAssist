@@ -757,9 +757,10 @@ export default function InspectionDetailPage({
       <div className="flex items-start gap-4">
         <button
           onClick={() => router.push("/dashboard/inspections")}
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5"
+          aria-label="Back to inspections"
+          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={20} aria-hidden="true" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
@@ -854,10 +855,11 @@ export default function InspectionDetailPage({
               <DialogHeader>
                 <DialogTitle>Share with Client</DialogTitle>
               </DialogHeader>
-              <div className="py-2">
+              <div className="py-2" aria-live="polite" aria-atomic="true">
                 {shareLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="animate-spin text-cyan-500" size={24} />
+                  <div role="status" aria-label="Generating client portal link" className="flex items-center justify-center py-4">
+                    <Loader2 className="animate-spin text-cyan-500" size={24} aria-hidden="true" />
+                    <span className="sr-only">Generating client portal link…</span>
                   </div>
                 ) : shareUrl ? (
                   <div className="space-y-3">
@@ -868,6 +870,7 @@ export default function InspectionDetailPage({
                       <input
                         readOnly
                         value={shareUrl}
+                        aria-label="Client portal link"
                         className="flex-1 px-3 py-2 text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800"
                       />
                       <Button size="sm" onClick={handleCopyShareUrl}>
@@ -906,22 +909,27 @@ export default function InspectionDetailPage({
       <StatusTimeline currentStatus={inspection.status} />
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700">
+      <div role="tablist" aria-label="Inspection sections" className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700">
         {TABS.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            aria-controls={`tabpanel-${tab.key}`}
+            id={`tab-${tab.key}`}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2",
+              "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
               activeTab === tab.key
                 ? "border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10"
                 : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50",
             )}
           >
-            <tab.icon size={16} />
+            <tab.icon size={16} aria-hidden="true" />
             {tab.label}
             {tab.count !== undefined && (
               <span
+                aria-label={`${tab.count} items`}
                 className={cn(
                   "px-1.5 py-0.5 rounded-full text-xs",
                   activeTab === tab.key
@@ -1487,9 +1495,10 @@ export default function InspectionDetailPage({
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleDeleteMoisture(reading.id)}
-                            className="text-red-400 hover:text-red-600 transition-colors"
+                            aria-label={`Delete moisture reading for ${reading.location}`}
+                            className="text-red-400 hover:text-red-600 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={14} aria-hidden="true" />
                           </button>
                         </td>
                       </tr>
@@ -1663,10 +1672,10 @@ export default function InspectionDetailPage({
                         )}
                         <button
                           onClick={() => handleDeleteArea(area.id)}
-                          className="p-1 text-red-400 hover:text-red-600 transition-colors"
-                          title="Delete area"
+                          aria-label={`Delete area ${area.roomZoneId}`}
+                          className="p-1 text-red-400 hover:text-red-600 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -2136,17 +2145,17 @@ export default function InspectionDetailPage({
                             toast.error("Failed to update scope item");
                           }
                         }}
+                        role="checkbox"
+                        aria-checked={item.isSelected}
+                        aria-label={item.isSelected ? `Deselect: ${item.description}` : `Select: ${item.description}`}
                         className={cn(
-                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors",
+                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none",
                           item.isSelected
                             ? "bg-emerald-500 text-white hover:bg-emerald-600"
                             : "bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600",
                         )}
-                        title={
-                          item.isSelected ? "Deselect item" : "Select item"
-                        }
                       >
-                        {item.isSelected && <CheckCircle2 size={14} />}
+                        {item.isSelected && <CheckCircle2 size={14} aria-hidden="true" />}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -2188,10 +2197,10 @@ export default function InspectionDetailPage({
                               unit: item.unit ?? "",
                             });
                           }}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
-                          title="Edit"
+                          aria-label={`Edit scope item: ${item.description}`}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={14} aria-hidden="true" />
                         </button>
                         <button
                           onClick={async () => {
@@ -2211,10 +2220,10 @@ export default function InspectionDetailPage({
                               toast.error("Failed to delete scope item");
                             }
                           }}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          title="Delete"
+                          aria-label={`Delete scope item: ${item.description}`}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -2354,6 +2363,9 @@ export default function InspectionDetailPage({
                 type="file"
                 accept="image/*"
                 multiple
+                aria-label="Upload inspection photos"
+                aria-hidden="true"
+                tabIndex={-1}
                 className="hidden"
                 onChange={(e) => handlePhotoUpload(e.target.files)}
               />
