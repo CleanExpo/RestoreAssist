@@ -38,7 +38,7 @@ const PRODUCT_EXPLAINER_SEGMENTS: VoiceoverSegment[] = [
   },
   {
     id: "pe-cta",
-    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Book a demo at restoreassist.com.au.",
+    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Start your free trial at restoreassist.app.",
     outputPath: "src/assets/audio/pe-cta.mp3",
   },
 ];
@@ -86,19 +86,66 @@ const INDUSTRY_INSIGHT_SEGMENTS: VoiceoverSegment[] = [
   },
   {
     id: "ii-cta",
-    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Book a demo at restoreassist.com.au.",
+    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Start your free trial at restoreassist.app.",
     outputPath: "src/assets/audio/ii-cta.mp3",
+  },
+];
+
+const CINEMATIC_LANDING_V2_SEGMENTS: VoiceoverSegment[] = [
+  {
+    id: "lp-intro",
+    text: "RestoreAssist. The platform built for Australian restoration professionals who need every job documented, compliant, and paid — without the paperwork chaos.",
+    outputPath: "public/audio/lp-intro.mp3",
+  },
+  {
+    id: "lp-overview",
+    text: "One system that handles your inspection report, scope of works, and cost estimate. With IICRC standards built in and evidence attached to every line item.",
+    outputPath: "public/audio/lp-overview.mp3",
+  },
+  {
+    id: "lp-dashboard",
+    text: "Your command centre for every active job. See what needs attention, track drying progress, and push updates to insurers — all from one screen.",
+    outputPath: "public/audio/lp-dashboard.mp3",
+  },
+  {
+    id: "lp-advantages",
+    text: "Save over two hours per inspection. Never miss a scope item. Export directly to Xero, Ascora, ServiceM8, QuickBooks, and MYOB. And stay fully compliant across all eight Australian states.",
+    outputPath: "public/audio/lp-advantages.mp3",
+  },
+  {
+    id: "lp-compliance",
+    text: "Built for Australian law. IICRC S500, S520, and S700 standards are automatically applied. State-specific regulatory triggers fire based on job location. Every inspection builds a court-ready evidence register.",
+    outputPath: "public/audio/lp-compliance.mp3",
+  },
+  {
+    id: "lp-scope",
+    text: "AI generates your complete scope of works in seconds. Every item is IICRC-cited, evidence-linked, and ready for the insurer. What used to take two hours now takes thirty seconds.",
+    outputPath: "public/audio/lp-scope.mp3",
+  },
+  {
+    id: "lp-stats",
+    text: "Over two hours saved per inspection. One hundred percent IICRC-compliant reports. Coverage across all eight Australian states. RestoreAssist is how professional restoration businesses operate.",
+    outputPath: "public/audio/lp-stats.mp3",
+  },
+  {
+    id: "lp-cta",
+    text: "Start your free trial today. No credit card required. Three full reports, completely free. Visit restoreassist.app and get your first job documented in under ten minutes.",
+    outputPath: "public/audio/lp-cta.mp3",
   },
 ];
 
 async function generateVoiceover(segment: VoiceoverSegment): Promise<void> {
   if (!ELEVENLABS_API_KEY) {
-    console.warn(`[SKIP] No ELEVENLABS_API_KEY set \u2014 writing placeholder for ${segment.id}`);
-    const dir = path.dirname(path.resolve(__dirname, "../../", segment.outputPath));
+    console.warn(
+      `[SKIP] No ELEVENLABS_API_KEY set \u2014 writing placeholder for ${segment.id}`,
+    );
+    const dir = path.dirname(
+      path.resolve(__dirname, "../../", segment.outputPath),
+    );
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.resolve(__dirname, "../../", segment.outputPath),
-      `Placeholder for: ${segment.text}`
+      `Placeholder for: ${segment.text}`,
     );
     return;
   }
@@ -123,26 +170,34 @@ async function generateVoiceover(segment: VoiceoverSegment): Promise<void> {
           use_speaker_boost: true,
         },
       }),
-    }
+    },
   );
 
   if (!response.ok) {
-    throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `ElevenLabs API error: ${response.status} ${response.statusText}`,
+    );
   }
 
   const audioBuffer = await response.arrayBuffer();
-  const outputDir = path.dirname(path.resolve(__dirname, "../../", segment.outputPath));
+  const outputDir = path.dirname(
+    path.resolve(__dirname, "../../", segment.outputPath),
+  );
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(
     path.resolve(__dirname, "../../", segment.outputPath),
-    Buffer.from(audioBuffer)
+    Buffer.from(audioBuffer),
   );
 
   console.log(`[TTS] Done: ${segment.id} \u2192 ${segment.outputPath}`);
 }
 
 async function generateAll(): Promise<void> {
-  const allSegments = [...PRODUCT_EXPLAINER_SEGMENTS, ...INDUSTRY_INSIGHT_SEGMENTS];
+  const allSegments = [
+    ...PRODUCT_EXPLAINER_SEGMENTS,
+    ...INDUSTRY_INSIGHT_SEGMENTS,
+    ...CINEMATIC_LANDING_V2_SEGMENTS,
+  ];
 
   console.log(`\nGenerating ${allSegments.length} voiceover segments...\n`);
 
