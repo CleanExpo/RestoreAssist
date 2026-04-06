@@ -464,8 +464,8 @@ export default function CaptureWorkflowPage({
   // ============================================
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div role="status" aria-label="Loading capture workflow" className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" aria-hidden="true" />
         <span className="ml-3 text-slate-600 dark:text-slate-300">
           Loading capture workflow...
         </span>

@@ -226,7 +226,7 @@ function MoistureConfirm({
       <div className="flex gap-2 pt-1">
         <button
           onClick={onCancel}
-          className="flex-1 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+          className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
         >
           <RotateCcw size={14} className="inline mr-1.5" />
           Retake
@@ -234,7 +234,7 @@ function MoistureConfirm({
         <button
           onClick={save}
           disabled={saving}
-          className="flex-1 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex-1 min-h-[44px] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <Loader2 size={14} className="animate-spin" />
@@ -339,7 +339,7 @@ function EnvironmentalConfirm({
       <div className="flex gap-2 pt-1">
         <button
           onClick={onCancel}
-          className="flex-1 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+          className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
         >
           <RotateCcw size={14} className="inline mr-1.5" />
           Retake
@@ -347,7 +347,7 @@ function EnvironmentalConfirm({
         <button
           onClick={save}
           disabled={saving}
-          className="flex-1 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex-1 min-h-[44px] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <Loader2 size={14} className="animate-spin" />
@@ -437,14 +437,14 @@ function MeasurementConfirm({
       <div className="flex gap-2 pt-1">
         <button
           onClick={onCancel}
-          className="flex-1 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+          className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
         >
           <RotateCcw size={14} className="inline mr-1.5" />
           Retake
         </button>
         <button
           onClick={copy}
-          className="flex-1 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex-1 min-h-[44px] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <CheckCircle2 size={14} />
           Copy to Clipboard
@@ -679,7 +679,8 @@ export function MeterPhotoCapture({
           <button
             onClick={analyse}
             disabled={analysing}
-            className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            aria-label={analysing ? "Reading meter with AI…" : "Analyse meter photo with AI"}
+            className="w-full min-h-[44px] py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             {analysing ? (
               <>
