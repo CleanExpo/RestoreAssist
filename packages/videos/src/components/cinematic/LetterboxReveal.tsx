@@ -96,12 +96,13 @@ export const LetterboxReveal: React.FC<LetterboxRevealProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#050505" }}>
-      {/* Radial flare behind logo */}
+      {/* Radial flare behind logo — breathing pulse */}
       <AbsoluteFill
         style={{
           background:
             "radial-gradient(circle at 50% 50%, rgba(212,165,116,0.35) 0%, transparent 60%)",
-          opacity: logoOpacity,
+          opacity:
+            logoOpacity * (0.85 + 0.15 * Math.sin(frame * (Math.PI / 45))),
         }}
       />
 
@@ -147,9 +148,11 @@ export const LetterboxReveal: React.FC<LetterboxRevealProps> = ({
                 key={i}
                 style={{
                   color: "white",
-                  fontSize: 36,
+                  fontStyle: "italic",
+                  fontSize: 40,
                   fontWeight: 600,
                   fontFamily: "Inter, sans-serif",
+                  letterSpacing: "0.02em",
                   opacity: wordOpacity,
                 }}
               >

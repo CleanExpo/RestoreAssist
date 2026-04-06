@@ -38,6 +38,9 @@ export const CinematicLandingV2: React.FC = () => {
 
   return (
     <AbsoluteFill>
+      {/* Google Fonts: Inter */}
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+
       {/* Background music bed — mixed at -18dB (volume 0.12) */}
       {tryAudio("audio/bg-music.mp3", bgMusicVolume)}
 
