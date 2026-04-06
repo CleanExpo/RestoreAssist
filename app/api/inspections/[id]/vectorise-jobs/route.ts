@@ -104,13 +104,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const batchSize = Math.min(body.batchSize ?? 50, 200)
 
-    // Resolve tenantId — look up from the authenticated user's organisation
-    let tenantId = body.tenantId
-    if (!tenantId) {
-      // HistoricalJob.tenantId is the userId of the account that owns the data
-      // (matches the pattern set in the Ascora sync route)
-      tenantId = session.user.id
-    }
+    // tenantId is always the authenticated user's own ID.
+    // Admin override via body.tenantId was removed — it allowed any user to read
+    // and overwrite another user's HistoricalJob embeddings by supplying a foreign userId.
+    const tenantId = session.user.id
 
     // ── Count total jobs (cheap) and fetch only un-embedded rows ─────────────
     const [{ count: totalCount }] = await prisma.$queryRawUnsafe<[{ count: bigint }]>(

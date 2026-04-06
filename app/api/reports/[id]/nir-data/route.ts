@@ -11,24 +11,16 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
+
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     const { id } = await params
 
-    // Verify report belongs to user
+    // Verify report belongs to user — use session.user.id directly (no extra DB round-trip)
     const report = await prisma.report.findUnique({
-      where: { id, userId: user.id }
+      where: { id, userId: session.user.id }
     })
 
     if (!report) {
@@ -69,24 +61,16 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
+
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     const { id } = await params
 
-    // Verify report belongs to user
+    // Verify report belongs to user — use session.user.id directly (no extra DB round-trip)
     const report = await prisma.report.findUnique({
-      where: { id, userId: user.id }
+      where: { id, userId: session.user.id }
     })
 
     if (!report) {

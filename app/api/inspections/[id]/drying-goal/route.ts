@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           targetClass,
           materialTargets: buildMaterialTargets(),
           goalAchieved: false,
-          iicrcReference: "IICRC S500:2021 §11.4",
+          iicrcReference: "IICRC S500:2025 §11.4",
         },
       })
     } catch (err: any) {
@@ -255,7 +255,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       iicrcReference: updated.iicrcReference,
       signedOffBy: updated.signedOffBy,
       // This string goes verbatim into the NIR PDF report
-      certificate: `Drying Goal: ACHIEVED — ${updated.goalAchievedAt?.toISOString()} — All materials at or below IICRC S500:2021 §11.4 target EMC — ${totalDryingDays} day(s) drying`,
+      certificate: `Drying Goal: ACHIEVED — ${updated.goalAchievedAt?.toISOString()} — All materials at or below IICRC S500:2025 §11.4 target EMC — ${totalDryingDays} day(s) drying`,
       message: `All ${readings.length} moisture readings are at or below IICRC S500 target EMC. Drying complete in ${totalDryingDays} day(s).`,
     })
   } catch (error) {
