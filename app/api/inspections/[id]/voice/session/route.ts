@@ -16,7 +16,7 @@ import type { VoiceCopilotMode } from "@/lib/voice/types";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,8 +24,9 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const inspection = await prisma.inspection.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, userId: true, propertyAddress: true, status: true },
     });
 
@@ -75,7 +76,7 @@ export async function POST(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
