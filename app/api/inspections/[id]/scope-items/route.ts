@@ -45,18 +45,24 @@ export async function POST(
       )
     }
     
+    // Validate and cap text field lengths; reject non-finite quantity
+    const qty = body.quantity != null ? Number(body.quantity) : null
+    if (qty !== null && (!isFinite(qty) || qty < 0 || qty > 100_000)) {
+      return NextResponse.json({ error: "quantity must be a non-negative finite number up to 100,000" }, { status: 400 })
+    }
+
     // Create scope item
     const scopeItem = await prisma.scopeItem.create({
       data: {
         inspectionId: id,
-        itemType: body.itemType,
-        description: body.description,
+        itemType: body.itemType ? String(body.itemType).slice(0, 100) : undefined,
+        description: String(body.description).slice(0, 2000),
         areaId: body.areaId || null,
-        quantity: body.quantity || null,
-        unit: body.unit || null,
-        specification: body.specification || null,
+        quantity: qty,
+        unit: body.unit ? String(body.unit).slice(0, 50) : null,
+        specification: body.specification ? String(body.specification).slice(0, 2000) : null,
         autoDetermined: body.autoDetermined ?? false,
-        justification: body.justification || null,
+        justification: body.justification ? String(body.justification).slice(0, 2000) : null,
         isRequired: body.isRequired ?? true,
         isSelected: body.isSelected ?? true
       }

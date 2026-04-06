@@ -72,9 +72,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       targetClass: string
     }
 
-    if (!targetCategory || !targetClass) {
+    const VALID_TARGET_CATEGORIES = ["Category 1", "Category 2", "Category 3"] as const
+    const VALID_TARGET_CLASSES    = ["Class 1", "Class 2", "Class 3", "Class 4"] as const
+
+    if (!VALID_TARGET_CATEGORIES.includes(targetCategory as typeof VALID_TARGET_CATEGORIES[number])) {
       return NextResponse.json(
-        { error: "targetCategory and targetClass are required" },
+        { error: `targetCategory must be one of: ${VALID_TARGET_CATEGORIES.join(", ")}` },
+        { status: 400 }
+      )
+    }
+    if (!VALID_TARGET_CLASSES.includes(targetClass as typeof VALID_TARGET_CLASSES[number])) {
+      return NextResponse.json(
+        { error: `targetClass must be one of: ${VALID_TARGET_CLASSES.join(", ")}` },
         { status: 400 }
       )
     }
