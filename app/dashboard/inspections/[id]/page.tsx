@@ -50,6 +50,7 @@ import {
   FileDown,
   Building2,
   ExternalLink,
+  Mic,
 } from "lucide-react";
 import {
   Dialog,
@@ -806,6 +807,13 @@ export default function InspectionDetailPage({
               </svg>
               Share with Client
             </Button>
+            <Link
+              href={`/dashboard/inspections/${inspection.id}/voice`}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-[#1C2E47] text-[#1C2E47] dark:border-[#D4A574] dark:text-[#D4A574] hover:bg-[#1C2E47]/10 text-xs font-semibold transition-colors"
+            >
+              <Mic size={14} />
+              Voice Copilot
+            </Link>
             <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
