@@ -29,6 +29,16 @@ export const FullBleedScene: React.FC<FullBleedSceneProps> = ({
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
+  const kenBurnsScale = interpolate(frame, [0, durationInFrames], [1.04, 1.0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const sceneEnterOpacity = interpolate(frame, [0, 8], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   // Primary statement: enter from y:80 starting frame 15
   const primarySpring = spring({
     frame: frame - 15,
@@ -72,7 +82,13 @@ export const FullBleedScene: React.FC<FullBleedSceneProps> = ({
       {/* Full-bleed screenshot */}
       <Img
         src={staticFile(screenshotPath)}
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          transform: `scale(${kenBurnsScale})`,
+          transformOrigin: "center center",
+        }}
       />
 
       {/* Cinematic dark overlay */}
@@ -142,6 +158,14 @@ export const FullBleedScene: React.FC<FullBleedSceneProps> = ({
           height: LOGO_SIZE,
           objectFit: "contain",
           opacity: logoBugOpacity,
+        }}
+      />
+
+      {/* Scene enter fade from black */}
+      <AbsoluteFill
+        style={{
+          backgroundColor: `rgba(0,0,0,${1 - sceneEnterOpacity})`,
+          pointerEvents: "none",
         }}
       />
     </AbsoluteFill>

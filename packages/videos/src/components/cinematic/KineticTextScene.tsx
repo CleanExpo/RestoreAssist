@@ -36,7 +36,19 @@ export const KineticTextScene: React.FC<KineticTextSceneProps> = ({
   backgroundVariant = "dark",
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
+
+  const sceneEnterOpacity = interpolate(frame, [0, 12], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const sceneExitOpacity = interpolate(
+    frame,
+    [durationInFrames - 15, durationInFrames],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
 
   const background =
     backgroundVariant === "navy"
@@ -158,6 +170,10 @@ export const KineticTextScene: React.FC<KineticTextSceneProps> = ({
                     height: 4,
                     width: 480,
                     backgroundColor: "#D4A574",
+                    boxShadow:
+                      underlineScale === 1
+                        ? `0 0 ${8 + 4 * Math.sin((frame * Math.PI) / 40)}px rgba(212,165,116,0.6)`
+                        : "none",
                     transformOrigin: "left center",
                     transform: `scaleX(${underlineScale})`,
                   }}
@@ -179,6 +195,20 @@ export const KineticTextScene: React.FC<KineticTextSceneProps> = ({
           height: LOGO_SIZE,
           objectFit: "contain",
           opacity: logoBugOpacity,
+        }}
+      />
+
+      {/* Scene enter/exit fade overlays */}
+      <AbsoluteFill
+        style={{
+          backgroundColor: `rgba(0,0,0,${1 - sceneEnterOpacity})`,
+          pointerEvents: "none",
+        }}
+      />
+      <AbsoluteFill
+        style={{
+          backgroundColor: `rgba(0,0,0,${sceneExitOpacity})`,
+          pointerEvents: "none",
         }}
       />
     </AbsoluteFill>

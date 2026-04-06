@@ -33,7 +33,19 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
   stats,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
+
+  const sceneEnterOpacity = interpolate(frame, [0, 12], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const sceneExitOpacity = interpolate(
+    frame,
+    [durationInFrames - 15, durationInFrames],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
 
   // Heading slides up
   const headingSpring = spring({ frame, fps, config: { damping: 20 } });
@@ -104,6 +116,13 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
             extrapolateRight: "clamp",
           });
 
+          const cardSpring = spring({
+            frame: frame - delay,
+            fps,
+            config: { damping: 22, stiffness: 100 },
+          });
+          const cardY = interpolate(cardSpring, [0, 1], [40, 0]);
+
           const count = interpolate(
             frame,
             [delay, delay + 45],
@@ -126,6 +145,7 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
                 borderRadius: 12,
                 padding: "48px 40px",
                 opacity: cardOpacity,
+                transform: `translateY(${cardY}px)`,
               }}
             >
               <div
@@ -193,6 +213,20 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
           height: LOGO_SIZE,
           objectFit: "contain",
           opacity: logoBugOpacity,
+        }}
+      />
+
+      {/* Scene enter/exit fade overlays */}
+      <AbsoluteFill
+        style={{
+          backgroundColor: `rgba(0,0,0,${1 - sceneEnterOpacity})`,
+          pointerEvents: "none",
+        }}
+      />
+      <AbsoluteFill
+        style={{
+          backgroundColor: `rgba(0,0,0,${sceneExitOpacity})`,
+          pointerEvents: "none",
         }}
       />
     </AbsoluteFill>

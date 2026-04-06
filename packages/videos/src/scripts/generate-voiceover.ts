@@ -109,17 +109,17 @@ const CINEMATIC_LANDING_V2_SEGMENTS: VoiceoverSegment[] = [
   },
   {
     id: "lp-advantages",
-    text: "Save over two hours per inspection. Never miss a scope item. Export directly to Xero, Ascora, ServiceM8, QuickBooks, and MYOB. And stay fully compliant across all eight Australian states.",
+    text: "Save over two hours per inspection. Never miss a scope item. Export to Xero, Ascora, ServiceM8, QuickBooks, and MYOB. Fully compliant across all eight Australian states.",
     outputPath: "public/audio/lp-advantages.mp3",
   },
   {
     id: "lp-compliance",
-    text: "Built for Australian law. IICRC S500, S520, and S700 standards are automatically applied. State-specific regulatory triggers fire based on job location. Every inspection builds a court-ready evidence register.",
+    text: "Built for Australian law. IICRC S500, S520, and S700 are automatically applied. State-specific triggers fire based on job location. Every inspection builds a court-ready evidence register.",
     outputPath: "public/audio/lp-compliance.mp3",
   },
   {
     id: "lp-scope",
-    text: "AI generates your complete scope of works in seconds. Every item is IICRC-cited, evidence-linked, and ready for the insurer. What used to take two hours now takes thirty seconds.",
+    text: "AI generates your complete scope of works in seconds. Every item is IICRC-cited and evidence-linked. What used to take two hours — now takes thirty seconds.",
     outputPath: "public/audio/lp-scope.mp3",
   },
   {
@@ -129,7 +129,7 @@ const CINEMATIC_LANDING_V2_SEGMENTS: VoiceoverSegment[] = [
   },
   {
     id: "lp-cta",
-    text: "Start your free trial today. No credit card required. Three full reports, completely free. Visit restoreassist.app and get your first job documented in under ten minutes.",
+    text: "Start your free trial today. Three full reports, completely free. No credit card required. Visit restoreassist.app.",
     outputPath: "public/audio/lp-cta.mp3",
   },
 ];
@@ -164,9 +164,9 @@ async function generateVoiceover(segment: VoiceoverSegment): Promise<void> {
         text: segment.text,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.6,
-          similarity_boost: 0.8,
-          style: 0.3,
+          stability: 0.72,
+          similarity_boost: 0.85,
+          style: 0.2,
           use_speaker_boost: true,
         },
       }),

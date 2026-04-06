@@ -107,10 +107,10 @@ export const IndustryInsight: React.FC = () => {
       <Sequence from={3900} durationInFrames={600}>
         <CTASlide
           slogan="One System. Fewer Gaps. More Confidence."
-          primaryLabel="Book a Demo"
-          primaryUrl="restoreassist.com.au/contact"
-          secondaryLabel="See How It Works"
-          secondaryUrl="restoreassist.com.au/how-it-works"
+          primaryLabel="Start Free Trial"
+          primaryUrl="restoreassist.app/signup"
+          secondaryLabel="Watch Videos"
+          secondaryUrl="restoreassist.app/resources"
         />
       </Sequence>
     </AbsoluteFill>

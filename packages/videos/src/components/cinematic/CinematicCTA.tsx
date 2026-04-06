@@ -51,13 +51,13 @@ export const CinematicCTA: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: 660,
+          top: 640,
           left: 0,
           right: 0,
           display: "flex",
           flexDirection: "column" as const,
           alignItems: "center",
-          gap: 24,
+          gap: 16,
         }}
       >
         <h1
@@ -90,11 +90,23 @@ export const CinematicCTA: React.FC = () => {
 
         <p
           style={{
+            color: "rgba(255,255,255,0.50)",
+            fontSize: 22,
+            fontFamily: "Inter, sans-serif",
+            margin: 0,
+            opacity: ctaOpacity,
+          }}
+        >
+          No credit card required · Three full reports free
+        </p>
+
+        <p
+          style={{
             color: "rgba(255,255,255,0.75)",
             fontSize: 28,
             textAlign: "center",
             fontFamily: "Inter, sans-serif",
-            margin: "10px 0 0 0",
+            margin: 0,
             opacity: taglineOpacity,
           }}
         >
