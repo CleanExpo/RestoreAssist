@@ -7,12 +7,14 @@ import { resolve } from "path";
 const SCRIPT_PATH = resolve(process.cwd(), "scripts/generate-store-assets.ts");
 
 function triggerAssetGeneration(baseUrl?: string): void {
-  const args = ["--loader=ts-node/esm", SCRIPT_PATH];
+  const args = [SCRIPT_PATH];
   if (baseUrl) {
     args.push("--url", baseUrl);
   }
 
-  const child = spawn("node", args, {
+  // Use npx tsx to run TypeScript scripts without --loader flag
+  // (avoids Turbopack static analysis issue with dynamic loader strings)
+  const child = spawn("npx", ["tsx", ...args], {
     detached: true,
     stdio: "ignore",
   });
