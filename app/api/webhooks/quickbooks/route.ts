@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
       .update(rawBody)
       .digest('base64')
 
-    if (signature !== expectedSignature) {
+    const sigBuf = Buffer.from(signature, 'base64')
+    const expBuf = Buffer.from(expectedSignature, 'base64')
+    if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
       console.error('[QuickBooks Webhook] Invalid signature')
       return NextResponse.json(
         { error: 'Invalid signature' },
