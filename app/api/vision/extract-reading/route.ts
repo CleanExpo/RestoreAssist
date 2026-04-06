@@ -20,6 +20,8 @@ import {
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  maxRetries: 2, // Retry on 429/500 with exponential backoff (SDK default)
+  timeout: 30_000, // 30s hard timeout — prevent hanging field requests
 });
 
 export async function POST(request: NextRequest) {
