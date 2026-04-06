@@ -1,7 +1,7 @@
 # Progress — RestoreAssist
 
-**Phase:** Active Build — Sprint I complete, sandbox→main PR open
-**Last updated:** 2026-04-04
+**Phase:** Pre-Launch Security Hardening — 5-Round Adversarial Swarm COMPLETE
+**Last updated:** 2026-04-07
 
 ## Active Tasks
 
@@ -21,6 +21,24 @@
 | RA-238 YouTube rebrand                 | Blocked | Needs human: YouTube Studio channel rename                                           |
 | RA-246 mobile env config               | Blocked | Needs human: Supabase env vars + EAS project ID                                      |
 | RA-383 pilot pipeline                  | Blocked | Needs human: IICRC Australasia contacts                                              |
+
+## Pre-Launch Security Swarm Results (2026-04-07)
+
+All 5 rounds complete. 55 findings identified and fixed across 8 commits.
+
+| Round | Focus | Findings | Commits |
+|-------|-------|----------|---------|
+| 1 | HMAC/timing, SQL injection, basic auth | 8 | `5747459c` |
+| 2 | Race conditions, N+1 queries, IDOR | 10 | `d62ac88c`, `e2efb938` |
+| 3 | Auth inconsistencies, privilege escalation, WCAG | 12 | `ba34e922`, `31faf69f`, `47551092` |
+| 4 | Billing bypass, credit exhaustion, prompt injection | 15 | `5a11cf97` |
+| 5 | Stale JWT role, auth bypass, cross-tenant leaks | 15 | `7c84e803` |
+
+### Deferred (require infrastructure changes)
+- **F5 (R5)**: In-memory rate limiter resets on cold starts → needs Upstash/Redis
+- **F13 (R5)**: jsPDF/Fabric.js CVEs → needs `pnpm update jspdf` + audit
+- **F15 (R5)**: CSP `unsafe-inline`/`unsafe-eval` → needs nonce-based CSP (medium effort)
+- **F2 (R5)**: 30+ routes use `session.user.email` instead of `session.user.id` → tech debt
 
 ## Decisions
 
