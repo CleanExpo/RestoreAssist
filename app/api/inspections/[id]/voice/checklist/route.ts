@@ -13,7 +13,7 @@ import { checkCompletion } from "@/lib/voice/completion-checker";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -21,8 +21,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const inspection = await prisma.inspection.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, userId: true },
     });
 
@@ -34,7 +35,7 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const items = await checkCompletion(params.id);
+    const items = await checkCompletion(id);
     const completedCount = items.filter((i) => i.complete).length;
     const criticalMissing = items.filter((i) => !i.complete && i.priority === 1);
     const readyToLeave = criticalMissing.length === 0;

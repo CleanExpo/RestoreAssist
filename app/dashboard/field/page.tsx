@@ -108,6 +108,8 @@ export default function FieldDashboardPage() {
           }),
         );
         setInspections(enriched);
+      } catch {
+        // Network failure in field (Capacitor offline) — leave list empty, don't throw
       } finally {
         setLoading(false);
       }
