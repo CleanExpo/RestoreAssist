@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { verifyAdminFromDb } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  // Re-validates role from DB to prevent stale JWT role from granting admin access
+  const auth = await verifyAdminFromDb(session)
+  if (auth.response) return auth.response
+  const { user: adminUser } = auth
 
   const { searchParams } = new URL(request.url)
   const month = searchParams.get('month') || new Date().toISOString().slice(0, 7)
@@ -15,8 +19,17 @@ export async function GET(request: NextRequest) {
   const to = new Date(year, monthNum, 0, 23, 59, 59)
 
   try {
+    // Collect IDs of all users in the same organization to prevent cross-tenant data leakage
+    const orgUserIds = await prisma.user.findMany({
+      where: { organizationId: adminUser!.organizationId },
+      select: { id: true },
+    }).then((users) => users.map((u) => u.id))
+
     const events = await prisma.usageEvent.findMany({
-      where: { timestamp: { gte: from, lte: to } },
+      where: {
+        timestamp: { gte: from, lte: to },
+        userId: { in: orgUserIds },
+      },
       include: { user: { select: { id: true, name: true, email: true } } },
     })
 
