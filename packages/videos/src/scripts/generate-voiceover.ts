@@ -94,52 +94,62 @@ const INDUSTRY_INSIGHT_SEGMENTS: VoiceoverSegment[] = [
 const CINEMATIC_LANDING_V2_SEGMENTS: VoiceoverSegment[] = [
   {
     id: "lp-intro",
-    text: "RestoreAssist. Built for Australian restoration professionals who need every job documented, compliant, and paid — without the paperwork chaos.",
+    // Scene 1: 13s — brand intro + immediate value prop
+    text: "RestoreAssist. The one platform Australian restoration professionals use to document every job, generate compliant scopes, and get paid — without the paperwork chaos that's costing you hours every day.",
     outputPath: "public/audio/lp-intro.mp3",
   },
   {
     id: "lp-problem",
-    text: "Australian restoration teams spend more time on paperwork than on restoration. Claims get disputed. Evidence goes missing. And critical data ends up scattered across spreadsheets, phones, and email threads. There's a better way.",
+    // Scene 2: 14s — industry pain, emotional hook
+    text: "Right now, your team is spending more time on admin than on restoration. Claims get disputed because scopes lack evidence. Critical job data is scattered across phones, emails, and spreadsheets. That changes today.",
     outputPath: "public/audio/lp-problem.mp3",
   },
   {
     id: "lp-dashboard",
-    text: "Every active job, visible from one screen. Status, progress, drying goals, and insurer updates — your command centre for every site you manage.",
+    // Scene 3: 15s — command centre benefit
+    text: "With RestoreAssist, every active job is visible from one command centre. Status, drying progress, insurer communication — all in one place. No missed updates. No surprises. Complete visibility across every site you manage.",
     outputPath: "public/audio/lp-dashboard.mp3",
   },
   {
     id: "lp-scope",
-    text: "AI generates your complete scope of works in thirty seconds. Every line item calculated from your inspection data. IICRC-cited, evidence-linked, and ready to send.",
+    // Scene 4: 16s — AI scope ROI
+    text: "Your AI scope of works is generated in thirty seconds. Every line item calculated from your inspection data, IICRC-cited and evidence-linked. That's two and a half hours of manual scope writing eliminated on every single water damage job.",
     outputPath: "public/audio/lp-scope.mp3",
   },
   {
     id: "lp-compliance",
-    text: "IICRC S500, S520, and S700 — cited automatically on every scope item. State-specific compliance triggers fire based on job location. Every inspection builds a court-ready evidence register.",
+    // Scene 5: 15s — compliance, fewer disputes
+    text: "IICRC S500, S520, and S700 are cited automatically on every scope item. State-specific compliance triggers fire based on job location. No more disputed claims because your documentation didn't meet insurer standards.",
     outputPath: "public/audio/lp-compliance.mp3",
   },
   {
     id: "lp-report",
-    text: "Complete evidence captured on site — moisture readings, photographs, classifications, and observations in a single timestamped record. Nothing assembled from memory after the job.",
+    // Scene 6: 15s — evidence capture, insurer acceptance
+    text: "Every site visit builds a complete, timestamped evidence register. Moisture readings, photographs, classifications, and observations — captured on site, not assembled from memory later. Court-ready documentation that insurers accept without dispute.",
     outputPath: "public/audio/lp-report.mp3",
   },
   {
     id: "lp-moisture",
-    text: "Floor plans, moisture readings, and drying progression mapped in one view. Watch the affected area dry down over time — and prove it to the insurer.",
+    // Scene 7: 15s — moisture mapping, prove drying, justify equipment
+    text: "Floor plans, moisture readings, and drying progression mapped in a single view. Show the insurer exactly how the affected area dried down over time. Justify your equipment days. Reduce claim disputes by proving the work.",
     outputPath: "public/audio/lp-moisture.mp3",
   },
   {
     id: "lp-invoice",
-    text: "One click to export your scope and invoice directly to Xero, Ascora, ServiceM8, QuickBooks, or MYOB. No re-keying. No transcription errors.",
+    // Scene 8: 13s — one-click export, faster payment
+    text: "One click exports your completed scope and invoice to Xero, Ascora, ServiceM8, QuickBooks, or MYOB. Zero re-keying. Zero transcription errors. Faster payment because your paperwork is already done.",
     outputPath: "public/audio/lp-invoice.mp3",
   },
   {
     id: "lp-stats",
-    text: "Over two hours saved per inspection. One hundred percent IICRC-compliant reports across all eight Australian states. RestoreAssist is how professional restoration businesses operate.",
+    // Scene 9: 17s — ROI stats, social proof
+    text: "RestoreAssist saves restoration businesses over two hours per inspection. Every report is one hundred percent IICRC-compliant across all eight Australian states. Teams using RestoreAssist report fewer disputed claims, faster insurer approvals, and more jobs completed per technician every week.",
     outputPath: "public/audio/lp-stats.mp3",
   },
   {
     id: "lp-cta",
-    text: "Start your free trial today. Three full reports, completely free. No credit card required. Visit restoreassist dot app.",
+    // Scene 10: 14s — free trial, no credit card, urgency
+    text: "Start your free trial today. Three complete reports, absolutely free — no credit card required. Australian restoration professionals are already saving thousands of dollars in admin time every month. Visit restoreassist dot app.",
     outputPath: "public/audio/lp-cta.mp3",
   },
 ];
