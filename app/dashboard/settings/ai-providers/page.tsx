@@ -179,12 +179,10 @@ export default function AiProvidersPage() {
         body: JSON.stringify({ provider }),
       });
       const json = await res.json();
-      if (!res.ok || !json.data?.valid) {
-        toast.error(
-          json.data?.errorMessage ?? json.error ?? "Validation failed",
-        );
+      if (!res.ok || !json.valid) {
+        toast.error(json.errorMessage ?? json.error ?? "Validation failed");
       } else {
-        toast.success(`${provider} key validated (${json.data.latencyMs}ms)`);
+        toast.success(`${provider} key validated (${json.latencyMs}ms)`);
       }
       // Refresh connections to get latest status
       const connRes = await fetch("/api/workspace/provider-connections");

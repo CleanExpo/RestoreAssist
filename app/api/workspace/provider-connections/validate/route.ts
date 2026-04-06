@@ -14,15 +14,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
-  getWorkspaceForUser,
   validateProviderKey,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
+import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 
-const VALID_PROVIDERS: AiProvider[] = ["ANTHROPIC", "OPENAI", "GOOGLE", "GEMMA"];
+const VALID_PROVIDERS: AiProvider[] = [
+  "ANTHROPIC",
+  "OPENAI",
+  "GOOGLE",
+  "GEMMA",
+];
 
 function isValidProvider(value: unknown): value is AiProvider {
-  return typeof value === "string" && VALID_PROVIDERS.includes(value as AiProvider);
+  return (
+    typeof value === "string" && VALID_PROVIDERS.includes(value as AiProvider)
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -32,20 +39,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspace = await getWorkspaceForUser(session.user.id);
-    if (!workspace) {
-      return NextResponse.json(
-        { error: "No active workspace found" },
-        { status: 404 },
-      );
-    }
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
+    const { workspace } = gate;
 
     const body = await req.json().catch(() => null);
     const { provider } = (body ?? {}) as Record<string, unknown>;
 
     if (!isValidProvider(provider)) {
       return NextResponse.json(
-        { error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}` },
+        {
+          error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
+        },
         { status: 400 },
       );
     }
@@ -55,6 +60,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result, { status: result.valid ? 200 : 422 });
   } catch (error) {
     console.error("[POST /api/workspace/provider-connections/validate]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

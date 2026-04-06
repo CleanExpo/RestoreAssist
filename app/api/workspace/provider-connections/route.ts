@@ -29,18 +29,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
-  getWorkspaceForUser,
   listProviderConnections,
   upsertProviderConnection,
   disableProviderConnection,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
+import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
 
-const VALID_PROVIDERS: AiProvider[] = ["ANTHROPIC", "OPENAI", "GOOGLE", "GEMMA"];
+const VALID_PROVIDERS: AiProvider[] = [
+  "ANTHROPIC",
+  "OPENAI",
+  "GOOGLE",
+  "GEMMA",
+];
 
 function isValidProvider(value: unknown): value is AiProvider {
-  return typeof value === "string" && VALID_PROVIDERS.includes(value as AiProvider);
+  return (
+    typeof value === "string" && VALID_PROVIDERS.includes(value as AiProvider)
+  );
 }
 
 // ─── GET — List provider connections ─────────────────────────────────────────
@@ -52,13 +59,9 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspace = await getWorkspaceForUser(session.user.id);
-    if (!workspace) {
-      return NextResponse.json(
-        { error: "No active workspace found. Complete onboarding to set up your workspace." },
-        { status: 404 },
-      );
-    }
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
+    const { workspace } = gate;
 
     const connections = await listProviderConnections(workspace.id);
 
@@ -69,7 +72,10 @@ export async function GET(_req: NextRequest) {
     });
   } catch (error) {
     console.error("[GET /api/workspace/provider-connections]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -82,13 +88,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspace = await getWorkspaceForUser(session.user.id);
-    if (!workspace) {
-      return NextResponse.json(
-        { error: "No active workspace found" },
-        { status: 404 },
-      );
-    }
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
+    const { workspace } = gate;
 
     // Only members with workspace.settings permission may save provider keys
     const canManage = await hasPermission(
@@ -98,27 +100,38 @@ export async function POST(req: NextRequest) {
     );
     if (!canManage) {
       return NextResponse.json(
-        { error: "Forbidden — only workspace owners and managers may configure AI providers" },
+        {
+          error:
+            "Forbidden — only workspace owners and managers may configure AI providers",
+        },
         { status: 403 },
       );
     }
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
     }
 
     const { provider, apiKey } = body as Record<string, unknown>;
 
     if (!isValidProvider(provider)) {
       return NextResponse.json(
-        { error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}` },
+        {
+          error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
+        },
         { status: 400 },
       );
     }
 
     if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
-      return NextResponse.json({ error: "apiKey must be a non-empty string" }, { status: 400 });
+      return NextResponse.json(
+        { error: "apiKey must be a non-empty string" },
+        { status: 400 },
+      );
     }
 
     // Basic key format sanity checks (not full validation — use /validate for that)
@@ -140,7 +153,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ connection }, { status: 200 });
   } catch (error) {
     console.error("[POST /api/workspace/provider-connections]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -153,10 +169,9 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const workspace = await getWorkspaceForUser(session.user.id);
-    if (!workspace) {
-      return NextResponse.json({ error: "No active workspace found" }, { status: 404 });
-    }
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
+    const { workspace } = gate;
 
     const canManage = await hasPermission(
       session.user.id,
@@ -165,7 +180,10 @@ export async function DELETE(req: NextRequest) {
     );
     if (!canManage) {
       return NextResponse.json(
-        { error: "Forbidden — only workspace owners and managers may configure AI providers" },
+        {
+          error:
+            "Forbidden — only workspace owners and managers may configure AI providers",
+        },
         { status: 403 },
       );
     }
@@ -175,7 +193,9 @@ export async function DELETE(req: NextRequest) {
 
     if (!isValidProvider(provider)) {
       return NextResponse.json(
-        { error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}` },
+        {
+          error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
+        },
         { status: 400 },
       );
     }
@@ -185,6 +205,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[DELETE /api/workspace/provider-connections]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
