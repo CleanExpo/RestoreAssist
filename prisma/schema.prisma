@@ -998,6 +998,7 @@ model WebhookEvent {
   @@index([provider, eventType])
   @@index([status, createdAt])
   @@index([integrationId, status])
+  @@index([provider, integrationId])
 }
 
 enum SubscriptionStatus {
