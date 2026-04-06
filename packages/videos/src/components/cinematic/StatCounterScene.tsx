@@ -26,7 +26,7 @@ export interface StatCounterSceneProps {
 
 const LOGO_SIZE = 48;
 const LOGO_MARGIN = 40;
-const STAT_STAGGER = 25;
+const STAT_STAGGER = 40;
 
 export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
   heading,
@@ -87,7 +87,7 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
           right: 0,
           textAlign: "center",
           color: "#D4A574",
-          fontSize: 44,
+          fontSize: 52,
           fontWeight: 700,
           opacity: headingSpring,
           transform: `translateY(${headingY}px)`,
@@ -159,7 +159,7 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
                 <span
                   style={{
                     color: stat.accent,
-                    fontSize: 72,
+                    fontSize: 88,
                     fontWeight: 800,
                     lineHeight: 1,
                   }}
@@ -197,6 +197,40 @@ export const StatCounterScene: React.FC<StatCounterSceneProps> = ({
               >
                 {stat.detail}
               </div>
+              {/* Animated progress bar */}
+              {(() => {
+                const barProgress = interpolate(
+                  frame,
+                  [delay, delay + 60],
+                  [0, 1],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                    easing: Easing.out(Easing.cubic),
+                  },
+                );
+                return (
+                  <div
+                    style={{
+                      marginTop: 20,
+                      height: 3,
+                      width: "100%",
+                      background: "rgba(255,255,255,0.08)",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${barProgress * 100}%`,
+                        background: `linear-gradient(90deg, ${stat.accent}, ${stat.accent}88)`,
+                        borderRadius: 2,
+                      }}
+                    />
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

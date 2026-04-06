@@ -10,127 +10,172 @@ import {
 } from "remotion";
 import {
   CinematicCTA,
-  FullBleedScene,
   KineticTextScene,
   LetterboxReveal,
+  SplitScene,
   StatCounterScene,
 } from "../components/cinematic";
 
-// Gracefully skip audio when files are not yet generated
 const tryAudio = (path: string, volume = 1) => {
-  try {
-    return <Audio src={staticFile(path)} volume={volume} />;
-  } catch {
-    return null;
-  }
+  return <Audio src={staticFile(path)} volume={volume} />;
 };
 
 export const CinematicLandingV2: React.FC = () => {
   const frame = useCurrentFrame();
 
-  // Background music: fade in over 30f, fade out over last 30f of 2730
+  // Background music: fade in over 30f, fade out over last 30f of 4410
   const bgMusicVolume = interpolate(
     frame,
-    [0, 30, 2700, 2730],
+    [0, 30, 4380, 4410],
     [0, 0.12, 0.12, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
   return (
     <AbsoluteFill>
-      {/* Google Fonts: Inter */}
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+      {/* Google Fonts: Inter (all weights) */}
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
 
-      {/* Background music bed — mixed at -18dB (volume 0.12) */}
+      {/* Background music bed */}
       {tryAudio("audio/bg-music.mp3", bgMusicVolume)}
 
-      {/* Scene 1: Letterbox Brand Reveal — 0–10s (0–300f) */}
-      <Sequence from={0} durationInFrames={300}>
+      {/* Scene 1: Letterbox Brand Reveal — 0f, 390f (13s) */}
+      <Sequence from={0} durationInFrames={390}>
         <LetterboxReveal
           mode="intro"
           logoSrc="logo.png"
-          tagline="One System. Fewer Gaps. More Confidence."
+          tagline="Built for Australian Restoration Professionals"
         />
         {tryAudio("audio/lp-intro.mp3")}
       </Sequence>
 
-      {/* Scene 2: System Overview — 10–22s (300–660f) */}
-      <Sequence from={300} durationInFrames={360}>
+      {/* Scene 2: The Industry Problem — 390f, 420f (14s) */}
+      <Sequence from={390} durationInFrames={420}>
         <KineticTextScene
-          label="What RestoreAssist Does"
+          label="The Industry Problem"
           bullets={[
             {
-              text: "One system for inspection reports, scope of works, and cost estimates",
-              accentWords: ["one system"],
+              text: "Restoration teams across Australia spend more time on paperwork than restoration",
+              accentWords: ["more time on paperwork"],
             },
             {
-              text: "IICRC standards built in — evidence attached to every line item",
-              accentWords: ["IICRC standards"],
+              text: "Insurance claims get disputed because scopes lack IICRC citations and evidence",
+              accentWords: ["disputed"],
             },
             {
-              text: "Export directly to Xero, Ascora, ServiceM8, QuickBooks, and MYOB",
-              accentWords: ["Export"],
+              text: "Critical data lives across spreadsheets, phones, and email threads — never in one place",
+              accentWords: ["never in one place"],
             },
           ]}
+          backgroundVariant="dark"
         />
-        {tryAudio("audio/lp-overview.mp3")}
+        {tryAudio("audio/lp-problem.mp3")}
       </Sequence>
 
-      {/* Scene 3: Dashboard Full-Bleed — 22–33s (660–990f) */}
-      <Sequence from={660} durationInFrames={330}>
-        <FullBleedScene
-          screenshotPath="screenshots/mock/dashboard-mock.png"
-          primaryStatement="Your Command Centre"
-          supportingLine="Every active job — at a glance"
+      {/* Scene 3: Dashboard — 810f, 450f (15s) */}
+      <Sequence from={810} durationInFrames={450}>
+        <SplitScene
+          beforeStat="6"
+          beforeStatContext="Separate tools to manage one job"
+          painPoints={[
+            "Jobs tracked across spreadsheets, email threads, and paper dockets",
+            "No single view of what's active, overdue, or waiting on insurer",
+            "Updates manually communicated — nothing is automatic",
+          ]}
+          screenshotPath="screenshots/real/dashboard.png"
+          afterLabel="Dashboard — Command Centre"
+          afterCallout="Every job. One screen."
         />
         {tryAudio("audio/lp-dashboard.mp3")}
       </Sequence>
 
-      {/* Scene 4: Key Advantages — 33–45s (990–1350f) */}
-      <Sequence from={990} durationInFrames={360}>
-        <KineticTextScene
-          label="The Advantages"
-          backgroundVariant="navy"
-          bullets={[
-            {
-              text: "Save over 2 hours per inspection — AI generates your scope instantly",
-              accentWords: ["2 hours"],
-            },
-            {
-              text: "Never miss a scope item — every item is evidence-linked and IICRC-cited",
-              accentWords: ["Never miss"],
-            },
-            {
-              text: "Fully compliant with building codes across all 8 Australian states",
-              accentWords: ["all 8 Australian states"],
-            },
+      {/* Scene 4: AI Scope Generation — 1260f, 480f (16s) */}
+      <Sequence from={1260} durationInFrames={480}>
+        <SplitScene
+          beforeStat="2h 47m"
+          beforeStatContext="Average scope writing time per water damage job"
+          painPoints={[
+            "Scope written line-by-line from memory or handwritten notes",
+            "No IICRC citations included — insurers push back on approval",
+            "Quantities estimated by eye, not calculated from measurements",
           ]}
-        />
-        {tryAudio("audio/lp-advantages.mp3")}
-      </Sequence>
-
-      {/* Scene 5: Australian Compliance — 45–57s (1350–1710f) — extended 30f for audio fit */}
-      <Sequence from={1350} durationInFrames={360}>
-        <FullBleedScene
-          screenshotPath="screenshots/mock/compliance-mock.png"
-          primaryStatement="Built for Australian Law"
-          supportingLine="IICRC S500, S520 & S700 — state-specific triggers — court-ready evidence"
-        />
-        {tryAudio("audio/lp-compliance.mp3")}
-      </Sequence>
-
-      {/* Scene 6: AI Scope Generation — 57–68s (1710–2040f) */}
-      <Sequence from={1710} durationInFrames={330}>
-        <FullBleedScene
-          screenshotPath="screenshots/mock/scope-mock.png"
-          primaryStatement="Scope in 30 Seconds"
-          supportingLine="What used to take two hours — now done before you leave the site"
+          screenshotPath="screenshots/real/scope.png"
+          afterLabel="AI Scope Generation"
+          afterCallout="Full scope in 30 seconds"
         />
         {tryAudio("audio/lp-scope.mp3")}
       </Sequence>
 
-      {/* Scene 7: Impact Stats — 68–81s (2040–2430f) */}
-      <Sequence from={2040} durationInFrames={390}>
+      {/* Scene 5: IICRC Compliance — 1740f, 450f (15s) */}
+      <Sequence from={1740} durationInFrames={450}>
+        <SplitScene
+          beforeStat="0"
+          beforeStatContext="IICRC citations on a typical scope of works"
+          painPoints={[
+            "Compliance checked manually against printed standards documents",
+            "State-specific triggers missed — building code breaches go unnoticed",
+            "Disputed claims due to insufficient evidence of standard adherence",
+          ]}
+          screenshotPath="screenshots/real/compliance.png"
+          afterLabel="IICRC Compliance Engine"
+          afterCallout="S500 · S520 · S700 cited"
+        />
+        {tryAudio("audio/lp-compliance.mp3")}
+      </Sequence>
+
+      {/* Scene 6: Inspection Report — 2190f, 450f (15s) */}
+      <Sequence from={2190} durationInFrames={450}>
+        <SplitScene
+          beforeStat="3"
+          beforeStatContext="Different phones photos are spread across"
+          painPoints={[
+            "Evidence captured across multiple devices with no central record",
+            "Moisture readings noted on paper, typed up later — errors introduced",
+            "Court-ready documentation assembled after the fact, not captured on site",
+          ]}
+          screenshotPath="screenshots/real/report.png"
+          afterLabel="Inspection Report"
+          afterCallout="Court-ready evidence, captured on site"
+        />
+        {tryAudio("audio/lp-report.mp3")}
+      </Sequence>
+
+      {/* Scene 7: Moisture Mapping — 2640f, 450f (15s) */}
+      <Sequence from={2640} durationInFrames={450}>
+        <SplitScene
+          beforeStat="0"
+          beforeStatContext="Digital records of drying progress on most jobs"
+          painPoints={[
+            "Floor plans sketched by hand on paper or in basic drawing apps",
+            "Moisture readings mapped manually — no visual overlay",
+            "Drying progress tracked in separate spreadsheets, not linked to the plan",
+          ]}
+          screenshotPath="screenshots/real/moisture.png"
+          afterLabel="Moisture Mapping"
+          afterCallout="Readings plotted. Progress tracked."
+        />
+        {tryAudio("audio/lp-moisture.mp3")}
+      </Sequence>
+
+      {/* Scene 8: Invoice & Export — 3090f, 390f (13s) */}
+      <Sequence from={3090} durationInFrames={390}>
+        <SplitScene
+          beforeStat="3×"
+          beforeStatContext="Data re-keyed to create one invoice"
+          painPoints={[
+            "Scope items manually re-entered into accounting software",
+            "Line items transcribed from report to Xero or MYOB by hand",
+            "Hours lost weekly to data re-entry that should never happen",
+          ]}
+          screenshotPath="screenshots/real/invoice.png"
+          afterLabel="Invoice & Export"
+          afterCallout="One click to Xero, Ascora, MYOB"
+        />
+        {tryAudio("audio/lp-invoice.mp3")}
+      </Sequence>
+
+      {/* Scene 9: Impact Stats — 3480f, 510f (17s) */}
+      <Sequence from={3480} durationInFrames={510}>
         <StatCounterScene
           heading="Why Restoration Teams Choose RestoreAssist"
           stats={[
@@ -160,8 +205,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-stats.mp3")}
       </Sequence>
 
-      {/* Scene 8: Cinematic CTA Outro — 81–91s (2430–2730f) */}
-      <Sequence from={2430} durationInFrames={300}>
+      {/* Scene 10: Cinematic CTA — 3990f, 420f (14s) */}
+      <Sequence from={3990} durationInFrames={420}>
         <CinematicCTA />
         {tryAudio("audio/lp-cta.mp3")}
       </Sequence>

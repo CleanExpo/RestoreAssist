@@ -12,3 +12,6 @@ export { StatCounterScene } from "./StatCounterScene";
 export type { StatCounterSceneProps, StatItem } from "./StatCounterScene";
 
 export { CinematicCTA } from "./CinematicCTA";
+
+export { SplitScene } from "./SplitScene";
+export type { SplitSceneProps } from "./SplitScene";

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "onwK4e9ZLuTAKqWW03F9";
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "aGkVQvWUZi16EH8aZJvT";
 
 interface VoiceoverSegment {
   id: string;
@@ -94,42 +94,52 @@ const INDUSTRY_INSIGHT_SEGMENTS: VoiceoverSegment[] = [
 const CINEMATIC_LANDING_V2_SEGMENTS: VoiceoverSegment[] = [
   {
     id: "lp-intro",
-    text: "RestoreAssist. The platform built for Australian restoration professionals who need every job documented, compliant, and paid — without the paperwork chaos.",
+    text: "RestoreAssist. Built for Australian restoration professionals who need every job documented, compliant, and paid — without the paperwork chaos.",
     outputPath: "public/audio/lp-intro.mp3",
   },
   {
-    id: "lp-overview",
-    text: "One system that handles your inspection report, scope of works, and cost estimate. With IICRC standards built in and evidence attached to every line item.",
-    outputPath: "public/audio/lp-overview.mp3",
+    id: "lp-problem",
+    text: "Australian restoration teams spend more time on paperwork than on restoration. Claims get disputed. Evidence goes missing. And critical data ends up scattered across spreadsheets, phones, and email threads. There's a better way.",
+    outputPath: "public/audio/lp-problem.mp3",
   },
   {
     id: "lp-dashboard",
-    text: "Your command centre for every active job. See what needs attention, track drying progress, and push updates to insurers — all from one screen.",
+    text: "Every active job, visible from one screen. Status, progress, drying goals, and insurer updates — your command centre for every site you manage.",
     outputPath: "public/audio/lp-dashboard.mp3",
   },
   {
-    id: "lp-advantages",
-    text: "Save over two hours per inspection. Never miss a scope item. Export to Xero, Ascora, ServiceM8, QuickBooks, and MYOB. Fully compliant across all eight Australian states.",
-    outputPath: "public/audio/lp-advantages.mp3",
-  },
-  {
-    id: "lp-compliance",
-    text: "Built for Australian law. IICRC S500, S520, and S700 are automatically applied. State-specific triggers fire based on job location. Every inspection builds a court-ready evidence register.",
-    outputPath: "public/audio/lp-compliance.mp3",
-  },
-  {
     id: "lp-scope",
-    text: "AI generates your complete scope of works in seconds. Every item is IICRC-cited and evidence-linked. What used to take two hours — now takes thirty seconds.",
+    text: "AI generates your complete scope of works in thirty seconds. Every line item calculated from your inspection data. IICRC-cited, evidence-linked, and ready to send.",
     outputPath: "public/audio/lp-scope.mp3",
   },
   {
+    id: "lp-compliance",
+    text: "IICRC S500, S520, and S700 — cited automatically on every scope item. State-specific compliance triggers fire based on job location. Every inspection builds a court-ready evidence register.",
+    outputPath: "public/audio/lp-compliance.mp3",
+  },
+  {
+    id: "lp-report",
+    text: "Complete evidence captured on site — moisture readings, photographs, classifications, and observations in a single timestamped record. Nothing assembled from memory after the job.",
+    outputPath: "public/audio/lp-report.mp3",
+  },
+  {
+    id: "lp-moisture",
+    text: "Floor plans, moisture readings, and drying progression mapped in one view. Watch the affected area dry down over time — and prove it to the insurer.",
+    outputPath: "public/audio/lp-moisture.mp3",
+  },
+  {
+    id: "lp-invoice",
+    text: "One click to export your scope and invoice directly to Xero, Ascora, ServiceM8, QuickBooks, or MYOB. No re-keying. No transcription errors.",
+    outputPath: "public/audio/lp-invoice.mp3",
+  },
+  {
     id: "lp-stats",
-    text: "Over two hours saved per inspection. One hundred percent IICRC-compliant reports. Coverage across all eight Australian states. RestoreAssist is how professional restoration businesses operate.",
+    text: "Over two hours saved per inspection. One hundred percent IICRC-compliant reports across all eight Australian states. RestoreAssist is how professional restoration businesses operate.",
     outputPath: "public/audio/lp-stats.mp3",
   },
   {
     id: "lp-cta",
-    text: "Start your free trial today. Three full reports, completely free. No credit card required. Visit restoreassist.app.",
+    text: "Start your free trial today. Three full reports, completely free. No credit card required. Visit restoreassist dot app.",
     outputPath: "public/audio/lp-cta.mp3",
   },
 ];
