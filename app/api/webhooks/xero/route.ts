@@ -59,6 +59,20 @@ export async function POST(request: NextRequest) {
     // Xero sends array of events
     const events = payload.events || []
 
+    // Timestamp freshness check — reject replayed webhooks older than 5 minutes.
+    // Xero includes eventDateUtc on every event; check the newest event in the batch.
+    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000
+    const now = Date.now()
+    for (const evt of events) {
+      if (evt.eventDateUtc) {
+        const eventAge = now - new Date(evt.eventDateUtc).getTime()
+        if (eventAge > WEBHOOK_MAX_AGE_MS) {
+          console.warn(`[Xero Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`)
+          return NextResponse.json({ error: 'Webhook event too old' }, { status: 400 })
+        }
+      }
+    }
+
     if (events.length === 0) {
       console.log('[Xero Webhook] No events in payload')
       return NextResponse.json({ success: true, processed: 0 })

@@ -17,10 +17,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const pageParam = searchParams.get("page")
     const limitParam = searchParams.get("limit")
-    // Only apply pagination if explicitly requested, otherwise fetch all (up to 10000)
-    const shouldPaginate = pageParam !== null || limitParam !== null
-    const page = pageParam ? parseInt(pageParam) : 1
-    const limit = limitParam ? parseInt(limitParam) : (shouldPaginate ? 10 : 10000)
+    // Always paginate; default 50 per page, hard cap at 200 to prevent enumeration attacks
+    const shouldPaginate = true
+    const page = pageParam ? Math.max(1, parseInt(pageParam)) : 1
+    const rawLimit = limitParam ? parseInt(limitParam) : 50
+    const limit = Math.min(Math.max(1, isNaN(rawLimit) ? 50 : rawLimit), 200)
     const status = searchParams.get("status")
     const waterCategory = searchParams.get("waterCategory")
     const waterClass = searchParams.get("waterClass")

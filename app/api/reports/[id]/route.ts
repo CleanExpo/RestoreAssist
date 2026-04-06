@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(
   request: NextRequest,
@@ -136,16 +137,24 @@ export async function PUT(
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
+    // Sanitise free-text fields — consistent with POST handler (create path)
+    const sanitisedTitle           = body.title           !== undefined ? sanitizeString(body.title, 500)           : undefined
+    const sanitisedClientName      = body.clientName      !== undefined ? sanitizeString(body.clientName, 300)      : undefined
+    const sanitisedPropertyAddress = body.propertyAddress !== undefined ? sanitizeString(body.propertyAddress, 500) : undefined
+    const sanitisedHazardType      = body.hazardType      !== undefined ? sanitizeString(body.hazardType, 200)      : undefined
+    const sanitisedInsuranceType   = body.insuranceType   !== undefined ? sanitizeString(body.insuranceType, 200)   : undefined
+    const sanitisedDescription     = body.description     !== undefined ? sanitizeString(body.description, 5000)    : undefined
+
     // Update the report with the same field mapping as POST
     const updatedReport = await prisma.report.update({
       where: { id },
       data: {
-        // Basic fields
-        title: body.title,
-        clientName: body.clientName,
-        propertyAddress: body.propertyAddress,
-        hazardType: body.hazardType,
-        insuranceType: body.insuranceType,
+        // Basic fields (sanitised)
+        title: sanitisedTitle,
+        clientName: sanitisedClientName,
+        propertyAddress: sanitisedPropertyAddress,
+        hazardType: sanitisedHazardType,
+        insuranceType: sanitisedInsuranceType,
         
         // IICRC Assessment fields
         inspectionDate: body.inspectionDate ? new Date(body.inspectionDate) : existingReport.inspectionDate,
@@ -188,7 +197,7 @@ export async function PUT(
         // Optional fields
         completionDate: body.completionDate ? new Date(body.completionDate) : existingReport.completionDate,
         totalCost: body.totalCost,
-        description: body.description,
+        description: sanitisedDescription,
         
         // Phase 6 & 7: Scope of Works and Cost Estimation documents
         scopeOfWorksDocument: body.scopeOfWorksDocument !== undefined ? body.scopeOfWorksDocument : existingReport.scopeOfWorksDocument,

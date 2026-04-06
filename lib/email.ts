@@ -27,6 +27,11 @@ export interface SignedFormEmailData {
   pdfFilename: string
 }
 
+/** Strip CR/LF characters that could be used for email header injection. */
+function sanitiseEmailField(value: string, maxLength = 255): string {
+  return value.replace(/[\r\n]/g, " ").slice(0, maxLength)
+}
+
 export async function sendSignedFormEmail(data: SignedFormEmailData) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error("Email service is not configured")
@@ -76,7 +81,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
   return getResendClient().emails.send({
     from: fromEmail,
     to: data.recipientEmail,
-    subject: `Signed: ${data.formName} — ${data.clientName}`,
+    subject: `Signed: ${sanitiseEmailField(data.formName)} — ${sanitiseEmailField(data.clientName)}`,
     html,
     attachments: [
       {
