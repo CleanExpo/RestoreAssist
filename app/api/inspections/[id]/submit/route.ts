@@ -105,14 +105,17 @@ export async function POST(
       console.warn("CLAIM-003 auto-detection failed (non-blocking):", pilotError)
     }
 
-    // Update status to SUBMITTED
-    await prisma.inspection.update({
-      where: { id },
-      data: {
-        status: "SUBMITTED",
-        submittedAt: new Date()
-      }
+    // Atomic CAS — ensures only one concurrent submit wins; prevents duplicate child record creation
+    const submitGuard = await prisma.inspection.updateMany({
+      where: { id, userId: session.user.id, status: "DRAFT" },
+      data: { status: "SUBMITTED", submittedAt: new Date() },
     })
+    if (submitGuard.count === 0) {
+      return NextResponse.json(
+        { error: "Inspection has already been submitted or is not in DRAFT state." },
+        { status: 409 }
+      )
+    }
 
     // Create audit log — includes supplementary field gaps for follow-up tracking
     const auditNotes = [

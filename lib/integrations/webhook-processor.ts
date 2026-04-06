@@ -39,17 +39,15 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
     return
   }
 
-  // Skip if already processed
-  if (event.status === 'COMPLETED' || event.status === 'SKIPPED') {
-    console.log(`[Webhook Processor] Event ${eventId} already processed`)
+  // Atomic CAS — claim ownership before processing; prevents duplicate execution across concurrent workers
+  const claimed = await prisma.webhookEvent.updateMany({
+    where: { id: eventId, status: { notIn: ['PROCESSING', 'COMPLETED', 'SKIPPED'] } },
+    data: { status: 'PROCESSING' },
+  })
+  if (claimed.count === 0) {
+    console.log(`[Webhook Processor] Event ${eventId} already claimed, completed, or skipped — skipping`)
     return
   }
-
-  // Update status to PROCESSING
-  await prisma.webhookEvent.update({
-    where: { id: eventId },
-    data: { status: 'PROCESSING' }
-  })
 
   try {
     console.log(`[Webhook Processor] Processing event ${eventId}: ${event.eventType}`)
@@ -178,69 +176,84 @@ async function handlePaymentCreated(event: any): Promise<void> {
   // Convert payment amount to cents
   const paymentAmountCents = Math.round(paymentAmount * 100)
 
-  // Check if payment already exists (prevent duplicates)
-  const existingPayment = await prisma.invoicePayment.findFirst({
-    where: {
-      externalPaymentId,
-      externalProvider: event.provider
-    }
-  })
+  // Atomic create + increment inside a transaction — prevents TOCTOU duplicate payment
+  // and ensures amountPaid/amountDue are updated with correct concurrent values.
+  // P2002 on externalPaymentId unique constraint is the last-resort dedup guard.
+  let payment: { id: string }
+  try {
+    ;[payment] = await prisma.$transaction(async (tx) => {
+      const created = await tx.invoicePayment.create({
+        data: {
+          amount: paymentAmountCents,
+          currency: invoice.currency,
+          paymentMethod: 'EXTERNAL',
+          paymentDate,
+          reference: paymentReference || `Payment from ${event.provider}`,
+          notes: `Automatically recorded from ${event.provider} webhook`,
+          externalPaymentId,
+          externalProvider: event.provider,
+          webhookEventId: event.id,
+          invoiceId: invoice.id,
+          userId: invoice.userId,
+          reconciled: true,
+          reconciledAt: new Date(),
+        },
+        select: { id: true },
+      })
 
-  if (existingPayment) {
-    console.log(`[Webhook Processor] Payment already exists: ${externalPaymentId}`)
-    return
-  }
+      // Use atomic increment — avoids stale read-modify-write across concurrent webhooks
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          amountPaid: { increment: paymentAmountCents },
+          amountDue: { decrement: paymentAmountCents },
+        },
+        select: { amountPaid: true, amountDue: true, totalIncGST: true },
+      })
 
-  // Create payment record
-  const payment = await prisma.invoicePayment.create({
-    data: {
-      amount: paymentAmountCents,
-      currency: invoice.currency,
-      paymentMethod: 'EXTERNAL', // Add EXTERNAL to PaymentMethod enum
-      paymentDate,
-      reference: paymentReference || `Payment from ${event.provider}`,
-      notes: `Automatically recorded from ${event.provider} webhook`,
-      externalPaymentId,
-      externalProvider: event.provider,
-      webhookEventId: event.id,
-      invoiceId: invoice.id,
-      userId: invoice.userId,
-      reconciled: true, // Auto-reconcile external payments
-      reconciledAt: new Date()
-    }
-  })
-
-  // Update invoice amounts
-  const newAmountPaid = invoice.amountPaid + paymentAmountCents
-  const newAmountDue = invoice.totalIncGST - newAmountPaid
-
-  await prisma.invoice.update({
-    where: { id: invoice.id },
-    data: {
-      amountPaid: newAmountPaid,
-      amountDue: Math.max(0, newAmountDue),
-      status: newAmountDue <= 0 ? 'PAID' : 'PARTIAL',
-      paidDate: newAmountDue <= 0 ? new Date() : invoice.paidDate
-    }
-  })
-
-  // Create audit log entry
-  await prisma.invoiceAuditLog.create({
-    data: {
-      invoiceId: invoice.id,
-      userId: invoice.userId,
-      action: 'payment_received',
-      description: `Payment received from ${event.provider}: $${(paymentAmountCents / 100).toFixed(2)}`,
-      metadata: {
-        provider: event.provider,
-        externalInvoiceId,
-        externalPaymentId,
-        paymentId: payment.id,
-        paymentAmount: paymentAmountCents,
-        webhookEventId: event.id
+      // Clamp amountDue to 0 and set PAID status if fully settled
+      if (updatedInvoice.amountDue <= 0) {
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            amountDue: 0,
+            status: 'PAID',
+            paidDate: new Date(),
+          },
+        })
+      } else {
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: { status: 'PARTIAL' },
+        })
       }
+
+      await tx.invoiceAuditLog.create({
+        data: {
+          invoiceId: invoice.id,
+          userId: invoice.userId,
+          action: 'payment_received',
+          description: `Payment received from ${event.provider}: $${(paymentAmountCents / 100).toFixed(2)}`,
+          metadata: {
+            provider: event.provider,
+            externalInvoiceId,
+            externalPaymentId,
+            paymentId: created.id,
+            paymentAmount: paymentAmountCents,
+            webhookEventId: event.id,
+          },
+        },
+      })
+
+      return [created]
+    })
+  } catch (err: any) {
+    if (err.code === 'P2002') {
+      console.log(`[Webhook Processor] Payment already exists (unique constraint): ${externalPaymentId}`)
+      return
     }
-  })
+    throw err
+  }
 
   console.log(`[Webhook Processor] Created payment ${payment.id} for invoice ${invoice.id} from ${event.provider}`)
 }
