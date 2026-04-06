@@ -56,3 +56,6 @@ v2-signin.png
 # Android signing keystores (NEVER commit)
 *.jks
 .capacitor-native-notes/keystores/
+
+# Git worktrees (Claude Code isolated workspaces)
+.claude/worktrees/
