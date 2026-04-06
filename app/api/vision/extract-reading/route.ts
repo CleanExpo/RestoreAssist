@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
-    const { image, mediaType = "image/jpeg" } = body as {
+    const { image, mediaType: rawMediaType = "image/jpeg" } = body as {
       image?: string;
-      mediaType?: "image/jpeg" | "image/png" | "image/webp";
+      mediaType?: unknown;
     };
 
     if (!image || typeof image !== "string") {
@@ -52,6 +52,23 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Validate base64 characters before hitting Anthropic — avoids a costly
+    // external API call on obviously malformed input.
+    if (!/^[A-Za-z0-9+/]+=*$/.test(image)) {
+      return NextResponse.json(
+        { error: "image must be a valid base64-encoded string" },
+        { status: 400 },
+      );
+    }
+
+    // Runtime mediaType allowlist — TypeScript cast alone doesn't validate at runtime;
+    // an attacker can send arbitrary strings that get forwarded to Anthropic's API.
+    const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+    type AllowedMediaType = typeof ALLOWED_MEDIA_TYPES[number];
+    const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(rawMediaType as AllowedMediaType)
+      ? (rawMediaType as AllowedMediaType)
+      : "image/jpeg";
 
     // Guard: Claude Vision accepts up to ~5MB base64
     const byteSize = Math.ceil((image.length * 3) / 4);
