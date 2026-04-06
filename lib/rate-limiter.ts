@@ -22,7 +22,11 @@ async function getUpstashRatelimit(windowMs: number, maxRequests: number) {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore — optional peer dep; installed in production, may be absent locally
     const { Ratelimit } = await import("@upstash/ratelimit")
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     const { Redis } = await import("@upstash/redis")
 
     const redis = new Redis({
