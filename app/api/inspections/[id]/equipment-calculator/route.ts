@@ -24,7 +24,7 @@ import {
 } from "@/lib/equipment-calculator"
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id: inspectionId } = params
+    // Next.js 15: params is a Promise — awaiting prevents undefined id on cold start
+    const { id: inspectionId } = await params
 
     // Verify ownership + get classification from inspection record
     const inspection = await prisma.inspection.findFirst({
