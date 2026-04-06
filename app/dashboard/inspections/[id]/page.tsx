@@ -255,6 +255,7 @@ export default function InspectionDetailPage({
   const router = useRouter();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [scopeItems, setScopeItems] = useState<Inspection["scopeItems"]>([]);
@@ -349,6 +350,7 @@ export default function InspectionDetailPage({
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to load inspection");
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -670,7 +672,29 @@ export default function InspectionDetailPage({
     );
   }
 
-  if (!inspection) return null;
+  if (!inspection) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <XCircle className="text-red-500" size={40} />
+        <p className="text-gray-400 text-sm">
+          {loadError
+            ? "Could not load inspection. Check your connection and try again."
+            : "Inspection not found."}
+        </p>
+        {loadError && (
+          <Button
+            variant="outline"
+            onClick={() => { setLoadError(false); fetchInspection(); }}
+          >
+            Retry
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/inspections")}>
+          Back to inspections
+        </Button>
+      </div>
+    );
+  }
 
   const classification = inspection.classifications?.[0];
   const totalCost = inspection.costEstimates.reduce(
