@@ -1812,7 +1812,7 @@ model BuildingCode {
 
   // Regulatory Document Link (NEW)
   regulatoryDocumentId String? // FK to RegulatoryDocument
-  regulatoryDocument   RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id])
+  regulatoryDocument   RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id], onDelete: SetNull)
 
   // Location
   state    String // QLD, NSW, VIC, etc.
@@ -3058,7 +3058,7 @@ model AgentTask {
   workflowId       String
   workflow         AgentWorkflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   agentSlug        String
-  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug])
+  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug], onDelete: SetNull)
   taskType         String
   displayName      String
   sequenceOrder    Int              @default(0)
@@ -3830,7 +3830,7 @@ model ScopeTemplate {
 model ContentJob {
   id              String   @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product         String
   angle           String
   platform        String   // 'tiktok' | 'instagram' | 'facebook' | 'pinterest'
@@ -3860,7 +3860,7 @@ model ContentJob {
 model ContentPost {
   id              String      @id @default(cuid())
   jobId           String
-  job             ContentJob  @relation(fields: [jobId], references: [id])
+  job             ContentJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
   platform        String
   externalPostId  String?
   postUrl         String?
@@ -3880,7 +3880,7 @@ model ContentPost {
 model ContentAnalytics {
   id              String      @id @default(cuid())
   postId          String
-  post            ContentPost @relation(fields: [postId], references: [id])
+  post            ContentPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   views           Int         @default(0)
   likes           Int         @default(0)
   shares          Int         @default(0)
