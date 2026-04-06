@@ -105,15 +105,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  // Check for duplicate event (idempotency)
-  if (await isEventProcessed(event.id)) {
-    console.log(`Webhook event ${event.id} already processed, skipping`)
-    await logWebhookEvent(event.id, event.type, body, 'SKIPPED')
-    return NextResponse.json({ received: true, message: 'Already processed' })
+  // Atomic dedup: attempt to INSERT with PROCESSING status.
+  // If the row already exists (P2002 on stripeEventId unique constraint), another
+  // worker already claimed this event — bail out immediately.
+  // This replaces the non-atomic isEventProcessed() + logWebhookEvent(PROCESSING) pattern
+  // which had a TOCTOU window allowing duplicate processing on Stripe retries.
+  if (await hasWebhookEventModel()) {
+    try {
+      await prisma.stripeWebhookEvent.create({
+        data: {
+          stripeEventId: event.id,
+          eventType: event.type,
+          eventData: body,
+          status: 'PROCESSING',
+          processedAt: null,
+        },
+      })
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        // Already inserted by another invocation — check if it was COMPLETED or just PROCESSING
+        const existing = await prisma.stripeWebhookEvent.findUnique({
+          where: { stripeEventId: event.id },
+          select: { status: true },
+        })
+        console.log(`Webhook event ${event.id} already claimed (status=${existing?.status}), skipping`)
+        return NextResponse.json({ received: true, message: 'Already processed' })
+      }
+      // Non-dedup DB error — log and continue (don't block webhook processing)
+      console.warn('[Stripe webhook] Failed to create dedup record:', err)
+    }
   }
-
-  // Log event as processing
-  await logWebhookEvent(event.id, event.type, body, 'PROCESSING')
 
   try {
     switch (event.type) {
