@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign, FileSignature, MessageSquare, Receipt, CheckSquare } from "lucide-react"
+import { AlertTriangle, ArrowLeft, FileText, ClipboardList, DollarSign, FileSignature, MessageSquare, Receipt, CheckSquare, Download, Share2, Copy, Check, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import InspectionReportViewer from "@/components/InspectionReportViewer"
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer"
@@ -17,6 +17,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'inspection' | 'scope' | 'cost' | 'authority' | 'approvals'>('inspection')
+  const [sharingInsurer, setSharingInsurer] = useState(false)
+  const [insurerLinkCopied, setInsurerLinkCopied] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -91,6 +93,30 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  const handleDownloadPDF = () => {
+    if (!reportId) return
+    // Opens PDF in new tab — browser handles download prompt
+    window.open(`/api/reports/${reportId}/pdf`, "_blank")
+  }
+
+  const handleShareWithInsurer = async () => {
+    if (!reportId) return
+    setSharingInsurer(true)
+    try {
+      const res = await fetch(`/api/reports/${reportId}/insurer-link`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate link")
+      await navigator.clipboard.writeText(data.url)
+      setInsurerLinkCopied(true)
+      toast.success(`Insurer link copied — valid for ${data.expiresInDays} days`)
+      setTimeout(() => setInsurerLinkCopied(false), 3000)
+    } catch (err: any) {
+      toast.error(err.message ?? "Could not generate insurer link")
+    } finally {
+      setSharingInsurer(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -115,6 +141,33 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Download IICRC PDF */}
+          <button
+            onClick={handleDownloadPDF}
+            title="Download IICRC S500:2025 compliant PDF"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+          >
+            <Download size={16} />
+            PDF Report
+          </button>
+
+          {/* Share with Insurer */}
+          <button
+            onClick={handleShareWithInsurer}
+            disabled={sharingInsurer}
+            title="Generate a 30-day insurer share link and copy to clipboard"
+            className="flex items-center gap-2 px-3 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-500 disabled:opacity-60 transition-colors text-sm"
+          >
+            {sharingInsurer ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : insurerLinkCopied ? (
+              <Check size={16} />
+            ) : (
+              <Share2 size={16} />
+            )}
+            {insurerLinkCopied ? "Copied!" : "Share with Insurer"}
+          </button>
+
           <button
             onClick={() => router.push(`/dashboard/restoration-documents/invoice/new?reportId=${reportId}`)}
             className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
