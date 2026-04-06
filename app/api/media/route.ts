@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,6 +27,10 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // RA-426: Workspace payment gate — media library requires active subscription
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
 
     const { searchParams } = request.nextUrl;
     const job = searchParams.get("job");
@@ -65,7 +70,8 @@ export async function GET(request: NextRequest) {
     }
     if (room) tagFilters.push({ category: "room", value: room });
     if (type) tagFilters.push({ category: "damage_type", value: type });
-    if (technician) tagFilters.push({ category: "technician", value: technician });
+    if (technician)
+      tagFilters.push({ category: "technician", value: technician });
     if (location) tagFilters.push({ category: "location", value: location });
 
     // Build where clause
@@ -91,15 +97,17 @@ export async function GET(request: NextRequest) {
       ...(tagFilters.length > 0
         ? {
             tags: {
-              some: tagFilters.length === 1
-                ? buildTagFilter(tagFilters[0])
-                : undefined,
+              some:
+                tagFilters.length === 1
+                  ? buildTagFilter(tagFilters[0])
+                  : undefined,
             },
-            AND: tagFilters.length > 1
-              ? tagFilters.map((f) => ({
-                  tags: { some: buildTagFilter(f) },
-                }))
-              : undefined,
+            AND:
+              tagFilters.length > 1
+                ? tagFilters.map((f) => ({
+                    tags: { some: buildTagFilter(f) },
+                  }))
+                : undefined,
           }
         : {}),
     };
@@ -149,7 +157,7 @@ export async function GET(request: NextRequest) {
     console.error("[GET /api/media] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

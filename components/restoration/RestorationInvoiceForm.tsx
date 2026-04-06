@@ -1,90 +1,90 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   RESTORATION_INVOICE_TYPES,
   getRestorationInvoiceTypeById,
   type RestorationInvoiceTypeLineItem,
-} from "@/lib/restoration-invoice-types"
-import { cn } from "@/lib/utils"
-import { Printer, Save, Loader2, ArrowLeft } from "lucide-react"
-import toast from "react-hot-toast"
+} from "@/lib/restoration-invoice-types";
+import { cn } from "@/lib/utils";
+import { Printer, Save, Loader2, ArrowLeft } from "lucide-react";
+import toast from "react-hot-toast";
 
 export interface RestorationInvoiceFormData {
-  invoiceTypeId: string
-  companyName: string
-  invNum: string
-  invDate: string
-  dueDate: string
+  invoiceTypeId: string;
+  companyName: string;
+  invNum: string;
+  invDate: string;
+  dueDate: string;
   contractor: {
-    business: string
-    abn: string
-    qbccLic: string
-    address: string
-    phone: string
-    email: string
-  }
+    business: string;
+    abn: string;
+    qbccLic: string;
+    address: string;
+    phone: string;
+    email: string;
+  };
   client: {
-    name: string
-    address: string
-    phone: string
-    email: string
-    insurer: string
-    policyNum: string
-    claimNum: string
-  }
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    insurer: string;
+    policyNum: string;
+    claimNum: string;
+  };
   event: {
-    lossDate: string
-    lossCause: string
-    pdsEvent: string
-    waterCat: string
-    damageClass: string
-    affectedArea: string
-  }
-  lineItems: RestorationInvoiceTypeLineItem[]
-  excessAmt: string
+    lossDate: string;
+    lossCause: string;
+    pdsEvent: string;
+    waterCat: string;
+    damageClass: string;
+    affectedArea: string;
+  };
+  lineItems: RestorationInvoiceTypeLineItem[];
+  excessAmt: string;
   cert: {
-    standardApplied: string
-    technicianCert: string
-    preLossMoisture: string
-    postDryMoisture: string
-    dryingDays: string
-    equipmentUsed: string
-    publicLiability: string
-    contractorInsurer: string
-  }
+    standardApplied: string;
+    technicianCert: string;
+    preLossMoisture: string;
+    postDryMoisture: string;
+    dryingDays: string;
+    equipmentUsed: string;
+    publicLiability: string;
+    contractorInsurer: string;
+  };
   payment: {
-    bankName: string
-    bsb: string
-    accountNum: string
-    accountName: string
-    reference: string
-  }
+    bankName: string;
+    bsb: string;
+    accountNum: string;
+    accountName: string;
+    reference: string;
+  };
 }
 
 const defaultFormData: RestorationInvoiceFormData = {
   invoiceTypeId: "water",
-  companyName: "[Your Company Name Pty Ltd]",
+  companyName: "",
   invNum: "",
   invDate: "",
   dueDate: "",
   contractor: {
-    business: "[Your Company Name Pty Ltd]",
-    abn: "XX XXX XXX XXX",
-    qbccLic: "[Licence Number]",
-    address: "[Business Address, QLD]",
-    phone: "[Phone Number]",
-    email: "[Email Address]",
+    business: "",
+    abn: "",
+    qbccLic: "",
+    address: "",
+    phone: "",
+    email: "",
   },
   client: {
-    name: "[Client Full Name]",
-    address: "[Insured Property Address]",
-    phone: "[Client Phone]",
-    email: "[Client Email]",
-    insurer: "[Insurance Company Name]",
-    policyNum: "[Policy Number]",
-    claimNum: "[Claim Number if known]",
+    name: "",
+    address: "",
+    phone: "",
+    email: "",
+    insurer: "",
+    policyNum: "",
+    claimNum: "",
   },
   event: {
     lossDate: "",
@@ -102,7 +102,8 @@ const defaultFormData: RestorationInvoiceFormData = {
     preLossMoisture: "[Readings / Baseline]",
     postDryMoisture: "[Readings / Confirmation]",
     dryingDays: "[Number of days]",
-    equipmentUsed: "[e.g., 4x Air Movers, 2x LGR Dehumidifiers, 1x Air Scrubber]",
+    equipmentUsed:
+      "[e.g., 4x Air Movers, 2x LGR Dehumidifiers, 1x Air Scrubber]",
     publicLiability: "$20,000,000",
     contractorInsurer: "[Contractor's Insurer]",
   },
@@ -113,10 +114,10 @@ const defaultFormData: RestorationInvoiceFormData = {
     accountName: "[Account Name]",
     reference: "[Invoice Number]",
   },
-}
+};
 
 function round2(n: number) {
-  return Math.round(n * 100) / 100
+  return Math.round(n * 100) / 100;
 }
 
 export default function RestorationInvoiceForm({
@@ -128,142 +129,186 @@ export default function RestorationInvoiceForm({
   defaultInvDate,
   defaultDueDate,
 }: {
-  documentId?: string
-  reportId?: string | null
+  documentId?: string;
+  reportId?: string | null;
   initialSeed?: {
-    profile?: { companyName?: string; businessAddress?: string; abn?: string; phone?: string; email?: string }
+    profile?: {
+      companyName?: string;
+      businessAddress?: string;
+      abn?: string;
+      phone?: string;
+      email?: string;
+    };
     report?: {
-      clientName?: string
-      propertyAddress?: string
-      clientContact?: string
-      insurerName?: string
-      claimReferenceNumber?: string
-      incidentDate?: string
-      waterCategory?: string
-      waterClass?: string
-      sourceOfWater?: string
-      affectedArea?: string
-    }
-    suggestedInvoiceNumber?: string
-    defaultInvDate?: string
-    defaultDueDate?: string
-  }
-  initialSavedData?: RestorationInvoiceFormData | null
+      clientName?: string;
+      propertyAddress?: string;
+      clientContact?: string;
+      insurerName?: string;
+      claimReferenceNumber?: string;
+      incidentDate?: string;
+      waterCategory?: string;
+      waterClass?: string;
+      sourceOfWater?: string;
+      affectedArea?: string;
+    };
+    suggestedInvoiceNumber?: string;
+    defaultInvDate?: string;
+    defaultDueDate?: string;
+  };
+  initialSavedData?: RestorationInvoiceFormData | null;
 }) {
-  const router = useRouter()
-  const [saving, setSaving] = useState(false)
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
   const [data, setData] = useState<RestorationInvoiceFormData>(() => {
     const base = initialSavedData
       ? { ...defaultFormData, ...initialSavedData }
-      : { ...defaultFormData }
+      : { ...defaultFormData };
     if (initialSeed?.profile) {
-      base.companyName = initialSeed.profile.companyName ?? base.companyName
-      base.contractor.business = initialSeed.profile.companyName ?? base.contractor.business
-      base.contractor.address = initialSeed.profile.businessAddress ?? base.contractor.address
-      base.contractor.abn = initialSeed.profile.abn ?? base.contractor.abn
-      base.contractor.phone = initialSeed.profile.phone ?? base.contractor.phone
-      base.contractor.email = initialSeed.profile.email ?? base.contractor.email
+      base.companyName = initialSeed.profile.companyName ?? base.companyName;
+      base.contractor.business =
+        initialSeed.profile.companyName ?? base.contractor.business;
+      base.contractor.address =
+        initialSeed.profile.businessAddress ?? base.contractor.address;
+      base.contractor.abn = initialSeed.profile.abn ?? base.contractor.abn;
+      base.contractor.phone =
+        initialSeed.profile.phone ?? base.contractor.phone;
+      base.contractor.email =
+        initialSeed.profile.email ?? base.contractor.email;
     }
     if (initialSeed?.report) {
-      base.client.name = initialSeed.report.clientName ?? base.client.name
-      base.client.address = initialSeed.report.propertyAddress ?? base.client.address
-      base.client.insurer = initialSeed.report.insurerName ?? base.client.insurer
-      base.client.claimNum = initialSeed.report.claimReferenceNumber ?? base.client.claimNum
-      base.event.lossDate = initialSeed.report.incidentDate ?? base.event.lossDate
-      base.event.waterCat = initialSeed.report.waterCategory ?? base.event.waterCat
-      base.event.damageClass = initialSeed.report.waterClass ?? base.event.damageClass
-      base.event.affectedArea = initialSeed.report.affectedArea ?? base.event.affectedArea
+      base.client.name = initialSeed.report.clientName ?? base.client.name;
+      base.client.address =
+        initialSeed.report.propertyAddress ?? base.client.address;
+      base.client.insurer =
+        initialSeed.report.insurerName ?? base.client.insurer;
+      base.client.claimNum =
+        initialSeed.report.claimReferenceNumber ?? base.client.claimNum;
+      base.event.lossDate =
+        initialSeed.report.incidentDate ?? base.event.lossDate;
+      base.event.waterCat =
+        initialSeed.report.waterCategory ?? base.event.waterCat;
+      base.event.damageClass =
+        initialSeed.report.waterClass ?? base.event.damageClass;
+      base.event.affectedArea =
+        initialSeed.report.affectedArea ?? base.event.affectedArea;
     }
-    if (initialSeed?.suggestedInvoiceNumber) base.invNum = initialSeed.suggestedInvoiceNumber
-    if (initialSeed?.defaultInvDate) base.invDate = initialSeed.defaultInvDate
-    if (initialSeed?.defaultDueDate) base.dueDate = initialSeed.defaultDueDate
+    if (initialSeed?.suggestedInvoiceNumber)
+      base.invNum = initialSeed.suggestedInvoiceNumber;
+    if (initialSeed?.defaultInvDate) base.invDate = initialSeed.defaultInvDate;
+    if (initialSeed?.defaultDueDate) base.dueDate = initialSeed.defaultDueDate;
     if (!initialSavedData && base.lineItems.length === 0) {
-      const typeConfig = getRestorationInvoiceTypeById(base.invoiceTypeId)
-      base.lineItems = typeConfig ? [...typeConfig.defaultLineItems] : []
+      const typeConfig = getRestorationInvoiceTypeById(base.invoiceTypeId);
+      base.lineItems = typeConfig ? [...typeConfig.defaultLineItems] : [];
     }
-    return base
-  })
+    return base;
+  });
 
-  const typeConfig = getRestorationInvoiceTypeById(data.invoiceTypeId)
+  const typeConfig = getRestorationInvoiceTypeById(data.invoiceTypeId);
 
   const setInvoiceType = useCallback((id: string) => {
-    const config = getRestorationInvoiceTypeById(id)
+    const config = getRestorationInvoiceTypeById(id);
     setData((prev) => ({
       ...prev,
       invoiceTypeId: id,
-      lineItems: config ? config.defaultLineItems.map((i) => ({ ...i })) : prev.lineItems,
+      lineItems: config
+        ? config.defaultLineItems.map((i) => ({ ...i }))
+        : prev.lineItems,
       cert: {
         ...prev.cert,
         standardApplied: config?.standardApplied ?? prev.cert.standardApplied,
       },
-    }))
-  }, [])
+    }));
+  }, []);
 
   useEffect(() => {
-    if (!typeConfig) return
+    if (!typeConfig) return;
     setData((prev) => ({
       ...prev,
       cert: { ...prev.cert, standardApplied: typeConfig.standardApplied },
-    }))
-  }, [data.invoiceTypeId])
+    }));
+  }, [data.invoiceTypeId]);
 
   const update = useCallback((updates: Partial<RestorationInvoiceFormData>) => {
-    setData((prev) => ({ ...prev, ...updates }))
-  }, [])
+    setData((prev) => ({ ...prev, ...updates }));
+  }, []);
 
-  const updateContractor = useCallback((k: keyof RestorationInvoiceFormData["contractor"], v: string) => {
-    setData((prev) => ({ ...prev, contractor: { ...prev.contractor, [k]: v } }))
-  }, [])
+  const updateContractor = useCallback(
+    (k: keyof RestorationInvoiceFormData["contractor"], v: string) => {
+      setData((prev) => ({
+        ...prev,
+        contractor: { ...prev.contractor, [k]: v },
+      }));
+    },
+    [],
+  );
 
-  const updateClient = useCallback((k: keyof RestorationInvoiceFormData["client"], v: string) => {
-    setData((prev) => ({ ...prev, client: { ...prev.client, [k]: v } }))
-  }, [])
+  const updateClient = useCallback(
+    (k: keyof RestorationInvoiceFormData["client"], v: string) => {
+      setData((prev) => ({ ...prev, client: { ...prev.client, [k]: v } }));
+    },
+    [],
+  );
 
-  const updateEvent = useCallback((k: keyof RestorationInvoiceFormData["event"], v: string) => {
-    setData((prev) => ({ ...prev, event: { ...prev.event, [k]: v } }))
-  }, [])
+  const updateEvent = useCallback(
+    (k: keyof RestorationInvoiceFormData["event"], v: string) => {
+      setData((prev) => ({ ...prev, event: { ...prev.event, [k]: v } }));
+    },
+    [],
+  );
 
-  const updateCert = useCallback((k: keyof RestorationInvoiceFormData["cert"], v: string) => {
-    setData((prev) => ({ ...prev, cert: { ...prev.cert, [k]: v } }))
-  }, [])
+  const updateCert = useCallback(
+    (k: keyof RestorationInvoiceFormData["cert"], v: string) => {
+      setData((prev) => ({ ...prev, cert: { ...prev.cert, [k]: v } }));
+    },
+    [],
+  );
 
-  const updatePayment = useCallback((k: keyof RestorationInvoiceFormData["payment"], v: string) => {
-    setData((prev) => ({ ...prev, payment: { ...prev.payment, [k]: v } }))
-  }, [])
+  const updatePayment = useCallback(
+    (k: keyof RestorationInvoiceFormData["payment"], v: string) => {
+      setData((prev) => ({ ...prev, payment: { ...prev.payment, [k]: v } }));
+    },
+    [],
+  );
 
-  const setLineItem = useCallback((index: number, item: RestorationInvoiceTypeLineItem) => {
-    setData((prev) => {
-      const next = [...prev.lineItems]
-      next[index] = item
-      return { ...prev, lineItems: next }
-    })
-  }, [])
+  const setLineItem = useCallback(
+    (index: number, item: RestorationInvoiceTypeLineItem) => {
+      setData((prev) => {
+        const next = [...prev.lineItems];
+        next[index] = item;
+        return { ...prev, lineItems: next };
+      });
+    },
+    [],
+  );
 
   const addLineItem = useCallback(() => {
     setData((prev) => ({
       ...prev,
-      lineItems: [...prev.lineItems, { description: "", qty: "1", unit: "EA", rate: "0.00" }],
-    }))
-  }, [])
+      lineItems: [
+        ...prev.lineItems,
+        { description: "", qty: "1", unit: "EA", rate: "0.00" },
+      ],
+    }));
+  }, []);
 
   const removeLineItem = useCallback((index: number) => {
     setData((prev) => ({
       ...prev,
       lineItems: prev.lineItems.filter((_, i) => i !== index),
-    }))
-  }, [])
+    }));
+  }, []);
 
   const subtotal = data.lineItems.reduce(
     (sum, i) => sum + (parseFloat(i.qty) || 0) * (parseFloat(i.rate) || 0),
-    0
-  )
-  const gst = round2(subtotal * 0.1)
-  const total = round2(subtotal + gst)
-  const excess = parseFloat(data.excessAmt) || 0
-  const netReimburse = Math.max(0, total - excess)
+    0,
+  );
+  const gst = round2(subtotal * 0.1);
+  const total = round2(subtotal + gst);
+  const excess = parseFloat(data.excessAmt) || 0;
+  const netReimburse = Math.max(0, total - excess);
 
   const handleSave = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
       const payload = {
         documentType: "RESTORATION_INVOICE",
@@ -271,7 +316,7 @@ export default function RestorationInvoiceForm({
         title: typeConfig?.title ?? "Restoration Tax Invoice",
         reportId: reportId || null,
         data: { ...data, invoiceTypeId: data.invoiceTypeId },
-      }
+      };
       if (documentId) {
         const res = await fetch(`/api/restoration-documents/${documentId}`, {
           method: "PUT",
@@ -282,31 +327,37 @@ export default function RestorationInvoiceForm({
             reportId: payload.reportId,
             data: payload.data,
           }),
-        })
-        if (!res.ok) throw new Error((await res.json()).error || "Failed to update")
-        toast.success("Document saved")
+        });
+        if (!res.ok)
+          throw new Error((await res.json()).error || "Failed to update");
+        toast.success("Document saved");
       } else {
         const res = await fetch("/api/restoration-documents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        })
-        if (!res.ok) throw new Error((await res.json()).error || "Failed to save")
-        const { document } = await res.json()
-        toast.success("Document saved")
-        router.replace(`/dashboard/restoration-documents/invoice/${document.id}`)
+        });
+        if (!res.ok)
+          throw new Error((await res.json()).error || "Failed to save");
+        const { document } = await res.json();
+        toast.success("Document saved");
+        router.replace(
+          `/dashboard/restoration-documents/invoice/${document.id}`,
+        );
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to save")
+      toast.error(e instanceof Error ? e.message : "Failed to save");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6 print:space-y-4">
       {/* Print styles: show only invoice (same pattern as inspection report) */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
 @media print {
   @page {
     size: A4 portrait;
@@ -360,7 +411,9 @@ export default function RestorationInvoiceForm({
   .print\\:p-6 { padding: 1.5rem !important; }
   * { box-shadow: none !important; }
 }
-      ` }} />
+      `,
+        }}
+      />
       {/* Top actions - hidden when printing */}
       <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
         <button
@@ -379,7 +432,7 @@ export default function RestorationInvoiceForm({
             value={data.invoiceTypeId}
             onChange={(e) => setInvoiceType(e.target.value)}
             className={cn(
-              "rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+              "rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white",
             )}
           >
             {RESTORATION_INVOICE_TYPES.map((t) => (
@@ -402,7 +455,11 @@ export default function RestorationInvoiceForm({
             disabled={saving}
             className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500"
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
             Save
           </button>
         </div>
@@ -413,7 +470,7 @@ export default function RestorationInvoiceForm({
         id="restoration-invoice-print-content"
         className={cn(
           "mx-auto max-w-9xl rounded-lg border border-neutral-200 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
-          "print:max-w-none print:border-0 print:shadow-none print:p-6"
+          "print:max-w-none print:border-0 print:shadow-none print:p-6",
         )}
       >
         {/* Header */}
@@ -454,17 +511,21 @@ export default function RestorationInvoiceForm({
         {/* Legal banner */}
         <div className="mb-7 border-l-4 border-teal-500 bg-teal-50/80 py-3 px-4 rounded-r-lg dark:bg-teal-900/20">
           <p className="text-sm font-semibold text-neutral-900 dark:text-white">
-            ⚖️ Invoice Settlement Basis — &quot;Reasonable Costs You Actually Incur&quot;
+            ⚖️ Invoice Settlement Basis — &quot;Reasonable Costs You Actually
+            Incur&quot;
           </p>
           <p className="mt-1 text-xs leading-relaxed text-neutral-700 dark:text-slate-300">
-            This Tax Invoice documents the <strong>reasonable costs actually incurred</strong> by the
-            Client (the Insured / Policyholder) for professional property restoration services
-            performed at the insured property. This invoice is issued to the Client in their
-            capacity as the Insured under their Home Building Insurance Policy. Upon payment by the
-            Client, this invoice constitutes evidence of{" "}
-            <strong>out-of-pocket expenses actually incurred</strong> by the Insured, recoverable
-            under the &quot;costs you actually incur&quot; settlement provision of their insurance
-            policy, subject to policy terms, conditions, and the applicable sum insured.
+            This Tax Invoice documents the{" "}
+            <strong>reasonable costs actually incurred</strong> by the Client
+            (the Insured / Policyholder) for professional property restoration
+            services performed at the insured property. This invoice is issued
+            to the Client in their capacity as the Insured under their Home
+            Building Insurance Policy. Upon payment by the Client, this invoice
+            constitutes evidence of{" "}
+            <strong>out-of-pocket expenses actually incurred</strong> by the
+            Insured, recoverable under the &quot;costs you actually incur&quot;
+            settlement provision of their insurance policy, subject to policy
+            terms, conditions, and the applicable sum insured.
           </p>
         </div>
 
@@ -529,7 +590,9 @@ export default function RestorationInvoiceForm({
         </h3>
         <div className="mb-6 mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <label className="text-xs text-neutral-500 dark:text-slate-400">Date of Loss</label>
+            <label className="text-xs text-neutral-500 dark:text-slate-400">
+              Date of Loss
+            </label>
             <input
               type="date"
               value={data.event.lossDate}
@@ -538,7 +601,9 @@ export default function RestorationInvoiceForm({
             />
           </div>
           <div>
-            <label className="text-xs text-neutral-500 dark:text-slate-400">Cause of Loss</label>
+            <label className="text-xs text-neutral-500 dark:text-slate-400">
+              Cause of Loss
+            </label>
             <input
               type="text"
               value={data.event.lossCause}
@@ -547,7 +612,9 @@ export default function RestorationInvoiceForm({
             />
           </div>
           <div>
-            <label className="text-xs text-neutral-500 dark:text-slate-400">PDS Event Ref</label>
+            <label className="text-xs text-neutral-500 dark:text-slate-400">
+              PDS Event Ref
+            </label>
             <input
               type="text"
               value={data.event.pdsEvent}
@@ -556,7 +623,9 @@ export default function RestorationInvoiceForm({
             />
           </div>
           <div>
-            <label className="text-xs text-neutral-500 dark:text-slate-400">Water Category</label>
+            <label className="text-xs text-neutral-500 dark:text-slate-400">
+              Water Category
+            </label>
             <select
               value={data.event.waterCat}
               onChange={(e) => updateEvent("waterCat", e.target.value)}
@@ -568,7 +637,9 @@ export default function RestorationInvoiceForm({
             </select>
           </div>
           <div>
-            <label className="text-xs text-neutral-500 dark:text-slate-400">Class of Damage</label>
+            <label className="text-xs text-neutral-500 dark:text-slate-400">
+              Class of Damage
+            </label>
             <select
               value={data.event.damageClass}
               onChange={(e) => updateEvent("damageClass", e.target.value)}
@@ -581,7 +652,9 @@ export default function RestorationInvoiceForm({
             </select>
           </div>
           <div>
-            <label className="text-xs text-neutral-500 dark:text-slate-400">Affected Area</label>
+            <label className="text-xs text-neutral-500 dark:text-slate-400">
+              Affected Area
+            </label>
             <input
               type="text"
               value={data.event.affectedArea}
@@ -622,9 +695,9 @@ export default function RestorationInvoiceForm({
             </thead>
             <tbody>
               {data.lineItems.map((item, idx) => {
-                const qty = parseFloat(item.qty) || 0
-                const rate = parseFloat(item.rate) || 0
-                const amt = round2(qty * rate)
+                const qty = parseFloat(item.qty) || 0;
+                const rate = parseFloat(item.rate) || 0;
+                const amt = round2(qty * rate);
                 return (
                   <tr key={idx} className="dark:border-slate-600">
                     <td className="border border-neutral-200 px-2 py-1.5 text-center text-neutral-500 dark:border-slate-600">
@@ -635,7 +708,10 @@ export default function RestorationInvoiceForm({
                         type="text"
                         value={item.description}
                         onChange={(e) =>
-                          setLineItem(idx, { ...item, description: e.target.value })
+                          setLineItem(idx, {
+                            ...item,
+                            description: e.target.value,
+                          })
                         }
                         className="w-full border-0 border-b border-dashed bg-transparent focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
                       />
@@ -644,7 +720,9 @@ export default function RestorationInvoiceForm({
                       <input
                         type="text"
                         value={item.qty}
-                        onChange={(e) => setLineItem(idx, { ...item, qty: e.target.value })}
+                        onChange={(e) =>
+                          setLineItem(idx, { ...item, qty: e.target.value })
+                        }
                         className="w-14 border-0 border-b border-dashed bg-transparent text-right focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
@@ -652,7 +730,9 @@ export default function RestorationInvoiceForm({
                       <input
                         type="text"
                         value={item.unit}
-                        onChange={(e) => setLineItem(idx, { ...item, unit: e.target.value })}
+                        onChange={(e) =>
+                          setLineItem(idx, { ...item, unit: e.target.value })
+                        }
                         className="w-full border-0 border-b border-dashed bg-transparent text-center focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
@@ -660,7 +740,9 @@ export default function RestorationInvoiceForm({
                       <input
                         type="text"
                         value={item.rate}
-                        onChange={(e) => setLineItem(idx, { ...item, rate: e.target.value })}
+                        onChange={(e) =>
+                          setLineItem(idx, { ...item, rate: e.target.value })
+                        }
                         className="w-20 border-0 border-b border-dashed bg-transparent text-right focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
@@ -677,7 +759,7 @@ export default function RestorationInvoiceForm({
                       </button>
                     </td>
                   </tr>
-                )
+                );
               })}
             </tbody>
           </table>
@@ -727,26 +809,31 @@ export default function RestorationInvoiceForm({
             📋 Insurance Policy Wording Reference — Basis of Claim
           </h4>
           <p className="mb-2">
-            This invoice is issued in accordance with the settlement provisions of standard
-            Australian Home Building Insurance policies, which provide (in relevant part):
+            This invoice is issued in accordance with the settlement provisions
+            of standard Australian Home Building Insurance policies, which
+            provide (in relevant part):
           </p>
           <p className="mb-2 italic">
-            &quot;If we agree to pay a claim for loss or damage to the home, we may choose to: …{" "}
-            <strong>pay the reasonable costs you actually incur</strong> in repairing the home if
-            it is damaged.&quot;
+            &quot;If we agree to pay a claim for loss or damage to the home, we
+            may choose to: …{" "}
+            <strong>pay the reasonable costs you actually incur</strong> in
+            repairing the home if it is damaged.&quot;
           </p>
           <p className="mb-2">
-            The Insured (Client) has exercised their right to engage their own contractor for the
-            repair and restoration of their insured property following a covered insured event. This
-            right is consistent with: Insurance Contracts Act 1984 (Cth) §§13, 54, 57; ACCC
-            Northern Australia Insurance Inquiry Recommendation 20.2; General Insurance Code of
-            Practice (2020); AFCA Approach; AS-IICRC S500:2025 (and applicable IICRC Standards).
+            The Insured (Client) has exercised their right to engage their own
+            contractor for the repair and restoration of their insured property
+            following a covered insured event. This right is consistent with:
+            Insurance Contracts Act 1984 (Cth) §§13, 54, 57; ACCC Northern
+            Australia Insurance Inquiry Recommendation 20.2; General Insurance
+            Code of Practice (2020); AFCA Approach; AS-IICRC S500:2025 (and
+            applicable IICRC Standards).
           </p>
           <p>
-            Upon payment by the Client, this invoice constitutes documentary evidence of{" "}
-            <strong>costs actually incurred</strong> by the Insured for submission to their
-            insurance carrier as an out-of-pocket expense claim, recoverable under the terms and
-            conditions of their policy.
+            Upon payment by the Client, this invoice constitutes documentary
+            evidence of <strong>costs actually incurred</strong> by the Insured
+            for submission to their insurance carrier as an out-of-pocket
+            expense claim, recoverable under the terms and conditions of their
+            policy.
           </p>
         </div>
 
@@ -764,7 +851,10 @@ export default function RestorationInvoiceForm({
               { label: "Drying Days", key: "dryingDays" as const },
               { label: "Equipment Used", key: "equipmentUsed" as const },
               { label: "Public Liability", key: "publicLiability" as const },
-              { label: "Insurer of Contractor", key: "contractorInsurer" as const },
+              {
+                label: "Insurer of Contractor",
+                key: "contractorInsurer" as const,
+              },
             ].map(({ label, key }) => (
               <div key={key} className="flex gap-2 text-sm">
                 <span className="min-w-[110px] shrink-0 text-neutral-500 dark:text-slate-400">
@@ -780,9 +870,10 @@ export default function RestorationInvoiceForm({
             ))}
           </div>
           <p className="mt-2 text-[10px] text-neutral-500 dark:text-slate-400">
-            Supporting documentation attached: Moisture mapping reports, daily psychrometric /
-            drying logs, photographic evidence (before, during, after), equipment deployment
-            records, and Certificate of Completion / Drying Certificate.
+            Supporting documentation attached: Moisture mapping reports, daily
+            psychrometric / drying logs, photographic evidence (before, during,
+            after), equipment deployment records, and Certificate of Completion
+            / Drying Certificate.
           </p>
         </div>
 
@@ -792,9 +883,10 @@ export default function RestorationInvoiceForm({
             💳 Payment Terms
           </h4>
           <p className="text-xs leading-relaxed">
-            <strong>Payment Due:</strong> Within 7 days of invoice date. Payment by the Client
-            constitutes the <strong>&quot;costs actually incurred&quot;</strong> by the Insured as
-            contemplated by their Home Building Insurance Policy.
+            <strong>Payment Due:</strong> Within 7 days of invoice date. Payment
+            by the Client constitutes the{" "}
+            <strong>&quot;costs actually incurred&quot;</strong> by the Insured
+            as contemplated by their Home Building Insurance Policy.
           </p>
           <div className="mt-3 space-y-1 text-sm">
             {[
@@ -805,7 +897,9 @@ export default function RestorationInvoiceForm({
               { label: "Reference", key: "reference" as const },
             ].map(({ label, key }) => (
               <div key={key} className="flex gap-2">
-                <span className="min-w-[100px] text-neutral-500 dark:text-slate-400">{label}:</span>
+                <span className="min-w-[100px] text-neutral-500 dark:text-slate-400">
+                  {label}:
+                </span>
                 <input
                   type="text"
                   value={data.payment[key]}
@@ -816,10 +910,11 @@ export default function RestorationInvoiceForm({
             ))}
           </div>
           <p className="mt-2 text-[11px] text-neutral-600 dark:text-slate-400">
-            <strong>Important:</strong> Upon receipt of payment, the Contractor will issue a
-            Payment Receipt confirming the costs incurred. The Client should retain this receipt
-            together with this Tax Invoice as supporting documentation when submitting their
-            out-of-pocket expense reimbursement claim to their insurance carrier.
+            <strong>Important:</strong> Upon receipt of payment, the Contractor
+            will issue a Payment Receipt confirming the costs incurred. The
+            Client should retain this receipt together with this Tax Invoice as
+            supporting documentation when submitting their out-of-pocket expense
+            reimbursement claim to their insurance carrier.
           </p>
         </div>
 
@@ -829,32 +924,37 @@ export default function RestorationInvoiceForm({
             ✍️ Client Acknowledgement &amp; Authorisation
           </h4>
           <p className="mb-2 text-xs leading-relaxed text-neutral-600 dark:text-slate-300">
-            I, the undersigned Client (the Insured / Policyholder), acknowledge and confirm that:
+            I, the undersigned Client (the Insured / Policyholder), acknowledge
+            and confirm that:
           </p>
           <ol className="list-decimal space-y-1 pl-4 text-xs leading-relaxed text-neutral-600 dark:text-slate-300">
             <li>
-              I have engaged the above-named Contractor to perform property restoration services at
-              my insured property following the insured event described above.
+              I have engaged the above-named Contractor to perform property
+              restoration services at my insured property following the insured
+              event described above.
             </li>
             <li>
-              The Scope of Works and costs detailed in this Tax Invoice are a true and accurate
-              record of the services performed and the reasonable costs for those services.
+              The Scope of Works and costs detailed in this Tax Invoice are a
+              true and accurate record of the services performed and the
+              reasonable costs for those services.
             </li>
             <li>
               I understand that by paying this Tax Invoice, I am incurring an{" "}
-              <strong>out-of-pocket expense</strong> that I may be entitled to recover from my
-              insurer under the <strong>&quot;reasonable costs you actually incur&quot;</strong>{" "}
-              provision of my Home Building Insurance Policy, subject to my policy terms, conditions,
-              sum insured, and any applicable excess.
+              <strong>out-of-pocket expense</strong> that I may be entitled to
+              recover from my insurer under the{" "}
+              <strong>&quot;reasonable costs you actually incur&quot;</strong>{" "}
+              provision of my Home Building Insurance Policy, subject to my
+              policy terms, conditions, sum insured, and any applicable excess.
             </li>
             <li>
-              I understand that the Contractor is not a party to my insurance contract and makes no
-              representation regarding the extent of my insurance coverage or the amount my insurer
-              will reimburse.
+              I understand that the Contractor is not a party to my insurance
+              contract and makes no representation regarding the extent of my
+              insurance coverage or the amount my insurer will reimburse.
             </li>
             <li>
-              I am satisfied that the works have been completed to a professional standard in
-              accordance with the applicable IICRC/Australian Standard.
+              I am satisfied that the works have been completed to a
+              professional standard in accordance with the applicable
+              IICRC/Australian Standard.
             </li>
           </ol>
           <div className="mt-4 grid grid-cols-2 gap-6">
@@ -866,11 +966,15 @@ export default function RestorationInvoiceForm({
             </div>
             <div>
               <div className="border-b border-neutral-800 dark:border-slate-400" />
-              <div className="mt-1 text-[10px] text-neutral-500 dark:text-slate-400">Date</div>
+              <div className="mt-1 text-[10px] text-neutral-500 dark:text-slate-400">
+                Date
+              </div>
             </div>
             <div>
               <div className="border-b border-neutral-800 dark:border-slate-400" />
-              <div className="mt-1 text-[10px] text-neutral-500 dark:text-slate-400">Print Name</div>
+              <div className="mt-1 text-[10px] text-neutral-500 dark:text-slate-400">
+                Print Name
+              </div>
             </div>
             <div>
               <div className="border-b border-neutral-800 dark:border-slate-400" />
@@ -884,26 +988,30 @@ export default function RestorationInvoiceForm({
         {/* Footer legal */}
         <div className="mt-6 border-t border-neutral-200 pt-4 text-[10px] leading-relaxed text-neutral-500 dark:border-slate-600 dark:text-slate-400">
           <p className="mb-1">
-            <strong>Disclaimer:</strong> This Tax Invoice is a commercial document between the
-            Contractor and the Client. The Contractor makes no warranty or representation regarding
-            the Client&apos;s insurance coverage, the outcome of any insurance claim, or the amount
-            recoverable from the Client&apos;s insurer. The Client is responsible for lodging their
-            claim with their insurer and providing this invoice and supporting documentation as
-            evidence of costs actually incurred. This document does not constitute legal or financial
-            advice.
+            <strong>Disclaimer:</strong> This Tax Invoice is a commercial
+            document between the Contractor and the Client. The Contractor makes
+            no warranty or representation regarding the Client&apos;s insurance
+            coverage, the outcome of any insurance claim, or the amount
+            recoverable from the Client&apos;s insurer. The Client is
+            responsible for lodging their claim with their insurer and providing
+            this invoice and supporting documentation as evidence of costs
+            actually incurred. This document does not constitute legal or
+            financial advice.
           </p>
           <p className="mb-1">
             This Tax Invoice complies with the requirements of the{" "}
-            <em>A New Tax System (Goods and Services Tax) Act 1999</em> (Cth) and the Australian
-            Taxation Office requirements for valid tax invoices. ABN verified at abn.business.gov.au.
+            <em>A New Tax System (Goods and Services Tax) Act 1999</em> (Cth)
+            and the Australian Taxation Office requirements for valid tax
+            invoices. ABN verified at abn.business.gov.au.
           </p>
           <p>
-            <strong>Applicable Legislation &amp; Standards:</strong> Insurance Contracts Act 1984
-            (Cth) §§13, 54, 57 · Competition and Consumer Act 2010 (Cth) Sch 2 §§100–101 · General
-            Insurance Code of Practice (2020) · AS-IICRC S500:2025 · QBCC Act 1991 (Qld)
+            <strong>Applicable Legislation &amp; Standards:</strong> Insurance
+            Contracts Act 1984 (Cth) §§13, 54, 57 · Competition and Consumer Act
+            2010 (Cth) Sch 2 §§100–101 · General Insurance Code of Practice
+            (2020) · AS-IICRC S500:2025 · QBCC Act 1991 (Qld)
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }

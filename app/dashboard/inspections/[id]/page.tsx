@@ -48,6 +48,8 @@ import {
   X,
   Save,
   FileDown,
+  Building2,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -77,7 +79,8 @@ type Tab =
   | "scope"
   | "costs"
   | "photos"
-  | "activity";
+  | "activity"
+  | "insurer";
 
 interface Inspection {
   id: string;
@@ -719,6 +722,7 @@ export default function InspectionDetailPage({
       count: inspection.photos.length,
     },
     { key: "activity", label: "Activity", icon: History },
+    { key: "insurer", label: "Insurer Profile", icon: Building2 },
   ];
 
   return (
@@ -2273,6 +2277,24 @@ export default function InspectionDetailPage({
         {/* Activity Tab */}
         {activeTab === "activity" && (
           <ActivityTimeline inspectionId={inspection.id} />
+        )}
+
+        {/* Insurer Profile Tab */}
+        {activeTab === "insurer" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Select an insurer to see evidence requirements and submission
+                preferences for this inspection.
+              </p>
+              <a
+                href={`/dashboard/inspections/${inspection.id}/insurer-profile`}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Open Full Profile <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
         )}
 
         {/* Photos Tab */}
