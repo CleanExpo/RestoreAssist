@@ -110,83 +110,84 @@ export async function POST(
   const data = parsed.data
   const gates = computeGates(data)
 
-  const record = await prisma.mouldRemediationAssessment.upsert({
-    where: { inspectionId: params.id },
-    create: {
-      inspectionId: params.id,
-      mouldConditionLevel: data.mouldConditionLevel ?? undefined,
-      visibleGrowthObserved: data.visibleGrowthObserved ?? false,
-      affectedAreaM2: data.affectedAreaM2 ?? undefined,
-      moistureSourceIdentified: data.moistureSourceIdentified ?? false,
-      rootCauseAddressed: data.rootCauseAddressed ?? false,
-      pressureDifferentialPa: data.pressureDifferentialPa ?? undefined,
-      airChangesPerHour: data.airChangesPerHour ?? undefined,
-      containmentBarrierMaterial: data.containmentBarrierMaterial ?? undefined,
-      negativePressureMachineModel: data.negativePressureMachineModel ?? undefined,
-      airSamplingRequired: data.airSamplingRequired ?? false,
-      samplingDate: data.samplingDate ? new Date(data.samplingDate) : undefined,
-      labName: data.labName ?? undefined,
-      labReportReference: data.labReportReference ?? undefined,
-      sporeType: data.sporeType ?? undefined,
-      sporeCountPreRemediation: data.sporeCountPreRemediation ?? undefined,
-      outdoorBaselineCount: data.outdoorBaselineCount ?? undefined,
-      sporeCountPostRemediation: data.sporeCountPostRemediation ?? undefined,
-      clearanceCriterion: data.clearanceCriterion ?? undefined,
-      iepAssessmentRequired: data.iepAssessmentRequired ?? false,
-      ...gates,
-    },
-    update: {
-      ...(data.mouldConditionLevel !== undefined && {
-        mouldConditionLevel: data.mouldConditionLevel,
-      }),
-      ...(data.visibleGrowthObserved !== undefined && {
-        visibleGrowthObserved: data.visibleGrowthObserved,
-      }),
-      ...(data.affectedAreaM2 !== undefined && { affectedAreaM2: data.affectedAreaM2 }),
-      ...(data.moistureSourceIdentified !== undefined && {
-        moistureSourceIdentified: data.moistureSourceIdentified,
-      }),
-      ...(data.rootCauseAddressed !== undefined && { rootCauseAddressed: data.rootCauseAddressed }),
-      ...(data.pressureDifferentialPa !== undefined && {
-        pressureDifferentialPa: data.pressureDifferentialPa,
-      }),
-      ...(data.airChangesPerHour !== undefined && { airChangesPerHour: data.airChangesPerHour }),
-      ...(data.containmentBarrierMaterial !== undefined && {
-        containmentBarrierMaterial: data.containmentBarrierMaterial,
-      }),
-      ...(data.negativePressureMachineModel !== undefined && {
-        negativePressureMachineModel: data.negativePressureMachineModel,
-      }),
-      ...(data.airSamplingRequired !== undefined && {
-        airSamplingRequired: data.airSamplingRequired,
-      }),
-      ...(data.samplingDate !== undefined && {
-        samplingDate: data.samplingDate ? new Date(data.samplingDate) : null,
-      }),
-      ...(data.labName !== undefined && { labName: data.labName }),
-      ...(data.labReportReference !== undefined && { labReportReference: data.labReportReference }),
-      ...(data.sporeType !== undefined && { sporeType: data.sporeType }),
-      ...(data.sporeCountPreRemediation !== undefined && {
-        sporeCountPreRemediation: data.sporeCountPreRemediation,
-      }),
-      ...(data.outdoorBaselineCount !== undefined && {
-        outdoorBaselineCount: data.outdoorBaselineCount,
-      }),
-      ...(data.sporeCountPostRemediation !== undefined && {
-        sporeCountPostRemediation: data.sporeCountPostRemediation,
-      }),
-      ...(data.clearanceCriterion !== undefined && { clearanceCriterion: data.clearanceCriterion }),
-      ...(data.iepAssessmentRequired !== undefined && {
-        iepAssessmentRequired: data.iepAssessmentRequired,
-      }),
-      ...gates,
-    },
-  })
-
-  await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: 'MOULD' },
-  })
+  const [record] = await prisma.$transaction([
+    prisma.mouldRemediationAssessment.upsert({
+      where: { inspectionId: params.id },
+      create: {
+        inspectionId: params.id,
+        mouldConditionLevel: data.mouldConditionLevel ?? undefined,
+        visibleGrowthObserved: data.visibleGrowthObserved ?? false,
+        affectedAreaM2: data.affectedAreaM2 ?? undefined,
+        moistureSourceIdentified: data.moistureSourceIdentified ?? false,
+        rootCauseAddressed: data.rootCauseAddressed ?? false,
+        pressureDifferentialPa: data.pressureDifferentialPa ?? undefined,
+        airChangesPerHour: data.airChangesPerHour ?? undefined,
+        containmentBarrierMaterial: data.containmentBarrierMaterial ?? undefined,
+        negativePressureMachineModel: data.negativePressureMachineModel ?? undefined,
+        airSamplingRequired: data.airSamplingRequired ?? false,
+        samplingDate: data.samplingDate ? new Date(data.samplingDate) : undefined,
+        labName: data.labName ?? undefined,
+        labReportReference: data.labReportReference ?? undefined,
+        sporeType: data.sporeType ?? undefined,
+        sporeCountPreRemediation: data.sporeCountPreRemediation ?? undefined,
+        outdoorBaselineCount: data.outdoorBaselineCount ?? undefined,
+        sporeCountPostRemediation: data.sporeCountPostRemediation ?? undefined,
+        clearanceCriterion: data.clearanceCriterion ?? undefined,
+        iepAssessmentRequired: data.iepAssessmentRequired ?? false,
+        ...gates,
+      },
+      update: {
+        ...(data.mouldConditionLevel !== undefined && {
+          mouldConditionLevel: data.mouldConditionLevel,
+        }),
+        ...(data.visibleGrowthObserved !== undefined && {
+          visibleGrowthObserved: data.visibleGrowthObserved,
+        }),
+        ...(data.affectedAreaM2 !== undefined && { affectedAreaM2: data.affectedAreaM2 }),
+        ...(data.moistureSourceIdentified !== undefined && {
+          moistureSourceIdentified: data.moistureSourceIdentified,
+        }),
+        ...(data.rootCauseAddressed !== undefined && { rootCauseAddressed: data.rootCauseAddressed }),
+        ...(data.pressureDifferentialPa !== undefined && {
+          pressureDifferentialPa: data.pressureDifferentialPa,
+        }),
+        ...(data.airChangesPerHour !== undefined && { airChangesPerHour: data.airChangesPerHour }),
+        ...(data.containmentBarrierMaterial !== undefined && {
+          containmentBarrierMaterial: data.containmentBarrierMaterial,
+        }),
+        ...(data.negativePressureMachineModel !== undefined && {
+          negativePressureMachineModel: data.negativePressureMachineModel,
+        }),
+        ...(data.airSamplingRequired !== undefined && {
+          airSamplingRequired: data.airSamplingRequired,
+        }),
+        ...(data.samplingDate !== undefined && {
+          samplingDate: data.samplingDate ? new Date(data.samplingDate) : null,
+        }),
+        ...(data.labName !== undefined && { labName: data.labName }),
+        ...(data.labReportReference !== undefined && { labReportReference: data.labReportReference }),
+        ...(data.sporeType !== undefined && { sporeType: data.sporeType }),
+        ...(data.sporeCountPreRemediation !== undefined && {
+          sporeCountPreRemediation: data.sporeCountPreRemediation,
+        }),
+        ...(data.outdoorBaselineCount !== undefined && {
+          outdoorBaselineCount: data.outdoorBaselineCount,
+        }),
+        ...(data.sporeCountPostRemediation !== undefined && {
+          sporeCountPostRemediation: data.sporeCountPostRemediation,
+        }),
+        ...(data.clearanceCriterion !== undefined && { clearanceCriterion: data.clearanceCriterion }),
+        ...(data.iepAssessmentRequired !== undefined && {
+          iepAssessmentRequired: data.iepAssessmentRequired,
+        }),
+        ...gates,
+      },
+    }),
+    prisma.inspection.update({
+      where: { id: params.id },
+      data: { claimType: 'MOULD' },
+    }),
+  ])
 
   return NextResponse.json(record)
 }
@@ -211,14 +212,13 @@ export async function DELETE(
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
   }
 
-  await prisma.mouldRemediationAssessment
-    .delete({ where: { inspectionId: params.id } })
-    .catch(() => {})
-
-  await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: null },
-  })
+  await prisma.$transaction([
+    prisma.mouldRemediationAssessment.deleteMany({ where: { inspectionId: params.id } }),
+    prisma.inspection.update({
+      where: { id: params.id },
+      data: { claimType: null },
+    }),
+  ])
 
   return NextResponse.json({ deleted: true })
 }
