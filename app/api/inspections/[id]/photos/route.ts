@@ -97,6 +97,16 @@ export async function POST(
       return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
 
+    // Guard before arrayBuffer() — multipart/form-data bypasses Next.js body size
+    // limits, so an attacker can send a 2GB TIFF that loads into the function heap.
+    const MAX_PHOTO_BYTES = 20 * 1024 * 1024; // 20 MB
+    if (file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json(
+        { error: "File too large — maximum 20 MB per photo" },
+        { status: 413 },
+      );
+    }
+
     // Get user's org for storage provider resolution
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
