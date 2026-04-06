@@ -74,7 +74,14 @@ export const LetterboxReveal: React.FC<LetterboxRevealProps> = ({
     [0, 1],
     [(1080 - 160) / 2, 1080 - 40 - 48],
   );
-  const logoFinalOpacity = interpolate(logoBugify, [0, 1], [logoOpacity, 0.45]);
+  // logoOpacity is fully saturated (~1.0) by frame 210, so using it as the
+  // from-value in the bugify interpolation is stable at current timing.
+  const saturatedLogoOpacity = Math.min(logoOpacity, 1);
+  const logoFinalOpacity = interpolate(
+    logoBugify,
+    [0, 1],
+    [saturatedLogoOpacity, 0.45],
+  );
 
   // Tagline fades out before bars sweep back (intro only)
   const taglineFade =
@@ -113,7 +120,7 @@ export const LetterboxReveal: React.FC<LetterboxRevealProps> = ({
       />
 
       {/* Tagline: word by word */}
-      {words.length > 0 && (
+      {mode === "intro" && words.length > 0 && (
         <div
           style={{
             position: "absolute",
