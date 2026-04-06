@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { execFile } from "child_process";
-import path from "path";
+import { spawn } from "child_process";
+import { resolve } from "path";
 
-const SCRIPT_PATH = path.resolve(process.cwd(), "scripts/generate-store-assets.ts");
+const SCRIPT_PATH = resolve(process.cwd(), "scripts/generate-store-assets.ts");
 
 function triggerAssetGeneration(baseUrl?: string): void {
   const args = ["--loader=ts-node/esm", SCRIPT_PATH];
@@ -12,11 +12,17 @@ function triggerAssetGeneration(baseUrl?: string): void {
     args.push("--url", baseUrl);
   }
 
-  execFile("node", args, { detached: true }, (err) => {
-    if (err) {
-      console.error("Store asset generation error:", err.message);
-    }
+  const child = spawn("node", args, {
+    detached: true,
+    stdio: "ignore",
   });
+
+  child.on("error", (err) => {
+    console.error("Store asset generation error:", err.message);
+  });
+
+  // Detach so the parent process doesn't wait for the child
+  child.unref();
 }
 
 /**
