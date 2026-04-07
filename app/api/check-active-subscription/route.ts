@@ -6,6 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 
+function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
+  return (sub.items.data[0] as any)?.current_period_end ??
+    (sub as any).current_period_end ?? 0
+}
+function subPeriodStart(sub: import("stripe").Stripe.Subscription): number {
+  return (sub.items.data[0] as any)?.current_period_start ??
+    (sub as any).current_period_start ?? 0
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -147,13 +156,13 @@ export async function POST(request: NextRequest) {
           stripeCustomerId: customerId,
           subscriptionId: activeSubscription.id,
           subscriptionEndsAt: new Date(
-            activeSubscription.current_period_end * 1000,
+            subPeriodEnd(activeSubscription) * 1000,
           ),
           nextBillingDate: new Date(
-            activeSubscription.current_period_end * 1000,
+            subPeriodEnd(activeSubscription) * 1000,
           ),
           lastBillingDate: new Date(
-            activeSubscription.current_period_start * 1000,
+            subPeriodStart(activeSubscription) * 1000,
           ),
           monthlyReportsUsed: 0,
           monthlyResetDate: nextReset,

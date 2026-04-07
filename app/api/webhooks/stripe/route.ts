@@ -11,6 +11,32 @@ import { provisionWorkspace } from "@/lib/workspace/provision"
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
+// ─── Stripe v19 compat helpers ────────────────────────────────────────────────
+// In Stripe API 2025-10-29: current_period_end/start moved to SubscriptionItem;
+// Invoice.subscription moved to invoice.parent.subscription_details.subscription;
+// Invoice.charge removed (use payment_intent instead).
+
+/** Unix timestamp of subscription period end (first item). */
+function subPeriodEnd(sub: Stripe.Subscription): number {
+  return (sub.items.data[0] as any)?.current_period_end ??
+    (sub as any).current_period_end ?? 0
+}
+/** Unix timestamp of subscription period start (first item). */
+function subPeriodStart(sub: Stripe.Subscription): number {
+  return (sub.items.data[0] as any)?.current_period_start ??
+    (sub as any).current_period_start ?? 0
+}
+/** Subscription ID (string) from an invoice, compatible with v17+. */
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const sub = invoice.parent?.subscription_details?.subscription
+  if (sub == null) return (invoice as any).subscription ?? null
+  return typeof sub === "string" ? sub : sub.id
+}
+/** Charge ID (string) from an invoice, compatible with v17+. */
+function invoiceChargeId(invoice: Stripe.Invoice): string | null {
+  return (invoice as any).charge ?? null
+}
+
 // Cache the model availability check to avoid repeated reflection
 let _webhookModelAvailable: boolean | null = null
 
@@ -462,9 +488,9 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
   if (session.subscription) {
     try {
       const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription as string)
-      subscriptionEndsAt = new Date(stripeSubscription.current_period_end * 1000)
-      nextBillingDate = new Date(stripeSubscription.current_period_end * 1000)
-      periodStartDate = new Date(stripeSubscription.current_period_start * 1000)
+      subscriptionEndsAt = new Date(subPeriodEnd(stripeSubscription) * 1000)
+      nextBillingDate = new Date(subPeriodEnd(stripeSubscription) * 1000)
+      periodStartDate = new Date(subPeriodStart(stripeSubscription) * 1000)
 
       if (stripeSubscription.items.data[0]?.price?.recurring?.interval === 'year') {
         subscriptionPlan = 'Yearly Plan'
@@ -634,9 +660,9 @@ async function handleSubscriptionCreated(event: Stripe.Event) {
     subscriptionStatus: 'ACTIVE',
     subscriptionPlan: subscriptionPlan,
     subscriptionId: subscription.id,
-    subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
-    nextBillingDate: new Date(subscription.current_period_end * 1000),
-    lastBillingDate: new Date(subscription.current_period_start * 1000),
+    subscriptionEndsAt: new Date(subPeriodEnd(subscription) * 1000),
+    nextBillingDate: new Date(subPeriodEnd(subscription) * 1000),
+    lastBillingDate: new Date(subPeriodStart(subscription) * 1000),
     monthlyReportsUsed: 0,
     monthlyResetDate: nextReset,
   }
@@ -684,8 +710,8 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     where: { subscriptionId: subscription.id },
     data: {
       subscriptionStatus: mappedStatus,
-      subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
-      nextBillingDate: new Date(subscription.current_period_end * 1000),
+      subscriptionEndsAt: new Date(subPeriodEnd(subscription) * 1000),
+      nextBillingDate: new Date(subPeriodEnd(subscription) * 1000),
     }
   })
 
@@ -710,8 +736,8 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   // Use the subscription's period end (user paid through this date) or ended_at timestamp
   const endDate = subscription.ended_at
     ? new Date(subscription.ended_at * 1000)
-    : subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+    : subPeriodEnd(subscription)
+      ? new Date(subPeriodEnd(subscription) * 1000)
       : new Date()
 
   // Update user status
@@ -752,7 +778,8 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
 async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice
 
-  if (!invoice.subscription) return
+  const subId = invoiceSubscriptionId(invoice)
+  if (!subId) return
 
   const nextReset = new Date()
   nextReset.setMonth(nextReset.getMonth() + 1)
@@ -760,7 +787,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   nextReset.setHours(0, 0, 0, 0)
 
   await prisma.user.updateMany({
-    where: { subscriptionId: invoice.subscription as string },
+    where: { subscriptionId: subId },
     data: {
       lastBillingDate: new Date(),
       nextBillingDate: new Date(invoice.period_end * 1000),
@@ -769,7 +796,7 @@ async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
     }
   })
 
-  console.log(`✅ INVOICE PAYMENT SUCCEEDED for subscription ${invoice.subscription}`)
+  console.log(`✅ INVOICE PAYMENT SUCCEEDED for subscription ${subId}`)
 }
 
 // Handler: payment_intent.succeeded (backup for add-ons and invoices)
@@ -930,11 +957,12 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
 async function handleInvoicePaymentFailed(event: Stripe.Event) {
   const invoice = event.data.object as Stripe.Invoice
 
-  if (!invoice.subscription) return
+  const subId = invoiceSubscriptionId(invoice)
+  if (!subId) return
 
   // Update user status to PAST_DUE
   await prisma.user.updateMany({
-    where: { subscriptionId: invoice.subscription as string },
+    where: { subscriptionId: subId },
     data: {
       subscriptionStatus: 'PAST_DUE',
     }
@@ -942,7 +970,7 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
 
   // Find user to send dunning email
   const user = await prisma.user.findFirst({
-    where: { subscriptionId: invoice.subscription as string },
+    where: { subscriptionId: subId },
     select: {
       id: true,
       email: true,
@@ -957,9 +985,9 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
     let failureReason: string | undefined
     if (invoice.last_finalization_error?.message) {
       failureReason = invoice.last_finalization_error.message
-    } else if (invoice.charge) {
+    } else if (invoiceChargeId(invoice)) {
       try {
-        const charge = await stripe.charges.retrieve(invoice.charge as string)
+        const charge = await stripe.charges.retrieve(invoiceChargeId(invoice)!)
         failureReason = charge.failure_message || undefined
       } catch {
         // Ignore charge retrieval errors
@@ -996,5 +1024,5 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
     notifyPaymentFailed(user.id, formattedAmount)
   }
 
-  console.log(`⚠️ INVOICE PAYMENT FAILED for subscription ${invoice.subscription}`)
+  console.log(`⚠️ INVOICE PAYMENT FAILED for subscription ${subId}`)
 }

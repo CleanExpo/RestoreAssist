@@ -426,10 +426,18 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 | Production migration applied                   | Done   | `20260408000000_evidence_item_status_contents_manifest` applied to prod (udooysjajglluvuxkijp) + sandbox     |
 | Type errors cleared: contents-manifest + gate  | Done   | All TS2339/TS2353 errors in contents-manifest/route.ts and submission-gate.ts resolved                       |
 
+## 2026-04-08 — Sprint N: Stripe v19 Compat Fixes
+
+| Task                                           | Status | Notes                                                                                                        |
+| ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| Stripe v19 compat: webhook handler             | Done   | `app/api/webhooks/stripe/route.ts` — added `invoiceSubscriptionId()` + `invoiceChargeId()` helpers; replaced all `invoice.subscription` + `invoice.charge` usages |
+| Stripe v19 compat: check-active-subscription   | Done   | `app/api/check-active-subscription/route.ts` — added `subPeriodEnd()` + `subPeriodStart()` helpers; replaced `current_period_end/start` usages |
+
 ## Notes for Next Context Window
 
 - **Linear API key**: See `~/.claude/mcp.json` — key name "Claude Code RestoreAssist" (created Apr 8 2026); update if 401 errors recur
 - **All Linear tasks Done**: 447/448 issues Done; only RA-287 remains (blocked on DO_TOKEN GitHub secret)
+- **Remaining type errors**: ~688 errors in full type-check — pre-existing schema drift from Sprints G-H (missing sub-models: biohazardAssessment, carpetRestorationAssessment, etc.); not blocking production
 - **Human actions still needed**:
   - `PORTAL_SECRET` env var on Vercel sandbox (restoreassist-sandbox project)
   - `NEXT_PUBLIC_COMPANY_ABN=62 580 077 456` on Vercel production
