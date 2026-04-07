@@ -1,4 +1,4 @@
-mobile/
+/mobile/
 packages/videos/node_modules/
 .claude/
 .playwright-mcp/

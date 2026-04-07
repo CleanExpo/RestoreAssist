@@ -2346,6 +2346,15 @@ export default function InspectionDetailPage({
               <h3 className="font-semibold text-neutral-900 dark:text-white">
                 Photos ({inspection.photos.length})
               </h3>
+              <div className="flex items-center gap-2">
+                {/* RA-448: Link to full evidence screen with label display/editing */}
+                <Link
+                  href={`/dashboard/inspections/${inspection.id}/photos`}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Camera size={14} />
+                  Evidence Screen
+                </Link>
               <button
                 onClick={() => photoInputRef.current?.click()}
                 disabled={uploadingPhoto}
@@ -2369,6 +2378,7 @@ export default function InspectionDetailPage({
                 className="hidden"
                 onChange={(e) => handlePhotoUpload(e.target.files)}
               />
+              </div>{/* end button group — RA-448 */}
             </div>
             {inspection.photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
