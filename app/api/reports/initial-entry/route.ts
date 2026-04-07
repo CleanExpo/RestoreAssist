@@ -2,18 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { applyRateLimit } from '@/lib/rate-limiter'
 
 // POST - Create initial report entry (Phase 2 Step 2)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limit: 5 report creations per minute per user to close the TOCTOU window
+    // on the canCreateReport → deductCreditsAndTrackUsage two-step check
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 5,
+      prefix: 'report-create',
+      key: session.user.id,
+    })
+    if (rateLimited) return rateLimited
+
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { id: session.user.id }
     })
 
     if (!user) {
@@ -294,7 +304,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Deduct credits and track usage for team hierarchy
-    await deductCreditsAndTrackUsage(user.id)
+    // deductCreditsAndTrackUsage throws 'INSUFFICIENT_CREDITS' if the atomic
+    // updateMany finds creditsRemaining < 1 (race-safe check-and-deduct)
+    try {
+      await deductCreditsAndTrackUsage(user.id)
+    } catch (creditError) {
+      if (creditError instanceof Error && creditError.message === 'INSUFFICIENT_CREDITS') {
+        return NextResponse.json(
+          { error: 'No credits remaining. Please subscribe to continue.', upgradeRequired: true },
+          { status: 402 }
+        )
+      }
+      throw creditError
+    }
 
     // Create the report with initial data (including NIR and equipment data if provided)
     const report = await prisma.report.create({

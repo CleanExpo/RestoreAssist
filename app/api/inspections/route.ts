@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { sanitizeString } from "@/lib/sanitize"
+import { randomBytes } from "crypto"
 
 // GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
@@ -292,14 +293,14 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Generate inspection number (NIR-YYYY-MM-XXXX format)
-    // Use timestamp + random to ensure uniqueness
+    // Generate inspection number (NIR-YYYY-MM-XXXXXX format).
+    // Previous implementation used Date.now() + Math.random() which collides under
+    // concurrent requests in the same millisecond. randomBytes(3) gives 2^24 (16M)
+    // unique values per month with no shared state or clock dependency.
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, "0")
-    const timestamp = Date.now()
-    const random = Math.floor(Math.random() * 1000)
-    const sequence = String(timestamp + random).slice(-6)
+    const sequence = randomBytes(3).toString("hex").toUpperCase() // 6 hex chars
     const inspectionNumber = `NIR-${year}-${month}-${sequence}`
     
     // Create inspection

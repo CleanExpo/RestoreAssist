@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 5 analytics exports per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "analytics-export" })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 5, prefix: "analytics-export" })
     if (rateLimited) return rateLimited
 
     const body: ExportRequest = await request.json()

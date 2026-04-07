@@ -1,220 +1,369 @@
 /**
- * Task-based AI model router
+ * [RA-404] Task-based Model Router
+ * Routes AI tasks to the cheapest capable model tier.
  *
- * Routes each AI task to the most cost-effective capable model:
- *   basic   → self-hosted Gemma-4-31B-IT  (~$0.001–0.005/task)
- *   standard → self-hosted Gemma-4-31B-IT (~$0.005–0.01/task)
- *   premium → customer's BYOK provider    ($0.10–0.75/task)
+ * Basic tasks (transcription, classification, note structuring, basic vision)
+ *   → RestoreAssist AI (self-hosted Gemma-4-31B-IT) — ~$0.01-0.02/inspection
  *
- * 70% of inspection tasks are basic, 20% standard, 10% premium.
- * Net cost reduction: 60–80% vs routing everything through BYOK.
+ * Premium tasks (S500 reports, contents manifests, complex damage assessment)
+ *   → BYOK (user's own Claude/Gemini/GPT key) — $0.08-1.10/inspection
  *
- * RA-404: Sprint H — Task-based model router
+ * Expected 60-80% cost reduction for typical inspection workflows.
+ *
+ * BYOK allowlist is IMMUTABLE and NOT modified by this file.
  */
 
-import { callGemma, isGemmaAvailable } from "./gemma-client";
-import type { GemmaMessage } from "./gemma-client";
-import { getLatestAIIntegration, callAIProvider } from "@/lib/ai-provider";
+import type {
+  VisionInput,
+  AllowedModel,
+  S500StructuredOutput,
+} from "./byok-client";
+import {
+  byokDispatch,
+  parseS500Output,
+  S500_VISION_SYSTEM_PROMPT,
+} from "./byok-client";
+import type { RestoreAssistAiResponse } from "./restoreassist-ai-client";
+import {
+  restoreAssistAiDispatch,
+  isRestoreAssistAiHealthy,
+  RESTOREASSIST_AI_PRICING,
+} from "./restoreassist-ai-client";
 
-// ─── Task type registry ──────────────────────────────────────────────────────
-
-export type AITaskType =
-  | "voice_transcription" // basic  — audio → text
-  | "note_structuring" // basic  — freetext → structured
-  | "evidence_classification" // basic  — classify photo evidence class
-  | "photo_quality_scoring" // basic  — score photo quality 0–100
-  | "contradiction_detection" // standard — detect field/report contradictions
-  | "material_recognition" // standard — identify building materials in image
-  | "contents_manifest_basic" // standard — identify household items in photo
-  | "contents_manifest_detail" // premium — full manifest with values
-  | "scope_generation" // premium — generate S500-compliant scope of works
-  | "report_generation" // premium — full NIR report
-  | "dispute_defence"; // premium — dispute defence pack
-
-export type TaskTier = "basic" | "standard" | "premium";
-
-const TASK_TIERS: Record<AITaskType, TaskTier> = {
-  voice_transcription: "basic",
-  note_structuring: "basic",
-  evidence_classification: "basic",
-  photo_quality_scoring: "basic",
-  contradiction_detection: "standard",
-  material_recognition: "standard",
-  contents_manifest_basic: "standard",
-  contents_manifest_detail: "premium",
-  scope_generation: "premium",
-  report_generation: "premium",
-  dispute_defence: "premium",
-};
-
-export function getTaskTier(taskType: AITaskType): TaskTier {
-  return TASK_TIERS[taskType];
-}
-
-// ─── User AI config (from integration settings) ──────────────────────────────
-
-export interface UserAIConfig {
-  userId: string;
-}
-
-// ─── Router call options ─────────────────────────────────────────────────────
-
-export interface RouterCallOptions {
-  taskType: AITaskType;
-  userConfig: UserAIConfig;
-  messages: GemmaMessage[];
-  maxTokens?: number;
-  temperature?: number;
-  responseFormat?: "text" | "json";
-  /** Override tier for this call (e.g. force premium for testing) */
-  forceTier?: TaskTier;
-}
-
-export interface RouterCallResult {
-  text: string;
-  tier: TaskTier;
-  model: string;
-  provider: "gemma" | "byok";
-  inputTokens: number;
-  outputTokens: number;
-  cost: number;
-  selfHostedUsed: boolean;
-}
-
-// ─── Main router function ────────────────────────────────────────────────────
+// ━━━ Task Classification ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /**
- * Route an AI task to the appropriate model endpoint.
- *
- * Decision logic:
- * 1. Determine tier from task type (or use forceTier override).
- * 2. If tier is basic or standard AND self-hosted Gemma is available → use Gemma.
- * 3. Otherwise (premium, or Gemma down) → use customer's BYOK provider.
- * 4. If BYOK also unavailable → throw descriptive error.
+ * AI task types and their tier routing.
+ * "basic" tasks are routed to the cheap self-hosted model.
+ * "premium" tasks require higher-capability BYOK models.
  */
-export async function routeTask(
-  options: RouterCallOptions,
-): Promise<RouterCallResult> {
-  const {
-    taskType,
-    userConfig,
-    messages,
-    maxTokens,
-    temperature,
-    responseFormat,
-    forceTier,
-  } = options;
+export type AiTaskType =
+  // Basic tasks → RestoreAssist AI (Gemma)
+  | "transcription" // Voice/audio transcription
+  | "classification" // Evidence classification, damage type detection
+  | "note_structuring" // Structuring field notes into formatted text
+  | "basic_vision" // Simple photo tagging, OCR, basic identification
+  | "summarisation" // Summarising inspection notes/readings
+  | "translation" // Multi-language support
+  // Premium tasks → BYOK
+  | "s500_report" // Full S500:2025 compliance report generation
+  | "contents_manifest" // AI-drafted contents manifest from photos
+  | "complex_damage_assessment" // Multi-room, multi-category damage analysis
+  | "expert_analysis" // Complex reasoning about restoration strategy
+  | "insurer_report" // Insurer-specific formatted reports
+  | "quality_review"; // AI review of report completeness/accuracy
 
-  const tier = forceTier ?? getTaskTier(taskType);
-  const gemmaAvailable = isGemmaAvailable();
-  const useSelfHosted =
-    (tier === "basic" || tier === "standard") && gemmaAvailable;
+/** Tier classification for each task type */
+export type TaskTier = "basic" | "premium";
 
-  if (useSelfHosted) {
-    try {
-      const result = await callGemma({
-        messages,
-        maxTokens,
-        temperature,
-        responseFormat,
-      });
-      return {
-        text: result.text,
-        tier,
-        model: result.model,
-        provider: "gemma",
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-        cost: result.cost,
-        selfHostedUsed: true,
-      };
-    } catch (err) {
-      // Self-hosted down — fall through to BYOK
-      console.warn(
-        `[model-router] Gemma self-hosted unavailable for ${taskType}, falling back to BYOK:`,
-        (err as Error).message,
-      );
-    }
-  }
+const TASK_TIER_MAP: Record<AiTaskType, TaskTier> = {
+  // Basic → RestoreAssist AI (Gemma-4-31B-IT)
+  transcription: "basic",
+  classification: "basic",
+  note_structuring: "basic",
+  basic_vision: "basic",
+  summarisation: "basic",
+  translation: "basic",
+  // Premium → BYOK
+  s500_report: "premium",
+  contents_manifest: "premium",
+  complex_damage_assessment: "premium",
+  expert_analysis: "premium",
+  insurer_report: "premium",
+  quality_review: "premium",
+};
 
-  // BYOK fallback (premium tier or Gemma unavailable)
-  const integration = await getLatestAIIntegration(userConfig.userId);
-  if (!integration) {
-    throw new Error(
-      tier === "premium"
-        ? "Premium AI features require an API key. Add your Anthropic, OpenAI, or Gemini key in Settings → Integrations."
-        : "AI features are temporarily unavailable (self-hosted model offline). Add a BYOK API key in Settings → Integrations as fallback.",
+/**
+ * Get the tier for a given task type.
+ */
+export function getTaskTier(taskType: AiTaskType): TaskTier {
+  return TASK_TIER_MAP[taskType];
+}
+
+// ━━━ Router Configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export interface RouterConfig {
+  /** User's BYOK model preference for premium tasks */
+  byokModel: AllowedModel;
+  /** User's BYOK API key */
+  byokApiKey: string;
+  /** Force all tasks through BYOK (disable RestoreAssist AI routing) */
+  forceByok?: boolean;
+  /** Force all tasks through RestoreAssist AI (ignore tier, for testing) */
+  forceRestoreAssistAi?: boolean;
+}
+
+// ━━━ Routed Request ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export interface RoutedAiRequest {
+  /** The task type being performed */
+  taskType: AiTaskType;
+  /** System prompt */
+  systemPrompt: string;
+  /** User text prompt */
+  userPrompt: string;
+  /** Optional vision inputs */
+  visionInputs?: VisionInput[];
+  /** Temperature override */
+  temperature?: number;
+  /** Max tokens override */
+  maxTokens?: number;
+  /** Timeout override in ms */
+  timeoutMs?: number;
+}
+
+export interface RoutedAiResponse {
+  /** The generated text */
+  text: string;
+  /** Which model generated the response */
+  model: string;
+  /** Which tier was used */
+  tier: TaskTier;
+  /** Whether it fell back from RestoreAssist AI to BYOK */
+  fellBack: boolean;
+  /** Token usage */
+  usage?: { inputTokens: number; outputTokens: number };
+  /** Estimated cost in USD */
+  estimatedCostUsd?: number;
+  /** Duration in ms */
+  durationMs: number;
+  /** The task type that was routed */
+  taskType: AiTaskType;
+}
+
+// ━━━ Router ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * Route an AI request to the appropriate model tier.
+ *
+ * Routing logic:
+ * 1. If forceByok → always use BYOK
+ * 2. If forceRestoreAssistAi → always use RestoreAssist AI (with BYOK fallback)
+ * 3. If task is "basic" → RestoreAssist AI (with BYOK fallback)
+ * 4. If task is "premium" → BYOK directly
+ */
+export async function routeAiRequest(
+  req: RoutedAiRequest,
+  config: RouterConfig,
+): Promise<RoutedAiResponse> {
+  const tier = getTaskTier(req.taskType);
+
+  // Determine effective routing
+  const useRestoreAssistAi =
+    config.forceRestoreAssistAi || (!config.forceByok && tier === "basic");
+
+  if (useRestoreAssistAi) {
+    // Route to RestoreAssist AI with BYOK fallback
+    const response = await restoreAssistAiDispatch(
+      {
+        systemPrompt: req.systemPrompt,
+        userPrompt: req.userPrompt,
+        visionInputs: req.visionInputs,
+        temperature: req.temperature,
+        maxTokens: req.maxTokens,
+        timeoutMs: req.timeoutMs,
+      },
+      {
+        model: config.byokModel,
+        apiKey: config.byokApiKey,
+      },
     );
+
+    return {
+      text: response.text,
+      model: response.model,
+      tier: response.fellBackToBYOK ? "premium" : "basic",
+      fellBack: response.fellBackToBYOK,
+      usage: response.usage,
+      estimatedCostUsd: response.estimatedCostUsd,
+      durationMs: response.durationMs,
+      taskType: req.taskType,
+    };
   }
 
-  // Build a simple text prompt from the messages array for the legacy provider API
-  const systemMsg = messages.find((m) => m.role === "system");
-  const userMsg = messages.filter((m) => m.role !== "system");
-  const systemText =
-    typeof systemMsg?.content === "string" ? systemMsg.content : undefined;
-  const userText = userMsg
-    .map((m) =>
-      typeof m.content === "string"
-        ? m.content
-        : "[image input not supported on BYOK provider]",
-    )
-    .join("\n");
-
-  const byokText = await callAIProvider(integration, {
-    system: systemText,
-    prompt: userText,
-    maxTokens: maxTokens ?? 4096,
-    temperature: temperature ?? 0.7,
+  // Route directly to BYOK for premium tasks
+  const start = Date.now();
+  const byokResponse = await byokDispatch({
+    model: config.byokModel,
+    apiKey: config.byokApiKey,
+    systemPrompt: req.systemPrompt,
+    userPrompt: req.userPrompt,
+    visionInputs: req.visionInputs,
+    temperature: req.temperature,
+    maxTokens: req.maxTokens,
+    timeoutMs: req.timeoutMs,
   });
 
   return {
-    text: byokText,
-    tier,
-    model: integration.name,
-    provider: "byok",
-    inputTokens: 0, // legacy provider doesn't return token counts
-    outputTokens: 0,
-    cost: 0, // customer's cost, not ours
-    selfHostedUsed: false,
+    text: byokResponse.text,
+    model: byokResponse.model,
+    tier: "premium",
+    fellBack: false,
+    usage: byokResponse.usage,
+    durationMs: byokResponse.durationMs,
+    taskType: req.taskType,
   };
 }
 
-// ─── Cost estimate helper ────────────────────────────────────────────────────
+// ━━━ Convenience Wrappers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export interface CostEstimate {
-  taskType: AITaskType;
-  tier: TaskTier;
-  estimatedCostMin: number;
-  estimatedCostMax: number;
-  provider: "gemma" | "byok";
+/**
+ * Classify evidence photos (basic task → RestoreAssist AI).
+ */
+export async function classifyEvidence(
+  images: VisionInput[],
+  config: RouterConfig,
+  context?: string,
+): Promise<RoutedAiResponse> {
+  return routeAiRequest(
+    {
+      taskType: "classification",
+      systemPrompt:
+        "You are a water damage restoration evidence classifier. " +
+        "Classify each photo into one of the 17 evidence classes: " +
+        "moisture_reading, thermal_image, affected_area_photo, equipment_placement, " +
+        "containment_setup, drying_progress, material_sample, air_quality_reading, " +
+        "scope_documentation, authorization_form, safety_assessment, " +
+        "site_arrival, building_exterior, initial_assessment, " +
+        "final_inspection, client_signoff, fire_smoke_assessment. " +
+        "Return JSON: { classifications: [{ imageIndex: number, class: string, confidence: number }] }",
+      userPrompt: context
+        ? `Classify these ${images.length} inspection photo(s). Context: ${context}`
+        : `Classify these ${images.length} inspection photo(s).`,
+      visionInputs: images,
+      temperature: 0.1,
+      maxTokens: 1024,
+    },
+    config,
+  );
 }
 
-const COST_ESTIMATES: Record<AITaskType, { min: number; max: number }> = {
-  voice_transcription: { min: 0.001, max: 0.002 },
-  note_structuring: { min: 0.001, max: 0.003 },
-  evidence_classification: { min: 0.003, max: 0.005 },
-  photo_quality_scoring: { min: 0.002, max: 0.004 },
-  contradiction_detection: { min: 0.004, max: 0.008 },
-  material_recognition: { min: 0.008, max: 0.015 },
-  contents_manifest_basic: { min: 0.005, max: 0.015 },
-  contents_manifest_detail: { min: 0.05, max: 0.15 },
-  scope_generation: { min: 0.1, max: 0.5 },
-  report_generation: { min: 0.1, max: 0.5 },
-  dispute_defence: { min: 0.15, max: 0.75 },
-};
+/**
+ * Generate S500:2025 compliance report (premium task → BYOK).
+ */
+export async function generateS500Report(
+  inspectionData: string,
+  config: RouterConfig,
+  images?: VisionInput[],
+): Promise<RoutedAiResponse> {
+  return routeAiRequest(
+    {
+      taskType: "s500_report",
+      systemPrompt: S500_VISION_SYSTEM_PROMPT,
+      userPrompt: inspectionData,
+      visionInputs: images,
+      temperature: 0.2,
+      maxTokens: 8192,
+    },
+    config,
+  );
+}
 
-export function estimateTaskCost(taskType: AITaskType): CostEstimate {
-  const tier = getTaskTier(taskType);
-  const { min, max } = COST_ESTIMATES[taskType];
-  const provider =
-    (tier === "basic" || tier === "standard") && isGemmaAvailable()
-      ? "gemma"
-      : "byok";
+/**
+ * Structure field notes into formatted text (basic task → RestoreAssist AI).
+ */
+export async function structureFieldNotes(
+  rawNotes: string,
+  config: RouterConfig,
+): Promise<RoutedAiResponse> {
+  return routeAiRequest(
+    {
+      taskType: "note_structuring",
+      systemPrompt:
+        "You are a restoration field notes formatter. " +
+        "Take raw, informal field notes from a technician and structure them into " +
+        "clear, professional documentation suitable for an insurance report. " +
+        "Preserve all measurements, observations, and technical details. " +
+        "Use Australian English spelling. Reference S500:2025 sections where applicable.",
+      userPrompt: rawNotes,
+      temperature: 0.3,
+      maxTokens: 2048,
+    },
+    config,
+  );
+}
+
+// ━━━ Cost Estimation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * Estimate the cost savings from using the model router vs BYOK-only.
+ *
+ * @param basicTaskCount - Number of basic tasks in a typical session
+ * @param premiumTaskCount - Number of premium tasks in a typical session
+ * @param avgTokensPerTask - Average tokens per task (input + output)
+ * @param byokModel - The BYOK model being compared against
+ * @returns Cost comparison with savings percentage
+ */
+export function estimateRoutingSavings(
+  basicTaskCount: number,
+  premiumTaskCount: number,
+  avgTokensPerTask: number = 3000,
+  byokModel: AllowedModel = "claude-sonnet-4-6",
+): {
+  byokOnlyCost: number;
+  routedCost: number;
+  savingsUsd: number;
+  savingsPercent: number;
+} {
+  // BYOK pricing approximations (USD per 1M tokens, avg of input+output)
+  const byokRates: Record<string, number> = {
+    "claude-opus-4-6": 45.0,
+    "claude-sonnet-4-6": 9.0,
+    "gemini-3.1-pro": 3.0,
+    "gemini-3.1-flash": 0.5,
+    "gpt-5.4": 10.0,
+    "gpt-5.4-mini": 1.0,
+  };
+
+  const byokRate = byokRates[byokModel] ?? 9.0;
+  const raRate =
+    (RESTOREASSIST_AI_PRICING.inputPer1M +
+      RESTOREASSIST_AI_PRICING.outputPer1M) /
+    2;
+
+  const totalTasks = basicTaskCount + premiumTaskCount;
+  const totalTokens = totalTasks * avgTokensPerTask;
+
+  // BYOK-only: everything at BYOK rate
+  const byokOnlyCost = (totalTokens * byokRate) / 1_000_000;
+
+  // Routed: basic at RA rate, premium at BYOK rate
+  const basicTokens = basicTaskCount * avgTokensPerTask;
+  const premiumTokens = premiumTaskCount * avgTokensPerTask;
+  const routedCost =
+    (basicTokens * raRate) / 1_000_000 + (premiumTokens * byokRate) / 1_000_000;
+
+  const savingsUsd = byokOnlyCost - routedCost;
+  const savingsPercent =
+    byokOnlyCost > 0 ? (savingsUsd / byokOnlyCost) * 100 : 0;
+
   return {
-    taskType,
+    byokOnlyCost: Math.round(byokOnlyCost * 10000) / 10000,
+    routedCost: Math.round(routedCost * 10000) / 10000,
+    savingsUsd: Math.round(savingsUsd * 10000) / 10000,
+    savingsPercent: Math.round(savingsPercent * 10) / 10,
+  };
+}
+
+/**
+ * Get a summary of the router's current configuration and health.
+ */
+export async function getRouterStatus(): Promise<{
+  restoreAssistAiHealthy: boolean;
+  taskTypes: Array<{ type: AiTaskType; tier: TaskTier }>;
+  basicTaskCount: number;
+  premiumTaskCount: number;
+}> {
+  const healthy = await isRestoreAssistAiHealthy();
+  const taskTypes = Object.entries(TASK_TIER_MAP).map(([type, tier]) => ({
+    type: type as AiTaskType,
     tier,
-    estimatedCostMin: min,
-    estimatedCostMax: max,
-    provider,
+  }));
+
+  return {
+    restoreAssistAiHealthy: healthy,
+    taskTypes,
+    basicTaskCount: taskTypes.filter((t) => t.tier === "basic").length,
+    premiumTaskCount: taskTypes.filter((t) => t.tier === "premium").length,
   };
 }

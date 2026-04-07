@@ -1,4 +1,3 @@
-// lib/rag/embed.ts
 /**
  * RA-434: Text embedding utility using OpenAI text-embedding-3-small.
  * 1536-dimension vectors stored in IicrcChunk.embedding (pgvector).
@@ -12,12 +11,11 @@ export const EMBEDDING_DIMENSIONS = 1536;
 
 /**
  * Embed a single text string. Returns a 1536-dimension float array.
- * Throws if OPENAI_API_KEY is not set or the API call fails.
  */
 export async function embedText(text: string): Promise<number[]> {
   const response = await openai.embeddings.create({
     model: EMBEDDING_MODEL,
-    input: text.trim().slice(0, 8191), // token limit safety
+    input: text.trim().slice(0, 8191),
     dimensions: EMBEDDING_DIMENSIONS,
   });
   return response.data[0].embedding;
@@ -34,7 +32,6 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
     input: texts.map((t) => t.trim().slice(0, 8191)),
     dimensions: EMBEDDING_DIMENSIONS,
   });
-  // API returns results sorted by index
   return response.data
     .sort((a, b) => a.index - b.index)
     .map((r) => r.embedding);

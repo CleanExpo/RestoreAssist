@@ -1,4 +1,3 @@
-// lib/rag/retrieve.ts
 /**
  * RA-434: IICRC RAG retrieval — pgvector cosine similarity search.
  * Queries IicrcChunk using the <=> operator (cosine distance).
@@ -18,8 +17,8 @@ export interface ChunkResult {
 
 /**
  * Retrieve the top-k most relevant IICRC chunks for a query.
- * @param query  Natural language question or keyword phrase
- * @param k      Number of results to return (default 5)
+ * @param query     Natural language question or keyword phrase
+ * @param k         Number of results to return (default 5)
  * @param standard  Optional — filter to a specific standard e.g. "S500"
  */
 export async function retrieveChunks(
@@ -30,8 +29,7 @@ export async function retrieveChunks(
   const embedding = await embedText(query);
   const vectorLiteral = `[${embedding.join(",")}]`;
 
-  // Raw SQL for pgvector cosine distance operator (<=>)
-  // Prisma doesn't natively support custom operators
+  // Raw SQL required — Prisma doesn't support the pgvector <=> operator natively
   const rows = await prisma.$queryRawUnsafe<ChunkResult[]>(
     `
     SELECT
@@ -55,7 +53,7 @@ export async function retrieveChunks(
 }
 
 /**
- * Format retrieved chunks into a system-prompt-friendly context block.
+ * Format retrieved chunks as a system-prompt context block.
  * Suitable for injection into AI report generation prompts.
  */
 export function formatChunksAsContext(chunks: ChunkResult[]): string {

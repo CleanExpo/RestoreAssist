@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(
   request: NextRequest,
@@ -91,6 +92,39 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // ── Allowlist validation on the most dangerous scalar fields ─────────────
+    const VALID_WATER_CATEGORIES = ["Category 1", "Category 2", "Category 3", null, undefined]
+    const VALID_WATER_CLASSES    = ["Class 1", "Class 2", "Class 3", "Class 4", null, undefined]
+    const VALID_DEPTH_LEVELS     = ["Basic", "Enhanced", "Optimised", null, undefined]
+
+    if (body.waterCategory !== undefined && !VALID_WATER_CATEGORIES.includes(body.waterCategory)) {
+      return NextResponse.json({ error: `Invalid waterCategory` }, { status: 400 })
+    }
+    if (body.waterClass !== undefined && !VALID_WATER_CLASSES.includes(body.waterClass)) {
+      return NextResponse.json({ error: `Invalid waterClass` }, { status: 400 })
+    }
+    if (body.reportDepthLevel !== undefined && !VALID_DEPTH_LEVELS.includes(body.reportDepthLevel)) {
+      return NextResponse.json({ error: `Invalid reportDepthLevel` }, { status: 400 })
+    }
+    if (body.totalCost !== undefined && body.totalCost !== null) {
+      const tc = Number(body.totalCost)
+      if (!isFinite(tc) || tc < 0 || tc > 100_000_000) {
+        return NextResponse.json({ error: "totalCost must be a non-negative finite number up to 100,000,000" }, { status: 400 })
+      }
+    }
+    if (body.dryingPlan?.targetHumidity !== undefined) {
+      const h = Number(body.dryingPlan.targetHumidity)
+      if (!isFinite(h) || h < 0 || h > 100) {
+        return NextResponse.json({ error: "targetHumidity must be between 0 and 100" }, { status: 400 })
+      }
+    }
+    if (body.dryingPlan?.targetTemperature !== undefined) {
+      const t = Number(body.dryingPlan.targetTemperature)
+      if (!isFinite(t) || t < -20 || t > 100) {
+        return NextResponse.json({ error: "targetTemperature must be between -20 and 100" }, { status: 400 })
+      }
+    }
+
     // Check if report exists and belongs to user
     const existingReport = await prisma.report.findFirst({
       where: {
@@ -103,16 +137,24 @@ export async function PUT(
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
+    // Sanitise free-text fields — consistent with POST handler (create path)
+    const sanitisedTitle           = body.title           !== undefined ? sanitizeString(body.title, 500)           : undefined
+    const sanitisedClientName      = body.clientName      !== undefined ? sanitizeString(body.clientName, 300)      : undefined
+    const sanitisedPropertyAddress = body.propertyAddress !== undefined ? sanitizeString(body.propertyAddress, 500) : undefined
+    const sanitisedHazardType      = body.hazardType      !== undefined ? sanitizeString(body.hazardType, 200)      : undefined
+    const sanitisedInsuranceType   = body.insuranceType   !== undefined ? sanitizeString(body.insuranceType, 200)   : undefined
+    const sanitisedDescription     = body.description     !== undefined ? sanitizeString(body.description, 5000)    : undefined
+
     // Update the report with the same field mapping as POST
     const updatedReport = await prisma.report.update({
       where: { id },
       data: {
-        // Basic fields
-        title: body.title,
-        clientName: body.clientName,
-        propertyAddress: body.propertyAddress,
-        hazardType: body.hazardType,
-        insuranceType: body.insuranceType,
+        // Basic fields (sanitised)
+        title: sanitisedTitle,
+        clientName: sanitisedClientName,
+        propertyAddress: sanitisedPropertyAddress,
+        hazardType: sanitisedHazardType,
+        insuranceType: sanitisedInsuranceType,
         
         // IICRC Assessment fields
         inspectionDate: body.inspectionDate ? new Date(body.inspectionDate) : existingReport.inspectionDate,
@@ -155,7 +197,7 @@ export async function PUT(
         // Optional fields
         completionDate: body.completionDate ? new Date(body.completionDate) : existingReport.completionDate,
         totalCost: body.totalCost,
-        description: body.description,
+        description: sanitisedDescription,
         
         // Phase 6 & 7: Scope of Works and Cost Estimation documents
         scopeOfWorksDocument: body.scopeOfWorksDocument !== undefined ? body.scopeOfWorksDocument : existingReport.scopeOfWorksDocument,

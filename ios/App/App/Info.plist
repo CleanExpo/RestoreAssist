@@ -49,6 +49,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>RestoreAssist uses your camera to photograph moisture meters, thermo-hygrometers, and laser measures so readings can be automatically extracted into your inspection report.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>RestoreAssist uses your microphone to record field observations as voice notes. Audio is transcribed locally and used to populate your inspection report.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>RestoreAssist accesses your photo library to attach existing inspection photos to reports.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

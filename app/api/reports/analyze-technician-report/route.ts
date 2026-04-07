@@ -12,16 +12,16 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Rate limit: 10 technician report analyses per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "analyze-tech", key: session.user.email })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "analyze-tech", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { id: session.user.id }
     })
 
     if (!user) {

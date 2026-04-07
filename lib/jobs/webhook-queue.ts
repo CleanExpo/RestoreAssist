@@ -56,6 +56,16 @@ export async function processWebhookQueue(options: {
 
   console.log(`[Webhook Queue] Starting processing (batch: ${batchSize}, concurrent: ${maxConcurrent})`)
 
+  // Recover events stuck in PROCESSING for > 10 minutes (server crash / Vercel timeout)
+  const staleThreshold = new Date(Date.now() - 10 * 60 * 1000)
+  const recovered = await prisma.webhookEvent.updateMany({
+    where: { status: 'PROCESSING', updatedAt: { lt: staleThreshold } },
+    data: { status: 'PENDING' },
+  })
+  if (recovered.count > 0) {
+    console.log(`[Webhook Queue] Recovered ${recovered.count} stale PROCESSING events → PENDING`)
+  }
+
   // Get pending events
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {

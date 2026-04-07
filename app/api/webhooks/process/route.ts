@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processWebhookQueue, getQueueStats } from '@/lib/jobs/webhook-queue'
+import { verifyCronAuth } from '@/lib/cron/auth'
 
 /**
  * POST /api/webhooks/process - Trigger webhook queue processing
@@ -73,19 +74,9 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Optional: Require authentication for GET as well
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-
-    if (cronSecret) {
-      const providedSecret = authHeader?.replace('Bearer ', '')
-      if (providedSecret !== cronSecret) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        )
-      }
-    }
+    // Always require CRON_SECRET — queue stats expose operational data
+    const authResult = verifyCronAuth(request)
+    if (authResult) return authResult
 
     const stats = await getQueueStats()
 

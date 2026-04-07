@@ -124,7 +124,7 @@ export default function Footer({ darkMode }: FooterProps) {
                   }}
                 >
                   <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
-                  <p>ABN: [Company ABN]</p>
+                  {BRAND.company.abn && <p>ABN: {BRAND.company.abn}</p>}
                 </div>
               </div>
             </div>

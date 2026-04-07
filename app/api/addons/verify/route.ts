@@ -86,47 +86,45 @@ export async function POST(request: NextRequest) {
       // Process the add-on purchase
       const paymentIntentId = checkoutSession.payment_intent as string | undefined
 
-      // Create add-on purchase record FIRST (acts as unique lock)
-      let purchaseRecord = null
+      // Atomically create purchase record + increment user's addonReports.
+      // Without a transaction, a server crash between the two writes leaves the
+      // user with a purchase record but no reports credited (unrecoverable without
+      // manual intervention). P2002 on the unique stripeSessionId means already processed.
+      let updatedUser: { addonReports: number | null }
       try {
-        purchaseRecord = await prisma.addonPurchase.create({
-          data: {
-            userId: session.user.id,
-            addonKey: addonKey,
-            addonName: addon.name,
-            reportLimit: addonReports,
-            amount: addon.amount,
-            currency: addon.currency,
-            stripeSessionId: checkoutSession.id,
-            stripePaymentIntentId: paymentIntentId,
-            status: 'COMPLETED',
-          }
-        })
+        const [_, updated] = await prisma.$transaction([
+          prisma.addonPurchase.create({
+            data: {
+              userId: session.user.id,
+              addonKey: addonKey,
+              addonName: addon.name,
+              reportLimit: addonReports,
+              amount: addon.amount,
+              currency: addon.currency,
+              stripeSessionId: checkoutSession.id,
+              stripePaymentIntentId: paymentIntentId,
+              status: 'COMPLETED',
+            },
+          }),
+          prisma.user.update({
+            where: { id: session.user.id },
+            data: { addonReports: { increment: addonReports } },
+            select: { addonReports: true },
+          }),
+        ])
+        updatedUser = updated
       } catch (error: any) {
-        // If record already exists (unique constraint), skip processing
+        // Unique constraint on stripeSessionId — already processed
         if (error.code === 'P2002' || error.message?.includes('Unique constraint') || error.message?.includes('unique')) {
-          return NextResponse.json({ 
+          return NextResponse.json({
             success: true,
             message: "Add-on purchase already processed",
-            addonReports: user?.addonReports || 0
+            addonReports: user?.addonReports || 0,
           })
         }
-        console.warn('⚠️ Could not create AddonPurchase record:', error.message)
-        // If table doesn't exist, continue with user update
+        console.warn('⚠️ Could not process AddonPurchase:', error.message)
+        throw error
       }
-
-      // Only update user if we successfully created the record (or table doesn't exist)
-      const updatedUser = await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          addonReports: {
-            increment: addonReports
-          }
-        },
-        select: {
-          addonReports: true
-        }
-      })
 
       return NextResponse.json({
         success: true,

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Rate limit: 60 searches per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 60, prefix: "search", key: session.user.id });
+    const rateLimited = await applyRateLimit(request, { maxRequests: 60, prefix: "search", key: session.user.id });
     if (rateLimited) return rateLimited;
 
     const { searchParams } = new URL(request.url);

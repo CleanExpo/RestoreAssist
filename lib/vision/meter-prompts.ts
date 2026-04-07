@@ -1,4 +1,3 @@
-// lib/vision/meter-prompts.ts
 /**
  * RA-437: Vision prompts for moisture meter reading extraction.
  * Supports Delmhorst, Protimeter, and Tramex meters — common in Australian
@@ -10,7 +9,7 @@ export type MeterBrand = "delmhorst" | "protimeter" | "tramex" | "unknown";
 export interface MeterReadingResult {
   brand: MeterBrand;
   model?: string;
-  readingValue: number | null; // Numeric reading (e.g. 18.5)
+  readingValue: number | null; // e.g. 18.5
   readingUnit: "%" | "WME" | "RH" | "unknown";
   scale?: string; // e.g. "Wood", "Reference", "WME"
   displayText: string; // Raw text visible on screen
@@ -19,8 +18,7 @@ export interface MeterReadingResult {
 }
 
 /**
- * System prompt for moisture meter reading extraction.
- * Sent as the system message before the image.
+ * System prompt for moisture meter reading extraction via Claude Vision.
  */
 export const METER_EXTRACTION_SYSTEM_PROMPT = `You are an expert at reading moisture meter displays used in water damage restoration (IICRC S500:2025 §8).
 
@@ -49,16 +47,11 @@ Rules:
 - displayText should be exactly what you can read on the screen
 - notes should explain any uncertainty or unusual reading conditions`;
 
-/**
- * User message for a meter image. Appended after the image in the messages array.
- */
 export const METER_EXTRACTION_USER_PROMPT =
   "Extract the moisture reading from this meter display. Return JSON only.";
 
 /**
  * Build the messages array for a Claude Vision meter extraction call.
- * @param base64Image  Base64-encoded image (JPEG or PNG)
- * @param mediaType    MIME type of the image
  */
 export function buildMeterExtractionMessages(
   base64Image: string,
@@ -93,14 +86,12 @@ export function parseMeterResponse(
   responseText: string,
 ): MeterReadingResult | null {
   try {
-    // Strip any markdown code fences
     const cleaned = responseText
       .replace(/^```json\s*/m, "")
       .replace(/^```\s*/m, "")
       .replace(/```$/m, "")
       .trim();
     const parsed = JSON.parse(cleaned) as MeterReadingResult;
-    // Validate required fields
     if (typeof parsed.displayText !== "string") return null;
     if (!["high", "medium", "low"].includes(parsed.confidence)) return null;
     return parsed;

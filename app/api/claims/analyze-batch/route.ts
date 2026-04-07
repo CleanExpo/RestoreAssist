@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 5 batch analyses per 15 minutes per user (heavy operation)
-    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "analyze-batch", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 5, prefix: "analyze-batch", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

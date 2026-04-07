@@ -7,7 +7,7 @@ import { stripe } from "@/lib/stripe"
 import { getUserReportLimits } from "@/lib/report-limits"
 import { getEffectiveSubscription } from "@/lib/organization-credits"
 import { getTrialStatus, checkAndUpdateTrialStatus } from "@/lib/trial-handling"
-import { sanitizeString } from "@/lib/sanitize"
+import { sanitizeString, isValidABN } from "@/lib/sanitize"
 
 export async function GET(request: NextRequest) {
   try {
@@ -263,7 +263,16 @@ export async function PUT(request: NextRequest) {
     const businessName = sanitizeString(body.businessName, 200)
     const businessAddress = sanitizeString(body.businessAddress, 500)
     const businessLogo = sanitizeString(body.businessLogo, 2000)
-    const businessABN = sanitizeString(body.businessABN, 20)
+    const businessABNRaw = sanitizeString(body.businessABN, 20)
+    // Validate ABN using ATO weighted-sum checksum — invalid ABNs on tax invoices
+    // require recipients to withhold 47% PAYG (GST Act compliance).
+    if (businessABNRaw && !isValidABN(businessABNRaw)) {
+      return NextResponse.json(
+        { error: "Invalid ABN — please enter a valid 11-digit Australian Business Number" },
+        { status: 400 }
+      )
+    }
+    const businessABN = businessABNRaw || ""
     const businessPhone = sanitizeString(body.businessPhone, 50)
     const businessEmail = sanitizeString(body.businessEmail, 320)
 

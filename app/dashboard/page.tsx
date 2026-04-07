@@ -27,6 +27,7 @@ import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import UpgradeBanner from "@/components/UpgradeBanner";
 import KpiPanel from "@/components/dashboard/KpiPanel";
+import OnboardingChecklist from "@/components/workspace/OnboardingChecklist";
 
 interface SubscriptionStatus {
   subscriptionStatus?: "TRIAL" | "ACTIVE" | "CANCELED" | "EXPIRED" | "PAST_DUE";
@@ -408,6 +409,9 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main>
         <div className=" mx-auto space-y-8">
+          {/* Onboarding Checklist — shown until all steps complete or dismissed */}
+          <OnboardingChecklist />
+
           {/* KPI Analytics Panel */}
           <KpiPanel />
 

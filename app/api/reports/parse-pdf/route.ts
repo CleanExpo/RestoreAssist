@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id
 
     // Rate limit: 15 PDF parses per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 15, prefix: "parse-pdf", key: userId })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 15, prefix: "parse-pdf", key: userId })
     if (rateLimited) return rateLimited
 
     const formData = await request.formData()

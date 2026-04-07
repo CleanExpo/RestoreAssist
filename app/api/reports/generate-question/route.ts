@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 30 question generations per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 30, prefix: "gen-question", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 30, prefix: "gen-question", key: session.user.id })
     if (rateLimited) return rateLimited
 
     const body = await request.json()

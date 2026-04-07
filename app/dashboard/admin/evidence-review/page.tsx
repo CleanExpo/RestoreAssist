@@ -4,527 +4,716 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
+  Shield,
+  RefreshCw,
+  Search,
   AlertTriangle,
-  CheckCircle2,
-  Flag,
+  CheckCircle,
+  Clock,
   ChevronDown,
   ChevronRight,
-  RefreshCw,
+  FileWarning,
+  ClipboardCheck,
   Filter,
-  ExternalLink,
-  Users,
-  FileCheck,
-  BarChart2,
-  XCircle,
+  BarChart3,
+  Eye,
+  Loader2,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type {
-  InspectionEvidenceRow,
-  EvidenceReviewSummary,
-} from "@/app/api/admin/evidence-review/route";
+import { JOB_TYPE_LABELS } from "@/lib/evidence/workflow-definitions";
+import type { JobType } from "@/lib/evidence/workflow-definitions";
+import { RISK_TIER_LABELS } from "@/lib/types/evidence";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ═══ Types ═══════════════════════════════════════════════════════════
 
-function completionColor(pct: number) {
-  if (pct >= 80) return "text-emerald-400";
-  if (pct >= 50) return "text-amber-400";
-  return "text-red-400";
+interface StepGap {
+  stepKey: string;
+  stepTitle: string;
+  riskTier: number;
+  isMandatory: boolean;
+  status: string;
+  evidenceCount: number;
+  minimumRequired: number;
 }
 
-function completionBarColor(pct: number) {
-  if (pct >= 80) return "bg-emerald-500";
-  if (pct >= 50) return "bg-amber-500";
-  return "bg-red-500";
+interface WorkflowSummary {
+  jobType: string;
+  experienceLevel: string;
+  totalSteps: number;
+  completedSteps: number;
+  skippedSteps: number;
+  isReadyToSubmit: boolean;
+  submissionScore: number | null;
+  lastValidatedAt: string | null;
 }
 
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    DRAFT: "bg-zinc-500/20 text-zinc-300 border-zinc-500/30",
-    SUBMITTED: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-    PROCESSING: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-    CLASSIFIED: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-    SCOPED: "bg-teal-500/20 text-teal-300 border-teal-500/30",
-    ESTIMATED: "bg-green-500/20 text-green-300 border-green-500/30",
-    COMPLETED: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  };
-  return map[status] ?? "bg-zinc-500/20 text-zinc-300 border-zinc-500/30";
+interface InspectionReview {
+  id: string;
+  inspectionNumber: string;
+  propertyAddress: string;
+  technicianName: string | null;
+  status: string;
+  inspectionDate: string;
+  submittedAt: string | null;
+  updatedAt: string;
+  totalEvidence: number;
+  isIncomplete: boolean;
+  isStale: boolean;
+  workflow: WorkflowSummary | null;
+  stepGaps: StepGap[];
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
+interface ApiResponse {
+  inspections: InspectionReview[];
+  summary: {
+    totalWithWorkflow: number;
+    totalIncomplete: number;
+    totalStale: number;
+    averageScore: number | null;
+  };
+}
 
-function StatCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  variant = "default",
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  variant?: "default" | "warning" | "danger" | "success";
-}) {
-  const variants = {
-    default: "border-white/10 bg-white/5",
-    warning: "border-amber-500/20 bg-amber-500/5",
-    danger: "border-red-500/20 bg-red-500/5",
-    success: "border-emerald-500/20 bg-emerald-500/5",
+type StatusFilter = "all" | "incomplete" | "stale";
+
+// ═══ Helpers ═════════════════════════════════════════════════════════
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatShortDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function scoreColor(score: number | null): string {
+  if (score === null) return "text-neutral-400";
+  if (score >= 80) return "text-green-600 dark:text-green-400";
+  if (score >= 50) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
+}
+
+function scoreBg(score: number | null): string {
+  if (score === null) return "bg-neutral-100 dark:bg-neutral-800";
+  if (score >= 80) return "bg-green-500/10";
+  if (score >= 50) return "bg-amber-500/10";
+  return "bg-red-500/10";
+}
+
+function riskBadge(tier: number): { label: string; className: string } {
+  if (tier === 3)
+    return {
+      label: "Critical",
+      className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    };
+  if (tier === 2)
+    return {
+      label: "Elevated",
+      className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    };
+  return {
+    label: "Standard",
+    className:
+      "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
   };
-  const iconVariants = {
-    default: "text-cyan-400",
-    warning: "text-amber-400",
-    danger: "text-red-400",
-    success: "text-emerald-400",
-  };
+}
+
+// ═══ Skeleton ════════════════════════════════════════════════════════
+
+function SkeletonCard() {
   return (
-    <Card className={variants[variant]}>
-      <CardContent className="flex items-start gap-3 pt-5">
-        <div className="rounded-lg bg-white/5 p-2">
-          <Icon className={cn("h-5 w-5", iconVariants[variant])} />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-white">{value}</p>
-          <p className="text-sm text-zinc-400">{label}</p>
-          {sub && <p className="mt-0.5 text-xs text-zinc-600">{sub}</p>}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="animate-pulse rounded-lg border border-neutral-200 dark:border-neutral-800 p-4">
+      <div className="h-4 w-1/3 rounded bg-neutral-200 dark:bg-neutral-700 mb-3" />
+      <div className="h-3 w-2/3 rounded bg-neutral-200 dark:bg-neutral-700 mb-2" />
+      <div className="h-3 w-1/2 rounded bg-neutral-200 dark:bg-neutral-700" />
+    </div>
   );
 }
 
-// ─── Inspection Row ───────────────────────────────────────────────────────────
+// ═══ Main Page ═══════════════════════════════════════════════════════
 
-function InspectionRow({
-  row,
-  onNavigate,
-}: {
-  row: InspectionEvidenceRow;
-  onNavigate: (id: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <>
-      <tr
-        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer"
-        onClick={() => setExpanded((e) => !e)}
-      >
-        {/* Expand toggle */}
-        <td className="px-3 py-3 text-zinc-500">
-          {row.gapCount > 0 ? (
-            expanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )
-          ) : (
-            <CheckCircle2 className="h-4 w-4 text-emerald-500/40" />
-          )}
-        </td>
-
-        {/* Inspection */}
-        <td className="px-3 py-3">
-          <p className="text-sm font-medium text-white">
-            #{row.inspectionNumber}
-          </p>
-          <p className="max-w-[200px] truncate text-xs text-zinc-500">
-            {row.propertyAddress}
-          </p>
-        </td>
-
-        {/* Technician */}
-        <td className="px-3 py-3">
-          <p className="text-sm text-zinc-300">{row.technicianName ?? "—"}</p>
-          <p className="text-xs text-zinc-600">{row.technicianEmail ?? ""}</p>
-        </td>
-
-        {/* Claim type */}
-        <td className="px-3 py-3">
-          <span className="text-xs text-zinc-400">
-            {row.claimType.replace(/_/g, " ")}
-          </span>
-        </td>
-
-        {/* Status */}
-        <td className="px-3 py-3">
-          <Badge
-            variant="outline"
-            className={cn("text-xs", statusBadge(row.status))}
-          >
-            {row.status}
-          </Badge>
-        </td>
-
-        {/* Completion */}
-        <td className="px-3 py-3">
-          <div className="flex items-center gap-2">
-            <div className="w-24">
-              <div className="h-1.5 w-full rounded-full bg-white/10">
-                <div
-                  className={cn(
-                    "h-1.5 rounded-full transition-all",
-                    completionBarColor(row.completionPercentage),
-                  )}
-                  style={{ width: `${row.completionPercentage}%` }}
-                />
-              </div>
-            </div>
-            <span
-              className={cn(
-                "text-sm font-medium tabular-nums",
-                completionColor(row.completionPercentage),
-              )}
-            >
-              {row.completionPercentage}%
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-zinc-600">
-            {row.totalCaptured} / {row.totalRequired} items
-          </p>
-        </td>
-
-        {/* Gaps / Flags */}
-        <td className="px-3 py-3">
-          <div className="flex items-center gap-2">
-            {row.gapCount > 0 && (
-              <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
-                {row.gapCount} gap{row.gapCount !== 1 ? "s" : ""}
-              </Badge>
-            )}
-            {row.flaggedCount > 0 && (
-              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-                <Flag className="mr-1 h-3 w-3" />
-                {row.flaggedCount}
-              </Badge>
-            )}
-          </div>
-        </td>
-
-        {/* Action */}
-        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate(row.id)}
-            className="h-7 px-2 text-zinc-500 hover:text-white"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
-        </td>
-      </tr>
-
-      {/* Expanded gap detail */}
-      {expanded && row.gapCount > 0 && (
-        <tr className="border-b border-white/5 bg-white/[0.015]">
-          <td colSpan={8} className="px-6 py-3">
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                Missing Evidence
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {row.gaps.map((gap) => (
-                  <div
-                    key={gap.evidenceClass}
-                    className="flex items-center gap-1.5 rounded border border-red-500/20 bg-red-500/5 px-2 py-1"
-                  >
-                    <XCircle className="h-3 w-3 text-red-400" />
-                    <span className="text-xs text-zinc-300">
-                      {gap.displayName}
-                    </span>
-                    <span className="text-xs text-zinc-600">
-                      {gap.captured}/{gap.required}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function EvidenceReviewPage() {
+export default function AdminEvidenceReviewPage() {
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
 
-  const [rows, setRows] = useState<InspectionEvidenceRow[]>([]);
-  const [summary, setSummary] = useState<EvidenceReviewSummary | null>(null);
+  const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [gapsOnly, setGapsOnly] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  // Auth guard
-  useEffect(() => {
-    if (authStatus === "unauthenticated") {
-      router.push("/login");
-    }
-  }, [authStatus, router]);
+  // Filters
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("");
+  const [technicianFilter, setTechnicianFilter] = useState("");
 
-  const load = useCallback(async () => {
+  // Expanded rows
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
+      if (search) params.set("search", search);
       if (statusFilter !== "all") params.set("status", statusFilter);
-      if (gapsOnly) params.set("gapsOnly", "true");
+      if (jobTypeFilter) params.set("jobType", jobTypeFilter);
+      if (technicianFilter) params.set("technician", technicianFilter);
 
-      const res = await fetch(`/api/admin/evidence-review?${params}`);
-      if (!res.ok) throw new Error("Failed to load");
-      const json = await res.json();
-      setRows(json.data ?? []);
-      setSummary(json.summary ?? null);
-    } catch {
-      // keep existing data on refresh failure
+      const res = await fetch(
+        `/api/admin/evidence-review?${params.toString()}`,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: ApiResponse = await res.json();
+      setData(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, gapsOnly, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search, statusFilter, jobTypeFilter, technicianFilter]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (authStatus === "unauthenticated") {
+      router.push("/login");
+      return;
+    }
+    if (authStatus === "authenticated") {
+      fetchData();
+    }
+  }, [authStatus, router, fetchData]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Auth guard
+  if (authStatus === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+      </div>
+    );
+  }
+
+  if (session?.user?.role !== "ADMIN") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Shield className="h-10 w-10 text-red-400" />
+        <p className="text-neutral-600 dark:text-neutral-400">
+          Admin access required
+        </p>
+      </div>
+    );
+  }
+
+  const summary = data?.summary;
+  const inspections = data?.inspections ?? [];
+
+  // Derive unique technicians and job types from current data for filter dropdowns
+  const uniqueTechnicians = Array.from(
+    new Set(
+      inspections.map((i) => i.technicianName).filter(Boolean) as string[],
+    ),
+  ).sort();
+  const uniqueJobTypes = Array.from(
+    new Set(
+      inspections.map((i) => i.workflow?.jobType).filter(Boolean) as string[],
+    ),
+  ).sort();
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#0a0a0a] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-white">
-              Evidence Review
-            </h1>
-            <p className="text-sm text-zinc-500">
-              Missing evidence across active inspections — RA-402
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            disabled={loading}
-            className="border-white/10 text-zinc-300"
-          >
-            <RefreshCw
-              className={cn("mr-1.5 h-4 w-4", loading && "animate-spin")}
-            />
-            Refresh
-          </Button>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <ClipboardCheck className="h-6 w-6 text-blue-600" />
+            Evidence Review
+          </h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            Review claim evidence completeness across all inspections
+          </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchData}
+          disabled={loading}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          Refresh
+        </Button>
       </div>
 
-      <div className="mx-auto max-w-7xl space-y-6 p-6">
-        {/* Summary stats */}
-        {summary && (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard
-              label="Active Inspections"
-              value={summary.totalActiveInspections}
-              icon={FileCheck}
-            />
-            <StatCard
-              label="With Evidence Gaps"
-              value={summary.inspectionsWithGaps}
-              sub={
-                summary.totalActiveInspections > 0
-                  ? `${Math.round((summary.inspectionsWithGaps / summary.totalActiveInspections) * 100)}% of active`
-                  : undefined
-              }
-              icon={AlertTriangle}
-              variant={summary.inspectionsWithGaps > 0 ? "warning" : "success"}
-            />
-            <StatCard
-              label="Flagged Items"
-              value={summary.totalFlaggedItems}
-              icon={Flag}
-              variant={summary.totalFlaggedItems > 0 ? "danger" : "default"}
-            />
-            <StatCard
-              label="Avg. Completion"
-              value={`${summary.averageCompletion}%`}
-              icon={BarChart2}
-              variant={
-                summary.averageCompletion >= 80
-                  ? "success"
-                  : summary.averageCompletion >= 50
-                    ? "warning"
-                    : "danger"
-              }
-            />
-          </div>
-        )}
-
-        {/* Technician breakdown */}
-        {summary && summary.technicianBreakdown.length > 0 && (
-          <Card className="border-white/10 bg-white/5">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-cyan-400" />
-                <CardTitle className="text-base text-white">
-                  Technician Summary
-                </CardTitle>
-                <CardDescription>
-                  Sorted by average completion (lowest first)
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {summary.technicianBreakdown.map((tech) => (
-                  <div
-                    key={tech.technicianEmail}
-                    className="flex items-center gap-4"
-                  >
-                    <div className="w-32 shrink-0">
-                      <p className="truncate text-sm text-zinc-300">
-                        {tech.technicianName}
-                      </p>
-                      <p className="truncate text-xs text-zinc-600">
-                        {tech.inspectionCount} inspection
-                        {tech.inspectionCount !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <div className="flex flex-1 items-center gap-2">
-                      <Progress
-                        value={tech.avgCompletion}
-                        className="h-1.5 flex-1"
-                      />
-                      <span
-                        className={cn(
-                          "w-10 text-right text-sm font-medium tabular-nums",
-                          completionColor(tech.avgCompletion),
-                        )}
-                      >
-                        {tech.avgCompletion}%
-                      </span>
-                    </div>
-                    {tech.totalGaps > 0 && (
-                      <Badge className="shrink-0 bg-red-500/20 text-red-400 border-red-500/30">
-                        {tech.totalGaps} gap{tech.totalGaps !== 1 ? "s" : ""}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Filters */}
-        <div className="flex items-center gap-3">
-          <Filter className="h-4 w-4 text-zinc-500" />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-44 border-white/10 bg-white/5 text-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="SUBMITTED">Submitted</SelectItem>
-              <SelectItem value="PROCESSING,CLASSIFIED,SCOPED">
-                In Progress
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant={gapsOnly ? "default" : "outline"}
-            size="sm"
-            onClick={() => setGapsOnly((g) => !g)}
-            className={
-              gapsOnly
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "border-white/10 text-zinc-400"
-            }
-          >
-            <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
-            Gaps Only
-          </Button>
-
-          <span className="text-sm text-zinc-600">
-            {rows.length} inspection{rows.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {/* Table */}
-        <Card className="border-white/10 bg-white/5">
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <RefreshCw className="h-6 w-6 animate-spin text-zinc-600" />
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="py-16 text-center">
-                <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-500/40" />
-                <p className="text-zinc-400">
-                  {gapsOnly
-                    ? "No inspections with evidence gaps"
-                    : "No active inspections found"}
-                </p>
-              </div>
-            ) : (
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500 w-8" />
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500">
-                      Inspection
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500">
-                      Technician
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500">
-                      Type
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500">
-                      Status
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500">
-                      Evidence
-                    </th>
-                    <th className="px-3 py-2 text-xs font-medium text-zinc-500">
-                      Issues
-                    </th>
-                    <th className="px-3 py-2 w-10" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <InspectionRow
-                      key={row.id}
-                      row={row}
-                      onNavigate={(id) =>
-                        router.push(`/dashboard/inspections/${id}/capture`)
-                      }
-                    />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-neutral-500">
+              Total Inspections
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {summary?.totalWithWorkflow ?? "—"}
+            </p>
+            <p className="text-xs text-neutral-400 mt-1">
+              With active workflows
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-neutral-500">
+              Average Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={cn(
+                "text-2xl font-bold",
+                scoreColor(summary?.averageScore ?? null),
+              )}
+            >
+              {summary?.averageScore !== null &&
+              summary?.averageScore !== undefined
+                ? `${summary.averageScore}%`
+                : "—"}
+            </p>
+            <p className="text-xs text-neutral-400 mt-1">
+              Evidence completeness
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-neutral-500">
+              Incomplete
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {summary?.totalIncomplete ?? "—"}
+            </p>
+            <p className="text-xs text-neutral-400 mt-1">
+              Missing mandatory evidence
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-neutral-500">
+              Stale (&gt;48h)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+              {summary?.totalStale ?? "—"}
+            </p>
+            <p className="text-xs text-neutral-400 mt-1">
+              No updates in 48+ hours
+            </p>
+          </CardContent>
         </Card>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <Input
+                placeholder="Search by inspection #, address, or technician..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && fetchData()}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(["all", "incomplete", "stale"] as StatusFilter[]).map((s) => (
+                <Button
+                  key={s}
+                  variant={statusFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setStatusFilter(s);
+                  }}
+                  className="capitalize"
+                >
+                  {s === "stale" ? "Stale (>48h)" : s}
+                </Button>
+              ))}
+            </div>
+            {uniqueJobTypes.length > 0 && (
+              <select
+                value={jobTypeFilter}
+                onChange={(e) => {
+                  setJobTypeFilter(e.target.value);
+                }}
+                className="h-9 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 text-sm"
+              >
+                <option value="">All job types</option>
+                {uniqueJobTypes.map((jt) => (
+                  <option key={jt} value={jt}>
+                    {JOB_TYPE_LABELS[jt as JobType] ?? jt}
+                  </option>
+                ))}
+              </select>
+            )}
+            {uniqueTechnicians.length > 0 && (
+              <select
+                value={technicianFilter}
+                onChange={(e) => {
+                  setTechnicianFilter(e.target.value);
+                }}
+                className="h-9 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 text-sm"
+              >
+                <option value="">All technicians</option>
+                {uniqueTechnicians.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchData}
+              className="gap-1"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              Apply
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Error state */}
+      {error && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardContent className="pt-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+            <div>
+              <p className="font-medium text-red-600 dark:text-red-400">
+                Failed to load evidence data
+              </p>
+              <p className="text-sm text-neutral-500">{error}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchData}
+              className="ml-auto"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading skeleton */}
+      {loading && !data && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && inspections.length === 0 && (
+        <Card>
+          <CardContent className="py-12 flex flex-col items-center gap-3 text-center">
+            <ClipboardCheck className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
+            <p className="text-neutral-500 dark:text-neutral-400">
+              No inspections match the current filters
+            </p>
+            <p className="text-sm text-neutral-400">
+              Try adjusting filters or check back when technicians have started
+              workflows
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Inspection list */}
+      {!loading && inspections.length > 0 && (
+        <div className="space-y-3">
+          {inspections.map((insp) => {
+            const expanded = expandedIds.has(insp.id);
+            const wf = insp.workflow;
+            const score = wf?.submissionScore ?? null;
+            const jobLabel = wf
+              ? (JOB_TYPE_LABELS[wf.jobType as JobType] ?? wf.jobType)
+              : "—";
+
+            return (
+              <Card
+                key={insp.id}
+                className={cn(
+                  "transition-colors",
+                  insp.isStale && "border-red-300 dark:border-red-800",
+                  insp.isIncomplete &&
+                    !insp.isStale &&
+                    "border-amber-300 dark:border-amber-800",
+                )}
+              >
+                {/* Row header — always visible */}
+                <button
+                  onClick={() => toggleExpand(insp.id)}
+                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded-t-lg"
+                >
+                  {expanded ? (
+                    <ChevronDown className="h-4 w-4 text-neutral-400 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+                  )}
+
+                  {/* Score circle */}
+                  <div
+                    className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                      scoreBg(score),
+                      scoreColor(score),
+                    )}
+                  >
+                    {score !== null ? `${score}` : "—"}
+                  </div>
+
+                  {/* Main info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm truncate">
+                        {insp.inspectionNumber}
+                      </span>
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {jobLabel}
+                      </Badge>
+                      {insp.isStale && (
+                        <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 text-xs">
+                          Stale
+                        </Badge>
+                      )}
+                      {insp.isIncomplete && !insp.isStale && (
+                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
+                          Incomplete
+                        </Badge>
+                      )}
+                      {wf?.isReadyToSubmit && (
+                        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-xs">
+                          Ready
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-500 truncate mt-0.5">
+                      {insp.propertyAddress}
+                    </p>
+                  </div>
+
+                  {/* Right-side metadata */}
+                  <div className="hidden sm:flex items-center gap-4 text-xs text-neutral-500 shrink-0">
+                    <div className="text-right">
+                      <p>{insp.technicianName ?? "Unassigned"}</p>
+                      <p className="text-neutral-400">
+                        {formatShortDate(insp.inspectionDate)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p>{insp.totalEvidence} items</p>
+                      <p className="text-neutral-400">
+                        {wf
+                          ? `${wf.completedSteps}/${wf.totalSteps} steps`
+                          : "—"}
+                      </p>
+                    </div>
+                    {insp.stepGaps.length > 0 && (
+                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                        <FileWarning className="h-3.5 w-3.5" />
+                        <span>{insp.stepGaps.length} gaps</span>
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                {/* Expanded detail panel */}
+                {expanded && (
+                  <div className="border-t border-neutral-100 dark:border-neutral-800 px-4 py-4 space-y-4">
+                    {/* Workflow progress bar */}
+                    {wf && (
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-neutral-500">
+                            Workflow progress —{" "}
+                            {wf.experienceLevel.toLowerCase()} mode
+                          </span>
+                          <span className={scoreColor(score)}>
+                            {score !== null ? `${score}%` : "Not validated"}
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              score !== null && score >= 80
+                                ? "bg-green-500"
+                                : score !== null && score >= 50
+                                  ? "bg-amber-500"
+                                  : "bg-red-500",
+                            )}
+                            style={{ width: `${score ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step gaps table */}
+                    {insp.stepGaps.length > 0 ? (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          Evidence Gaps ({insp.stepGaps.length})
+                        </h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-neutral-200 dark:border-neutral-700 text-xs text-neutral-500">
+                                <th className="text-left py-2 pr-3 font-medium">
+                                  Step
+                                </th>
+                                <th className="text-left py-2 pr-3 font-medium">
+                                  Risk
+                                </th>
+                                <th className="text-left py-2 pr-3 font-medium">
+                                  Status
+                                </th>
+                                <th className="text-right py-2 font-medium">
+                                  Evidence
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {insp.stepGaps.map((gap) => {
+                                const risk = riskBadge(gap.riskTier);
+                                return (
+                                  <tr
+                                    key={gap.stepKey}
+                                    className="border-b border-neutral-100 dark:border-neutral-800 last:border-0"
+                                  >
+                                    <td className="py-2 pr-3">
+                                      <div className="flex items-center gap-1.5">
+                                        {gap.isMandatory && (
+                                          <span
+                                            className="text-red-500 text-xs font-bold"
+                                            title="Mandatory"
+                                          >
+                                            *
+                                          </span>
+                                        )}
+                                        <span className="truncate max-w-[200px]">
+                                          {gap.stepTitle}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="py-2 pr-3">
+                                      <Badge
+                                        className={cn(
+                                          "text-xs",
+                                          risk.className,
+                                        )}
+                                      >
+                                        {risk.label}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 pr-3">
+                                      <span className="text-xs text-neutral-500">
+                                        {gap.status.replace(/_/g, " ")}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 text-right">
+                                      <span
+                                        className={cn(
+                                          "text-xs font-mono",
+                                          gap.evidenceCount <
+                                            gap.minimumRequired
+                                            ? "text-red-600 dark:text-red-400"
+                                            : "text-green-600 dark:text-green-400",
+                                        )}
+                                      >
+                                        {gap.evidenceCount}/
+                                        {gap.minimumRequired}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                        <CheckCircle className="h-4 w-4" />
+                        All evidence requirements met
+                      </div>
+                    )}
+
+                    {/* Metadata footer */}
+                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                      <div className="flex gap-4">
+                        <span>Updated: {formatDate(insp.updatedAt)}</span>
+                        {insp.submittedAt && (
+                          <span>Submitted: {formatDate(insp.submittedAt)}</span>
+                        )}
+                        {wf?.lastValidatedAt && (
+                          <span>
+                            Last validated: {formatDate(wf.lastValidatedAt)}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-xs"
+                        onClick={() =>
+                          router.push(
+                            `/dashboard/inspections/${insp.id}/capture`,
+                          )
+                        }
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        View Workflow
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

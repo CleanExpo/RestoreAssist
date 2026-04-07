@@ -1234,6 +1234,15 @@ export default function SettingsPage() {
                 </h2>
 
                 <a
+                  href="/dashboard/settings/ai-providers"
+                  className="w-full flex items-center mb-3 gap-3 px-4 py-3 border rounded-lg transition-colors border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50 text-neutral-700 dark:text-slate-300"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span className="flex-1 text-left">AI Providers (BYOK)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+
+                <a
                   href="/dashboard/change-password"
                   className={cn(
                     "w-full flex items-center mb-3 gap-3 px-4 py-3 border rounded-lg transition-colors",
@@ -1251,19 +1260,6 @@ export default function SettingsPage() {
                       </span>
                     )}
                   </span>
-                  <ArrowRight className="w-4 h-4" />
-                </a>
-
-                <a
-                  href="/dashboard/settings/insurer-profiles"
-                  className={cn(
-                    "w-full flex items-center mb-3 gap-3 px-4 py-3 border rounded-lg transition-colors",
-                    "border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  <Building2 className="w-4 h-4" />
-                  <span className="flex-1 text-left">Insurer Profiles</span>
                   <ArrowRight className="w-4 h-4" />
                 </a>
 

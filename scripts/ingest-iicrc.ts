@@ -1,25 +1,22 @@
-// scripts/ingest-iicrc.ts
 /**
- * RA-434: IICRC PDF ingestion script — chunks PDFs and stores embeddings.
+ * RA-434: IICRC PDF ingestion script — chunks PDFs and stores pgvector embeddings.
  *
  * Usage:
  *   npx tsx scripts/ingest-iicrc.ts --dir ./iicrc-pdfs --standard S500 --edition 2025
  *
- * Expects text files (or pre-extracted .txt) in the given directory.
- * For real PDF extraction, pipe through pdftotext first:
+ * Pre-extract PDF text first:
  *   pdftotext IICRC_S500_2025.pdf IICRC_S500_2025.txt
  *
- * Idempotent: upserts by contentHash — safe to re-run.
+ * Idempotent — upserts by contentHash. Safe to re-run.
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { PrismaClient } from "@prisma/client";
-import { embedBatch } from "../lib/rag/embed";
 
 const prisma = new PrismaClient();
-const CHUNK_SIZE = 500; // characters per chunk (overlap via sliding window)
+const CHUNK_SIZE = 500;
 const CHUNK_OVERLAP = 100;
 
 function parseArgs(): { dir: string; standard: string; edition: string } {
@@ -54,6 +51,12 @@ function extractSection(chunk: string): { section: string; heading: string } {
   };
 }
 
+async function embedBatchDynamic(texts: string[]): Promise<number[][]> {
+  // Dynamic import to avoid requiring OPENAI_API_KEY at module load time
+  const { embedBatch } = await import("../lib/rag/embed");
+  return embedBatch(texts);
+}
+
 async function main() {
   const { dir, standard, edition } = parseArgs();
   console.log(`Ingesting ${standard}:${edition} from ${dir}`);
@@ -66,6 +69,7 @@ async function main() {
   const files = fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".txt") || f.endsWith(".pdf"));
+
   if (files.length === 0) {
     console.log(
       "No .txt or .pdf files found. Extract text first with pdftotext.",
@@ -83,11 +87,10 @@ async function main() {
     const chunks = chunkText(text);
     console.log(`  ${chunks.length} chunks`);
 
-    // Batch embed in groups of 100
     const BATCH = 100;
     for (let i = 0; i < chunks.length; i += BATCH) {
       const batch = chunks.slice(i, i + BATCH);
-      const embeddings = await embedBatch(batch);
+      const embeddings = await embedBatchDynamic(batch);
 
       for (let j = 0; j < batch.length; j++) {
         const content = batch[j];
@@ -99,35 +102,30 @@ async function main() {
         const pageNumber = Math.floor((i + j) / 2) + 1;
         const vectorLiteral = `[${embeddings[j].join(",")}]`;
 
-        try {
-          // Check if exists
-          const existing = await prisma.$queryRawUnsafe<{ id: string }[]>(
-            `SELECT id FROM "IicrcChunk" WHERE "contentHash" = $1 LIMIT 1`,
-            contentHash,
-          );
+        const existing = await prisma.iicrcChunk.findUnique({
+          where: { contentHash },
+          select: { id: true },
+        });
 
-          if (existing.length > 0) {
-            totalSkipped++;
-            continue;
-          }
-
-          await prisma.$executeRawUnsafe(
-            `INSERT INTO "IicrcChunk" (id, standard, edition, section, heading, content, "contentHash", "pageNumber", embedding, "createdAt", "updatedAt")
-             VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW(), NOW())
-             ON CONFLICT ("contentHash") DO NOTHING`,
-            standard,
-            edition,
-            section,
-            heading,
-            content,
-            contentHash,
-            pageNumber,
-            vectorLiteral,
-          );
-          totalUpserted++;
-        } catch (err) {
-          console.error(`  Error upserting chunk ${i + j}:`, err);
+        if (existing) {
+          totalSkipped++;
+          continue;
         }
+
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "IicrcChunk" (id, standard, edition, section, heading, content, "contentHash", "pageNumber", embedding, "createdAt", "updatedAt")
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW(), NOW())
+           ON CONFLICT ("contentHash") DO NOTHING`,
+          standard,
+          edition,
+          section,
+          heading,
+          content,
+          contentHash,
+          pageNumber,
+          vectorLiteral,
+        );
+        totalUpserted++;
       }
 
       process.stdout.write(

@@ -16,7 +16,8 @@ import {
   Clock,
   RefreshCw,
   BarChart2,
-  FileCheck,
+  Database,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -49,6 +50,25 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedDemo = async () => {
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/admin/seed-demo", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        if (data.seeded) fetchStats();
+      } else {
+        alert(data.error || "Failed to seed demo data");
+      }
+    } catch {
+      alert("Network error — seed not run");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   useEffect(() => {
     if (status === "loading") return;
@@ -313,19 +333,26 @@ export default function AdminDashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="flex-col h-auto py-4 gap-2 border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
-              onClick={() => router.push("/dashboard/admin/evidence-review")}
-            >
-              <FileCheck className="h-5 w-5" />
-              <span className="text-sm">Evidence Review</span>
-            </Button>
-            <Button
-              variant="outline"
               className="flex-col h-auto py-4 gap-2 border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
               onClick={() => router.push("/dashboard/admin/ai-lab")}
             >
               <Activity className="h-5 w-5" />
               <span className="text-sm">AI Lab</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-col h-auto py-4 gap-2 border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              onClick={handleSeedDemo}
+              disabled={seeding}
+            >
+              {seeding ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Database className="h-5 w-5" />
+              )}
+              <span className="text-sm">
+                {seeding ? "Seeding…" : "Load Demo"}
+              </span>
             </Button>
           </div>
         </CardContent>

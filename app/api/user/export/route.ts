@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Rate limit: 3 data exports per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 3, prefix: 'user-export' })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 3, prefix: 'user-export' })
     if (rateLimited) return rateLimited
 
     // Fetch all user data in parallel

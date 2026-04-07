@@ -1,75 +1,155 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { uploadToCloudinary } from "@/lib/cloudinary"
+/**
+ * RA-408: Photo upload migrated to pluggable storage provider (Supabase Storage)
+ * POST /api/inspections/[id]/photos
+ *
+ * Existing Cloudinary URLs stored in InspectionPhoto.url continue to resolve
+ * (read-only fallback — no database migration needed).
+ * New uploads go to Supabase Storage with compression pipeline.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getStorageProvider } from "@/lib/storage";
+import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
+import { scheduleCatalog } from "@/lib/media/catalog";
+import { applyRateLimit } from "@/lib/rate-limiter";
+
+// GET - List photos for inspection
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const inspection = await prisma.inspection.findFirst({
+      where: { id, userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!inspection) {
+      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+    }
+
+    const photos = await prisma.inspectionPhoto.findMany({
+      where: { inspectionId: id },
+      orderBy: { timestamp: "desc" },
+      select: {
+        id: true,
+        url: true,
+        thumbnailUrl: true,
+        location: true,
+        description: true,
+        timestamp: true,
+        fileSize: true,
+        mimeType: true,
+      },
+    });
+
+    return NextResponse.json({ photos });
+  } catch (error) {
+    console.error("Error fetching photos:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 // POST - Upload photo
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    const { id } = await params
-    
+
+    // Rate limit: 20 photo uploads per minute per user
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 20,
+      prefix: "photo-upload",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
+
+    const { id } = await params;
+
     // Validate inspection exists and belongs to user
     const inspection = await prisma.inspection.findFirst({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
-    
+        userId: session.user.id,
+      },
+      select: { id: true, workspaceId: true },
+    });
+
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
-    
-    const formData = await request.formData()
-    const file = formData.get("file") as File
-    const location = formData.get("location") as string | null
-    
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+    const location = formData.get("location") as string | null;
+
     if (!file) {
-      return NextResponse.json(
-        { error: "File is required" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
-    
-    // Upload to Cloudinary
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    
-    const uploadResult = await uploadToCloudinary(buffer, {
+
+    // Guard before arrayBuffer() — multipart/form-data bypasses Next.js body size
+    // limits, so an attacker can send a 2GB TIFF that loads into the function heap.
+    const MAX_PHOTO_BYTES = 20 * 1024 * 1024; // 20 MB
+    if (file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json(
+        { error: "File too large — maximum 20 MB per photo" },
+        { status: 413 },
+      );
+    }
+
+    // Get user's org for storage provider resolution
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const storageProvider = await getStorageProvider(user?.organizationId);
+
+    const uploadResult = await storageProvider.upload({
+      buffer,
+      filename: file.name,
+      mimeType: file.type || "image/jpeg",
       folder: `inspections/${id}`,
-      resource_type: "image"
-    })
-    
-    if (!uploadResult.url) {
-      return NextResponse.json(
-        { error: "Failed to upload photo" },
-        { status: 500 }
-      )
-    }
-    
-    // Create photo record
+      orgId: user?.organizationId ?? "no-org",
+      inspectionId: id,
+    });
+
+    // Create photo record — store compressed URL for dashboard viewing
+    // originalUrl (signed) is stored in structuredData for download-original flows
     const photo = await prisma.inspectionPhoto.create({
       data: {
         inspectionId: id,
-        url: uploadResult.url,
-        thumbnailUrl: uploadResult.thumbnailUrl || null,
+        url: uploadResult.compressedUrl,
+        thumbnailUrl: uploadResult.thumbnailUrl ?? null,
         location: location || null,
         fileSize: file.size,
         mimeType: file.type,
-        timestamp: new Date()
-      }
-    })
-    
+        timestamp: new Date(),
+      },
+    });
+
     // Create audit log
     await prisma.auditLog.create({
       data: {
@@ -80,18 +160,32 @@ export async function POST(
         userId: session.user.id,
         changes: JSON.stringify({
           location: photo.location,
-          url: photo.url
-        })
-      }
-    })
-    
-    return NextResponse.json({ photo }, { status: 201 })
+          url: photo.url,
+          storagePath: uploadResult.storagePath,
+          sha256: uploadResult.sha256,
+        }),
+      },
+    });
+
+    // RA-416: Extract EXIF metadata — fire-and-forget, never blocks upload response
+    if (inspection.workspaceId) {
+      extractAndSaveMediaAsset({
+        buffer,
+        originalFilename: file.name,
+        mimeType: file.type || "image/jpeg",
+        fileSize: file.size,
+        storagePath: uploadResult.storagePath,
+        inspectionId: id,
+        workspaceId: inspection.workspaceId,
+      });
+    }
+
+    return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {
-    console.error("Error uploading photo:", error)
+    console.error("Error uploading photo:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
-
