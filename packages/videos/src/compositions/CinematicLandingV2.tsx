@@ -68,6 +68,7 @@ export const CinematicLandingV2: React.FC = () => {
             },
           ]}
           backgroundVariant="dark"
+          backgroundSrc="screenshots/real/dashboard.png"
         />
         {tryAudio("audio/lp-problem.mp3")}
       </Sequence>
