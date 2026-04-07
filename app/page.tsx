@@ -193,9 +193,9 @@ export default function Home() {
         
         {/* Large faded orange/brown star graphic - Bottom Right, Cut Off */}
         <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] md:w-[700px] md:h-[700px] lg:w-[800px] lg:h-[800px] opacity-15 pointer-events-none z-0">
-          <svg viewBox="0 0 200 200" className="w-full h-full">
-            <path 
-              d="M100 20 L120 80 L180 80 L135 115 L155 175 L100 140 L45 175 L65 115 L20 80 L80 80 Z" 
+          <svg aria-hidden="true" viewBox="0 0 200 200" className="w-full h-full">
+            <path
+              d="M100 20 L120 80 L180 80 L135 115 L155 175 L100 140 L45 175 L65 115 L20 80 L80 80 Z"
               fill="#D4A574"
               className="opacity-40"
             />
@@ -285,6 +285,7 @@ export default function Home() {
           </svg>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
+          <h2 className="sr-only">How It Works</h2>
           <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center text-[#1C2E47]" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
             Inspection to Report in One Flow
           </h2>
@@ -355,7 +356,7 @@ export default function Home() {
                 aria-label="Play video"
               >
                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/90 flex items-center justify-center shadow-xl hover:bg-white hover:scale-110 transition-all duration-200">
-                  <svg className="w-8 h-8 md:w-10 md:h-10 text-[#1C2E47] ml-1" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-8 h-8 md:w-10 md:h-10 text-[#1C2E47] ml-1" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </div>
@@ -381,7 +382,7 @@ export default function Home() {
           </svg>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
-          <motion.h2
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -390,7 +391,7 @@ export default function Home() {
             style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
           >
             {BRAND.slogan}
-          </motion.h2>
+          </motion.p>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
