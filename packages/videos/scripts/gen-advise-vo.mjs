@@ -75,7 +75,9 @@ async function generateSegment(segment) {
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`ElevenLabs error ${res.status} for ${segment.file}: ${err}`);
+    throw new Error(
+      `ElevenLabs error ${res.status} for ${segment.file}: ${err}`,
+    );
   }
 
   const buf = await res.arrayBuffer();
