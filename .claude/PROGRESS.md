@@ -415,6 +415,28 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 | Apple Developer Program ($149 AUD/yr)          | Done   | Order W1520046725 — confirmation to phill_bron@hotmail.com; activation pending     |
 | Google Play Developer ($25 USD)                | Done   | Account registered; app pricing set to Free; checklist 13/13 complete              |
 
+## 2026-04-08 — Linear API Key Renewed + Queue Confirmed Empty
+
+| Task                                           | Status | Notes                                                                                                        |
+| ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| Linear API key renewed                         | Done   | New key "Claude Code RestoreAssist" created Apr 8; mcp.json updated; MEMORY.md updated                      |
+| Linear project queue verified empty           | Done   | 447 Done, 1 In Review (RA-287 blocked), 0 Todo, 0 In Progress, 0 Backlog                                    |
+| trusting-einstein worktree confirmed clean     | Done   | PRs #146 + #149 already merged; uncommitted changes are style-only                                           |
+
+## Notes for Next Context Window
+
+- **Linear API key**: See `~/.claude/mcp.json` — key name "Claude Code RestoreAssist" (created Apr 8 2026); update if 401 errors recur
+- **All Linear tasks Done**: 447/448 issues Done; only RA-287 remains (blocked on DO_TOKEN GitHub secret)
+- **Human actions still needed**:
+  - `PORTAL_SECRET` env var on Vercel sandbox (restoreassist-sandbox project)
+  - `NEXT_PUBLIC_COMPANY_ABN=62 580 077 456` on Vercel production
+  - GitHub secrets: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON, ASC_API_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_BASE64, APPLE_TEAM_ID, IOS_CERTIFICATE_BASE64, KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+  - Apple Developer activation: check phill_bron@hotmail.com for confirmation email
+  - Google Play: 12 testers × 14 days of closed testing before production access
+  - RA-287: set DO_TOKEN GitHub secret to enable DigitalOcean deployments
+- **Production restoreassist.com.au**: running Sprint M (RA-446/447/448 inspection photo labels)
+- RA-421/422/396 blocked on Phill input (brand consolidation, workspace spec, voice copilot)
+
 ## 2026-04-07 20:12 — Session End
 
 ## 2026-04-07 23:09 — Session End
