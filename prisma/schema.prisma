@@ -2008,12 +2008,35 @@ model InspectionPhoto {
   gpsLatitude  Float?
   gpsLongitude Float?
 
+  // --- RA-446: IICRC S500:2025 Label Schema Fields ---
+  // Spec: PROJECTS/RestoreAssist/INSPECTION-IMAGE-SCHEMA.md §6
+  // Types: types/inspection-photo-labels.ts
+  damageCategory            String?   // Enum: CAT_1 | CAT_2 | CAT_3
+  damageClass               String?   // Enum: CLASS_1 | CLASS_2 | CLASS_3 | CLASS_4
+  s500SectionRef            String?   // Pattern: §XX.X — IICRC S500:2025 section reference
+  roomType                  String?   // Enum: KITCHEN | BATHROOM | LAUNDRY | ...
+  moistureSource            String?   // Enum: FLEXI_HOSE | PIPE_BURST | ...
+  affectedMaterial          String[]  // Multi-select AU building materials (min 1 when labelled)
+  surfaceOrientation        String?   // Enum: FLOOR | WALL_LOWER | CEILING | ...
+  damageExtentEstimate      String?   // Enum: SPOT | PARTIAL | MAJORITY | FULL | UNCERTAIN
+  equipmentVisible          Boolean   @default(false)
+  secondaryDamageIndicators String[]  // Multi-select; ASBESTOS_SUSPECT triggers stop-work modal
+  photoStage                String?   // Enum: PRE_WORK | DURING_WORK | MONITORING | POST_WORK | REINSTATEMENT
+  captureAngle              String?   // Enum: STRAIGHT_ON | OBLIQUE | OVERHEAD | MACRO | WIDE
+  labelledBy                String    @default("HUMAN_TECH")
+  technicianNotes           String?   @db.Text
+  moistureReadingLink       String?   // Soft FK to MoistureReading.id (no enforced constraint)
+  // --- End RA-446 Label Schema Fields ---
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([timestamp])
-  @@index([inspectionId, timestamp]) // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
+  @@index([inspectionId, timestamp])  // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
+  @@index([roomType])                 // RA-448 evidence screen filter
+  @@index([damageCategory])           // RA-448 evidence screen filter
+  @@index([photoStage])               // RA-448 evidence screen filter
 }
 
 model ChatMessage {
