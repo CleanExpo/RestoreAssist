@@ -74,7 +74,7 @@ export const AttractV1: React.FC = () => {
       {/* ── Scene 2: The Problem ─────────────────────────────────────────── */}
       <Sequence from={S2.from} durationInFrames={S2.dur} name="S2: Problem">
         <PremiumScene
-          screenshotPath="screenshots/real/invoice.png"
+          screenshotPath="screenshots/real/compliance.png"
           label="The Problem"
           headline={"Three hours of\npaperwork.\nPer job."}
           body="Manual scopes. Disputed claims. Moisture readings on paper, typed up later. Data split across phones, emails, and spreadsheets. Your team deserves better."
@@ -96,7 +96,7 @@ export const AttractV1: React.FC = () => {
       {/* ── Scene 4: Compliance ──────────────────────────────────────────── */}
       <Sequence from={S4.from} durationInFrames={S4.dur} name="S4: Compliance">
         <PremiumScene
-          screenshotPath="screenshots/real/compliance.png"
+          screenshotPath="screenshots/real/report.png"
           label="Built-In Compliance"
           headline={"Zero disputed\nclaims from\nmissing citations."}
           body="State-specific compliance triggers fire automatically. All eight Australian states covered. Insurers approve faster when every standard is cited on every scope."
