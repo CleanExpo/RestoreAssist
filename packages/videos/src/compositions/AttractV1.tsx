@@ -1,0 +1,124 @@
+// packages/videos/src/compositions/AttractV1.tsx
+// VIDEO 1: ATTRACT — 60s homepage hero / paid ad video.
+// Premium SaaS aesthetic. Dark base, 25% workflow BG, floating card + text.
+// Audience: Cold traffic — restoration company owners discovering RestoreAssist.
+// Goal: Free trial signup. Punchy. Fast cuts. Every job. One platform.
+import React from "react";
+import {
+  AbsoluteFill,
+  Audio,
+  interpolate,
+  Sequence,
+  staticFile,
+  useCurrentFrame,
+} from "remotion";
+import { PremiumScene } from "../components/premium";
+
+// ─── Scene timing (total = 2010f = 67s @ 30fps) ──────────────────────────────
+// Actual audio durations from ElevenLabs output + 1.2s buffer each.
+const S1 = { from: 0, dur: 270 }; //  9.0s — Hook (audio 8.0s)
+const S2 = { from: 270, dur: 300 }; // 10.0s — Problem (audio 8.6s)
+const S3 = { from: 570, dur: 435 }; // 14.5s — AI Scope (audio 13.2s)
+const S4 = { from: 1005, dur: 390 }; // 13.0s — Compliance (audio 11.6s)
+const S5 = { from: 1395, dur: 300 }; // 10.0s — Evidence (audio 8.9s)
+const S6 = { from: 1695, dur: 315 }; // 10.5s — CTA (audio 9.3s)
+const TOTAL = S6.from + S6.dur; // 2010f = 67s ✓
+
+// bgOffset per scene so each scene's background shows different workflow steps
+const BG_OFFSETS = [0, 180, 360, 540, 720, 900];
+
+export const AttractV1: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  // Background music — barely audible ambient bed
+  const bgMusicVolume = interpolate(
+    frame,
+    [0, 30, TOTAL - 30, TOTAL],
+    [0, 0.07, 0.07, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+
+  return (
+    <AbsoluteFill>
+      {/* Google Fonts: Inter — matches RestoreAssist brand */}
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+
+      {/* Background music bed */}
+      <Audio src={staticFile("audio/bg-music.mp3")} volume={bgMusicVolume} />
+
+      {/* ── Scene 1: Hook ────────────────────────────────────────────────── */}
+      <Sequence from={S1.from} durationInFrames={S1.dur} name="S1: Hook">
+        <PremiumScene
+          screenshotPath="screenshots/real/dashboard.png"
+          label="RestoreAssist"
+          headline={"Every job.\nDocumented.\nPaid."}
+          body="The platform Australian restoration professionals use to run their entire business — from first inspection to final invoice."
+          audioSrc="audio/attract-s1.mp3"
+          bgOffset={BG_OFFSETS[0]}
+        />
+      </Sequence>
+
+      {/* ── Scene 2: The Problem ─────────────────────────────────────────── */}
+      <Sequence from={S2.from} durationInFrames={S2.dur} name="S2: Problem">
+        <PremiumScene
+          screenshotPath="screenshots/real/scope.png"
+          label="The Problem"
+          headline={"Three hours of\npaperwork.\nPer job."}
+          body="Manual scopes. Disputed claims. Moisture readings on paper, typed up later. Data split across phones, emails, and spreadsheets. Your team deserves better."
+          audioSrc="audio/attract-s2.mp3"
+          bgOffset={BG_OFFSETS[1]}
+        />
+      </Sequence>
+
+      {/* ── Scene 3: AI Scope Generation ─────────────────────────────────── */}
+      <Sequence from={S3.from} durationInFrames={S3.dur} name="S3: AI Scope">
+        <PremiumScene
+          screenshotPath="screenshots/real/scope.png"
+          label="AI Scope Generation"
+          headline={"30 seconds.\nIICRC-cited.\nInsurer-ready."}
+          body="AI generates your complete scope of works from inspection data. Every line item calculated. S500, S520, and S700 cited on every scope item. No manual entry. No disputes."
+          audioSrc="audio/attract-s3.mp3"
+          bgOffset={BG_OFFSETS[2]}
+        />
+      </Sequence>
+
+      {/* ── Scene 4: Compliance ──────────────────────────────────────────── */}
+      <Sequence from={S4.from} durationInFrames={S4.dur} name="S4: Compliance">
+        <PremiumScene
+          screenshotPath="screenshots/real/compliance.png"
+          label="Built-In Compliance"
+          headline={"Zero disputed\nclaims from\nmissing citations."}
+          body="State-specific compliance triggers fire automatically. All eight Australian states covered. Insurers approve faster when every standard is cited on every scope."
+          audioSrc="audio/attract-s4.mp3"
+          bgOffset={BG_OFFSETS[3]}
+        />
+      </Sequence>
+
+      {/* ── Scene 5: Evidence ────────────────────────────────────────────── */}
+      <Sequence from={S5.from} durationInFrames={S5.dur} name="S5: Evidence">
+        <PremiumScene
+          screenshotPath="screenshots/real/report.png"
+          label="Court-Ready Evidence"
+          headline={"Captured on site.\nNot assembled\nfrom memory."}
+          body="Timestamped photos, moisture readings, and classifications recorded during inspection — not pieced together afterward. Documentation that insurers accept without dispute."
+          audioSrc="audio/attract-s5.mp3"
+          bgOffset={BG_OFFSETS[4]}
+        />
+      </Sequence>
+
+      {/* ── Scene 6: CTA ─────────────────────────────────────────────────── */}
+      <Sequence from={S6.from} durationInFrames={S6.dur} name="S6: CTA">
+        <PremiumScene
+          screenshotPath="screenshots/real/dashboard.png"
+          label="Start Free Today"
+          headline={"Three reports.\nFree. No\ncredit card."}
+          body="Join restoration professionals across Australia already saving hours every week."
+          audioSrc="audio/attract-s6.mp3"
+          bgOffset={BG_OFFSETS[5]}
+          variant="center"
+          ctaUrl="restoreassist.app"
+        />
+      </Sequence>
+    </AbsoluteFill>
+  );
+};
