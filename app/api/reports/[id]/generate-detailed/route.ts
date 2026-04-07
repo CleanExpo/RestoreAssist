@@ -19,7 +19,7 @@ export async function POST(
     const userId = session.user.id
 
     // Rate limit: 10 detailed report generations per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-detailed", key: userId })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "gen-detailed", key: userId })
     if (rateLimited) return rateLimited
     const { id } = await params
 

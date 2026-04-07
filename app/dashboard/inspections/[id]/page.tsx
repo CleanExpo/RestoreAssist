@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
+import { MobileNav } from "@/components/mobile/MobileNav";
 import dynamic from "next/dynamic";
 const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
@@ -48,6 +49,9 @@ import {
   X,
   Save,
   FileDown,
+  Building2,
+  ExternalLink,
+  Mic,
 } from "lucide-react";
 import {
   Dialog,
@@ -77,7 +81,8 @@ type Tab =
   | "scope"
   | "costs"
   | "photos"
-  | "activity";
+  | "activity"
+  | "insurer";
 
 interface Inspection {
   id: string;
@@ -250,6 +255,7 @@ export default function InspectionDetailPage({
   const router = useRouter();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [scopeItems, setScopeItems] = useState<Inspection["scopeItems"]>([]);
@@ -289,6 +295,7 @@ export default function InspectionDetailPage({
   });
   const [addingMoisture, setAddingMoisture] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [generatingDisputePack, setGeneratingDisputePack] = useState(false);
   const [affectedAreas, setAffectedAreas] = useState<
     Inspection["affectedAreas"]
   >([]);
@@ -343,6 +350,7 @@ export default function InspectionDetailPage({
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to load inspection");
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -550,6 +558,40 @@ export default function InspectionDetailPage({
     }
   }
 
+  async function handleGenerateDisputePack() {
+    if (!inspection) return;
+    setGeneratingDisputePack(true);
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspection.id}/dispute-pack`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { error?: string }).error ?? "Dispute pack generation failed",
+        );
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dispute-pack-${inspection.inspectionNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Dispute Defence Pack downloaded");
+    } catch (err) {
+      console.error("Dispute pack generation error:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to generate dispute pack",
+      );
+    } finally {
+      setGeneratingDisputePack(false);
+    }
+  }
+
   async function handleAddArea() {
     if (!inspection) return;
     if (!areaForm.roomZoneId.trim()) {
@@ -630,7 +672,29 @@ export default function InspectionDetailPage({
     );
   }
 
-  if (!inspection) return null;
+  if (!inspection) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <XCircle className="text-red-500" size={40} />
+        <p className="text-gray-400 text-sm">
+          {loadError
+            ? "Could not load inspection. Check your connection and try again."
+            : "Inspection not found."}
+        </p>
+        {loadError && (
+          <Button
+            variant="outline"
+            onClick={() => { setLoadError(false); fetchInspection(); }}
+          >
+            Retry
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/inspections")}>
+          Back to inspections
+        </Button>
+      </div>
+    );
+  }
 
   const classification = inspection.classifications?.[0];
   const totalCost = inspection.costEstimates.reduce(
@@ -684,6 +748,7 @@ export default function InspectionDetailPage({
       count: inspection.photos.length,
     },
     { key: "activity", label: "Activity", icon: History },
+    { key: "insurer", label: "Insurer Profile", icon: Building2 },
   ];
 
   return (
@@ -692,9 +757,10 @@ export default function InspectionDetailPage({
       <div className="flex items-start gap-4">
         <button
           onClick={() => router.push("/dashboard/inspections")}
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5"
+          aria-label="Back to inspections"
+          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={20} aria-hidden="true" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
@@ -727,6 +793,25 @@ export default function InspectionDetailPage({
               </button>
             )}
             <ExportPdfButton inspectionId={inspection.id} />
+            {(inspection.status === "SUBMITTED" ||
+              inspection.status === "COMPLETED") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateDisputePack}
+                disabled={generatingDisputePack}
+                className="text-xs gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10"
+              >
+                {generatingDisputePack ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Shield className="h-3.5 w-3.5" />
+                )}
+                {generatingDisputePack
+                  ? "Generating..."
+                  : "Dispute Defence Pack"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -749,6 +834,13 @@ export default function InspectionDetailPage({
               Share with Client
             </Button>
             <Link
+              href={`/dashboard/inspections/${inspection.id}/voice`}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-[#1C2E47] text-[#1C2E47] dark:border-[#D4A574] dark:text-[#D4A574] hover:bg-[#1C2E47]/10 text-xs font-semibold transition-colors"
+            >
+              <Mic size={14} />
+              Voice Copilot
+            </Link>
+            <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
             >
@@ -763,10 +855,11 @@ export default function InspectionDetailPage({
               <DialogHeader>
                 <DialogTitle>Share with Client</DialogTitle>
               </DialogHeader>
-              <div className="py-2">
+              <div className="py-2" aria-live="polite" aria-atomic="true">
                 {shareLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="animate-spin text-cyan-500" size={24} />
+                  <div role="status" aria-label="Generating client portal link" className="flex items-center justify-center py-4">
+                    <Loader2 className="animate-spin text-cyan-500" size={24} aria-hidden="true" />
+                    <span className="sr-only">Generating client portal link…</span>
                   </div>
                 ) : shareUrl ? (
                   <div className="space-y-3">
@@ -777,6 +870,7 @@ export default function InspectionDetailPage({
                       <input
                         readOnly
                         value={shareUrl}
+                        aria-label="Client portal link"
                         className="flex-1 px-3 py-2 text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800"
                       />
                       <Button size="sm" onClick={handleCopyShareUrl}>
@@ -815,22 +909,27 @@ export default function InspectionDetailPage({
       <StatusTimeline currentStatus={inspection.status} />
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700">
+      <div role="tablist" aria-label="Inspection sections" className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700">
         {TABS.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            aria-controls={`tabpanel-${tab.key}`}
+            id={`tab-${tab.key}`}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2",
+              "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
               activeTab === tab.key
                 ? "border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10"
                 : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50",
             )}
           >
-            <tab.icon size={16} />
+            <tab.icon size={16} aria-hidden="true" />
             {tab.label}
             {tab.count !== undefined && (
               <span
+                aria-label={`${tab.count} items`}
                 className={cn(
                   "px-1.5 py-0.5 rounded-full text-xs",
                   activeTab === tab.key
@@ -1396,9 +1495,10 @@ export default function InspectionDetailPage({
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleDeleteMoisture(reading.id)}
-                            className="text-red-400 hover:text-red-600 transition-colors"
+                            aria-label={`Delete moisture reading for ${reading.location}`}
+                            className="text-red-400 hover:text-red-600 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={14} aria-hidden="true" />
                           </button>
                         </td>
                       </tr>
@@ -1572,10 +1672,10 @@ export default function InspectionDetailPage({
                         )}
                         <button
                           onClick={() => handleDeleteArea(area.id)}
-                          className="p-1 text-red-400 hover:text-red-600 transition-colors"
-                          title="Delete area"
+                          aria-label={`Delete area ${area.roomZoneId}`}
+                          className="p-1 text-red-400 hover:text-red-600 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -2045,17 +2145,17 @@ export default function InspectionDetailPage({
                             toast.error("Failed to update scope item");
                           }
                         }}
+                        role="checkbox"
+                        aria-checked={item.isSelected}
+                        aria-label={item.isSelected ? `Deselect: ${item.description}` : `Select: ${item.description}`}
                         className={cn(
-                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors",
+                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none",
                           item.isSelected
                             ? "bg-emerald-500 text-white hover:bg-emerald-600"
                             : "bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600",
                         )}
-                        title={
-                          item.isSelected ? "Deselect item" : "Select item"
-                        }
                       >
-                        {item.isSelected && <CheckCircle2 size={14} />}
+                        {item.isSelected && <CheckCircle2 size={14} aria-hidden="true" />}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -2097,10 +2197,10 @@ export default function InspectionDetailPage({
                               unit: item.unit ?? "",
                             });
                           }}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
-                          title="Edit"
+                          aria-label={`Edit scope item: ${item.description}`}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={14} aria-hidden="true" />
                         </button>
                         <button
                           onClick={async () => {
@@ -2120,10 +2220,10 @@ export default function InspectionDetailPage({
                               toast.error("Failed to delete scope item");
                             }
                           }}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          title="Delete"
+                          aria-label={`Delete scope item: ${item.description}`}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -2221,6 +2321,24 @@ export default function InspectionDetailPage({
           <ActivityTimeline inspectionId={inspection.id} />
         )}
 
+        {/* Insurer Profile Tab */}
+        {activeTab === "insurer" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Select an insurer to see evidence requirements and submission
+                preferences for this inspection.
+              </p>
+              <a
+                href={`/dashboard/inspections/${inspection.id}/insurer-profile`}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Open Full Profile <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Photos Tab */}
         {activeTab === "photos" && (
           <div>
@@ -2245,6 +2363,9 @@ export default function InspectionDetailPage({
                 type="file"
                 accept="image/*"
                 multiple
+                aria-label="Upload inspection photos"
+                aria-hidden="true"
+                tabIndex={-1}
                 className="hidden"
                 onChange={(e) => handlePhotoUpload(e.target.files)}
               />
@@ -2288,6 +2409,9 @@ export default function InspectionDetailPage({
         inspectionId={inspection.id}
         inspectionStatus={inspection.status}
       />
+
+      {/* Mobile bottom nav — field shortcuts on small screens */}
+      <MobileNav inspectionId={inspection.id} />
     </div>
   );
 }

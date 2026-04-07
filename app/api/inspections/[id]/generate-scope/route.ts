@@ -55,6 +55,17 @@ export async function POST(
 
     const { id: inspectionId } = await context.params
     const body = await request.json()
+
+    // Allowlist model IDs — prevents cost manipulation via expensive/arbitrary model names
+    const ALLOWED_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5"] as const
+    const rawModel = body.model ?? "claude-sonnet-4-6"
+    if (!ALLOWED_MODELS.includes(rawModel)) {
+      return NextResponse.json(
+        { error: `model must be one of: ${ALLOWED_MODELS.join(", ")}` },
+        { status: 400 }
+      )
+    }
+
     const {
       model = "claude-sonnet-4-6",
       affectedAreaM2,
@@ -132,7 +143,7 @@ export async function POST(
       .map((s) => ({
         label: s.description.split(" — ")[0],
         quantity: s.quantity ?? 1,
-        iicrcReference: s.justification?.match(/IICRC S500:2021 §[\d.]+/)?.[0] ?? "IICRC S500:2021",
+        iicrcReference: s.justification?.match(/IICRC S500:(?:2021|2025) §[\d.]+/)?.[0] ?? "IICRC S500:2025",
         justification: s.justification ?? s.description,
         estimatedAmpsTotal: parseFloat(
           s.specification?.match(/(\d+\.?\d*)A total/)?.[1] ?? "0"
@@ -283,20 +294,22 @@ export async function POST(
                   itemType: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 50),
                   description: title,
                   autoDetermined: false,
-                  justification: iicrcRef ?? "AI-generated per IICRC S500:2021",
+                  justification: iicrcRef ?? "AI-generated per IICRC S500:2025",
                   isRequired: true,
                   isSelected: true,
                 }
               })
 
-              // Atomic: delete stale items and create new ones in one transaction
+              // Pre-generate IDs so createMany returns deterministic IDs without N+1 queries
+              const { randomUUID } = await import("crypto")
+              const newItemsWithIds = newItems.map((item) => ({ id: randomUUID(), ...item }))
+
+              // Atomic: delete stale items and bulk-insert new ones in one transaction
               await prisma.$transaction(async (tx) => {
                 await tx.scopeItem.deleteMany({ where: { inspectionId, autoDetermined: false } })
-                for (const item of newItems) {
-                  const created = await tx.scopeItem.create({ data: item })
-                  savedScopeItemIds.push(created.id)
-                }
+                await tx.scopeItem.createMany({ data: newItemsWithIds })
               })
+              savedScopeItemIds.push(...newItemsWithIds.map((i) => i.id))
             }
           } catch (parseErr) {
             console.warn("[generate-scope] ScopeItem parse failed:", parseErr)

@@ -22,6 +22,10 @@ export async function POST(request: NextRequest) {
     if (!libraryId || !category || !description || rate === undefined || !unit) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
+    const parsedRate = parseFloat(rate)
+    if (!isFinite(parsedRate) || parsedRate < 0 || parsedRate > 1_000_000) {
+      return NextResponse.json({ error: "Rate must be a non-negative number up to 1,000,000" }, { status: 400 })
+    }
 
     // Verify library belongs to user
     const library = await prisma.costLibrary.findFirst({
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest) {
       data: {
         category,
         description,
-        rate: parseFloat(rate),
+        rate: parsedRate,
         unit,
         libraryId
       }

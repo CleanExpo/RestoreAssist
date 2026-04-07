@@ -2,251 +2,202 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  getSubmissionGateRequirements,
-  EVIDENCE_CLASSES,
-} from "@/lib/evidence";
-import type { EvidenceClass, InspectionStatus } from "@prisma/client";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+/**
+ * [RA-402] Admin Evidence Review API
+ * Returns inspections with workflow evidence completeness data.
+ * Filters: technician, jobType, status (incomplete/stale/all), search.
+ * Admin-only endpoint.
+ */
 
-export interface EvidenceGapSummary {
-  evidenceClass: EvidenceClass;
-  displayName: string;
-  required: number;
-  captured: number;
-}
-
-export interface InspectionEvidenceRow {
-  id: string;
-  inspectionNumber: string;
-  propertyAddress: string;
-  claimType: string;
-  status: string;
-  technicianName: string | null;
-  technicianEmail: string | null;
-  completionPercentage: number;
-  totalRequired: number;
-  totalCaptured: number;
-  gapCount: number;
-  flaggedCount: number;
-  rejectedCount: number;
-  gaps: EvidenceGapSummary[];
-  lastEvidenceAt: string | null;
-  createdAt: string;
-}
-
-export interface EvidenceReviewSummary {
-  totalActiveInspections: number;
-  inspectionsWithGaps: number;
-  totalFlaggedItems: number;
-  averageCompletion: number;
-  technicianBreakdown: Array<{
-    technicianName: string;
-    technicianEmail: string;
-    inspectionCount: number;
-    avgCompletion: number;
-    totalGaps: number;
-  }>;
-}
-
-// ─── GET /api/admin/evidence-review ──────────────────────────────────────────
+// Stale threshold: inspections with workflows older than 48 hours without submission
+const STALE_HOURS = 48;
 
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    // Admin/Manager only
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-    if (user?.role !== "ADMIN" && user?.role !== "MANAGER") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  const { searchParams } = new URL(request.url);
+  const technicianFilter = searchParams.get("technician")?.trim() ?? "";
+  const jobTypeFilter = searchParams.get("jobType")?.trim() ?? "";
+  const statusFilter = searchParams.get("status")?.trim() ?? ""; // incomplete | stale | all
+  const search = searchParams.get("search")?.trim() ?? "";
 
-    const { searchParams } = new URL(request.url);
-    const statusFilter = searchParams.get("status"); // e.g. "DRAFT,SUBMITTED"
-    const technicianId = searchParams.get("technicianId");
-    const gapsOnly = searchParams.get("gapsOnly") === "true";
+  // Build where clause for inspections that have workflows
+  const inspectionWhere: Record<string, unknown> = {
+    inspectionWorkflow: { isNot: null },
+  };
 
-    // ── Fetch active inspections ──────────────────────────────────────────────
-    const defaultStatuses: InspectionStatus[] = [
-      "DRAFT",
-      "SUBMITTED",
-      "PROCESSING",
-      "CLASSIFIED",
-      "SCOPED",
+  if (search) {
+    inspectionWhere.OR = [
+      { inspectionNumber: { contains: search, mode: "insensitive" } },
+      { propertyAddress: { contains: search, mode: "insensitive" } },
+      { technicianName: { contains: search, mode: "insensitive" } },
     ];
-    const statuses: InspectionStatus[] = statusFilter
-      ? (statusFilter.split(",") as InspectionStatus[])
-      : defaultStatuses;
+  }
 
-    const inspections = await prisma.inspection.findMany({
-      where: {
-        status: { in: statuses },
-        ...(technicianId ? { userId: technicianId } : {}),
-      },
-      include: {
-        user: { select: { name: true, email: true } },
-        evidenceItems: {
-          select: {
-            evidenceClass: true,
-            status: true,
-            capturedAt: true,
+  if (technicianFilter) {
+    inspectionWhere.technicianName = {
+      contains: technicianFilter,
+      mode: "insensitive",
+    };
+  }
+
+  if (jobTypeFilter) {
+    inspectionWhere.inspectionWorkflow = {
+      isNot: null,
+      jobType: jobTypeFilter,
+    };
+  }
+
+  // Filter by status
+  if (statusFilter === "incomplete") {
+    inspectionWhere.status = { in: ["DRAFT", "IN_PROGRESS"] };
+  } else if (statusFilter === "stale") {
+    const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
+    inspectionWhere.status = { in: ["DRAFT", "IN_PROGRESS"] };
+    inspectionWhere.updatedAt = { lt: staleThreshold };
+  }
+
+  const inspections = await prisma.inspection.findMany({
+    where: inspectionWhere,
+    select: {
+      id: true,
+      inspectionNumber: true,
+      propertyAddress: true,
+      technicianName: true,
+      status: true,
+      inspectionDate: true,
+      submittedAt: true,
+      updatedAt: true,
+      inspectionWorkflow: {
+        select: {
+          id: true,
+          jobType: true,
+          experienceLevel: true,
+          totalSteps: true,
+          completedSteps: true,
+          skippedSteps: true,
+          isReadyToSubmit: true,
+          submissionScore: true,
+          lastValidatedAt: true,
+          startedAt: true,
+          completedAt: true,
+          steps: {
+            select: {
+              id: true,
+              stepKey: true,
+              stepTitle: true,
+              status: true,
+              isMandatory: true,
+              riskTier: true,
+              minimumEvidenceCount: true,
+              requiredEvidenceClasses: true,
+              _count: {
+                select: { evidenceItems: true },
+              },
+            },
+            orderBy: { stepOrder: "asc" },
           },
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: 200, // bounded to prevent N+1 at scale
-    });
+      _count: {
+        select: { evidenceItems: true },
+      },
+    },
+    orderBy: [{ updatedAt: "desc" }],
+    take: 200,
+  });
 
-    // ── Per-inspection completeness calculation ───────────────────────────────
-    const rows: InspectionEvidenceRow[] = [];
-    let totalFlagged = 0;
-    let totalCompletion = 0;
+  // Compute summary stats
+  let totalWithWorkflow = 0;
+  let totalIncomplete = 0;
+  let totalStale = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
+  const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
 
-    for (const insp of inspections) {
-      // Inspection model does not store claimType — default to water_damage.
-      // A future migration can add this field when claim-type selection is added
-      // to the inspection creation flow.
-      const claimType = "water_damage";
-      const requirements = getSubmissionGateRequirements(claimType);
+  const enriched = inspections.map((insp) => {
+    const wf = insp.inspectionWorkflow;
+    totalWithWorkflow++;
 
-      // Count captured (non-rejected) by class
-      const capturedCounts = new Map<EvidenceClass, number>();
-      let flaggedCount = 0;
-      let rejectedCount = 0;
-      let lastEvidenceAt: Date | null = null;
-
-      for (const item of insp.evidenceItems) {
-        if (item.status === "REJECTED") {
-          rejectedCount++;
-          continue;
-        }
-        if (item.status === "FLAGGED") flaggedCount++;
-        const cur = capturedCounts.get(item.evidenceClass) ?? 0;
-        capturedCounts.set(item.evidenceClass, cur + 1);
-        if (!lastEvidenceAt || item.capturedAt > lastEvidenceAt) {
-          lastEvidenceAt = item.capturedAt;
-        }
-      }
-
-      totalFlagged += flaggedCount;
-
-      // Build gaps list
-      let totalRequired = 0;
-      let totalCaptured = 0;
-      const gaps: EvidenceGapSummary[] = [];
-
-      for (const req of requirements) {
-        const captured = capturedCounts.get(req.evidenceClass) ?? 0;
-        totalRequired += req.minCount;
-        totalCaptured += Math.min(captured, req.minCount);
-
-        if (captured < req.minCount) {
-          gaps.push({
-            evidenceClass: req.evidenceClass,
-            displayName: EVIDENCE_CLASSES[req.evidenceClass].displayName,
-            required: req.minCount,
-            captured,
-          });
-        }
-      }
-
-      const completionPercentage =
-        totalRequired > 0
-          ? Math.round((totalCaptured / totalRequired) * 100)
-          : 100;
-
-      totalCompletion += completionPercentage;
-
-      if (gapsOnly && gaps.length === 0) continue;
-
-      rows.push({
-        id: insp.id,
-        inspectionNumber: insp.inspectionNumber ?? insp.id.slice(0, 8),
-        propertyAddress: insp.propertyAddress ?? "No address",
-        claimType,
-        status: insp.status,
-        technicianName: insp.user?.name ?? null,
-        technicianEmail: insp.user?.email ?? null,
-        completionPercentage,
-        totalRequired,
-        totalCaptured,
-        gapCount: gaps.length,
-        flaggedCount,
-        rejectedCount,
-        gaps,
-        lastEvidenceAt: lastEvidenceAt?.toISOString() ?? null,
-        createdAt: insp.createdAt.toISOString(),
-      });
+    const score = wf?.submissionScore ?? null;
+    if (score !== null) {
+      scoreSum += score;
+      scoreCount++;
     }
 
-    // ── Summary stats ─────────────────────────────────────────────────────────
-    const inspectionsWithGaps = rows.filter((r) => r.gapCount > 0).length;
-    const averageCompletion =
-      rows.length > 0 ? Math.round(totalCompletion / rows.length) : 0;
+    const isIncomplete =
+      !wf?.isReadyToSubmit && ["DRAFT", "IN_PROGRESS"].includes(insp.status);
+    const isStale =
+      isIncomplete &&
+      new Date(insp.updatedAt).getTime() < staleThreshold.getTime();
 
-    // Technician breakdown — group rows by technician
-    const techMap = new Map<
-      string,
-      {
-        name: string;
-        email: string;
-        inspectionCount: number;
-        totalCompletion: number;
-        totalGaps: number;
-      }
-    >();
+    if (isIncomplete) totalIncomplete++;
+    if (isStale) totalStale++;
 
-    for (const row of rows) {
-      const key = row.technicianEmail ?? "unknown";
-      const existing = techMap.get(key);
-      if (existing) {
-        existing.inspectionCount++;
-        existing.totalCompletion += row.completionPercentage;
-        existing.totalGaps += row.gapCount;
-      } else {
-        techMap.set(key, {
-          name: row.technicianName ?? "Unknown",
-          email: row.technicianEmail ?? "unknown",
-          inspectionCount: 1,
-          totalCompletion: row.completionPercentage,
-          totalGaps: row.gapCount,
-        });
-      }
-    }
+    // Compute per-step gap summary
+    const stepGaps = (wf?.steps ?? [])
+      .filter((s) => {
+        if (
+          s.status === "COMPLETED" &&
+          s._count.evidenceItems >= s.minimumEvidenceCount
+        )
+          return false;
+        if (s.status === "SKIPPED") return s.isMandatory;
+        return s.status !== "COMPLETED";
+      })
+      .map((s) => ({
+        stepKey: s.stepKey,
+        stepTitle: s.stepTitle,
+        riskTier: s.riskTier,
+        isMandatory: s.isMandatory,
+        status: s.status,
+        evidenceCount: s._count.evidenceItems,
+        minimumRequired: s.minimumEvidenceCount,
+      }));
 
-    const technicianBreakdown = Array.from(techMap.values())
-      .map((t) => ({
-        technicianName: t.name,
-        technicianEmail: t.email,
-        inspectionCount: t.inspectionCount,
-        avgCompletion: Math.round(t.totalCompletion / t.inspectionCount),
-        totalGaps: t.totalGaps,
-      }))
-      .sort((a, b) => a.avgCompletion - b.avgCompletion); // worst first
-
-    const summary: EvidenceReviewSummary = {
-      totalActiveInspections: inspections.length,
-      inspectionsWithGaps,
-      totalFlaggedItems: totalFlagged,
-      averageCompletion,
-      technicianBreakdown,
+    return {
+      id: insp.id,
+      inspectionNumber: insp.inspectionNumber,
+      propertyAddress: insp.propertyAddress,
+      technicianName: insp.technicianName,
+      status: insp.status,
+      inspectionDate: insp.inspectionDate,
+      submittedAt: insp.submittedAt,
+      updatedAt: insp.updatedAt,
+      totalEvidence: insp._count.evidenceItems,
+      isIncomplete,
+      isStale,
+      workflow: wf
+        ? {
+            jobType: wf.jobType,
+            experienceLevel: wf.experienceLevel,
+            totalSteps: wf.totalSteps,
+            completedSteps: wf.completedSteps,
+            skippedSteps: wf.skippedSteps,
+            isReadyToSubmit: wf.isReadyToSubmit,
+            submissionScore: wf.submissionScore,
+            lastValidatedAt: wf.lastValidatedAt,
+          }
+        : null,
+      stepGaps,
     };
+  });
 
-    return NextResponse.json({ data: rows, summary });
-  } catch (error) {
-    console.error("Error fetching evidence review:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  const summary = {
+    totalWithWorkflow,
+    totalIncomplete,
+    totalStale,
+    averageScore: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : null,
+  };
+
+  return NextResponse.json({ inspections: enriched, summary });
 }

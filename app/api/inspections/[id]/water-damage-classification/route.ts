@@ -112,38 +112,40 @@ export async function POST(
   const data = parsed.data
   const gates = computeGates(data, inspection._count.photos)
 
-  const record = await prisma.waterDamageClassification.upsert({
-    where: { inspectionId: params.id },
-    create: {
-      inspectionId: params.id,
-      waterCategory: data.waterCategory ?? undefined,
-      damageClass: data.damageClass ?? undefined,
-      lossSourceType: data.lossSourceType ?? undefined,
-      lossSourceIdentified: data.lossSourceIdentified ?? false,
-      lossSourceAddressed: data.lossSourceAddressed ?? false,
-      hoursOfExposure: data.hoursOfExposure ?? undefined,
-      ...gates,
-    },
-    update: {
-      ...(data.waterCategory !== undefined && { waterCategory: data.waterCategory }),
-      ...(data.damageClass !== undefined && { damageClass: data.damageClass }),
-      ...(data.lossSourceType !== undefined && { lossSourceType: data.lossSourceType }),
-      ...(data.lossSourceIdentified !== undefined && {
-        lossSourceIdentified: data.lossSourceIdentified,
-      }),
-      ...(data.lossSourceAddressed !== undefined && {
-        lossSourceAddressed: data.lossSourceAddressed,
-      }),
-      ...(data.hoursOfExposure !== undefined && { hoursOfExposure: data.hoursOfExposure }),
-      ...gates,
-    },
-  })
-
-  // Stamp Inspection.claimType = WATER on first create
-  await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: 'WATER' },
-  })
+  // Atomically upsert classification + stamp claimType — prevents split-brain
+  // state if DB connection drops between the two writes.
+  const [record] = await prisma.$transaction([
+    prisma.waterDamageClassification.upsert({
+      where: { inspectionId: params.id },
+      create: {
+        inspectionId: params.id,
+        waterCategory: data.waterCategory ?? undefined,
+        damageClass: data.damageClass ?? undefined,
+        lossSourceType: data.lossSourceType ?? undefined,
+        lossSourceIdentified: data.lossSourceIdentified ?? false,
+        lossSourceAddressed: data.lossSourceAddressed ?? false,
+        hoursOfExposure: data.hoursOfExposure ?? undefined,
+        ...gates,
+      },
+      update: {
+        ...(data.waterCategory !== undefined && { waterCategory: data.waterCategory }),
+        ...(data.damageClass !== undefined && { damageClass: data.damageClass }),
+        ...(data.lossSourceType !== undefined && { lossSourceType: data.lossSourceType }),
+        ...(data.lossSourceIdentified !== undefined && {
+          lossSourceIdentified: data.lossSourceIdentified,
+        }),
+        ...(data.lossSourceAddressed !== undefined && {
+          lossSourceAddressed: data.lossSourceAddressed,
+        }),
+        ...(data.hoursOfExposure !== undefined && { hoursOfExposure: data.hoursOfExposure }),
+        ...gates,
+      },
+    }),
+    prisma.inspection.update({
+      where: { id: params.id },
+      data: { claimType: 'WATER' },
+    }),
+  ])
 
   return NextResponse.json(record)
 }
@@ -168,15 +170,13 @@ export async function DELETE(
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
   }
 
-  await prisma.waterDamageClassification
-    .delete({ where: { inspectionId: params.id } })
-    .catch(() => {}) // idempotent — ignore if already deleted
-
-  // Clear claim type on inspection
-  await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: null },
-  })
+  await prisma.$transaction([
+    prisma.waterDamageClassification.deleteMany({ where: { inspectionId: params.id } }),
+    prisma.inspection.update({
+      where: { id: params.id },
+      data: { claimType: null },
+    }),
+  ])
 
   return NextResponse.json({ deleted: true })
 }

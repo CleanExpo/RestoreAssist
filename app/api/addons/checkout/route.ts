@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 10 addon purchases per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "addon-checkout", key: session.user.id })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "addon-checkout", key: session.user.id })
     if (rateLimited) return rateLimited
 
     // Get the base URL from the request headers

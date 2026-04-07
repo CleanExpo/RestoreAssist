@@ -9,8 +9,12 @@ import { logSecurityEvent, extractRequestContext } from '@/lib/security-audit'
 
 /** Generate a time-limited HMAC token proving the user just authenticated via Google */
 function generateGoogleAuthToken(email: string): string {
+  const secret = process.env.NEXTAUTH_SECRET
+  if (!secret) {
+    throw new Error("NEXTAUTH_SECRET is required")
+  }
   const timestamp = Date.now().toString()
-  const hmac = crypto.createHmac('sha256', process.env.NEXTAUTH_SECRET || 'fallback')
+  const hmac = crypto.createHmac('sha256', secret)
     .update(`gauth:${email}:${timestamp}`)
     .digest('hex')
   return `gauth:${timestamp}:${hmac}`
@@ -25,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError
 
     // Rate limit: 10 attempts per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: 'google-signin' })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: 'google-signin' })
     if (rateLimited) return rateLimited
 
     // Verify Firebase token
@@ -52,10 +56,15 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      // Firebase Admin not available - fall back to trusting the client token
-      // This is acceptable because the token comes from Firebase client SDK (signInWithPopup)
-      // which already performed Google OAuth verification
-      console.warn('Firebase Admin not available, using client-provided email')
+      // Firebase Admin SDK is not available — NEVER fall back to trusting the client-provided email.
+      // The client-supplied body.email is completely attacker-controlled and could be set to any
+      // existing user's address, granting full account takeover without any credential.
+      // Return 503 so the client can show an appropriate error and retry later.
+      console.error('[google-signin] Firebase Admin SDK unavailable — rejecting request to prevent auth bypass')
+      return NextResponse.json(
+        { error: 'Authentication service temporarily unavailable. Please try again.' },
+        { status: 503 }
+      )
     }
 
     const body = await request.json()
@@ -65,8 +74,8 @@ export async function POST(request: NextRequest) {
     const firebaseUid = body.firebaseUid
     const emailVerified = body.emailVerified
 
-    // Use verified email from token if available, otherwise use body email
-    const userEmail = verifiedEmail || email
+    // Always use the server-verified email from the Firebase token (never body.email)
+    const userEmail = verifiedEmail
 
     if (!userEmail) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })

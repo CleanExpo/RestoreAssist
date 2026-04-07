@@ -11,24 +11,16 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
+
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     const { id } = await params
 
-    // Verify report belongs to user
+    // Verify report belongs to user — use session.user.id directly (no extra DB round-trip)
     const report = await prisma.report.findUnique({
-      where: { id, userId: user.id }
+      where: { id, userId: session.user.id }
     })
 
     if (!report) {
@@ -69,24 +61,16 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
+
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     const { id } = await params
 
-    // Verify report belongs to user
+    // Verify report belongs to user — use session.user.id directly (no extra DB round-trip)
     const report = await prisma.report.findUnique({
-      where: { id, userId: user.id }
+      where: { id, userId: session.user.id }
     })
 
     if (!report) {
@@ -100,9 +84,32 @@ export async function POST(
     const affectedAreasJson = formData.get('affectedAreas') as string
     const scopeItemsJson = formData.get('scopeItems') as string
     
-    const moistureReadings = moistureReadingsJson ? JSON.parse(moistureReadingsJson) : []
-    const affectedAreas = affectedAreasJson ? JSON.parse(affectedAreasJson) : []
-    const scopeItems = scopeItemsJson ? JSON.parse(scopeItemsJson) : []
+    // Parse + validate each JSON blob — guards against prototype pollution and DoS via unbounded arrays
+    let moistureReadings: unknown[] = []
+    let affectedAreas: unknown[] = []
+    let scopeItems: unknown[] = []
+    try {
+      if (moistureReadingsJson) {
+        const parsed = JSON.parse(moistureReadingsJson)
+        if (!Array.isArray(parsed)) throw new Error("moistureReadings must be an array")
+        if (parsed.length > 500) throw new Error("moistureReadings exceeds 500 item limit")
+        moistureReadings = parsed
+      }
+      if (affectedAreasJson) {
+        const parsed = JSON.parse(affectedAreasJson)
+        if (!Array.isArray(parsed)) throw new Error("affectedAreas must be an array")
+        if (parsed.length > 100) throw new Error("affectedAreas exceeds 100 item limit")
+        affectedAreas = parsed
+      }
+      if (scopeItemsJson) {
+        const parsed = JSON.parse(scopeItemsJson)
+        if (!Array.isArray(parsed)) throw new Error("scopeItems must be an array")
+        if (parsed.length > 500) throw new Error("scopeItems exceeds 500 item limit")
+        scopeItems = parsed
+      }
+    } catch (parseErr) {
+      return NextResponse.json({ error: (parseErr as Error).message ?? "Invalid JSON in form data" }, { status: 400 })
+    }
     
     // Upload photos to Cloudinary
     const photoFiles = formData.getAll('photos') as File[]

@@ -7,6 +7,7 @@ import { PRICING_CONFIG } from "@/lib/pricing"
 import { sendPaymentFailedEmail, sendSubscriptionCancelledEmail } from "@/lib/email"
 import { notifyPaymentFailed, notifySubscriptionCancelled } from "@/lib/notifications"
 import { applyRateLimit } from "@/lib/rate-limiter"
+import { provisionWorkspace } from "@/lib/workspace/provision"
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
 
@@ -79,7 +80,7 @@ async function isEventProcessed(stripeEventId: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   // Rate limit: 200 requests per minute per IP (generous to allow Stripe retries)
-  const rateLimited = applyRateLimit(request, { maxRequests: 200, windowMs: 60_000, prefix: "webhook-stripe" })
+  const rateLimited = await applyRateLimit(request, { maxRequests: 200, windowMs: 60_000, prefix: "webhook-stripe" })
   if (rateLimited) return rateLimited
 
   const body = await request.text()
@@ -104,15 +105,48 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  // Check for duplicate event (idempotency)
-  if (await isEventProcessed(event.id)) {
-    console.log(`Webhook event ${event.id} already processed, skipping`)
-    await logWebhookEvent(event.id, event.type, body, 'SKIPPED')
-    return NextResponse.json({ received: true, message: 'Already processed' })
+  // Atomic dedup: attempt to INSERT with PROCESSING status.
+  // If the row already exists (P2002 on stripeEventId unique constraint), another
+  // worker already claimed this event — bail out immediately.
+  // This replaces the non-atomic isEventProcessed() + logWebhookEvent(PROCESSING) pattern
+  // which had a TOCTOU window allowing duplicate processing on Stripe retries.
+  //
+  // WARNING: If the StripeWebhookEvent migration has not been applied in production,
+  // idempotency is disabled and Stripe retries CAN cause duplicate credit grants.
+  // This is a deployment risk — always apply migrations before enabling the webhook endpoint.
+  const modelAvailable = await hasWebhookEventModel()
+  if (!modelAvailable) {
+    console.error(
+      '[Stripe Webhook] CRITICAL: StripeWebhookEvent model is not available. ' +
+      'Idempotency is DISABLED — Stripe retries may cause duplicate processing. ' +
+      'Apply the pending database migration immediately.'
+    )
   }
-
-  // Log event as processing
-  await logWebhookEvent(event.id, event.type, body, 'PROCESSING')
+  if (modelAvailable) {
+    try {
+      await prisma.stripeWebhookEvent.create({
+        data: {
+          stripeEventId: event.id,
+          eventType: event.type,
+          eventData: body,
+          status: 'PROCESSING',
+          processedAt: null,
+        },
+      })
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        // Already inserted by another invocation — check if it was COMPLETED or just PROCESSING
+        const existing = await prisma.stripeWebhookEvent.findUnique({
+          where: { stripeEventId: event.id },
+          select: { status: true },
+        })
+        console.log(`Webhook event ${event.id} already claimed (status=${existing?.status}), skipping`)
+        return NextResponse.json({ received: true, message: 'Already processed' })
+      }
+      // Non-dedup DB error — log and continue (don't block webhook processing)
+      console.warn('[Stripe webhook] Failed to create dedup record:', err)
+    }
+  }
 
   try {
     switch (event.type) {
@@ -493,6 +527,23 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
     })
 
     console.log(`✅ SUBSCRIPTION ACTIVATED for user ${userId}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
+
+    // RA-415: Provision workspace — fire-and-forget, never blocks webhook response
+    const userDetails = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    })
+    if (userDetails) {
+      provisionWorkspace({
+        userId,
+        userEmail: userDetails.email,
+        userName: userDetails.name,
+        stripeCustomerId: session.customer as string | undefined,
+        stripeSubscriptionId: session.subscription as string | undefined,
+      }).catch((err) =>
+        console.error(`[Stripe webhook] provisionWorkspace failed for user ${userId}:`, err)
+      )
+    }
   } else if (session.customer_email) {
     const userByEmail = await prisma.user.findFirst({
       where: { email: session.customer_email },
@@ -525,6 +576,17 @@ async function processSubscriptionCheckout(session: Stripe.Checkout.Session) {
       })
 
       console.log(`✅ SUBSCRIPTION ACTIVATED for email ${session.customer_email}${isFirstSubscription ? ' (signup bonus applied)' : ''}`)
+
+      // RA-415: Provision workspace for email-identified user
+      provisionWorkspace({
+        userId: userByEmail.id,
+        userEmail: session.customer_email,
+        userName: null,
+        stripeCustomerId: session.customer as string | undefined,
+        stripeSubscriptionId: session.subscription as string | undefined,
+      }).catch((err) =>
+        console.error(`[Stripe webhook] provisionWorkspace failed for email ${session.customer_email}:`, err)
+      )
     }
   }
 }

@@ -24,7 +24,7 @@ import {
 } from "@/lib/equipment-calculator"
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id: inspectionId } = params
+    // Next.js 15: params is a Promise — awaiting prevents undefined id on cold start
+    const { id: inspectionId } = await params
 
     // Verify ownership + get classification from inspection record
     const inspection = await prisma.inspection.findFirst({
@@ -111,23 +112,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       })
 
-      for (const item of result.equipmentList) {
-        const scopeItem = await prisma.scopeItem.create({
-          data: {
-            inspectionId,
-            itemType: item.type,
-            description: `${item.label} — ${item.suggestedModel}`,
-            quantity: item.quantity,
-            unit: "unit/day",
-            specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
-            autoDetermined: true,
-            justification: `${item.justification} — ${item.iicrcReference}`,
-            isRequired: true,
-            isSelected: true,
-          },
-        })
-        savedScopeItems.push(scopeItem.id)
-      }
+      const { randomUUID } = await import("crypto")
+      const equipmentPayloads = result.equipmentList.map((item) => ({
+        id: randomUUID(),
+        inspectionId,
+        itemType: item.type,
+        description: `${item.label} — ${item.suggestedModel}`,
+        quantity: item.quantity,
+        unit: "unit/day",
+        specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
+        autoDetermined: true,
+        justification: `${item.justification} — ${item.iicrcReference}`,
+        isRequired: true,
+        isSelected: true,
+      }))
+      await prisma.scopeItem.createMany({ data: equipmentPayloads })
+      savedScopeItems.push(...equipmentPayloads.map((p) => p.id))
     }
 
     return NextResponse.json({

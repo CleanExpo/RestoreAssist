@@ -6,7 +6,7 @@ const startTime = Date.now()
 
 export async function GET(request: NextRequest) {
   // Rate limit: 60 requests per minute per IP
-  const rateLimited = applyRateLimit(request, { maxRequests: 60, windowMs: 60_000, prefix: 'health' })
+  const rateLimited = await applyRateLimit(request, { maxRequests: 60, windowMs: 60_000, prefix: 'health' })
   if (rateLimited) return rateLimited
 
   const checks: Record<string, { status: string; latencyMs?: number }> = {}

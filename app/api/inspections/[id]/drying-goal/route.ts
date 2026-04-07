@@ -72,9 +72,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       targetClass: string
     }
 
-    if (!targetCategory || !targetClass) {
+    const VALID_TARGET_CATEGORIES = ["Category 1", "Category 2", "Category 3"] as const
+    const VALID_TARGET_CLASSES    = ["Class 1", "Class 2", "Class 3", "Class 4"] as const
+
+    if (!VALID_TARGET_CATEGORIES.includes(targetCategory as typeof VALID_TARGET_CATEGORIES[number])) {
       return NextResponse.json(
-        { error: "targetCategory and targetClass are required" },
+        { error: `targetCategory must be one of: ${VALID_TARGET_CATEGORIES.join(", ")}` },
+        { status: 400 }
+      )
+    }
+    if (!VALID_TARGET_CLASSES.includes(targetClass as typeof VALID_TARGET_CLASSES[number])) {
+      return NextResponse.json(
+        { error: `targetClass must be one of: ${VALID_TARGET_CLASSES.join(", ")}` },
         { status: 400 }
       )
     }
@@ -88,24 +97,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
     }
 
-    const existing = await prisma.dryingGoalRecord.findUnique({ where: { inspectionId } })
-    if (existing) {
-      return NextResponse.json(
-        { error: "Drying goal already initialised for this inspection. Use PUT to evaluate." },
-        { status: 409 }
-      )
+    // Use create-and-catch instead of findUnique+create to eliminate the TOCTOU
+    // race where two simultaneous POST requests both read null and both attempt create.
+    let record
+    try {
+      record = await prisma.dryingGoalRecord.create({
+        data: {
+          inspectionId,
+          targetCategory,
+          targetClass,
+          materialTargets: buildMaterialTargets(),
+          goalAchieved: false,
+          iicrcReference: "IICRC S500:2025 §11.4",
+        },
+      })
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        return NextResponse.json(
+          { error: "Drying goal already initialised for this inspection. Use PUT to evaluate." },
+          { status: 409 },
+        )
+      }
+      throw err
     }
-
-    const record = await prisma.dryingGoalRecord.create({
-      data: {
-        inspectionId,
-        targetCategory,
-        targetClass,
-        materialTargets: buildMaterialTargets(),
-        goalAchieved: false,
-        iicrcReference: "IICRC S500:2021 §11.4",
-      },
-    })
 
     return NextResponse.json({
       dryingGoal: record,
@@ -241,7 +255,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       iicrcReference: updated.iicrcReference,
       signedOffBy: updated.signedOffBy,
       // This string goes verbatim into the NIR PDF report
-      certificate: `Drying Goal: ACHIEVED — ${updated.goalAchievedAt?.toISOString()} — All materials at or below IICRC S500:2021 §11.4 target EMC — ${totalDryingDays} day(s) drying`,
+      certificate: `Drying Goal: ACHIEVED — ${updated.goalAchievedAt?.toISOString()} — All materials at or below IICRC S500:2025 §11.4 target EMC — ${totalDryingDays} day(s) drying`,
       message: `All ${readings.length} moisture readings are at or below IICRC S500 target EMC. Drying complete in ${totalDryingDays} day(s).`,
     })
   } catch (error) {

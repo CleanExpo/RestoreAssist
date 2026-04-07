@@ -319,22 +319,22 @@ export default function MoistureMappingCanvas({
           </label>
           <button
             onClick={() => setZoom(z => Math.min(z + 0.25, 2))}
-            className="p-1.5 rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
-            title="Zoom in"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
+            aria-label="Zoom in"
           >
             <ZoomIn size={16} />
           </button>
           <button
             onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))}
-            className="p-1.5 rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
-            title="Zoom out"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
+            aria-label="Zoom out"
           >
             <ZoomOut size={16} />
           </button>
           <button
             onClick={sketchMode === "equipment" ? resetEquipment : resetMap}
-            className="p-1.5 rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
-            title="Reset current layer"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
+            aria-label="Reset current layer"
           >
             <RotateCcw size={16} />
           </button>
@@ -342,12 +342,13 @@ export default function MoistureMappingCanvas({
             <button
               onClick={() => setShowCoverage(v => !v)}
               className={cn(
-                "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                "px-2.5 min-h-[44px] rounded-lg text-xs font-medium transition-colors",
                 showCoverage
                   ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                   : "bg-neutral-100 dark:bg-slate-800 text-neutral-500"
               )}
-              title="Toggle coverage zones"
+              aria-label="Toggle coverage zones"
+              aria-pressed={showCoverage}
             >
               Coverage zones
             </button>
@@ -410,6 +411,8 @@ export default function MoistureMappingCanvas({
             className={cn("w-full h-auto", isCrosshair ? "cursor-crosshair" : "cursor-default")}
             style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
             onClick={handleCanvasClick}
+            role="img"
+            aria-label="Moisture mapping canvas — click to place readings and equipment"
           >
             {/* Background / floor plan */}
             {backgroundImage ? (

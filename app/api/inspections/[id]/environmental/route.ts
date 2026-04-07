@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { sanitizeString } from "@/lib/sanitize"
 
 // POST - Add or update environmental data
 export async function POST(
@@ -49,6 +50,14 @@ export async function POST(
       }
     }
     
+    // Sanitize free-text fields — cap length and strip HTML/XSS vectors.
+    // notes/weatherConditions are included in the audit log; unbounded strings
+    // can bloat WAL and be used for stored XSS if rendered unescaped.
+    const sanitizedNotes = body.notes ? sanitizeString(body.notes, 2000) : null
+    const sanitizedWeather = body.weatherConditions
+      ? sanitizeString(body.weatherConditions, 200)
+      : null
+
     // Upsert environmental data
     const environmentalData = await prisma.environmentalData.upsert({
       where: { inspectionId: id },
@@ -57,8 +66,8 @@ export async function POST(
         humidityLevel: body.humidityLevel,
         dewPoint: body.dewPoint,
         airCirculation: body.airCirculation ?? false,
-        weatherConditions: body.weatherConditions || null,
-        notes: body.notes || null
+        weatherConditions: sanitizedWeather,
+        notes: sanitizedNotes,
       },
       create: {
         inspectionId: id,
@@ -66,12 +75,14 @@ export async function POST(
         humidityLevel: body.humidityLevel,
         dewPoint: body.dewPoint,
         airCirculation: body.airCirculation ?? false,
-        weatherConditions: body.weatherConditions || null,
-        notes: body.notes || null
+        weatherConditions: sanitizedWeather,
+        notes: sanitizedNotes,
       }
     })
-    
-    // Create audit log
+
+    // Audit log: use an explicit allowlist — never serialise the raw request body.
+    // Dumping body verbatim injects attacker-controlled content into the audit trail
+    // and can feed stored prompt injection into AI summarisation pipelines.
     await prisma.auditLog.create({
       data: {
         inspectionId: id,
@@ -79,7 +90,14 @@ export async function POST(
         entityType: "EnvironmentalData",
         entityId: environmentalData.id,
         userId: session.user.id,
-        changes: JSON.stringify(body)
+        changes: JSON.stringify({
+          ambientTemperature: environmentalData.ambientTemperature,
+          humidityLevel: environmentalData.humidityLevel,
+          dewPoint: environmentalData.dewPoint,
+          airCirculation: environmentalData.airCirculation,
+          weatherConditions: environmentalData.weatherConditions,
+          notes: environmentalData.notes,
+        }),
       }
     })
     

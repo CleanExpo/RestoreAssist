@@ -32,22 +32,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: inspectionId } = await params
 
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true, signedAt: true },
-    })
-
-    if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
-    }
-
-    if (inspection.signedAt) {
-      return NextResponse.json(
-        { error: "Inspection has already been signed. Contact admin to reset." },
-        { status: 409 }
-      )
-    }
-
+    // Validate body before attempting atomic write
     const body = await request.json()
     const { signatoryName, signatureUrl, role } = body as {
       signatoryName?: string
@@ -66,31 +51,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ? `${signatoryName.trim()} (${role.trim()})`
       : signatoryName.trim()
 
-    const updated = await prisma.inspection.update({
-      where: { id: inspectionId },
+    const signedAt = new Date()
+
+    // Atomic CAS — updateMany with signedAt: null prevents double-signature TOCTOU race
+    const result = await prisma.inspection.updateMany({
+      where: { id: inspectionId, userId: session.user.id, signedAt: null },
       data: {
-        signedAt: new Date(),
+        signedAt,
         signedByName: displayName,
         signatureUrl: signatureUrl?.trim() || null,
-        // Advance status to SUBMITTED if still in DRAFT
         status: "SUBMITTED",
-        submittedAt: new Date(),
-      },
-      select: {
-        id: true,
-        signedAt: true,
-        signedByName: true,
-        signatureUrl: true,
-        status: true,
+        submittedAt: signedAt,
       },
     })
 
+    if (result.count === 0) {
+      // Distinguish "not found" from "already signed" for correct HTTP status
+      const exists = await prisma.inspection.findFirst({
+        where: { id: inspectionId, userId: session.user.id },
+        select: { id: true },
+      })
+      if (!exists) {
+        return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
+      }
+      return NextResponse.json(
+        { error: "Inspection has already been signed. Contact admin to reset." },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
-      signedAt: updated.signedAt,
-      signedByName: updated.signedByName,
-      signatureUrl: updated.signatureUrl,
-      status: updated.status,
+      signedAt,
+      signedByName: displayName,
+      signatureUrl: signatureUrl?.trim() || null,
+      status: "SUBMITTED",
     })
   } catch (error) {
     console.error("[inspections/sign POST]", error)

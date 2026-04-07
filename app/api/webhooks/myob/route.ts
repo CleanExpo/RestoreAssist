@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
       .update(rawBody)
       .digest('hex')
 
-    if (signature !== expectedSignature) {
+    const sigBuf = Buffer.from(signature, 'hex')
+    const expBuf = Buffer.from(expectedSignature, 'hex')
+    if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
       console.error('[MYOB Webhook] Invalid signature')
       return NextResponse.json(
         { error: 'Invalid signature' },
@@ -56,6 +58,20 @@ export async function POST(request: NextRequest) {
 
     // MYOB sends array of events
     const events = payload.Events || []
+
+    // Timestamp freshness check — reject replayed webhooks older than 5 minutes.
+    // MYOB includes EventDateTime on each event.
+    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000
+    const now = Date.now()
+    for (const evt of events) {
+      if (evt.EventDateTime) {
+        const eventAge = now - new Date(evt.EventDateTime).getTime()
+        if (eventAge > WEBHOOK_MAX_AGE_MS) {
+          console.warn(`[MYOB Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`)
+          return NextResponse.json({ error: 'Webhook event too old' }, { status: 400 })
+        }
+      }
+    }
 
     if (events.length === 0) {
       console.log('[MYOB Webhook] No events in payload')

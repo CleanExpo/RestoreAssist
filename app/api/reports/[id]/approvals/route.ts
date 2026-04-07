@@ -53,7 +53,11 @@ export async function POST(
 
     const { id } = await params
     const body = await request.json()
-    const { approvalType, amount } = body
+    const { approvalType, amount: rawAmount } = body
+    const amount = rawAmount != null ? Number(rawAmount) : null
+    if (amount !== null && (!isFinite(amount) || amount < 0)) {
+      return NextResponse.json({ error: "Amount must be a non-negative finite number" }, { status: 400 })
+    }
 
     // Validate approvalType
     if (!approvalType || !Object.values(ApprovalType).includes(approvalType)) {

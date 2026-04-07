@@ -2,19 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { verifyAdminFromDb } from '@/lib/admin-auth'
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    // Re-validates role from DB to prevent stale JWT role from granting admin access
+    const auth = await verifyAdminFromDb(session)
+    if (auth.response) return auth.response
 
     // Get current date for this month's reports
     const startOfMonth = new Date()

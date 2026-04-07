@@ -108,10 +108,11 @@ export function MoistureReadingEntryForm({
 
       {/* Location */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
+        <label htmlFor="moisture-location" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
           Location <span className="text-rose-500">*</span>
         </label>
         <input
+          id="moisture-location"
           type="text"
           value={location}
           onChange={e => setLocation(e.target.value)}
@@ -123,10 +124,11 @@ export function MoistureReadingEntryForm({
       {/* Material + Depth row */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
+          <label htmlFor="moisture-material" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
             Material Type <span className="text-rose-500">*</span>
           </label>
           <select
+            id="moisture-material"
             value={material}
             onChange={e => setMaterial(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
@@ -137,8 +139,9 @@ export function MoistureReadingEntryForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Depth</label>
+          <label htmlFor="moisture-depth" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Depth</label>
           <select
+            id="moisture-depth"
             value={depth}
             onChange={e => setDepth(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
@@ -150,8 +153,9 @@ export function MoistureReadingEntryForm({
 
       {/* Meter type */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Meter Type</label>
+        <label htmlFor="moisture-meter-type" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Meter Type</label>
         <select
+          id="moisture-meter-type"
           value={meterType}
           onChange={e => setMeterType(e.target.value)}
           className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
@@ -162,11 +166,12 @@ export function MoistureReadingEntryForm({
 
       {/* Reading value + status */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
+        <label htmlFor="moisture-level" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
           Moisture Reading (%) <span className="text-rose-500">*</span>
         </label>
         <div className="flex items-center gap-2">
           <input
+            id="moisture-level"
             type="number"
             min={0}
             max={100}
@@ -201,8 +206,9 @@ export function MoistureReadingEntryForm({
 
       {/* Notes */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Notes (optional)</label>
+        <label htmlFor="moisture-notes" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Notes (optional)</label>
         <textarea
+          id="moisture-notes"
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="Additional observations…"
@@ -211,9 +217,9 @@ export function MoistureReadingEntryForm({
         />
       </div>
 
-      {/* Error */}
+      {/* Error — role="alert" ensures screen readers announce on insertion without focus change */}
       {error && (
-        <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
           <AlertTriangle size={12} />
           {error}
         </p>

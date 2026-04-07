@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const csrfError = validateCsrf(request)
     if (csrfError) return csrfError
 
-    const rateLimited = applyRateLimit(request, { maxRequests: 5, prefix: "register" })
+    const rateLimited = await applyRateLimit(request, { maxRequests: 5, prefix: "register" })
     if (rateLimited) return rateLimited
 
     let body: Record<string, unknown>

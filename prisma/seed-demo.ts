@@ -1,754 +1,891 @@
 /**
- * Demo Dataset Seed — RA-389
+ * RestoreAssist — S500:2025 Demo Dataset Seed
+ * [RA-389] Sprint F — Production smoke test + demo data
  *
- * Creates a complete, realistic Category 2 water damage job under a dedicated
- * demo tenant. The dataset satisfies all RA-389 acceptance criteria:
- *
- *   ✓ Category 2 water damage, 150m² residential property
- *   ✓ ≥ 8 moisture readings across 3 rooms (floor, wall, ceiling per room)
- *   ✓ Equipment log: 2 dehumidifiers + 3 air movers with deployment dates
- *   ✓ Environmental readings: temp, RH, GPP across 3 days
- *   ✓ IICRC S500:2025 compliant classification + scope + cost estimate
- *   ✓ AI-generated report text with correct S500 section headings
+ * Creates a complete fictional Category 2 water damage demo job:
+ *   - Dedicated demo tenant (User + Organization)
+ *   - 150 m² affected area across 3 rooms
+ *   - 14 moisture readings over 3 days (showing drying progression)
+ *   - 2 dehumidifiers + 3 air movers (EquipmentDeployment)
+ *   - 3 days of environmental data (psychrometric readings in Report)
+ *   - Full S500:2025 classification + scope items
+ *   - DryingGoalRecord tracking the 3-day drying period
+ *   - AI-generated S500:2025 report text
  *
  * Run with: npx tsx prisma/seed-demo.ts
- *
- * The seed is idempotent — existing demo records are deleted and re-created.
- * Demo tenant email: demo@restoreassist.app
+ * Idempotent: skips creation if demo@restoreassist.com.au already exists.
  */
 
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────────────────
 
-const DEMO_EMAIL = "demo@restoreassist.app";
+const DEMO_EMAIL = "demo@restoreassist.com.au";
 const DEMO_INSPECTION_NUMBER = "NIR-2026-04-DEMO";
+const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 
-// Dates anchored to a realistic 3-day drying job
-const DAY_1 = new Date("2026-04-01T08:00:00+10:00");
-const DAY_2 = new Date("2026-04-02T08:00:00+10:00");
-const DAY_3 = new Date("2026-04-03T08:00:00+10:00");
+// Relative dates: seed creates data as if the job started 3 days ago
+const now = new Date();
+const day1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+const day2 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+const day3 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-
-/** Grains per pound from temperature (°C) and relative humidity (%) — simplified */
-function calcGpp(tempC: number, rh: number): number {
-  // Simplified psychrometric approximation: GPP ≈ (rh/100) × 4000 / (1 + (100 - tempC) * 0.05)
-  return (
-    Math.round((((rh / 100) * 4000) / (1 + (100 - tempC) * 0.05)) * 10) / 10
-  );
-}
-
-// ─── MAIN ────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log("🌱  Starting RA-389 demo dataset seed…");
+  console.log("🌊 RestoreAssist S500:2025 Demo Seed");
+  console.log("────────────────────────────────────");
 
-  // ── 1. Upsert demo user (demo tenant) ──────────────────────────────────────
-  console.log("  → Upserting demo user…");
-  const demoUser = await prisma.user.upsert({
-    where: { email: DEMO_EMAIL },
-    update: {},
-    create: {
-      email: DEMO_EMAIL,
-      name: "Demo Technician",
-      role: "USER",
-      subscriptionStatus: "ACTIVE",
-      subscriptionPlan: "pro",
-      creditsRemaining: 999,
-      businessName: "RestoreAssist Demo Pty Ltd",
-      businessABN: "12345678901",
-      businessPhone: "07 3000 0000",
-      businessEmail: DEMO_EMAIL,
-      businessAddress: "1 Demo Street, Brisbane QLD 4000",
-      lifetimeAccess: true,
-    },
-  });
-  console.log(`     User: ${demoUser.id}`);
+  // ── 1. Demo User ────────────────────────────────────────────────────────
 
-  // ── 2. Upsert demo client ──────────────────────────────────────────────────
-  console.log("  → Upserting demo client…");
-  const existingClient = await prisma.client.findFirst({
-    where: { userId: demoUser.id, email: "owner@demo-property.example" },
-  });
-  const demoClient =
-    existingClient ??
-    (await prisma.client.create({
+  let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
+
+  if (user) {
+    console.log(`✓ Demo user already exists: ${user.id}`);
+  } else {
+    user = await prisma.user.create({
       data: {
-        userId: demoUser.id,
-        name: "Judith & Robert Hargreaves",
-        email: "owner@demo-property.example",
-        phone: "0412 000 000",
-        address: "42 Fernleigh Crescent, Samford Valley QLD 4520",
-        company: null,
-        notes:
-          "Demo client — Category 2 washing machine overflow. Insurance claim lodged.",
+        email: DEMO_EMAIL,
+        name: "James Whitfield",
+        role: "ADMIN",
+        subscriptionStatus: "ACTIVE",
+        subscriptionPlan: "professional",
+        lifetimeAccess: true,
+        businessName: "Whitfield Restoration Services Pty Ltd",
+        businessAddress: "Unit 4, 18 Industrial Ave, Brookvale NSW 2100",
+        businessABN: "12 345 678 901",
+        businessPhone: "02 9876 5432",
+        businessEmail: DEMO_EMAIL,
+        hasPremiumInspectionReports: true,
+        firstRunChecklistDismissedAt: day1,
       },
-    }));
-  console.log(`     Client: ${demoClient.id}`);
-
-  // ── 3. Delete any prior demo inspection (idempotent) ──────────────────────
-  const prior = await prisma.inspection.findUnique({
-    where: { inspectionNumber: DEMO_INSPECTION_NUMBER },
-  });
-  if (prior) {
-    console.log("  → Removing prior demo inspection…");
-    await prisma.inspection.delete({ where: { id: prior.id } });
+    });
+    console.log(`✓ Created demo user: ${user.id}`);
   }
 
-  // ── 4. Create Inspection ──────────────────────────────────────────────────
-  console.log("  → Creating demo inspection…");
-  const inspection = await prisma.inspection.create({
+  // ── 2. Demo Organization ────────────────────────────────────────────────
+
+  const existingOrg = await prisma.organization.findFirst({
+    where: { ownerId: user.id },
+  });
+
+  let orgId: string;
+  if (existingOrg) {
+    orgId = existingOrg.id;
+    console.log(`✓ Demo organization already exists: ${orgId}`);
+  } else {
+    const org = await prisma.organization.create({
+      data: {
+        name: "RestoreAssist Demo Tenant",
+        ownerId: user.id,
+      },
+    });
+    orgId = org.id;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { organizationId: orgId },
+    });
+    console.log(`✓ Created demo organization: ${orgId}`);
+  }
+
+  // ── 3. Check idempotency — skip if inspection already seeded ───────────
+
+  const existingInspection = await prisma.inspection.findUnique({
+    where: { inspectionNumber: DEMO_INSPECTION_NUMBER },
+  });
+
+  if (existingInspection) {
+    console.log(
+      `✓ Demo inspection already seeded (${existingInspection.id}). Skipping.`,
+    );
+    console.log("────────────────────────────────────");
+    console.log("✅ Demo data already present — seed complete.");
+    return;
+  }
+
+  // ── 4. Create Report ────────────────────────────────────────────────────
+
+  const report = await prisma.report.create({
     data: {
-      userId: demoUser.id,
-      inspectionNumber: DEMO_INSPECTION_NUMBER,
-      propertyAddress: "42 Fernleigh Crescent, Samford Valley QLD 4520",
-      propertyPostcode: "4520",
-      inspectionDate: DAY_1,
-      technicianName: "Demo Technician",
-      technicianId: demoUser.id,
+      title: "Water Damage Restoration Report — 42 Harbourside Drive, Manly",
+      description:
+        "Category 2 grey water damage from washing machine supply hose failure. 150 m² affected across living room, kitchen, and hallway. 3-day structural drying program completed.",
       status: "COMPLETED",
-      submittedAt: DAY_1,
-      processedAt: DAY_3,
-      propertyFloorArea: 150,
-      propertyBedrooms: 3,
-      propertyBathrooms: 2,
-      propertyWallMaterial: "Brick Veneer",
-      propertyFloorType: "Concrete Slab",
-      propertyYearBuilt: 2005,
-      propertyStories: 1,
+      clientName: "Sarah Thompson",
+      propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
+      hazardType: "water",
+      insuranceType: "home",
+      userId: user.id,
+      reportNumber: DEMO_REPORT_NUMBER,
+      inspectionDate: day1,
+      waterCategory: "2",
+      waterClass: "2",
+      sourceOfWater:
+        "Washing machine supply hose failure — grey water overflow from laundry into living areas",
+      affectedArea: 150,
+      safetyHazards:
+        "Electrical hazard — power isolated to affected circuits. Slip hazard on wet hard flooring.",
+      equipmentUsed:
+        "2× Dri-Eaz LGR 3500i Dehumidifier (80L/day rated), 3× Dri-Eaz Sahara Pro X3 Air Mover",
+      dryingPlan:
+        "Structural drying per IICRC S500 §14. Target: indoor RH ≤ outdoor ambient. 2× LGR dehumidifiers positioned centrally in living room and kitchen. 3× air movers directed at carpet/underlay in living room (2 units) and hallway (1 unit). Daily moisture monitoring with pin-type and non-invasive meters. Estimated 3–5 day drying period based on Class 2 evaporation load.",
+      airmoversCount: 3,
+      dehumidificationCapacity: 160,
+      targetHumidity: 60,
+      targetTemperature: 22,
+      estimatedDryingTime: 72,
+      technicianName: "James Whitfield (IICRC WRT #AUS-0042)",
+      technicianAttendanceDate: day1,
+      propertyPostcode: "2095",
+      completenessScore: 98,
+      reportDepthLevel: "Enhanced",
+      reportVersion: 1,
+      completionDate: day3,
+      psychrometricReadings: JSON.stringify([
+        {
+          day: 1,
+          date: day1.toISOString().slice(0, 10),
+          indoorTempC: 22.5,
+          indoorRH: 68.5,
+          dewPointC: 15.8,
+          outdoorRH: 71.0,
+          grainsPP: 72.4,
+          dryingTarget: "≤71% RH",
+          status: "ABOVE_TARGET",
+        },
+        {
+          day: 2,
+          date: day2.toISOString().slice(0, 10),
+          indoorTempC: 21.8,
+          indoorRH: 58.3,
+          dewPointC: 12.4,
+          outdoorRH: 65.0,
+          grainsPP: 58.1,
+          dryingTarget: "≤65% RH",
+          status: "ABOVE_TARGET",
+        },
+        {
+          day: 3,
+          date: day3.toISOString().slice(0, 10),
+          indoorTempC: 22.1,
+          indoorRH: 52.7,
+          dewPointC: 11.2,
+          outdoorRH: 60.0,
+          grainsPP: 49.8,
+          dryingTarget: "≤60% RH",
+          status: "APPROACHING_TARGET",
+        },
+      ]),
+      equipmentSelection: JSON.stringify({
+        dehumidifiers: [
+          {
+            make: "Dri-Eaz",
+            model: "LGR 3500i",
+            qty: 2,
+            capacityLPerDay: 80,
+            location: "Living Room (1), Kitchen (1)",
+          },
+        ],
+        airMovers: [
+          {
+            make: "Dri-Eaz",
+            model: "Sahara Pro X3",
+            qty: 3,
+            cfm: 2900,
+            location: "Living Room (2), Hallway (1)",
+          },
+        ],
+        totalDehumidificationCapacity: 160,
+        calculationBasis: "IICRC S500 §14 — Class 2, 150 m² affected area",
+      }),
+      detailedReport: generateS500ReportText(),
     },
   });
-  console.log(`     Inspection: ${inspection.id}`);
+  console.log(`✓ Created demo report: ${report.id}`);
 
-  // ── 5. Environmental Data (primary reading — Day 1) ────────────────────────
-  console.log("  → Creating environmental data…");
+  // ── 5. Create Inspection (linked to Report) ─────────────────────────────
+
+  const inspection = await prisma.inspection.create({
+    data: {
+      inspectionNumber: DEMO_INSPECTION_NUMBER,
+      propertyAddress: "42 Harbourside Drive, Manly NSW 2095",
+      propertyPostcode: "2095",
+      inspectionDate: day1,
+      technicianName: "James Whitfield",
+      technicianId: user.id,
+      status: "COMPLETED",
+      userId: user.id,
+      reportId: report.id,
+      processedAt: day3,
+      submittedAt: day1,
+    },
+  });
+  console.log(`✓ Created demo inspection: ${inspection.id}`);
+
+  // ── 6. Environmental Data (Day 1 snapshot — single record per inspection)
+
   await prisma.environmentalData.create({
     data: {
       inspectionId: inspection.id,
-      ambientTemperature: 24.5, // °C
-      humidityLevel: 78, // %
-      dewPoint: 20.2,
+      ambientTemperature: 22.5,
+      humidityLevel: 68.5,
+      dewPoint: 15.8,
       airCirculation: true,
-      weatherConditions: "Overcast, mild. Overnight rain the previous day.",
+      weatherConditions:
+        "Overcast, light rain. Outdoor ambient RH 71%. Drying target per S500 §12.4: indoor RH ≤ outdoor ambient (71%).",
       notes:
-        "Day 1 readings taken at 08:15 prior to equipment deployment. " +
-        "GPP: " +
-        calcGpp(24.5, 78) +
-        ". " +
-        "Day 2 follow-up: Temp 24.1°C, RH 62%, GPP: " +
-        calcGpp(24.1, 62) +
-        ". " +
-        "Day 3 clearance: Temp 23.8°C, RH 52%, GPP: " +
-        calcGpp(23.8, 52) +
-        ". " +
-        "Drying goal achieved — readings within dry standard (≤ WME 16% on structural materials).",
-      recordedAt: DAY_1,
+        "Initial environmental readings at 09:15 AEST. Windows closed, mechanical drying equipment running. GPP indoor: 72.4 gr/lb. GPP outdoor: 75.1 gr/lb.",
+      recordedAt: day1,
     },
   });
+  console.log("✓ Created environmental data (Day 1 snapshot)");
 
-  // ── 6. Moisture Readings — 3 rooms × floor / wall / ceiling ──────────────
-  console.log("  → Creating moisture readings…");
+  // ── 7. Affected Areas (3 rooms, total 150 m²) ──────────────────────────
 
-  const moistureData = [
-    // Laundry (source room — highest readings)
+  const areas = await Promise.all([
+    prisma.affectedArea.create({
+      data: {
+        inspectionId: inspection.id,
+        roomZoneId: "Living Room",
+        affectedSquareFootage: 60,
+        waterSource: "grey water",
+        timeSinceLoss: 4,
+        category: "2",
+        class: "2",
+        description:
+          "Primary affected area. Washing machine hose failure in adjacent laundry — grey water migrated across carpet and underlay. Moisture detected in carpet, underlay, and lower 150mm of drywall.",
+      },
+    }),
+    prisma.affectedArea.create({
+      data: {
+        inspectionId: inspection.id,
+        roomZoneId: "Kitchen",
+        affectedSquareFootage: 45,
+        waterSource: "grey water",
+        timeSinceLoss: 4,
+        category: "2",
+        class: "2",
+        description:
+          "Secondary affected area. Grey water pooled on vinyl flooring, wicked into MDF cabinet bases. Standing water 5–10mm depth at time of arrival.",
+      },
+    }),
+    prisma.affectedArea.create({
+      data: {
+        inspectionId: inspection.id,
+        roomZoneId: "Hallway / Bedroom 1",
+        affectedSquareFootage: 45,
+        waterSource: "grey water",
+        timeSinceLoss: 6,
+        category: "2",
+        class: "1",
+        description:
+          "Migration zone. Grey water followed carpet tack strip along hallway into bedroom 1. Lower moisture levels — partial carpet and underlay saturation only.",
+      },
+    }),
+  ]);
+  console.log(`✓ Created ${areas.length} affected areas (total 150 m²)`);
+
+  // ── 8. Moisture Readings (14 readings across 3 rooms over 3 days) ──────
+
+  const moistureReadings = [
+    // ── Day 1 (initial assessment) ──
     {
-      location: "Laundry",
-      surfaceType: "Concrete",
-      moistureLevel: 47.3,
+      location: "Living Room — centre carpet",
+      surfaceType: "carpet",
+      moistureLevel: 42.5,
       depth: "Surface",
-      notes:
-        "Area directly beneath washing machine. Category 2 grey water overflow.",
-      recordedAt: DAY_1,
+      recordedAt: day1,
+      notes: "Saturated. S500 §12.3 threshold for carpet: >0.1% = CRITICAL",
     },
     {
-      location: "Laundry",
-      surfaceType: "Plasterboard",
-      moistureLevel: 38.6,
-      depth: "Surface",
-      notes: "Wall behind machine — wicking to approx 450mm height.",
-      recordedAt: DAY_1,
-    },
-    {
-      location: "Laundry",
-      surfaceType: "Plasterboard",
-      moistureLevel: 14.2,
-      depth: "Surface",
-      notes: "Ceiling — no notable saturation. Day 3 clearance reading.",
-      recordedAt: DAY_3,
-    },
-
-    // Hallway (secondary migration path)
-    {
-      location: "Hallway",
-      surfaceType: "Timber",
-      moistureLevel: 31.4,
+      location: "Living Room — north wall drywall (150mm AFF)",
+      surfaceType: "drywall",
+      moistureLevel: 28.3,
       depth: "Subsurface",
-      notes: "Engineered timber floating floor. Moisture trapped below planks.",
-      recordedAt: DAY_1,
+      recordedAt: day1,
+      notes:
+        "Non-invasive reading. Critical — well above 1.0% drywall threshold.",
     },
     {
-      location: "Hallway",
-      surfaceType: "Plasterboard",
+      location: "Kitchen — vinyl flooring centre",
+      surfaceType: "concrete",
+      moistureLevel: 38.1,
+      depth: "Surface",
+      recordedAt: day1,
+      notes: "Standing water removed. Substrate reading under vinyl.",
+    },
+    {
+      location: "Kitchen — island cabinet base (MDF)",
+      surfaceType: "wood",
       moistureLevel: 22.7,
-      depth: "Surface",
-      notes: "Skirting-level wicking from floor junction.",
-      recordedAt: DAY_1,
+      depth: "Subsurface",
+      recordedAt: day1,
+      notes:
+        "Elevated — MDF wicking detected. S500 §12.3 wood threshold: >16% = ELEVATED.",
     },
     {
-      location: "Hallway",
-      surfaceType: "Plasterboard",
-      moistureLevel: 12.4,
+      location: "Hallway — carpet runner mid-point",
+      surfaceType: "carpet",
+      moistureLevel: 18.4,
       depth: "Surface",
-      notes: "Ceiling — within acceptable range. Day 3 clearance reading.",
-      recordedAt: DAY_3,
+      recordedAt: day1,
+      notes: "Elevated. Migration path from living room.",
+    },
+    {
+      location: "Bedroom 1 — drywall east wall (100mm AFF)",
+      surfaceType: "drywall",
+      moistureLevel: 3.2,
+      depth: "Subsurface",
+      recordedAt: day1,
+      notes: "Elevated — moisture migration through shared wall.",
     },
 
-    // Bedroom 1 (tertiary — minor migration under door)
+    // ── Day 2 (monitoring — drying in progress) ──
     {
-      location: "Bedroom 1",
-      surfaceType: "Carpet",
-      moistureLevel: 28.9,
+      location: "Living Room — centre carpet",
+      surfaceType: "carpet",
+      moistureLevel: 31.2,
+      depth: "Surface",
+      recordedAt: day2,
+      notes: "Drying progressing. Down from 42.5%. Equipment repositioned.",
+    },
+    {
+      location: "Living Room — north wall drywall (150mm AFF)",
+      surfaceType: "drywall",
+      moistureLevel: 19.6,
       depth: "Subsurface",
-      notes:
-        "Underlay saturated at door-side edge. Carpet lifted for assessment.",
-      recordedAt: DAY_1,
+      recordedAt: day2,
+      notes: "Improving — down from 28.3%. Still elevated.",
     },
     {
-      location: "Bedroom 1",
-      surfaceType: "Plasterboard",
-      moistureLevel: 15.8,
+      location: "Kitchen — vinyl flooring centre",
+      surfaceType: "concrete",
+      moistureLevel: 24.8,
       depth: "Surface",
-      notes:
-        "Skirting board and 150mm above — minor wicking. IICRC S500:2025 §7.1 compliant reading.",
-      recordedAt: DAY_1,
+      recordedAt: day2,
+      notes: "Significant improvement. Vinyl lifted at edges for airflow.",
     },
     {
-      location: "Bedroom 1",
-      surfaceType: "Plasterboard",
-      moistureLevel: 11.6,
+      location: "Hallway — carpet runner mid-point",
+      surfaceType: "carpet",
+      moistureLevel: 12.1,
       depth: "Surface",
-      notes: "Ceiling — no saturation detected. Day 3 clearance reading.",
-      recordedAt: DAY_3,
+      recordedAt: day2,
+      notes: "Approaching dry target. Air mover repositioned.",
+    },
+
+    // ── Day 3 (approaching dry standard) ──
+    {
+      location: "Living Room — centre carpet",
+      surfaceType: "carpet",
+      moistureLevel: 8.5,
+      depth: "Surface",
+      recordedAt: day3,
+      notes:
+        "Approaching normal. Carpet and underlay to be replaced (Cat 2 — sanitation).",
+    },
+    {
+      location: "Living Room — north wall drywall (150mm AFF)",
+      surfaceType: "drywall",
+      moistureLevel: 1.8,
+      depth: "Subsurface",
+      recordedAt: day3,
+      notes: "Approaching dry target (1.0%). One more day recommended.",
+    },
+    {
+      location: "Kitchen — vinyl flooring centre",
+      surfaceType: "concrete",
+      moistureLevel: 1.4,
+      depth: "Surface",
+      recordedAt: day3,
+      notes: "Approaching dry target. Concrete substrate drying well.",
+    },
+    {
+      location: "Hallway — carpet runner mid-point",
+      surfaceType: "carpet",
+      moistureLevel: 0.08,
+      depth: "Surface",
+      recordedAt: day3,
+      notes: "NORMAL — below 0.1% threshold. Hallway drying complete.",
     },
   ];
 
-  for (const reading of moistureData) {
-    await prisma.moistureReading.create({
-      data: { inspectionId: inspection.id, ...reading },
-    });
-  }
-  console.log(`     Created ${moistureData.length} moisture readings`);
-
-  // ── 7. Affected Areas ──────────────────────────────────────────────────────
-  console.log("  → Creating affected areas…");
-  await prisma.affectedArea.createMany({
-    data: [
-      {
-        inspectionId: inspection.id,
-        roomZoneId: "Laundry",
-        affectedSquareFootage: 8, // ~8m² source room
-        waterSource: "grey water",
-        timeSinceLoss: 4,
-        category: "2",
-        class: "3",
-        description:
-          "Category 2 grey water from washing machine overflow. Class 3 — water spread to walls " +
-          "and ceiling materials. IICRC S500:2025 §4.1 Category 2, §4.2 Class 3 classification applies.",
-      },
-      {
-        inspectionId: inspection.id,
-        roomZoneId: "Hallway",
-        affectedSquareFootage: 25, // corridor connecting rooms
-        waterSource: "grey water",
-        timeSinceLoss: 4,
-        category: "2",
-        class: "2",
-        description:
-          "Category 2 migration. Class 2 — water absorbed into flooring assembly. " +
-          "Engineered timber floating floor requires lift and dry-down of sub-floor.",
-      },
-      {
-        inspectionId: inspection.id,
-        roomZoneId: "Bedroom 1",
-        affectedSquareFootage: 14, // partial bedroom area
-        waterSource: "grey water",
-        timeSinceLoss: 5,
-        category: "2",
-        class: "2",
-        description:
-          "Category 2 secondary migration. Class 2 — carpet and underlay saturated at entry. " +
-          "Subfloor concrete slab moisture within acceptable range (< 15% WME).",
-      },
-    ],
+  await prisma.moistureReading.createMany({
+    data: moistureReadings.map((r) => ({
+      inspectionId: inspection.id,
+      ...r,
+    })),
   });
+  console.log(
+    `✓ Created ${moistureReadings.length} moisture readings (3-day drying progression)`,
+  );
 
-  // ── 8. IICRC Classification ────────────────────────────────────────────────
-  console.log("  → Creating classification…");
+  // ── 9. Classification ──────────────────────────────────────────────────
+
   await prisma.classification.create({
     data: {
       inspectionId: inspection.id,
       category: "2",
-      class: "3",
+      class: "2",
       justification:
-        "Water source is a domestic washing machine overflow. Grey water with potential contaminants " +
-        "from detergent residue and lint. Classified Category 2 per IICRC S500:2025 §4.1. " +
-        "Primary affected area (Laundry) shows Class 3 water damage — water has wicked into wall " +
-        "cavities and ceiling space per §4.2. Secondary areas (Hallway, Bedroom 1) classified Class 2 " +
-        "due to floor/wall absorption without ceiling involvement.",
-      standardReference: "IICRC S500:2025 §4.1, §4.2",
-      confidence: 96.5,
+        "Grey water source (washing machine supply hose failure) — Category 2 per IICRC S500 §7.2: water containing significant contamination with potential to cause discomfort or sickness. Affected area: 150 m² across 3 rooms (>40% of habitable floor space would be Class 3, but only 81% of the 185 m² total is affected across mixed zones — living room and kitchen at Class 2, hallway at Class 1). Overall classification: Class 2 (fast evaporation rate) per IICRC S500 §8.2.",
+      standardReference: "IICRC S500 §7.2 (Category), §8.2 (Class)",
+      confidence: 97.5,
       isFinal: true,
       inputData: JSON.stringify({
-        moistureReadingsCount: 9,
-        affectedAreasCount: 3,
-        waterSource: "grey water — washing machine overflow",
-        highestMoisture: 47.3,
-        affectedSurfaceTypes: ["Concrete", "Plasterboard", "Timber", "Carpet"],
+        waterSource: "washing_machine_hose",
+        timeElapsed: "4 hours",
+        affectedAreaM2: 150,
+        totalFloorAreaM2: 185,
+        percentAffected: 81,
+        materialTypes: ["carpet", "drywall", "vinyl", "MDF", "concrete"],
+        standingWater: true,
+        sanitisationRequired: true,
       }),
     },
   });
+  console.log("✓ Created S500 classification (Cat 2 / Class 2)");
 
-  // ── 9. Scope Items ─────────────────────────────────────────────────────────
-  console.log("  → Creating scope items…");
-  await prisma.scopeItem.createMany({
-    data: [
-      {
-        inspectionId: inspection.id,
-        itemType: "sanitise_category2_surfaces",
-        description:
-          "Apply EPA-registered antimicrobial agent to all Category 2 affected surfaces",
-        areaId: "Laundry",
-        quantity: 8,
-        unit: "m²",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §9.1 — Category 2 water requires antimicrobial treatment of all affected porous and semi-porous materials.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "extract_standing_water",
-        description:
-          "Extraction of residual standing water using truck-mounted wet vacuum",
-        areaId: "Laundry",
-        quantity: 1,
-        unit: "job",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §8.1 — Water extraction is the primary step before drying equipment deployment.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "lift_carpet_and_underlay",
-        description:
-          "Lift and dispose of saturated carpet and underlay in Bedroom 1",
-        areaId: "Bedroom 1",
-        quantity: 14,
-        unit: "m²",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §9.2 — Category 2 water-saturated carpet and underlay cannot be effectively dried in-situ and must be removed.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "install_dehumidification",
-        description:
-          "Install LGR dehumidifiers (×2) — Laundry and Hallway zones",
-        areaId: "Hallway",
-        quantity: 2,
-        unit: "units",
-        specification:
-          "LGR dehumidifier, minimum 20L/day extraction capacity each. Deployment: Day 1. Retrieval: Day 3 upon drying verification.",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §8.3 — Dehumidification equipment required for moisture evaporation control across affected zones.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "install_air_movers",
-        description:
-          "Install axial air movers (×3) — Laundry (×1), Hallway (×1), Bedroom 1 (×1)",
-        areaId: "Laundry",
-        quantity: 3,
-        unit: "units",
-        specification:
-          "High-velocity axial air movers at floor level. Deployment: Day 1. Retrieval: Day 3.",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §8.3 — Air movers increase surface evaporation rate. Ratio of 1 mover per ~15m² per IICRC equipment matrix.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "monitoring_visits",
-        description:
-          "Monitoring visits — psychrometric readings and moisture checks (Days 2 and 3)",
-        quantity: 2,
-        unit: "visits",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §12.4 — Daily monitoring required to verify drying progress and adjust equipment placement as needed.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "drying_verification",
-        description: "Final drying verification and completion documentation",
-        quantity: 1,
-        unit: "job",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §11.4 — Drying verification must demonstrate moisture levels have reached dry standard (≤ WME 16% for structural materials). Pass/fail per reading documented.",
-        isRequired: true,
-        isSelected: true,
-      },
-      {
-        inspectionId: inspection.id,
-        itemType: "report_generation",
-        description:
-          "Generate IICRC S500:2025 compliant PDF inspection and monitoring report",
-        quantity: 1,
-        unit: "document",
-        autoDetermined: true,
-        justification:
-          "IICRC S500:2025 §4.2 — Full documentation including classification, moisture readings, equipment log, scope of works, and signatory confirmation required for insurer audit trail.",
-        isRequired: true,
-        isSelected: true,
-      },
-    ],
-  });
+  // ── 10. Scope Items ────────────────────────────────────────────────────
 
-  // ── 10. Cost Estimates ─────────────────────────────────────────────────────
-  console.log("  → Creating cost estimates…");
-  const costItems = [
+  const scopeItems = [
     {
-      category: "Labour",
+      itemType: "remove_carpet",
       description:
-        "Initial inspection, water extraction, equipment setup — technician 4hrs",
-      quantity: 4,
-      unit: "hours",
-      rate: 145,
-      contingency: null,
-    },
-    {
-      category: "Labour",
-      description:
-        "Monitoring visit Day 2 — psychrometric readings, equipment adjustment (1.5hrs)",
-      quantity: 1.5,
-      unit: "hours",
-      rate: 145,
-      contingency: null,
-    },
-    {
-      category: "Labour",
-      description:
-        "Monitoring visit Day 3 — drying verification + demobilisation (2hrs)",
-      quantity: 2,
-      unit: "hours",
-      rate: 145,
-      contingency: null,
-    },
-    {
-      category: "Labour",
-      description: "Carpet and underlay lift & disposal — Bedroom 1",
-      quantity: 14,
+        "Remove and dispose of affected carpet and underlay — Living Room",
+      quantity: 60,
       unit: "m²",
-      rate: 12.5,
-      contingency: null,
+      justification:
+        "Cat 2 grey water contamination — carpet and underlay are non-restorable per IICRC S500 §7.2. Sanitation risk.",
+      autoDetermined: true,
     },
     {
-      category: "Labour",
-      description: "Antimicrobial application — Laundry surfaces",
-      quantity: 8,
-      unit: "m²",
-      rate: 18,
-      contingency: null,
-    },
-    {
-      category: "Equipment",
-      description: "LGR dehumidifier hire — 3 days × 2 units",
-      quantity: 6,
-      unit: "unit-days",
-      rate: 95,
-      contingency: null,
-    },
-    {
-      category: "Equipment",
-      description: "Axial air mover hire — 3 days × 3 units",
-      quantity: 9,
-      unit: "unit-days",
-      rate: 38,
-      contingency: null,
-    },
-    {
-      category: "Materials",
-      description: "EPA-registered antimicrobial solution (Category 2)",
-      quantity: 2,
-      unit: "litres",
-      rate: 45,
-      contingency: null,
-    },
-    {
-      category: "Materials",
+      itemType: "remove_vinyl",
       description:
-        "Disposable PPE — gloves, P2 respirator, disposable suit (Category 2 protocols)",
+        "Lift affected vinyl flooring — Kitchen (retain if undamaged)",
+      quantity: 45,
+      unit: "m²",
+      justification:
+        "Vinyl lifted to allow subfloor drying. Non-porous surface may be reinstated after sanitation per S500 §7.2.",
+      autoDetermined: true,
+    },
+    {
+      itemType: "sanitize_subfloor",
+      description:
+        "Apply antimicrobial treatment to exposed subfloor — Living Room + Kitchen",
+      quantity: 105,
+      unit: "m²",
+      specification:
+        "Benefect Decon 30 or equivalent botanical antimicrobial. Two applications: post-extraction and pre-reinstatement.",
+      justification:
+        "Mandatory Cat 2 sanitation requirement — IICRC S500 §7.2 and §10.2.",
+      autoDetermined: true,
+    },
+    {
+      itemType: "install_dehumidification",
+      description:
+        "Deploy 2× LGR dehumidifier (80L/day rated capacity each, 160L/day total)",
+      quantity: 2,
+      unit: "units",
+      specification:
+        "Dri-Eaz LGR 3500i or equivalent. Position centrally in living room and kitchen for Class 2 coverage.",
+      justification:
+        "Equipment selection per IICRC S500 §14 — Class 2, 150 m² affected area requires minimum 120L/day LGR capacity.",
+      autoDetermined: true,
+    },
+    {
+      itemType: "install_air_movers",
+      description: "Deploy 3× axial air mover for carpet and structural drying",
       quantity: 3,
-      unit: "sets",
-      rate: 22,
-      contingency: null,
+      unit: "units",
+      specification:
+        "Dri-Eaz Sahara Pro X3 or equivalent. 2 units in living room (cross-flow), 1 unit in hallway.",
+      justification:
+        "IICRC S500 §14 — 1 air mover per 4.5–7 m² of affected carpet. Living room (60 m²) requires 2+ units.",
+      autoDetermined: true,
     },
     {
-      category: "Materials",
+      itemType: "moisture_monitoring",
       description:
-        "Waste disposal — saturated carpet, underlay, and contaminated materials",
+        "Daily moisture monitoring and environmental logging — 3-day drying program",
+      quantity: 3,
+      unit: "days",
+      justification:
+        "S500 §12.3 — daily monitoring required until all readings achieve drying goal. Includes pin-type and non-invasive readings.",
+      autoDetermined: true,
+    },
+    {
+      itemType: "reinstate_carpet",
+      description:
+        "Supply and install replacement carpet and underlay — Living Room",
+      quantity: 60,
+      unit: "m²",
+      specification:
+        "Like-for-like replacement. Loop pile, stain-resistant, manufacturer warranty minimum 10 years.",
+      justification: "Reinstatement of removed contaminated materials.",
+      autoDetermined: false,
+      isSelected: true,
+    },
+    {
+      itemType: "reinstate_vinyl",
+      description:
+        "Reinstall vinyl flooring — Kitchen (if undamaged) or supply replacement",
+      quantity: 45,
+      unit: "m²",
+      justification: "Reinstatement after subfloor drying complete.",
+      autoDetermined: false,
+      isSelected: true,
+    },
+    {
+      itemType: "waste_disposal",
+      description:
+        "Dispose of contaminated building materials — carpet, underlay, damaged MDF",
       quantity: 1,
-      unit: "job",
-      rate: 185,
-      contingency: null,
+      unit: "load",
+      specification:
+        "Cat 2 waste disposal per local council regulations. Skip bin or truck collection.",
+      justification:
+        "S500 §7.2 — contaminated materials must be disposed of, not stored on-site.",
+      autoDetermined: true,
     },
   ];
 
-  for (const item of costItems) {
-    const subtotal = item.quantity * item.rate;
-    const gst = subtotal * 0.1;
-    await prisma.costEstimate.create({
-      data: {
-        inspectionId: inspection.id,
-        category: item.category,
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        rate: item.rate,
-        subtotal,
-        contingency: item.contingency ?? null,
-        total: subtotal + gst,
-        isEstimated: true,
-      },
-    });
-  }
-
-  const totalExGst = costItems.reduce((acc, i) => acc + i.quantity * i.rate, 0);
-  const totalIncGst = totalExGst * 1.1;
+  await prisma.scopeItem.createMany({
+    data: scopeItems.map((item) => ({
+      inspectionId: inspection.id,
+      isRequired: true,
+      isSelected: item.isSelected ?? true,
+      ...item,
+    })),
+  });
   console.log(
-    `     Cost items: ${costItems.length} — Total ex-GST: $${totalExGst.toFixed(2)}, inc-GST: $${totalIncGst.toFixed(2)}`,
+    `✓ Created ${scopeItems.length} scope items with S500 clause references`,
   );
 
-  // ── 11. Report (linked to the inspection) ─────────────────────────────────
-  console.log("  → Creating demo report…");
-  const existingReport = await prisma.report.findFirst({
-    where: {
-      userId: demoUser.id,
-      propertyAddress: "42 Fernleigh Crescent, Samford Valley QLD 4520",
+  // ── 11. Equipment Deployments ──────────────────────────────────────────
+
+  const equipmentDeployments = [
+    {
+      reportId: report.id,
+      userId: user.id,
+      equipmentType: "dehumidifier",
+      manufacturer: "Dri-Eaz",
+      model: "LGR 3500i",
+      make: "Dri-Eaz",
+      serialNumber: "DE-LGR-2024-00147",
+      deploymentLocation: "Living Room — central position",
+      startTime: day1,
+      endTime: day3,
+      operatingHours: 68,
+      runHours: 68,
+      ampDraw: 5.8,
+      notes:
+        "Unit 1 of 2. 80L/day rated. Continuous operation. Condensate drain to external.",
+    },
+    {
+      reportId: report.id,
+      userId: user.id,
+      equipmentType: "dehumidifier",
+      manufacturer: "Dri-Eaz",
+      model: "LGR 3500i",
+      make: "Dri-Eaz",
+      serialNumber: "DE-LGR-2024-00148",
+      deploymentLocation: "Kitchen — near island bench",
+      startTime: day1,
+      endTime: day3,
+      operatingHours: 68,
+      runHours: 68,
+      ampDraw: 5.8,
+      notes:
+        "Unit 2 of 2. 80L/day rated. Positioned to draw moisture from cabinet bases.",
+    },
+    {
+      reportId: report.id,
+      userId: user.id,
+      equipmentType: "air_mover",
+      manufacturer: "Dri-Eaz",
+      model: "Sahara Pro X3",
+      make: "Dri-Eaz",
+      serialNumber: "DE-SAH-2023-00412",
+      deploymentLocation: "Living Room — north wall (cross-flow position 1)",
+      startTime: day1,
+      endTime: day3,
+      operatingHours: 68,
+      runHours: 68,
+      ampDraw: 2.5,
+      notes: "Cross-flow with unit 2. Directed at carpet and lower drywall.",
+    },
+    {
+      reportId: report.id,
+      userId: user.id,
+      equipmentType: "air_mover",
+      manufacturer: "Dri-Eaz",
+      model: "Sahara Pro X3",
+      make: "Dri-Eaz",
+      serialNumber: "DE-SAH-2023-00413",
+      deploymentLocation: "Living Room — south wall (cross-flow position 2)",
+      startTime: day1,
+      endTime: day3,
+      operatingHours: 68,
+      runHours: 68,
+      ampDraw: 2.5,
+      notes: "Cross-flow with unit 1. Coverage: 30 m² each unit.",
+    },
+    {
+      reportId: report.id,
+      userId: user.id,
+      equipmentType: "air_mover",
+      manufacturer: "Dri-Eaz",
+      model: "Sahara Pro X3",
+      make: "Dri-Eaz",
+      serialNumber: "DE-SAH-2023-00414",
+      deploymentLocation: "Hallway — directed toward bedroom 1 entry",
+      startTime: day1,
+      endTime: day3,
+      operatingHours: 68,
+      runHours: 68,
+      ampDraw: 2.5,
+      notes:
+        "Single unit for migration zone. Hallway reached dry standard on Day 3.",
+    },
+  ];
+
+  await prisma.equipmentDeployment.createMany({ data: equipmentDeployments });
+  console.log(
+    `✓ Created ${equipmentDeployments.length} equipment deployments (2 dehu + 3 air movers)`,
+  );
+
+  // ── 12. Drying Goal Record ─────────────────────────────────────────────
+
+  await prisma.dryingGoalRecord.create({
+    data: {
+      inspectionId: inspection.id,
+      targetCategory: "2",
+      targetClass: "2",
+      startedAt: day1,
+      materialTargets: {
+        carpet: { normalThreshold: 0.1, unit: "%" },
+        drywall: { normalThreshold: 1.0, unit: "%" },
+        concrete: { normalThreshold: 0.5, unit: "%" },
+        wood: { normalThreshold: 16.0, unit: "%" },
+      },
+      goalAchieved: false,
+      totalDryingDays: 3,
+      finalReadingsSnapshot: {
+        "Living Room — carpet": {
+          reading: 8.5,
+          threshold: 0.1,
+          status: "ELEVATED",
+        },
+        "Living Room — drywall": {
+          reading: 1.8,
+          threshold: 1.0,
+          status: "ELEVATED",
+        },
+        "Kitchen — concrete": {
+          reading: 1.4,
+          threshold: 0.5,
+          status: "ELEVATED",
+        },
+        "Hallway — carpet": { reading: 0.08, threshold: 0.1, status: "NORMAL" },
+        "Bedroom 1 — drywall": {
+          reading: 0.7,
+          threshold: 1.0,
+          status: "NORMAL",
+        },
+      },
+      iicrcReference:
+        "IICRC S500 §12.3 — Material-specific moisture thresholds; §12.4 — Drying target = indoor RH ≤ outdoor ambient",
+      signedOffBy: user.id,
+      signedOffAt: day3,
     },
   });
+  console.log("✓ Created drying goal record (3-day tracking)");
 
-  let report = existingReport;
-  if (!report) {
-    report = await prisma.report.create({
-      data: {
-        userId: demoUser.id,
-        clientId: demoClient.id,
-        title:
-          "Water Damage Inspection Report — 42 Fernleigh Crescent, Samford Valley",
-        description:
-          "Category 2 grey water damage from washing machine overflow. " +
-          "Affected areas: Laundry, Hallway, Bedroom 1 (combined ~47m²). " +
-          "IICRC S500:2025 Class 3 in source room, Class 2 in secondary areas.",
-        status: "COMPLETED",
-        clientName: "Judith & Robert Hargreaves",
-        propertyAddress: "42 Fernleigh Crescent, Samford Valley QLD 4520",
-        propertyPostcode: "4520",
-        hazardType: "Water Damage",
-        insuranceType: "Home & Contents",
-        claimReferenceNumber: "CLM-2026-04-DEMO",
-        incidentDate: new Date("2026-03-31T19:00:00+10:00"),
-        technicianAttendanceDate: DAY_1,
-        technicianName: "Demo Technician",
-        totalCost: totalIncGst,
-        reportDepthLevel: "Enhanced",
-        reportVersion: 1,
-        tier1Responses: JSON.stringify({
-          waterSource: "Washing machine overflow — supply hose failure",
-          estimatedArea: "47",
-          roomsAffected: ["Laundry", "Hallway", "Bedroom 1"],
-          flooringType: [
-            "Concrete slab (laundry)",
-            "Engineered timber (hallway)",
-            "Carpet (bedroom)",
-          ],
-          category: "2",
-          class: "3",
-          timeSinceLoss: "4-5 hours",
-        }),
-        tier3Responses: JSON.stringify({
-          environmentalDay1: { tempC: 24.5, rh: 78, gpp: calcGpp(24.5, 78) },
-          environmentalDay2: { tempC: 24.1, rh: 62, gpp: calcGpp(24.1, 62) },
-          environmentalDay3: { tempC: 23.8, rh: 52, gpp: calcGpp(23.8, 52) },
-          dryingGoalAchieved: true,
-          dryStandardReference:
-            "IICRC S500:2025 §11.4 — WME ≤ 16% structural materials",
-        }),
-        scopeOfWorksDocument: buildScopeDocument(),
-        costEstimationDocument: buildCostDocument(
-          costItems,
-          totalExGst,
-          totalIncGst,
-        ),
-        technicianFieldReport:
-          "Attended 42 Fernleigh Crescent Samford Valley at 08:00 on 01/04/2026. " +
-          "Property owner reported washing machine supply hose failure overnight (~23:00). " +
-          "Estimated 4-5 hours undetected. Grey water (Category 2) from laundry overflow " +
-          "migrated into hallway and Bedroom 1 via under-door gap. " +
-          "Carpet and underlay in Bedroom 1 are saturated and non-restorable. " +
-          "Timber flooring in hallway requires lift and dry-down. Laundry slab and walls " +
-          "at significant moisture levels requiring dehumidification drying cycle.",
-      },
-    });
-  }
+  // ── 13. Audit Log entries ──────────────────────────────────────────────
 
-  // Link inspection to report (if not already linked)
-  await prisma.inspection.update({
-    where: { id: inspection.id },
-    data: { reportId: report.id },
+  const auditEntries = [
+    { action: "INSPECTION_CREATED", entityType: "Inspection", timestamp: day1 },
+    {
+      action: "ENVIRONMENTAL_DATA_RECORDED",
+      entityType: "EnvironmentalData",
+      timestamp: day1,
+    },
+    {
+      action: "MOISTURE_READINGS_RECORDED",
+      entityType: "MoistureReading",
+      timestamp: day1,
+    },
+    {
+      action: "CLASSIFICATION_DETERMINED",
+      entityType: "Classification",
+      timestamp: day1,
+    },
+    {
+      action: "SCOPE_ITEMS_GENERATED",
+      entityType: "ScopeItem",
+      timestamp: day1,
+    },
+    {
+      action: "EQUIPMENT_DEPLOYED",
+      entityType: "EquipmentDeployment",
+      timestamp: day1,
+    },
+    {
+      action: "MOISTURE_READINGS_DAY2",
+      entityType: "MoistureReading",
+      timestamp: day2,
+    },
+    {
+      action: "MOISTURE_READINGS_DAY3",
+      entityType: "MoistureReading",
+      timestamp: day3,
+    },
+    { action: "REPORT_GENERATED", entityType: "Report", timestamp: day3 },
+    {
+      action: "INSPECTION_COMPLETED",
+      entityType: "Inspection",
+      timestamp: day3,
+    },
+  ];
+
+  await prisma.auditLog.createMany({
+    data: auditEntries.map((entry) => ({
+      inspectionId: inspection.id,
+      userId: user.id,
+      action: entry.action,
+      entityType: entry.entityType,
+      device: "Web",
+      timestamp: entry.timestamp,
+    })),
   });
+  console.log(`✓ Created ${auditEntries.length} audit log entries`);
 
-  console.log(`     Report: ${report.id}`);
+  // ── Done ───────────────────────────────────────────────────────────────
+
+  console.log("────────────────────────────────────");
+  console.log("✅ Demo dataset seeded successfully!");
   console.log("");
-  console.log("✅  Demo dataset seed complete!");
+  console.log("  User:         demo@restoreassist.com.au");
+  console.log(`  Inspection:   ${DEMO_INSPECTION_NUMBER}`);
+  console.log(`  Report:       ${DEMO_REPORT_NUMBER}`);
+  console.log("  Job type:     Category 2 / Class 2 — grey water");
+  console.log("  Area:         150 m² (3 rooms)");
+  console.log("  Readings:     14 moisture readings over 3 days");
+  console.log("  Equipment:    2× dehumidifier + 3× air mover");
+  console.log("  Drying:       3-day program (approaching target)");
   console.log("");
-  console.log("   Demo tenant:");
-  console.log(`     Email:       ${DEMO_EMAIL}`);
-  console.log(`     Inspection:  ${DEMO_INSPECTION_NUMBER}`);
-  console.log(`     Report ID:   ${report.id}`);
-  console.log(`     Inspection:  ${inspection.id}`);
-  console.log("");
-  console.log("   To log in as the demo user, create a password via the");
-  console.log("   forgot-password flow or set one directly in the database.");
 }
 
-// ─── REPORT DOCUMENT BUILDERS ────────────────────────────────────────────────
+// ── S500:2025 Report Text Generator ──────────────────────────────────────────
 
-function buildScopeDocument(): string {
-  return `SCOPE OF WORKS — IICRC S500:2025 COMPLIANT
-Property: 42 Fernleigh Crescent, Samford Valley QLD 4520
-Claim Ref: CLM-2026-04-DEMO | Date of Loss: 31/03/2026
+function generateS500ReportText(): string {
+  return `# IICRC S500:2025 Water Damage Restoration Report
 
-SECTION 1 — PROPERTY INFORMATION (S500:2025 §4.2)
-Inspecting Technician: Demo Technician
-Inspection Date: 01/04/2026
-Insurer: NRMA Insurance (demo)
-Loss Category: Category 2 Grey Water
+## 1. Report Summary
 
-SECTION 3 — IICRC CLASSIFICATION (S500:2025 §4.1–4.2)
-Water Category: 2 — Grey Water (washing machine supply hose failure)
-Damage Class:
-  • Laundry (source room): Class 3 — significant wet materials including ceiling space
-  • Hallway: Class 2 — water absorbed into floor/wall assembly
-  • Bedroom 1: Class 2 — carpet/underlay saturation at door-side
+**Report Number:** RA-DEMO-2026-0001
+**Date of Attendance:** ${day1.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+**Technician:** James Whitfield — IICRC WRT Certified (#AUS-0042)
+**Property:** 42 Harbourside Drive, Manly NSW 2095
+**Client:** Sarah Thompson
+**Insurer:** N/A (self-managed claim)
 
-SECTION 4 — MOISTURE READINGS (S500:2025 §7.1)
-Room         | Surface       | WME%  | Depth       | Day
-Laundry      | Concrete slab | 47.3  | Surface     | Day 1
-Laundry      | Plasterboard  | 38.6  | Surface     | Day 1
-Laundry      | Plasterboard  | 14.2  | Surface     | Day 3 (clearance)
-Hallway      | Eng. timber   | 31.4  | Subsurface  | Day 1
-Hallway      | Plasterboard  | 22.7  | Surface     | Day 1
-Hallway      | Plasterboard  | 12.4  | Surface     | Day 3 (clearance)
-Bedroom 1    | Carpet        | 28.9  | Subsurface  | Day 1
-Bedroom 1    | Plasterboard  | 15.8  | Surface     | Day 1
-Bedroom 1    | Plasterboard  | 11.6  | Surface     | Day 3 (clearance)
-Dry Standard: ≤ 16% WME for structural materials (S500:2025 §11.4)
+## 2. Water Category Classification (S500 §7.1–7.3)
 
-SECTION 5 — EQUIPMENT LOG (S500:2025 §8.3)
-Equipment              | Qty | Placement          | Deployed  | Retrieved
-LGR Dehumidifier       |  1  | Laundry            | 01/04/26  | 03/04/26
-LGR Dehumidifier       |  1  | Hallway            | 01/04/26  | 03/04/26
-Axial Air Mover        |  1  | Laundry (floor)    | 01/04/26  | 03/04/26
-Axial Air Mover        |  1  | Hallway (floor)    | 01/04/26  | 03/04/26
-Axial Air Mover        |  1  | Bedroom 1 (floor)  | 01/04/26  | 03/04/26
+**Category 2 — Grey Water**
 
-SECTION 6 — SCOPE OF WORKS (S500:2025 §9.1–9.2, §13)
-1. Water extraction — residual standing water removed by truck-mount
-2. Antimicrobial application to all Category 2 affected surfaces (8m²)
-3. Lift and dispose saturated carpet + underlay — Bedroom 1 (14m²)
-4. Install drying equipment — 2× LGR dehumidifiers, 3× air movers
-5. Monitoring visits Day 2 + Day 3 (psychrometric + WME readings)
-6. Drying verification at Day 3 clearance — all readings ≤ dry standard
-7. Final documentation + S500:2025 compliance report generation
+Water source identified as washing machine supply hose failure in the laundry. Grey water overflowed from the laundry across the living room (carpet), kitchen (vinyl flooring), and hallway (carpet). Water contains significant contamination and has the potential to cause discomfort or sickness if consumed or exposed to.
 
-SECTION 7 — HEALTH & SAFETY (S500:2025 §5.1)
-Category 2 water — PPE: disposable gloves, P2 respirator, disposable suit.
-Contaminated materials bagged and disposed of to licensed waste facility.
-Occupants advised not to use laundry during drying cycle.
+Category 1 to Category 2 escalation was not required — the source is inherently grey water per S500 §7.2 (washing machine discharge).
 
-SECTION 8 — VERIFICATION CHECKLIST (S500:2025 §11.4)
-✓ Laundry concrete slab:   Day 3 reading 14.2% WME — PASS (≤ 16%)
-✓ Hallway engineered floor: Day 3 reading 12.4% WME — PASS (≤ 16%)
-✓ Bedroom 1 subfloor:       Day 3 reading 11.6% WME — PASS (≤ 16%)
-All affected areas have achieved dry standard. Equipment retrieved.
+**Sanitation requirement:** Mandatory antimicrobial treatment of all affected porous and semi-porous materials per S500 §7.2 and §10.2.
 
-SECTION 9 — IICRC STANDARDS REFERENCED (S500:2025 §4.2)
-• IICRC S500:2025 §4.1 — Water damage categories
-• IICRC S500:2025 §4.2 — Water damage classes + documentation requirements
-• IICRC S500:2025 §5.1 — Health and safety protocols
-• IICRC S500:2025 §7.1 — Moisture readings and location documentation
-• IICRC S500:2025 §8.3 — Drying equipment type, quantity, placement
-• IICRC S500:2025 §9.1–9.2 — Category 2 contamination protocols
-• IICRC S500:2025 §11.4 — Drying goal verification and dry standard
-• IICRC S500:2025 §12.4 — Monitoring and psychrometric recording
-• IICRC S500:2025 §13 — Scope of works requirements`;
+## 3. Water Class Classification (S500 §8.1–8.4)
+
+**Class 2 — Fast Evaporation Rate**
+
+Affected area: 150 m² across 3 rooms (81% of total habitable floor space). Materials affected include carpet, carpet underlay, drywall (lower 150mm), vinyl flooring, and MDF cabinet bases. The evaporation load is consistent with Class 2 per S500 §8.2 — an entire room of carpet and cushion with moisture wicking into walls.
+
+## 4. Moisture Assessment (S500 §12.3)
+
+### Day 1 — Initial Assessment
+| Location | Material | MC (%) | Threshold | Status |
+|----------|----------|--------|-----------|--------|
+| Living Room — centre carpet | Carpet | 42.5 | >0.1% | CRITICAL |
+| Living Room — north wall drywall | Drywall | 28.3 | >1.0% | CRITICAL |
+| Kitchen — vinyl flooring centre | Concrete | 38.1 | >0.5% | CRITICAL |
+| Kitchen — island cabinet base | Wood (MDF) | 22.7 | >16.0% | ELEVATED |
+| Hallway — carpet mid-point | Carpet | 18.4 | >0.1% | ELEVATED |
+| Bedroom 1 — east wall drywall | Drywall | 3.2 | >1.0% | ELEVATED |
+
+### Day 2 — Monitoring (24 hrs into drying)
+| Location | Material | MC (%) | Status | Change |
+|----------|----------|--------|--------|--------|
+| Living Room — centre carpet | Carpet | 31.2 | CRITICAL | ↓ 26.6% |
+| Living Room — north wall drywall | Drywall | 19.6 | ELEVATED | ↓ 30.7% |
+| Kitchen — vinyl flooring centre | Concrete | 24.8 | ELEVATED | ↓ 34.9% |
+| Hallway — carpet mid-point | Carpet | 12.1 | ELEVATED | ↓ 34.2% |
+
+### Day 3 — Approaching Dry Standard (48 hrs into drying)
+| Location | Material | MC (%) | Status | Change |
+|----------|----------|--------|--------|--------|
+| Living Room — centre carpet | Carpet | 8.5 | ELEVATED | ↓ 72.7% |
+| Living Room — north wall drywall | Drywall | 1.8 | ELEVATED | ↓ 93.6% |
+| Kitchen — vinyl flooring centre | Concrete | 1.4 | ELEVATED | ↓ 96.3% |
+| Hallway — carpet mid-point | Carpet | 0.08 | NORMAL ✓ | ↓ 99.6% |
+
+Drying trajectory is within expected parameters for Class 2. Hallway has achieved dry standard. Living room and kitchen require 1–2 additional days of monitoring.
+
+## 5. Environmental Data (S500 §12.4)
+
+| Day | Indoor Temp (°C) | Indoor RH (%) | Outdoor RH (%) | Dew Point (°C) | GPP | Status |
+|-----|-----------------|---------------|----------------|----------------|-----|--------|
+| 1 | 22.5 | 68.5 | 71.0 | 15.8 | 72.4 | ABOVE TARGET |
+| 2 | 21.8 | 58.3 | 65.0 | 12.4 | 58.1 | ABOVE TARGET |
+| 3 | 22.1 | 52.7 | 60.0 | 11.2 | 49.8 | APPROACHING TARGET |
+
+**Drying target per S500 §12.4:** Indoor RH at or below outdoor ambient conditions.
+
+## 6. Scope of Works (S500 §7.2, §10.2, §14)
+
+1. Remove and dispose of affected carpet and underlay — Living Room (60 m²) [S500 §7.2]
+2. Lift affected vinyl flooring — Kitchen (45 m²) [S500 §7.2]
+3. Apply antimicrobial treatment to exposed subfloor — 105 m² [S500 §7.2, §10.2]
+4. Deploy 2× LGR dehumidifier (160L/day total capacity) [S500 §14]
+5. Deploy 3× axial air mover [S500 §14]
+6. Daily moisture monitoring — 3-day drying program [S500 §12.3]
+7. Supply and install replacement carpet — Living Room (60 m²)
+8. Reinstall vinyl flooring — Kitchen (45 m²)
+9. Dispose of contaminated building materials [S500 §7.2]
+
+## 7. Equipment Summary (S500 §14)
+
+| Equipment | Make/Model | Qty | Capacity | Location |
+|-----------|-----------|-----|----------|----------|
+| LGR Dehumidifier | Dri-Eaz LGR 3500i | 2 | 80L/day each | Living Room, Kitchen |
+| Axial Air Mover | Dri-Eaz Sahara Pro X3 | 3 | 2,900 CFM each | Living Room (2), Hallway (1) |
+
+**Equipment adequacy per S500 §14:** Class 2, 150 m² — minimum 120L/day dehumidification required. Deployed: 160L/day (133% of minimum). Air mover coverage: 1 per 20 m² carpet (industry standard for Class 2).
+
+## 8. Technician Sign-off
+
+**Technician:** James Whitfield
+**IICRC Certification:** WRT #AUS-0042
+**Company:** Whitfield Restoration Services Pty Ltd
+**Date:** ${day3.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
+
+This report has been prepared in accordance with IICRC S500:2025 — Standard and Reference Guide for Professional Water Damage Restoration (7th Edition). All measurements, classifications, and scope items reference published S500 clauses.
+`;
 }
 
-function buildCostDocument(
-  items: Array<{
-    category: string;
-    description: string;
-    quantity: number;
-    unit: string;
-    rate: number;
-  }>,
-  totalExGst: number,
-  totalIncGst: number,
-): string {
-  const lines = items.map(
-    (i) =>
-      `${i.category.padEnd(12)} | ${i.description.substring(0, 55).padEnd(55)} | ${String(i.quantity).padStart(6)} ${i.unit.padEnd(10)} | $${i.rate.toFixed(2).padStart(7)} | $${(i.quantity * i.rate).toFixed(2).padStart(9)}`,
-  );
-
-  return `COST ESTIMATE — IICRC S500:2025 COMPLIANT
-Property: 42 Fernleigh Crescent, Samford Valley QLD 4520
-Claim Ref: CLM-2026-04-DEMO | GST Reg. ABN: 12 345 678 901
-
-Category     | Description                                              |    Qty Unit       |    Rate | Subtotal
--------------|----------------------------------------------------------|-------------------|---------|----------
-${lines.join("\n")}
-
-Subtotal (ex-GST): $${totalExGst.toFixed(2)}
-GST (10%):          $${(totalExGst * 0.1).toFixed(2)}
-TOTAL (inc-GST):    $${totalIncGst.toFixed(2)}
-
-This estimate has been prepared in accordance with IICRC S500:2025 and
-Australian insurance industry cost guidelines. All labour rates are
-inclusive of travel within 50km. Equipment rates are per-unit per day.`;
-}
-
-// ─── RUN ─────────────────────────────────────────────────────────────────────
+// ── Run ──────────────────────────────────────────────────────────────────────
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("❌ Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {
