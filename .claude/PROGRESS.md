@@ -422,6 +422,9 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 | Linear API key renewed                         | Done   | New key "Claude Code RestoreAssist" created Apr 8; mcp.json updated; MEMORY.md updated                      |
 | Linear project queue verified empty           | Done   | 447 Done, 1 In Review (RA-287 blocked), 0 Todo, 0 In Progress, 0 Backlog                                    |
 | trusting-einstein worktree confirmed clean     | Done   | PRs #146 + #149 already merged; uncommitted changes are style-only                                           |
+| Schema fix: missing Sprint G/H fields          | Done   | `10a3831e` — EvidenceItemStatus enum, EvidenceItem.status/fileName/roomName, Inspection.contentsManifestDraft, EvidenceClass.AFFECTED_CONTENTS |
+| Production migration applied                   | Done   | `20260408000000_evidence_item_status_contents_manifest` applied to prod (udooysjajglluvuxkijp) + sandbox     |
+| Type errors cleared: contents-manifest + gate  | Done   | All TS2339/TS2353 errors in contents-manifest/route.ts and submission-gate.ts resolved                       |
 
 ## Notes for Next Context Window
 
