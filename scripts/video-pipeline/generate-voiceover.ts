@@ -40,13 +40,13 @@ interface ElevenLabsTTSRequest {
  * Requires ELEVENLABS_API_KEY environment variable.
  */
 export async function generateVoiceover(
-  options: VoicoverOptions
+  options: VoicoverOptions,
 ): Promise<VoiceoverResult> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error(
       "Missing ELEVENLABS_API_KEY environment variable. " +
-        "Set it in your .env.local file or system environment."
+        "Set it in your .env.local file or system environment.",
     );
   }
 
@@ -54,7 +54,7 @@ export async function generateVoiceover(
 
   const repoRoot = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
-    "../.."
+    "../..",
   );
   const targetDir = outputDir ?? path.join(repoRoot, "public", "voiceovers");
   fs.mkdirSync(targetDir, { recursive: true });
@@ -71,7 +71,7 @@ export async function generateVoiceover(
   };
 
   console.log(
-    `[voiceover] Calling ElevenLabs TTS for voice=${voiceId}, slug=${slug}...`
+    `[voiceover] Calling ElevenLabs TTS for voice=${voiceId}, slug=${slug}...`,
   );
 
   const response = await fetch(
@@ -84,14 +84,12 @@ export async function generateVoiceover(
         Accept: "audio/mpeg",
       },
       body: JSON.stringify(body),
-    }
+    },
   );
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
-      `ElevenLabs API error ${response.status}: ${errorText}`
-    );
+    throw new Error(`ElevenLabs API error ${response.status}: ${errorText}`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
@@ -103,7 +101,7 @@ export async function generateVoiceover(
   const durationEstimateSeconds = Math.round((wordCount / 130) * 60);
 
   console.log(
-    `[voiceover] Saved to ${outputPath} (~${durationEstimateSeconds}s estimated)`
+    `[voiceover] Saved to ${outputPath} (~${durationEstimateSeconds}s estimated)`,
   );
 
   return { outputPath, durationEstimateSeconds };

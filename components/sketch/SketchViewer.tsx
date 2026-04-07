@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /**
  * SketchViewer — RA2-054 (RA-124)
@@ -8,10 +8,16 @@
  * and renders a clean, branded presentation suitable for sharing with property owners.
  */
 
-import { useEffect, useRef, useCallback, useState } from "react"
-import dynamic from "next/dynamic"
-import { Loader2, FileDown, ChevronLeft, ChevronRight, Home } from "lucide-react"
-import type { FabricCanvasRef } from "./SketchCanvas"
+import { useEffect, useRef, useCallback, useState } from "react";
+import dynamic from "next/dynamic";
+import {
+  Loader2,
+  FileDown,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+} from "lucide-react";
+import type { FabricCanvasRef } from "./SketchCanvas";
 
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
   ssr: false,
@@ -21,26 +27,26 @@ const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
       Loading floor plan…
     </div>
   ),
-})
+});
 
 // ── Types ─────────────────────────────────────────────────
 
 export interface SketchViewerFloor {
-  floorNumber: number
-  floorLabel: string
-  sketchData: Record<string, unknown> | null
+  floorNumber: number;
+  floorLabel: string;
+  sketchData: Record<string, unknown> | null;
 }
 
 export interface SketchViewerProps {
-  inspectionId: string
+  inspectionId: string;
   /** Optional header info */
-  propertyAddress?: string
-  reportTitle?: string
+  propertyAddress?: string;
+  reportTitle?: string;
   /** Pre-loaded floors — skips the API fetch */
-  floors?: SketchViewerFloor[]
-  className?: string
-  width?: number
-  height?: number
+  floors?: SketchViewerFloor[];
+  className?: string;
+  width?: number;
+  height?: number;
 }
 
 // ── Homeowner filter ──────────────────────────────────────
@@ -52,7 +58,7 @@ const TECHNICAL_DATA_TYPES = new Set([
   "equipment_marker",
   "photo_marker",
   "photo_pin",
-])
+]);
 
 const STRUCTURAL_OBJECT_TYPES = new Set([
   "polygon",
@@ -63,37 +69,42 @@ const STRUCTURAL_OBJECT_TYPES = new Set([
   "rect",
   "group",
   "path",
-])
+]);
 
 /**
  * Strip technical annotation objects (moisture, equipment, photos) from
  * a Fabric.js canvas JSON, keeping only structural shapes and room labels.
  */
 function filterHomeownerJson(
-  json: Record<string, unknown>
+  json: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (!json?.objects || !Array.isArray(json.objects)) return json
+  if (!json?.objects || !Array.isArray(json.objects)) return json;
 
   const filtered = json.objects.filter((obj: unknown) => {
-    const o = obj as Record<string, unknown>
-    const type = ((o.type as string | undefined) ?? "").toLowerCase()
-    const data = (o.data as Record<string, unknown> | undefined) ?? {}
-    const dataType = ((data.type as string | undefined) ?? "").toLowerCase()
-    const dataCategory = ((data.category as string | undefined) ?? "").toLowerCase()
+    const o = obj as Record<string, unknown>;
+    const type = ((o.type as string | undefined) ?? "").toLowerCase();
+    const data = (o.data as Record<string, unknown> | undefined) ?? {};
+    const dataType = ((data.type as string | undefined) ?? "").toLowerCase();
+    const dataCategory = (
+      (data.category as string | undefined) ?? ""
+    ).toLowerCase();
 
     // Exclude explicitly flagged technical objects
-    if (TECHNICAL_DATA_TYPES.has(dataType) || TECHNICAL_DATA_TYPES.has(dataCategory)) {
-      return false
+    if (
+      TECHNICAL_DATA_TYPES.has(dataType) ||
+      TECHNICAL_DATA_TYPES.has(dataCategory)
+    ) {
+      return false;
     }
 
     // Images embedded in the canvas (photo markers) — exclude
-    if (type === "image") return false
+    if (type === "image") return false;
 
     // Keep all recognised structural types; drop unknown types
-    return STRUCTURAL_OBJECT_TYPES.has(type) || type === ""
-  })
+    return STRUCTURAL_OBJECT_TYPES.has(type) || type === "";
+  });
 
-  return { ...json, objects: filtered }
+  return { ...json, objects: filtered };
 }
 
 // ── Legend ────────────────────────────────────────────────
@@ -105,7 +116,7 @@ const LEGEND_ITEMS = [
   { color: "#ec4899", label: "Bathroom / WC" },
   { color: "#8b5cf6", label: "Garage / Utility" },
   { color: "#ef4444", label: "Affected Area" },
-]
+];
 
 // ── Component ─────────────────────────────────────────────
 
@@ -118,132 +129,146 @@ export function SketchViewer({
   width = 1200,
   height = 700,
 }: SketchViewerProps) {
-  const [floors, setFloors] = useState<SketchViewerFloor[]>(preloadedFloors ?? [])
-  const [loading, setLoading] = useState(!preloadedFloors)
-  const [activeIdx, setActiveIdx] = useState(0)
-  const [exportingPdf, setExportingPdf] = useState(false)
+  const [floors, setFloors] = useState<SketchViewerFloor[]>(
+    preloadedFloors ?? [],
+  );
+  const [loading, setLoading] = useState(!preloadedFloors);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Keyed by floorNumber
-  const canvasRefs = useRef<Map<number, FabricCanvasRef | null>>(new Map())
+  const canvasRefs = useRef<Map<number, FabricCanvasRef | null>>(new Map());
 
   // ── Fetch sketches if not pre-loaded ────────────────────
   useEffect(() => {
-    if (preloadedFloors) return
-    let cancelled = false
-    ;(async () => {
+    if (preloadedFloors) return;
+    let cancelled = false;
+    (async () => {
       try {
-        const res = await fetch(`/api/inspections/${inspectionId}/sketches`)
-        if (!res.ok || cancelled) return
+        const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
+        if (!res.ok || cancelled) return;
         const { sketches } = (await res.json()) as {
-          sketches: Array<{ floorNumber: number; floorLabel: string; sketchData: Record<string, unknown> | null; sketchType?: string }>
-        }
+          sketches: Array<{
+            floorNumber: number;
+            floorLabel: string;
+            sketchData: Record<string, unknown> | null;
+            sketchType?: string;
+          }>;
+        };
         const structural = sketches
-          .filter(s => !s.sketchType || s.sketchType === "structural")
-          .sort((a, b) => a.floorNumber - b.floorNumber)
-        if (!cancelled) setFloors(structural)
+          .filter((s) => !s.sketchType || s.sketchType === "structural")
+          .sort((a, b) => a.floorNumber - b.floorNumber);
+        if (!cancelled) setFloors(structural);
       } catch {
         // fail silently — viewer shows empty state
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
-    })()
-    return () => { cancelled = true }
-  }, [inspectionId, preloadedFloors])
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inspectionId, preloadedFloors]);
 
   // ── Load JSON into canvas when it mounts ────────────────
   const handleCanvasReady = useCallback(
     (floorNumber: number, canvas: FabricCanvasRef) => {
-      canvasRefs.current.set(floorNumber, canvas)
-      const floor = floors.find(f => f.floorNumber === floorNumber)
+      canvasRefs.current.set(floorNumber, canvas);
+      const floor = floors.find((f) => f.floorNumber === floorNumber);
       if (floor?.sketchData) {
-        const filtered = filterHomeownerJson(floor.sketchData)
-        canvas.loadFromJSON(filtered).catch(() => {})
+        const filtered = filterHomeownerJson(floor.sketchData);
+        canvas.loadFromJSON(filtered).catch(() => {});
       }
     },
-    [floors]
-  )
+    [floors],
+  );
 
   // Re-load if floor data arrives after canvases are mounted
   useEffect(() => {
     canvasRefs.current.forEach((canvas, floorNumber) => {
-      if (!canvas) return
-      const floor = floors.find(f => f.floorNumber === floorNumber)
+      if (!canvas) return;
+      const floor = floors.find((f) => f.floorNumber === floorNumber);
       if (floor?.sketchData) {
-        const filtered = filterHomeownerJson(floor.sketchData)
-        canvas.loadFromJSON(filtered).catch(() => {})
+        const filtered = filterHomeownerJson(floor.sketchData);
+        canvas.loadFromJSON(filtered).catch(() => {});
       }
-    })
-  }, [floors])
+    });
+  }, [floors]);
 
   // ── PDF export ───────────────────────────────────────────
   const handleExportPdf = useCallback(async () => {
-    if (exportingPdf) return
-    setExportingPdf(true)
+    if (exportingPdf) return;
+    setExportingPdf(true);
     try {
       const floorData = floors
-        .map(floor => {
-          const canvas = canvasRefs.current.get(floor.floorNumber)
-          if (!canvas) return null
+        .map((floor) => {
+          const canvas = canvasRefs.current.get(floor.floorNumber);
+          if (!canvas) return null;
           const fc = canvas.getFabricCanvas() as {
-            toDataURL: (opts: object) => string
-            toJSON: () => object
-          } | null
-          if (!fc) return null
+            toDataURL: (opts: object) => string;
+            toJSON: () => object;
+          } | null;
+          if (!fc) return null;
           return {
             label: floor.floorLabel,
             pngDataUrl: fc.toDataURL({ format: "png", multiplier: 2 }),
             fabricJson: fc.toJSON(),
-          }
+          };
         })
-        .filter(Boolean)
+        .filter(Boolean);
 
-      if (!floorData.length) return
+      if (!floorData.length) return;
 
       const res = await fetch(`/api/inspections/${inspectionId}/sketches/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ floors: floorData }),
-      })
-      if (!res.ok) return
+      });
+      if (!res.ok) return;
 
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `floor-plan-${inspectionId.slice(-8)}.pdf`
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `floor-plan-${inspectionId.slice(-8)}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } finally {
-      setExportingPdf(false)
+      setExportingPdf(false);
     }
-  }, [floors, inspectionId, exportingPdf])
+  }, [floors, inspectionId, exportingPdf]);
 
-  const activeFloor = floors[activeIdx]
-  const hasMultipleFloors = floors.length > 1
+  const activeFloor = floors[activeIdx];
+  const hasMultipleFloors = floors.length > 1;
 
   // ── Loading state ─────────────────────────────────────────
   if (loading) {
     return (
-      <div className={`flex items-center justify-center h-64 text-neutral-500 dark:text-slate-400 ${className ?? ""}`}>
+      <div
+        className={`flex items-center justify-center h-64 text-neutral-500 dark:text-slate-400 ${className ?? ""}`}
+      >
         <Loader2 size={20} className="animate-spin mr-2" />
         Loading floor plans…
       </div>
-    )
+    );
   }
 
   if (!floors.length) {
     return (
-      <div className={`flex flex-col items-center justify-center h-64 text-neutral-400 dark:text-slate-500 gap-2 ${className ?? ""}`}>
+      <div
+        className={`flex flex-col items-center justify-center h-64 text-neutral-400 dark:text-slate-500 gap-2 ${className ?? ""}`}
+      >
         <Home size={32} strokeWidth={1.5} />
         <p className="text-sm">No floor plans available for this inspection.</p>
       </div>
-    )
+    );
   }
 
   // ── Render ─────────────────────────────────────────────────
   return (
-    <div className={`flex flex-col gap-0 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-neutral-200 dark:border-slate-700 overflow-hidden ${className ?? ""}`}>
-
+    <div
+      className={`flex flex-col gap-0 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-neutral-200 dark:border-slate-700 overflow-hidden ${className ?? ""}`}
+    >
       {/* ── Branded header ───────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-700 to-blue-600 text-white">
         <div className="flex flex-col gap-0.5">
@@ -276,7 +301,7 @@ export function SketchViewer({
       {hasMultipleFloors && (
         <div className="flex items-center gap-0 border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800/50 px-2">
           <button
-            onClick={() => setActiveIdx(i => Math.max(0, i - 1))}
+            onClick={() => setActiveIdx((i) => Math.max(0, i - 1))}
             disabled={activeIdx === 0}
             className="p-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors"
             aria-label="Previous floor"
@@ -300,7 +325,9 @@ export function SketchViewer({
           ))}
 
           <button
-            onClick={() => setActiveIdx(i => Math.min(floors.length - 1, i + 1))}
+            onClick={() =>
+              setActiveIdx((i) => Math.min(floors.length - 1, i + 1))
+            }
             disabled={activeIdx === floors.length - 1}
             className="p-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors"
             aria-label="Next floor"
@@ -311,7 +338,10 @@ export function SketchViewer({
       )}
 
       {/* ── Canvas ───────────────────────────────────────── */}
-      <div className="relative overflow-auto bg-neutral-100 dark:bg-slate-800/30" style={{ minHeight: 320 }}>
+      <div
+        className="relative overflow-auto bg-neutral-100 dark:bg-slate-800/30"
+        style={{ minHeight: 320 }}
+      >
         {floors.map((floor, idx) => (
           <div
             key={floor.floorNumber}
@@ -322,7 +352,7 @@ export function SketchViewer({
               height={height}
               toolMode="pan"
               readonly={true}
-              onReady={canvas => handleCanvasReady(floor.floorNumber, canvas)}
+              onReady={(canvas) => handleCanvasReady(floor.floorNumber, canvas)}
               className="w-full"
             />
           </div>
@@ -334,11 +364,17 @@ export function SketchViewer({
         <span className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mr-1">
           Legend
         </span>
-        {LEGEND_ITEMS.map(item => (
-          <span key={item.label} className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-slate-400">
+        {LEGEND_ITEMS.map((item) => (
+          <span
+            key={item.label}
+            className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-slate-400"
+          >
             <span
               className="inline-block w-3 h-3 rounded-sm border"
-              style={{ backgroundColor: item.color + "33", borderColor: item.color }}
+              style={{
+                backgroundColor: item.color + "33",
+                borderColor: item.color,
+              }}
             />
             {item.label}
           </span>
@@ -351,9 +387,13 @@ export function SketchViewer({
           Generated by RestoreAssist · Floor plan is indicative only
         </p>
         <p className="text-xs text-neutral-400 dark:text-slate-500">
-          {new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}
+          {new Date().toLocaleDateString("en-AU", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
         </p>
       </div>
     </div>
-  )
+  );
 }

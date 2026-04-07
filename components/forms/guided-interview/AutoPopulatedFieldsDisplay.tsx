@@ -4,55 +4,63 @@
  * Includes confidence scores and field values
  */
 
-'use client'
+"use client";
 
-import { useState, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState, useMemo } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FieldPopulation {
-  value: any
-  confidence: number
+  value: any;
+  confidence: number;
 }
 
 interface AutoPopulatedFieldsDisplayProps {
-  fields: Map<string, FieldPopulation>
-  compact?: boolean
-  maxFields?: number
+  fields: Map<string, FieldPopulation>;
+  compact?: boolean;
+  maxFields?: number;
 }
 
 /**
  * Get confidence color
  */
 const getConfidenceColor = (confidence: number): string => {
-  if (confidence >= 95) return 'bg-green-50 border-green-200'
-  if (confidence >= 85) return 'bg-blue-50 border-blue-200'
-  if (confidence >= 70) return 'bg-amber-50 border-amber-200'
-  return 'bg-red-50 border-red-200'
-}
+  if (confidence >= 95) return "bg-green-50 border-green-200";
+  if (confidence >= 85) return "bg-blue-50 border-blue-200";
+  if (confidence >= 70) return "bg-amber-50 border-amber-200";
+  return "bg-red-50 border-red-200";
+};
 
 /**
  * Get confidence badge color
  */
-const getConfidenceBadgeColor = (confidence: number): 'default' | 'secondary' | 'destructive' => {
-  if (confidence >= 95) return 'default'
-  if (confidence >= 85) return 'secondary'
-  return 'destructive'
-}
+const getConfidenceBadgeColor = (
+  confidence: number,
+): "default" | "secondary" | "destructive" => {
+  if (confidence >= 95) return "default";
+  if (confidence >= 85) return "secondary";
+  return "destructive";
+};
 
 /**
  * Format field value for display
  */
 const formatFieldValue = (value: any): string => {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
-  if (Array.isArray(value)) return value.join(', ')
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
 
 /**
  * Auto-Populated Fields Display Component
@@ -62,22 +70,26 @@ export function AutoPopulatedFieldsDisplay({
   compact = false,
   maxFields = Infinity,
 }: AutoPopulatedFieldsDisplayProps) {
-  const [expanded, setExpanded] = useState(!compact)
+  const [expanded, setExpanded] = useState(!compact);
 
   const sortedFields = useMemo(() => {
     const arr = Array.from(fields.entries())
       .sort((a, b) => b[1].confidence - a[1].confidence)
-      .slice(0, maxFields)
-    return arr
-  }, [fields, maxFields])
+      .slice(0, maxFields);
+    return arr;
+  }, [fields, maxFields]);
 
   const stats = useMemo(() => {
-    const all = Array.from(fields.values())
+    const all = Array.from(fields.values());
     const avgConfidence =
-      all.length > 0 ? Math.round(all.reduce((sum, f) => sum + f.confidence, 0) / all.length) : 0
-    const highConfidence = all.filter((f) => f.confidence >= 90).length
-    const mediumConfidence = all.filter((f) => f.confidence >= 75 && f.confidence < 90).length
-    const lowConfidence = all.filter((f) => f.confidence < 75).length
+      all.length > 0
+        ? Math.round(all.reduce((sum, f) => sum + f.confidence, 0) / all.length)
+        : 0;
+    const highConfidence = all.filter((f) => f.confidence >= 90).length;
+    const mediumConfidence = all.filter(
+      (f) => f.confidence >= 75 && f.confidence < 90,
+    ).length;
+    const lowConfidence = all.filter((f) => f.confidence < 75).length;
 
     return {
       total: all.length,
@@ -85,19 +97,20 @@ export function AutoPopulatedFieldsDisplay({
       highConfidence,
       mediumConfidence,
       lowConfidence,
-    }
-  }, [fields])
+    };
+  }, [fields]);
 
   if (sortedFields.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground text-center">
-            No fields auto-populated yet. Answer questions to populate form fields.
+            No fields auto-populated yet. Answer questions to populate form
+            fields.
           </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -110,8 +123,8 @@ export function AutoPopulatedFieldsDisplay({
               Auto-Populated Fields
             </CardTitle>
             <CardDescription>
-              {stats.total} field{stats.total !== 1 ? 's' : ''} populated with {stats.avgConfidence}
-              % average confidence
+              {stats.total} field{stats.total !== 1 ? "s" : ""} populated with{" "}
+              {stats.avgConfidence}% average confidence
             </CardDescription>
           </div>
 
@@ -122,8 +135,10 @@ export function AutoPopulatedFieldsDisplay({
               onClick={() => setExpanded(!expanded)}
               className="gap-1"
             >
-              {expanded ? 'Hide' : 'Show'}
-              <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? '' : '-rotate-90'}`} />
+              {expanded ? "Hide" : "Show"}
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${expanded ? "" : "-rotate-90"}`}
+              />
             </Button>
           )}
         </div>
@@ -134,15 +149,21 @@ export function AutoPopulatedFieldsDisplay({
           {/* Confidence summary */}
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 bg-green-50 border border-green-200 rounded">
-              <p className="text-2xl font-bold text-green-700">{stats.highConfidence}</p>
+              <p className="text-2xl font-bold text-green-700">
+                {stats.highConfidence}
+              </p>
               <p className="text-xs text-green-600">High (≥90%)</p>
             </div>
             <div className="text-center p-3 bg-blue-50 border border-blue-200 rounded">
-              <p className="text-2xl font-bold text-blue-700">{stats.mediumConfidence}</p>
+              <p className="text-2xl font-bold text-blue-700">
+                {stats.mediumConfidence}
+              </p>
               <p className="text-xs text-blue-600">Medium (75-89%)</p>
             </div>
             <div className="text-center p-3 bg-amber-50 border border-amber-200 rounded">
-              <p className="text-2xl font-bold text-amber-700">{stats.lowConfidence}</p>
+              <p className="text-2xl font-bold text-amber-700">
+                {stats.lowConfidence}
+              </p>
               <p className="text-xs text-amber-600">Low (&lt;75%)</p>
             </div>
           </div>
@@ -163,7 +184,10 @@ export function AutoPopulatedFieldsDisplay({
                       {fieldId}
                     </p>
                   </div>
-                  <Badge variant={getConfidenceBadgeColor(field.confidence)} className="shrink-0">
+                  <Badge
+                    variant={getConfidenceBadgeColor(field.confidence)}
+                    className="shrink-0"
+                  >
                     {field.confidence}%
                   </Badge>
                 </div>
@@ -195,7 +219,9 @@ export function AutoPopulatedFieldsDisplay({
 
           {/* Legend */}
           <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">Confidence Guide:</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Confidence Guide:
+            </p>
             <ul className="text-xs text-gray-600 space-y-1">
               <li>
                 <span className="font-mono bg-white border border-green-200 px-2 py-0.5 rounded mr-2">
@@ -226,5 +252,5 @@ export function AutoPopulatedFieldsDisplay({
         </CardContent>
       )}
     </Card>
-  )
+  );
 }

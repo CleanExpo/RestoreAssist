@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   AlertDialog,
@@ -9,19 +9,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { AlertTriangle } from "lucide-react"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/alert-dialog";
+import { AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DeleteConfirmationDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onConfirm: () => void
-  title: string
-  description: string
-  itemName?: string
-  itemCount?: number
-  isLoading?: boolean
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  itemName?: string;
+  itemCount?: number;
+  isLoading?: boolean;
 }
 
 export function DeleteConfirmationDialog({
@@ -35,9 +35,9 @@ export function DeleteConfirmationDialog({
   isLoading = false,
 }: DeleteConfirmationDialogProps) {
   const handleConfirm = () => {
-    onConfirm()
-    onOpenChange(false)
-  }
+    onConfirm();
+    onOpenChange(false);
+  };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -73,7 +73,7 @@ export function DeleteConfirmationDialog({
             disabled={isLoading}
             className={cn(
               "bg-red-600 hover:bg-red-700 text-white focus:ring-red-600",
-              isLoading && "opacity-50 cursor-not-allowed"
+              isLoading && "opacity-50 cursor-not-allowed",
             )}
           >
             {isLoading ? "Deleting..." : "Delete"}
@@ -81,5 +81,5 @@ export function DeleteConfirmationDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
+  );
 }

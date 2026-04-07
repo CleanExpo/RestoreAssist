@@ -10,52 +10,52 @@ import {
   logSync,
   PROVIDER_CONFIG,
   type IntegrationProvider,
-} from './oauth-handler'
-import { isIntegrationDevMode, MOCK_CREDENTIALS } from './dev-mode'
-import { MOCK_CLIENTS, MOCK_JOBS } from './mock-data'
-import { prisma } from '@/lib/prisma'
+} from "./oauth-handler";
+import { isIntegrationDevMode, MOCK_CREDENTIALS } from "./dev-mode";
+import { MOCK_CLIENTS, MOCK_JOBS } from "./mock-data";
+import { prisma } from "@/lib/prisma";
 
 export interface ExternalClientData {
-  externalId: string
-  name: string
-  email?: string
-  phone?: string
-  address?: string
-  rawData?: Record<string, unknown>
+  externalId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  rawData?: Record<string, unknown>;
 }
 
 export interface ExternalJobData {
-  externalId: string
-  title: string
-  status?: string
-  clientExternalId?: string
-  address?: string
-  description?: string
-  rawData?: Record<string, unknown>
+  externalId: string;
+  title: string;
+  status?: string;
+  clientExternalId?: string;
+  address?: string;
+  description?: string;
+  rawData?: Record<string, unknown>;
 }
 
 export interface TokenResponse {
-  access_token: string
-  refresh_token?: string
-  expires_in?: number
-  token_type?: string
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
 }
 
 export abstract class BaseIntegrationClient {
-  protected integrationId: string
-  protected provider: IntegrationProvider
-  protected config: typeof PROVIDER_CONFIG[IntegrationProvider]
+  protected integrationId: string;
+  protected provider: IntegrationProvider;
+  protected config: (typeof PROVIDER_CONFIG)[IntegrationProvider];
 
   constructor(integrationId: string, provider: IntegrationProvider) {
-    this.integrationId = integrationId
-    this.provider = provider
-    this.config = PROVIDER_CONFIG[provider]
+    this.integrationId = integrationId;
+    this.provider = provider;
+    this.config = PROVIDER_CONFIG[provider];
   }
 
   /**
    * Get OAuth authorization URL
    */
-  abstract getAuthUrl(redirectUri: string, state: string): string
+  abstract getAuthUrl(redirectUri: string, state: string): string;
 
   /**
    * Exchange authorization code for tokens
@@ -63,93 +63,102 @@ export abstract class BaseIntegrationClient {
   abstract exchangeCodeForTokens(
     code: string,
     redirectUri: string,
-    codeVerifier?: string
-  ): Promise<TokenResponse>
+    codeVerifier?: string,
+  ): Promise<TokenResponse>;
 
   /**
    * Refresh access token using refresh token
    */
-  abstract refreshAccessToken(): Promise<void>
+  abstract refreshAccessToken(): Promise<void>;
 
   /**
    * Fetch clients/customers from the external service
    */
-  abstract fetchClients(): Promise<ExternalClientData[]>
+  abstract fetchClients(): Promise<ExternalClientData[]>;
 
   /**
    * Fetch jobs/projects from the external service
    */
-  abstract fetchJobs(): Promise<ExternalJobData[]>
+  abstract fetchJobs(): Promise<ExternalJobData[]>;
 
   /**
    * Make an authenticated API request
    */
   protected async makeRequest<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
-    const tokens = await getTokens(this.integrationId)
+    const tokens = await getTokens(this.integrationId);
 
     if (!tokens.accessToken) {
-      throw new Error('No access token available')
+      throw new Error("No access token available");
     }
 
     // Check if token is expired and refresh if needed
     if (tokens.isExpired && tokens.refreshToken) {
-      await this.refreshAccessToken()
+      await this.refreshAccessToken();
       // Re-fetch tokens after refresh
-      const newTokens = await getTokens(this.integrationId)
+      const newTokens = await getTokens(this.integrationId);
       if (!newTokens.accessToken) {
-        throw new Error('Failed to refresh access token')
+        throw new Error("Failed to refresh access token");
       }
-      tokens.accessToken = newTokens.accessToken
+      tokens.accessToken = newTokens.accessToken;
     }
 
-    const url = `${this.config.apiBaseUrl}${endpoint}`
-    const headers = new Headers(options.headers)
-    headers.set('Authorization', `Bearer ${tokens.accessToken}`)
-    headers.set('Accept', 'application/json')
+    const url = `${this.config.apiBaseUrl}${endpoint}`;
+    const headers = new Headers(options.headers);
+    headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+    headers.set("Accept", "application/json");
 
     const response = await fetch(url, {
       ...options,
       headers,
-    })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text()
+      const errorText = await response.text();
       await markIntegrationError(
         this.integrationId,
-        `API Error ${response.status}: ${errorText}`
-      )
-      throw new Error(`API request failed: ${response.status} ${errorText}`)
+        `API Error ${response.status}: ${errorText}`,
+      );
+      throw new Error(`API request failed: ${response.status} ${errorText}`);
     }
 
-    return response.json()
+    return response.json();
   }
 
   /**
    * Store tokens after successful OAuth exchange
    */
-  protected async handleTokenResponse(tokenResponse: TokenResponse): Promise<void> {
+  protected async handleTokenResponse(
+    tokenResponse: TokenResponse,
+  ): Promise<void> {
     await storeTokens(
       this.integrationId,
       tokenResponse.access_token,
       tokenResponse.refresh_token,
-      tokenResponse.expires_in
-    )
+      tokenResponse.expires_in,
+    );
   }
 
   /**
    * Log a sync operation
    */
   protected async logSyncResult(
-    syncType: 'CLIENTS' | 'JOBS' | 'FULL',
+    syncType: "CLIENTS" | "JOBS" | "FULL",
     processed: number,
     failed: number = 0,
-    error?: string
+    error?: string,
   ): Promise<void> {
-    const status = error ? 'FAILED' : failed > 0 ? 'PARTIAL' : 'SUCCESS'
-    await logSync(this.integrationId, syncType, status, processed, failed, error)
+    const status = error ? "FAILED" : failed > 0 ? "PARTIAL" : "SUCCESS";
+    await logSync(
+      this.integrationId,
+      syncType,
+      status,
+      processed,
+      failed,
+      error,
+    );
   }
 
   /**
@@ -157,11 +166,11 @@ export abstract class BaseIntegrationClient {
    */
   async syncClients(): Promise<number> {
     if (isIntegrationDevMode()) {
-      return this.syncMockClients()
+      return this.syncMockClients();
     }
 
-    const clients = await this.fetchClients()
-    let processed = 0
+    const clients = await this.fetchClients();
+    let processed = 0;
 
     for (const client of clients) {
       await prisma.externalClient.upsert({
@@ -188,12 +197,12 @@ export abstract class BaseIntegrationClient {
           rawData: client.rawData || {},
           lastSyncedAt: new Date(),
         },
-      })
-      processed++
+      });
+      processed++;
     }
 
-    await this.logSyncResult('CLIENTS', processed)
-    return processed
+    await this.logSyncResult("CLIENTS", processed);
+    return processed;
   }
 
   /**
@@ -201,11 +210,11 @@ export abstract class BaseIntegrationClient {
    */
   async syncJobs(): Promise<number> {
     if (isIntegrationDevMode()) {
-      return this.syncMockJobs()
+      return this.syncMockJobs();
     }
 
-    const jobs = await this.fetchJobs()
-    let processed = 0
+    const jobs = await this.fetchJobs();
+    let processed = 0;
 
     for (const job of jobs) {
       await prisma.externalJob.upsert({
@@ -234,19 +243,19 @@ export abstract class BaseIntegrationClient {
           rawData: job.rawData || {},
           lastSyncedAt: new Date(),
         },
-      })
-      processed++
+      });
+      processed++;
     }
 
-    await this.logSyncResult('JOBS', processed)
-    return processed
+    await this.logSyncResult("JOBS", processed);
+    return processed;
   }
 
   /**
    * Sync mock clients for development mode
    */
   private async syncMockClients(): Promise<number> {
-    let processed = 0
+    let processed = 0;
 
     for (const client of MOCK_CLIENTS) {
       await prisma.externalClient.upsert({
@@ -273,19 +282,19 @@ export abstract class BaseIntegrationClient {
           rawData: { mock: true, provider: this.provider },
           lastSyncedAt: new Date(),
         },
-      })
-      processed++
+      });
+      processed++;
     }
 
-    await this.logSyncResult('CLIENTS', processed)
-    return processed
+    await this.logSyncResult("CLIENTS", processed);
+    return processed;
   }
 
   /**
    * Sync mock jobs for development mode
    */
   private async syncMockJobs(): Promise<number> {
-    let processed = 0
+    let processed = 0;
 
     for (const job of MOCK_JOBS) {
       await prisma.externalJob.upsert({
@@ -314,12 +323,12 @@ export abstract class BaseIntegrationClient {
           rawData: { mock: true, provider: this.provider },
           lastSyncedAt: new Date(),
         },
-      })
-      processed++
+      });
+      processed++;
     }
 
-    await this.logSyncResult('JOBS', processed)
-    return processed
+    await this.logSyncResult("JOBS", processed);
+    return processed;
   }
 }
 
@@ -328,21 +337,22 @@ export abstract class BaseIntegrationClient {
  */
 export function getClientId(provider: IntegrationProvider): string {
   if (isIntegrationDevMode()) {
-    const mockCreds = MOCK_CREDENTIALS[provider as keyof typeof MOCK_CREDENTIALS]
-    if ('clientId' in mockCreds) {
-      return mockCreds.clientId
+    const mockCreds =
+      MOCK_CREDENTIALS[provider as keyof typeof MOCK_CREDENTIALS];
+    if ("clientId" in mockCreds) {
+      return mockCreds.clientId;
     }
-    if ('apiKey' in mockCreds) {
-      return mockCreds.apiKey
+    if ("apiKey" in mockCreds) {
+      return mockCreds.apiKey;
     }
   }
 
-  const envKey = `${provider}_CLIENT_ID`
-  const clientId = process.env[envKey]
+  const envKey = `${provider}_CLIENT_ID`;
+  const clientId = process.env[envKey];
   if (!clientId) {
-    throw new Error(`${envKey} is not configured`)
+    throw new Error(`${envKey} is not configured`);
   }
-  return clientId
+  return clientId;
 }
 
 /**
@@ -350,19 +360,20 @@ export function getClientId(provider: IntegrationProvider): string {
  */
 export function getClientSecret(provider: IntegrationProvider): string {
   if (isIntegrationDevMode()) {
-    const mockCreds = MOCK_CREDENTIALS[provider as keyof typeof MOCK_CREDENTIALS]
-    if ('clientSecret' in mockCreds) {
-      return mockCreds.clientSecret
+    const mockCreds =
+      MOCK_CREDENTIALS[provider as keyof typeof MOCK_CREDENTIALS];
+    if ("clientSecret" in mockCreds) {
+      return mockCreds.clientSecret;
     }
-    if ('apiSecret' in mockCreds) {
-      return mockCreds.apiSecret
+    if ("apiSecret" in mockCreds) {
+      return mockCreds.apiSecret;
     }
   }
 
-  const envKey = `${provider}_CLIENT_SECRET`
-  const clientSecret = process.env[envKey]
+  const envKey = `${provider}_CLIENT_SECRET`;
+  const clientSecret = process.env[envKey];
   if (!clientSecret) {
-    throw new Error(`${envKey} is not configured`)
+    throw new Error(`${envKey} is not configured`);
   }
-  return clientSecret
+  return clientSecret;
 }

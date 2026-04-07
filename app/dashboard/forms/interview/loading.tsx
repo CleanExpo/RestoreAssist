@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function InterviewFormLoading() {
   return (
@@ -14,5 +14,5 @@ export default function InterviewFormLoading() {
       </div>
       <Skeleton className="h-10 w-32 rounded-lg" />
     </div>
-  )
+  );
 }

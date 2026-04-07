@@ -1,402 +1,452 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw, Crown, HelpCircle, FileText, ChevronDown, Receipt } from "lucide-react"
-import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
-import toast from "react-hot-toast"
-import { useSession } from "next-auth/react"
-import { useSearchParams } from "next/navigation"
-import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react";
+import {
+  Check,
+  X,
+  Calendar,
+  CreditCard,
+  Download,
+  AlertCircle,
+  CheckCircle,
+  Star,
+  Zap,
+  Shield,
+  Users,
+  Clock,
+  Award,
+  RefreshCw,
+  Crown,
+  HelpCircle,
+  FileText,
+  ChevronDown,
+  Receipt,
+} from "lucide-react";
+import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
+import toast from "react-hot-toast";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface Subscription {
-  id: string
-  status: string
-  created?: number
-  currentPeriodStart: number
-  currentPeriodEnd: number
-  cancelAtPeriodEnd: boolean
-  canceledAt?: number | null
+  id: string;
+  status: string;
+  created?: number;
+  currentPeriodStart: number;
+  currentPeriodEnd: number;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: number | null;
   plan: {
-    name: string
-    amount: number
-    currency: string
-    interval: string
-  }
-  defaultPaymentMethod?: { brand: string; last4: string } | null
-  nextInvoiceAmount?: number | null
-  stripeCustomerId?: string
+    name: string;
+    amount: number;
+    currency: string;
+    interval: string;
+  };
+  defaultPaymentMethod?: { brand: string; last4: string } | null;
+  nextInvoiceAmount?: number | null;
+  stripeCustomerId?: string;
 }
 
 export default function SubscriptionPage() {
-  const { data: session } = useSession()
-  const searchParams = useSearchParams()
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [canceling, setCanceling] = useState(false)
-  const [reactivating, setReactivating] = useState(false)
-  const [pricingLoading, setPricingLoading] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [checking, setChecking] = useState(false)
+  const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [canceling, setCanceling] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [reportLimits, setReportLimits] = useState<{
-    baseLimit: number
-    addonReports: number
-    monthlyReportsUsed: number
-    availableReports: number
-    hasUnlimited: boolean
-  } | null>(null)
-  const [showAddonModal, setShowAddonModal] = useState(false)
-  const [addonLoading, setAddonLoading] = useState<string | null>(null)
-  const [addonPurchases, setAddonPurchases] = useState<Array<{
-    id: string
-    addonName: string
-    reportLimit: number
-    amount: number
-    currency: string
-    purchasedAt: string
-    status: string
-  }>>([])
+    baseLimit: number;
+    addonReports: number;
+    monthlyReportsUsed: number;
+    availableReports: number;
+    hasUnlimited: boolean;
+  } | null>(null);
+  const [showAddonModal, setShowAddonModal] = useState(false);
+  const [addonLoading, setAddonLoading] = useState<string | null>(null);
+  const [addonPurchases, setAddonPurchases] = useState<
+    Array<{
+      id: string;
+      addonName: string;
+      reportLimit: number;
+      amount: number;
+      currency: string;
+      purchasedAt: string;
+      status: string;
+    }>
+  >([]);
   const [profile, setProfile] = useState<{
-    subscriptionStatus?: string
-    subscriptionPlan?: string
-    trialEndsAt?: string | null
-    trialStatus?: { isTrialActive: boolean; daysRemaining: number; hasTrialExpired: boolean; creditsRemaining: number | null; hasUnlimitedTrial?: boolean }
-  } | null>(null)
-  const [portalLoading, setPortalLoading] = useState(false)
+    subscriptionStatus?: string;
+    subscriptionPlan?: string;
+    trialEndsAt?: string | null;
+    trialStatus?: {
+      isTrialActive: boolean;
+      daysRemaining: number;
+      hasTrialExpired: boolean;
+      creditsRemaining: number | null;
+      hasUnlimitedTrial?: boolean;
+    };
+  } | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const fetchProfile = async () => {
-    if (!session?.user) return
+    if (!session?.user) return;
     try {
-      const res = await fetch('/api/user/profile', { cache: 'no-store' })
+      const res = await fetch("/api/user/profile", { cache: "no-store" });
       if (res.ok) {
-        const data = await res.json()
-        setProfile(data.profile ? {
-          subscriptionStatus: data.profile.subscriptionStatus,
-          subscriptionPlan: data.profile.subscriptionPlan,
-          trialEndsAt: data.profile.trialEndsAt,
-          trialStatus: data.profile.trialStatus,
-        } : null)
+        const data = await res.json();
+        setProfile(
+          data.profile
+            ? {
+                subscriptionStatus: data.profile.subscriptionStatus,
+                subscriptionPlan: data.profile.subscriptionPlan,
+                trialEndsAt: data.profile.trialEndsAt,
+                trialStatus: data.profile.trialStatus,
+              }
+            : null,
+        );
       }
     } catch {
       // ignore
     }
-  }
+  };
 
   useEffect(() => {
-    const isFromAddon = searchParams.get('addon')
-    
+    const isFromAddon = searchParams.get("addon");
+
     // ALWAYS fetch data immediately
-    fetchSubscription()
-    fetchReportLimits()
-    fetchAddonPurchases()
-    fetchProfile()
-    
+    fetchSubscription();
+    fetchReportLimits();
+    fetchAddonPurchases();
+    fetchProfile();
+
     // Only check for pending add-ons if coming from add-on purchase
     if (isFromAddon) {
       // Wait a moment for webhook to process, then check if anything was missed
       setTimeout(async () => {
         try {
-          const response = await fetch('/api/addons/check-pending', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          })
-          
+          const response = await fetch("/api/addons/check-pending", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+
           if (response.ok) {
-            const data = await response.json()
+            const data = await response.json();
             if (data.processed > 0) {
-              toast.success(`Processed ${data.processed} add-on purchase(s)!`)
+              toast.success(`Processed ${data.processed} add-on purchase(s)!`);
             }
           }
         } catch (error) {
           // Error checking pending add-ons
         }
-        
+
         // Always refresh data after checking
-        fetchReportLimits(true)
-        fetchSubscription(true)
-        fetchAddonPurchases()
-      }, 2000) // Wait 2 seconds for webhook
+        fetchReportLimits(true);
+        fetchSubscription(true);
+        fetchAddonPurchases();
+      }, 2000); // Wait 2 seconds for webhook
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   // Refresh report limits when page becomes visible (e.g., after returning from add-on purchase)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchReportLimits()
+      if (document.visibilityState === "visible") {
+        fetchReportLimits();
       }
-    }
+    };
 
     const handleFocus = () => {
-      fetchReportLimits()
-    }
+      fetchReportLimits();
+    };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   const fetchReportLimits = async (forceRefresh = false) => {
     if (!session?.user) {
-      return
+      return;
     }
-    
+
     try {
       // Add cache-busting parameter to force fresh data
-      const url = forceRefresh ? `/api/user/profile?refresh=true&t=${Date.now()}` : `/api/user/profile?t=${Date.now()}`
+      const url = forceRefresh
+        ? `/api/user/profile?refresh=true&t=${Date.now()}`
+        : `/api/user/profile?t=${Date.now()}`;
       const response = await fetch(url, {
-        cache: 'no-store',
+        cache: "no-store",
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        }
-      })
-      
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      });
+
       if (response.ok) {
-        const data = await response.json()
-        
+        const data = await response.json();
+
         if (data.profile?.reportLimits) {
-          setReportLimits(data.profile.reportLimits)
-        } else if (data.profile?.subscriptionStatus === 'ACTIVE') {
+          setReportLimits(data.profile.reportLimits);
+        } else if (data.profile?.subscriptionStatus === "ACTIVE") {
           // If subscription is active but no report limits, fetch again after a short delay
           // This handles the case where webhook hasn't processed yet
-          setTimeout(() => fetchReportLimits(true), 2000)
+          setTimeout(() => fetchReportLimits(true), 2000);
         }
       }
     } catch (error) {
       // Error fetching report limits
     }
-  }
+  };
 
   const fetchSubscription = async (forceRefresh = false) => {
     if (forceRefresh) {
-      setRefreshing(true)
+      setRefreshing(true);
     }
-    
+
     try {
-      const url = forceRefresh ? '/api/subscription?refresh=true' : '/api/subscription'
+      const url = forceRefresh
+        ? "/api/subscription?refresh=true"
+        : "/api/subscription";
       const response = await fetch(url, {
-        cache: 'no-store'
-      })
+        cache: "no-store",
+      });
       if (response.ok) {
-        const data = await response.json()
-        setSubscription(data.subscription)
+        const data = await response.json();
+        setSubscription(data.subscription);
         if (forceRefresh) {
-          toast.success('Subscription data refreshed!')
+          toast.success("Subscription data refreshed!");
           // Also refresh report limits when subscription is refreshed
-          fetchReportLimits(true)
+          fetchReportLimits(true);
         }
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error)
+      console.error("Error fetching subscription:", error);
       if (forceRefresh) {
-        toast.error('Failed to refresh subscription data')
+        toast.error("Failed to refresh subscription data");
       }
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
   const checkSubscription = async () => {
-    setChecking(true)
+    setChecking(true);
     try {
-      const response = await fetch('/api/subscription/check', {
-        method: 'POST',
+      const response = await fetch("/api/subscription/check", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         if (data.success) {
-          toast.success('Subscription found and updated!')
+          toast.success("Subscription found and updated!");
           // Refresh the subscription data
-          await fetchSubscription(true)
+          await fetchSubscription(true);
         } else {
-          toast.error(data.message || 'No active subscription found')
+          toast.error(data.message || "No active subscription found");
         }
       } else {
-        const errorData = await response.json()
-        toast.error(errorData.error || 'Failed to check subscription')
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to check subscription");
       }
     } catch (error) {
-      console.error('Error checking subscription:', error)
-      toast.error('Failed to check subscription status')
+      console.error("Error checking subscription:", error);
+      toast.error("Failed to check subscription status");
     } finally {
-      setChecking(false)
+      setChecking(false);
     }
-  }
+  };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.')) {
-      return
+    if (
+      !confirm(
+        "Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.",
+      )
+    ) {
+      return;
     }
 
-    setCanceling(true)
+    setCanceling(true);
     try {
-      const response = await fetch('/api/cancel-subscription', {
-        method: 'POST'
-      })
+      const response = await fetch("/api/cancel-subscription", {
+        method: "POST",
+      });
 
       if (response.ok) {
-        toast.success('Subscription cancelled successfully')
-        fetchSubscription()
+        toast.success("Subscription cancelled successfully");
+        fetchSubscription();
       } else {
-        toast.error('Failed to cancel subscription')
+        toast.error("Failed to cancel subscription");
       }
     } catch (error) {
-      console.error('Error cancelling subscription:', error)
-      toast.error('Failed to cancel subscription')
+      console.error("Error cancelling subscription:", error);
+      toast.error("Failed to cancel subscription");
     } finally {
-      setCanceling(false)
+      setCanceling(false);
     }
-  }
+  };
 
   const handleReactivateSubscription = async () => {
-    setReactivating(true)
+    setReactivating(true);
     try {
-      const response = await fetch('/api/reactivate-subscription', {
-        method: 'POST'
-      })
+      const response = await fetch("/api/reactivate-subscription", {
+        method: "POST",
+      });
 
       if (response.ok) {
-        toast.success('Subscription reactivated successfully')
-        fetchSubscription()
+        toast.success("Subscription reactivated successfully");
+        fetchSubscription();
       } else {
-        toast.error('Failed to reactivate subscription')
+        toast.error("Failed to reactivate subscription");
       }
     } catch (error) {
-      console.error('Error reactivating subscription:', error)
-      toast.error('Failed to reactivate subscription')
+      console.error("Error reactivating subscription:", error);
+      toast.error("Failed to reactivate subscription");
     } finally {
-      setReactivating(false)
+      setReactivating(false);
     }
-  }
+  };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString('en-AU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+    return new Date(timestamp * 1000).toLocaleDateString("en-AU", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   const formatPrice = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-AU', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
       currency: currency,
-    }).format(amount / 100)
-  }
+    }).format(amount / 100);
+  };
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    setPricingLoading(plan)
+    setPricingLoading(plan);
     try {
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ priceId: PRICING_CONFIG.prices[plan] }),
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create checkout session')
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create checkout session");
       }
 
-      const { sessionId, url } = await response.json()
-      
+      const { sessionId, url } = await response.json();
+
       if (url) {
-        window.location.href = url
+        window.location.href = url;
       } else {
-        console.error('No checkout URL received')
-        toast.error('Failed to get checkout URL')
+        console.error("No checkout URL received");
+        toast.error("Failed to get checkout URL");
       }
     } catch (error) {
-      console.error('Error creating checkout session:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
+      console.error("Error creating checkout session:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to start checkout process",
+      );
     } finally {
-      setPricingLoading(null)
+      setPricingLoading(null);
     }
-  }
+  };
 
   const formatPricingAmount = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-AU', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
       currency: currency,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const fetchAddonPurchases = async () => {
     try {
-      const response = await fetch('/api/addons/purchases')
+      const response = await fetch("/api/addons/purchases");
       if (response.ok) {
-        const data = await response.json()
-        setAddonPurchases(data.purchases || [])
+        const data = await response.json();
+        setAddonPurchases(data.purchases || []);
       }
     } catch (error) {
       // Error fetching purchases
     }
-  }
+  };
 
   const handleManageBilling = async () => {
-    setPortalLoading(true)
+    setPortalLoading(true);
     try {
-      const res = await fetch('/api/subscription/portal', { method: 'POST' })
+      const res = await fetch("/api/subscription/portal", { method: "POST" });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? 'Failed to open billing portal')
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to open billing portal");
       }
-      const { url } = await res.json()
-      if (url) window.location.href = url
-      else throw new Error('No portal URL')
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+      else throw new Error("No portal URL");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to open billing portal')
+      toast.error(
+        e instanceof Error ? e.message : "Failed to open billing portal",
+      );
     } finally {
-      setPortalLoading(false)
+      setPortalLoading(false);
     }
-  }
+  };
 
   const handlePurchaseAddon = async (addonKey: string) => {
-    setAddonLoading(addonKey)
+    setAddonLoading(addonKey);
     try {
-      const response = await fetch('/api/addons/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addonKey })
-      })
+      const response = await fetch("/api/addons/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addonKey }),
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create checkout session')
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create checkout session");
       }
 
-      const { url } = await response.json()
-      
+      const { url } = await response.json();
+
       if (url) {
-        window.location.href = url
+        window.location.href = url;
       } else {
-        throw new Error('No checkout URL received')
+        throw new Error("No checkout URL received");
       }
     } catch (error) {
-      console.error('Error purchasing add-on:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
-      setAddonLoading(null)
+      console.error("Error purchasing add-on:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to start checkout process",
+      );
+      setAddonLoading(null);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -404,8 +454,17 @@ export default function SubscriptionPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Subscription</h1>
-          <p className={cn("text-neutral-600 dark:text-slate-400")}>Manage your subscription and billing</p>
+          <h1
+            className={cn(
+              "text-3xl font-semibold mb-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
+            Subscription
+          </h1>
+          <p className={cn("text-neutral-600 dark:text-slate-400")}>
+            Manage your subscription and billing
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -415,334 +474,672 @@ export default function SubscriptionPage() {
               "flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
               "border-neutral-300 dark:border-slate-600",
               "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
-              "text-neutral-700 dark:text-slate-300"
+              "text-neutral-700 dark:text-slate-300",
             )}
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
           <button
             onClick={checkSubscription}
             disabled={checking}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <CheckCircle className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
-            {checking ? 'Checking...' : 'Check Subscription'}
+            <CheckCircle
+              className={`w-4 h-4 ${checking ? "animate-spin" : ""}`}
+            />
+            {checking ? "Checking..." : "Check Subscription"}
           </button>
         </div>
       </div>
 
-      {subscription ? (() => {
-        const isLifetime = subscription.plan.interval === 'one-time' || subscription.plan.name === 'Lifetime'
-        return (
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Current Plan – detailed */}
-          <div className={cn("p-6 rounded-xl border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>Current Plan</h2>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                subscription.status === 'active' 
-                  ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
-                  : subscription.status === 'canceled'
-                  ? 'bg-red-500/20 text-red-600 dark:text-red-400'
-                  : subscription.status === 'past_due'
-                  ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                  : 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
-              }`}>
-                {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h3 className={cn("text-2xl font-bold", "text-neutral-900 dark:text-white")}>{subscription.plan.name}</h3>
-                <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                  {isLifetime ? 'One-time payment — unlimited access' : `${formatPrice(subscription.plan.amount, subscription.plan.currency)}/${subscription.plan.interval}`}
-                </p>
-              </div>
-
-              {/* Billing cycle */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className={cn("w-4 h-4", "text-neutral-500 dark:text-slate-400")} />
-                  <span className={cn("text-neutral-700 dark:text-slate-300")}>
-                    {isLifetime ? 'Lifetime access — no end date' : `Current period: ${formatDate(subscription.currentPeriodStart)} – ${formatDate(subscription.currentPeriodEnd)}`}
-                  </span>
-                </div>
-                {subscription.created != null && (
-                  <div className={cn("text-sm", "text-neutral-500 dark:text-slate-400")}>
-                    Subscribed since {formatDate(subscription.created)}
-                  </div>
-                )}
-                {!isLifetime && subscription.cancelAtPeriodEnd && (
-                  <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>Subscription will cancel at the end of the current period. You will retain access until {formatDate(subscription.currentPeriodEnd)}.</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Support: subscription ID */}
-              {subscription.id && (
-                <div className={cn("text-xs", "text-neutral-400 dark:text-slate-500")}>
-                  Subscription ID: <code className="bg-neutral-100 dark:bg-slate-700 px-1 rounded">{subscription.id}</code> (for support)
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Billing & payment method */}
-          <div className={cn("p-6 rounded-xl border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-            <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
-              <CreditCard className="w-5 h-5" />
-              Billing & payment
-            </h2>
-            <div className="space-y-4">
-              {!isLifetime && subscription.nextInvoiceAmount != null && subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
-                <div>
-                  <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Next invoice</label>
-                  <div className={cn("text-lg font-semibold", "text-neutral-900 dark:text-white")}>
-                    {formatPrice(subscription.nextInvoiceAmount, subscription.plan.currency)} on {formatDate(subscription.currentPeriodEnd)}
-                  </div>
-                </div>
-              )}
-              {subscription.defaultPaymentMethod && (
-                <div>
-                  <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Payment method</label>
-                  <div className={cn("flex items-center gap-2", "text-neutral-700 dark:text-slate-300")}>
-                    <CreditCard className="w-4 h-4" />
-                    <span className="capitalize">{subscription.defaultPaymentMethod.brand}</span>
-                    <span>•••• {subscription.defaultPaymentMethod.last4}</span>
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={handleManageBilling}
-                disabled={portalLoading}
+      {subscription ? (
+        (() => {
+          const isLifetime =
+            subscription.plan.interval === "one-time" ||
+            subscription.plan.name === "Lifetime";
+          return (
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Current Plan – detailed */}
+              <div
                 className={cn(
-                  "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50",
-                  "border border-neutral-300 dark:border-slate-600",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
-                  "text-neutral-700 dark:text-slate-300"
+                  "p-6 rounded-xl border",
+                  "border-neutral-200 dark:border-slate-700/50",
+                  "bg-white dark:bg-slate-800/30",
                 )}
               >
-                {portalLoading ? (
-                  <>
-                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
-                    Opening...
-                  </>
-                ) : (
-                  <>
-                    <Receipt className="w-4 h-4" />
-                    Manage billing & payment method
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Cancel / Reactivate (not for Lifetime) */}
-          {!isLifetime && (
-          <div className={cn("p-6 rounded-xl border lg:col-span-2", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-            <h2 className={cn("text-lg font-semibold mb-3", "text-neutral-900 dark:text-white")}>Subscription actions</h2>
-            <div className="flex flex-wrap gap-3">
-              {subscription.cancelAtPeriodEnd ? (
-                <button
-                  onClick={handleReactivateSubscription}
-                  disabled={reactivating}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
-                >
-                  {reactivating ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <CheckCircle className="w-4 h-4" />}
-                  {reactivating ? 'Reactivating...' : 'Reactivate subscription'}
-                </button>
-              ) : subscription.status === 'active' && (
-                <button
-                  onClick={handleCancelSubscription}
-                  disabled={canceling}
-                  className="flex items-center gap-2 px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
-                >
-                  {canceling ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" /> : <X className="w-4 h-4" />}
-                  {canceling ? 'Canceling...' : 'Cancel at period end'}
-                </button>
-              )}
-            </div>
-            <p className={cn("mt-2 text-sm", "text-neutral-500 dark:text-slate-400")}>
-              {subscription.cancelAtPeriodEnd
-                ? 'Reactivating will keep your subscription active and you will be charged at the next billing date.'
-                : 'Canceling will stop automatic renewal. You keep access until the end of the current billing period.'}
-            </p>
-          </div>
-          )}
-
-          {/* Report Usage */}
-          {reportLimits && (
-            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-              <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
-                <Zap className="w-5 h-5" />
-                Report Usage
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className={cn("block text-sm font-medium mb-2", "text-neutral-600 dark:text-slate-400")}>Available This Month</label>
-                  <div className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
-                    {reportLimits.availableReports} / {reportLimits.baseLimit + reportLimits.addonReports}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Base Plan</label>
-                    <div className={cn("text-xl font-semibold", "text-neutral-900 dark:text-white")}>{reportLimits.baseLimit}</div>
-                  </div>
-                  <div>
-                    <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Add-ons</label>
-                    <div className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">{reportLimits.addonReports}</div>
-                  </div>
-                  <div>
-                    <label className={cn("block text-sm font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Used</label>
-                    <div className={cn("text-xl font-semibold", "text-neutral-700 dark:text-slate-300")}>{reportLimits.monthlyReportsUsed}</div>
-                  </div>
-                </div>
-
-                <div className={cn("w-full rounded-full h-3", "bg-neutral-200 dark:bg-slate-700")}>
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-300"
-                    style={{ 
-                      width: `${Math.min(100, (reportLimits.monthlyReportsUsed / (reportLimits.baseLimit + reportLimits.addonReports || 1)) * 100)}%` 
-                    }}
-                  ></div>
-                </div>
-
-                <button
-                  onClick={() => setShowAddonModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-                >
-                  <Crown className="w-4 h-4" />
-                  Purchase Add-ons
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Add-on Purchase History */}
-          {addonPurchases.length > 0 && (
-            <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-              <h2 className={cn("text-xl font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
-                <Crown className="w-5 h-5" />
-                Add-on Purchase History
-              </h2>
-              <div className="space-y-3">
-                {addonPurchases.map((purchase) => (
-                  <div key={purchase.id} className={cn("flex items-center justify-between p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-700/30")}>
-                    <div>
-                      <div className={cn("font-medium", "text-neutral-900 dark:text-white")}>{purchase.addonName}</div>
-                      <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
-                        {new Date(purchase.purchasedAt).toLocaleDateString('en-AU', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={cn("font-semibold", "text-cyan-600 dark:text-cyan-400")}>+{purchase.reportLimit} reports</div>
-                      <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
-                        {formatPricingAmount(purchase.amount, purchase.currency)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Plan Features */}
-          <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30", reportLimits ? '' : 'lg:col-span-2')}>
-            <h2 className={cn("text-xl font-semibold mb-4", "text-neutral-900 dark:text-white")}>Plan Features</h2>
-            {subscription.status === 'past_due' && (
-              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mb-4">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>Payment is past due. Update your payment method to avoid service interruption.</span>
-              </div>
-            )}
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className={cn("text-neutral-700 dark:text-slate-300")}>
-                  {reportLimits
-                    ? `${reportLimits.baseLimit + reportLimits.addonReports}${reportLimits.hasUnlimited ? '+' : ''} reports per month`
-                    : subscription?.plan.name === 'Yearly Plan'
-                    ? '70 reports per month'
-                    : '50 reports per month'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className={cn("text-neutral-700 dark:text-slate-300")}>PDF & Excel export</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className={cn("text-neutral-700 dark:text-slate-300")}>Email support</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className={cn("text-neutral-700 dark:text-slate-300")}>All integrations</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className={cn("text-neutral-700 dark:text-slate-300")}>IICRC S500 compliant</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className={cn("text-neutral-700 dark:text-slate-300")}>Priority processing</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        );})() : (
-        <div className="space-y-8">
-          {/* Trial info banner when on trial (not for Lifetime) */}
-          {profile?.subscriptionPlan !== 'Lifetime' && profile?.trialStatus?.isTrialActive && !profile.trialStatus.hasTrialExpired && (
-            <div className={cn("p-6 rounded-xl border", "border-cyan-200 dark:border-cyan-800/50", "bg-cyan-50/50 dark:bg-cyan-900/10")}>
-              <div className="flex items-start gap-4">
-                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", "bg-cyan-100 dark:bg-cyan-800/50")}>
-                  <Clock className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
-                </div>
-                <div>
-                  <h3 className={cn("text-lg font-semibold mb-1", "text-cyan-900 dark:text-cyan-200")}>Free trial</h3>
-                  <p className={cn("text-sm", "text-cyan-700 dark:text-cyan-300")}>
-                    {profile.trialStatus.daysRemaining > 0
-                      ? `${profile.trialStatus.daysRemaining} day${profile.trialStatus.daysRemaining === 1 ? '' : 's'} remaining.`
-                      : 'Your trial is ending soon.'}
-                    {profile.trialEndsAt && (
-                      <span className="block mt-1">
-                        Trial ends {new Date(profile.trialEndsAt).toLocaleDateString('en-AU', { dateStyle: 'long' })}
-                      </span>
+                <div className="flex items-center justify-between mb-4">
+                  <h2
+                    className={cn(
+                      "text-xl font-semibold",
+                      "text-neutral-900 dark:text-white",
                     )}
-                    {(profile.trialStatus.hasUnlimitedTrial || profile.trialStatus.creditsRemaining == null) ? (
-                      <span className="block mt-1">Unlimited reports and quick fill during trial</span>
-                    ) : profile.trialStatus.creditsRemaining != null ? (
-                      <span className="block mt-1">
-                        {profile.trialStatus.creditsRemaining} trial report{profile.trialStatus.creditsRemaining === 1 ? '' : 's'} remaining
+                  >
+                    Current Plan
+                  </h2>
+                  <div
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      subscription.status === "active"
+                        ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                        : subscription.status === "canceled"
+                          ? "bg-red-500/20 text-red-600 dark:text-red-400"
+                          : subscription.status === "past_due"
+                            ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                            : "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400"
+                    }`}
+                  >
+                    {subscription.status.charAt(0).toUpperCase() +
+                      subscription.status.slice(1)}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h3
+                      className={cn(
+                        "text-2xl font-bold",
+                        "text-neutral-900 dark:text-white",
+                      )}
+                    >
+                      {subscription.plan.name}
+                    </h3>
+                    <p className={cn("text-neutral-600 dark:text-slate-400")}>
+                      {isLifetime
+                        ? "One-time payment — unlimited access"
+                        : `${formatPrice(subscription.plan.amount, subscription.plan.currency)}/${subscription.plan.interval}`}
+                    </p>
+                  </div>
+
+                  {/* Billing cycle */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar
+                        className={cn(
+                          "w-4 h-4",
+                          "text-neutral-500 dark:text-slate-400",
+                        )}
+                      />
+                      <span
+                        className={cn("text-neutral-700 dark:text-slate-300")}
+                      >
+                        {isLifetime
+                          ? "Lifetime access — no end date"
+                          : `Current period: ${formatDate(subscription.currentPeriodStart)} – ${formatDate(subscription.currentPeriodEnd)}`}
                       </span>
-                    ) : null}
+                    </div>
+                    {subscription.created != null && (
+                      <div
+                        className={cn(
+                          "text-sm",
+                          "text-neutral-500 dark:text-slate-400",
+                        )}
+                      >
+                        Subscribed since {formatDate(subscription.created)}
+                      </div>
+                    )}
+                    {!isLifetime && subscription.cancelAtPeriodEnd && (
+                      <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>
+                          Subscription will cancel at the end of the current
+                          period. You will retain access until{" "}
+                          {formatDate(subscription.currentPeriodEnd)}.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Support: subscription ID */}
+                  {subscription.id && (
+                    <div
+                      className={cn(
+                        "text-xs",
+                        "text-neutral-400 dark:text-slate-500",
+                      )}
+                    >
+                      Subscription ID:{" "}
+                      <code className="bg-neutral-100 dark:bg-slate-700 px-1 rounded">
+                        {subscription.id}
+                      </code>{" "}
+                      (for support)
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Billing & payment method */}
+              <div
+                className={cn(
+                  "p-6 rounded-xl border",
+                  "border-neutral-200 dark:border-slate-700/50",
+                  "bg-white dark:bg-slate-800/30",
+                )}
+              >
+                <h2
+                  className={cn(
+                    "text-xl font-semibold mb-4 flex items-center gap-2",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Billing & payment
+                </h2>
+                <div className="space-y-4">
+                  {!isLifetime &&
+                    subscription.nextInvoiceAmount != null &&
+                    subscription.status === "active" &&
+                    !subscription.cancelAtPeriodEnd && (
+                      <div>
+                        <label
+                          className={cn(
+                            "block text-sm font-medium mb-1",
+                            "text-neutral-600 dark:text-slate-400",
+                          )}
+                        >
+                          Next invoice
+                        </label>
+                        <div
+                          className={cn(
+                            "text-lg font-semibold",
+                            "text-neutral-900 dark:text-white",
+                          )}
+                        >
+                          {formatPrice(
+                            subscription.nextInvoiceAmount,
+                            subscription.plan.currency,
+                          )}{" "}
+                          on {formatDate(subscription.currentPeriodEnd)}
+                        </div>
+                      </div>
+                    )}
+                  {subscription.defaultPaymentMethod && (
+                    <div>
+                      <label
+                        className={cn(
+                          "block text-sm font-medium mb-1",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
+                        Payment method
+                      </label>
+                      <div
+                        className={cn(
+                          "flex items-center gap-2",
+                          "text-neutral-700 dark:text-slate-300",
+                        )}
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span className="capitalize">
+                          {subscription.defaultPaymentMethod.brand}
+                        </span>
+                        <span>
+                          •••• {subscription.defaultPaymentMethod.last4}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleManageBilling}
+                    disabled={portalLoading}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50",
+                      "border border-neutral-300 dark:border-slate-600",
+                      "hover:bg-neutral-100 dark:hover:bg-slate-700/50",
+                      "text-neutral-700 dark:text-slate-300",
+                    )}
+                  >
+                    {portalLoading ? (
+                      <>
+                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                        Opening...
+                      </>
+                    ) : (
+                      <>
+                        <Receipt className="w-4 h-4" />
+                        Manage billing & payment method
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Cancel / Reactivate (not for Lifetime) */}
+              {!isLifetime && (
+                <div
+                  className={cn(
+                    "p-6 rounded-xl border lg:col-span-2",
+                    "border-neutral-200 dark:border-slate-700/50",
+                    "bg-white dark:bg-slate-800/30",
+                  )}
+                >
+                  <h2
+                    className={cn(
+                      "text-lg font-semibold mb-3",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    Subscription actions
+                  </h2>
+                  <div className="flex flex-wrap gap-3">
+                    {subscription.cancelAtPeriodEnd ? (
+                      <button
+                        onClick={handleReactivateSubscription}
+                        disabled={reactivating}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
+                      >
+                        {reactivating ? (
+                          <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                        {reactivating
+                          ? "Reactivating..."
+                          : "Reactivate subscription"}
+                      </button>
+                    ) : (
+                      subscription.status === "active" && (
+                        <button
+                          onClick={handleCancelSubscription}
+                          disabled={canceling}
+                          className="flex items-center gap-2 px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+                        >
+                          {canceling ? (
+                            <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                          ) : (
+                            <X className="w-4 h-4" />
+                          )}
+                          {canceling ? "Canceling..." : "Cancel at period end"}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-2 text-sm",
+                      "text-neutral-500 dark:text-slate-400",
+                    )}
+                  >
+                    {subscription.cancelAtPeriodEnd
+                      ? "Reactivating will keep your subscription active and you will be charged at the next billing date."
+                      : "Canceling will stop automatic renewal. You keep access until the end of the current billing period."}
                   </p>
                 </div>
+              )}
+
+              {/* Report Usage */}
+              {reportLimits && (
+                <div
+                  className={cn(
+                    "p-6 rounded-lg border",
+                    "border-neutral-200 dark:border-slate-700/50",
+                    "bg-white dark:bg-slate-800/30",
+                  )}
+                >
+                  <h2
+                    className={cn(
+                      "text-xl font-semibold mb-4 flex items-center gap-2",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    <Zap className="w-5 h-5" />
+                    Report Usage
+                  </h2>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        className={cn(
+                          "block text-sm font-medium mb-2",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
+                        Available This Month
+                      </label>
+                      <div className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
+                        {reportLimits.availableReports} /{" "}
+                        {reportLimits.baseLimit + reportLimits.addonReports}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label
+                          className={cn(
+                            "block text-sm font-medium mb-1",
+                            "text-neutral-600 dark:text-slate-400",
+                          )}
+                        >
+                          Base Plan
+                        </label>
+                        <div
+                          className={cn(
+                            "text-xl font-semibold",
+                            "text-neutral-900 dark:text-white",
+                          )}
+                        >
+                          {reportLimits.baseLimit}
+                        </div>
+                      </div>
+                      <div>
+                        <label
+                          className={cn(
+                            "block text-sm font-medium mb-1",
+                            "text-neutral-600 dark:text-slate-400",
+                          )}
+                        >
+                          Add-ons
+                        </label>
+                        <div className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">
+                          {reportLimits.addonReports}
+                        </div>
+                      </div>
+                      <div>
+                        <label
+                          className={cn(
+                            "block text-sm font-medium mb-1",
+                            "text-neutral-600 dark:text-slate-400",
+                          )}
+                        >
+                          Used
+                        </label>
+                        <div
+                          className={cn(
+                            "text-xl font-semibold",
+                            "text-neutral-700 dark:text-slate-300",
+                          )}
+                        >
+                          {reportLimits.monthlyReportsUsed}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className={cn(
+                        "w-full rounded-full h-3",
+                        "bg-neutral-200 dark:bg-slate-700",
+                      )}
+                    >
+                      <div
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, (reportLimits.monthlyReportsUsed / (reportLimits.baseLimit + reportLimits.addonReports || 1)) * 100)}%`,
+                        }}
+                      ></div>
+                    </div>
+
+                    <button
+                      onClick={() => setShowAddonModal(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                    >
+                      <Crown className="w-4 h-4" />
+                      Purchase Add-ons
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Add-on Purchase History */}
+              {addonPurchases.length > 0 && (
+                <div
+                  className={cn(
+                    "p-6 rounded-lg border",
+                    "border-neutral-200 dark:border-slate-700/50",
+                    "bg-white dark:bg-slate-800/30",
+                  )}
+                >
+                  <h2
+                    className={cn(
+                      "text-xl font-semibold mb-4 flex items-center gap-2",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    <Crown className="w-5 h-5" />
+                    Add-on Purchase History
+                  </h2>
+                  <div className="space-y-3">
+                    {addonPurchases.map((purchase) => (
+                      <div
+                        key={purchase.id}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg",
+                          "bg-neutral-100 dark:bg-slate-700/30",
+                        )}
+                      >
+                        <div>
+                          <div
+                            className={cn(
+                              "font-medium",
+                              "text-neutral-900 dark:text-white",
+                            )}
+                          >
+                            {purchase.addonName}
+                          </div>
+                          <div
+                            className={cn(
+                              "text-sm",
+                              "text-neutral-600 dark:text-slate-400",
+                            )}
+                          >
+                            {new Date(purchase.purchasedAt).toLocaleDateString(
+                              "en-AU",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              },
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div
+                            className={cn(
+                              "font-semibold",
+                              "text-cyan-600 dark:text-cyan-400",
+                            )}
+                          >
+                            +{purchase.reportLimit} reports
+                          </div>
+                          <div
+                            className={cn(
+                              "text-sm",
+                              "text-neutral-600 dark:text-slate-400",
+                            )}
+                          >
+                            {formatPricingAmount(
+                              purchase.amount,
+                              purchase.currency,
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Plan Features */}
+              <div
+                className={cn(
+                  "p-6 rounded-lg border",
+                  "border-neutral-200 dark:border-slate-700/50",
+                  "bg-white dark:bg-slate-800/30",
+                  reportLimits ? "" : "lg:col-span-2",
+                )}
+              >
+                <h2
+                  className={cn(
+                    "text-xl font-semibold mb-4",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  Plan Features
+                </h2>
+                {subscription.status === "past_due" && (
+                  <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mb-4">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>
+                      Payment is past due. Update your payment method to avoid
+                      service interruption.
+                    </span>
+                  </div>
+                )}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span
+                      className={cn("text-neutral-700 dark:text-slate-300")}
+                    >
+                      {reportLimits
+                        ? `${reportLimits.baseLimit + reportLimits.addonReports}${reportLimits.hasUnlimited ? "+" : ""} reports per month`
+                        : subscription?.plan.name === "Yearly Plan"
+                          ? "70 reports per month"
+                          : "50 reports per month"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span
+                      className={cn("text-neutral-700 dark:text-slate-300")}
+                    >
+                      PDF & Excel export
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span
+                      className={cn("text-neutral-700 dark:text-slate-300")}
+                    >
+                      Email support
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span
+                      className={cn("text-neutral-700 dark:text-slate-300")}
+                    >
+                      All integrations
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span
+                      className={cn("text-neutral-700 dark:text-slate-300")}
+                    >
+                      IICRC S500 compliant
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span
+                      className={cn("text-neutral-700 dark:text-slate-300")}
+                    >
+                      Priority processing
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+          );
+        })()
+      ) : (
+        <div className="space-y-8">
+          {/* Trial info banner when on trial (not for Lifetime) */}
+          {profile?.subscriptionPlan !== "Lifetime" &&
+            profile?.trialStatus?.isTrialActive &&
+            !profile.trialStatus.hasTrialExpired && (
+              <div
+                className={cn(
+                  "p-6 rounded-xl border",
+                  "border-cyan-200 dark:border-cyan-800/50",
+                  "bg-cyan-50/50 dark:bg-cyan-900/10",
+                )}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
+                      "bg-cyan-100 dark:bg-cyan-800/50",
+                    )}
+                  >
+                    <Clock className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3
+                      className={cn(
+                        "text-lg font-semibold mb-1",
+                        "text-cyan-900 dark:text-cyan-200",
+                      )}
+                    >
+                      Free trial
+                    </h3>
+                    <p
+                      className={cn(
+                        "text-sm",
+                        "text-cyan-700 dark:text-cyan-300",
+                      )}
+                    >
+                      {profile.trialStatus.daysRemaining > 0
+                        ? `${profile.trialStatus.daysRemaining} day${profile.trialStatus.daysRemaining === 1 ? "" : "s"} remaining.`
+                        : "Your trial is ending soon."}
+                      {profile.trialEndsAt && (
+                        <span className="block mt-1">
+                          Trial ends{" "}
+                          {new Date(profile.trialEndsAt).toLocaleDateString(
+                            "en-AU",
+                            { dateStyle: "long" },
+                          )}
+                        </span>
+                      )}
+                      {profile.trialStatus.hasUnlimitedTrial ||
+                      profile.trialStatus.creditsRemaining == null ? (
+                        <span className="block mt-1">
+                          Unlimited reports and quick fill during trial
+                        </span>
+                      ) : profile.trialStatus.creditsRemaining != null ? (
+                        <span className="block mt-1">
+                          {profile.trialStatus.creditsRemaining} trial report
+                          {profile.trialStatus.creditsRemaining === 1
+                            ? ""
+                            : "s"}{" "}
+                          remaining
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
           {/* No Subscription Header */}
           <div className="text-center py-8">
-            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", "bg-neutral-200 dark:bg-slate-700")}>
-              <CreditCard className={cn("w-8 h-8", "text-neutral-600 dark:text-slate-400")} />
+            <div
+              className={cn(
+                "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4",
+                "bg-neutral-200 dark:bg-slate-700",
+              )}
+            >
+              <CreditCard
+                className={cn(
+                  "w-8 h-8",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              />
             </div>
-            <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>No Active Subscription</h2>
+            <h2
+              className={cn(
+                "text-2xl font-semibold mb-2",
+                "text-neutral-900 dark:text-white",
+              )}
+            >
+              No Active Subscription
+            </h2>
             <p className={cn("text-neutral-600 dark:text-slate-400")}>
-              {profile?.trialStatus?.isTrialActive && !profile.trialStatus.hasTrialExpired
-                ? 'You\'re on the free trial. Subscribe below to keep access after your trial ends.'
-                : 'You\'re currently on the free trial. Choose a plan below to unlock all features.'}
+              {profile?.trialStatus?.isTrialActive &&
+              !profile.trialStatus.hasTrialExpired
+                ? "You're on the free trial. Subscribe below to keep access after your trial ends."
+                : "You're currently on the free trial. Choose a plan below to unlock all features."}
             </p>
           </div>
 
@@ -755,8 +1152,11 @@ export default function SubscriptionPage() {
                   "relative rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105",
                   "bg-white dark:bg-slate-800/50",
                   plan.popular
-                    ? 'border-cyan-500 shadow-2xl shadow-cyan-500/20'
-                    : cn("border-neutral-300 dark:border-slate-700", "hover:border-neutral-400 dark:hover:border-slate-600")
+                    ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
+                    : cn(
+                        "border-neutral-300 dark:border-slate-700",
+                        "hover:border-neutral-400 dark:hover:border-slate-600",
+                      ),
                 )}
               >
                 {/* Popular Badge */}
@@ -770,7 +1170,7 @@ export default function SubscriptionPage() {
                 )}
 
                 {/* Best Value Badge */}
-                {'badge' in plan && plan.badge && (
+                {"badge" in plan && plan.badge && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
                       <Award className="w-4 h-4" />
@@ -780,51 +1180,115 @@ export default function SubscriptionPage() {
                 )}
 
                 <div className="text-center mb-6">
-                  <h3 className={cn("text-xl font-bold mb-2", "text-neutral-900 dark:text-white")}>
+                  <h3
+                    className={cn(
+                      "text-xl font-bold mb-2",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
                     {plan.displayName}
                   </h3>
                   <div className="mb-4">
-                    <span className={cn("text-3xl font-bold", "text-cyan-600 dark:text-cyan-400")}>
-                      {Number(plan.amount) === 0 ? 'Free' : formatPricingAmount(plan.amount, plan.currency)}
+                    <span
+                      className={cn(
+                        "text-3xl font-bold",
+                        "text-cyan-600 dark:text-cyan-400",
+                      )}
+                    >
+                      {Number(plan.amount) === 0
+                        ? "Free"
+                        : formatPricingAmount(plan.amount, plan.currency)}
                     </span>
                     {plan.interval && (
-                      <span className={cn("text-neutral-600 dark:text-slate-400")}>/{plan.interval}</span>
+                      <span
+                        className={cn("text-neutral-600 dark:text-slate-400")}
+                      >
+                        /{plan.interval}
+                      </span>
                     )}
                   </div>
-                  
+
                   {/* Discount Display */}
-                  {'discount' in plan && !!((plan as { discount?: unknown }).discount) ? (
-                    <div className={cn("text-sm mb-2", "text-green-600 dark:text-green-400")}>
-                      {String((plan as { discount?: unknown }).discount)} discount - Save ${'savings' in plan ? String((plan as { savings?: number }).savings ?? 0) : 0}/year
+                  {"discount" in plan &&
+                  !!(plan as { discount?: unknown }).discount ? (
+                    <div
+                      className={cn(
+                        "text-sm mb-2",
+                        "text-green-600 dark:text-green-400",
+                      )}
+                    >
+                      {String((plan as { discount?: unknown }).discount)}{" "}
+                      discount - Save $
+                      {"savings" in plan
+                        ? String((plan as { savings?: number }).savings ?? 0)
+                        : 0}
+                      /year
                     </div>
                   ) : null}
-                  
+
                   {/* Monthly Equivalent */}
-                  {'monthlyEquivalent' in plan && plan.monthlyEquivalent != null && (
-                    <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
-                      ${plan.monthlyEquivalent}/month equivalent
-                    </div>
-                  )}
+                  {"monthlyEquivalent" in plan &&
+                    plan.monthlyEquivalent != null && (
+                      <div
+                        className={cn(
+                          "text-sm",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
+                        ${plan.monthlyEquivalent}/month equivalent
+                      </div>
+                    )}
                 </div>
 
                 {/* Features */}
                 <div className="space-y-3 mb-6">
                   {plan.features.map((feature, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      <Check className={cn("w-4 h-4 mt-0.5 flex-shrink-0", "text-green-600 dark:text-green-400")} />
-                      <span className={cn("text-sm", "text-neutral-700 dark:text-slate-300")}>{feature}</span>
+                      <Check
+                        className={cn(
+                          "w-4 h-4 mt-0.5 flex-shrink-0",
+                          "text-green-600 dark:text-green-400",
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "text-sm",
+                          "text-neutral-700 dark:text-slate-300",
+                        )}
+                      >
+                        {feature}
+                      </span>
                     </div>
                   ))}
                 </div>
 
                 {/* Report Limit */}
-                <div className={cn("mb-6 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-700/30")}>
+                <div
+                  className={cn(
+                    "mb-6 p-3 rounded-lg",
+                    "bg-neutral-100 dark:bg-slate-700/30",
+                  )}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <Zap className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                    <span className={cn("font-semibold text-sm", "text-neutral-900 dark:text-white")}>Report Limit</span>
+                    <span
+                      className={cn(
+                        "font-semibold text-sm",
+                        "text-neutral-900 dark:text-white",
+                      )}
+                    >
+                      Report Limit
+                    </span>
                   </div>
-                  <div className={cn("text-lg font-bold", "text-cyan-600 dark:text-cyan-400")}>
-                    {String(plan.reportLimit) === 'unlimited' ? 'Unlimited' : String(plan.reportLimit)}
+                  <div
+                    className={cn(
+                      "text-lg font-bold",
+                      "text-cyan-600 dark:text-cyan-400",
+                    )}
+                  >
+                    {String(plan.reportLimit) === "unlimited"
+                      ? "Unlimited"
+                      : String(plan.reportLimit)}
                   </div>
                 </div>
 
@@ -835,8 +1299,11 @@ export default function SubscriptionPage() {
                   className={cn(
                     "w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed",
                     plan.popular
-                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
-                      : cn("bg-neutral-700 dark:bg-slate-700 text-white", "hover:bg-neutral-600 dark:hover:bg-slate-600")
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
+                      : cn(
+                          "bg-neutral-700 dark:bg-slate-700 text-white",
+                          "hover:bg-neutral-600 dark:hover:bg-slate-600",
+                        ),
                   )}
                 >
                   {pricingLoading === key ? (
@@ -844,8 +1311,10 @@ export default function SubscriptionPage() {
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       Processing...
                     </div>
+                  ) : Number(plan.amount) === 0 ? (
+                    "Start Free Trial"
                   ) : (
-                    Number(plan.amount) === 0 ? 'Start Free Trial' : `Subscribe to ${plan.displayName}`
+                    `Subscribe to ${plan.displayName}`
                   )}
                 </button>
               </div>
@@ -854,35 +1323,128 @@ export default function SubscriptionPage() {
 
           {/* Features Comparison */}
           <div className="mt-12 max-w-4xl mx-auto">
-            <h3 className={cn("text-2xl font-bold text-center mb-6", "text-neutral-900 dark:text-white")}>
+            <h3
+              className={cn(
+                "text-2xl font-bold text-center mb-6",
+                "text-neutral-900 dark:text-white",
+              )}
+            >
               All Plans Include
             </h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
-                <Shield className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
-                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>IICRC S500 Compliant</h4>
-                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+              <div
+                className={cn(
+                  "text-center p-4 rounded-lg",
+                  "bg-white dark:bg-slate-800/30",
+                )}
+              >
+                <Shield
+                  className={cn(
+                    "w-6 h-6 mx-auto mb-3",
+                    "text-cyan-600 dark:text-cyan-400",
+                  )}
+                />
+                <h4
+                  className={cn(
+                    "text-lg font-semibold mb-2",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  IICRC S500 Compliant
+                </h4>
+                <p
+                  className={cn(
+                    "text-sm",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
                   All reports follow IICRC S500 standards
                 </p>
               </div>
-              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
-                <Download className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
-                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>PDF Export</h4>
-                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+              <div
+                className={cn(
+                  "text-center p-4 rounded-lg",
+                  "bg-white dark:bg-slate-800/30",
+                )}
+              >
+                <Download
+                  className={cn(
+                    "w-6 h-6 mx-auto mb-3",
+                    "text-cyan-600 dark:text-cyan-400",
+                  )}
+                />
+                <h4
+                  className={cn(
+                    "text-lg font-semibold mb-2",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  PDF Export
+                </h4>
+                <p
+                  className={cn(
+                    "text-sm",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
                   Professional PDF reports ready for submission
                 </p>
               </div>
-              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
-                <Users className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
-                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>Client Management</h4>
-                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+              <div
+                className={cn(
+                  "text-center p-4 rounded-lg",
+                  "bg-white dark:bg-slate-800/30",
+                )}
+              >
+                <Users
+                  className={cn(
+                    "w-6 h-6 mx-auto mb-3",
+                    "text-cyan-600 dark:text-cyan-400",
+                  )}
+                />
+                <h4
+                  className={cn(
+                    "text-lg font-semibold mb-2",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  Client Management
+                </h4>
+                <p
+                  className={cn(
+                    "text-sm",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
                   Manage clients and track jobs
                 </p>
               </div>
-              <div className={cn("text-center p-4 rounded-lg", "bg-white dark:bg-slate-800/30")}>
-                <Clock className={cn("w-6 h-6 mx-auto mb-3", "text-cyan-600 dark:text-cyan-400")} />
-                <h4 className={cn("text-lg font-semibold mb-2", "text-neutral-900 dark:text-white")}>24/7 Access</h4>
-                <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+              <div
+                className={cn(
+                  "text-center p-4 rounded-lg",
+                  "bg-white dark:bg-slate-800/30",
+                )}
+              >
+                <Clock
+                  className={cn(
+                    "w-6 h-6 mx-auto mb-3",
+                    "text-cyan-600 dark:text-cyan-400",
+                  )}
+                />
+                <h4
+                  className={cn(
+                    "text-lg font-semibold mb-2",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  24/7 Access
+                </h4>
+                <p
+                  className={cn(
+                    "text-sm",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
                   Access your data anytime, anywhere
                 </p>
               </div>
@@ -894,23 +1456,39 @@ export default function SubscriptionPage() {
       {/* Add-on Purchase Modal */}
       {showAddonModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={cn("rounded-lg border max-w-2xl w-full max-h-[90vh] overflow-y-auto", "bg-white dark:bg-slate-800", "border-neutral-200 dark:border-slate-700")}>
+          <div
+            className={cn(
+              "rounded-lg border max-w-2xl w-full max-h-[90vh] overflow-y-auto",
+              "bg-white dark:bg-slate-800",
+              "border-neutral-200 dark:border-slate-700",
+            )}
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className={cn("text-2xl font-bold flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+                <h2
+                  className={cn(
+                    "text-2xl font-bold flex items-center gap-2",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
                   <Crown className="w-6 h-6" />
                   Purchase Add-ons
                 </h2>
                 <button
                   onClick={() => setShowAddonModal(false)}
-                  className={cn("transition-colors", "text-neutral-600 dark:text-slate-400", "hover:text-neutral-900 dark:hover:text-white")}
+                  className={cn(
+                    "transition-colors",
+                    "text-neutral-600 dark:text-slate-400",
+                    "hover:text-neutral-900 dark:hover:text-white",
+                  )}
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               <p className={cn("mb-6", "text-neutral-600 dark:text-slate-400")}>
-                Add more reports to your monthly limit. Add-ons are one-time purchases that add to your current month's available reports.
+                Add more reports to your monthly limit. Add-ons are one-time
+                purchases that add to your current month's available reports.
               </p>
 
               <div className="grid md:grid-cols-3 gap-4">
@@ -920,19 +1498,22 @@ export default function SubscriptionPage() {
                     className={cn(
                       "relative rounded-lg border-2 p-4 transition-all",
                       "bg-neutral-50 dark:bg-slate-700/30",
-                      'popular' in addon && addon.popular
-                        ? 'border-cyan-500 shadow-lg shadow-cyan-500/20'
-                        : cn("border-neutral-300 dark:border-slate-600", "hover:border-neutral-400 dark:hover:border-slate-500")
+                      "popular" in addon && addon.popular
+                        ? "border-cyan-500 shadow-lg shadow-cyan-500/20"
+                        : cn(
+                            "border-neutral-300 dark:border-slate-600",
+                            "hover:border-neutral-400 dark:hover:border-slate-500",
+                          ),
                     )}
                   >
-                    {'popular' in addon && addon.popular && (
+                    {"popular" in addon && addon.popular && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <div className="bg-cyan-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
                           Popular
                         </div>
                       </div>
                     )}
-                    {'badge' in addon && addon.badge && (
+                    {"badge" in addon && addon.badge && (
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
                           {addon.badge}
@@ -941,13 +1522,28 @@ export default function SubscriptionPage() {
                     )}
 
                     <div className="text-center mb-4">
-                      <h3 className={cn("text-lg font-bold mb-2", "text-neutral-900 dark:text-white")}>
+                      <h3
+                        className={cn(
+                          "text-lg font-bold mb-2",
+                          "text-neutral-900 dark:text-white",
+                        )}
+                      >
                         {addon.displayName}
                       </h3>
-                      <div className={cn("text-2xl font-bold mb-2", "text-cyan-600 dark:text-cyan-400")}>
+                      <div
+                        className={cn(
+                          "text-2xl font-bold mb-2",
+                          "text-cyan-600 dark:text-cyan-400",
+                        )}
+                      >
                         {formatPricingAmount(addon.amount, addon.currency)}
                       </div>
-                      <div className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+                      <div
+                        className={cn(
+                          "text-sm",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
                         {addon.reportLimit} additional reports
                       </div>
                     </div>
@@ -957,9 +1553,12 @@ export default function SubscriptionPage() {
                       disabled={addonLoading === key}
                       className={cn(
                         "w-full py-2 px-4 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-                        'popular' in addon && addon.popular
-                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
-                          : cn("bg-neutral-600 dark:bg-slate-600 text-white", "hover:bg-neutral-500 dark:hover:bg-slate-500")
+                        "popular" in addon && addon.popular
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
+                          : cn(
+                              "bg-neutral-600 dark:bg-slate-600 text-white",
+                              "hover:bg-neutral-500 dark:hover:bg-slate-500",
+                            ),
                       )}
                     >
                       {addonLoading === key ? (
@@ -968,7 +1567,7 @@ export default function SubscriptionPage() {
                           Processing...
                         </div>
                       ) : (
-                        'Purchase'
+                        "Purchase"
                       )}
                     </button>
                   </div>
@@ -979,5 +1578,5 @@ export default function SubscriptionPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

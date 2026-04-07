@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { getOrganizationOwner } from "@/lib/organization-credits"
-import { AuthoritySignatoryRole } from "@prisma/client"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getOrganizationOwner } from "@/lib/organization-credits";
+import { AuthoritySignatoryRole } from "@prisma/client";
 
 /**
  * GET /api/reports/:id/authority-forms
@@ -11,15 +11,15 @@ import { AuthoritySignatoryRole } from "@prisma/client"
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: reportId } = await params
+    const { id: reportId } = await params;
 
     // Verify report access
     const report = await prisma.report.findUnique({
@@ -27,12 +27,12 @@ export async function GET(
       select: {
         userId: true,
         assignedManagerId: true,
-        assignedAdminId: true
-      }
-    })
+        assignedAdminId: true,
+      },
+    });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 })
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // Check permissions
@@ -41,7 +41,7 @@ export async function GET(
       report.assignedManagerId !== session.user.id &&
       report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Fetch all authority forms for this report
@@ -53,23 +53,23 @@ export async function GET(
             id: true,
             name: true,
             code: true,
-            description: true
-          }
+            description: true,
+          },
         },
         signatures: {
-          orderBy: { createdAt: "asc" }
-        }
+          orderBy: { createdAt: "asc" },
+        },
       },
-      orderBy: { createdAt: "desc" }
-    })
+      orderBy: { createdAt: "desc" },
+    });
 
-    return NextResponse.json({ forms })
+    return NextResponse.json({ forms });
   } catch (error) {
-    console.error("Error fetching authority forms:", error)
+    console.error("Error fetching authority forms:", error);
     return NextResponse.json(
       { error: "Failed to fetch authority forms" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
@@ -79,23 +79,23 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: reportId } = await params
-    const body = await request.json()
-    const { templateId, authorityDescription, signatoryRoles } = body
+    const { id: reportId } = await params;
+    const body = await request.json();
+    const { templateId, authorityDescription, signatoryRoles } = body;
 
     if (!templateId) {
       return NextResponse.json(
         { error: "Template ID is required" },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     // Verify report access
@@ -109,14 +109,14 @@ export async function POST(
             businessABN: true,
             businessPhone: true,
             businessEmail: true,
-            businessAddress: true
-          }
-        }
-      }
-    })
+            businessAddress: true,
+          },
+        },
+      },
+    });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 })
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // Check permissions
@@ -125,7 +125,7 @@ export async function POST(
       report.assignedManagerId !== session.user.id &&
       report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get Admin's business info (for team members, use Admin's info)
@@ -135,12 +135,12 @@ export async function POST(
       businessABN: report.user.businessABN || null,
       businessPhone: report.user.businessPhone || null,
       businessEmail: report.user.businessEmail || null,
-      businessAddress: report.user.businessAddress || null
-    }
+      businessAddress: report.user.businessAddress || null,
+    };
 
     // For team members, get Admin's business info
     if (session.user.role === "MANAGER" || session.user.role === "USER") {
-      const ownerId = await getOrganizationOwner(session.user.id)
+      const ownerId = await getOrganizationOwner(session.user.id);
       if (ownerId) {
         const owner = await prisma.user.findUnique({
           where: { id: ownerId },
@@ -150,9 +150,9 @@ export async function POST(
             businessABN: true,
             businessPhone: true,
             businessEmail: true,
-            businessAddress: true
-          }
-        })
+            businessAddress: true,
+          },
+        });
         if (owner) {
           businessInfo = {
             businessName: owner.businessName || "",
@@ -160,16 +160,17 @@ export async function POST(
             businessABN: owner.businessABN || null,
             businessPhone: owner.businessPhone || null,
             businessEmail: owner.businessEmail || null,
-            businessAddress: owner.businessAddress || null
-          }
+            businessAddress: owner.businessAddress || null,
+          };
         }
       }
     }
 
     // Extract incident brief from technician field report (first 300 chars)
     const incidentBrief = report.technicianFieldReport
-      ? report.technicianFieldReport.substring(0, 300) + (report.technicianFieldReport.length > 300 ? "..." : "")
-      : null
+      ? report.technicianFieldReport.substring(0, 300) +
+        (report.technicianFieldReport.length > 300 ? "..." : "")
+      : null;
 
     // Create authority form instance
     const formInstance = await prisma.authorityFormInstance.create({
@@ -182,33 +183,41 @@ export async function POST(
         companyPhone: businessInfo.businessPhone,
         companyEmail: businessInfo.businessEmail,
         companyAddress: businessInfo.businessAddress,
-        companyWebsite: businessInfo.businessEmail 
-          ? `www.${businessInfo.businessEmail.split('@')[1]}` 
+        companyWebsite: businessInfo.businessEmail
+          ? `www.${businessInfo.businessEmail.split("@")[1]}`
           : null,
         clientName: report.clientName,
         clientAddress: report.propertyAddress,
         incidentBrief,
         incidentDate: report.incidentDate,
-        authorityDescription: authorityDescription || "As per inspection report and scope of works",
-        status: "DRAFT"
+        authorityDescription:
+          authorityDescription || "As per inspection report and scope of works",
+        status: "DRAFT",
       },
       include: {
-        template: true
-      }
-    })
+        template: true,
+      },
+    });
 
     // Create signature placeholders for required signatories
     if (signatoryRoles && Array.isArray(signatoryRoles)) {
-      const signatureData = signatoryRoles.map((role: string, index: number) => ({
-        instanceId: formInstance.id,
-        signatoryName: role === "CLIENT" ? report.clientName : "",
-        signatoryRole: role as AuthoritySignatoryRole,
-        signatoryEmail: role === "CLIENT" ? report.clientContactDetails?.match(/[\w\.-]+@[\w\.-]+\.\w+/)?.[0] || null : null
-      }))
+      const signatureData = signatoryRoles.map(
+        (role: string, index: number) => ({
+          instanceId: formInstance.id,
+          signatoryName: role === "CLIENT" ? report.clientName : "",
+          signatoryRole: role as AuthoritySignatoryRole,
+          signatoryEmail:
+            role === "CLIENT"
+              ? report.clientContactDetails?.match(
+                  /[\w\.-]+@[\w\.-]+\.\w+/,
+                )?.[0] || null
+              : null,
+        }),
+      );
 
       await prisma.authorityFormSignature.createMany({
-        data: signatureData
-      })
+        data: signatureData,
+      });
     } else {
       // Default: Create signature for client
       await prisma.authorityFormSignature.create({
@@ -216,9 +225,11 @@ export async function POST(
           instanceId: formInstance.id,
           signatoryName: report.clientName,
           signatoryRole: "CLIENT",
-          signatoryEmail: report.clientContactDetails?.match(/[\w\.-]+@[\w\.-]+\.\w+/)?.[0] || null
-        }
-      })
+          signatoryEmail:
+            report.clientContactDetails?.match(/[\w\.-]+@[\w\.-]+\.\w+/)?.[0] ||
+            null,
+        },
+      });
     }
 
     // Fetch the complete form with signatures
@@ -226,16 +237,16 @@ export async function POST(
       where: { id: formInstance.id },
       include: {
         template: true,
-        signatures: true
-      }
-    })
+        signatures: true,
+      },
+    });
 
-    return NextResponse.json({ form: completeForm })
+    return NextResponse.json({ form: completeForm });
   } catch (error) {
-    console.error("Error creating authority form:", error)
+    console.error("Error creating authority form:", error);
     return NextResponse.json(
       { error: "Failed to create authority form" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

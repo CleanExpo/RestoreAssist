@@ -33,7 +33,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         onClear?.();
       }
     }, 300),
-    [onSearch, onClear, minChars]
+    [onSearch, onClear, minChars],
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

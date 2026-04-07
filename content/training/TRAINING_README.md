@@ -8,12 +8,12 @@
 
 ## Files in This Directory
 
-| File | Purpose | Size |
-|------|---------|------|
-| `job-patterns.json` | Statistical patterns from 4,003 jobs — distributions, value segments, training signals | ~25 KB |
-| `scope-examples.json` | 10 complete 7-section scope narratives (6× water, 2× mould, 1× fire, 1× storm) | ~90 KB |
-| `prompt-examples.jsonl` | 50 JSONL fine-tuning examples in OpenAI chat format | ~70 KB |
-| `TRAINING_README.md` | This file | — |
+| File                    | Purpose                                                                                | Size   |
+| ----------------------- | -------------------------------------------------------------------------------------- | ------ |
+| `job-patterns.json`     | Statistical patterns from 4,003 jobs — distributions, value segments, training signals | ~25 KB |
+| `scope-examples.json`   | 10 complete 7-section scope narratives (6× water, 2× mould, 1× fire, 1× storm)         | ~90 KB |
+| `prompt-examples.jsonl` | 50 JSONL fine-tuning examples in OpenAI chat format                                    | ~70 KB |
+| `TRAINING_README.md`    | This file                                                                              | —      |
 
 ---
 
@@ -39,22 +39,26 @@ Content-Type: application/json
 ```
 
 This endpoint:
+
 1. Queries all `HistoricalJob` rows where `embeddedAt IS NULL` for the tenant
 2. For each job, calls `buildJobEmbeddingText()` from `lib/ai/embeddings.ts` to build a rich text representation
 3. Sends the text to OpenAI `text-embedding-3-small` (1536 dimensions)
 4. Stores the resulting vector in `embeddingVector` and sets `embeddedAt = now()`
 
 **Hash fallback (no API key required — for testing only):**
+
 ```bash
 {
   "provider": "hash-fallback"
 }
 ```
+
 Hash fallback produces deterministic 1536-dim vectors from text — cosine similarity still functions structurally, but semantic accuracy is nil. Use hash fallback only to verify the pipeline end-to-end before OpenAI keys are available.
 
 ### Expected run time
 
 At OpenAI rate limits (~3,000 RPM for embedding):
+
 - 4,003 jobs ÷ 3,000 RPM ≈ 2 minutes total
 - With `batchSize: 100`, approximately 41 batches
 - Cost: ~$0.02 USD at `text-embedding-3-small` pricing ($0.02 per 1M tokens, ~50 tokens per job text)
@@ -118,6 +122,7 @@ When a technician opens a new inspection and requests an AI scope:
 ### Building the query text
 
 The query is built by `buildQueryText()` in `lib/ai/rag-context.ts`:
+
 ```
 Claim type: water_damage
 IICRC Category 2 Class 3
@@ -138,12 +143,16 @@ The `ragContext` string is appended to the system prompt inside `## SIMILAR HIST
 ### File format
 
 Each line in `prompt-examples.jsonl` is a valid JSON object:
+
 ```json
 {
   "messages": [
-    {"role": "system", "content": "You are an IICRC S500:2025 certified..."},
-    {"role": "user", "content": "Generate a scope for..."},
-    {"role": "assistant", "content": "## 1. Water Source & Loss Mechanism\n..."}
+    { "role": "system", "content": "You are an IICRC S500:2025 certified..." },
+    { "role": "user", "content": "Generate a scope for..." },
+    {
+      "role": "assistant",
+      "content": "## 1. Water Source & Loss Mechanism\n..."
+    }
   ]
 }
 ```
@@ -152,12 +161,12 @@ This is the OpenAI fine-tuning JSONL format for `gpt-4o-mini` and `gpt-4o`.
 
 ### Content breakdown
 
-| Category | Count | Lines |
-|---|---|---|
-| Scope generation (water damage, various categories/classes) | 25 | 1–25 |
-| Equipment calculation (IICRC S500:2025 ratios, AS/NZS 3012:2019 load checks) | 10 | 26–35 |
-| Moisture reading interpretation (drying validation, spike investigation) | 10 | 36–45 |
-| Claim classification from job description | 5 | 46–50 |
+| Category                                                                     | Count | Lines |
+| ---------------------------------------------------------------------------- | ----- | ----- |
+| Scope generation (water damage, various categories/classes)                  | 25    | 1–25  |
+| Equipment calculation (IICRC S500:2025 ratios, AS/NZS 3012:2019 load checks) | 10    | 26–35 |
+| Moisture reading interpretation (drying validation, spike investigation)     | 10    | 36–45 |
+| Claim classification from job description                                    | 5     | 46–50 |
 
 ### Uploading for fine-tuning (OpenAI)
 
@@ -172,6 +181,7 @@ openai api fine_tuning.jobs.create \
 ```
 
 Or via API:
+
 ```bash
 curl https://api.openai.com/v1/fine_tuning/jobs \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
@@ -185,10 +195,11 @@ curl https://api.openai.com/v1/fine_tuning/jobs \
 ### Using a fine-tuned model in RestoreAssist
 
 Once the fine-tuning job completes, set the model ID in the scope generator at `app/api/inspections/[id]/generate-scope/route.ts`:
+
 ```ts
 // Replace "claude-opus-4-5" with your fine-tuned model ID
 // e.g. "ft:gpt-4o-mini-2024-07-18:unite-hub::XXXXX"
-model: process.env.FINE_TUNED_MODEL_ID ?? "claude-opus-4-5"
+model: process.env.FINE_TUNED_MODEL_ID ?? "claude-opus-4-5";
 ```
 
 Note: The Claude API endpoint uses Anthropic SDK; the OpenAI fine-tuned model would require switching the endpoint. The current implementation uses the Anthropic Claude API with claim-type system prompts — fine-tuning adds an additional specialisation layer if OpenAI models are preferred.
@@ -200,7 +211,9 @@ Note: The Claude API endpoint uses Anthropic SDK; the OpenAI fine-tuned model wo
 `job-patterns.json` documents the statistical patterns extracted from the 4,003 Ascora jobs. Use it to:
 
 ### 1. Calibrate value estimates in generated scopes
+
 The `valueSegments` object provides realistic AUD ranges by job complexity:
+
 - `micro` ($0–$500): single-room, 1–2 air movers
 - `small` ($500–$2,000): single room drying, 5 days
 - `medium` ($2,000–$10,000): multi-room, ~8 days
@@ -208,12 +221,15 @@ The `valueSegments` object provides realistic AUD ranges by job complexity:
 - `complex` ($50,000+): commercial or heritage, 30–180 days
 
 ### 2. Detect escalation triggers in new job descriptions
+
 The `trainingSignals.escalationKeywords` array contains terms that predict high-value or complex jobs. Use these in a pre-scope classification pass.
 
 ### 3. Understand Category upgrade risk
+
 `trainingSignals.categoryUpgradeSignals` lists phrases from real Ascora job notes that indicate a Category 1 source should be upgraded to Category 2 (e.g. "water sitting more than 72 hours", "tenant did not report").
 
 ### 4. Build prompt context for non-vectorised job types
+
 If pgvector is not yet populated, `promptEnhancements[claimType].commonScopeItems` provides a static fallback list of typical scope line items per claim type, which can be injected into prompts as context.
 
 ---
@@ -227,6 +243,7 @@ The 10 scope examples in `scope-examples.json` are formatted as complete, realis
 3. **Manual review baseline** — technicians can compare AI scope drafts against these examples to calibrate their QA review process
 
 Each example includes:
+
 - `id`: reference identifier
 - `claimType`, `damageCategory`, `damageClass`: classification
 - `propertyDescription`, `causeOfLoss`: input context
@@ -277,13 +294,13 @@ FINE_TUNED_MODEL_ID=ft:gpt-4o-mini-...  # Set in Vercel after fine-tuning comple
 
 ## Related Files
 
-| File | Purpose |
-|------|---------|
-| `lib/ai/embeddings.ts` | `buildJobEmbeddingText`, `embedText`, `hashEmbedText`, `findSimilarJobs` |
-| `lib/ai/rag-context.ts` | `retrieveSimilarJobs`, `safeRetrieveSimilarJobs`, `formatContextPrompt` |
-| `lib/ai/claim-type-prompts.ts` | System prompts per claim type; RAG context injection via `ragContext` option |
-| `lib/ai/auto-classify.ts` | Auto-classification of claim type from job description |
-| `app/api/inspections/[id]/vectorise-jobs/route.ts` | POST endpoint to embed all un-vectorised HistoricalJobs |
-| `app/api/inspections/[id]/generate-scope/route.ts` | Streaming scope generation endpoint (Claude API, SSE) |
-| `prisma/schema.prisma` (model `HistoricalJob`) | DB schema with embedding metadata fields |
-| `ASCORA_ANALYSIS.md` | Full API analysis, job counts, value distributions, infrastructure status |
+| File                                               | Purpose                                                                      |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `lib/ai/embeddings.ts`                             | `buildJobEmbeddingText`, `embedText`, `hashEmbedText`, `findSimilarJobs`     |
+| `lib/ai/rag-context.ts`                            | `retrieveSimilarJobs`, `safeRetrieveSimilarJobs`, `formatContextPrompt`      |
+| `lib/ai/claim-type-prompts.ts`                     | System prompts per claim type; RAG context injection via `ragContext` option |
+| `lib/ai/auto-classify.ts`                          | Auto-classification of claim type from job description                       |
+| `app/api/inspections/[id]/vectorise-jobs/route.ts` | POST endpoint to embed all un-vectorised HistoricalJobs                      |
+| `app/api/inspections/[id]/generate-scope/route.ts` | Streaming scope generation endpoint (Claude API, SSE)                        |
+| `prisma/schema.prisma` (model `HistoricalJob`)     | DB schema with embedding metadata fields                                     |
+| `ASCORA_ANALYSIS.md`                               | Full API analysis, job counts, value distributions, infrastructure status    |

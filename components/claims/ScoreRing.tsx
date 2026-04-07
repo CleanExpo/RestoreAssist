@@ -1,11 +1,11 @@
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
 interface ScoreRingProps {
-  score: number // 0-100
-  label: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  showPercentage?: boolean
-  className?: string
+  score: number; // 0-100
+  label: string;
+  size?: "sm" | "md" | "lg" | "xl";
+  showPercentage?: boolean;
+  className?: string;
 }
 
 /**
@@ -20,63 +20,82 @@ interface ScoreRingProps {
 export function ScoreRing({
   score,
   label,
-  size = 'md',
+  size = "md",
   showPercentage = true,
-  className
+  className,
 }: ScoreRingProps) {
   // Clamp score between 0 and 100
-  const clampedScore = Math.max(0, Math.min(100, score))
+  const clampedScore = Math.max(0, Math.min(100, score));
 
   // Color based on score
   const getScoreColor = (s: number) => {
-    if (s >= 80) return { stroke: '#22c55e', bg: 'bg-green-50 dark:bg-green-950/20', text: 'text-green-600 dark:text-green-400' }
-    if (s >= 60) return { stroke: '#eab308', bg: 'bg-yellow-50 dark:bg-yellow-950/20', text: 'text-yellow-600 dark:text-yellow-400' }
-    if (s >= 40) return { stroke: '#f97316', bg: 'bg-orange-50 dark:bg-orange-950/20', text: 'text-orange-600 dark:text-orange-400' }
-    return { stroke: '#ef4444', bg: 'bg-red-50 dark:bg-red-950/20', text: 'text-red-600 dark:text-red-400' }
-  }
+    if (s >= 80)
+      return {
+        stroke: "#22c55e",
+        bg: "bg-green-50 dark:bg-green-950/20",
+        text: "text-green-600 dark:text-green-400",
+      };
+    if (s >= 60)
+      return {
+        stroke: "#eab308",
+        bg: "bg-yellow-50 dark:bg-yellow-950/20",
+        text: "text-yellow-600 dark:text-yellow-400",
+      };
+    if (s >= 40)
+      return {
+        stroke: "#f97316",
+        bg: "bg-orange-50 dark:bg-orange-950/20",
+        text: "text-orange-600 dark:text-orange-400",
+      };
+    return {
+      stroke: "#ef4444",
+      bg: "bg-red-50 dark:bg-red-950/20",
+      text: "text-red-600 dark:text-red-400",
+    };
+  };
 
-  const color = getScoreColor(clampedScore)
+  const color = getScoreColor(clampedScore);
 
   // Size variants
   const sizes = {
     sm: {
       dimension: 80,
       strokeWidth: 6,
-      fontSize: 'text-lg',
-      labelSize: 'text-xs',
-      radius: 34
+      fontSize: "text-lg",
+      labelSize: "text-xs",
+      radius: 34,
     },
     md: {
       dimension: 120,
       strokeWidth: 8,
-      fontSize: 'text-2xl',
-      labelSize: 'text-sm',
-      radius: 50
+      fontSize: "text-2xl",
+      labelSize: "text-sm",
+      radius: 50,
     },
     lg: {
       dimension: 160,
       strokeWidth: 10,
-      fontSize: 'text-3xl',
-      labelSize: 'text-base',
-      radius: 70
+      fontSize: "text-3xl",
+      labelSize: "text-base",
+      radius: 70,
     },
     xl: {
       dimension: 200,
       strokeWidth: 12,
-      fontSize: 'text-4xl',
-      labelSize: 'text-lg',
-      radius: 90
-    }
-  }
+      fontSize: "text-4xl",
+      labelSize: "text-lg",
+      radius: 90,
+    },
+  };
 
-  const config = sizes[size]
-  const center = config.dimension / 2
-  const circumference = 2 * Math.PI * config.radius
-  const strokeDashoffset = circumference - (clampedScore / 100) * circumference
+  const config = sizes[size];
+  const center = config.dimension / 2;
+  const circumference = 2 * Math.PI * config.radius;
+  const strokeDashoffset = circumference - (clampedScore / 100) * circumference;
 
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
-      <div className={cn('relative', color.bg, 'rounded-full p-2')}>
+    <div className={cn("flex flex-col items-center gap-2", className)}>
+      <div className={cn("relative", color.bg, "rounded-full p-2")}>
         <svg
           width={config.dimension}
           height={config.dimension}
@@ -108,17 +127,24 @@ export function ScoreRing({
         </svg>
         {/* Score text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn('font-bold', config.fontSize, color.text)}>
-            {showPercentage ? `${Math.round(clampedScore)}%` : Math.round(clampedScore)}
+          <span className={cn("font-bold", config.fontSize, color.text)}>
+            {showPercentage
+              ? `${Math.round(clampedScore)}%`
+              : Math.round(clampedScore)}
           </span>
         </div>
       </div>
       {/* Label */}
-      <span className={cn('font-medium text-center text-slate-700 dark:text-slate-300', config.labelSize)}>
+      <span
+        className={cn(
+          "font-medium text-center text-slate-700 dark:text-slate-300",
+          config.labelSize,
+        )}
+      >
         {label}
       </span>
     </div>
-  )
+  );
 }
 
 /**
@@ -126,16 +152,25 @@ export function ScoreRing({
  */
 interface ScoreRingGroupProps {
   scores: Array<{
-    value: number
-    label: string
-  }>
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  className?: string
+    value: number;
+    label: string;
+  }>;
+  size?: "sm" | "md" | "lg" | "xl";
+  className?: string;
 }
 
-export function ScoreRingGroup({ scores, size = 'md', className }: ScoreRingGroupProps) {
+export function ScoreRingGroup({
+  scores,
+  size = "md",
+  className,
+}: ScoreRingGroupProps) {
   return (
-    <div className={cn('flex flex-wrap items-center justify-center gap-6', className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-center gap-6",
+        className,
+      )}
+    >
       {scores.map((score, idx) => (
         <ScoreRing
           key={idx}
@@ -145,5 +180,5 @@ export function ScoreRingGroup({ scores, size = 'md', className }: ScoreRingGrou
         />
       ))}
     </div>
-  )
+  );
 }

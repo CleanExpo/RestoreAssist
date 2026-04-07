@@ -1,120 +1,132 @@
-"use client"
+"use client";
 
-import { use, useEffect, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import toast from "react-hot-toast"
-import { ArrowLeft, ExternalLink, FileText, Loader2, Receipt } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import {
+  ArrowLeft,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Receipt,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface LineItem {
-  id: string
-  description: string
-  category: string | null
-  quantity: number
-  unitPrice: number
-  subtotal: number
-  gstRate: number
-  gstAmount: number
-  total: number
-  sortOrder: number
+  id: string;
+  description: string;
+  category: string | null;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  gstRate: number;
+  gstAmount: number;
+  total: number;
+  sortOrder: number;
 }
 
 interface InvoiceSummary {
-  id: string
-  invoiceNumber: string
-  status: string
-  customerName: string
-  customerEmail: string
-  subtotalExGST: number
-  gstAmount: number
-  totalIncGST: number
-  amountDue: number
-  dueDate: string
-  lineItems: LineItem[]
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  customerName: string;
+  customerEmail: string;
+  subtotalExGST: number;
+  gstAmount: number;
+  totalIncGST: number;
+  amountDue: number;
+  dueDate: string;
+  lineItems: LineItem[];
 }
 
 function centsToAud(cents: number): string {
   return (cents / 100).toLocaleString("en-AU", {
     style: "currency",
-    currency: "AUD"
-  })
+    currency: "AUD",
+  });
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    DRAFT: "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300",
+    DRAFT:
+      "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300",
     SENT: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
     PAID: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
     OVERDUE: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
-    CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400"
-  }
+    CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400",
+  };
   return (
-    <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-semibold", colors[status] ?? colors.DRAFT)}>
+    <span
+      className={cn(
+        "px-2.5 py-0.5 rounded-full text-xs font-semibold",
+        colors[status] ?? colors.DRAFT,
+      )}
+    >
       {status}
     </span>
-  )
+  );
 }
 
 export default function InspectionInvoicePage({
-  params
+  params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params)
-  const router = useRouter()
+  const { id } = use(params);
+  const router = useRouter();
 
-  const [invoice, setInvoice] = useState<InvoiceSummary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
+  const [invoice, setInvoice] = useState<InvoiceSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    fetchInvoice()
-  }, [id])
+    fetchInvoice();
+  }, [id]);
 
   const fetchInvoice = async () => {
     try {
-      setLoading(true)
-      const res = await fetch(`/api/inspections/${id}/generate-invoice`)
+      setLoading(true);
+      const res = await fetch(`/api/inspections/${id}/generate-invoice`);
       if (res.ok) {
-        const data = await res.json()
-        setInvoice(data.invoice ?? null)
+        const data = await res.json();
+        setInvoice(data.invoice ?? null);
       } else {
-        toast.error("Failed to load invoice data")
+        toast.error("Failed to load invoice data");
       }
     } catch {
-      toast.error("Failed to load invoice data")
+      toast.error("Failed to load invoice data");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleGenerate = async () => {
     try {
-      setGenerating(true)
+      setGenerating(true);
       const res = await fetch(`/api/inspections/${id}/generate-invoice`, {
-        method: "POST"
-      })
-      const data = await res.json()
+        method: "POST",
+      });
+      const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Failed to generate invoice")
-        return
+        toast.error(data.error ?? "Failed to generate invoice");
+        return;
       }
-      toast.success(`Invoice ${data.invoiceNumber} created`)
-      await fetchInvoice()
+      toast.success(`Invoice ${data.invoiceNumber} created`);
+      await fetchInvoice();
     } catch {
-      toast.error("Failed to generate invoice")
+      toast.error("Failed to generate invoice");
     } finally {
-      setGenerating(false)
+      setGenerating(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="animate-spin text-cyan-500" size={32} />
       </div>
-    )
+    );
   }
 
   return (
@@ -133,7 +145,8 @@ export default function InspectionInvoicePage({
             Invoice from Scope Items
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
-            Generate a draft invoice from this inspection&apos;s selected scope items
+            Generate a draft invoice from this inspection&apos;s selected scope
+            items
           </p>
         </div>
 
@@ -165,17 +178,27 @@ export default function InspectionInvoicePage({
 
       {!invoice ? (
         <div className="p-12 rounded-xl border border-dashed border-neutral-300 dark:border-slate-700 text-center space-y-3">
-          <Receipt size={40} className="mx-auto text-neutral-300 dark:text-slate-600" />
-          <p className="text-neutral-500 dark:text-slate-400 font-medium">No invoice generated yet</p>
+          <Receipt
+            size={40}
+            className="mx-auto text-neutral-300 dark:text-slate-600"
+          />
+          <p className="text-neutral-500 dark:text-slate-400 font-medium">
+            No invoice generated yet
+          </p>
           <p className="text-sm text-neutral-400 dark:text-slate-500">
-            Click &quot;Generate Invoice&quot; to create a draft invoice from this inspection&apos;s selected scope items.
+            Click &quot;Generate Invoice&quot; to create a draft invoice from
+            this inspection&apos;s selected scope items.
           </p>
           <button
             onClick={handleGenerate}
             disabled={generating}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-2"
           >
-            {generating ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+            {generating ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <FileText size={16} />
+            )}
             {generating ? "Generating…" : "Generate Invoice"}
           </button>
         </div>
@@ -195,15 +218,18 @@ export default function InspectionInvoicePage({
                   {invoice.customerName} &bull; {invoice.customerEmail}
                 </p>
                 <p className="text-sm text-neutral-400 dark:text-slate-500 mt-0.5">
-                  Due: {new Date(invoice.dueDate).toLocaleDateString("en-AU", {
+                  Due:{" "}
+                  {new Date(invoice.dueDate).toLocaleDateString("en-AU", {
                     day: "2-digit",
                     month: "short",
-                    year: "numeric"
+                    year: "numeric",
                   })}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">Total inc. GST</p>
+                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">
+                  Total inc. GST
+                </p>
                 <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                   {centsToAud(invoice.totalIncGST)}
                 </p>
@@ -213,16 +239,28 @@ export default function InspectionInvoicePage({
             {/* Totals row */}
             <div className="flex gap-6 pt-3 border-t border-neutral-100 dark:border-slate-800 text-sm">
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">Subtotal ex. GST</span>
-                <span className="font-semibold">{centsToAud(invoice.subtotalExGST)}</span>
+                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                  Subtotal ex. GST
+                </span>
+                <span className="font-semibold">
+                  {centsToAud(invoice.subtotalExGST)}
+                </span>
               </div>
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">GST (10%)</span>
-                <span className="font-semibold">{centsToAud(invoice.gstAmount)}</span>
+                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                  GST (10%)
+                </span>
+                <span className="font-semibold">
+                  {centsToAud(invoice.gstAmount)}
+                </span>
               </div>
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">Amount Due</span>
-                <span className="font-semibold text-cyan-600 dark:text-cyan-400">{centsToAud(invoice.amountDue)}</span>
+                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                  Amount Due
+                </span>
+                <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                  {centsToAud(invoice.amountDue)}
+                </span>
               </div>
             </div>
           </div>
@@ -257,11 +295,18 @@ export default function InspectionInvoicePage({
                 </thead>
                 <tbody className="divide-y divide-neutral-100 dark:divide-slate-800">
                   {invoice.lineItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-neutral-50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr
+                      key={item.id}
+                      className="hover:bg-neutral-50 dark:hover:bg-slate-800/30 transition-colors"
+                    >
                       <td className="px-4 py-3 font-medium text-neutral-900 dark:text-white max-w-[300px]">
-                        <span className="block truncate">{item.description}</span>
+                        <span className="block truncate">
+                          {item.description}
+                        </span>
                         {item.category && (
-                          <span className="text-xs text-neutral-400 dark:text-slate-500">{item.category}</span>
+                          <span className="text-xs text-neutral-400 dark:text-slate-500">
+                            {item.category}
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-neutral-600 dark:text-slate-300">
@@ -281,7 +326,10 @@ export default function InspectionInvoicePage({
                 </tbody>
                 <tfoot className="bg-neutral-50 dark:bg-slate-800/50 border-t border-neutral-200 dark:border-slate-700">
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-right text-sm font-semibold text-neutral-600 dark:text-slate-300">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-3 text-right text-sm font-semibold text-neutral-600 dark:text-slate-300"
+                    >
                       Total inc. GST
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
@@ -295,10 +343,11 @@ export default function InspectionInvoicePage({
 
           {/* Footer note */}
           <p className="text-xs text-neutral-400 dark:text-slate-500 text-center pb-4">
-            Unit prices default to $50.00 — edit line items in the full invoice view to set actual rates.
+            Unit prices default to $50.00 — edit line items in the full invoice
+            view to set actual rates.
           </p>
         </>
       )}
     </div>
-  )
+  );
 }

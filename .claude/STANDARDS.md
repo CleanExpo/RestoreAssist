@@ -7,30 +7,36 @@ Patterns that linters cannot catch. Reference these before writing new modules.
 Every API route follows this structure (see `app/api/inspections/route.ts` for canonical example):
 
 ```typescript
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
     const data = await prisma.model.findMany({
       where: { userId: session.user.id },
-      select: { /* explicit fields */ },
-      take: 50,  // always paginate
-    })
-    return NextResponse.json({ data })
+      select: {
+        /* explicit fields */
+      },
+      take: 50, // always paginate
+    });
+    return NextResponse.json({ data });
   } catch (error) {
-    console.error('[API Route Name]', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("[API Route Name]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 ```
 
 **Enforced conventions:**
+
 - Auth check is always the first line after session extraction
 - Response shape: `{ data }` for success, `{ error: string }` for failure
 - Console.error with `[BracketedPrefix]` for log grep-ability
@@ -42,9 +48,9 @@ export async function GET(request: NextRequest) {
 Cron routes use bearer token auth instead of session auth (see `lib/cron/auth.ts`):
 
 ```typescript
-const authHeader = request.headers.get('authorization')
+const authHeader = request.headers.get("authorization");
 if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 ```
 
@@ -57,15 +63,15 @@ if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
 
 ## Domain Naming
 
-| Concept | Code name | Notes |
-|---------|-----------|-------|
-| Inspection report | NIR (National Inspection Report) | `lib/nir-*.ts` |
-| IICRC water damage standard | S500 | Always cite with year: `S500:2025` |
-| IICRC mould standard | S520 | `S520:2024` |
-| Fire/smoke standard | S700 | `S700:2022` |
-| Water damage classification | Category (contamination) + Class (evaporation) | Category 1-3, Class 1-4 |
-| Moisture reading | `MoistureReading` model | Fields: `moistureLevel`, `surfaceType`, `depth`, `location` |
-| State jurisdiction | Two-letter uppercase | `NSW`, `VIC`, `QLD`, `SA`, `WA`, `TAS`, `NT`, `ACT` |
+| Concept                     | Code name                                      | Notes                                                       |
+| --------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
+| Inspection report           | NIR (National Inspection Report)               | `lib/nir-*.ts`                                              |
+| IICRC water damage standard | S500                                           | Always cite with year: `S500:2025`                          |
+| IICRC mould standard        | S520                                           | `S520:2024`                                                 |
+| Fire/smoke standard         | S700                                           | `S700:2022`                                                 |
+| Water damage classification | Category (contamination) + Class (evaporation) | Category 1-3, Class 1-4                                     |
+| Moisture reading            | `MoistureReading` model                        | Fields: `moistureLevel`, `surfaceType`, `depth`, `location` |
+| State jurisdiction          | Two-letter uppercase                           | `NSW`, `VIC`, `QLD`, `SA`, `WA`, `TAS`, `NT`, `ACT`         |
 
 ## File Organisation
 
@@ -97,11 +103,11 @@ All external syncs follow the orchestrator pattern (see `lib/integrations/nir-sy
 
 ## Patterns to Avoid
 
-| Pattern | Why | Do instead |
-|---------|-----|-----------|
-| `findMany()` without `take` | Unbounded queries crash on large datasets | Always add `take: 50` or paginate |
-| `any` type | Breaks 102-model type safety chain | Use Prisma-generated types or explicit interfaces |
-| `console.log` in production code | No structured logging | Use `console.error('[Prefix]', error)` for errors only |
-| Direct Stripe API calls from components | Security risk + coupling | Use `/api/` routes as Stripe proxy |
-| Hardcoded IICRC section numbers | Standards change between editions | Use `lib/nir-standards-mapping.ts` constants |
-| `process.env.X` in client components | Leaks server secrets | Use `NEXT_PUBLIC_` prefix for client-safe vars |
+| Pattern                                 | Why                                       | Do instead                                             |
+| --------------------------------------- | ----------------------------------------- | ------------------------------------------------------ |
+| `findMany()` without `take`             | Unbounded queries crash on large datasets | Always add `take: 50` or paginate                      |
+| `any` type                              | Breaks 102-model type safety chain        | Use Prisma-generated types or explicit interfaces      |
+| `console.log` in production code        | No structured logging                     | Use `console.error('[Prefix]', error)` for errors only |
+| Direct Stripe API calls from components | Security risk + coupling                  | Use `/api/` routes as Stripe proxy                     |
+| Hardcoded IICRC section numbers         | Standards change between editions         | Use `lib/nir-standards-mapping.ts` constants           |
+| `process.env.X` in client components    | Leaks server secrets                      | Use `NEXT_PUBLIC_` prefix for client-safe vars         |

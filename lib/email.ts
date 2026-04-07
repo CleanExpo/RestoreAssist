@@ -1,30 +1,30 @@
-import { Resend } from "resend"
+import { Resend } from "resend";
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au"
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
 
-let resend: Resend | null = null
+let resend: Resend | null = null;
 function getResendClient(): Resend {
   if (!resend) {
     if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured")
+      throw new Error("RESEND_API_KEY is not configured");
     }
-    resend = new Resend(process.env.RESEND_API_KEY)
+    resend = new Resend(process.env.RESEND_API_KEY);
   }
-  return resend
+  return resend;
 }
 
 // ── Signed Authority Form Email ──
 
 export interface SignedFormEmailData {
-  recipientEmail: string
-  recipientName: string
-  formName: string
-  clientName: string
-  clientAddress: string
-  companyName: string
-  signatories: { name: string; role: string; signedAt: string }[]
-  pdfBase64: string // Base64 encoded PDF
-  pdfFilename: string
+  recipientEmail: string;
+  recipientName: string;
+  formName: string;
+  clientName: string;
+  clientAddress: string;
+  companyName: string;
+  signatories: { name: string; role: string; signedAt: string }[];
+  pdfBase64: string; // Base64 encoded PDF
+  pdfFilename: string;
 }
 
 /** Strip CR/LF characters that could be used for email header injection. */
@@ -34,17 +34,18 @@ function sanitiseEmailField(value: string, maxLength = 255): string {
 
 export async function sendSignedFormEmail(data: SignedFormEmailData) {
   if (!process.env.RESEND_API_KEY) {
-    throw new Error("Email service is not configured")
+    throw new Error("Email service is not configured");
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const sigList = data.signatories
     .map(
       (s) =>
-        `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.name}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.role.replace(/_/g, " ")}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${new Date(s.signedAt).toLocaleDateString("en-AU")}</td></tr>`
+        `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.name}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.role.replace(/_/g, " ")}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${new Date(s.signedAt).toLocaleDateString("en-AU")}</td></tr>`,
     )
-    .join("")
+    .join("");
 
   const html = `
     <!DOCTYPE html>
@@ -76,7 +77,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
       </div>
     </body>
     </html>
-  `
+  `;
 
   return getResendClient().emails.send({
     from: fromEmail,
@@ -89,42 +90,45 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
         content: data.pdfBase64,
       },
     ],
-  })
+  });
 }
 
 // ── Invite Email ──
 
 export interface InviteEmailData {
-  email: string
-  name: string
-  role: "MANAGER" | "USER"
-  tempPassword?: string
-  loginUrl: string
-  inviterName: string
-  isTransfer?: boolean // True if user already exists and is being transferred
+  email: string;
+  name: string;
+  role: "MANAGER" | "USER";
+  tempPassword?: string;
+  loginUrl: string;
+  inviterName: string;
+  isTransfer?: boolean; // True if user already exists and is being transferred
 }
 
 export async function sendInviteEmail(data: InviteEmailData) {
-  console.log("📧 [EMAIL] Starting email send process...")
-  console.log("📧 [EMAIL] Recipient:", data.email)
-  console.log("📧 [EMAIL] Role:", data.role)
-  console.log("📧 [EMAIL] Inviter:", data.inviterName)
-  
-  if (!process.env.RESEND_API_KEY) {
-    console.error("❌ [EMAIL] RESEND_API_KEY is not configured")
-    throw new Error("Email service is not configured")
-  }
-  
-  console.log("✅ [EMAIL] RESEND_API_KEY is configured")
-  console.log("📧 [EMAIL] From email:", process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>")
+  console.log("📧 [EMAIL] Starting email send process...");
+  console.log("📧 [EMAIL] Recipient:", data.email);
+  console.log("📧 [EMAIL] Role:", data.role);
+  console.log("📧 [EMAIL] Inviter:", data.inviterName);
 
-  const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician"
-  const isTransfer = data.isTransfer || false
-  const hasTempPassword = !!data.tempPassword
-  console.log("📧 [EMAIL] Role label:", roleLabel)
-  console.log("📧 [EMAIL] Is transfer:", isTransfer)
-  console.log("📧 [EMAIL] Has temp password:", hasTempPassword)
-  
+  if (!process.env.RESEND_API_KEY) {
+    console.error("❌ [EMAIL] RESEND_API_KEY is not configured");
+    throw new Error("Email service is not configured");
+  }
+
+  console.log("✅ [EMAIL] RESEND_API_KEY is configured");
+  console.log(
+    "📧 [EMAIL] From email:",
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>",
+  );
+
+  const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
+  const isTransfer = data.isTransfer || false;
+  const hasTempPassword = !!data.tempPassword;
+  console.log("📧 [EMAIL] Role label:", roleLabel);
+  console.log("📧 [EMAIL] Is transfer:", isTransfer);
+  console.log("📧 [EMAIL] Has temp password:", hasTempPassword);
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -151,14 +155,17 @@ export async function sendInviteEmail(data: InviteEmailData) {
             </div>
             <h2 style="color: #1e293b; margin: 0 0 10px 0; font-size: 28px; font-weight: 700;">${isTransfer ? "You've been added to a new organization" : "Welcome, " + data.name + "!"}</h2>
             <p style="color: #64748b; font-size: 16px; margin: 0;">
-              ${isTransfer 
-                ? `<strong style="color: #1e293b;">${data.inviterName}</strong> has added you as a <strong style="color: #3b82f6;">${roleLabel}</strong> to their organization. You can continue using your existing account credentials to log in.`
-                : `You've been invited by <strong style="color: #1e293b;">${data.inviterName}</strong> to join Restore Assist as a <strong style="color: #3b82f6;">${roleLabel}</strong>.`
+              ${
+                isTransfer
+                  ? `<strong style="color: #1e293b;">${data.inviterName}</strong> has added you as a <strong style="color: #3b82f6;">${roleLabel}</strong> to their organization. You can continue using your existing account credentials to log in.`
+                  : `You've been invited by <strong style="color: #1e293b;">${data.inviterName}</strong> to join Restore Assist as a <strong style="color: #3b82f6;">${roleLabel}</strong>.`
               }
             </p>
           </div>
           
-          ${hasTempPassword ? `
+          ${
+            hasTempPassword
+              ? `
           <!-- Credentials box -->
           <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);">
             <div style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -187,7 +194,8 @@ export async function sendInviteEmail(data: InviteEmailData) {
               <strong>🔒 Security Notice:</strong> For your security, you'll be required to change this temporary password when you first log in to the platform.
             </p>
           </div>
-          ` : `
+          `
+              : `
           <!-- Info box for transfers -->
           <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);">
             <div style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -202,7 +210,8 @@ export async function sendInviteEmail(data: InviteEmailData) {
               </p>
             </div>
           </div>
-          `}
+          `
+          }
           
           <!-- CTA Button -->
           <div style="text-align: center; margin: 35px 0;">
@@ -227,7 +236,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
         </div>
       </body>
     </html>
-  `
+  `;
 
   const text = isTransfer
     ? `
@@ -259,70 +268,84 @@ If you have any questions or need assistance, please contact your administrator 
 
 ---
 This is an automated email from Restore Assist. Please do not reply to this email.
-  `
+  `;
 
   try {
-    console.log("📧 [EMAIL] Preparing email payload...")
+    console.log("📧 [EMAIL] Preparing email payload...");
     const emailPayload = {
-      from: process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>",
+      from:
+        process.env.RESEND_FROM_EMAIL ||
+        "Restore Assist <onboarding@resend.dev>",
       to: data.email,
-      subject: isTransfer 
+      subject: isTransfer
         ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
         : `Welcome to Restore Assist - Your ${roleLabel} Account`,
       html,
       text,
-    }
-    
-    console.log("📧 [EMAIL] Email payload prepared:")
-    console.log("📧 [EMAIL] - From:", emailPayload.from)
-    console.log("📧 [EMAIL] - To:", emailPayload.to)
-    console.log("📧 [EMAIL] - Subject:", emailPayload.subject)
-    console.log("📧 [EMAIL] - HTML length:", html.length, "characters")
-    console.log("📧 [EMAIL] - Text length:", text.length, "characters")
-    
-    console.log("📧 [EMAIL] Sending email via Resend API...")
-    const startTime = Date.now()
-    
-    const result = await getResendClient().emails.send(emailPayload)
-    
-    const duration = Date.now() - startTime
-    console.log("✅ [EMAIL] Email sent successfully!")
-    console.log("📧 [EMAIL] Response:", JSON.stringify(result, null, 2))
-    console.log("📧 [EMAIL] Duration:", duration, "ms")
-    console.log("📧 [EMAIL] Email ID:", result.id || "N/A")
-    
-    return result
+    };
+
+    console.log("📧 [EMAIL] Email payload prepared:");
+    console.log("📧 [EMAIL] - From:", emailPayload.from);
+    console.log("📧 [EMAIL] - To:", emailPayload.to);
+    console.log("📧 [EMAIL] - Subject:", emailPayload.subject);
+    console.log("📧 [EMAIL] - HTML length:", html.length, "characters");
+    console.log("📧 [EMAIL] - Text length:", text.length, "characters");
+
+    console.log("📧 [EMAIL] Sending email via Resend API...");
+    const startTime = Date.now();
+
+    const result = await getResendClient().emails.send(emailPayload);
+
+    const duration = Date.now() - startTime;
+    console.log("✅ [EMAIL] Email sent successfully!");
+    console.log("📧 [EMAIL] Response:", JSON.stringify(result, null, 2));
+    console.log("📧 [EMAIL] Duration:", duration, "ms");
+    console.log("📧 [EMAIL] Email ID:", result.id || "N/A");
+
+    return result;
   } catch (error: any) {
-    console.error("❌ [EMAIL] Failed to send invite email")
-    console.error("❌ [EMAIL] Error type:", error?.constructor?.name || "Unknown")
-    console.error("❌ [EMAIL] Error message:", error?.message || "No error message")
-    console.error("❌ [EMAIL] Error stack:", error?.stack || "No stack trace")
+    console.error("❌ [EMAIL] Failed to send invite email");
+    console.error(
+      "❌ [EMAIL] Error type:",
+      error?.constructor?.name || "Unknown",
+    );
+    console.error(
+      "❌ [EMAIL] Error message:",
+      error?.message || "No error message",
+    );
+    console.error("❌ [EMAIL] Error stack:", error?.stack || "No stack trace");
     if (error?.response) {
-      console.error("❌ [EMAIL] Error response:", JSON.stringify(error.response, null, 2))
+      console.error(
+        "❌ [EMAIL] Error response:",
+        JSON.stringify(error.response, null, 2),
+      );
     }
-    throw error
+    throw error;
   }
 }
 
 // ── Dunning / Payment Failed Email ──
 
 export interface PaymentFailedEmailData {
-  recipientEmail: string
-  recipientName: string
-  subscriptionPlan: string
-  amount: string
-  currency: string
-  failureReason?: string
-  updatePaymentUrl: string
+  recipientEmail: string;
+  recipientName: string;
+  subscriptionPlan: string;
+  amount: string;
+  currency: string;
+  failureReason?: string;
+  updatePaymentUrl: string;
 }
 
 export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("⚠️ [DUNNING] Email service is not configured, skipping dunning email")
-    return null
+    console.warn(
+      "⚠️ [DUNNING] Email service is not configured, skipping dunning email",
+    );
+    return null;
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const html = `
     <!DOCTYPE html>
@@ -349,13 +372,17 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
             We were unable to process your payment of <strong style="color: #ef4444;">${data.currency} ${data.amount}</strong> for your <strong>${data.subscriptionPlan}</strong> subscription.
           </p>
 
-          ${data.failureReason ? `
+          ${
+            data.failureReason
+              ? `
           <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px 20px; border-radius: 8px; margin: 24px 0;">
             <p style="margin: 0; color: #991b1b; font-size: 14px;">
               <strong>Reason:</strong> ${data.failureReason}
             </p>
           </div>
-          ` : ''}
+          `
+              : ""
+          }
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">
             To avoid any interruption to your service, please update your payment method as soon as possible. Your access may be limited until this is resolved.
@@ -393,7 +420,7 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
         </div>
       </body>
     </html>
-  `
+  `;
 
   const text = `
 Payment Failed - Action Required
@@ -401,7 +428,7 @@ Payment Failed - Action Required
 Hi ${data.recipientName},
 
 We were unable to process your payment of ${data.currency} ${data.amount} for your ${data.subscriptionPlan} subscription.
-${data.failureReason ? `\nReason: ${data.failureReason}\n` : ''}
+${data.failureReason ? `\nReason: ${data.failureReason}\n` : ""}
 To avoid any interruption to your service, please update your payment method as soon as possible.
 
 Update your payment method here: ${data.updatePaymentUrl}
@@ -415,45 +442,57 @@ If you believe this is an error or need assistance, please contact our support t
 
 ---
 This is an automated email from Restore Assist. Please do not reply to this email.
-  `
+  `;
 
   try {
-    console.log("📧 [DUNNING] Sending payment failed email to:", data.recipientEmail)
+    console.log(
+      "📧 [DUNNING] Sending payment failed email to:",
+      data.recipientEmail,
+    );
 
     const result = await getResendClient().emails.send({
       from: fromEmail,
       to: data.recipientEmail,
-      subject: "⚠️ Payment Failed - Action Required for Your RestoreAssist Subscription",
+      subject:
+        "⚠️ Payment Failed - Action Required for Your RestoreAssist Subscription",
       html,
       text,
-    })
+    });
 
-    console.log("✅ [DUNNING] Email sent successfully:", result.id)
-    return result
+    console.log("✅ [DUNNING] Email sent successfully:", result.id);
+    return result;
   } catch (error: any) {
-    console.error("❌ [DUNNING] Failed to send payment failed email:", error?.message)
+    console.error(
+      "❌ [DUNNING] Failed to send payment failed email:",
+      error?.message,
+    );
     // Don't throw - dunning email failure shouldn't break the webhook
-    return null
+    return null;
   }
 }
 
 // ── Subscription Cancelled Email ──
 
 export interface SubscriptionCancelledEmailData {
-  recipientEmail: string
-  recipientName: string
-  subscriptionPlan: string
-  expiresAt: string
-  resubscribeUrl: string
+  recipientEmail: string;
+  recipientName: string;
+  subscriptionPlan: string;
+  expiresAt: string;
+  resubscribeUrl: string;
 }
 
-export async function sendSubscriptionCancelledEmail(data: SubscriptionCancelledEmailData) {
+export async function sendSubscriptionCancelledEmail(
+  data: SubscriptionCancelledEmailData,
+) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("⚠️ [EMAIL] Email service is not configured, skipping cancellation email")
-    return null
+    console.warn(
+      "⚠️ [EMAIL] Email service is not configured, skipping cancellation email",
+    );
+    return null;
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const html = `
     <!DOCTYPE html>
@@ -504,42 +543,51 @@ export async function sendSubscriptionCancelledEmail(data: SubscriptionCancelled
         </div>
       </body>
     </html>
-  `
+  `;
 
   try {
-    console.log("📧 [EMAIL] Sending subscription cancelled email to:", data.recipientEmail)
+    console.log(
+      "📧 [EMAIL] Sending subscription cancelled email to:",
+      data.recipientEmail,
+    );
 
     const result = await getResendClient().emails.send({
       from: fromEmail,
       to: data.recipientEmail,
       subject: "Your RestoreAssist Subscription Has Been Cancelled",
       html,
-    })
+    });
 
-    console.log("✅ [EMAIL] Cancellation email sent successfully:", result.id)
-    return result
+    console.log("✅ [EMAIL] Cancellation email sent successfully:", result.id);
+    return result;
   } catch (error: any) {
-    console.error("❌ [EMAIL] Failed to send cancellation email:", error?.message)
-    return null
+    console.error(
+      "❌ [EMAIL] Failed to send cancellation email:",
+      error?.message,
+    );
+    return null;
   }
 }
 
 // ── Trial Expiring Soon Email ──
 
 export interface TrialExpiringEmailData {
-  recipientEmail: string
-  recipientName: string
-  daysRemaining: number
-  subscribeUrl: string
+  recipientEmail: string;
+  recipientName: string;
+  daysRemaining: number;
+  subscribeUrl: string;
 }
 
 export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("⚠️ [EMAIL] Email service is not configured, skipping trial expiring email")
-    return null
+    console.warn(
+      "⚠️ [EMAIL] Email service is not configured, skipping trial expiring email",
+    );
+    return null;
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const html = `
     <!DOCTYPE html>
@@ -553,7 +601,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
           <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700;">⏰ Trial Expiring Soon</h1>
-          <p style="color: rgba(255, 255, 255, 0.95); margin: 10px 0 0; font-size: 18px;">Only ${data.daysRemaining} day${data.daysRemaining !== 1 ? 's' : ''} left!</p>
+          <p style="color: rgba(255, 255, 255, 0.95); margin: 10px 0 0; font-size: 18px;">Only ${data.daysRemaining} day${data.daysRemaining !== 1 ? "s" : ""} left!</p>
         </div>
 
         <!-- Main content card -->
@@ -589,41 +637,53 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
         </div>
       </body>
     </html>
-  `
+  `;
 
   try {
-    console.log("📧 [EMAIL] Sending trial expiring email to:", data.recipientEmail)
+    console.log(
+      "📧 [EMAIL] Sending trial expiring email to:",
+      data.recipientEmail,
+    );
 
     const result = await getResendClient().emails.send({
       from: fromEmail,
       to: data.recipientEmail,
-      subject: `⏰ Your RestoreAssist Trial Expires in ${data.daysRemaining} Day${data.daysRemaining !== 1 ? 's' : ''}`,
+      subject: `⏰ Your RestoreAssist Trial Expires in ${data.daysRemaining} Day${data.daysRemaining !== 1 ? "s" : ""}`,
       html,
-    })
+    });
 
-    console.log("✅ [EMAIL] Trial expiring email sent successfully:", result.id)
-    return result
+    console.log(
+      "✅ [EMAIL] Trial expiring email sent successfully:",
+      result.id,
+    );
+    return result;
   } catch (error: any) {
-    console.error("❌ [EMAIL] Failed to send trial expiring email:", error?.message)
-    return null
+    console.error(
+      "❌ [EMAIL] Failed to send trial expiring email:",
+      error?.message,
+    );
+    return null;
   }
 }
 
 // ── Password Reset Email ──
 
 export interface PasswordResetEmailData {
-  recipientEmail: string
-  recipientName: string
-  resetCode: string
+  recipientEmail: string;
+  recipientName: string;
+  resetCode: string;
 }
 
 export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("⚠️ [EMAIL] Email service is not configured, skipping password reset email")
-    return null
+    console.warn(
+      "⚠️ [EMAIL] Email service is not configured, skipping password reset email",
+    );
+    return null;
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const html = `
     <!DOCTYPE html>
@@ -677,7 +737,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
         </div>
       </body>
     </html>
-  `
+  `;
 
   const text = `Password Reset Code
 
@@ -692,10 +752,13 @@ This code expires in 15 minutes.
 If you didn't request this reset, you can safely ignore this email.
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.`
+This is an automated email from Restore Assist. Please do not reply to this email.`;
 
   try {
-    console.log("📧 [EMAIL] Sending password reset email to:", data.recipientEmail)
+    console.log(
+      "📧 [EMAIL] Sending password reset email to:",
+      data.recipientEmail,
+    );
 
     const result = await getResendClient().emails.send({
       from: fromEmail,
@@ -703,33 +766,42 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       subject: "Your RestoreAssist Password Reset Code",
       html,
       text,
-    })
+    });
 
-    console.log("✅ [EMAIL] Password reset email sent successfully:", result.id)
-    return result
+    console.log(
+      "✅ [EMAIL] Password reset email sent successfully:",
+      result.id,
+    );
+    return result;
   } catch (error: any) {
-    console.error("❌ [EMAIL] Failed to send password reset email:", error?.message)
-    return null
+    console.error(
+      "❌ [EMAIL] Failed to send password reset email:",
+      error?.message,
+    );
+    return null;
   }
 }
 
 // ── Welcome Email (Admin Signup) ──
 
 export interface WelcomeEmailData {
-  recipientEmail: string
-  recipientName: string
-  loginUrl: string
-  trialDays: number
-  trialCredits: number
+  recipientEmail: string;
+  recipientName: string;
+  loginUrl: string;
+  trialDays: number;
+  trialCredits: number;
 }
 
 export async function sendWelcomeEmail(data: WelcomeEmailData) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("⚠️ [EMAIL] Email service is not configured, skipping welcome email")
-    return null
+    console.warn(
+      "⚠️ [EMAIL] Email service is not configured, skipping welcome email",
+    );
+    return null;
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const html = `
     <!DOCTYPE html>
@@ -788,7 +860,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
         </div>
       </body>
     </html>
-  `
+  `;
 
   const text = `Welcome to Restore Assist!
 
@@ -806,10 +878,10 @@ Log in here: ${data.loginUrl}
 Need help? Contact our support team — we're here to help!
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.`
+This is an automated email from Restore Assist. Please do not reply to this email.`;
 
   try {
-    console.log("📧 [EMAIL] Sending welcome email to:", data.recipientEmail)
+    console.log("📧 [EMAIL] Sending welcome email to:", data.recipientEmail);
 
     const result = await getResendClient().emails.send({
       from: fromEmail,
@@ -817,34 +889,37 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       subject: "Welcome to Restore Assist — Your Account is Ready!",
       html,
       text,
-    })
+    });
 
-    console.log("✅ [EMAIL] Welcome email sent successfully:", result.id)
-    return result
+    console.log("✅ [EMAIL] Welcome email sent successfully:", result.id);
+    return result;
   } catch (error: any) {
-    console.error("❌ [EMAIL] Failed to send welcome email:", error?.message)
-    return null
+    console.error("❌ [EMAIL] Failed to send welcome email:", error?.message);
+    return null;
   }
 }
 
 // ── Report Completed Notification Email ──
 
 export interface ReportCompletedEmailData {
-  recipientEmail: string
-  recipientName: string
-  reportJobNumber: string
-  reportType: string
-  completedByName: string
-  viewReportUrl: string
+  recipientEmail: string;
+  recipientName: string;
+  reportJobNumber: string;
+  reportType: string;
+  completedByName: string;
+  viewReportUrl: string;
 }
 
 export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn("⚠️ [EMAIL] Email service is not configured, skipping report completed email")
-    return null
+    console.warn(
+      "⚠️ [EMAIL] Email service is not configured, skipping report completed email",
+    );
+    return null;
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
   const html = `
     <!DOCTYPE html>
@@ -897,7 +972,7 @@ export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
         </div>
       </body>
     </html>
-  `
+  `;
 
   const text = `Report Completed
 
@@ -911,10 +986,13 @@ Type: ${data.reportType}
 View the report: ${data.viewReportUrl}
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.`
+This is an automated email from Restore Assist. Please do not reply to this email.`;
 
   try {
-    console.log("📧 [EMAIL] Sending report completed email to:", data.recipientEmail)
+    console.log(
+      "📧 [EMAIL] Sending report completed email to:",
+      data.recipientEmail,
+    );
 
     const result = await getResendClient().emails.send({
       from: fromEmail,
@@ -922,12 +1000,15 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       subject: `Report Completed: ${data.reportJobNumber} — ${data.reportType}`,
       html,
       text,
-    })
+    });
 
-    console.log("✅ [EMAIL] Report completed email sent:", result.id)
-    return result
+    console.log("✅ [EMAIL] Report completed email sent:", result.id);
+    return result;
   } catch (error: any) {
-    console.error("❌ [EMAIL] Failed to send report completed email:", error?.message)
-    return null
+    console.error(
+      "❌ [EMAIL] Failed to send report completed email:",
+      error?.message,
+    );
+    return null;
   }
 }

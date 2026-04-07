@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
-import * as React from 'react'
-import { Moon, Sun } from 'lucide-react'
-import { useTheme } from 'next-themes'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import * as React from "react";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
 
   // useEffect only runs on the client, so now we can safely show the UI
   React.useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return (
@@ -26,30 +26,30 @@ export function ThemeToggle({ className }: { className?: string }) {
         <Sun className="h-4 w-4" />
         <span className="sr-only">Toggle theme</span>
       </Button>
-    )
+    );
   }
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       className={cn(
         "h-9 w-9",
         "text-slate-400 hover:text-slate-50",
         "hover:bg-slate-800",
         "dark:text-slate-400 dark:hover:text-slate-50",
         "dark:hover:bg-slate-800",
-        className
+        className,
       )}
-      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {theme === 'dark' ? (
+      {theme === "dark" ? (
         <Sun className="h-4 w-4" />
       ) : (
         <Moon className="h-4 w-4" />
       )}
       <span className="sr-only">Toggle theme</span>
     </Button>
-  )
+  );
 }

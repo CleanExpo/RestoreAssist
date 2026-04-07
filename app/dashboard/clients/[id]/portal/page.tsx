@@ -1,15 +1,23 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { ArrowLeft, Send, RefreshCw, CheckCircle, Clock, XCircle, ShieldOff } from "lucide-react"
-import toast from "react-hot-toast"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Send,
+  RefreshCw,
+  CheckCircle,
+  Clock,
+  XCircle,
+  ShieldOff,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -17,34 +25,37 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED"
+type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
 
 interface Invitation {
-  id: string
-  email: string
-  token: string
-  status: InvitationStatus
-  expiresAt: string
-  acceptedAt: string | null
-  createdAt: string
+  id: string;
+  email: string;
+  token: string;
+  status: InvitationStatus;
+  expiresAt: string;
+  acceptedAt: string | null;
+  createdAt: string;
 }
 
 interface Client {
-  id: string
-  name: string
-  email: string
+  id: string;
+  name: string;
+  email: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: InvitationStatus }) {
-  const configs: Record<InvitationStatus, { label: string; variant: string; icon: React.ReactNode }> = {
+  const configs: Record<
+    InvitationStatus,
+    { label: string; variant: string; icon: React.ReactNode }
+  > = {
     PENDING: {
       label: "Pending",
       variant: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -65,9 +76,9 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
       variant: "bg-red-500/20 text-red-400 border-red-500/30",
       icon: <ShieldOff size={12} />,
     },
-  }
+  };
 
-  const cfg = configs[status] ?? configs.EXPIRED
+  const cfg = configs[status] ?? configs.EXPIRED;
 
   return (
     <span
@@ -76,156 +87,160 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
       {cfg.icon}
       {cfg.label}
     </span>
-  )
+  );
 }
 
 function fmt(dateStr: string | null) {
-  if (!dateStr) return "—"
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-AU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function ClientPortalPage({ params }: { params: { id: string } }) {
-  const clientId = params.id
+export default function ClientPortalPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const clientId = params.id;
 
-  const [client, setClient] = useState<Client | null>(null)
-  const [invitations, setInvitations] = useState<Invitation[]>([])
-  const [loadingClient, setLoadingClient] = useState(true)
-  const [loadingInvitations, setLoadingInvitations] = useState(true)
+  const [client, setClient] = useState<Client | null>(null);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [loadingClient, setLoadingClient] = useState(true);
+  const [loadingInvitations, setLoadingInvitations] = useState(true);
 
   // Send-invitation form state
-  const [email, setEmail] = useState("")
-  const [message, setMessage] = useState("")
-  const [expiryDays, setExpiryDays] = useState(7)
-  const [sending, setSending] = useState(false)
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [expiryDays, setExpiryDays] = useState(7);
+  const [sending, setSending] = useState(false);
 
   // Revoke confirmation state
-  const [revokeTargetId, setRevokeTargetId] = useState<string | null>(null)
-  const [revoking, setRevoking] = useState(false)
+  const [revokeTargetId, setRevokeTargetId] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   // Per-row resend loading
-  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   // ── Data fetching ───────────────────────────────────────────────────────────
 
   const fetchClient = async () => {
     try {
-      setLoadingClient(true)
-      const res = await fetch(`/api/clients/${clientId}`)
+      setLoadingClient(true);
+      const res = await fetch(`/api/clients/${clientId}`);
       if (res.ok) {
-        const data = await res.json()
-        setClient({ id: data.id, name: data.name, email: data.email })
-        setEmail(data.email ?? "")
+        const data = await res.json();
+        setClient({ id: data.id, name: data.name, email: data.email });
+        setEmail(data.email ?? "");
       } else {
-        toast.error("Failed to load client details")
+        toast.error("Failed to load client details");
       }
     } catch {
-      toast.error("Failed to load client details")
+      toast.error("Failed to load client details");
     } finally {
-      setLoadingClient(false)
+      setLoadingClient(false);
     }
-  }
+  };
 
   const fetchInvitations = async () => {
     try {
-      setLoadingInvitations(true)
-      const res = await fetch(`/api/portal/invitations?clientId=${clientId}`)
+      setLoadingInvitations(true);
+      const res = await fetch(`/api/portal/invitations?clientId=${clientId}`);
       if (res.ok) {
-        const data = await res.json()
-        setInvitations(data.invitations ?? [])
+        const data = await res.json();
+        setInvitations(data.invitations ?? []);
       }
     } catch {
       // silent — empty state handles it
     } finally {
-      setLoadingInvitations(false)
+      setLoadingInvitations(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchClient()
-    fetchInvitations()
+    fetchClient();
+    fetchInvitations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId])
+  }, [clientId]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!email.trim()) {
-      toast.error("Email is required")
-      return
+      toast.error("Email is required");
+      return;
     }
-    setSending(true)
+    setSending(true);
     try {
       const res = await fetch("/api/portal/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, message: message.trim() || null }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to send invitation")
-      toast.success("Invitation sent!")
-      setMessage("")
-      fetchInvitations()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send invitation");
+      toast.success("Invitation sent!");
+      setMessage("");
+      fetchInvitations();
     } catch (err: any) {
-      toast.error(err.message || "Failed to send invitation")
+      toast.error(err.message || "Failed to send invitation");
     } finally {
-      setSending(false)
+      setSending(false);
     }
-  }
+  };
 
   const handleResend = async (invId: string) => {
-    setResendingId(invId)
+    setResendingId(invId);
     try {
       const res = await fetch(`/api/portal/invitations/${invId}/resend`, {
         method: "POST",
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to resend invitation")
-      toast.success("Invitation resent!")
-      fetchInvitations()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resend invitation");
+      toast.success("Invitation resent!");
+      fetchInvitations();
     } catch (err: any) {
-      toast.error(err.message || "Failed to resend invitation")
+      toast.error(err.message || "Failed to resend invitation");
     } finally {
-      setResendingId(null)
+      setResendingId(null);
     }
-  }
+  };
 
-  const confirmRevoke = (invId: string) => setRevokeTargetId(invId)
-  const cancelRevoke = () => setRevokeTargetId(null)
+  const confirmRevoke = (invId: string) => setRevokeTargetId(invId);
+  const cancelRevoke = () => setRevokeTargetId(null);
 
   const handleRevoke = async () => {
-    if (!revokeTargetId) return
-    setRevoking(true)
+    if (!revokeTargetId) return;
+    setRevoking(true);
     try {
       const res = await fetch(`/api/portal/invitations/${revokeTargetId}`, {
         method: "DELETE",
-      })
+      });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to revoke invitation")
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to revoke invitation");
       }
-      toast.success("Invitation revoked")
-      setRevokeTargetId(null)
-      fetchInvitations()
+      toast.success("Invitation revoked");
+      setRevokeTargetId(null);
+      fetchInvitations();
     } catch (err: any) {
-      toast.error(err.message || "Failed to revoke invitation")
+      toast.error(err.message || "Failed to revoke invitation");
     } finally {
-      setRevoking(false)
+      setRevoking(false);
     }
-  }
+  };
 
   // ── Derived state ────────────────────────────────────────────────────────────
 
-  const acceptedInvitation = invitations.find((i) => i.status === "ACCEPTED")
-  const latestPending = invitations.find((i) => i.status === "PENDING")
+  const acceptedInvitation = invitations.find((i) => i.status === "ACCEPTED");
+  const latestPending = invitations.find((i) => i.status === "PENDING");
 
-  const portalUrl = `${typeof window !== "undefined" ? window.location.origin : "https://restoreassist.com.au"}/portal/login`
+  const portalUrl = `${typeof window !== "undefined" ? window.location.origin : "https://restoreassist.com.au"}/portal/login`;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -248,14 +263,18 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
               Portal Access — {client?.name ?? "Client"}
             </h1>
           )}
-          <p className="text-slate-400 text-sm">Manage portal invitations for this client</p>
+          <p className="text-slate-400 text-sm">
+            Manage portal invitations for this client
+          </p>
         </div>
       </div>
 
       {/* Portal status card */}
       <Card className="bg-slate-800/50 border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base font-medium text-white">Portal Status</CardTitle>
+          <CardTitle className="text-base font-medium text-white">
+            Portal Status
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {loadingInvitations ? (
@@ -265,7 +284,10 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
             </div>
           ) : acceptedInvitation ? (
             <div className="flex items-start gap-3">
-              <CheckCircle size={22} className="text-emerald-400 mt-0.5 shrink-0" />
+              <CheckCircle
+                size={22}
+                className="text-emerald-400 mt-0.5 shrink-0"
+              />
               <div>
                 <p className="font-medium text-emerald-400">Portal Active</p>
                 <p className="text-sm text-slate-400 mt-0.5">
@@ -300,7 +322,9 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
           ) : (
             <div className="flex items-center gap-3 text-slate-400">
               <XCircle size={20} />
-              <p className="text-sm">Portal not yet activated for this client.</p>
+              <p className="text-sm">
+                Portal not yet activated for this client.
+              </p>
             </div>
           )}
         </CardContent>
@@ -309,7 +333,9 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
       {/* Send invitation form */}
       <Card className="bg-slate-800/50 border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base font-medium text-white">Send Invitation</CardTitle>
+          <CardTitle className="text-base font-medium text-white">
+            Send Invitation
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSend} className="space-y-4">
@@ -376,7 +402,9 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
       {/* Invitations history table */}
       <Card className="bg-slate-800/50 border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base font-medium text-white">Invitation History</CardTitle>
+          <CardTitle className="text-base font-medium text-white">
+            Invitation History
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loadingInvitations ? (
@@ -400,28 +428,52 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700/50 hover:bg-transparent">
-                  <TableHead className="text-slate-400 font-medium">Status</TableHead>
-                  <TableHead className="text-slate-400 font-medium">Email</TableHead>
-                  <TableHead className="text-slate-400 font-medium">Sent</TableHead>
-                  <TableHead className="text-slate-400 font-medium">Expires</TableHead>
-                  <TableHead className="text-slate-400 font-medium">Accepted</TableHead>
-                  <TableHead className="text-slate-400 font-medium text-right">Actions</TableHead>
+                  <TableHead className="text-slate-400 font-medium">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-slate-400 font-medium">
+                    Email
+                  </TableHead>
+                  <TableHead className="text-slate-400 font-medium">
+                    Sent
+                  </TableHead>
+                  <TableHead className="text-slate-400 font-medium">
+                    Expires
+                  </TableHead>
+                  <TableHead className="text-slate-400 font-medium">
+                    Accepted
+                  </TableHead>
+                  <TableHead className="text-slate-400 font-medium text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invitations.map((inv) => (
-                  <TableRow key={inv.id} className="border-slate-700/50 hover:bg-slate-700/20">
+                  <TableRow
+                    key={inv.id}
+                    className="border-slate-700/50 hover:bg-slate-700/20"
+                  >
                     <TableCell>
                       <StatusBadge status={inv.status} />
                     </TableCell>
-                    <TableCell className="text-slate-300 text-sm">{inv.email}</TableCell>
-                    <TableCell className="text-slate-400 text-sm">{fmt(inv.createdAt)}</TableCell>
-                    <TableCell className="text-slate-400 text-sm">{fmt(inv.expiresAt)}</TableCell>
-                    <TableCell className="text-slate-400 text-sm">{fmt(inv.acceptedAt)}</TableCell>
+                    <TableCell className="text-slate-300 text-sm">
+                      {inv.email}
+                    </TableCell>
+                    <TableCell className="text-slate-400 text-sm">
+                      {fmt(inv.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-slate-400 text-sm">
+                      {fmt(inv.expiresAt)}
+                    </TableCell>
+                    <TableCell className="text-slate-400 text-sm">
+                      {fmt(inv.acceptedAt)}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {/* Resend — available for PENDING and EXPIRED */}
-                        {(inv.status === "PENDING" || inv.status === "EXPIRED") && (
+                        {(inv.status === "PENDING" ||
+                          inv.status === "EXPIRED") && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -442,7 +494,9 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
                           <>
                             {revokeTargetId === inv.id ? (
                               <div className="flex items-center gap-1">
-                                <span className="text-xs text-slate-400 mr-1">Confirm?</span>
+                                <span className="text-xs text-slate-400 mr-1">
+                                  Confirm?
+                                </span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -451,7 +505,10 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
                                   className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
                                 >
                                   {revoking ? (
-                                    <RefreshCw size={13} className="animate-spin" />
+                                    <RefreshCw
+                                      size={13}
+                                      className="animate-spin"
+                                    />
                                   ) : (
                                     "Yes, revoke"
                                   )}
@@ -491,5 +548,5 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
 
       {/* Revoke confirm overlay (fallback if inline confirm isn't enough) */}
     </div>
-  )
+  );
 }

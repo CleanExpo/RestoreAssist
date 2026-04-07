@@ -13,24 +13,24 @@
 // ============================================================
 
 export type ClaimType =
-  | 'water_damage'
-  | 'fire_smoke'
-  | 'storm'
-  | 'mould'
-  | 'contents'
-  | 'biohazard'
-  | 'odour'
-  | 'carpet'
-  | 'hvac'
-  | 'asbestos'
+  | "water_damage"
+  | "fire_smoke"
+  | "storm"
+  | "mould"
+  | "contents"
+  | "biohazard"
+  | "odour"
+  | "carpet"
+  | "hvac"
+  | "asbestos";
 
 export interface ClaimTypePromptOptions {
   /** IICRC S500 water purity category: 1 (clean), 2 (grey), 3 (black) — water damage only */
-  damageCategory?: number
+  damageCategory?: number;
   /** IICRC S500 evaporation load class: 1–4 — water damage only */
-  damageClass?: number
+  damageClass?: number;
   /** Similar historical jobs injected by RA-278 RAG engine */
-  ragContext?: string
+  ragContext?: string;
 }
 
 // ============================================================
@@ -43,36 +43,36 @@ export interface ClaimTypePromptOptions {
  */
 export function getClaimTypePrompt(
   claimType: ClaimType,
-  options: ClaimTypePromptOptions = {}
+  options: ClaimTypePromptOptions = {},
 ): string {
-  const { damageCategory, damageClass, ragContext } = options
+  const { damageCategory, damageClass, ragContext } = options;
   const ragSection = ragContext
     ? `\n\n## SIMILAR HISTORICAL JOBS (RAG Context)\n${ragContext}`
-    : ''
+    : "";
 
   switch (claimType) {
-    case 'water_damage':
-      return getWaterDamagePrompt(damageCategory, damageClass) + ragSection
-    case 'fire_smoke':
-      return getFireSmokePrompt() + ragSection
-    case 'storm':
-      return getStormPrompt() + ragSection
-    case 'mould':
-      return getMouldPrompt() + ragSection
-    case 'contents':
-      return getContentsPrompt() + ragSection
-    case 'biohazard':
-      return getBiohazardPrompt() + ragSection
-    case 'odour':
-      return getOdourPrompt() + ragSection
-    case 'carpet':
-      return getCarpetPrompt() + ragSection
-    case 'hvac':
-      return getHVACPrompt() + ragSection
-    case 'asbestos':
-      return getAsbestosPrompt() + ragSection
+    case "water_damage":
+      return getWaterDamagePrompt(damageCategory, damageClass) + ragSection;
+    case "fire_smoke":
+      return getFireSmokePrompt() + ragSection;
+    case "storm":
+      return getStormPrompt() + ragSection;
+    case "mould":
+      return getMouldPrompt() + ragSection;
+    case "contents":
+      return getContentsPrompt() + ragSection;
+    case "biohazard":
+      return getBiohazardPrompt() + ragSection;
+    case "odour":
+      return getOdourPrompt() + ragSection;
+    case "carpet":
+      return getCarpetPrompt() + ragSection;
+    case "hvac":
+      return getHVACPrompt() + ragSection;
+    case "asbestos":
+      return getAsbestosPrompt() + ragSection;
     default:
-      return getWaterDamagePrompt(damageCategory, damageClass) + ragSection
+      return getWaterDamagePrompt(damageCategory, damageClass) + ragSection;
   }
 }
 
@@ -87,37 +87,37 @@ export function getClaimTypePrompt(
  */
 export function getMultiClaimPrompt(
   claimTypes: string[],
-  options: ClaimTypePromptOptions = {}
+  options: ClaimTypePromptOptions = {},
 ): string {
-  const { damageCategory, damageClass, ragContext } = options
+  const { damageCategory, damageClass, ragContext } = options;
   const ragSection = ragContext
     ? `\n\n## SIMILAR HISTORICAL JOBS (RAG Context)\n${ragContext}`
-    : ''
+    : "";
 
-  const sorted = [...claimTypes].sort()
-  const key = sorted.join('+')
+  const sorted = [...claimTypes].sort();
+  const key = sorted.join("+");
 
-  let basePrompt: string
+  let basePrompt: string;
 
   // Named combinations (order-independent)
-  if (sorted.includes('water_damage') && sorted.includes('fire_smoke')) {
-    basePrompt = getWaterFirePrompt(damageCategory, damageClass)
-  } else if (sorted.includes('water_damage') && sorted.includes('mould')) {
-    basePrompt = getWaterMouldPrompt(damageCategory, damageClass)
-  } else if (sorted.includes('storm') && sorted.includes('water_damage')) {
-    basePrompt = getStormWaterPrompt()
-  } else if (sorted.includes('fire_smoke') && sorted.includes('contents')) {
-    basePrompt = getFireContentsPrompt()
-  } else if (sorted.includes('water_damage') && sorted.includes('contents')) {
-    basePrompt = getWaterContentsPrompt(damageCategory, damageClass)
+  if (sorted.includes("water_damage") && sorted.includes("fire_smoke")) {
+    basePrompt = getWaterFirePrompt(damageCategory, damageClass);
+  } else if (sorted.includes("water_damage") && sorted.includes("mould")) {
+    basePrompt = getWaterMouldPrompt(damageCategory, damageClass);
+  } else if (sorted.includes("storm") && sorted.includes("water_damage")) {
+    basePrompt = getStormWaterPrompt();
+  } else if (sorted.includes("fire_smoke") && sorted.includes("contents")) {
+    basePrompt = getFireContentsPrompt();
+  } else if (sorted.includes("water_damage") && sorted.includes("contents")) {
+    basePrompt = getWaterContentsPrompt(damageCategory, damageClass);
   } else {
-    basePrompt = getGenericMultiClaimPrompt(claimTypes)
+    basePrompt = getGenericMultiClaimPrompt(claimTypes);
   }
 
   // Suppress "unused variable" lint warning — key is kept for future routing/caching
-  void key
+  void key;
 
-  return basePrompt + ragSection
+  return basePrompt + ragSection;
 }
 
 // ============================================================
@@ -125,8 +125,8 @@ export function getMultiClaimPrompt(
 // ============================================================
 
 function getWaterDamagePrompt(category?: number, damageClass?: number): string {
-  const categoryGuidance = buildWaterCategoryGuidance(category)
-  const classGuidance = buildWaterClassGuidance(damageClass)
+  const categoryGuidance = buildWaterCategoryGuidance(category);
+  const classGuidance = buildWaterClassGuidance(damageClass);
 
   return `You are an IICRC S500:2025 certified water damage restoration specialist producing scope-of-works documents for Australian insurance claims.
 
@@ -185,40 +185,40 @@ Each section must include:
 - IICRC S500:2025 section reference
 - Any AS/NZS standard references where applicable
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 function buildWaterCategoryGuidance(category?: number): string {
   if (!category) {
-    return 'Water purity category not specified. Apply Category 2 protocols as a conservative default until source is confirmed.'
+    return "Water purity category not specified. Apply Category 2 protocols as a conservative default until source is confirmed.";
   }
   switch (category) {
     case 1:
-      return `Category 1 — Clean water source. No significant health risk from exposure. Standard drying protocol applies per IICRC S500:2025 §5.2. Antimicrobial treatment not mandatory unless drying is delayed >24 hours or materials have been wet >72 hours, at which point upgrade to Category 2 response.`
+      return `Category 1 — Clean water source. No significant health risk from exposure. Standard drying protocol applies per IICRC S500:2025 §5.2. Antimicrobial treatment not mandatory unless drying is delayed >24 hours or materials have been wet >72 hours, at which point upgrade to Category 2 response.`;
     case 2:
-      return `Category 2 — Grey water contamination (limited biohazard). Source contains significant contamination (e.g. washing machine overflow, dishwasher, toilet overflow without faecal matter). Antimicrobial treatment required on all wet porous surfaces per IICRC S500:2025 §5.3. PPE: Level C minimum (gloves, goggles, P2 respirator). All saturated porous contents must be removed or evaluated for restoration. Technician and occupant health advisory required.`
+      return `Category 2 — Grey water contamination (limited biohazard). Source contains significant contamination (e.g. washing machine overflow, dishwasher, toilet overflow without faecal matter). Antimicrobial treatment required on all wet porous surfaces per IICRC S500:2025 §5.3. PPE: Level C minimum (gloves, goggles, P2 respirator). All saturated porous contents must be removed or evaluated for restoration. Technician and occupant health advisory required.`;
     case 3:
-      return `Category 3 — Black water / sewage contamination (significant biohazard). Source is grossly contaminated (sewage backup, floodwater, sea water). Full biohazard remediation protocol per IICRC S500:2025 §5.4. All porous structural materials in contact with Category 3 water must be removed — no exceptions. Full PPE mandatory: Level B (impermeable coveralls, full-face respirator with combination cartridge P3/OV, double nitrile gloves, boot covers). Occupants must vacate. EPA-registered broad-spectrum antimicrobial application required. Category 3 remediation scope must be documented separately from drying scope.`
+      return `Category 3 — Black water / sewage contamination (significant biohazard). Source is grossly contaminated (sewage backup, floodwater, sea water). Full biohazard remediation protocol per IICRC S500:2025 §5.4. All porous structural materials in contact with Category 3 water must be removed — no exceptions. Full PPE mandatory: Level B (impermeable coveralls, full-face respirator with combination cartridge P3/OV, double nitrile gloves, boot covers). Occupants must vacate. EPA-registered broad-spectrum antimicrobial application required. Category 3 remediation scope must be documented separately from drying scope.`;
     default:
-      return `Category ${category} specified. Apply appropriate IICRC S500:2025 protocols for the identified water purity level.`
+      return `Category ${category} specified. Apply appropriate IICRC S500:2025 protocols for the identified water purity level.`;
   }
 }
 
 function buildWaterClassGuidance(damageClass?: number): string {
   if (!damageClass) {
-    return 'Evaporation class not yet determined. Calculate from affected material types and moisture readings once inspection data is available.'
+    return "Evaporation class not yet determined. Calculate from affected material types and moisture readings once inspection data is available.";
   }
   switch (damageClass) {
     case 1:
-      return `Class 1 — Minimal moisture absorption. Only part of a room or area affected. Low-porosity materials (concrete, hardwood) predominant. Limited moisture migration into structure. Target drying time: 3–5 days. Minimum equipment setup applies per IICRC S500:2025 §7.2.`
+      return `Class 1 — Minimal moisture absorption. Only part of a room or area affected. Low-porosity materials (concrete, hardwood) predominant. Limited moisture migration into structure. Target drying time: 3–5 days. Minimum equipment setup applies per IICRC S500:2025 §7.2.`;
     case 2:
-      return `Class 2 — Significant absorption. Full room(s) affected including carpet, pad, and subfloor or lower wall cavity. Moisture has wicked into wall materials up to 60 cm. Target drying time: 5–7 days. Air movers must be positioned to address wall cavities and floor system. IICRC S500:2025 §7.3.`
+      return `Class 2 — Significant absorption. Full room(s) affected including carpet, pad, and subfloor or lower wall cavity. Moisture has wicked into wall materials up to 60 cm. Target drying time: 5–7 days. Air movers must be positioned to address wall cavities and floor system. IICRC S500:2025 §7.3.`;
     case 3:
-      return `Class 3 — Greatest evaporative load. Ceiling, walls, and insulation saturated. Moisture has migrated beyond the primary loss area into structure above and adjacent. Wall cavities must be opened or flood-cut to permit airflow. Insulation removal required if saturated. Target drying time: 7–10 days. IICRC S500:2025 §7.4.`
+      return `Class 3 — Greatest evaporative load. Ceiling, walls, and insulation saturated. Moisture has migrated beyond the primary loss area into structure above and adjacent. Wall cavities must be opened or flood-cut to permit airflow. Insulation removal required if saturated. Target drying time: 7–10 days. IICRC S500:2025 §7.4.`;
     case 4:
-      return `Class 4 — Wet materials with very low permeance/porosity requiring specialty drying. Includes hardwood flooring, concrete, plaster, crawl spaces, and brick masonry. Extended drying cycles. Desiccant dehumidification may be required. Drying target is equilibrium moisture content (EMC) for the material, not a standard threshold. IICRC S500:2025 §7.5.`
+      return `Class 4 — Wet materials with very low permeance/porosity requiring specialty drying. Includes hardwood flooring, concrete, plaster, crawl spaces, and brick masonry. Extended drying cycles. Desiccant dehumidification may be required. Drying target is equilibrium moisture content (EMC) for the material, not a standard threshold. IICRC S500:2025 §7.5.`;
     default:
-      return `Class ${damageClass} specified. Apply IICRC S500:2025 §7 protocols appropriate for the identified evaporation load class.`
+      return `Class ${damageClass} specified. Apply IICRC S500:2025 §7 protocols appropriate for the identified evaporation load class.`;
   }
 }
 
@@ -293,7 +293,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Clearance & Sign-Off
    — Visual inspection clearance, air quality test if soot or char zone present, reinstatement trigger documentation. Cite §11.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -355,7 +355,7 @@ Produce the scope in exactly these 7 numbered sections:
 7. Clearance Testing Recommendation
    — Post-remediation visual inspection clearance. Air sampling required for Condition 3 — recommend independent third-party hygienist. Clearance criteria: Condition 1 restored. Cite §9.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -420,7 +420,7 @@ Produce the scope in exactly these 7 numbered sections:
 7. Reinstatement Scope
    — Full building works to restore property to pre-loss condition per NCC 2022. Tile replacement, plasterboard replacement, insulation replacement, repainting. Licensed trades required (roofing, electrical, plumbing as applicable). Insurance assessor sign-off trigger noted.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -490,7 +490,7 @@ Produce the scope in exactly these 7 numbered sections:
 7. Total Loss Items — Replacement Cost Estimates
    — Itemised total loss list. Replacement cost methodology: ACL replacement value (cost of equivalent new item at current market prices). Age/condition adjustment documented where applicable. Total estimated replacement value. Insurer submission-ready format.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -504,8 +504,8 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
  * asbestos in wet demolition debris (pre-1990 Australian construction).
  */
 function getWaterFirePrompt(category?: number, damageClass?: number): string {
-  const categoryGuidance = buildWaterCategoryGuidance(category)
-  const classGuidance = buildWaterClassGuidance(damageClass)
+  const categoryGuidance = buildWaterCategoryGuidance(category);
+  const classGuidance = buildWaterClassGuidance(damageClass);
 
   return `You are an IICRC S500:2025 and IICRC S770 dual-certified restoration specialist producing scope-of-works documents for Australian insurance claims involving combined fire/smoke and water suppression damage.
 
@@ -576,7 +576,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Structural Drying Validation & Clearance
    — Final moisture readings vs IICRC S500:2025 §11.4 EMC targets. Air quality clearance for smoke (soot deposition test if required). Drying goal certificate. Reinstatement trigger.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 /**
@@ -586,8 +586,8 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
  * containment must precede drying, moisture source must be fixed first.
  */
 function getWaterMouldPrompt(category?: number, damageClass?: number): string {
-  const categoryGuidance = buildWaterCategoryGuidance(category)
-  const classGuidance = buildWaterClassGuidance(damageClass)
+  const categoryGuidance = buildWaterCategoryGuidance(category);
+  const classGuidance = buildWaterClassGuidance(damageClass);
 
   return `You are an IICRC S500:2025 and IICRC S520 dual-certified water damage and mould remediation specialist producing scope-of-works documents for Australian insurance claims involving active water damage with confirmed mould growth.
 
@@ -662,7 +662,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Clearance Testing & Drying Validation
    — Post-remediation: visual clearance, independent air sampling for Condition 3 (third-party hygienist). Drying validation: moisture readings vs S500:2025 §11.4 EMC targets. Clearance criteria: Condition 1 restored AND drying goal achieved before containment is removed.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 /**
@@ -740,7 +740,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Reinstatement Scope
    — Permanent structural repairs to NCC 2022 standard: tile replacement, plasterboard replacement, insulation replacement, repainting. Licensed trades required (roofing, electrical, plumbing as applicable). Insurance assessor sign-off trigger.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 /**
@@ -821,7 +821,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Total Loss Schedule & Clearance
    — Itemised total loss schedule with ACL replacement value methodology. Structure: visual clearance and air quality test if char zone. Reinstatement trigger per NCC 2022.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 /**
@@ -830,9 +830,12 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
  * Key hazards: wet salvage window (48–72 hours for most items), category water affecting
  * contents restorability, total loss determination for saturated items.
  */
-function getWaterContentsPrompt(category?: number, damageClass?: number): string {
-  const categoryGuidance = buildWaterCategoryGuidance(category)
-  const classGuidance = buildWaterClassGuidance(damageClass)
+function getWaterContentsPrompt(
+  category?: number,
+  damageClass?: number,
+): string {
+  const categoryGuidance = buildWaterCategoryGuidance(category);
+  const classGuidance = buildWaterClassGuidance(damageClass);
 
   return `You are an IICRC S500:2025 certified water damage restoration specialist with expertise in wet contents salvage and loss assessment, producing scope-of-works documents for Australian insurance claims involving water damage with significant contents loss.
 
@@ -902,7 +905,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Drying Validation, Total Loss Schedule & Sign-Off
    — Structural: moisture readings vs S500:2025 §11.4 EMC targets, drying goal certificate. Total loss schedule: itemised list with ACL replacement value. Reinstatement trigger.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 /**
@@ -911,35 +914,37 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
  */
 function getGenericMultiClaimPrompt(claimTypes: string[]): string {
   const STANDARD_MAP: Record<string, string> = {
-    water_damage: 'IICRC S500:2025',
-    fire_smoke: 'IICRC S770',
-    mould: 'IICRC S520',
-    storm: 'NCC 2022 + IICRC S500:2025',
-    contents: 'IICRC S770/S520/S500:2025 + Australian Consumer Law (ACL)',
-    biohazard: 'IICRC S540 + Safe Work Australia',
-    odour: 'IICRC S500:2025 + IICRC S770',
-    carpet: 'IICRC S100',
-    hvac: 'NADCA ACR + IICRC S500:2025',
-    asbestos: 'Safe Work Australia Code of Practice + AS 2601',
-  }
+    water_damage: "IICRC S500:2025",
+    fire_smoke: "IICRC S770",
+    mould: "IICRC S520",
+    storm: "NCC 2022 + IICRC S500:2025",
+    contents: "IICRC S770/S520/S500:2025 + Australian Consumer Law (ACL)",
+    biohazard: "IICRC S540 + Safe Work Australia",
+    odour: "IICRC S500:2025 + IICRC S770",
+    carpet: "IICRC S100",
+    hvac: "NADCA ACR + IICRC S500:2025",
+    asbestos: "Safe Work Australia Code of Practice + AS 2601",
+  };
 
   const LABEL_MAP: Record<string, string> = {
-    water_damage: 'water damage',
-    fire_smoke: 'fire and smoke damage',
-    mould: 'mould remediation',
-    storm: 'storm damage',
-    contents: 'contents restoration',
-    biohazard: 'biohazard remediation',
-    odour: 'odour control',
-    carpet: 'carpet restoration',
-    hvac: 'HVAC assessment and cleaning',
-    asbestos: 'asbestos management',
-  }
+    water_damage: "water damage",
+    fire_smoke: "fire and smoke damage",
+    mould: "mould remediation",
+    storm: "storm damage",
+    contents: "contents restoration",
+    biohazard: "biohazard remediation",
+    odour: "odour control",
+    carpet: "carpet restoration",
+    hvac: "HVAC assessment and cleaning",
+    asbestos: "asbestos management",
+  };
 
-  const standards = [...new Set(claimTypes.flatMap((t) => (STANDARD_MAP[t] ?? t).split(' + ')))]
-  const labels = claimTypes.map((t) => LABEL_MAP[t] ?? t)
+  const standards = [
+    ...new Set(claimTypes.flatMap((t) => (STANDARD_MAP[t] ?? t).split(" + "))),
+  ];
+  const labels = claimTypes.map((t) => LABEL_MAP[t] ?? t);
 
-  return `You are an IICRC-certified restoration specialist with expertise across multiple damage types, producing scope-of-works documents for Australian insurance claims involving combined loss: ${labels.join(' and ')}.
+  return `You are an IICRC-certified restoration specialist with expertise across multiple damage types, producing scope-of-works documents for Australian insurance claims involving combined loss: ${labels.join(" and ")}.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -948,10 +953,10 @@ BRAND VOICE
 precise · practitioner-grade · compliant · field-tested · IICRC-aligned
 
 STANDARD AUTHORITY
-All technical claims must cite applicable standards: ${standards.join(', ')}. Where Australian building code requirements apply, reference NCC 2022. Where electrical work is scoped, cite AS/NZS 3012:2019.
+All technical claims must cite applicable standards: ${standards.join(", ")}. Where Australian building code requirements apply, reference NCC 2022. Where electrical work is scoped, cite AS/NZS 3012:2019.
 
 MULTI-LOSS CONTEXT
-This job involves combined damage types: ${labels.join(' + ')}. Each damage type must be addressed in a coherent, sequenced scope. Cross-contamination risks between damage types must be explicitly identified and mitigated. Do not treat each damage type in isolation.
+This job involves combined damage types: ${labels.join(" + ")}. Each damage type must be addressed in a coherent, sequenced scope. Cross-contamination risks between damage types must be explicitly identified and mitigated. Do not treat each damage type in isolation.
 
 SEQUENCING PRINCIPLE
 1. Safety clearance first (structural, hazardous materials, PPE assessment)
@@ -978,7 +983,7 @@ Produce the scope in exactly these 8 numbered sections:
 1. Loss Assessment & Safety Clearance
    — Document all damage types present. Safety hazards (structural, electrical, biological, asbestos) identified before any works commence.
 2. Cross-Contamination Risk Assessment
-   — Identify interaction risks between: ${labels.join(', ')}. Sequencing decisions must address these risks explicitly.
+   — Identify interaction risks between: ${labels.join(", ")}. Sequencing decisions must address these risks explicitly.
 3. Affected Materials by Damage Type
    — Room-by-room assessment with dual or multi-classification per applicable IICRC standard. Note materials affected by multiple damage types.
 4. Containment & Protection Setup
@@ -992,7 +997,7 @@ Produce the scope in exactly these 8 numbered sections:
 8. Reinstatement Scope
    — Building works to restore property to pre-loss condition per NCC 2022. Licensed trades identified. Insurance assessor sign-off trigger.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -1059,7 +1064,7 @@ Produce the scope in exactly these 7 numbered sections:
 7. Post-Remediation Clearance
    — Post-remediation ATP readings per zone vs clearance criteria (≤100 RLU general / ≤25 RLU food-contact). Visual inspection. Photographic evidence before and after. Written clearance certificate issued to insurer and property owner. Independent environmental health officer clearance recommended for Category B/C prior to re-occupancy.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -1122,7 +1127,7 @@ Produce the scope in exactly these 6 numbered sections:
 6. Clearance Verification
    — Post-treatment olfactory assessment: 48–72 hours after final treatment cycle. Air quality testing if chemical or biological odour source. Written clearance statement issued. If odour persists: cause analysis and escalation protocol (IICRC S500:2025 §12 or S770 §10 second-cycle options).
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -1193,7 +1198,7 @@ Produce the scope in exactly these 7 numbered sections:
 7. Post-Restoration Assessment & Recommendations
    — Final appearance assessment vs pre-loss condition (photographs). Any permanent staining or wear documented. Restoration decision for insurer: restorable to satisfactory condition (confirm) or replacement recommended (with ACL cost estimate). Underlay condition: replacement recommended if water-affected (underlay retains moisture and inhibits structural drying). Cite IICRC S100:2015 §13.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -1263,7 +1268,7 @@ Produce the scope in exactly these 7 numbered sections:
 7. System Recommissioning & Filter Maintenance
    — Recommission HVAC to manufacturer specifications. Test all zones for airflow balance. Replace filters to specified MERV rating. Document: date of cleaning, contractor, access points created and sealed, filter installed. Maintenance recommendation: filters checked at 3-month intervals for 12 months post-event. Cite AS/NZS 3666:2011.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }
 
 // ============================================================
@@ -1337,5 +1342,5 @@ Produce the scope in exactly these 7 numbered sections:
 7. Clearance Inspection & Reinstatement Trigger
    — Visual clearance inspection by licensed asbestos assessor (independent of removalist — document name and licence). For friable removal: air monitoring clearance certificate by occupational hygienist (NIOSH 7400B, <0.01 fibres/mL). Clearance certificate issued — copy to insurer, copy retained by property owner. Reinstatement works may not commence until clearance certificate issued. Asbestos register updated. Cite Safe Work Australia How to Safely Remove Asbestos §8.
 
-OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`
+OUTPUT: Professional Australian English business document. Markdown formatting acceptable (bold headings, bullet lists for tasks).`;
 }

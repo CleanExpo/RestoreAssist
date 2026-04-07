@@ -1,72 +1,80 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { ChevronDown, Mail, MessageSquare, BookOpen, Video, PlayCircle, ExternalLink } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
-import Header from "@/components/landing/Header"
-import Footer from "@/components/landing/Footer"
-import { VIDEO_SERIES } from "@/lib/video-data"
+import { useState, useEffect } from "react";
+import {
+  ChevronDown,
+  Mail,
+  MessageSquare,
+  BookOpen,
+  Video,
+  PlayCircle,
+  ExternalLink,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import Header from "@/components/landing/Header";
+import Footer from "@/components/landing/Footer";
+import { VIDEO_SERIES } from "@/lib/video-data";
 
 // ─── Types for runtime embed data (loaded from /video-embeds.json) ─────────────
 
 interface EmbedVideo {
-  slug: string
-  episode: number
-  title: string
-  description: string
-  youtubeId: string
-  embedUrl: string
-  youtubeUrl: string
+  slug: string;
+  episode: number;
+  title: string;
+  description: string;
+  youtubeId: string;
+  embedUrl: string;
+  youtubeUrl: string;
 }
 
 interface EmbedSeries {
-  series: string
-  playlistId: string
-  playlistUrl: string
-  videos: EmbedVideo[]
+  series: string;
+  playlistId: string;
+  playlistUrl: string;
+  videos: EmbedVideo[];
 }
 
 interface EmbedData {
-  generatedAt: string
-  totalVideos: number
-  series: EmbedSeries[]
+  generatedAt: string;
+  totalVideos: number;
+  series: EmbedSeries[];
 }
 
 // ─── Video Tutorial Section ────────────────────────────────────────────────────
 
 function VideoTutorials({ darkMode }: { darkMode: boolean }) {
-  const [embedData, setEmbedData] = useState<EmbedData | null>(null)
-  const [activeSeries, setActiveSeries] = useState(0)
-  const [activeVideo, setActiveVideo] = useState<string | null>(null)
+  const [embedData, setEmbedData] = useState<EmbedData | null>(null);
+  const [activeSeries, setActiveSeries] = useState(0);
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
   // Load live embed data from public/video-embeds.json (populated after upload)
   useEffect(() => {
     fetch("/video-embeds.json")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: EmbedData | null) => {
-        if (data?.series?.length) setEmbedData(data)
+        if (data?.series?.length) setEmbedData(data);
       })
-      .catch(() => {}) // silent — fall back to static data below
-  }, [])
+      .catch(() => {}); // silent — fall back to static data below
+  }, []);
 
   // Merge live youtubeIds into static VIDEO_SERIES data
   const seriesData = VIDEO_SERIES.map((s) => {
-    const live = embedData?.series.find((e) => e.series === s.name)
+    const live = embedData?.series.find((e) => e.series === s.name);
     return {
       ...s,
       playlistId: live?.playlistId ?? s.playlistId,
       playlistUrl: live?.playlistUrl ?? "",
       videos: s.videos.map((v) => {
-        const liveV = live?.videos.find((lv) => lv.slug === v.slug)
-        return { ...v, youtubeId: liveV?.youtubeId ?? v.youtubeId }
+        const liveV = live?.videos.find((lv) => lv.slug === v.slug);
+        return { ...v, youtubeId: liveV?.youtubeId ?? v.youtubeId };
       }),
-    }
-  })
+    };
+  });
 
   const uploadedCount = seriesData.reduce(
     (acc, s) => acc + s.videos.filter((v) => v.youtubeId).length,
-    0
-  )
+    0,
+  );
 
   return (
     <div>
@@ -75,13 +83,16 @@ function VideoTutorials({ darkMode }: { darkMode: boolean }) {
         {seriesData.map((s, i) => (
           <button
             key={s.name}
-            onClick={() => { setActiveSeries(i); setActiveVideo(null) }}
+            onClick={() => {
+              setActiveSeries(i);
+              setActiveVideo(null);
+            }}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeSeries === i
                 ? "bg-[#8A6B4E] text-white"
                 : darkMode
-                ? "bg-[#1C2E47]/60 text-[#C4C8CA] hover:bg-[#1C2E47] border border-[#5A6A7B]/30"
-                : "bg-[#F4F5F6]/60 text-[#5A6A7B] hover:bg-[#F4F5F6] border border-[#5A6A7B]/20"
+                  ? "bg-[#1C2E47]/60 text-[#C4C8CA] hover:bg-[#1C2E47] border border-[#5A6A7B]/30"
+                  : "bg-[#F4F5F6]/60 text-[#5A6A7B] hover:bg-[#F4F5F6] border border-[#5A6A7B]/20"
             }`}
           >
             {s.name}
@@ -92,7 +103,9 @@ function VideoTutorials({ darkMode }: { darkMode: boolean }) {
       {/* Series description + playlist link */}
       {seriesData[activeSeries] && (
         <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-          <p className={`text-sm ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}>
+          <p
+            className={`text-sm ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+          >
             {seriesData[activeSeries].description}
           </p>
           {seriesData[activeSeries].playlistUrl && (
@@ -188,7 +201,9 @@ function VideoTutorials({ darkMode }: { darkMode: boolean }) {
                 className={`text-sm font-semibold leading-snug mb-1 ${
                   darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"
                 }`}
-                style={{ fontFamily: '"Open Sauce Sans", -apple-system, sans-serif' }}
+                style={{
+                  fontFamily: '"Open Sauce Sans", -apple-system, sans-serif',
+                }}
               >
                 {v.title}
               </h3>
@@ -196,7 +211,7 @@ function VideoTutorials({ darkMode }: { darkMode: boolean }) {
                 className={`text-xs line-clamp-2 ${
                   darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"
                 }`}
-                style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}
+                style={{ fontFamily: "Inter, -apple-system, sans-serif" }}
               >
                 {v.description}
               </p>
@@ -207,40 +222,44 @@ function VideoTutorials({ darkMode }: { darkMode: boolean }) {
 
       {/* Upload progress note */}
       {uploadedCount < 28 && (
-        <p className={`mt-6 text-xs text-center ${darkMode ? "text-[#5A6A7B]" : "text-[#C4C8CA]"}`}>
-          {uploadedCount} of 28 tutorial videos available · More episodes releasing soon
+        <p
+          className={`mt-6 text-xs text-center ${darkMode ? "text-[#5A6A7B]" : "text-[#C4C8CA]"}`}
+        >
+          {uploadedCount} of 28 tutorial videos available · More episodes
+          releasing soon
         </p>
       )}
     </div>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HelpPage() {
-  const [darkMode, setDarkMode] = useState(true)
-  const [expandedFaq, setExpandedFaq] = useState<string | null>(null)
+  const [darkMode, setDarkMode] = useState(true);
+  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!document.getElementById('google-fonts-preconnect')) {
-      const link1 = document.createElement('link')
-      link1.id = 'google-fonts-preconnect'
-      link1.rel = 'preconnect'
-      link1.href = 'https://fonts.googleapis.com'
-      document.head.appendChild(link1)
+    if (!document.getElementById("google-fonts-preconnect")) {
+      const link1 = document.createElement("link");
+      link1.id = "google-fonts-preconnect";
+      link1.rel = "preconnect";
+      link1.href = "https://fonts.googleapis.com";
+      document.head.appendChild(link1);
 
-      const link2 = document.createElement('link')
-      link2.rel = 'preconnect'
-      link2.href = 'https://fonts.gstatic.com'
-      link2.crossOrigin = 'anonymous'
-      document.head.appendChild(link2)
+      const link2 = document.createElement("link");
+      link2.rel = "preconnect";
+      link2.href = "https://fonts.gstatic.com";
+      link2.crossOrigin = "anonymous";
+      document.head.appendChild(link2);
 
-      const link3 = document.createElement('link')
-      link3.href = 'https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap'
-      link3.rel = 'stylesheet'
-      document.head.appendChild(link3)
+      const link3 = document.createElement("link");
+      link3.href =
+        "https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap";
+      link3.rel = "stylesheet";
+      document.head.appendChild(link3);
     }
-  }, [])
+  }, []);
 
   const faqs = [
     {
@@ -273,7 +292,7 @@ export default function HelpPage() {
       answer:
         "All data is encrypted in transit and at rest. We comply with Australian Privacy Act and maintain regular security audits. Your data is never shared with third parties.",
     },
-  ]
+  ];
 
   const supportChannels = [
     {
@@ -288,10 +307,12 @@ export default function HelpPage() {
       description: "Available in app",
       response: "Available 24/7",
     },
-  ]
+  ];
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#1C2E47]' : 'bg-[#F4F5F6]'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+    >
       <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
       {/* Hero Section */}
@@ -305,8 +326,11 @@ export default function HelpPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            style={{
+              fontFamily:
+                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Help & Support
           </motion.h1>
@@ -314,8 +338,11 @@ export default function HelpPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-            style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            style={{
+              fontFamily:
+                '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Find answers, watch tutorials, and get support for Restore Assist
           </motion.p>
@@ -338,17 +365,21 @@ export default function HelpPage() {
             <div className="flex items-center gap-3 mb-3">
               <PlayCircle size={28} className="text-[#8A6B4E]" />
               <h2
-                className={`text-3xl font-bold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-                style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                className={`text-3xl font-bold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                style={{
+                  fontFamily:
+                    '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                }}
               >
                 Video Tutorials
               </h2>
             </div>
             <p
-              className={`text-base ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-              style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}
+              className={`text-base ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+              style={{ fontFamily: "Inter, -apple-system, sans-serif" }}
             >
-              28 step-by-step tutorials covering every feature of RestoreAssist, grouped into five learning series.
+              28 step-by-step tutorials covering every feature of RestoreAssist,
+              grouped into five learning series.
             </p>
           </motion.div>
           <VideoTutorials darkMode={darkMode} />
@@ -365,7 +396,7 @@ export default function HelpPage() {
           {/* Support channels */}
           <div className="grid md:grid-cols-2 gap-8 mb-12">
             {supportChannels.map((channel, i) => {
-              const Icon = channel.icon
+              const Icon = channel.icon;
               return (
                 <motion.div
                   key={i}
@@ -373,68 +404,90 @@ export default function HelpPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: i * 0.1 }}
-                  className={`p-8 rounded-lg border backdrop-blur-sm transition-all ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30 hover:bg-[#1C2E47]/70' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20 hover:bg-[#F4F5F6]/70'}`}
+                  className={`p-8 rounded-lg border backdrop-blur-sm transition-all ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 hover:bg-[#1C2E47]/70" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 hover:bg-[#F4F5F6]/70"}`}
                 >
                   <Icon size={28} className="mb-4 text-[#8A6B4E]" />
                   <h3
-                    className={`text-xl font-bold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-                    style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                    className={`text-xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    style={{
+                      fontFamily:
+                        '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
                   >
                     {channel.title}
                   </h3>
                   <p
-                    className={`text-base mb-3 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-                    style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}
+                    className={`text-base mb-3 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    style={{ fontFamily: "Inter, -apple-system, sans-serif" }}
                   >
                     {channel.description}
                   </p>
                   <p
                     className="text-sm text-[#5A6A7B]"
-                    style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}
+                    style={{ fontFamily: "Inter, -apple-system, sans-serif" }}
                   >
                     Response: {channel.response}
                   </p>
                 </motion.div>
-              )
+              );
             })}
           </div>
 
           {/* Resources */}
           <div className="grid md:grid-cols-2 gap-8 mb-12">
             {[
-              { icon: BookOpen, title: "Documentation", description: "Complete guides and API references", href: null },
-              { icon: Video, title: "Video Tutorials", description: "28 how-to videos above", href: "#tutorials", scroll: true },
+              {
+                icon: BookOpen,
+                title: "Documentation",
+                description: "Complete guides and API references",
+                href: null,
+              },
+              {
+                icon: Video,
+                title: "Video Tutorials",
+                description: "28 how-to videos above",
+                href: "#tutorials",
+                scroll: true,
+              },
             ].map((resource, i) => {
-              const Icon = resource.icon
+              const Icon = resource.icon;
               return (
                 <motion.button
                   key={i}
                   onClick={() => {
                     if (resource.scroll) {
-                      document.querySelector('section')?.scrollIntoView({ behavior: 'smooth' })
+                      document
+                        .querySelector("section")
+                        ?.scrollIntoView({ behavior: "smooth" });
                     }
                   }}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: (i + 2) * 0.1 }}
-                  className={`p-8 rounded-lg border backdrop-blur-sm transition-all text-left group ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30 hover:bg-[#1C2E47]/70' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20 hover:bg-[#F4F5F6]/70'}`}
+                  className={`p-8 rounded-lg border backdrop-blur-sm transition-all text-left group ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 hover:bg-[#1C2E47]/70" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 hover:bg-[#F4F5F6]/70"}`}
                 >
-                  <Icon size={28} className="mb-4 text-[#8A6B4E] group-hover:scale-110 transition-transform" />
+                  <Icon
+                    size={28}
+                    className="mb-4 text-[#8A6B4E] group-hover:scale-110 transition-transform"
+                  />
                   <h3
-                    className={`text-xl font-bold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-                    style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                    className={`text-xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    style={{
+                      fontFamily:
+                        '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
                   >
                     {resource.title}
                   </h3>
                   <p
-                    className={`text-base ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-                    style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}
+                    className={`text-base ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    style={{ fontFamily: "Inter, -apple-system, sans-serif" }}
                   >
                     {resource.description}
                   </p>
                 </motion.button>
-              )
+              );
             })}
           </div>
 
@@ -444,11 +497,14 @@ export default function HelpPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className={`p-8 rounded-lg border backdrop-blur-sm ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20'}`}
+            className={`p-8 rounded-lg border backdrop-blur-sm ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20"}`}
           >
             <h2
-              className={`text-3xl font-bold mb-8 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-              style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+              className={`text-3xl font-bold mb-8 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+              style={{
+                fontFamily:
+                  '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
             >
               Frequently Asked Questions
             </h2>
@@ -456,21 +512,26 @@ export default function HelpPage() {
               {faqs.map((faq) => (
                 <div
                   key={faq.id}
-                  className={`rounded-lg overflow-hidden border ${darkMode ? 'border-[#5A6A7B]/30 bg-[#1C2E47]/30' : 'border-[#5A6A7B]/20 bg-[#F4F5F6]/30'}`}
+                  className={`rounded-lg overflow-hidden border ${darkMode ? "border-[#5A6A7B]/30 bg-[#1C2E47]/30" : "border-[#5A6A7B]/20 bg-[#F4F5F6]/30"}`}
                 >
                   <button
-                    onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                    className={`w-full p-6 flex items-center justify-between transition-colors text-left ${darkMode ? 'hover:bg-[#1C2E47]/70' : 'hover:bg-[#F4F5F6]/70'}`}
+                    onClick={() =>
+                      setExpandedFaq(expandedFaq === faq.id ? null : faq.id)
+                    }
+                    className={`w-full p-6 flex items-center justify-between transition-colors text-left ${darkMode ? "hover:bg-[#1C2E47]/70" : "hover:bg-[#F4F5F6]/70"}`}
                   >
                     <span
-                      className={`font-semibold text-lg ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-                      style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                      className={`font-semibold text-lg ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                      style={{
+                        fontFamily:
+                          '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
                     >
                       {faq.question}
                     </span>
                     <ChevronDown
                       size={20}
-                      className={`transition-transform ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'} ${expandedFaq === faq.id ? "rotate-180" : ""}`}
+                      className={`transition-transform ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"} ${expandedFaq === faq.id ? "rotate-180" : ""}`}
                     />
                   </button>
                   <AnimatePresence>
@@ -483,8 +544,10 @@ export default function HelpPage() {
                         className="overflow-hidden"
                       >
                         <div
-                          className={`p-6 border-t ${darkMode ? 'border-[#5A6A7B]/30 bg-[#1C2E47]/20 text-[#C4C8CA]' : 'border-[#5A6A7B]/20 bg-[#F4F5F6]/20 text-[#5A6A7B]'}`}
-                          style={{ fontFamily: 'Inter, -apple-system, sans-serif' }}
+                          className={`p-6 border-t ${darkMode ? "border-[#5A6A7B]/30 bg-[#1C2E47]/20 text-[#C4C8CA]" : "border-[#5A6A7B]/20 bg-[#F4F5F6]/20 text-[#5A6A7B]"}`}
+                          style={{
+                            fontFamily: "Inter, -apple-system, sans-serif",
+                          }}
                         >
                           {faq.answer}
                         </div>
@@ -500,5 +563,5 @@ export default function HelpPage() {
 
       <Footer darkMode={darkMode} />
     </div>
-  )
+  );
 }

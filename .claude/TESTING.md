@@ -37,6 +37,7 @@ pnpm build
 ## Test Data Setup
 
 The dev database is Supabase PostgreSQL. Connection details in `.env.local`:
+
 - `DATABASE_URL` — pooled connection (port 6543, append `?pgbouncer=true`)
 - `DIRECT_URL` — direct connection (port 5432, for migrations)
 
@@ -68,11 +69,11 @@ Config: `playwright.config.ts` — runs against `http://localhost:3000`, paralle
 
 After changes to these areas, run the corresponding checks:
 
-| Area | Verify |
-|------|--------|
-| Auth / middleware | `npx playwright test e2e/auth.spec.ts` |
-| Inspection CRUD | `curl` the `/api/inspections` endpoints |
-| Report generation | Generate a test report via dashboard |
-| Invoice system | `npx playwright test e2e/billing.spec.ts` |
-| Integration sync | Check `IntegrationSyncLog` for errors after sync |
-| Prisma schema | `npx prisma validate` then `npx prisma migrate dev` |
+| Area              | Verify                                              |
+| ----------------- | --------------------------------------------------- |
+| Auth / middleware | `npx playwright test e2e/auth.spec.ts`              |
+| Inspection CRUD   | `curl` the `/api/inspections` endpoints             |
+| Report generation | Generate a test report via dashboard                |
+| Invoice system    | `npx playwright test e2e/billing.spec.ts`           |
+| Integration sync  | Check `IntegrationSyncLog` for errors after sync    |
+| Prisma schema     | `npx prisma validate` then `npx prisma migrate dev` |

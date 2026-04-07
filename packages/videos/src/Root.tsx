@@ -6,6 +6,9 @@ import { IndustryInsight } from "./compositions/IndustryInsight";
 import { LandingPageOverview } from "./compositions/LandingPageOverview";
 import { CinematicLandingV2 } from "./compositions/CinematicLandingV2";
 import { AttractV1 } from "./compositions/AttractV1";
+import { FindV1 } from "./compositions/FindV1";
+import { SellV1 } from "./compositions/SellV1";
+import { AdviseV1 } from "./compositions/AdviseV1";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -38,6 +41,30 @@ export const RemotionRoot: React.FC = () => {
         id="AttractV1"
         component={AttractV1}
         durationInFrames={1950}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      <Composition
+        id="FindV1"
+        component={FindV1}
+        durationInFrames={1800}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      <Composition
+        id="SellV1"
+        component={SellV1}
+        durationInFrames={2700}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      <Composition
+        id="AdviseV1"
+        component={AdviseV1}
+        durationInFrames={3600}
         fps={30}
         width={1920}
         height={1080}

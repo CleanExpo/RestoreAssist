@@ -22,18 +22,20 @@ React component library for the premium guided interview system. Provides a comp
 **Purpose**: Main wrapper component orchestrating the entire interview flow
 
 **Props**:
+
 ```typescript
 interface GuidedInterviewPanelProps {
-  formTemplateId: string              // Required: Form to populate
-  jobType?: string                    // Default: 'WATER_DAMAGE'
-  postcode?: string                   // Optional: For building code filtering
-  onComplete?: (fields) => void       // Callback when interview completes
-  onCancel?: () => void              // Callback when user cancels
-  showAutoPopulatedFields?: boolean   // Show fields as they're populated
+  formTemplateId: string; // Required: Form to populate
+  jobType?: string; // Default: 'WATER_DAMAGE'
+  postcode?: string; // Optional: For building code filtering
+  onComplete?: (fields) => void; // Callback when interview completes
+  onCancel?: () => void; // Callback when user cancels
+  showAutoPopulatedFields?: boolean; // Show fields as they're populated
 }
 ```
 
 **Features**:
+
 - ✅ Interview initialization from API
 - ✅ Question progression with skip logic
 - ✅ Back navigation respecting conditionals
@@ -47,12 +49,14 @@ interface GuidedInterviewPanelProps {
 - ✅ Session state management
 
 **State Management**:
+
 - Uses React hooks (useState, useCallback, useEffect)
 - Maintains interview session state
 - Tracks answers, auto-populated fields, progress
 - Handles API communication
 
 **Usage**:
+
 ```typescript
 <GuidedInterviewPanel
   formTemplateId="form_123"
@@ -73,17 +77,19 @@ interface GuidedInterviewPanelProps {
 **Purpose**: Renders individual interview questions with type-specific inputs
 
 **Props**:
+
 ```typescript
 interface QuestionCardProps {
-  question: Question              // Question object with all metadata
-  onAnswer: (answer: any) => void // Callback when answer submitted
-  isLoading?: boolean            // Show loading state
-  answeredQuestions?: number     // For progress display
-  totalQuestions?: number        // For progress display
+  question: Question; // Question object with all metadata
+  onAnswer: (answer: any) => void; // Callback when answer submitted
+  isLoading?: boolean; // Show loading state
+  answeredQuestions?: number; // For progress display
+  totalQuestions?: number; // For progress display
 }
 ```
 
 **Features**:
+
 - ✅ Type-specific input rendering:
   - `yes_no` - Radio buttons with Yes/No/Unsure
   - `multiple_choice` - Radio buttons with custom options
@@ -106,10 +112,12 @@ Shows first 2 standards with "+N" indicator if more
 
 **Field Mappings Info**:
 Green info box showing:
+
 - Number of fields that will be populated
 - Field IDs and confidence percentages
 
 **Usage**:
+
 ```typescript
 <QuestionCard
   question={question}
@@ -130,17 +138,19 @@ Green info box showing:
 **Purpose**: Circular progress indicator with tier visualization
 
 **Props**:
+
 ```typescript
 interface ProgressRingProps {
-  current: number                // Questions answered
-  total: number                  // Total questions
-  tier: number                   // Current tier (1-4)
-  onQuestionSelect?: (id) => void // Callback for tier clicks
-  allQuestions?: Question[]      // For tier calculation
+  current: number; // Questions answered
+  total: number; // Total questions
+  tier: number; // Current tier (1-4)
+  onQuestionSelect?: (id) => void; // Callback for tier clicks
+  allQuestions?: Question[]; // For tier calculation
 }
 ```
 
 **Features**:
+
 - ✅ Circular SVG progress ring
 - ✅ Center shows percentage & count
 - ✅ Tier indicators (4 numbered buttons)
@@ -160,12 +170,14 @@ interface ProgressRingProps {
 - ✅ Smooth animations
 
 **Tier Boundaries**:
+
 - Tier 1: Questions 1-5
 - Tier 2: Questions 6-8
 - Tier 3: Questions 9-13
 - Tier 4: Questions 14+
 
 **Usage**:
+
 ```typescript
 <ProgressRing
   current={5}
@@ -185,20 +197,22 @@ interface ProgressRingProps {
 **Purpose**: Fixed navigation bar at bottom of screen
 
 **Props**:
+
 ```typescript
 interface BottomActionBarProps {
-  onPrevious?: () => void    // Go to previous question
-  onNext?: () => void        // Go to next question
-  onComplete?: () => void    // Complete interview
-  onCancel?: () => void      // Cancel interview
-  canGoPrevious?: boolean    // Disable back button
-  canGoNext?: boolean        // Disable next button
-  isComplete?: boolean       // Show complete button instead of next
-  disabled?: boolean         // Disable all buttons
+  onPrevious?: () => void; // Go to previous question
+  onNext?: () => void; // Go to next question
+  onComplete?: () => void; // Complete interview
+  onCancel?: () => void; // Cancel interview
+  canGoPrevious?: boolean; // Disable back button
+  canGoNext?: boolean; // Disable next button
+  isComplete?: boolean; // Show complete button instead of next
+  disabled?: boolean; // Disable all buttons
 }
 ```
 
 **Features**:
+
 - ✅ Fixed position at bottom
 - ✅ Safe area inset for mobile notch
 - ✅ Back button (chevron left)
@@ -210,12 +224,14 @@ interface BottomActionBarProps {
 - ✅ Shadow & border styling
 
 **Button States**:
+
 - Back: Disabled if at first question
 - Next: Disabled until answer provided
 - Complete: Shown only after last question
 - Cancel: Always available
 
 **Usage**:
+
 ```typescript
 <BottomActionBar
   onPrevious={handlePrevious}
@@ -236,18 +252,24 @@ interface BottomActionBarProps {
 **Purpose**: Shows which form fields were auto-populated from interview
 
 **Props**:
+
 ```typescript
 interface AutoPopulatedFieldsDisplayProps {
-  fields: Map<string, {    // Populated fields
-    value: any
-    confidence: number     // 0-100
-  }>
-  compact?: boolean        // Start collapsed (true for sidebars)
-  maxFields?: number       // Truncate to N fields (Infinity = show all)
+  fields: Map<
+    string,
+    {
+      // Populated fields
+      value: any;
+      confidence: number; // 0-100
+    }
+  >;
+  compact?: boolean; // Start collapsed (true for sidebars)
+  maxFields?: number; // Truncate to N fields (Infinity = show all)
 }
 ```
 
 **Features**:
+
 - ✅ Summary statistics:
   - Total fields populated
   - Average confidence
@@ -276,12 +298,14 @@ interface AutoPopulatedFieldsDisplayProps {
 - ✅ "Show all" button if truncated
 
 **Field Value Formatting**:
+
 - Boolean: "Yes" or "No"
 - Array: Comma-separated values
 - Object: JSON stringified
 - Null/undefined: "—"
 
 **Usage**:
+
 ```typescript
 <AutoPopulatedFieldsDisplay
   fields={autoPopulatedFields}
@@ -354,6 +378,7 @@ export default function InspectionInterviewPage() {
 ## Styling & Customization
 
 ### Tailwind Classes Used
+
 - Layout: `grid`, `flex`, `fixed`, `absolute`
 - Spacing: `gap`, `p`, `m`, `px`, `py`
 - Colors: `bg-*`, `text-*`, `border-*`
@@ -361,13 +386,16 @@ export default function InspectionInterviewPage() {
 - Effects: `opacity`, `hover`, `transition`, `transform`, `scale`
 
 ### Component Theming
+
 Components use Shadcn/ui components:
+
 - Card, CardContent, CardHeader, CardTitle
 - Button, Input, Textarea, Select, Checkbox, RadioGroup
 - Badge, Progress, Alert, Tooltip
 - Icons from lucide-react
 
 ### Responsive Design
+
 - Mobile-first approach
 - Flex layouts for responsiveness
 - Safe area insets for mobile notch
@@ -432,6 +460,7 @@ const [interviewState, setInterviewState] = useState({
 ### Endpoints Used
 
 **Start Interview**
+
 ```
 POST /api/forms/interview/start
 Request: { formTemplateId, jobType, postcode }
@@ -439,6 +468,7 @@ Response: { sessionId, questions, tieredQuestions, totalQuestions, estimatedDura
 ```
 
 **Submit Answer**
+
 ```
 POST /api/forms/interview/answer
 Request: { sessionId, questionId, answer, confidence }
@@ -450,23 +480,27 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 ## Accessibility (WCAG 2.1)
 
 ✅ **Keyboard Navigation**
+
 - Tab through all interactive elements
 - Enter to submit answers
 - Spacebar for checkboxes/radio buttons
 - Arrow keys in radio groups
 
 ✅ **Screen Readers**
+
 - Label associations on form inputs
 - ARIA labels for icon buttons
 - Semantic HTML (button, label, input)
 - Tooltip ARIA descriptions
 
 ✅ **Color Contrast**
+
 - All text meets 4.5:1 ratio
 - Color used with icons/text (not alone)
 - Confidence indicators have text labels
 
 ✅ **Focus Management**
+
 - Visible focus rings
 - Logical tab order
 - Focus management during questions
@@ -476,21 +510,25 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 ## Mobile Optimization
 
 ✅ **Touch-Friendly**
+
 - Button sizes: minimum 44x44px
 - Input fields: 48px height
 - Adequate spacing between clickable areas
 
 ✅ **Screen Sizes**
+
 - Mobile: 320px+ (responsive grid)
 - Tablet: 768px+ (2-column layout)
 - Desktop: 1024px+ (full UI)
 
 ✅ **Safe Areas**
+
 - Notch support (safe-area-inset)
 - Bottom bar respects bottom safe area
 - Padding on all sides for mobile
 
 ✅ **Performance**
+
 - Lazy load questions as needed
 - Minimize re-renders
 - Efficient event handling
@@ -501,16 +539,19 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 ## Error Handling
 
 ✅ **Network Errors**
+
 - "Failed to start interview" with retry button
 - "Failed to submit answer" with error details
 - Graceful degradation
 
 ✅ **Validation Errors**
+
 - Required field validation (answer !== null)
 - Invalid input handling
 - User-friendly error messages
 
 ✅ **Session Errors**
+
 - Session not found (redirect to start)
 - Unauthorized (redirect to login)
 - Session expired (restart interview)
@@ -520,18 +561,21 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 ## Testing Considerations
 
 ### Unit Tests (Future)
+
 - Component rendering
 - User interactions (click, input, select)
 - State updates
 - API calls
 
 ### Integration Tests (Future)
+
 - Complete interview flow
 - Back/forward navigation
 - Field population
 - Session persistence
 
 ### E2E Tests (Future)
+
 - Full interview workflow (Playwright/Cypress)
 - Mobile viewport testing
 - API mocking
@@ -541,25 +585,27 @@ Response: { sessionId, totalAnswered, totalQuestions, progressPercentage, sessio
 
 ## Performance Metrics
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Initial load | <2s | ✅ |
-| Question display | <500ms | ✅ |
-| Answer submission | <1s | ✅ |
-| Field mapping | <100ms | ✅ |
-| Component render | <100ms | ✅ |
+| Metric            | Target | Status |
+| ----------------- | ------ | ------ |
+| Initial load      | <2s    | ✅     |
+| Question display  | <500ms | ✅     |
+| Answer submission | <1s    | ✅     |
+| Field mapping     | <100ms | ✅     |
+| Component render  | <100ms | ✅     |
 
 ---
 
 ## Browser Support
 
 ✅ **Desktop**
+
 - Chrome 90+
 - Firefox 88+
 - Safari 14+
 - Edge 90+
 
 ✅ **Mobile**
+
 - iOS Safari 14+
 - Chrome Android 90+
 - Samsung Internet 14+

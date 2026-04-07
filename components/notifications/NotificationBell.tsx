@@ -1,94 +1,94 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Bell, Check, Trash2, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect } from "react";
+import { Bell, Check, Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
-import { formatDistanceToNow } from 'date-fns'
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 export interface Notification {
-  id: string
-  title: string
-  message: string
-  type: 'info' | 'success' | 'warning' | 'error'
-  read: boolean
-  createdAt: Date
-  link?: string
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  read: boolean;
+  createdAt: Date;
+  link?: string;
 }
 
 interface NotificationBellProps {
-  className?: string
+  className?: string;
 }
 
 export function NotificationBell({ className }: NotificationBellProps) {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
-    fetchNotifications()
-  }, [])
+    fetchNotifications();
+  }, []);
 
   const fetchNotifications = async () => {
     try {
-      setLoading(true)
-      const response = await fetch('/api/notifications')
+      setLoading(true);
+      const response = await fetch("/api/notifications");
       if (response.ok) {
-        const data = await response.json()
-        setNotifications(data.notifications || [])
+        const data = await response.json();
+        setNotifications(data.notifications || []);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error)
+      console.error("Error fetching notifications:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+      await fetch(`/api/notifications/${id}/read`, { method: "POST" });
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      )
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      );
     } catch (error) {
-      console.error('Error marking notification as read:', error)
+      console.error("Error marking notification as read:", error);
     }
-  }
+  };
 
   const markAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' })
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      await fetch("/api/notifications/read-all", { method: "POST" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (error) {
-      console.error('Error marking all as read:', error)
+      console.error("Error marking all as read:", error);
     }
-  }
+  };
 
   const deleteNotification = async (id: string) => {
     try {
-      await fetch(`/api/notifications/${id}`, { method: 'DELETE' })
-      setNotifications((prev) => prev.filter((n) => n.id !== id))
+      await fetch(`/api/notifications/${id}`, { method: "DELETE" });
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (error) {
-      console.error('Error deleting notification:', error)
+      console.error("Error deleting notification:", error);
     }
-  }
+  };
 
-  const getTypeStyles = (type: Notification['type']) => {
+  const getTypeStyles = (type: Notification["type"]) => {
     const styles = {
-      info: 'bg-cyan-500/10 text-cyan-500',
-      success: 'bg-green-500/10 text-green-500',
-      warning: 'bg-amber-500/10 text-amber-500',
-      error: 'bg-red-500/10 text-red-500',
-    }
-    return styles[type]
-  }
+      info: "bg-cyan-500/10 text-cyan-500",
+      success: "bg-green-500/10 text-green-500",
+      warning: "bg-amber-500/10 text-amber-500",
+      error: "bg-red-500/10 text-red-500",
+    };
+    return styles[type];
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -96,13 +96,13 @@ export function NotificationBell({ className }: NotificationBellProps) {
         <Button
           variant="ghost"
           size="icon"
-          className={cn('relative', className)}
-          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+          className={cn("relative", className)}
+          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ""}`}
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-xs font-medium text-white">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </Button>
@@ -143,15 +143,15 @@ export function NotificationBell({ className }: NotificationBellProps) {
                 <div
                   key={notification.id}
                   className={cn(
-                    'p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors',
-                    !notification.read && 'bg-cyan-500/5'
+                    "p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors",
+                    !notification.read && "bg-cyan-500/5",
                   )}
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className={cn(
-                        'flex-shrink-0 w-2 h-2 mt-2 rounded-full',
-                        getTypeStyles(notification.type)
+                        "flex-shrink-0 w-2 h-2 mt-2 rounded-full",
+                        getTypeStyles(notification.type),
                       )}
                     />
                     <div className="flex-1 min-w-0">
@@ -207,5 +207,5 @@ export function NotificationBell({ className }: NotificationBellProps) {
         )}
       </PopoverContent>
     </Popover>
-  )
+  );
 }

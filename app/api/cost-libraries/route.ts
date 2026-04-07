@@ -1,61 +1,67 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { sanitizeString } from "@/lib/sanitize"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { sanitizeString } from "@/lib/sanitize";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const libraries = await prisma.costLibrary.findMany({
       where: {
-        userId: session.user.id
+        userId: session.user.id,
       },
       include: {
         items: {
           orderBy: {
-            category: 'asc'
-          }
+            category: "asc",
+          },
         },
         _count: {
           select: {
-            items: true
-          }
-        }
+            items: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
-    })
+        createdAt: "desc",
+      },
+    });
 
-    return NextResponse.json({ libraries })
+    return NextResponse.json({ libraries });
   } catch (error) {
-    console.error("Error fetching cost libraries:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching cost libraries:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json()
-    const name = sanitizeString(body.name, 200)
-    const region = sanitizeString(body.region, 200)
-    const description = sanitizeString(body.description, 1000)
-    const isDefault = body.isDefault
+    const body = await request.json();
+    const name = sanitizeString(body.name, 200);
+    const region = sanitizeString(body.region, 200);
+    const description = sanitizeString(body.description, 1000);
+    const isDefault = body.isDefault;
 
     if (!name || !region) {
-      return NextResponse.json({ error: "Name and region are required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Name and region are required" },
+        { status: 400 },
+      );
     }
 
     // If setting as default, unset other defaults
@@ -63,12 +69,12 @@ export async function POST(request: NextRequest) {
       await prisma.costLibrary.updateMany({
         where: {
           userId: session.user.id,
-          isDefault: true
+          isDefault: true,
         },
         data: {
-          isDefault: false
-        }
-      })
+          isDefault: false,
+        },
+      });
     }
 
     const library = await prisma.costLibrary.create({
@@ -77,21 +83,24 @@ export async function POST(request: NextRequest) {
         region,
         description,
         isDefault: isDefault || false,
-        userId: session.user.id
+        userId: session.user.id,
       },
       include: {
         items: true,
         _count: {
           select: {
-            items: true
-          }
-        }
-      }
-    })
+            items: true,
+          },
+        },
+      },
+    });
 
-    return NextResponse.json(library)
+    return NextResponse.json(library);
   } catch (error) {
-    console.error("Error creating cost library:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error creating cost library:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

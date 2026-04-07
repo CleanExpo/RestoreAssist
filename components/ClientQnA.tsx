@@ -1,139 +1,156 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { MessageCircle, Send, User, Bot, Loader2 } from "lucide-react"
-import toast from "react-hot-toast"
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { MessageCircle, Send, User, Bot, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Message {
-  role: "client" | "system"
-  content: string
-  timestamp: Date
+  role: "client" | "system";
+  content: string;
+  timestamp: Date;
 }
 
 interface ClientQnAProps {
-  onConversationComplete?: (conversation: Message[]) => void
-  initialMessages?: Message[]
+  onConversationComplete?: (conversation: Message[]) => void;
+  initialMessages?: Message[];
 }
 
-export default function ClientQnA({ onConversationComplete, initialMessages = [] }: ClientQnAProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const conversationStarted = useRef(false)
+export default function ClientQnA({
+  onConversationComplete,
+  initialMessages = [],
+}: ClientQnAProps) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const conversationStarted = useRef(false);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
 
   // Start conversation with initial question if no messages
   useEffect(() => {
     if (messages.length === 0 && !conversationStarted.current) {
-      conversationStarted.current = true
-      setMessages([{
-        role: "system",
-        content: "Hello! I'm here to help you report the issue. Can you please describe what happened?",
-        timestamp: new Date()
-      }])
+      conversationStarted.current = true;
+      setMessages([
+        {
+          role: "system",
+          content:
+            "Hello! I'm here to help you report the issue. Can you please describe what happened?",
+          timestamp: new Date(),
+        },
+      ]);
     }
-  }, [])
+  }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading) return;
 
     const clientMessage: Message = {
       role: "client",
       content: input.trim(),
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+    };
 
-    setMessages(prev => [...prev, clientMessage])
-    setInput("")
-    setIsLoading(true)
+    setMessages((prev) => [...prev, clientMessage]);
+    setInput("");
+    setIsLoading(true);
 
     try {
       // Get AI-generated follow-up question
       const response = await fetch("/api/reports/generate-question", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          conversation: [...messages, clientMessage].map(m => ({
+          conversation: [...messages, clientMessage].map((m) => ({
             role: m.role === "client" ? "user" : "assistant",
-            content: m.content
-          }))
-        })
-      })
+            content: m.content,
+          })),
+        }),
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to generate question")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to generate question");
       }
 
-      const data = await response.json()
-      
+      const data = await response.json();
+
       if (data.isComplete) {
         // Conversation is complete
-        setIsComplete(true)
+        setIsComplete(true);
         const finalMessage: Message = {
           role: "system",
-          content: data.question || "Thank you for providing all the information. A technician will review your case and contact you soon.",
-          timestamp: new Date()
-        }
-        setMessages(prev => [...prev, finalMessage])
-        
+          content:
+            data.question ||
+            "Thank you for providing all the information. A technician will review your case and contact you soon.",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, finalMessage]);
+
         if (onConversationComplete) {
-          onConversationComplete([...messages, clientMessage, finalMessage])
+          onConversationComplete([...messages, clientMessage, finalMessage]);
         }
-        toast.success("Conversation complete! All information has been collected.")
+        toast.success(
+          "Conversation complete! All information has been collected.",
+        );
       } else {
         // Add follow-up question
         const systemMessage: Message = {
           role: "system",
           content: data.question,
-          timestamp: new Date()
-        }
-        setMessages(prev => [...prev, systemMessage])
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, systemMessage]);
       }
     } catch (error: any) {
-      console.error("Error generating question:", error)
-      toast.error(error.message || "Failed to generate question")
-      
+      console.error("Error generating question:", error);
+      toast.error(error.message || "Failed to generate question");
+
       // Add a fallback question
       const fallbackMessage: Message = {
         role: "system",
-        content: "Thank you for that information. Is there anything else you'd like to add?",
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, fallbackMessage])
+        content:
+          "Thank you for that information. Is there anything else you'd like to add?",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, fallbackMessage]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+      e.preventDefault();
+      handleSend();
     }
-  }
+  };
 
   const handleCompleteManually = () => {
-    setIsComplete(true)
+    setIsComplete(true);
     if (onConversationComplete) {
-      onConversationComplete(messages)
+      onConversationComplete(messages);
     }
-    toast.success("Conversation marked as complete!")
-  }
+    toast.success("Conversation marked as complete!");
+  };
 
   return (
     <Card className="border-slate-700 bg-slate-800/30">
@@ -143,7 +160,9 @@ export default function ClientQnA({ onConversationComplete, initialMessages = []
           Client Information Gathering
         </CardTitle>
         <CardDescription className="text-slate-300">
-          Ask questions to gather information about the incident. The system will automatically generate follow-up questions based on the client's responses.
+          Ask questions to gather information about the incident. The system
+          will automatically generate follow-up questions based on the client's
+          responses.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -180,7 +199,7 @@ export default function ClientQnA({ onConversationComplete, initialMessages = []
               )}
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="flex gap-3 justify-start">
               <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
@@ -191,7 +210,7 @@ export default function ClientQnA({ onConversationComplete, initialMessages = []
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -244,6 +263,5 @@ export default function ClientQnA({ onConversationComplete, initialMessages = []
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
-

@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Clock,
@@ -15,95 +15,99 @@ import {
   Hash,
   Calendar,
   ChevronRight,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface InterviewResponse {
-  id: string
-  questionId: string
-  questionText: string
-  answerValue: string
-  answerType: string
-  answeredAt: string | null
-  createdAt: string
+  id: string;
+  questionId: string;
+  questionText: string;
+  answerValue: string;
+  answerType: string;
+  answeredAt: string | null;
+  createdAt: string;
 }
 
 interface FormTemplate {
-  id: string
-  name: string
-  formType: string
-  category: string
+  id: string;
+  name: string;
+  formType: string;
+  category: string;
 }
 
 interface InterviewSessionDetail {
-  id: string
-  status: string
-  startedAt: string
-  completedAt: string | null
-  abandonedAt: string | null
-  totalQuestionsAsked: number
-  totalAnswersGiven: number
-  estimatedTimeMinutes: number
-  actualTimeMinutes: number | null
-  userTierLevel: string
-  technicianExperience: string | null
-  autoPopulatedFields: string | null
-  answers: string | null
-  standardsReferences: string | null
-  reportId: string | null
-  formTemplate: FormTemplate
-  responses: InterviewResponse[]
-  createdAt: string
+  id: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  abandonedAt: string | null;
+  totalQuestionsAsked: number;
+  totalAnswersGiven: number;
+  estimatedTimeMinutes: number;
+  actualTimeMinutes: number | null;
+  userTierLevel: string;
+  technicianExperience: string | null;
+  autoPopulatedFields: string | null;
+  answers: string | null;
+  standardsReferences: string | null;
+  reportId: string | null;
+  formTemplate: FormTemplate;
+  responses: InterviewResponse[];
+  createdAt: string;
 }
 
 // ─── Status config ─────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+    icon: React.ElementType;
+  }
 > = {
   STARTED: { label: "Started", variant: "secondary", icon: PlayCircle },
   IN_PROGRESS: { label: "In Progress", variant: "default", icon: Clock },
   COMPLETED: { label: "Completed", variant: "default", icon: CheckCircle2 },
   ABANDONED: { label: "Abandoned", variant: "destructive", icon: XCircle },
-}
+};
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null) {
-  if (!iso) return "—"
+  if (!iso) return "—";
   return new Date(iso).toLocaleString("en-AU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  })
+  });
 }
 
 function parseJsonField(raw: string | null): Record<string, unknown> | null {
-  if (!raw) return null
+  if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>
+      return parsed as Record<string, unknown>;
     }
-    return null
+    return null;
   } catch {
-    return null
+    return null;
   }
 }
 
 function renderValue(value: unknown): string {
-  if (value === null || value === undefined) return "—"
-  if (typeof value === "object") return JSON.stringify(value, null, 2)
-  return String(value)
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────
@@ -145,82 +149,93 @@ function DetailSkeleton() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────
 
 export default function InterviewDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const id = params?.id as string
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
 
-  const [interview, setInterview] = useState<InterviewSessionDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [interview, setInterview] = useState<InterviewSessionDetail | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return
+    if (!id) return;
     const fetchInterview = async () => {
       try {
-        setLoading(true)
-        const res = await fetch(`/api/interviews/${id}`)
+        setLoading(true);
+        const res = await fetch(`/api/interviews/${id}`);
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          setError(data.error || "Interview not found")
-          return
+          const data = await res.json().catch(() => ({}));
+          setError(data.error || "Interview not found");
+          return;
         }
-        const data = await res.json()
+        const data = await res.json();
         // API returns { session: ... }
-        setInterview(data.session ?? data)
+        setInterview(data.session ?? data);
       } catch {
-        setError("Failed to load interview session")
+        setError("Failed to load interview session");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchInterview()
-  }, [id])
+    };
+    fetchInterview();
+  }, [id]);
 
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto space-y-6 p-4">
         <DetailSkeleton />
       </div>
-    )
+    );
   }
 
   if (error || !interview) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center space-y-4">
-        <MessageSquare size={48} className="mx-auto text-neutral-300 dark:text-slate-600" />
+        <MessageSquare
+          size={48}
+          className="mx-auto text-neutral-300 dark:text-slate-600"
+        />
         <h2 className="text-xl font-semibold text-neutral-700 dark:text-slate-300">
           {error || "Interview session not found"}
         </h2>
         <p className="text-sm text-neutral-500 dark:text-slate-400">
-          The interview you are looking for does not exist or you do not have access.
+          The interview you are looking for does not exist or you do not have
+          access.
         </p>
-        <Button variant="outline" onClick={() => router.push("/dashboard/interviews")}>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/dashboard/interviews")}
+        >
           <ArrowLeft size={16} className="mr-2" />
           Back to Interviews
         </Button>
       </div>
-    )
+    );
   }
 
-  const statusCfg = STATUS_CONFIG[interview.status] ?? STATUS_CONFIG.STARTED
-  const StatusIcon = statusCfg.icon
+  const statusCfg = STATUS_CONFIG[interview.status] ?? STATUS_CONFIG.STARTED;
+  const StatusIcon = statusCfg.icon;
 
-  const autoPopulated = parseJsonField(interview.autoPopulatedFields)
+  const autoPopulated = parseJsonField(interview.autoPopulatedFields);
 
   const duration =
     interview.actualTimeMinutes != null
       ? `${interview.actualTimeMinutes}m`
       : interview.completedAt && interview.startedAt
-      ? `${Math.round(
-          (new Date(interview.completedAt).getTime() - new Date(interview.startedAt).getTime()) / 60000
-        )}m`
-      : `~${interview.estimatedTimeMinutes}m est.`
+        ? `${Math.round(
+            (new Date(interview.completedAt).getTime() -
+              new Date(interview.startedAt).getTime()) /
+              60000,
+          )}m`
+        : `~${interview.estimatedTimeMinutes}m est.`;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4">
@@ -233,7 +248,10 @@ export default function InterviewDetailPage() {
           <ArrowLeft size={16} />
           Interviews
         </Link>
-        <ChevronRight size={14} className="hidden sm:block text-neutral-300 dark:text-slate-600" />
+        <ChevronRight
+          size={14}
+          className="hidden sm:block text-neutral-300 dark:text-slate-600"
+        />
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex-1 truncate">
           {interview.formTemplate.name}
         </h1>
@@ -243,10 +261,10 @@ export default function InterviewDetailPage() {
             interview.status === "COMPLETED"
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
               : interview.status === "IN_PROGRESS"
-              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800"
-              : interview.status === "ABANDONED"
-              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
-              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                : interview.status === "ABANDONED"
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+                  : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
           }
         >
           <StatusIcon size={12} className="mr-1" />
@@ -277,7 +295,9 @@ export default function InterviewDetailPage() {
                 <Clock size={12} />
                 Duration
               </div>
-              <p className="text-sm font-medium text-neutral-800 dark:text-slate-200">{duration}</p>
+              <p className="text-sm font-medium text-neutral-800 dark:text-slate-200">
+                {duration}
+              </p>
             </div>
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500">
@@ -285,7 +305,8 @@ export default function InterviewDetailPage() {
                 Questions
               </div>
               <p className="text-sm font-medium text-neutral-800 dark:text-slate-200">
-                {interview.totalAnswersGiven} / {interview.totalQuestionsAsked} answered
+                {interview.totalAnswersGiven} / {interview.totalQuestionsAsked}{" "}
+                answered
               </p>
             </div>
             <div className="space-y-0.5">
@@ -336,7 +357,8 @@ export default function InterviewDetailPage() {
             <MessageSquare size={14} />
             Q&amp;A Transcript
             <span className="ml-auto text-xs font-normal normal-case text-neutral-400 dark:text-slate-500">
-              {interview.responses.length} response{interview.responses.length !== 1 ? "s" : ""}
+              {interview.responses.length} response
+              {interview.responses.length !== 1 ? "s" : ""}
             </span>
           </CardTitle>
         </CardHeader>
@@ -364,7 +386,11 @@ export default function InterviewDetailPage() {
                 <div className="ml-7">
                   <div className="px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-neutral-200 dark:border-slate-700">
                     <p className="text-sm text-neutral-800 dark:text-slate-300 whitespace-pre-wrap">
-                      {r.answerValue || <span className="italic text-neutral-400 dark:text-slate-500">No answer provided</span>}
+                      {r.answerValue || (
+                        <span className="italic text-neutral-400 dark:text-slate-500">
+                          No answer provided
+                        </span>
+                      )}
                     </p>
                     {r.answeredAt && (
                       <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
@@ -387,7 +413,8 @@ export default function InterviewDetailPage() {
               <FileText size={14} />
               Extracted Data
               <span className="ml-auto text-xs font-normal normal-case text-neutral-400 dark:text-slate-500">
-                {Object.keys(autoPopulated).length} field{Object.keys(autoPopulated).length !== 1 ? "s" : ""}
+                {Object.keys(autoPopulated).length} field
+                {Object.keys(autoPopulated).length !== 1 ? "s" : ""}
               </span>
             </CardTitle>
           </CardHeader>
@@ -396,7 +423,10 @@ export default function InterviewDetailPage() {
               {Object.entries(autoPopulated).map(([key, value]) => (
                 <div key={key} className="py-2.5 flex items-start gap-4">
                   <span className="w-48 flex-shrink-0 text-xs font-medium text-neutral-500 dark:text-slate-400 capitalize pt-0.5">
-                    {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim()}
+                    {key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/_/g, " ")
+                      .trim()}
                   </span>
                   <span className="flex-1 text-sm text-neutral-800 dark:text-slate-200 font-mono break-all">
                     {renderValue(value)}
@@ -410,15 +440,19 @@ export default function InterviewDetailPage() {
 
       {/* ── Footer actions ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 pb-8">
-        <Button variant="outline" onClick={() => router.push("/dashboard/interviews")}>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/dashboard/interviews")}
+        >
           <ArrowLeft size={16} className="mr-2" />
           Back to Interviews
         </Button>
-        {(interview.status === "IN_PROGRESS" || interview.status === "STARTED") && (
+        {(interview.status === "IN_PROGRESS" ||
+          interview.status === "STARTED") && (
           <Button
             onClick={() =>
               router.push(
-                `/dashboard/forms/interview?formTemplateId=${interview.formTemplate.id}&sessionId=${interview.id}`
+                `/dashboard/forms/interview?formTemplateId=${interview.formTemplate.id}&sessionId=${interview.id}`,
               )
             }
             className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600"
@@ -428,5 +462,5 @@ export default function InterviewDetailPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

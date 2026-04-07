@@ -1,18 +1,18 @@
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-import { prisma } from './prisma'
-import { tryClaudeModels } from './anthropic-models'
-import { getOrganizationOwner } from './organization-credits'
-import { createCachedSystemPrompt } from './anthropic/features/prompt-cache'
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { prisma } from "./prisma";
+import { tryClaudeModels } from "./anthropic-models";
+import { getOrganizationOwner } from "./organization-credits";
+import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
 
-export type AIProvider = 'anthropic' | 'openai' | 'gemini'
+export type AIProvider = "anthropic" | "openai" | "gemini";
 
 export interface AIIntegration {
-  id: string
-  name: string
-  apiKey: string
-  provider: AIProvider
+  id: string;
+  name: string;
+  apiKey: string;
+  provider: AIProvider;
 }
 
 /**
@@ -20,43 +20,48 @@ export interface AIIntegration {
  * For Managers/Technicians, returns the Admin's ID
  * For Admins, returns their own ID
  */
-export async function getEffectiveUserIdForIntegrations(userId: string): Promise<string> {
-  const ownerId = await getOrganizationOwner(userId)
-  return ownerId || userId
+export async function getEffectiveUserIdForIntegrations(
+  userId: string,
+): Promise<string> {
+  const ownerId = await getOrganizationOwner(userId);
+  return ownerId || userId;
 }
 
 /**
  * Get integrations for a user (using Admin's integrations for Managers/Technicians)
  */
-export async function getIntegrationsForUser(userId: string, filters?: {
-  status?: 'CONNECTED' | 'DISCONNECTED'
-  nameContains?: string[]
-}): Promise<any[]> {
-  const effectiveUserId = await getEffectiveUserIdForIntegrations(userId)
-  
+export async function getIntegrationsForUser(
+  userId: string,
+  filters?: {
+    status?: "CONNECTED" | "DISCONNECTED";
+    nameContains?: string[];
+  },
+): Promise<any[]> {
+  const effectiveUserId = await getEffectiveUserIdForIntegrations(userId);
+
   const whereClause: any = {
     userId: effectiveUserId,
-    apiKey: { not: null }
-  }
+    apiKey: { not: null },
+  };
 
   if (filters?.status) {
-    whereClause.status = filters.status
+    whereClause.status = filters.status;
   } else {
-    whereClause.status = 'CONNECTED'
+    whereClause.status = "CONNECTED";
   }
 
   if (filters?.nameContains && filters.nameContains.length > 0) {
-    whereClause.OR = filters.nameContains.map(name => ({
-      name: { contains: name }
-    }))
+    whereClause.OR = filters.nameContains.map((name) => ({
+      name: { contains: name },
+    }));
   }
 
   return await prisma.integration.findMany({
     where: whereClause,
     orderBy: {
-      createdAt: 'desc'
-    }
-  })
+      createdAt: "desc",
+    },
+  });
 }
 
 /**
@@ -65,37 +70,39 @@ export async function getIntegrationsForUser(userId: string, filters?: {
  * For Admins, uses their own integrations
  * Returns the most recently connected integration
  */
-export async function getLatestAIIntegration(userId: string): Promise<AIIntegration | null> {
+export async function getLatestAIIntegration(
+  userId: string,
+): Promise<AIIntegration | null> {
   const integrations = await getIntegrationsForUser(userId, {
-    status: 'CONNECTED',
-    nameContains: ['Anthropic', 'OpenAI', 'Gemini', 'Claude', 'GPT']
-  })
+    status: "CONNECTED",
+    nameContains: ["Anthropic", "OpenAI", "Gemini", "Claude", "GPT"],
+  });
 
   if (integrations.length === 0) {
-    return null
+    return null;
   }
 
   // Get the latest integration
-  const integration = integrations[0]
+  const integration = integrations[0];
 
   // Determine provider type
-  let provider: AIProvider = 'anthropic' // default
-  const nameLower = integration.name.toLowerCase()
-  
-  if (nameLower.includes('openai') || nameLower.includes('gpt')) {
-    provider = 'openai'
-  } else if (nameLower.includes('gemini') || nameLower.includes('google')) {
-    provider = 'gemini'
-  } else if (nameLower.includes('anthropic') || nameLower.includes('claude')) {
-    provider = 'anthropic'
+  let provider: AIProvider = "anthropic"; // default
+  const nameLower = integration.name.toLowerCase();
+
+  if (nameLower.includes("openai") || nameLower.includes("gpt")) {
+    provider = "openai";
+  } else if (nameLower.includes("gemini") || nameLower.includes("google")) {
+    provider = "gemini";
+  } else if (nameLower.includes("anthropic") || nameLower.includes("claude")) {
+    provider = "anthropic";
   }
 
   return {
     id: integration.id,
     name: integration.name,
     apiKey: integration.apiKey!,
-    provider
-  }
+    provider,
+  };
 }
 
 /**
@@ -108,21 +115,24 @@ export async function getLatestAIIntegration(userId: string): Promise<AIIntegrat
  */
 export async function getAnthropicApiKey(userId: string): Promise<string> {
   const integrations = await getIntegrationsForUser(userId, {
-    status: 'CONNECTED',
-    nameContains: ['Anthropic', 'Claude']
-  })
+    status: "CONNECTED",
+    nameContains: ["Anthropic", "Claude"],
+  });
 
-  const integration = integrations.find(i => 
-    i.name === 'Anthropic Claude' || 
-    i.name === 'Anthropic API' ||
-    i.name.toLowerCase().includes('anthropic')
-  )
+  const integration = integrations.find(
+    (i) =>
+      i.name === "Anthropic Claude" ||
+      i.name === "Anthropic API" ||
+      i.name.toLowerCase().includes("anthropic"),
+  );
 
   if (!integration?.apiKey) {
-    throw new Error('Please add your Anthropic API key in Settings → Integrations to use AI features.')
+    throw new Error(
+      "Please add your Anthropic API key in Settings → Integrations to use AI features.",
+    );
   }
 
-  return integration.apiKey
+  return integration.apiKey;
 }
 
 /**
@@ -131,26 +141,26 @@ export async function getAnthropicApiKey(userId: string): Promise<string> {
 export async function callAIProvider(
   integration: AIIntegration,
   options: {
-    system?: string
-    prompt: string
-    maxTokens?: number
-    temperature?: number
-  }
+    system?: string;
+    prompt: string;
+    maxTokens?: number;
+    temperature?: number;
+  },
 ): Promise<string> {
-  const { system, prompt, maxTokens = 16000, temperature = 0.7 } = options
+  const { system, prompt, maxTokens = 16000, temperature = 0.7 } = options;
 
   switch (integration.provider) {
-    case 'anthropic': {
+    case "anthropic": {
       const anthropic = new Anthropic({
-        apiKey: integration.apiKey
-      })
+        apiKey: integration.apiKey,
+      });
 
       const messages: any[] = [
         {
-          role: 'user',
-          content: prompt
-        }
-      ]
+          role: "user",
+          content: prompt,
+        },
+      ];
 
       // Use tryClaudeModels for automatic fallback to working models
       // Use prompt caching for cost optimization (90% savings on cache hits)
@@ -159,83 +169,86 @@ export async function callAIProvider(
         {
           system: system ? [createCachedSystemPrompt(system)] : undefined,
           messages,
-          max_tokens: maxTokens
+          max_tokens: maxTokens,
         },
         undefined, // use default models
         {
-          agentName: 'AIProvider',
-          enableCacheMetrics: true
-        }
-      )
-      
-      if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
-        return response.content[0].text
+          agentName: "AIProvider",
+          enableCacheMetrics: true,
+        },
+      );
+
+      if (
+        response.content &&
+        response.content.length > 0 &&
+        response.content[0].type === "text"
+      ) {
+        return response.content[0].text;
       }
-      
-      throw new Error('Unexpected response format from Anthropic')
+
+      throw new Error("Unexpected response format from Anthropic");
     }
 
-    case 'openai': {
+    case "openai": {
       const openai = new OpenAI({
-        apiKey: integration.apiKey
-      })
+        apiKey: integration.apiKey,
+      });
 
-      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = []
-      
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
       if (system) {
         messages.push({
-          role: 'system',
-          content: system
-        })
+          role: "system",
+          content: system,
+        });
       }
-      
+
       messages.push({
-        role: 'user',
-        content: prompt
-      })
+        role: "user",
+        content: prompt,
+      });
 
       // OpenAI models have different max_tokens limits
       // gpt-4-turbo-preview supports max 4096 completion tokens
       // Use a safer limit for OpenAI
-      const openaiMaxTokens = Math.min(maxTokens, 4096)
+      const openaiMaxTokens = Math.min(maxTokens, 4096);
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: "gpt-4-turbo-preview",
         messages,
         max_tokens: openaiMaxTokens,
-        temperature
-      })
+        temperature,
+      });
 
-      const content = response.choices[0]?.message?.content
+      const content = response.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No content in OpenAI response')
+        throw new Error("No content in OpenAI response");
       }
 
-      return content
+      return content;
     }
 
-    case 'gemini': {
-      const genAI = new GoogleGenerativeAI(integration.apiKey)
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
+    case "gemini": {
+      const genAI = new GoogleGenerativeAI(integration.apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-      let fullPrompt = prompt
+      let fullPrompt = prompt;
       if (system) {
-        fullPrompt = `${system}\n\n${prompt}`
+        fullPrompt = `${system}\n\n${prompt}`;
       }
 
-      const result = await model.generateContent(fullPrompt)
-      const response = await result.response
-      const text = response.text()
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      const text = response.text();
 
       if (!text) {
-        throw new Error('No content in Gemini response')
+        throw new Error("No content in Gemini response");
       }
 
-      return text
+      return text;
     }
 
     default:
-      throw new Error(`Unsupported AI provider: ${integration.provider}`)
+      throw new Error(`Unsupported AI provider: ${integration.provider}`);
   }
 }
-

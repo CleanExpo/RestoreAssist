@@ -1,77 +1,91 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Download, FileText, FileJson, FileArchive, Mail, Loader2, CheckCircle } from "lucide-react"
-import toast from "react-hot-toast"
+import { useState } from "react";
+import {
+  Download,
+  FileText,
+  FileJson,
+  FileArchive,
+  Mail,
+  Loader2,
+  CheckCircle,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 interface DocumentExportPackageProps {
-  reportId: string
-  reportNumber?: string
-  claimReference?: string
+  reportId: string;
+  reportNumber?: string;
+  claimReference?: string;
 }
 
-export default function DocumentExportPackage({ 
-  reportId, 
-  reportNumber, 
-  claimReference 
+export default function DocumentExportPackage({
+  reportId,
+  reportNumber,
+  claimReference,
 }: DocumentExportPackageProps) {
-  const [exporting, setExporting] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<string | null>(null);
 
-  const handleExport = async (format: 'pdf' | 'word' | 'json' | 'zip') => {
-    setExporting(format)
+  const handleExport = async (format: "pdf" | "word" | "json" | "zip") => {
+    setExporting(format);
     try {
-      const response = await fetch(`/api/reports/${reportId}/export-package?format=${format}`)
-      
+      const response = await fetch(
+        `/api/reports/${reportId}/export-package?format=${format}`,
+      );
+
       if (!response.ok) {
-        const error = await response.json()
-        toast.error(error.error || 'Failed to export documents')
-        return
+        const error = await response.json();
+        toast.error(error.error || "Failed to export documents");
+        return;
       }
 
       // Handle different response types
-      if (format === 'json') {
-        const data = await response.json()
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        downloadBlob(blob, `RestoreAssist-Export-${reportId}.json`)
-      } else if (format === 'zip' || format === 'pdf') {
-        const blob = await response.blob()
-        const extension = format === 'zip' ? 'zip' : 'pdf'
-        downloadBlob(blob, `RestoreAssist-Package-${reportId}.${extension}`)
+      if (format === "json") {
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        downloadBlob(blob, `RestoreAssist-Export-${reportId}.json`);
+      } else if (format === "zip" || format === "pdf") {
+        const blob = await response.blob();
+        const extension = format === "zip" ? "zip" : "pdf";
+        downloadBlob(blob, `RestoreAssist-Package-${reportId}.${extension}`);
       } else {
         // Word format (future implementation)
-        toast('Word format export coming soon', {
-          icon: 'ℹ️',
+        toast("Word format export coming soon", {
+          icon: "ℹ️",
           duration: 4000,
-        })
+        });
       }
 
-      toast.success(`Documents exported successfully as ${format.toUpperCase()}`)
+      toast.success(
+        `Documents exported successfully as ${format.toUpperCase()}`,
+      );
     } catch (error) {
-      console.error('Error exporting:', error)
-      toast.error('Failed to export documents')
+      console.error("Error exporting:", error);
+      toast.error("Failed to export documents");
     } finally {
-      setExporting(null)
+      setExporting(null);
     }
-  }
+  };
 
   const downloadBlob = (blob: Blob, filename: string) => {
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-  }
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
 
   const handleEmailDelivery = async () => {
     // Future implementation - email delivery
-    toast('Email delivery feature coming soon', {
-      icon: 'ℹ️',
+    toast("Email delivery feature coming soon", {
+      icon: "ℹ️",
       duration: 4000,
-    })
-  }
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -81,14 +95,15 @@ export default function DocumentExportPackage({
           Document Export Package
         </h2>
         <p className="text-slate-400">
-          Export all documents in your preferred format for delivery to clients or insurers.
+          Export all documents in your preferred format for delivery to clients
+          or insurers.
         </p>
       </div>
 
       {/* Export Format Options */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Export Format Options</h3>
-        
+
         <div className="grid md:grid-cols-2 gap-4">
           {/* PDF Format */}
           <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
@@ -98,18 +113,21 @@ export default function DocumentExportPackage({
               </div>
               <div>
                 <h4 className="font-semibold">PDF Format</h4>
-                <p className="text-xs text-slate-400">Ready for insurer submission</p>
+                <p className="text-xs text-slate-400">
+                  Ready for insurer submission
+                </p>
               </div>
             </div>
             <p className="text-sm text-slate-300 mb-3">
-              Formatted and ready for insurer submission. Cannot be edited. Professional appearance.
+              Formatted and ready for insurer submission. Cannot be edited.
+              Professional appearance.
             </p>
             <button
-              onClick={() => handleExport('pdf')}
+              onClick={() => handleExport("pdf")}
               disabled={exporting !== null}
               className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {exporting === 'pdf' ? (
+              {exporting === "pdf" ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Exporting...
@@ -135,14 +153,15 @@ export default function DocumentExportPackage({
               </div>
             </div>
             <p className="text-sm text-slate-300 mb-3">
-              Complete package with PDF, Word, JSON, and version history. All documents included.
+              Complete package with PDF, Word, JSON, and version history. All
+              documents included.
             </p>
             <button
-              onClick={() => handleExport('zip')}
+              onClick={() => handleExport("zip")}
               disabled={exporting !== null}
               className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {exporting === 'zip' ? (
+              {exporting === "zip" ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Exporting...
@@ -171,11 +190,11 @@ export default function DocumentExportPackage({
               Machine-readable data for CRM integration or future API workflow.
             </p>
             <button
-              onClick={() => handleExport('json')}
+              onClick={() => handleExport("json")}
               disabled={exporting !== null}
               className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {exporting === 'json' ? (
+              {exporting === "json" ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Exporting...
@@ -217,7 +236,7 @@ export default function DocumentExportPackage({
       {/* Delivery Method Options */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Delivery Method Options</h3>
-        
+
         <div className="grid md:grid-cols-2 gap-4">
           {/* Direct Download */}
           <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
@@ -226,7 +245,8 @@ export default function DocumentExportPackage({
               <h4 className="font-semibold text-green-400">Direct Download</h4>
             </div>
             <p className="text-sm text-slate-300">
-              Download all documents directly from the application. Immediate access.
+              Download all documents directly from the application. Immediate
+              access.
             </p>
           </div>
 
@@ -237,7 +257,8 @@ export default function DocumentExportPackage({
               <h4 className="font-semibold">Email Delivery</h4>
             </div>
             <p className="text-sm text-slate-300 mb-3">
-              Email to client/admin automatically. Subject line includes claim reference.
+              Email to client/admin automatically. Subject line includes claim
+              reference.
             </p>
             <button
               onClick={handleEmailDelivery}
@@ -276,6 +297,5 @@ export default function DocumentExportPackage({
         </ul>
       </div>
     </div>
-  )
+  );
 }
-

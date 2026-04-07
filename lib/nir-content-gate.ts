@@ -26,145 +26,160 @@ import {
   getPublishableClaims,
   assertClaimsPublishable,
   type EvidenceClaim,
-} from '@/lib/nir-evidence-architecture'
+} from "@/lib/nir-evidence-architecture";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export type ContentDomain =
-  | 'water-damage'
-  | 'mould-remediation'
-  | 'fire-smoke'
-  | 'cost-savings'
-  | 'industry-standard'
+  | "water-damage"
+  | "mould-remediation"
+  | "fire-smoke"
+  | "cost-savings"
+  | "industry-standard";
 
-export type GateStatus = 'open' | 'blocked' | 'partial'
+export type GateStatus = "open" | "blocked" | "partial";
 
 export type ContentType =
-  | 'blog-post'
-  | 'case-study'
-  | 'landing-page'
-  | 'social-post'
-  | 'press-release'
-  | 'pitch-deck'
-  | 'enterprise-proposal'
+  | "blog-post"
+  | "case-study"
+  | "landing-page"
+  | "social-post"
+  | "press-release"
+  | "pitch-deck"
+  | "enterprise-proposal";
 
 export interface ContentMetadata {
-  domain: ContentDomain
-  contentType: ContentType
-  title: string
+  domain: ContentDomain;
+  contentType: ContentType;
+  title: string;
   /** Claim IDs from EVIDENCE_REGISTER that this piece of content references */
-  claimIds: string[]
+  claimIds: string[];
   /** Author or system submitting content for gate check */
-  submittedBy?: string
+  submittedBy?: string;
 }
 
 export interface CertificationRecord {
   /** Whether the manual certification requirement has been met */
-  certified: boolean
-  certifiedBy?: string
-  certifiedAt?: string
+  certified: boolean;
+  certifiedBy?: string;
+  certifiedAt?: string;
   /** What certification is required (used when certified: false) */
-  requirement: string
+  requirement: string;
   /** Who is responsible for obtaining/approving this certification */
-  gateOwner: string
+  gateOwner: string;
 }
 
 export interface DomainGateConfig {
-  domain: ContentDomain
-  label: string
-  description: string
+  domain: ContentDomain;
+  label: string;
+  description: string;
   /** Claims that must all be SOURCED or VALIDATED before content in this domain is publishable */
-  requiredPublishableClaims: string[]
+  requiredPublishableClaims: string[];
   /** Content types that become publishable once gate is open */
-  contentTypesUnlocked: ContentType[]
+  contentTypesUnlocked: ContentType[];
 }
 
 export interface GateCheckResult {
-  domain: ContentDomain
-  gateStatus: GateStatus
+  domain: ContentDomain;
+  gateStatus: GateStatus;
   /** Specific reason the gate is blocked (empty if open) */
-  blockReasons: string[]
+  blockReasons: string[];
   /** Claims that passed the publishability check */
-  allowedClaims: EvidenceClaim[]
+  allowedClaims: EvidenceClaim[];
   /** Claims that failed — still HYPOTHESIS or DERIVED */
-  blockedClaims: EvidenceClaim[]
+  blockedClaims: EvidenceClaim[];
   /** Whether the domain certification requirement has been met */
-  certificationMet: boolean
-  certificationRecord: CertificationRecord
+  certificationMet: boolean;
+  certificationRecord: CertificationRecord;
   /** Actions required to open the gate */
-  requiredActions: string[]
+  requiredActions: string[];
 }
 
 export interface GateClearance {
-  approved: boolean
-  approvedDomains: ContentDomain[]
-  blockedDomains: ContentDomain[]
-  results: Record<ContentDomain, GateCheckResult>
+  approved: boolean;
+  approvedDomains: ContentDomain[];
+  blockedDomains: ContentDomain[];
+  results: Record<ContentDomain, GateCheckResult>;
   /** ISO timestamp of this gate check */
-  checkedAt: string
+  checkedAt: string;
 }
 
 // ─── DOMAIN GATE CONFIGURATION ────────────────────────────────────────────────
 
 const DOMAIN_GATE_CONFIG: Record<ContentDomain, DomainGateConfig> = {
-  'water-damage': {
-    domain: 'water-damage',
-    label: 'Water Damage Restoration',
+  "water-damage": {
+    domain: "water-damage",
+    label: "Water Damage Restoration",
     description:
-      'Blog posts, case studies, landing pages, and social content referencing ' +
-      'IICRC S500 standards, water damage categories/classes, or NIR water damage capabilities.',
-    requiredPublishableClaims: ['CLAIM-001'],
-    contentTypesUnlocked: ['blog-post', 'case-study', 'landing-page', 'social-post'],
-  },
-
-  'mould-remediation': {
-    domain: 'mould-remediation',
-    label: 'Mould Remediation',
-    description:
-      'Content referencing IICRC S520 standards, mould condition classification, ' +
-      'containment requirements, or NIR mould remediation capabilities.',
-    requiredPublishableClaims: ['CLAIM-001'],
-    contentTypesUnlocked: ['blog-post', 'case-study'],
-  },
-
-  'fire-smoke': {
-    domain: 'fire-smoke',
-    label: 'Fire & Smoke Restoration',
-    description:
-      'Content referencing IICRC S700 standards, smoke residue classification, ' +
-      'or NIR fire and smoke restoration capabilities.',
-    requiredPublishableClaims: ['CLAIM-001'],
-    contentTypesUnlocked: ['blog-post', 'case-study'],
-  },
-
-  'cost-savings': {
-    domain: 'cost-savings',
-    label: 'Cost & Savings Claims',
-    description:
-      'Content citing NIR cost savings figures, claims cycle time reduction, ' +
-      'adjuster time savings, or any quantitative efficiency claim derived from EVIDENCE_REGISTER.',
-    requiredPublishableClaims: [
-      'CLAIM-001',
-      'CLAIM-002',
-      'CLAIM-003',
-      'CLAIM-004',
-      'CLAIM-005',
-      'CLAIM-006',
-      'CLAIM-007',
+      "Blog posts, case studies, landing pages, and social content referencing " +
+      "IICRC S500 standards, water damage categories/classes, or NIR water damage capabilities.",
+    requiredPublishableClaims: ["CLAIM-001"],
+    contentTypesUnlocked: [
+      "blog-post",
+      "case-study",
+      "landing-page",
+      "social-post",
     ],
-    contentTypesUnlocked: ['blog-post', 'case-study', 'landing-page', 'pitch-deck', 'enterprise-proposal'],
   },
 
-  'industry-standard': {
-    domain: 'industry-standard',
+  "mould-remediation": {
+    domain: "mould-remediation",
+    label: "Mould Remediation",
+    description:
+      "Content referencing IICRC S520 standards, mould condition classification, " +
+      "containment requirements, or NIR mould remediation capabilities.",
+    requiredPublishableClaims: ["CLAIM-001"],
+    contentTypesUnlocked: ["blog-post", "case-study"],
+  },
+
+  "fire-smoke": {
+    domain: "fire-smoke",
+    label: "Fire & Smoke Restoration",
+    description:
+      "Content referencing IICRC S700 standards, smoke residue classification, " +
+      "or NIR fire and smoke restoration capabilities.",
+    requiredPublishableClaims: ["CLAIM-001"],
+    contentTypesUnlocked: ["blog-post", "case-study"],
+  },
+
+  "cost-savings": {
+    domain: "cost-savings",
+    label: "Cost & Savings Claims",
+    description:
+      "Content citing NIR cost savings figures, claims cycle time reduction, " +
+      "adjuster time savings, or any quantitative efficiency claim derived from EVIDENCE_REGISTER.",
+    requiredPublishableClaims: [
+      "CLAIM-001",
+      "CLAIM-002",
+      "CLAIM-003",
+      "CLAIM-004",
+      "CLAIM-005",
+      "CLAIM-006",
+      "CLAIM-007",
+    ],
+    contentTypesUnlocked: [
+      "blog-post",
+      "case-study",
+      "landing-page",
+      "pitch-deck",
+      "enterprise-proposal",
+    ],
+  },
+
+  "industry-standard": {
+    domain: "industry-standard",
     label: '"Industry Standard" Claims',
     description:
       'Content claiming NIR is "the" national industry standard, referencing ' +
-      'widespread adoption, or citing institutional endorsement.',
-    requiredPublishableClaims: ['CLAIM-001', 'CLAIM-002', 'CLAIM-003'],
-    contentTypesUnlocked: ['press-release', 'pitch-deck', 'enterprise-proposal'],
+      "widespread adoption, or citing institutional endorsement.",
+    requiredPublishableClaims: ["CLAIM-001", "CLAIM-002", "CLAIM-003"],
+    contentTypesUnlocked: [
+      "press-release",
+      "pitch-deck",
+      "enterprise-proposal",
+    ],
   },
-}
+};
 
 // ─── CERTIFICATION STATUS ─────────────────────────────────────────────────────
 
@@ -180,46 +195,46 @@ const DOMAIN_GATE_CONFIG: Record<ContentDomain, DomainGateConfig> = {
  *   4. Merge to main — gate opens for that domain
  */
 const CERTIFICATION_STATUS: Record<ContentDomain, CertificationRecord> = {
-  'water-damage': {
+  "water-damage": {
     certified: false,
     requirement:
-      'S500 standards mapping in lib/nir-standards-mapping.ts reviewed and ' +
-      'signed off by a WRT-certified (Water Restoration Technician) IICRC technician.',
-    gateOwner: 'Restoration Technical Lead',
+      "S500 standards mapping in lib/nir-standards-mapping.ts reviewed and " +
+      "signed off by a WRT-certified (Water Restoration Technician) IICRC technician.",
+    gateOwner: "Restoration Technical Lead",
   },
 
-  'mould-remediation': {
+  "mould-remediation": {
     certified: false,
     requirement:
-      'S520 standards mapping reviewed and signed off by a CMRS (Certified Mould ' +
-      'Remediation Supervisor) or ASD (Applied Structural Drying) certified technician.',
-    gateOwner: 'Restoration Technical Lead',
+      "S520 standards mapping reviewed and signed off by a CMRS (Certified Mould " +
+      "Remediation Supervisor) or ASD (Applied Structural Drying) certified technician.",
+    gateOwner: "Restoration Technical Lead",
   },
 
-  'fire-smoke': {
+  "fire-smoke": {
     certified: false,
     requirement:
-      'S700 standards mapping reviewed and signed off by a FSRT (Fire and Smoke ' +
-      'Restoration Technician) IICRC certified technician.',
-    gateOwner: 'Restoration Technical Lead',
+      "S700 standards mapping reviewed and signed off by a FSRT (Fire and Smoke " +
+      "Restoration Technician) IICRC certified technician.",
+    gateOwner: "Restoration Technical Lead",
   },
 
-  'cost-savings': {
+  "cost-savings": {
     certified: false,
     requirement:
-      'Phase 2 pilot data collected: minimum 50 NIR claims measured. All CLAIM-002 ' +
-      'through CLAIM-007 promoted from HYPOTHESIS to VALIDATED in lib/nir-evidence-architecture.ts.',
-    gateOwner: 'Product Lead',
+      "Phase 2 pilot data collected: minimum 50 NIR claims measured. All CLAIM-002 " +
+      "through CLAIM-007 promoted from HYPOTHESIS to VALIDATED in lib/nir-evidence-architecture.ts.",
+    gateOwner: "Product Lead",
   },
 
-  'industry-standard': {
+  "industry-standard": {
     certified: false,
     requirement:
-      'ICA (Insurance Council of Australia) working group submission lodged, ' +
-      'with documented engagement from at least one major insurer TPA network.',
-    gateOwner: 'CEO / Founder',
+      "ICA (Insurance Council of Australia) working group submission lodged, " +
+      "with documented engagement from at least one major insurer TPA network.",
+    gateOwner: "CEO / Founder",
   },
-}
+};
 
 // ─── GATE CHECK FUNCTIONS ─────────────────────────────────────────────────────
 
@@ -232,68 +247,68 @@ const CERTIFICATION_STATUS: Record<ContentDomain, CertificationRecord> = {
  */
 export function checkContentGate(
   domain: ContentDomain,
-  additionalClaimIds: string[] = []
+  additionalClaimIds: string[] = [],
 ): GateCheckResult {
-  const config = DOMAIN_GATE_CONFIG[domain]
-  const certification = CERTIFICATION_STATUS[domain]
+  const config = DOMAIN_GATE_CONFIG[domain];
+  const certification = CERTIFICATION_STATUS[domain];
 
   const allRequestedClaimIds = [
     ...new Set([...config.requiredPublishableClaims, ...additionalClaimIds]),
-  ]
+  ];
 
-  const allowedClaims: EvidenceClaim[] = []
-  const blockedClaims: EvidenceClaim[] = []
-  const blockReasons: string[] = []
+  const allowedClaims: EvidenceClaim[] = [];
+  const blockedClaims: EvidenceClaim[] = [];
+  const blockReasons: string[] = [];
 
   for (const id of allRequestedClaimIds) {
-    const claim = getClaimStatus(id)
+    const claim = getClaimStatus(id);
     if (!claim) {
-      blockReasons.push(`Claim ${id} not found in EVIDENCE_REGISTER`)
-      continue
+      blockReasons.push(`Claim ${id} not found in EVIDENCE_REGISTER`);
+      continue;
     }
-    if (claim.status === 'SOURCED' || claim.status === 'VALIDATED') {
-      allowedClaims.push(claim)
+    if (claim.status === "SOURCED" || claim.status === "VALIDATED") {
+      allowedClaims.push(claim);
     } else {
-      blockedClaims.push(claim)
+      blockedClaims.push(claim);
       blockReasons.push(
-        `${id} is ${claim.status} — "${claim.claim}" requires Phase 2 pilot validation before use in content.`
-      )
+        `${id} is ${claim.status} — "${claim.claim}" requires Phase 2 pilot validation before use in content.`,
+      );
     }
   }
 
   // Certification is a hard blocker regardless of claim status
   if (!certification.certified) {
     blockReasons.push(
-      `Domain certification not yet obtained. Required: ${certification.requirement}`
-    )
+      `Domain certification not yet obtained. Required: ${certification.requirement}`,
+    );
   }
 
-  const requiredActions: string[] = []
+  const requiredActions: string[] = [];
 
   if (blockedClaims.length > 0) {
     requiredActions.push(
       `Validate ${blockedClaims.length} claim(s) through Phase 2 pilot: ` +
-      blockedClaims.map(c => c.id).join(', ')
-    )
+        blockedClaims.map((c) => c.id).join(", "),
+    );
   }
 
   if (!certification.certified) {
     requiredActions.push(
-      `Obtain domain certification (owner: ${certification.gateOwner}): ${certification.requirement}`
-    )
+      `Obtain domain certification (owner: ${certification.gateOwner}): ${certification.requirement}`,
+    );
   }
 
   // Gate status determination:
   //   open    — zero block reasons
   //   blocked — all requested claims blocked OR certification missing
   //   partial — some claims allowed but some blocked
-  let gateStatus: GateStatus
+  let gateStatus: GateStatus;
   if (blockReasons.length === 0) {
-    gateStatus = 'open'
+    gateStatus = "open";
   } else if (allowedClaims.length === 0 || !certification.certified) {
-    gateStatus = 'blocked'
+    gateStatus = "blocked";
   } else {
-    gateStatus = 'partial'
+    gateStatus = "partial";
   }
 
   return {
@@ -305,7 +320,7 @@ export function checkContentGate(
     certificationMet: certification.certified,
     certificationRecord: certification,
     requiredActions,
-  }
+  };
 }
 
 /**
@@ -323,19 +338,21 @@ export function checkContentGate(
  *     submittedBy: 'cms-api',
  *   })
  */
-export function validateContentBeforePublish(metadata: ContentMetadata): GateCheckResult {
-  const result = checkContentGate(metadata.domain, metadata.claimIds)
+export function validateContentBeforePublish(
+  metadata: ContentMetadata,
+): GateCheckResult {
+  const result = checkContentGate(metadata.domain, metadata.claimIds);
 
-  if (result.gateStatus === 'blocked') {
+  if (result.gateStatus === "blocked") {
     throw new ContentGateViolationError(
       `Content gate BLOCKED for domain "${metadata.domain}". ` +
-      `"${metadata.title}" cannot be published. ` +
-      `Required actions: ${result.requiredActions.join(' | ')}`,
-      result
-    )
+        `"${metadata.title}" cannot be published. ` +
+        `Required actions: ${result.requiredActions.join(" | ")}`,
+      result,
+    );
   }
 
-  return result
+  return result;
 }
 
 /**
@@ -343,15 +360,19 @@ export function validateContentBeforePublish(metadata: ContentMetadata): GateChe
  * Used by the admin gate dashboard.
  */
 export function getAllGateStatuses(): GateClearance {
-  const domains = Object.keys(DOMAIN_GATE_CONFIG) as ContentDomain[]
-  const results = {} as Record<ContentDomain, GateCheckResult>
+  const domains = Object.keys(DOMAIN_GATE_CONFIG) as ContentDomain[];
+  const results = {} as Record<ContentDomain, GateCheckResult>;
 
   for (const domain of domains) {
-    results[domain] = checkContentGate(domain)
+    results[domain] = checkContentGate(domain);
   }
 
-  const approvedDomains = domains.filter(d => results[d].gateStatus === 'open')
-  const blockedDomains = domains.filter(d => results[d].gateStatus !== 'open')
+  const approvedDomains = domains.filter(
+    (d) => results[d].gateStatus === "open",
+  );
+  const blockedDomains = domains.filter(
+    (d) => results[d].gateStatus !== "open",
+  );
 
   return {
     approved: blockedDomains.length === 0,
@@ -359,31 +380,33 @@ export function getAllGateStatuses(): GateClearance {
     blockedDomains,
     results,
     checkedAt: new Date().toISOString(),
-  }
+  };
 }
 
 /**
  * Get only the claims that are safe to reference in any customer-facing content,
  * regardless of domain. Wraps getPublishableClaims() with domain context.
  */
-export function getPublishableClaimsForDomain(domain: ContentDomain): EvidenceClaim[] {
-  const config = DOMAIN_GATE_CONFIG[domain]
-  return getPublishableClaims().filter(claim =>
-    config.requiredPublishableClaims.includes(claim.id)
-  )
+export function getPublishableClaimsForDomain(
+  domain: ContentDomain,
+): EvidenceClaim[] {
+  const config = DOMAIN_GATE_CONFIG[domain];
+  return getPublishableClaims().filter((claim) =>
+    config.requiredPublishableClaims.includes(claim.id),
+  );
 }
 
 /** Re-export for convenience — callers can import everything from this module */
-export { assertClaimsPublishable, getPublishableClaims, EVIDENCE_REGISTER }
+export { assertClaimsPublishable, getPublishableClaims, EVIDENCE_REGISTER };
 
 // ─── ERROR TYPE ───────────────────────────────────────────────────────────────
 
 export class ContentGateViolationError extends Error {
-  readonly gateResult: GateCheckResult
+  readonly gateResult: GateCheckResult;
 
   constructor(message: string, gateResult: GateCheckResult) {
-    super(message)
-    this.name = 'ContentGateViolationError'
-    this.gateResult = gateResult
+    super(message);
+    this.name = "ContentGateViolationError";
+    this.gateResult = gateResult;
   }
 }

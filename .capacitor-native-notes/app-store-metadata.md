@@ -1,9 +1,11 @@
 # App Store & Google Play Metadata
+
 **Ready to copy-paste into App Store Connect and Google Play Console**
 
 ---
 
 ## APP 1: RestoreAssist Field App
+
 **Bundle / Package ID:** `com.restoreassist.app`
 **Target platforms:** iOS (iPhone + iPad) + Android
 
@@ -66,6 +68,7 @@ Start with 5 free inspection reports. Then $99 AUD/month for unlimited reports.
 ---
 
 #### Keywords (100 chars max, comma-separated)
+
 ```
 restoration,moisture,inspection,IICRC,water damage,Xero,report,insurance,claim,fire damage
 ```
@@ -73,6 +76,7 @@ restoration,moisture,inspection,IICRC,water damage,Xero,report,insurance,claim,f
 ---
 
 #### What's New (Version 1.0)
+
 ```
 First release — complete inspection and reporting workflow for water, fire, and storm damage restoration.
 ```
@@ -86,6 +90,7 @@ First release — complete inspection and reporting workflow for water, fire, an
 **iPad Pro 13" (required):** 2064 × 2752 px
 
 Recommended screenshot content:
+
 1. Dashboard overview
 2. Inspection form — moisture readings tab
 3. Room-by-room photo gallery
@@ -104,26 +109,29 @@ Recommended screenshot content:
 **Content Rating:** Everyone
 
 **Short Description (80 chars):**
+
 ```
 Property restoration reporting — IICRC-compliant, offline-first
 ```
 
 **Full Description (4,000 chars):**
-*(Same as Apple description above — use identical copy)*
+_(Same as Apple description above — use identical copy)_
 
 **Privacy Policy URL:** https://restoreassist.com.au/privacy
 
 **Screenshots Required:**
+
 - Phone: 1080 × 1920 px (minimum 2, recommended 8)
 - Tablet 7": 1200 × 1920 px
 - Tablet 10": 1920 × 1200 px (landscape)
 
 **Feature Graphic (required):** 1024 × 500 px
-*(Simple graphic — company logo on dark background works fine)*
+_(Simple graphic — company logo on dark background works fine)_
 
 ---
 
 ## APP 2: RestoreAssist CET
+
 **Bundle / Package ID:** `com.restoreassist.cet`
 **Target platforms:** iOS (iPad only) — Android is future
 
@@ -183,6 +191,7 @@ Requires a RestoreAssist account. CET video library included with subscription.
 **iPad Pro 11" (required):** 1668 × 2388 px
 
 Recommended content:
+
 1. Video grid (home screen) with thumbnails
 2. Video playing fullscreen (preferred supplier rights video)
 3. Company branding shown in header
@@ -195,26 +204,29 @@ Recommended content:
 Add these in GitHub → Settings → Secrets and Variables → Actions:
 
 ### Android Field App
-| Secret | Description |
-|--------|-------------|
-| `ANDROID_KEYSTORE_BASE64` | `base64 -i restoreassist-release.jks` output |
-| `ANDROID_KEY_STORE_PASSWORD` | Keystore password you set during keytool |
-| `ANDROID_KEY_ALIAS` | Key alias (e.g. `restoreassist`) |
-| `ANDROID_KEY_PASSWORD` | Key password (same as store password if using one password) |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Service account JSON from Google Play Console API |
+
+| Secret                             | Description                                                 |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`          | `base64 -i restoreassist-release.jks` output                |
+| `ANDROID_KEY_STORE_PASSWORD`       | Keystore password you set during keytool                    |
+| `ANDROID_KEY_ALIAS`                | Key alias (e.g. `restoreassist`)                            |
+| `ANDROID_KEY_PASSWORD`             | Key password (same as store password if using one password) |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Service account JSON from Google Play Console API           |
 
 ### Android CET App
-| Secret | Description |
-|--------|-------------|
-| `CET_ANDROID_KEYSTORE_BASE64` | `base64 -i cet-release.jks` output |
-| `CET_ANDROID_KEY_STORE_PASSWORD` | CET keystore password |
-| `CET_ANDROID_KEY_ALIAS` | CET key alias (e.g. `restoreassist-cet`) |
-| `CET_ANDROID_KEY_PASSWORD` | CET key password |
+
+| Secret                           | Description                              |
+| -------------------------------- | ---------------------------------------- |
+| `CET_ANDROID_KEYSTORE_BASE64`    | `base64 -i cet-release.jks` output       |
+| `CET_ANDROID_KEY_STORE_PASSWORD` | CET keystore password                    |
+| `CET_ANDROID_KEY_ALIAS`          | CET key alias (e.g. `restoreassist-cet`) |
+| `CET_ANDROID_KEY_PASSWORD`       | CET key password                         |
 
 ### Existing secrets also needed by Android workflow
-| Secret | Where it's set |
-|--------|----------------|
-| `NEXTAUTH_SECRET` | Already in .env.local |
+
+| Secret              | Where it's set          |
+| ------------------- | ----------------------- |
+| `NEXTAUTH_SECRET`   | Already in .env.local   |
 | `DATABASE_URL_PROD` | Production database URL |
 
 ---
@@ -225,6 +237,7 @@ New Google Play accounts must run a closed test for **14 consecutive days** with
 **at least 12 opted-in testers** before the app can go live on the Play Store.
 
 **SE actions:**
+
 1. Create the app in Play Console (Production track → Release → Create new release)
 2. Upload the signed AAB to the **Closed Testing** track
 3. Set up a testing group with invite link

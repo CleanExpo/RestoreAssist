@@ -1,12 +1,19 @@
-"use client"
+"use client";
 
-import { ChevronDown, Mail, Phone, MessageSquare, BookOpen, Video } from "lucide-react"
-import { useState } from "react"
-import ReactMarkdown from "react-markdown"
-import { cn } from "@/lib/utils"
+import {
+  ChevronDown,
+  Mail,
+  Phone,
+  MessageSquare,
+  BookOpen,
+  Video,
+} from "lucide-react";
+import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { cn } from "@/lib/utils";
 
 export default function HelpPage() {
-  const [expandedFaq, setExpandedFaq] = useState<string | null>(null)
+  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
   const faqs = [
     {
@@ -81,7 +88,7 @@ export default function HelpPage() {
       answer:
         "The chatbot is available as a floating button in the bottom-right corner of all dashboard pages. Click it to open the chat window. The chatbot: (1) Answers questions specifically about Restore Assist features and workflows, (2) Guides you through the 8-step report creation process, (3) Explains how to use specific dashboard features, (4) Provides guidance on Australian restoration standards and compliance, (5) Stores all conversations in the database for history. The chatbot uses Anthropic Claude API and is specifically trained on Restore Assist features, not generic restoration advice.",
     },
-  ]
+  ];
 
   const supportChannels = [
     {
@@ -96,7 +103,7 @@ export default function HelpPage() {
       description: "Available in app",
       response: "Available 24/7",
     },
-  ]
+  ];
 
   const resources = [
     {
@@ -109,20 +116,29 @@ export default function HelpPage() {
       title: "Video Tutorials (Coming Soon)",
       description: "Step-by-step video guides",
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Help & Support</h1>
-        <p className={cn("text-neutral-600 dark:text-slate-400")}>Find answers and get support for Restore Assist</p>
+        <h1
+          className={cn(
+            "text-3xl font-semibold mb-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
+          Help & Support
+        </h1>
+        <p className={cn("text-neutral-600 dark:text-slate-400")}>
+          Find answers and get support for Restore Assist
+        </p>
       </div>
 
       {/* Support Channels */}
       <div className="grid md:grid-cols-3 gap-4">
         {supportChannels.map((channel, i) => {
-          const Icon = channel.icon
+          const Icon = channel.icon;
           return (
             <div
               key={i}
@@ -130,22 +146,46 @@ export default function HelpPage() {
                 "p-6 rounded-lg border transition-all",
                 "border-neutral-200 dark:border-slate-700/50",
                 "bg-white dark:bg-slate-800/30",
-                "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
+                "hover:bg-neutral-50 dark:hover:bg-slate-800/50",
               )}
             >
-              <Icon size={24} className="text-cyan-600 dark:text-cyan-400 mb-3" />
-              <h3 className={cn("font-semibold mb-1", "text-neutral-900 dark:text-white")}>{channel.title}</h3>
-              <p className={cn("text-sm mb-3", "text-neutral-600 dark:text-slate-400")}>{channel.description}</p>
-              <p className={cn("text-xs", "text-neutral-500 dark:text-slate-500")}>Response: {channel.response}</p>
+              <Icon
+                size={24}
+                className="text-cyan-600 dark:text-cyan-400 mb-3"
+              />
+              <h3
+                className={cn(
+                  "font-semibold mb-1",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {channel.title}
+              </h3>
+              <p
+                className={cn(
+                  "text-sm mb-3",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                {channel.description}
+              </p>
+              <p
+                className={cn(
+                  "text-xs",
+                  "text-neutral-500 dark:text-slate-500",
+                )}
+              >
+                Response: {channel.response}
+              </p>
             </div>
-          )
+          );
         })}
       </div>
 
       {/* Resources */}
       <div className="grid md:grid-cols-2 gap-4">
         {resources.map((resource, i) => {
-          const Icon = resource.icon
+          const Icon = resource.icon;
           return (
             <button
               key={i}
@@ -153,33 +193,71 @@ export default function HelpPage() {
                 "p-6 rounded-lg border transition-all text-left group",
                 "border-neutral-200 dark:border-slate-700/50",
                 "bg-white dark:bg-slate-800/30",
-                "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
+                "hover:bg-neutral-50 dark:hover:bg-slate-800/50",
               )}
             >
               <div className="flex items-center gap-3">
-                <Icon size={24} className="text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform shrink-0" />
+                <Icon
+                  size={24}
+                  className="text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform shrink-0"
+                />
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <h3 className={cn("font-semibold whitespace-nowrap", "text-neutral-900 dark:text-white")}>{resource.title}</h3>
-                  <p className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>- {resource.description}</p>
+                  <h3
+                    className={cn(
+                      "font-semibold whitespace-nowrap",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    {resource.title}
+                  </h3>
+                  <p
+                    className={cn(
+                      "text-sm",
+                      "text-neutral-600 dark:text-slate-400",
+                    )}
+                  >
+                    - {resource.description}
+                  </p>
                 </div>
               </div>
             </button>
-          )
+          );
         })}
       </div>
 
       {/* FAQs */}
-      <div className={cn("p-6 rounded-lg border", "border-neutral-200 dark:border-slate-700/50", "bg-white dark:bg-slate-800/30")}>
-        <h2 className={cn("text-2xl font-semibold mb-6", "text-neutral-900 dark:text-white")}>Frequently Asked Questions</h2>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "border-neutral-200 dark:border-slate-700/50",
+          "bg-white dark:bg-slate-800/30",
+        )}
+      >
+        <h2
+          className={cn(
+            "text-2xl font-semibold mb-6",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
+          Frequently Asked Questions
+        </h2>
         <div className="space-y-3">
           {faqs.map((faq) => (
-            <div key={faq.id} className={cn("border rounded-lg overflow-hidden", "border-neutral-200 dark:border-slate-700/50")}>
+            <div
+              key={faq.id}
+              className={cn(
+                "border rounded-lg overflow-hidden",
+                "border-neutral-200 dark:border-slate-700/50",
+              )}
+            >
               <button
-                onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                onClick={() =>
+                  setExpandedFaq(expandedFaq === faq.id ? null : faq.id)
+                }
                 className={cn(
                   "w-full p-4 flex items-center justify-between transition-colors text-left",
                   "hover:bg-neutral-50 dark:hover:bg-slate-700/30",
-                  "text-neutral-900 dark:text-white"
+                  "text-neutral-900 dark:text-white",
                 )}
               >
                 <span className="font-medium">{faq.question}</span>
@@ -189,16 +267,50 @@ export default function HelpPage() {
                 />
               </button>
               {expandedFaq === faq.id && (
-                <div className={cn("p-4 border-t", "bg-neutral-50 dark:bg-slate-700/20", "border-neutral-200 dark:border-slate-700/50")}>
-                  <div className={cn("prose prose-sm max-w-none", "text-neutral-700 dark:text-slate-300")}>
+                <div
+                  className={cn(
+                    "p-4 border-t",
+                    "bg-neutral-50 dark:bg-slate-700/20",
+                    "border-neutral-200 dark:border-slate-700/50",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "prose prose-sm max-w-none",
+                      "text-neutral-700 dark:text-slate-300",
+                    )}
+                  >
                     <ReactMarkdown
                       components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        strong: ({ children }) => <strong className={cn("font-semibold", "text-neutral-900 dark:text-white")}>{children}</strong>,
-                        em: ({ children }) => <em className="italic">{children}</em>,
-                        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1 ml-4">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1 ml-4">{children}</ol>,
-                        li: ({ children }) => <li className="ml-2">{children}</li>,
+                        p: ({ children }) => (
+                          <p className="mb-2 last:mb-0">{children}</p>
+                        ),
+                        strong: ({ children }) => (
+                          <strong
+                            className={cn(
+                              "font-semibold",
+                              "text-neutral-900 dark:text-white",
+                            )}
+                          >
+                            {children}
+                          </strong>
+                        ),
+                        em: ({ children }) => (
+                          <em className="italic">{children}</em>
+                        ),
+                        ul: ({ children }) => (
+                          <ul className="list-disc list-inside mb-2 space-y-1 ml-4">
+                            {children}
+                          </ul>
+                        ),
+                        ol: ({ children }) => (
+                          <ol className="list-decimal list-inside mb-2 space-y-1 ml-4">
+                            {children}
+                          </ol>
+                        ),
+                        li: ({ children }) => (
+                          <li className="ml-2">{children}</li>
+                        ),
                       }}
                     >
                       {faq.answer}
@@ -211,5 +323,5 @@ export default function HelpPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

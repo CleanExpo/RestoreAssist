@@ -49,7 +49,7 @@ export interface RenderVideoResult {
  * Voiceover is injected as an inputProp so the composition can reference it.
  */
 export async function renderVideo(
-  options: RenderVideoOptions
+  options: RenderVideoOptions,
 ): Promise<RenderVideoResult> {
   const {
     slug,
@@ -70,7 +70,7 @@ export async function renderVideo(
     selectComposition = renderer.selectComposition;
   } catch {
     throw new Error(
-      "@remotion/renderer is not installed. Run: npm install --save-dev @remotion/renderer remotion"
+      "@remotion/renderer is not installed. Run: npm install --save-dev @remotion/renderer remotion",
     );
   }
 
@@ -79,13 +79,13 @@ export async function renderVideo(
     bundle = bundler.bundle;
   } catch {
     throw new Error(
-      "@remotion/bundler is not installed. Run: npm install --save-dev @remotion/bundler"
+      "@remotion/bundler is not installed. Run: npm install --save-dev @remotion/bundler",
     );
   }
 
   const repoRoot = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
-    "../.."
+    "../..",
   );
 
   const outputDir =
@@ -102,7 +102,7 @@ export async function renderVideo(
   if (!fs.existsSync(voiceoverPath)) {
     throw new Error(
       `Voiceover file not found at ${voiceoverPath}. ` +
-        "Run the voiceover step first or pass --skip-voiceover."
+        "Run the voiceover step first or pass --skip-voiceover.",
     );
   }
 
@@ -113,7 +113,7 @@ export async function renderVideo(
     "D:/Claude-Code-Remotion/RestoreAssist";
 
   console.log(
-    `[render] Bundling Remotion project from ${remotionBundleSrc}...`
+    `[render] Bundling Remotion project from ${remotionBundleSrc}...`,
   );
 
   const bundleLocation = await bundle({
@@ -131,7 +131,7 @@ export async function renderVideo(
   };
 
   console.log(
-    `[render] Selecting composition ${compositionId} (${durationInFrames} frames @ ${fps}fps)...`
+    `[render] Selecting composition ${compositionId} (${durationInFrames} frames @ ${fps}fps)...`,
   );
 
   const composition = await selectComposition({
@@ -158,7 +158,7 @@ export async function renderVideo(
         ? Math.round((renderedFrames / totalFrames) * 100)
         : 0;
       process.stdout.write(
-        `\r[render] Rendering frame ${renderedFrames}/${totalFrames} (${pct}%)`
+        `\r[render] Rendering frame ${renderedFrames}/${totalFrames} (${pct}%)`,
       );
     },
   });
