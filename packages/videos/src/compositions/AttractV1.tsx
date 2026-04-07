@@ -15,15 +15,16 @@ import {
 } from "remotion";
 import { PremiumScene } from "../components/premium";
 
-// ─── Scene timing (total = 2010f = 67s @ 30fps) ──────────────────────────────
-// Visual cuts are independent of audio — narration flows continuously across scenes.
-const S1 = { from: 0, dur: 270 }; //  9.0s — Hook
-const S2 = { from: 270, dur: 300 }; // 10.0s — Problem
-const S3 = { from: 570, dur: 435 }; // 14.5s — AI Scope
-const S4 = { from: 1005, dur: 390 }; // 13.0s — Compliance
-const S5 = { from: 1395, dur: 300 }; // 10.0s — Evidence
-const S6 = { from: 1695, dur: 315 }; // 10.5s — CTA
-const TOTAL = S6.from + S6.dur; // 2010f = 67s ✓
+// ─── Scene timing (total = 2310f = 77s @ 30fps) ──────────────────────────────
+// Scaled to match slowed VO (75.7s audio + 1.3s buffer).
+// Visual cuts are independent of audio — narration flows continuously.
+const S1 = { from: 0, dur: 310 }; // 10.3s — Hook
+const S2 = { from: 310, dur: 345 }; // 11.5s — Problem
+const S3 = { from: 655, dur: 500 }; // 16.7s — AI Scope
+const S4 = { from: 1155, dur: 450 }; // 15.0s — Compliance
+const S5 = { from: 1605, dur: 345 }; // 11.5s — Evidence
+const S6 = { from: 1950, dur: 360 }; // 12.0s — CTA
+const TOTAL = S6.from + S6.dur; // 2310f = 77s ✓
 
 // bgOffset per scene so each scene's background shows different workflow steps
 const BG_OFFSETS = [0, 180, 360, 540, 720, 900];
@@ -73,7 +74,7 @@ export const AttractV1: React.FC = () => {
       {/* ── Scene 2: The Problem ─────────────────────────────────────────── */}
       <Sequence from={S2.from} durationInFrames={S2.dur} name="S2: Problem">
         <PremiumScene
-          screenshotPath="screenshots/real/scope.png"
+          screenshotPath="screenshots/real/moisture.png"
           label="The Problem"
           headline={"Three hours of\npaperwork.\nPer job."}
           body="Manual scopes. Disputed claims. Moisture readings on paper, typed up later. Data split across phones, emails, and spreadsheets. Your team deserves better."

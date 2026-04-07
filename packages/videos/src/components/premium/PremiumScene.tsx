@@ -98,7 +98,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
   return (
     <AbsoluteFill
       style={{
-        background: "#09090B",
+        background: "#1C1C1E",
         fontFamily: "Inter, -apple-system, sans-serif",
       }}
     >
@@ -110,8 +110,8 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
         style={{
           background:
             variant === "split"
-              ? "linear-gradient(105deg, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.72) 45%, rgba(9,9,11,0.30) 100%)"
-              : "radial-gradient(ellipse 110% 90% at 50% 50%, rgba(9,9,11,0.75) 0%, rgba(9,9,11,0.88) 100%)",
+              ? "linear-gradient(105deg, rgba(28,28,30,0.92) 0%, rgba(28,28,30,0.72) 45%, rgba(28,28,30,0.30) 100%)"
+              : "radial-gradient(ellipse 110% 90% at 50% 50%, rgba(28,28,30,0.75) 0%, rgba(28,28,30,0.88) 100%)",
           pointerEvents: "none",
         }}
       />
@@ -385,14 +385,14 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
       {/* ── Enter fade (black → transparent) ─────────────────────────────── */}
       <AbsoluteFill
         style={{
-          backgroundColor: `rgba(9,9,11,${1 - enterOpacity})`,
+          backgroundColor: `rgba(28,28,30,${1 - enterOpacity})`,
           pointerEvents: "none",
         }}
       />
       {/* ── Exit fade (transparent → black) ──────────────────────────────── */}
       <AbsoluteFill
         style={{
-          backgroundColor: `rgba(9,9,11,${exitOpacity})`,
+          backgroundColor: `rgba(28,28,30,${exitOpacity})`,
           pointerEvents: "none",
         }}
       />
