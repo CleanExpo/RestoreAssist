@@ -58,7 +58,7 @@ export default function Footer({ darkMode }: FooterProps) {
         </svg>
       </div>
       <div className="max-w-7xl mx-auto relative z-10">
-        <motion.h2
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -70,7 +70,7 @@ export default function Footer({ darkMode }: FooterProps) {
           }}
         >
           {BRAND.slogan}
-        </motion.h2>
+        </motion.p>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
