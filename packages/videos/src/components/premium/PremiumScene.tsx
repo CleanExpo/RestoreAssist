@@ -1,6 +1,6 @@
 // packages/videos/src/components/premium/PremiumScene.tsx
 // Core 3-layer scene: workflow bg → gradient overlay → floating card + text.
-// Apple/Stripe/Linear aesthetic: clean type, perspective card entrance, dark base.
+// Platinum aesthetic: light silvery base (#E5E4E2), dark card, dark text, blue accents.
 import React from "react";
 import {
   AbsoluteFill,
@@ -27,6 +27,15 @@ export interface PremiumSceneProps {
   variant?: "split" | "center";
   ctaUrl?: string;
 }
+
+// ─── Platinum colour palette ──────────────────────────────────────────────────
+const BG = "#E5E4E2"; // platinum silver
+const BG_RGB = "229,228,226"; // same as rgba()
+const HEADLINE = "#0F0F0F"; // near-black
+const BODY = "rgba(15,15,15,0.68)";
+const ACCENT = "#1D4ED8"; // blue-700 — pops on light bg
+const ACCENT_LIGHT = "#2563EB"; // blue-600
+const DIVIDER = "rgba(0,0,0,0.12)";
 
 export const PremiumScene: React.FC<PremiumSceneProps> = ({
   screenshotPath,
@@ -86,32 +95,32 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
     extrapolateRight: "clamp",
   });
 
-  // Subtle accent line width animation
+  // Accent line width animation
   const accentLineWidth = interpolate(frame, [6, 24], [0, 28], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Card glow pulse for centered variant
+  // URL pill glow pulse
   const glowPulse = 0.5 + 0.5 * Math.sin((frame * Math.PI) / 55);
 
   return (
     <AbsoluteFill
       style={{
-        background: "#1C1C1E",
+        background: BG,
         fontFamily: "Inter, -apple-system, sans-serif",
       }}
     >
-      {/* ── Layer 1: Workflow background (25% opacity, Ken Burns, crossfade) ── */}
-      <WorkflowBackground opacity={0.45} startOffset={bgOffset} />
+      {/* ── Layer 1: Workflow background — dark app UI at 30% on platinum ── */}
+      <WorkflowBackground opacity={0.3} startOffset={bgOffset} />
 
-      {/* ── Layer 2: Directional gradient — heavier on left to protect text ── */}
+      {/* ── Layer 2: Directional gradient — protects text readability ─────── */}
       <AbsoluteFill
         style={{
           background:
             variant === "split"
-              ? "linear-gradient(105deg, rgba(28,28,30,0.92) 0%, rgba(28,28,30,0.72) 45%, rgba(28,28,30,0.30) 100%)"
-              : "radial-gradient(ellipse 110% 90% at 50% 50%, rgba(28,28,30,0.75) 0%, rgba(28,28,30,0.88) 100%)",
+              ? `linear-gradient(105deg, rgba(${BG_RGB},0.94) 0%, rgba(${BG_RGB},0.70) 48%, rgba(${BG_RGB},0.18) 100%)`
+              : `radial-gradient(ellipse 110% 90% at 50% 50%, rgba(${BG_RGB},0.82) 0%, rgba(${BG_RGB},0.92) 100%)`,
           pointerEvents: "none",
         }}
       />
@@ -127,7 +136,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
             opacity: enterOpacity,
           }}
         >
-          {/* LEFT: Floating product screenshot card */}
+          {/* LEFT: Floating product screenshot card — dark on platinum */}
           <div
             style={{
               flex: "0 0 54%",
@@ -141,7 +150,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                 borderRadius: 18,
                 overflow: "hidden",
                 boxShadow:
-                  "0 0 0 1px rgba(255,255,255,0.07), 0 40px 120px rgba(0,0,0,0.75), 0 8px 32px rgba(0,0,0,0.45)",
+                  "0 0 0 1px rgba(0,0,0,0.08), 0 40px 100px rgba(0,0,0,0.28), 0 8px 32px rgba(0,0,0,0.18)",
                 transform: `perspective(1400px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${cardScale}) translateY(${cardY}px)`,
                 transformOrigin: "center center",
                 width: "100%",
@@ -153,16 +162,16 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                 src={staticFile(screenshotPath)}
                 style={{ width: "100%", display: "block" }}
               />
-              {/* Subtle glass gloss over card top edge */}
+              {/* Subtle gloss on card top edge */}
               <div
                 style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
                   right: 0,
-                  height: "35%",
+                  height: "30%",
                   background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%)",
+                    "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%)",
                   pointerEvents: "none",
                 }}
               />
@@ -191,7 +200,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                 style={{
                   width: accentLineWidth,
                   height: 2,
-                  background: "linear-gradient(90deg, #60A5FA, #3B82F6)",
+                  background: `linear-gradient(90deg, ${ACCENT}, ${ACCENT_LIGHT})`,
                   borderRadius: 2,
                   flexShrink: 0,
                 }}
@@ -202,7 +211,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                   fontWeight: 600,
                   letterSpacing: "0.16em",
                   textTransform: "uppercase" as const,
-                  color: "#60A5FA",
+                  color: ACCENT,
                 }}
               >
                 {label}
@@ -214,7 +223,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
               style={{
                 fontSize: 50,
                 fontWeight: 700,
-                color: "#F8FAFC",
+                color: HEADLINE,
                 lineHeight: 1.1,
                 letterSpacing: "-0.025em",
                 margin: 0,
@@ -231,7 +240,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
               style={{
                 width: 40,
                 height: 1,
-                background: "rgba(255,255,255,0.12)",
+                background: DIVIDER,
                 opacity: bodyOpacity,
               }}
             />
@@ -241,7 +250,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
               style={{
                 fontSize: 18,
                 fontWeight: 400,
-                color: "rgba(248,250,252,0.56)",
+                color: BODY,
                 lineHeight: 1.75,
                 margin: 0,
                 opacity: bodyOpacity,
@@ -289,8 +298,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
               style={{
                 width: accentLineWidth,
                 height: 2,
-                background:
-                  "linear-gradient(90deg, transparent, #60A5FA, transparent)",
+                background: `linear-gradient(90deg, transparent, ${ACCENT_LIGHT}, transparent)`,
                 borderRadius: 2,
                 flexShrink: 0,
               }}
@@ -301,7 +309,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                 fontWeight: 600,
                 letterSpacing: "0.18em",
                 textTransform: "uppercase" as const,
-                color: "#60A5FA",
+                color: ACCENT,
               }}
             >
               {label}
@@ -310,7 +318,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
               style={{
                 width: accentLineWidth,
                 height: 2,
-                background: "linear-gradient(90deg, #60A5FA, transparent)",
+                background: `linear-gradient(90deg, ${ACCENT_LIGHT}, transparent)`,
                 borderRadius: 2,
                 flexShrink: 0,
               }}
@@ -322,7 +330,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
             style={{
               fontSize: 64,
               fontWeight: 700,
-              color: "#F8FAFC",
+              color: HEADLINE,
               lineHeight: 1.08,
               letterSpacing: "-0.03em",
               margin: 0,
@@ -340,7 +348,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
             style={{
               fontSize: 20,
               fontWeight: 400,
-              color: "rgba(248,250,252,0.58)",
+              color: BODY,
               lineHeight: 1.65,
               margin: 0,
               textAlign: "center",
@@ -358,9 +366,9 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                 marginTop: 8,
                 padding: "14px 36px",
                 borderRadius: 100,
-                background: "rgba(96,165,250,0.12)",
-                border: "1px solid rgba(96,165,250,0.30)",
-                boxShadow: `0 0 ${24 + 12 * glowPulse}px rgba(96,165,250,0.20)`,
+                background: `rgba(29,78,216,0.08)`,
+                border: `1px solid rgba(29,78,216,0.30)`,
+                boxShadow: `0 0 ${20 + 10 * glowPulse}px rgba(29,78,216,0.18)`,
                 opacity: urlOpacity,
               }}
             >
@@ -368,7 +376,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
                 style={{
                   fontSize: 22,
                   fontWeight: 600,
-                  color: "#93C5FD",
+                  color: ACCENT,
                   letterSpacing: "0.01em",
                 }}
               >
@@ -382,17 +390,17 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
       {/* ── Audio (only if a per-scene src is provided) ───────────────────── */}
       {audioSrc && <Audio src={staticFile(audioSrc)} volume={1} />}
 
-      {/* ── Enter fade (black → transparent) ─────────────────────────────── */}
+      {/* ── Enter fade (platinum → transparent) ──────────────────────────── */}
       <AbsoluteFill
         style={{
-          backgroundColor: `rgba(28,28,30,${1 - enterOpacity})`,
+          backgroundColor: `rgba(${BG_RGB},${1 - enterOpacity})`,
           pointerEvents: "none",
         }}
       />
-      {/* ── Exit fade (transparent → black) ──────────────────────────────── */}
+      {/* ── Exit fade (transparent → platinum) ───────────────────────────── */}
       <AbsoluteFill
         style={{
-          backgroundColor: `rgba(28,28,30,${exitOpacity})`,
+          backgroundColor: `rgba(${BG_RGB},${exitOpacity})`,
           pointerEvents: "none",
         }}
       />

@@ -15,16 +15,16 @@ import {
 } from "remotion";
 import { PremiumScene } from "../components/premium";
 
-// ─── Scene timing (total = 2310f = 77s @ 30fps) ──────────────────────────────
-// Scaled to match slowed VO (75.7s audio + 1.3s buffer).
+// ─── Scene timing (total = 1950f = 65s @ 30fps) ──────────────────────────────
+// Matched to 63.5s VO at 90% speed + 1.5s buffer.
 // Visual cuts are independent of audio — narration flows continuously.
-const S1 = { from: 0, dur: 310 }; // 10.3s — Hook
-const S2 = { from: 310, dur: 345 }; // 11.5s — Problem
-const S3 = { from: 655, dur: 500 }; // 16.7s — AI Scope
-const S4 = { from: 1155, dur: 450 }; // 15.0s — Compliance
-const S5 = { from: 1605, dur: 345 }; // 11.5s — Evidence
-const S6 = { from: 1950, dur: 360 }; // 12.0s — CTA
-const TOTAL = S6.from + S6.dur; // 2310f = 77s ✓
+const S1 = { from: 0, dur: 270 }; //  9.0s — Hook
+const S2 = { from: 270, dur: 285 }; //  9.5s — Problem
+const S3 = { from: 555, dur: 405 }; // 13.5s — AI Scope
+const S4 = { from: 960, dur: 375 }; // 12.5s — Compliance
+const S5 = { from: 1335, dur: 270 }; //  9.0s — Evidence
+const S6 = { from: 1605, dur: 345 }; // 11.5s — CTA
+const TOTAL = S6.from + S6.dur; // 1950f = 65s ✓
 
 // bgOffset per scene so each scene's background shows different workflow steps
 const BG_OFFSETS = [0, 180, 360, 540, 720, 900];
@@ -74,7 +74,7 @@ export const AttractV1: React.FC = () => {
       {/* ── Scene 2: The Problem ─────────────────────────────────────────── */}
       <Sequence from={S2.from} durationInFrames={S2.dur} name="S2: Problem">
         <PremiumScene
-          screenshotPath="screenshots/real/moisture.png"
+          screenshotPath="screenshots/real/invoice.png"
           label="The Problem"
           headline={"Three hours of\npaperwork.\nPer job."}
           body="Manual scopes. Disputed claims. Moisture readings on paper, typed up later. Data split across phones, emails, and spreadsheets. Your team deserves better."
@@ -107,7 +107,7 @@ export const AttractV1: React.FC = () => {
       {/* ── Scene 5: Evidence ────────────────────────────────────────────── */}
       <Sequence from={S5.from} durationInFrames={S5.dur} name="S5: Evidence">
         <PremiumScene
-          screenshotPath="screenshots/real/report.png"
+          screenshotPath="screenshots/real/moisture.png"
           label="Court-Ready Evidence"
           headline={"Captured on site.\nNot assembled\nfrom memory."}
           body="Timestamped photos, moisture readings, and classifications recorded during inspection — not pieced together afterward. Documentation that insurers accept without dispute."
