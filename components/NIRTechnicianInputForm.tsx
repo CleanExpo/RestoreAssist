@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { 
-  Thermometer, 
-  Droplets, 
-  MapPin, 
-  Camera, 
-  CheckCircle, 
+import { useState, useEffect } from "react";
+import {
+  Thermometer,
+  Droplets,
+  MapPin,
+  Camera,
+  CheckCircle,
   AlertCircle,
   Plus,
   X,
@@ -21,26 +21,26 @@ import {
   Map,
   Shield,
   Zap,
-  Eye
-} from "lucide-react"
-import toast from "react-hot-toast"
-import { cn } from "@/lib/utils"
-import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas"
-import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion"
+  Eye,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { cn } from "@/lib/utils";
+import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 
 interface NIRTechnicianInputFormProps {
-  reportId?: string
+  reportId?: string;
   /** Pre-fill form from guided interview (e.g. interviewData from URL) */
-  initialData?: Record<string, unknown>
-  onComplete?: (inspectionId: string) => void
-  onCancel?: () => void
+  initialData?: Record<string, unknown>;
+  onComplete?: (inspectionId: string) => void;
+  onCancel?: () => void;
 }
 
 // Surface types for moisture readings (dropdown only)
@@ -54,15 +54,11 @@ const SURFACE_TYPES = [
   "Hardwood",
   "Particle Board",
   "Plaster",
-  "Other"
-]
+  "Other",
+];
 
 // Water source types (dropdown only)
-const WATER_SOURCES = [
-  "Clean Water",
-  "Grey Water",
-  "Black Water"
-]
+const WATER_SOURCES = ["Clean Water", "Grey Water", "Black Water"];
 
 // Common room types for room picker
 const ROOM_TYPES = [
@@ -81,8 +77,8 @@ const ROOM_TYPES = [
   "Basement",
   "Office",
   "Study",
-  "Other"
-]
+  "Other",
+];
 
 // Material types for affected areas
 const MATERIAL_TYPES = [
@@ -98,8 +94,8 @@ const MATERIAL_TYPES = [
   "Insulation",
   "Ceiling",
   "Baseboards",
-  "Other"
-]
+  "Other",
+];
 
 // Scope item types (checklist/dropdown only)
 const SCOPE_ITEM_TYPES = [
@@ -112,8 +108,8 @@ const SCOPE_ITEM_TYPES = [
   { id: "apply_antimicrobial", label: "Apply Antimicrobial Treatment" },
   { id: "dry_out_structure", label: "Dry Out Structure" },
   { id: "containment_setup", label: "Containment Setup" },
-  { id: "ppe_required", label: "PPE Required" }
-]
+  { id: "ppe_required", label: "PPE Required" },
+];
 
 // Equipment types for scope items
 const EQUIPMENT_TYPES = [
@@ -124,90 +120,126 @@ const EQUIPMENT_TYPES = [
   "Air Scrubber",
   "Thermal Imaging Camera",
   "Moisture Meter",
-  "Other"
-]
+  "Other",
+];
 
 // Water Category options for classification UI
 const WATER_CATEGORIES = [
-  { value: "1", label: "Category 1 - Clean Water", description: "Sanitary source, no contamination risk" },
-  { value: "2", label: "Category 2 - Gray Water", description: "Significant contamination, may cause discomfort or sickness" },
-  { value: "3", label: "Category 3 - Black Water", description: "Grossly contaminated, pathogenic agents present" }
-]
+  {
+    value: "1",
+    label: "Category 1 - Clean Water",
+    description: "Sanitary source, no contamination risk",
+  },
+  {
+    value: "2",
+    label: "Category 2 - Gray Water",
+    description: "Significant contamination, may cause discomfort or sickness",
+  },
+  {
+    value: "3",
+    label: "Category 3 - Black Water",
+    description: "Grossly contaminated, pathogenic agents present",
+  },
+];
 
 // Water Class options for classification UI
 const WATER_CLASSES = [
-  { value: "1", label: "Class 1 - Slow Rate of Evaporation", description: "Minimal water absorption, low evaporation load" },
-  { value: "2", label: "Class 2 - Fast Rate of Evaporation", description: "Water absorption into materials, moderate evaporation load" },
-  { value: "3", label: "Class 3 - Fastest Rate of Evaporation", description: "Water absorption from overhead, high evaporation load" },
-  { value: "4", label: "Class 4 - Specialty Drying Situations", description: "Deep water absorption, specialty drying required" }
-]
+  {
+    value: "1",
+    label: "Class 1 - Slow Rate of Evaporation",
+    description: "Minimal water absorption, low evaporation load",
+  },
+  {
+    value: "2",
+    label: "Class 2 - Fast Rate of Evaporation",
+    description: "Water absorption into materials, moderate evaporation load",
+  },
+  {
+    value: "3",
+    label: "Class 3 - Fastest Rate of Evaporation",
+    description: "Water absorption from overhead, high evaporation load",
+  },
+  {
+    value: "4",
+    label: "Class 4 - Specialty Drying Situations",
+    description: "Deep water absorption, specialty drying required",
+  },
+];
 
-export default function NIRTechnicianInputForm({ 
-  reportId, 
+export default function NIRTechnicianInputForm({
+  reportId,
   initialData,
   onComplete,
-  onCancel 
+  onCancel,
 }: NIRTechnicianInputFormProps) {
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [inspectionId, setInspectionId] = useState<string | null>(null)
-  
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [inspectionId, setInspectionId] = useState<string | null>(null);
+
   // Environmental Data
   const [environmentalData, setEnvironmentalData] = useState({
     ambientTemperature: 25,
     humidityLevel: 60,
     dewPoint: 0,
     airCirculation: false,
-    weatherConditions: ""
-  })
-  
+    weatherConditions: "",
+  });
+
   // Moisture Readings
-  const [moistureReadings, setMoistureReadings] = useState<Array<{
-    id: string
-    location: string
-    surfaceType: string
-    moistureLevel: number
-    depth: "Surface" | "Subsurface"
-  }>>([])
-  
+  const [moistureReadings, setMoistureReadings] = useState<
+    Array<{
+      id: string;
+      location: string;
+      surfaceType: string;
+      moistureLevel: number;
+      depth: "Surface" | "Subsurface";
+    }>
+  >([]);
+
   // Moisture Mapping (Visual Floor Plan)
-  const [moistureMapPoints, setMoistureMapPoints] = useState<Array<{
-    id: string
-    x: number
-    y: number
-    reading: {
-      id: string
-      location: string
-      surfaceType: string
-      moistureLevel: number
-      depth: string
-      notes: string | null
-    }
-  }>>([])
-  const [floorPlanImageUrl, setFloorPlanImageUrl] = useState<string | null>(null)
-  
+  const [moistureMapPoints, setMoistureMapPoints] = useState<
+    Array<{
+      id: string;
+      x: number;
+      y: number;
+      reading: {
+        id: string;
+        location: string;
+        surfaceType: string;
+        moistureLevel: number;
+        depth: string;
+        notes: string | null;
+      };
+    }>
+  >([]);
+  const [floorPlanImageUrl, setFloorPlanImageUrl] = useState<string | null>(
+    null,
+  );
+
   const [newMoistureReading, setNewMoistureReading] = useState({
     location: "",
     surfaceType: SURFACE_TYPES[0],
     moistureLevel: 0,
-    depth: "Surface" as "Surface" | "Subsurface"
-  })
-  
+    depth: "Surface" as "Surface" | "Subsurface",
+  });
+
   // Affected Areas
-  const [affectedAreas, setAffectedAreas] = useState<Array<{
-    id: string
-    roomZoneId: string
-    roomType: string
-    customRoomName?: string
-    length: number
-    width: number
-    height: number
-    affectedSquareFootage: number
-    materials: string[]
-    waterSource: string
-    timeSinceLoss: number
-  }>>([])
-  
+  const [affectedAreas, setAffectedAreas] = useState<
+    Array<{
+      id: string;
+      roomZoneId: string;
+      roomType: string;
+      customRoomName?: string;
+      length: number;
+      width: number;
+      height: number;
+      affectedSquareFootage: number;
+      materials: string[];
+      waterSource: string;
+      timeSinceLoss: number;
+    }>
+  >([]);
+
   const [newAffectedArea, setNewAffectedArea] = useState({
     roomType: ROOM_TYPES[0],
     customRoomName: "",
@@ -217,90 +249,105 @@ export default function NIRTechnicianInputForm({
     affectedSquareFootage: 0,
     materials: [] as string[],
     waterSource: WATER_SOURCES[0],
-    timeSinceLoss: 0
-  })
-  
+    timeSinceLoss: 0,
+  });
+
   // Scope Items (checklist)
-  const [selectedScopeItems, setSelectedScopeItems] = useState<Set<string>>(new Set())
-  const [scopeItemSpecs, setScopeItemSpecs] = useState<Record<string, string>>({})
-  
+  const [selectedScopeItems, setSelectedScopeItems] = useState<Set<string>>(
+    new Set(),
+  );
+  const [scopeItemSpecs, setScopeItemSpecs] = useState<Record<string, string>>(
+    {},
+  );
+
   // Manual Classification (optional override)
   const [manualClassification, setManualClassification] = useState<{
-    category: string
-    class: string
-  } | null>(null)
+    category: string;
+    class: string;
+  } | null>(null);
 
   // Damage description — feeds the auto-classifier
-  const [damageDescription, setDamageDescription] = useState('')
+  const [damageDescription, setDamageDescription] = useState("");
 
   // Equipment Selection
-  const [equipmentSelection, setEquipmentSelection] = useState<Array<{
-    id: string
-    type: string
-    quantity: number
-  }>>([])
-  
+  const [equipmentSelection, setEquipmentSelection] = useState<
+    Array<{
+      id: string;
+      type: string;
+      quantity: number;
+    }>
+  >([]);
+
   const [newEquipment, setNewEquipment] = useState({
     type: "Air Mover",
-    quantity: 1
-  })
-  
+    quantity: 1,
+  });
+
   // Drying Duration
-  const [dryingDuration, setDryingDuration] = useState(4) // days
-  
+  const [dryingDuration, setDryingDuration] = useState(4); // days
+
   // Photos - Store uploaded photo URLs from Cloudinary
-  const [photos, setPhotos] = useState<Array<{ id: string; url: string; file: File | null; uploading?: boolean }>>([])
-  const [uploadingPhotos, setUploadingPhotos] = useState(false)
-  
+  const [photos, setPhotos] = useState<
+    Array<{ id: string; url: string; file: File | null; uploading?: boolean }>
+  >([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+
   // Property Address (required)
-  const [propertyAddress, setPropertyAddress] = useState("")
-  const [propertyPostcode, setPropertyPostcode] = useState("")
-  const [technicianName, setTechnicianName] = useState("")
-  
+  const [propertyAddress, setPropertyAddress] = useState("");
+  const [propertyPostcode, setPropertyPostcode] = useState("");
+  const [technicianName, setTechnicianName] = useState("");
+
   // Validation state
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
-  
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
+
   // Review/Summary step
-  const [showReview, setShowReview] = useState(false)
-  
+  const [showReview, setShowReview] = useState(false);
+
   // Quick Fill feature
-  const [showQuickFillModal, setShowQuickFillModal] = useState(false)
-  const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null)
-  const [hasUnlimitedQuickFill, setHasUnlimitedQuickFill] = useState(false)
-  const [loadingCredits, setLoadingCredits] = useState(false)
-  
+  const [showQuickFillModal, setShowQuickFillModal] = useState(false);
+  const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null);
+  const [hasUnlimitedQuickFill, setHasUnlimitedQuickFill] = useState(false);
+  const [loadingCredits, setLoadingCredits] = useState(false);
+
   // Quick Fill Use Cases for NIR
   const nirUseCases = [
     {
       id: "residential-burst-pipe",
       name: "Residential Burst Pipe",
-      description: "Standard residential water damage from burst pipe affecting master bedroom and ensuite"
+      description:
+        "Standard residential water damage from burst pipe affecting master bedroom and ensuite",
     },
     {
       id: "commercial-hvac-failure",
       name: "Commercial HVAC Failure",
-      description: "Large-scale commercial office water damage from HVAC system failure"
+      description:
+        "Large-scale commercial office water damage from HVAC system failure",
     },
     {
       id: "mould-remediation",
       name: "Mould Remediation",
-      description: "Residential property with extensive mould growth due to long-term moisture"
+      description:
+        "Residential property with extensive mould growth due to long-term moisture",
     },
     {
       id: "storm-damage",
       name: "Storm Damage - Roof Leak",
-      description: "Residential property with water damage from severe storm causing roof penetration"
+      description:
+        "Residential property with water damage from severe storm causing roof penetration",
     },
     {
       id: "flood-damage",
       name: "Flood Damage - Category 3",
-      description: "Severe flood damage from overflowing river affecting ground floor"
-    }
-  ]
-  
+      description:
+        "Severe flood damage from overflowing river affecting ground floor",
+    },
+  ];
+
   const populateQuickFillData = (useCaseId: string) => {
-    let useCaseData: any = {}
-    
+    let useCaseData: any = {};
+
     switch (useCaseId) {
       case "residential-burst-pipe":
         useCaseData = {
@@ -311,13 +358,37 @@ export default function NIRTechnicianInputForm({
             ambientTemperature: 22,
             humidityLevel: 65,
             dewPoint: 15.2,
-            airCirculation: true
+            airCirculation: true,
           },
           moistureReadings: [
-            { id: Date.now().toString(), location: "Master Bedroom - Floor", surfaceType: "Carpet", moistureLevel: 45.5, depth: "Surface" },
-            { id: (Date.now() + 1).toString(), location: "Master Bedroom - Wall", surfaceType: "Drywall", moistureLevel: 38.2, depth: "Subsurface" },
-            { id: (Date.now() + 2).toString(), location: "Ensuite - Floor", surfaceType: "Tile", moistureLevel: 52.1, depth: "Surface" },
-            { id: (Date.now() + 3).toString(), location: "Ensuite - Wall", surfaceType: "Drywall", moistureLevel: 41.8, depth: "Subsurface" }
+            {
+              id: Date.now().toString(),
+              location: "Master Bedroom - Floor",
+              surfaceType: "Carpet",
+              moistureLevel: 45.5,
+              depth: "Surface",
+            },
+            {
+              id: (Date.now() + 1).toString(),
+              location: "Master Bedroom - Wall",
+              surfaceType: "Drywall",
+              moistureLevel: 38.2,
+              depth: "Subsurface",
+            },
+            {
+              id: (Date.now() + 2).toString(),
+              location: "Ensuite - Floor",
+              surfaceType: "Tile",
+              moistureLevel: 52.1,
+              depth: "Surface",
+            },
+            {
+              id: (Date.now() + 3).toString(),
+              location: "Ensuite - Wall",
+              surfaceType: "Drywall",
+              moistureLevel: 41.8,
+              depth: "Subsurface",
+            },
           ],
           affectedAreas: [
             {
@@ -330,7 +401,7 @@ export default function NIRTechnicianInputForm({
               affectedSquareFootage: 22.0,
               materials: ["Carpet", "Drywall"],
               waterSource: "Clean Water",
-              timeSinceLoss: 24
+              timeSinceLoss: 24,
             },
             {
               id: (Date.now() + 1).toString(),
@@ -342,17 +413,29 @@ export default function NIRTechnicianInputForm({
               affectedSquareFootage: 7.5,
               materials: ["Tile", "Drywall"],
               waterSource: "Clean Water",
-              timeSinceLoss: 24
-            }
+              timeSinceLoss: 24,
+            },
           ],
-          selectedScopeItems: new Set(["remove_carpet", "extract_standing_water", "install_dehumidification", "install_air_movers", "demolish_drywall", "apply_antimicrobial", "dry_out_structure"]),
+          selectedScopeItems: new Set([
+            "remove_carpet",
+            "extract_standing_water",
+            "install_dehumidification",
+            "install_air_movers",
+            "demolish_drywall",
+            "apply_antimicrobial",
+            "dry_out_structure",
+          ]),
           equipmentSelection: [
-            { id: Date.now().toString(), type: "LGR Dehumidifier", quantity: 2 },
-            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 4 }
+            {
+              id: Date.now().toString(),
+              type: "LGR Dehumidifier",
+              quantity: 2,
+            },
+            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 4 },
           ],
-          dryingDuration: 4
-        }
-        break
+          dryingDuration: 4,
+        };
+        break;
       case "commercial-hvac-failure":
         useCaseData = {
           propertyAddress: "456 Business Park Drive, Melbourne VIC 3000",
@@ -362,12 +445,30 @@ export default function NIRTechnicianInputForm({
             ambientTemperature: 24,
             humidityLevel: 70,
             dewPoint: 18.1,
-            airCirculation: false
+            airCirculation: false,
           },
           moistureReadings: [
-            { id: Date.now().toString(), location: "3rd Floor - Office Area - Ceiling", surfaceType: "Drywall", moistureLevel: 58.3, depth: "Subsurface" },
-            { id: (Date.now() + 1).toString(), location: "3rd Floor - Server Room - Floor", surfaceType: "Concrete", moistureLevel: 42.1, depth: "Surface" },
-            { id: (Date.now() + 2).toString(), location: "2nd Floor - Office Area - Wall", surfaceType: "Drywall", moistureLevel: 35.7, depth: "Subsurface" }
+            {
+              id: Date.now().toString(),
+              location: "3rd Floor - Office Area - Ceiling",
+              surfaceType: "Drywall",
+              moistureLevel: 58.3,
+              depth: "Subsurface",
+            },
+            {
+              id: (Date.now() + 1).toString(),
+              location: "3rd Floor - Server Room - Floor",
+              surfaceType: "Concrete",
+              moistureLevel: 42.1,
+              depth: "Surface",
+            },
+            {
+              id: (Date.now() + 2).toString(),
+              location: "2nd Floor - Office Area - Wall",
+              surfaceType: "Drywall",
+              moistureLevel: 35.7,
+              depth: "Subsurface",
+            },
           ],
           affectedAreas: [
             {
@@ -381,17 +482,28 @@ export default function NIRTechnicianInputForm({
               affectedSquareFootage: 150.0,
               materials: ["Drywall", "Carpet"],
               waterSource: "Clean Water",
-              timeSinceLoss: 12
-            }
+              timeSinceLoss: 12,
+            },
           ],
-          selectedScopeItems: new Set(["extract_standing_water", "install_dehumidification", "install_air_movers", "demolish_drywall", "containment_setup", "ppe_required"]),
+          selectedScopeItems: new Set([
+            "extract_standing_water",
+            "install_dehumidification",
+            "install_air_movers",
+            "demolish_drywall",
+            "containment_setup",
+            "ppe_required",
+          ]),
           equipmentSelection: [
-            { id: Date.now().toString(), type: "LGR Dehumidifier", quantity: 3 },
-            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 8 }
+            {
+              id: Date.now().toString(),
+              type: "LGR Dehumidifier",
+              quantity: 3,
+            },
+            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 8 },
           ],
-          dryingDuration: 7
-        }
-        break
+          dryingDuration: 7,
+        };
+        break;
       case "mould-remediation":
         useCaseData = {
           propertyAddress: "789 Oak Street, Brisbane QLD 4000",
@@ -401,12 +513,30 @@ export default function NIRTechnicianInputForm({
             ambientTemperature: 26,
             humidityLevel: 75,
             dewPoint: 21.2,
-            airCirculation: false
+            airCirculation: false,
           },
           moistureReadings: [
-            { id: Date.now().toString(), location: "Bathroom - Wall Behind Shower", surfaceType: "Drywall", moistureLevel: 62.4, depth: "Subsurface" },
-            { id: (Date.now() + 1).toString(), location: "Bathroom - Ceiling", surfaceType: "Plaster", moistureLevel: 55.8, depth: "Subsurface" },
-            { id: (Date.now() + 2).toString(), location: "Laundry - Wall", surfaceType: "Drywall", moistureLevel: 48.2, depth: "Subsurface" }
+            {
+              id: Date.now().toString(),
+              location: "Bathroom - Wall Behind Shower",
+              surfaceType: "Drywall",
+              moistureLevel: 62.4,
+              depth: "Subsurface",
+            },
+            {
+              id: (Date.now() + 1).toString(),
+              location: "Bathroom - Ceiling",
+              surfaceType: "Plaster",
+              moistureLevel: 55.8,
+              depth: "Subsurface",
+            },
+            {
+              id: (Date.now() + 2).toString(),
+              location: "Laundry - Wall",
+              surfaceType: "Drywall",
+              moistureLevel: 48.2,
+              depth: "Subsurface",
+            },
           ],
           affectedAreas: [
             {
@@ -419,109 +549,169 @@ export default function NIRTechnicianInputForm({
               affectedSquareFootage: 8.75,
               materials: ["Drywall", "Plaster"],
               waterSource: "Grey Water",
-              timeSinceLoss: 720
-            }
+              timeSinceLoss: 720,
+            },
           ],
-          selectedScopeItems: new Set(["demolish_drywall", "apply_antimicrobial", "containment_setup", "ppe_required", "sanitize_materials"]),
+          selectedScopeItems: new Set([
+            "demolish_drywall",
+            "apply_antimicrobial",
+            "containment_setup",
+            "ppe_required",
+            "sanitize_materials",
+          ]),
           equipmentSelection: [
-            { id: Date.now().toString(), type: "Desiccant Dehumidifier", quantity: 2 },
-            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 6 }
+            {
+              id: Date.now().toString(),
+              type: "Desiccant Dehumidifier",
+              quantity: 2,
+            },
+            { id: (Date.now() + 1).toString(), type: "Air Mover", quantity: 6 },
           ],
-          dryingDuration: 10
-        }
-        break
+          dryingDuration: 10,
+        };
+        break;
       default:
-        useCaseData = {}
+        useCaseData = {};
     }
-    
+
     // Populate form with use case data
-    if (useCaseData.propertyAddress) setPropertyAddress(useCaseData.propertyAddress)
-    if (useCaseData.propertyPostcode) setPropertyPostcode(useCaseData.propertyPostcode)
-    if (useCaseData.technicianName) setTechnicianName(useCaseData.technicianName)
-    if (useCaseData.environmentalData) setEnvironmentalData(useCaseData.environmentalData)
-    if (useCaseData.moistureReadings) setMoistureReadings(useCaseData.moistureReadings)
-    if (useCaseData.affectedAreas) setAffectedAreas(useCaseData.affectedAreas)
-    if (useCaseData.selectedScopeItems) setSelectedScopeItems(useCaseData.selectedScopeItems)
-    if (useCaseData.equipmentSelection) setEquipmentSelection(useCaseData.equipmentSelection)
-    if (useCaseData.dryingDuration) setDryingDuration(useCaseData.dryingDuration)
-    
-    setShowQuickFillModal(false)
-    toast.success("Quick Fill data populated successfully!")
-  }
-  
+    if (useCaseData.propertyAddress)
+      setPropertyAddress(useCaseData.propertyAddress);
+    if (useCaseData.propertyPostcode)
+      setPropertyPostcode(useCaseData.propertyPostcode);
+    if (useCaseData.technicianName)
+      setTechnicianName(useCaseData.technicianName);
+    if (useCaseData.environmentalData)
+      setEnvironmentalData(useCaseData.environmentalData);
+    if (useCaseData.moistureReadings)
+      setMoistureReadings(useCaseData.moistureReadings);
+    if (useCaseData.affectedAreas) setAffectedAreas(useCaseData.affectedAreas);
+    if (useCaseData.selectedScopeItems)
+      setSelectedScopeItems(useCaseData.selectedScopeItems);
+    if (useCaseData.equipmentSelection)
+      setEquipmentSelection(useCaseData.equipmentSelection);
+    if (useCaseData.dryingDuration)
+      setDryingDuration(useCaseData.dryingDuration);
+
+    setShowQuickFillModal(false);
+    toast.success("Quick Fill data populated successfully!");
+  };
+
   // Pre-fill form from guided interview (e.g. inspections/new?interviewData=...)
   useEffect(() => {
-    if (!initialData || Object.keys(initialData).length === 0) return
-    if (typeof initialData.propertyAddress === "string") setPropertyAddress(initialData.propertyAddress)
-    if (typeof initialData.propertyPostcode === "string") setPropertyPostcode(initialData.propertyPostcode)
-    if (typeof initialData.technicianName === "string") setTechnicianName(initialData.technicianName)
+    if (!initialData || Object.keys(initialData).length === 0) return;
+    if (typeof initialData.propertyAddress === "string")
+      setPropertyAddress(initialData.propertyAddress);
+    if (typeof initialData.propertyPostcode === "string")
+      setPropertyPostcode(initialData.propertyPostcode);
+    if (typeof initialData.technicianName === "string")
+      setTechnicianName(initialData.technicianName);
     // Ambient temperature: interview sends ambientTemperature (from mapping) or temperatureCurrent
-    const tempRaw = initialData.ambientTemperature ?? initialData.temperatureCurrent
-    if (typeof tempRaw === "number" && !Number.isNaN(tempRaw)) setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: tempRaw }))
-    else if (typeof tempRaw === "string") { const t = parseFloat(tempRaw); if (!Number.isNaN(t)) setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: t })) }
+    const tempRaw =
+      initialData.ambientTemperature ?? initialData.temperatureCurrent;
+    if (typeof tempRaw === "number" && !Number.isNaN(tempRaw))
+      setEnvironmentalData((prev) => ({
+        ...prev,
+        ambientTemperature: tempRaw,
+      }));
+    else if (typeof tempRaw === "string") {
+      const t = parseFloat(tempRaw);
+      if (!Number.isNaN(t))
+        setEnvironmentalData((prev) => ({ ...prev, ambientTemperature: t }));
+    }
     // Humidity: interview sends humidityLevel (from mapping) or humidityCurrent
-    const humidityRaw = initialData.humidityLevel ?? initialData.humidityCurrent
-    if (typeof humidityRaw === "number" && !Number.isNaN(humidityRaw)) setEnvironmentalData((prev) => ({ ...prev, humidityLevel: humidityRaw }))
-    else if (typeof humidityRaw === "string") { const h = parseFloat(humidityRaw); if (!Number.isNaN(h)) setEnvironmentalData((prev) => ({ ...prev, humidityLevel: h })) }
-    if (typeof initialData.dewPoint === "number" || typeof initialData.dewPoint === "string") {
-      const d = typeof initialData.dewPoint === "string" ? parseFloat(initialData.dewPoint) : initialData.dewPoint
-      if (!Number.isNaN(d)) setEnvironmentalData((prev) => ({ ...prev, dewPoint: d }))
+    const humidityRaw =
+      initialData.humidityLevel ?? initialData.humidityCurrent;
+    if (typeof humidityRaw === "number" && !Number.isNaN(humidityRaw))
+      setEnvironmentalData((prev) => ({ ...prev, humidityLevel: humidityRaw }));
+    else if (typeof humidityRaw === "string") {
+      const h = parseFloat(humidityRaw);
+      if (!Number.isNaN(h))
+        setEnvironmentalData((prev) => ({ ...prev, humidityLevel: h }));
     }
-    if (typeof initialData.airCirculation === "boolean") setEnvironmentalData((prev) => ({ ...prev, airCirculation: initialData.airCirculation }))
-    if (typeof initialData.weatherConditions === "string") setEnvironmentalData((prev) => ({ ...prev, weatherConditions: initialData.weatherConditions }))
+    if (
+      typeof initialData.dewPoint === "number" ||
+      typeof initialData.dewPoint === "string"
+    ) {
+      const d =
+        typeof initialData.dewPoint === "string"
+          ? parseFloat(initialData.dewPoint)
+          : initialData.dewPoint;
+      if (!Number.isNaN(d))
+        setEnvironmentalData((prev) => ({ ...prev, dewPoint: d }));
+    }
+    if (typeof initialData.airCirculation === "boolean")
+      setEnvironmentalData((prev) => ({
+        ...prev,
+        airCirculation: initialData.airCirculation,
+      }));
+    if (typeof initialData.weatherConditions === "string")
+      setEnvironmentalData((prev) => ({
+        ...prev,
+        weatherConditions: initialData.weatherConditions,
+      }));
     // Water classification: normalize "Category 1" / "Class 1" to "1" for NIR dropdowns
-    const catRaw = initialData.waterCategory
-    const classRaw = initialData.waterClass
+    const catRaw = initialData.waterCategory;
+    const classRaw = initialData.waterClass;
     if (catRaw != null && classRaw != null) {
-      const category = typeof catRaw === "number" ? String(catRaw) : String(catRaw).replace(/^Category\s*/i, "").trim() || String(catRaw)
-      const waterClass = typeof classRaw === "number" ? String(classRaw) : String(classRaw).replace(/^Class\s*/i, "").trim() || String(classRaw)
-      setManualClassification({ category, class: waterClass })
+      const category =
+        typeof catRaw === "number"
+          ? String(catRaw)
+          : String(catRaw)
+              .replace(/^Category\s*/i, "")
+              .trim() || String(catRaw);
+      const waterClass =
+        typeof classRaw === "number"
+          ? String(classRaw)
+          : String(classRaw)
+              .replace(/^Class\s*/i, "")
+              .trim() || String(classRaw);
+      setManualClassification({ category, class: waterClass });
     }
-  }, [initialData])
+  }, [initialData]);
 
   // Initialize inspection if reportId provided
   useEffect(() => {
     if (reportId && !inspectionId) {
-      initializeInspection()
+      initializeInspection();
     }
-  }, [reportId])
-  
+  }, [reportId]);
+
   // Fetch Quick Fill credits on mount
   useEffect(() => {
     const fetchQuickFillCredits = async () => {
       try {
-        const response = await fetch("/api/user/quick-fill-credits")
+        const response = await fetch("/api/user/quick-fill-credits");
         if (response.ok) {
-          const data = await response.json()
-          setQuickFillCredits(data.creditsRemaining)
-          setHasUnlimitedQuickFill(data.hasUnlimited || false)
+          const data = await response.json();
+          setQuickFillCredits(data.creditsRemaining);
+          setHasUnlimitedQuickFill(data.hasUnlimited || false);
         }
-      } catch (error) {
-      }
-    }
-    fetchQuickFillCredits()
-  }, [])
-  
+      } catch (error) {}
+    };
+    fetchQuickFillCredits();
+  }, []);
+
   const initializeInspection = async () => {
-    if (!reportId) return
-    
-    setLoading(true)
+    if (!reportId) return;
+
+    setLoading(true);
     try {
       const response = await fetch(`/api/inspections?reportId=${reportId}`, {
-        method: "GET"
-      })
-      
+        method: "GET",
+      });
+
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         if (data.inspection) {
-          setInspectionId(data.inspection.id)
+          setInspectionId(data.inspection.id);
           // Load existing data
           if (data.inspection.environmentalData) {
-            setEnvironmentalData(data.inspection.environmentalData)
+            setEnvironmentalData(data.inspection.environmentalData);
           }
           if (data.inspection.moistureReadings) {
-            setMoistureReadings(data.inspection.moistureReadings)
-            
+            setMoistureReadings(data.inspection.moistureReadings);
+
             // Load moisture map points if coordinates exist
             const pointsWithCoords = data.inspection.moistureReadings
               .filter((r: any) => r.mapX !== null && r.mapY !== null)
@@ -535,200 +725,224 @@ export default function NIRTechnicianInputForm({
                   surfaceType: r.surfaceType,
                   moistureLevel: r.moistureLevel,
                   depth: r.depth,
-                  notes: r.notes || null
-                }
-              }))
-            setMoistureMapPoints(pointsWithCoords)
+                  notes: r.notes || null,
+                },
+              }));
+            setMoistureMapPoints(pointsWithCoords);
           }
-          
+
           if (data.inspection.floorPlanImageUrl) {
-            setFloorPlanImageUrl(data.inspection.floorPlanImageUrl)
+            setFloorPlanImageUrl(data.inspection.floorPlanImageUrl);
           }
-          
+
           // Load photos
           if (data.inspection.photos && Array.isArray(data.inspection.photos)) {
             const loadedPhotos = data.inspection.photos.map((photo: any) => ({
               id: photo.id,
               url: photo.url,
               file: null,
-              uploading: false
-            }))
-            setPhotos(loadedPhotos)
+              uploading: false,
+            }));
+            setPhotos(loadedPhotos);
           }
           if (data.inspection.affectedAreas) {
-            setAffectedAreas(data.inspection.affectedAreas)
+            setAffectedAreas(data.inspection.affectedAreas);
           }
           if (data.inspection.scopeItems) {
-            const selected = new Set(data.inspection.scopeItems.map((item: any) => item.itemType))
-            setSelectedScopeItems(selected)
+            const selected = new Set(
+              data.inspection.scopeItems.map((item: any) => item.itemType),
+            );
+            setSelectedScopeItems(selected);
           }
           if (data.inspection.propertyAddress) {
-            setPropertyAddress(data.inspection.propertyAddress)
+            setPropertyAddress(data.inspection.propertyAddress);
           }
           if (data.inspection.propertyPostcode) {
-            setPropertyPostcode(data.inspection.propertyPostcode)
+            setPropertyPostcode(data.inspection.propertyPostcode);
           }
           if (data.inspection.technicianName) {
-            setTechnicianName(data.inspection.technicianName)
+            setTechnicianName(data.inspection.technicianName);
           }
         }
       }
     } catch (error) {
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-  
+  };
+
   const validateForm = (): boolean => {
-    const errors: Record<string, string> = {}
-    
+    const errors: Record<string, string> = {};
+
     if (!propertyAddress.trim()) {
-      errors.propertyAddress = "Property address is required"
+      errors.propertyAddress = "Property address is required";
     }
-    
+
     if (!propertyPostcode.trim()) {
-      errors.propertyPostcode = "Property postcode is required"
+      errors.propertyPostcode = "Property postcode is required";
     }
-    
+
     if (moistureReadings.length === 0) {
-      errors.moistureReadings = "At least one moisture reading is required"
+      errors.moistureReadings = "At least one moisture reading is required";
     }
-    
+
     if (affectedAreas.length === 0) {
-      errors.affectedAreas = "At least one affected area is required"
+      errors.affectedAreas = "At least one affected area is required";
     } else {
       // Validate each area has materials
-      const areasWithoutMaterials = affectedAreas.filter(a => !a.materials || a.materials.length === 0)
+      const areasWithoutMaterials = affectedAreas.filter(
+        (a) => !a.materials || a.materials.length === 0,
+      );
       if (areasWithoutMaterials.length > 0) {
-        errors.affectedAreas = "All affected areas must have at least one material selected"
+        errors.affectedAreas =
+          "All affected areas must have at least one material selected";
       }
     }
-    
+
     // Photos are optional during initial save, but will be validated before final submission
     // Validate that all photos are uploaded (not still uploading) if any photos exist
-    const stillUploading = photos.some(p => p.uploading)
+    const stillUploading = photos.some((p) => p.uploading);
     if (stillUploading) {
-      errors.photos = "Please wait for all photos to finish uploading"
+      errors.photos = "Please wait for all photos to finish uploading";
     }
-    
+
     // Validate environmental data ranges
-    if (environmentalData.ambientTemperature < -20 || environmentalData.ambientTemperature > 130) {
-      errors.temperature = "Temperature must be between -20°F and 130°F"
+    if (
+      environmentalData.ambientTemperature < -20 ||
+      environmentalData.ambientTemperature > 130
+    ) {
+      errors.temperature = "Temperature must be between -20°F and 130°F";
     }
-    
-    if (environmentalData.humidityLevel < 0 || environmentalData.humidityLevel > 100) {
-      errors.humidity = "Humidity must be between 0% and 100%"
+
+    if (
+      environmentalData.humidityLevel < 0 ||
+      environmentalData.humidityLevel > 100
+    ) {
+      errors.humidity = "Humidity must be between 0% and 100%";
     }
-    
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-  
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddMoistureReading = () => {
     if (!newMoistureReading.location.trim()) {
-      toast.error("Please enter a location")
-      return
+      toast.error("Please enter a location");
+      return;
     }
-    
-    if (newMoistureReading.moistureLevel < 0 || newMoistureReading.moistureLevel > 100) {
-      toast.error("Moisture level must be between 0% and 100%")
-      return
+
+    if (
+      newMoistureReading.moistureLevel < 0 ||
+      newMoistureReading.moistureLevel > 100
+    ) {
+      toast.error("Moisture level must be between 0% and 100%");
+      return;
     }
-    
+
     setMoistureReadings([
       ...moistureReadings,
       {
         id: Date.now().toString(),
-        ...newMoistureReading
-      }
-    ])
-    
+        ...newMoistureReading,
+      },
+    ]);
+
     setNewMoistureReading({
       location: "",
       surfaceType: SURFACE_TYPES[0],
       moistureLevel: 0,
-      depth: "Surface"
-    })
-    
-    toast.success("Moisture reading added")
-  }
-  
+      depth: "Surface",
+    });
+
+    toast.success("Moisture reading added");
+  };
+
   const handleRemoveMoistureReading = (id: string) => {
-    setMoistureReadings(moistureReadings.filter(r => r.id !== id))
-    toast.success("Moisture reading removed")
-  }
-  
+    setMoistureReadings(moistureReadings.filter((r) => r.id !== id));
+    toast.success("Moisture reading removed");
+  };
+
   // Calculate area from dimensions
   const calculateArea = (length: number, width: number): number => {
-    return length * width
-  }
+    return length * width;
+  };
 
   // Handle material toggle
   const handleMaterialToggle = (material: string) => {
-    const currentMaterials = newAffectedArea.materials
+    const currentMaterials = newAffectedArea.materials;
     if (currentMaterials.includes(material)) {
       setNewAffectedArea({
         ...newAffectedArea,
-        materials: currentMaterials.filter(m => m !== material)
-      })
+        materials: currentMaterials.filter((m) => m !== material),
+      });
     } else {
       setNewAffectedArea({
         ...newAffectedArea,
-        materials: [...currentMaterials, material]
-      })
+        materials: [...currentMaterials, material],
+      });
     }
-  }
+  };
 
   // Update area when dimensions change
   useEffect(() => {
     if (newAffectedArea.length > 0 && newAffectedArea.width > 0) {
-      const calculatedArea = calculateArea(newAffectedArea.length, newAffectedArea.width)
-      setNewAffectedArea(prev => ({
+      const calculatedArea = calculateArea(
+        newAffectedArea.length,
+        newAffectedArea.width,
+      );
+      setNewAffectedArea((prev) => ({
         ...prev,
-        affectedSquareFootage: calculatedArea
-      }))
+        affectedSquareFootage: calculatedArea,
+      }));
     }
-  }, [newAffectedArea.length, newAffectedArea.width])
+  }, [newAffectedArea.length, newAffectedArea.width]);
 
   const handleAddAffectedArea = () => {
-    const roomName = newAffectedArea.roomType === "Other" 
-      ? newAffectedArea.customRoomName.trim()
-      : newAffectedArea.roomType
-    
+    const roomName =
+      newAffectedArea.roomType === "Other"
+        ? newAffectedArea.customRoomName.trim()
+        : newAffectedArea.roomType;
+
     if (!roomName) {
-      toast.error("Please select or enter a room name")
-      return
+      toast.error("Please select or enter a room name");
+      return;
     }
-    
+
     if (newAffectedArea.length <= 0 || newAffectedArea.width <= 0) {
-      toast.error("Please enter valid length and width dimensions")
-      return
+      toast.error("Please enter valid length and width dimensions");
+      return;
     }
-    
+
     if (newAffectedArea.materials.length === 0) {
-      toast.error("Please select at least one affected material")
-      return
+      toast.error("Please select at least one affected material");
+      return;
     }
-    
-    const calculatedArea = calculateArea(newAffectedArea.length, newAffectedArea.width)
-    
+
+    const calculatedArea = calculateArea(
+      newAffectedArea.length,
+      newAffectedArea.width,
+    );
+
     setAffectedAreas([
       ...affectedAreas,
       {
         id: Date.now().toString(),
         roomZoneId: roomName,
         roomType: newAffectedArea.roomType,
-        customRoomName: newAffectedArea.roomType === "Other" ? newAffectedArea.customRoomName : undefined,
+        customRoomName:
+          newAffectedArea.roomType === "Other"
+            ? newAffectedArea.customRoomName
+            : undefined,
         length: newAffectedArea.length,
         width: newAffectedArea.width,
         height: newAffectedArea.height,
         affectedSquareFootage: calculatedArea,
         materials: [...newAffectedArea.materials],
         waterSource: newAffectedArea.waterSource,
-        timeSinceLoss: newAffectedArea.timeSinceLoss
-      }
-    ])
-    
+        timeSinceLoss: newAffectedArea.timeSinceLoss,
+      },
+    ]);
+
     setNewAffectedArea({
       roomType: ROOM_TYPES[0],
       customRoomName: "",
@@ -738,180 +952,206 @@ export default function NIRTechnicianInputForm({
       affectedSquareFootage: 0,
       materials: [],
       waterSource: WATER_SOURCES[0],
-      timeSinceLoss: 0
-    })
-    
-    toast.success("Affected area added")
-  }
-  
+      timeSinceLoss: 0,
+    });
+
+    toast.success("Affected area added");
+  };
+
   const handleRemoveAffectedArea = (id: string) => {
-    setAffectedAreas(affectedAreas.filter(a => a.id !== id))
-    toast.success("Affected area removed")
-  }
-  
+    setAffectedAreas(affectedAreas.filter((a) => a.id !== id));
+    toast.success("Affected area removed");
+  };
+
   const handleScopeItemToggle = (itemId: string) => {
-    const newSelected = new Set(selectedScopeItems)
+    const newSelected = new Set(selectedScopeItems);
     if (newSelected.has(itemId)) {
-      newSelected.delete(itemId)
+      newSelected.delete(itemId);
       // Remove spec if deselecting
-      const newSpecs = { ...scopeItemSpecs }
-      delete newSpecs[itemId]
-      setScopeItemSpecs(newSpecs)
+      const newSpecs = { ...scopeItemSpecs };
+      delete newSpecs[itemId];
+      setScopeItemSpecs(newSpecs);
     } else {
-      newSelected.add(itemId)
+      newSelected.add(itemId);
     }
-    setSelectedScopeItems(newSelected)
-  }
-  
+    setSelectedScopeItems(newSelected);
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-    
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     // Auto-create inspection if it doesn't exist
-    let currentInspectionId = inspectionId
+    let currentInspectionId = inspectionId;
     if (!currentInspectionId) {
       if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-        toast.error("Please enter property address and postcode first")
-        return
+        toast.error("Please enter property address and postcode first");
+        return;
       }
-      
-      currentInspectionId = await ensureInspectionExists(true) // Show toast
+
+      currentInspectionId = await ensureInspectionExists(true); // Show toast
       if (!currentInspectionId) {
-        return
+        return;
       }
     }
-    
-    setUploadingPhotos(true)
-    
+
+    setUploadingPhotos(true);
+
     try {
       const uploadPromises = files.map(async (file) => {
-        const tempId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
-        
+        const tempId =
+          Date.now().toString() + Math.random().toString(36).substr(2, 9);
+
         // Add to photos list with uploading state
-        setPhotos(prev => [...prev, { id: tempId, url: "", file, uploading: true }])
-        
+        setPhotos((prev) => [
+          ...prev,
+          { id: tempId, url: "", file, uploading: true },
+        ]);
+
         try {
-          const formData = new FormData()
-          formData.append("file", file)
-          
-          const response = await fetch(`/api/inspections/${currentInspectionId}/photos`, {
-            method: "POST",
-            body: formData
-          })
-          
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const response = await fetch(
+            `/api/inspections/${currentInspectionId}/photos`,
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
+
           if (!response.ok) {
-            throw new Error("Upload failed")
+            throw new Error("Upload failed");
           }
-          
-          const data = await response.json()
-          
+
+          const data = await response.json();
+
           // Update photo with Cloudinary URL
-          setPhotos(prev => prev.map(p => 
-            p.id === tempId 
-              ? { id: data.photo.id, url: data.photo.url, file: null, uploading: false }
-              : p
-          ))
-          
-          return data.photo
+          setPhotos((prev) =>
+            prev.map((p) =>
+              p.id === tempId
+                ? {
+                    id: data.photo.id,
+                    url: data.photo.url,
+                    file: null,
+                    uploading: false,
+                  }
+                : p,
+            ),
+          );
+
+          return data.photo;
         } catch (error) {
           // Remove failed upload
-          setPhotos(prev => prev.filter(p => p.id !== tempId))
-          throw error
+          setPhotos((prev) => prev.filter((p) => p.id !== tempId));
+          throw error;
         }
-      })
-      
-      await Promise.all(uploadPromises)
-      toast.success(`${files.length} photo(s) uploaded successfully`)
+      });
+
+      await Promise.all(uploadPromises);
+      toast.success(`${files.length} photo(s) uploaded successfully`);
     } catch (error) {
-      toast.error("Failed to upload some photos")
+      toast.error("Failed to upload some photos");
     } finally {
-      setUploadingPhotos(false)
+      setUploadingPhotos(false);
       // Reset file input
       if (e.target) {
-        e.target.value = ""
+        e.target.value = "";
       }
     }
-  }
-  
+  };
+
   const handleRemovePhoto = async (photoId: string, index: number) => {
     // Remove from local state
-    setPhotos(photos.filter((_, i) => i !== index))
-    toast.success("Photo removed")
+    setPhotos(photos.filter((_, i) => i !== index));
+    toast.success("Photo removed");
     // Note: In production, you might want to delete from Cloudinary/DB via API
-  }
-  
+  };
+
   // Calculate expected classification preview
   const calculateClassificationPreview = () => {
     if (affectedAreas.length === 0 || moistureReadings.length === 0) {
-      return null
+      return null;
     }
-    
+
     // Get primary water source
-    const primaryWaterSource = affectedAreas[0]?.waterSource || "Clean Water"
-    const waterSourceLower = primaryWaterSource.toLowerCase()
-    
+    const primaryWaterSource = affectedAreas[0]?.waterSource || "Clean Water";
+    const waterSourceLower = primaryWaterSource.toLowerCase();
+
     // Determine category
-    let category = "1"
-    if (waterSourceLower.includes("black") || waterSourceLower.includes("sewage") || waterSourceLower.includes("contaminated")) {
-      category = "3"
-    } else if (waterSourceLower.includes("grey") || waterSourceLower.includes("washing")) {
-      category = "2"
+    let category = "1";
+    if (
+      waterSourceLower.includes("black") ||
+      waterSourceLower.includes("sewage") ||
+      waterSourceLower.includes("contaminated")
+    ) {
+      category = "3";
+    } else if (
+      waterSourceLower.includes("grey") ||
+      waterSourceLower.includes("washing")
+    ) {
+      category = "2";
     }
-    
+
     // Calculate average moisture and affected area
-    const avgMoisture = moistureReadings.reduce((sum, r) => sum + r.moistureLevel, 0) / moistureReadings.length
-    const totalArea = affectedAreas.reduce((sum, a) => sum + a.affectedSquareFootage, 0) // Already in m²
-    
+    const avgMoisture =
+      moistureReadings.reduce((sum, r) => sum + r.moistureLevel, 0) /
+      moistureReadings.length;
+    const totalArea = affectedAreas.reduce(
+      (sum, a) => sum + a.affectedSquareFootage,
+      0,
+    ); // Already in m²
+
     // Determine class based on area
-    let classValue = "1"
+    let classValue = "1";
     if (totalArea > 200) {
-      classValue = "4"
+      classValue = "4";
     } else if (totalArea > 100) {
-      classValue = "3"
+      classValue = "3";
     } else if (totalArea > 30) {
-      classValue = "2"
+      classValue = "2";
     }
-    
-    return { category, class: classValue, avgMoisture, totalArea }
-  }
+
+    return { category, class: classValue, avgMoisture, totalArea };
+  };
 
   const handleReview = () => {
     // Additional validation for review - require photos
-    const reviewErrors: Record<string, string> = {}
-    
+    const reviewErrors: Record<string, string> = {};
+
     if (photos.length === 0) {
-      reviewErrors.photos = "At least one photo is required before submitting"
+      reviewErrors.photos = "At least one photo is required before submitting";
     }
-    
+
     // Validate that all photos are uploaded (not still uploading)
-    const stillUploading = photos.some(p => p.uploading)
+    const stillUploading = photos.some((p) => p.uploading);
     if (stillUploading) {
-      reviewErrors.photos = "Please wait for all photos to finish uploading"
+      reviewErrors.photos = "Please wait for all photos to finish uploading";
     }
-    
+
     if (Object.keys(reviewErrors).length > 0) {
-      setValidationErrors(reviewErrors)
-      toast.error("Please fix validation errors before reviewing")
-      return
+      setValidationErrors(reviewErrors);
+      toast.error("Please fix validation errors before reviewing");
+      return;
     }
-    
+
     if (!validateForm()) {
-      toast.error("Please fix validation errors before reviewing")
-      return
+      toast.error("Please fix validation errors before reviewing");
+      return;
     }
-    setShowReview(true)
-  }
-  
+    setShowReview(true);
+  };
+
   // Auto-create inspection when property info is entered
   const ensureInspectionExists = async (showToast = false) => {
     if (inspectionId) {
-      return inspectionId
+      return inspectionId;
     }
-    
+
     if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-      return null
+      return null;
     }
-    
+
     try {
       const response = await fetch("/api/inspections", {
         method: "POST",
@@ -920,97 +1160,108 @@ export default function NIRTechnicianInputForm({
           reportId,
           propertyAddress,
           propertyPostcode,
-          technicianName: technicianName || undefined
-        })
-      })
-      
+          technicianName: technicianName || undefined,
+        }),
+      });
+
       if (response.ok) {
-        const data = await response.json()
-        setInspectionId(data.inspection.id)
+        const data = await response.json();
+        setInspectionId(data.inspection.id);
         if (showToast) {
-          toast.success("Inspection created. You can now upload photos and floor plan.")
+          toast.success(
+            "Inspection created. You can now upload photos and floor plan.",
+          );
         }
-        return data.inspection.id
+        return data.inspection.id;
       } else {
-        const error = await response.json()
+        const error = await response.json();
         if (showToast) {
-          toast.error(error.error || "Failed to create inspection")
+          toast.error(error.error || "Failed to create inspection");
         }
       }
     } catch (error) {
       if (showToast) {
-        toast.error("Failed to create inspection")
+        toast.error("Failed to create inspection");
       }
     }
-    
-    return null
-  }
-  
+
+    return null;
+  };
+
   // Auto-create inspection when property info changes (silent, no toast)
   useEffect(() => {
-    if (propertyAddress.trim() && propertyPostcode.trim() && !inspectionId && !loading) {
+    if (
+      propertyAddress.trim() &&
+      propertyPostcode.trim() &&
+      !inspectionId &&
+      !loading
+    ) {
       const timer = setTimeout(() => {
-        ensureInspectionExists(false) // Silent creation
-      }, 1500) // Debounce: wait 1.5 seconds after user stops typing
-      
-      return () => clearTimeout(timer)
+        ensureInspectionExists(false); // Silent creation
+      }, 1500); // Debounce: wait 1.5 seconds after user stops typing
+
+      return () => clearTimeout(timer);
     }
-  }, [propertyAddress, propertyPostcode, inspectionId, loading])
+  }, [propertyAddress, propertyPostcode, inspectionId, loading]);
 
   const handleSubmit = async () => {
     // Validate photos are required for final submission
     if (photos.length === 0) {
-      setValidationErrors({ photos: "At least one photo is required before submitting" })
-      toast.error("Please upload at least one photo before submitting")
-      return
+      setValidationErrors({
+        photos: "At least one photo is required before submitting",
+      });
+      toast.error("Please upload at least one photo before submitting");
+      return;
     }
-    
-    const stillUploading = photos.some(p => p.uploading)
+
+    const stillUploading = photos.some((p) => p.uploading);
     if (stillUploading) {
-      setValidationErrors({ photos: "Please wait for all photos to finish uploading" })
-      toast.error("Please wait for all photos to finish uploading")
-      return
+      setValidationErrors({
+        photos: "Please wait for all photos to finish uploading",
+      });
+      toast.error("Please wait for all photos to finish uploading");
+      return;
     }
-    
+
     if (!validateForm()) {
-      toast.error("Please fix validation errors before submitting")
-      return
+      toast.error("Please fix validation errors before submitting");
+      return;
     }
-    
-    setSaving(true)
-    
+
+    setSaving(true);
+
     try {
       // Step 1: Ensure inspection exists (should already exist from auto-create)
-      let currentInspectionId = inspectionId
-      
+      let currentInspectionId = inspectionId;
+
       if (!currentInspectionId) {
-        currentInspectionId = await ensureInspectionExists(true) // Show toast
+        currentInspectionId = await ensureInspectionExists(true); // Show toast
         if (!currentInspectionId) {
-          throw new Error("Failed to create inspection")
+          throw new Error("Failed to create inspection");
         }
       }
-      
+
       // Step 1b: Persist loss description if provided
       if (damageDescription.trim()) {
         await fetch(`/api/inspections/${currentInspectionId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lossDescription: damageDescription.trim() })
-        })
+          body: JSON.stringify({ lossDescription: damageDescription.trim() }),
+        });
       }
 
       // Step 2: Save environmental data
       await fetch(`/api/inspections/${currentInspectionId}/environmental`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(environmentalData)
-      })
-      
+        body: JSON.stringify(environmentalData),
+      });
+
       // Step 3: Save moisture readings with coordinates
       for (const reading of moistureReadings) {
         // Find corresponding point in map if exists
-        const mapPoint = moistureMapPoints.find(p => p.id === reading.id)
-        
+        const mapPoint = moistureMapPoints.find((p) => p.id === reading.id);
+
         await fetch(`/api/inspections/${currentInspectionId}/moisture`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1020,22 +1271,22 @@ export default function NIRTechnicianInputForm({
             moistureLevel: reading.moistureLevel,
             depth: reading.depth,
             mapX: mapPoint?.x || null,
-            mapY: mapPoint?.y || null
-          })
-        })
+            mapY: mapPoint?.y || null,
+          }),
+        });
       }
-      
+
       // Step 3.5: Save floor plan image URL if exists
       if (floorPlanImageUrl) {
         await fetch(`/api/inspections/${currentInspectionId}/floor-plan`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageUrl: floorPlanImageUrl
-          })
-        })
+            imageUrl: floorPlanImageUrl,
+          }),
+        });
       }
-      
+
       // Step 4: Save affected areas
       for (const area of affectedAreas) {
         await fetch(`/api/inspections/${currentInspectionId}/affected-areas`, {
@@ -1050,17 +1301,17 @@ export default function NIRTechnicianInputForm({
             width: area.width,
             height: area.height,
             materials: area.materials,
-            description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`
-          })
-        })
+            description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`,
+          }),
+        });
       }
-      
+
       // Step 5: Photos are already uploaded to Cloudinary via handlePhotoUpload
       // No need to upload again here - they're already saved in the database
-      
+
       // Step 6: Save scope items
       for (const itemId of selectedScopeItems) {
-        const item = SCOPE_ITEM_TYPES.find(i => i.id === itemId)
+        const item = SCOPE_ITEM_TYPES.find((i) => i.id === itemId);
         if (item) {
           await fetch(`/api/inspections/${currentInspectionId}/scope-items`, {
             method: "POST",
@@ -1068,135 +1319,276 @@ export default function NIRTechnicianInputForm({
             body: JSON.stringify({
               itemType: itemId,
               description: item.label,
-              specification: scopeItemSpecs[itemId] || undefined
-            })
-          })
+              specification: scopeItemSpecs[itemId] || undefined,
+            }),
+          });
         }
       }
-      
+
       // Step 7: Submit for processing
-      const submitResponse = await fetch(`/api/inspections/${currentInspectionId}/submit`, {
-        method: "POST"
-      })
-      
+      const submitResponse = await fetch(
+        `/api/inspections/${currentInspectionId}/submit`,
+        {
+          method: "POST",
+        },
+      );
+
       if (!submitResponse.ok) {
-        const error = await submitResponse.json()
-        throw new Error(error.error || "Failed to submit inspection")
+        const error = await submitResponse.json();
+        throw new Error(error.error || "Failed to submit inspection");
       }
-      
-      toast.success("Inspection submitted successfully! Processing classification and scope determination...")
-      
+
+      toast.success(
+        "Inspection submitted successfully! Processing classification and scope determination...",
+      );
+
       if (onComplete && currentInspectionId) {
-        onComplete(currentInspectionId)
+        onComplete(currentInspectionId);
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to submit inspection")
+      toast.error(error.message || "Failed to submit inspection");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
-  
+  };
+
   // Calculate dew point (simplified)
   useEffect(() => {
-    const temp = environmentalData.ambientTemperature
-    const humidity = environmentalData.humidityLevel
+    const temp = environmentalData.ambientTemperature;
+    const humidity = environmentalData.humidityLevel;
     // Simplified dew point calculation (Magnus formula approximation)
-    const dewPoint = temp - ((100 - humidity) / 5)
-    setEnvironmentalData(prev => ({ ...prev, dewPoint: Math.round(dewPoint * 10) / 10 }))
-  }, [environmentalData.ambientTemperature, environmentalData.humidityLevel])
-  
+    const dewPoint = temp - (100 - humidity) / 5;
+    setEnvironmentalData((prev) => ({
+      ...prev,
+      dewPoint: Math.round(dewPoint * 10) / 10,
+    }));
+  }, [environmentalData.ambientTemperature, environmentalData.humidityLevel]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
       </div>
-    )
+    );
   }
-  
-  const classificationPreview = calculateClassificationPreview()
+
+  const classificationPreview = calculateClassificationPreview();
 
   // Review/Summary View
   if (showReview) {
     return (
-      <div className={cn("max-w-7xl mx-auto space-y-6", "text-neutral-900 dark:text-neutral-100")}>
+      <div
+        className={cn(
+          "max-w-7xl mx-auto space-y-6",
+          "text-neutral-900 dark:text-neutral-100",
+        )}
+      >
         <div className="mb-6">
-          <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>Review & Submit Inspection</h2>
+          <h2
+            className={cn(
+              "text-2xl font-semibold mb-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
+            Review & Submit Inspection
+          </h2>
           <p className={cn("text-neutral-600 dark:text-slate-400")}>
-            Review all entered data. The system will automatically classify and determine scope after submission.
+            Review all entered data. The system will automatically classify and
+            determine scope after submission.
           </p>
         </div>
 
         {/* Property Information Summary */}
-        <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
             <MapPin className="w-5 h-5" />
             Property Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>Address:</span>
-              <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{propertyAddress}</p>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                Address:
+              </span>
+              <p
+                className={cn(
+                  "font-medium",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {propertyAddress}
+              </p>
             </div>
             <div>
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>Postcode:</span>
-              <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{propertyPostcode}</p>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                Postcode:
+              </span>
+              <p
+                className={cn(
+                  "font-medium",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {propertyPostcode}
+              </p>
             </div>
             {technicianName && (
               <div>
-                <span className={cn("text-neutral-600 dark:text-slate-400")}>Technician:</span>
-                <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{technicianName}</p>
+                <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                  Technician:
+                </span>
+                <p
+                  className={cn(
+                    "font-medium",
+                    "text-neutral-900 dark:text-white",
+                  )}
+                >
+                  {technicianName}
+                </p>
               </div>
             )}
           </div>
         </div>
 
         {/* Environmental Data Summary */}
-        <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
             <Thermometer className="w-5 h-5" />
             Environmental Data
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>Temperature:</span>
-              <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{environmentalData.ambientTemperature}°F</p>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                Temperature:
+              </span>
+              <p
+                className={cn(
+                  "font-medium",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {environmentalData.ambientTemperature}°F
+              </p>
             </div>
             <div>
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>Humidity:</span>
-              <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{environmentalData.humidityLevel}%</p>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                Humidity:
+              </span>
+              <p
+                className={cn(
+                  "font-medium",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {environmentalData.humidityLevel}%
+              </p>
             </div>
             <div>
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>Dew Point:</span>
-              <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{environmentalData.dewPoint.toFixed(1)}°F</p>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                Dew Point:
+              </span>
+              <p
+                className={cn(
+                  "font-medium",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {environmentalData.dewPoint.toFixed(1)}°F
+              </p>
             </div>
             <div>
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>Air Circulation:</span>
-              <p className={cn("font-medium", "text-neutral-900 dark:text-white")}>{environmentalData.airCirculation ? "Yes" : "No"}</p>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                Air Circulation:
+              </span>
+              <p
+                className={cn(
+                  "font-medium",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {environmentalData.airCirculation ? "Yes" : "No"}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Moisture Readings Summary */}
-        <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
             <Droplets className="w-5 h-5" />
             Moisture Readings ({moistureReadings.length})
           </h3>
           <div className="space-y-2">
             {moistureReadings.map((reading) => (
-              <div key={reading.id} className={cn("flex items-center justify-between p-3 rounded-lg text-sm", "bg-neutral-100 dark:bg-slate-900/50")}>
+              <div
+                key={reading.id}
+                className={cn(
+                  "flex items-center justify-between p-3 rounded-lg text-sm",
+                  "bg-neutral-100 dark:bg-slate-900/50",
+                )}
+              >
                 <div className="flex items-center gap-4">
-                  <span className={cn("font-medium", "text-neutral-900 dark:text-white")}>{reading.location}</span>
-                  <span className={cn("text-neutral-600 dark:text-slate-400")}>{reading.surfaceType}</span>
-                  <span className={cn("font-semibold", "text-cyan-600 dark:text-cyan-400")}>{reading.moistureLevel}%</span>
-                  <span className={cn("text-neutral-600 dark:text-slate-400")}>{reading.depth}</span>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    {reading.location}
+                  </span>
+                  <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                    {reading.surfaceType}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      "text-cyan-600 dark:text-cyan-400",
+                    )}
+                  >
+                    {reading.moistureLevel}%
+                  </span>
+                  <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                    {reading.depth}
+                  </span>
                 </div>
               </div>
             ))}
             {classificationPreview && (
               <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                <p className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}>
-                  <strong>Average Moisture:</strong> {classificationPreview.avgMoisture.toFixed(1)}%
+                <p
+                  className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}
+                >
+                  <strong>Average Moisture:</strong>{" "}
+                  {classificationPreview.avgMoisture.toFixed(1)}%
                 </p>
               </div>
             )}
@@ -1204,35 +1596,93 @@ export default function NIRTechnicianInputForm({
         </div>
 
         {/* Affected Areas Summary */}
-        <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
             <MapPin className="w-5 h-5" />
             Affected Areas ({affectedAreas.length})
           </h3>
           <div className="space-y-3">
             {affectedAreas.map((area) => (
-              <div key={area.id} className={cn("p-4 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
+              <div
+                key={area.id}
+                className={cn(
+                  "p-4 rounded-lg",
+                  "bg-neutral-100 dark:bg-slate-900/50",
+                )}
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={cn("font-medium text-base", "text-neutral-900 dark:text-white")}>{area.roomZoneId}</span>
-                      <span className={cn("text-xs px-2 py-1 rounded", "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400")}>
+                      <span
+                        className={cn(
+                          "font-medium text-base",
+                          "text-neutral-900 dark:text-white",
+                        )}
+                      >
+                        {area.roomZoneId}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs px-2 py-1 rounded",
+                          "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+                        )}
+                      >
                         {area.affectedSquareFootage.toFixed(2)} m²
                       </span>
-                      <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+                      <span
+                        className={cn(
+                          "text-xs",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
                         {area.length}m × {area.width}m × {area.height}m
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>Materials:</span>
+                      <span
+                        className={cn(
+                          "text-xs",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
+                        Materials:
+                      </span>
                       {area.materials.map((material, idx) => (
-                        <span key={idx} className={cn("text-xs px-2 py-0.5 rounded", "bg-neutral-200 dark:bg-slate-800 text-neutral-800 dark:text-slate-300")}>
+                        <span
+                          key={idx}
+                          className={cn(
+                            "text-xs px-2 py-0.5 rounded",
+                            "bg-neutral-200 dark:bg-slate-800 text-neutral-800 dark:text-slate-300",
+                          )}
+                        >
                           {material}
                         </span>
                       ))}
                     </div>
-                    <div className={cn("flex items-center gap-4 text-xs", "text-neutral-600 dark:text-slate-400")}>
-                      <span>Water Source: <span className={cn("text-cyan-600 dark:text-cyan-400")}>{area.waterSource}</span></span>
+                    <div
+                      className={cn(
+                        "flex items-center gap-4 text-xs",
+                        "text-neutral-600 dark:text-slate-400",
+                      )}
+                    >
+                      <span>
+                        Water Source:{" "}
+                        <span
+                          className={cn("text-cyan-600 dark:text-cyan-400")}
+                        >
+                          {area.waterSource}
+                        </span>
+                      </span>
                       <span>Time Since Loss: {area.timeSinceLoss} hrs</span>
                     </div>
                   </div>
@@ -1241,8 +1691,11 @@ export default function NIRTechnicianInputForm({
             ))}
             {classificationPreview && (
               <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                <p className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}>
-                  <strong>Total Affected Area:</strong> {classificationPreview.totalArea.toFixed(2)} m²
+                <p
+                  className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}
+                >
+                  <strong>Total Affected Area:</strong>{" "}
+                  {classificationPreview.totalArea.toFixed(2)} m²
                 </p>
               </div>
             )}
@@ -1252,80 +1705,172 @@ export default function NIRTechnicianInputForm({
         {/* Expected Classification Preview */}
         {classificationPreview && (
           <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-blue-500/10">
-            <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+            <h3
+              className={cn(
+                "text-lg font-semibold mb-4 flex items-center gap-2",
+                "text-neutral-900 dark:text-white",
+              )}
+            >
               <Sparkles className="w-5 h-5 text-cyan-400" />
               Expected Auto-Classification Preview
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className={cn("p-4 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
-                <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Water Category</span>
-                <p className={cn("text-2xl font-bold mt-1", "text-cyan-600 dark:text-cyan-400")}>
+              <div
+                className={cn(
+                  "p-4 rounded-lg",
+                  "bg-neutral-100 dark:bg-slate-900/50",
+                )}
+              >
+                <span
+                  className={cn(
+                    "text-sm",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
+                  Water Category
+                </span>
+                <p
+                  className={cn(
+                    "text-2xl font-bold mt-1",
+                    "text-cyan-600 dark:text-cyan-400",
+                  )}
+                >
                   Category {classificationPreview.category}
                 </p>
-                <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>
-                  {classificationPreview.category === "3" ? "Black Water (Contaminated)" :
-                   classificationPreview.category === "2" ? "Grey Water (Significant Contamination)" :
-                   "Clean Water (Sanitary Source)"}
+                <p
+                  className={cn(
+                    "text-xs mt-1",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
+                  {classificationPreview.category === "3"
+                    ? "Black Water (Contaminated)"
+                    : classificationPreview.category === "2"
+                      ? "Grey Water (Significant Contamination)"
+                      : "Clean Water (Sanitary Source)"}
                 </p>
               </div>
-              <div className={cn("p-4 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
-                <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Water Class</span>
-                <p className={cn("text-2xl font-bold mt-1", "text-cyan-600 dark:text-cyan-400")}>
+              <div
+                className={cn(
+                  "p-4 rounded-lg",
+                  "bg-neutral-100 dark:bg-slate-900/50",
+                )}
+              >
+                <span
+                  className={cn(
+                    "text-sm",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
+                  Water Class
+                </span>
+                <p
+                  className={cn(
+                    "text-2xl font-bold mt-1",
+                    "text-cyan-600 dark:text-cyan-400",
+                  )}
+                >
                   Class {classificationPreview.class}
                 </p>
-                <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>
-                  {classificationPreview.class === "4" ? "Bound Water / Deep Saturation" :
-                   classificationPreview.class === "3" ? "Large Area Affected" :
-                   classificationPreview.class === "2" ? "Medium Area Affected" :
-                   "Least Water / Small Area"}
+                <p
+                  className={cn(
+                    "text-xs mt-1",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
+                  {classificationPreview.class === "4"
+                    ? "Bound Water / Deep Saturation"
+                    : classificationPreview.class === "3"
+                      ? "Large Area Affected"
+                      : classificationPreview.class === "2"
+                        ? "Medium Area Affected"
+                        : "Least Water / Small Area"}
                 </p>
               </div>
             </div>
             <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <p className={cn("text-sm", "text-amber-800 dark:text-amber-400")}>
-                <strong>Note:</strong> This is a preview based on your entered data. The system will perform final classification after submission using IICRC S500 standards.
+              <p
+                className={cn("text-sm", "text-amber-800 dark:text-amber-400")}
+              >
+                <strong>Note:</strong> This is a preview based on your entered
+                data. The system will perform final classification after
+                submission using IICRC S500 standards.
               </p>
             </div>
           </div>
         )}
 
         {/* Scope Items Summary */}
-        <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
             <ClipboardCheck className="w-5 h-5 text-cyan-400" />
             Selected Scope Items ({selectedScopeItems.size})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {Array.from(selectedScopeItems).map((itemId) => {
-              const item = SCOPE_ITEM_TYPES.find(i => i.id === itemId)
+              const item = SCOPE_ITEM_TYPES.find((i) => i.id === itemId);
               return item ? (
-                <div key={itemId} className={cn("flex items-center gap-2 p-2 rounded-lg text-sm", "bg-neutral-100 dark:bg-slate-900/50")}>
+                <div
+                  key={itemId}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg text-sm",
+                    "bg-neutral-100 dark:bg-slate-900/50",
+                  )}
+                >
                   <CheckCircle className="w-4 h-4 text-cyan-400" />
-                  <span className={cn("text-neutral-900 dark:text-white")}>{item.label}</span>
+                  <span className={cn("text-neutral-900 dark:text-white")}>
+                    {item.label}
+                  </span>
                 </div>
-              ) : null
+              ) : null;
             })}
           </div>
-          <p className={cn("text-xs mt-4", "text-neutral-600 dark:text-slate-400")}>
-            Additional scope items will be automatically determined by the system based on the final classification.
+          <p
+            className={cn(
+              "text-xs mt-4",
+              "text-neutral-600 dark:text-slate-400",
+            )}
+          >
+            Additional scope items will be automatically determined by the
+            system based on the final classification.
           </p>
         </div>
 
         {/* Visual Moisture Mapping Summary */}
         {moistureReadings.length > 0 && moistureMapPoints.length > 0 && (
-          <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-            <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+          <div
+            className={cn(
+              "p-6 rounded-lg border",
+              "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+            )}
+          >
+            <h3
+              className={cn(
+                "text-lg font-semibold mb-4 flex items-center gap-2",
+                "text-neutral-900 dark:text-white",
+              )}
+            >
               <Map className="w-5 h-5 text-cyan-400" />
               Visual Moisture Mapping
             </h3>
             <MoistureMappingCanvas
-              readings={moistureReadings.map(r => ({
+              readings={moistureReadings.map((r) => ({
                 id: r.id,
                 location: r.location,
                 surfaceType: r.surfaceType,
                 moistureLevel: r.moistureLevel,
                 depth: r.depth,
-                notes: null
+                notes: null,
               }))}
               initialPoints={moistureMapPoints}
               initialBackgroundImage={floorPlanImageUrl}
@@ -1333,11 +1878,21 @@ export default function NIRTechnicianInputForm({
             />
           </div>
         )}
-        
+
         {/* Photos Summary */}
         {photos.length > 0 && (
-          <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-            <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+          <div
+            className={cn(
+              "p-6 rounded-lg border",
+              "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+            )}
+          >
+            <h3
+              className={cn(
+                "text-lg font-semibold mb-4 flex items-center gap-2",
+                "text-neutral-900 dark:text-white",
+              )}
+            >
               <Camera className="w-5 h-5" />
               Photos ({photos.length})
             </h3>
@@ -1345,14 +1900,25 @@ export default function NIRTechnicianInputForm({
               {photos.map((photo, index) => (
                 <div key={photo.id || index} className="relative">
                   {photo.uploading ? (
-                    <div className={cn("w-full h-32 rounded-lg border-2 flex items-center justify-center", "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50")}>
+                    <div
+                      className={cn(
+                        "w-full h-32 rounded-lg border-2 flex items-center justify-center",
+                        "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50",
+                      )}
+                    >
                       <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
                     </div>
                   ) : (
                     <img
-                      src={photo.url || (photo.file ? URL.createObjectURL(photo.file) : "")}
+                      src={
+                        photo.url ||
+                        (photo.file ? URL.createObjectURL(photo.file) : "")
+                      }
                       alt={`Photo ${index + 1}`}
-                      className={cn("w-full h-32 object-cover rounded-lg border-2", "border-neutral-300 dark:border-slate-600")}
+                      className={cn(
+                        "w-full h-32 object-cover rounded-lg border-2",
+                        "border-neutral-300 dark:border-slate-600",
+                      )}
                     />
                   )}
                 </div>
@@ -1366,7 +1932,11 @@ export default function NIRTechnicianInputForm({
           <button
             type="button"
             onClick={() => setShowReview(false)}
-            className={cn("px-6 py-2 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md", "border border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50 hover:border-neutral-400 dark:hover:border-slate-500", "text-neutral-900 dark:text-white")}
+            className={cn(
+              "px-6 py-2 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md",
+              "border border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50 hover:border-neutral-400 dark:hover:border-slate-500",
+              "text-neutral-900 dark:text-white",
+            )}
           >
             Back to Edit
           </button>
@@ -1391,61 +1961,87 @@ export default function NIRTechnicianInputForm({
           </button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={cn("max-w-7xl mx-auto space-y-6", "text-neutral-900 dark:text-neutral-100")}>
+    <div
+      className={cn(
+        "max-w-7xl mx-auto space-y-6",
+        "text-neutral-900 dark:text-neutral-100",
+      )}
+    >
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h2 className={cn("text-2xl font-semibold mb-2", "text-neutral-900 dark:text-white")}>NIR Technician Input Form</h2>
+          <h2
+            className={cn(
+              "text-2xl font-semibold mb-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
+            NIR Technician Input Form
+          </h2>
           <p className={cn("text-neutral-600 dark:text-slate-400")}>
-            Measure and observe only. The system will automatically interpret and classify.
+            Measure and observe only. The system will automatically interpret
+            and classify.
           </p>
         </div>
         <button
           type="button"
           onClick={async () => {
-            if (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0)) {
-              toast.error("No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.")
-              return
+            if (
+              !hasUnlimitedQuickFill &&
+              (quickFillCredits === null || quickFillCredits <= 0)
+            ) {
+              toast.error(
+                "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.",
+              );
+              return;
             }
-            
+
             if (!hasUnlimitedQuickFill) {
-              setLoadingCredits(true)
+              setLoadingCredits(true);
               try {
                 const response = await fetch("/api/user/quick-fill-credits", {
-                  method: "POST"
-                })
-                
+                  method: "POST",
+                });
+
                 if (response.ok) {
-                  const data = await response.json()
-                  setQuickFillCredits(data.creditsRemaining)
-                  setShowQuickFillModal(true)
+                  const data = await response.json();
+                  setQuickFillCredits(data.creditsRemaining);
+                  setShowQuickFillModal(true);
                 } else {
-                  const error = await response.json()
+                  const error = await response.json();
                   if (error.requiresUpgrade) {
-                    toast.error("No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.")
+                    toast.error(
+                      "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.",
+                    );
                   } else {
-                    toast.error(error.error || "Failed to use Quick Fill credit")
+                    toast.error(
+                      error.error || "Failed to use Quick Fill credit",
+                    );
                   }
                 }
               } catch (error) {
-                toast.error("Failed to check Quick Fill credits")
+                toast.error("Failed to check Quick Fill credits");
               } finally {
-                setLoadingCredits(false)
+                setLoadingCredits(false);
               }
             } else {
-              setShowQuickFillModal(true)
+              setShowQuickFillModal(true);
             }
           }}
-          disabled={loadingCredits || (!hasUnlimitedQuickFill && (quickFillCredits === null || quickFillCredits <= 0))}
+          disabled={
+            loadingCredits ||
+            (!hasUnlimitedQuickFill &&
+              (quickFillCredits === null || quickFillCredits <= 0))
+          }
           className={cn(
             "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
             "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
             "text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed",
-            "hover:scale-[1.02] active:scale-[0.98]"
+            "hover:scale-[1.02] active:scale-[0.98]",
           )}
         >
           {loadingCredits ? (
@@ -1454,25 +2050,40 @@ export default function NIRTechnicianInputForm({
             <Zap className="w-4 h-4" />
           )}
           <span>
-            {hasUnlimitedQuickFill 
-              ? "Quick Fill" 
+            {hasUnlimitedQuickFill
+              ? "Quick Fill"
               : quickFillCredits !== null && quickFillCredits > 0
-              ? `Quick Fill (${quickFillCredits})`
-              : "No Credits"}
+                ? `Quick Fill (${quickFillCredits})`
+                : "No Credits"}
           </span>
         </button>
       </div>
-      
+
       {/* Property Information */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <MapPin className="w-5 h-5" />
           Property Information
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               Property Address <span className="text-red-500">*</span>
             </label>
             <input
@@ -1480,16 +2091,27 @@ export default function NIRTechnicianInputForm({
               required
               value={propertyAddress}
               onChange={(e) => setPropertyAddress(e.target.value)}
-              className={cn("w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              className={cn(
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
               placeholder="Full property address"
             />
             {validationErrors.propertyAddress && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.propertyAddress}</p>
+              <p className="text-red-400 text-xs mt-1">
+                {validationErrors.propertyAddress}
+              </p>
             )}
           </div>
-          
+
           <div>
-            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               Postcode <span className="text-red-400">*</span>
             </label>
             <input
@@ -1497,40 +2119,72 @@ export default function NIRTechnicianInputForm({
               required
               maxLength={4}
               value={propertyPostcode}
-              onChange={(e) => setPropertyPostcode(e.target.value.replace(/\D/g, ""))}
-              className={cn("w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setPropertyPostcode(e.target.value.replace(/\D/g, ""))
+              }
+              className={cn(
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
               placeholder="0000"
             />
             {validationErrors.propertyPostcode && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.propertyPostcode}</p>
+              <p className="text-red-400 text-xs mt-1">
+                {validationErrors.propertyPostcode}
+              </p>
             )}
           </div>
-          
+
           <div className="md:col-span-2">
-            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               Technician Name
             </label>
             <input
               type="text"
               value={technicianName}
               onChange={(e) => setTechnicianName(e.target.value)}
-              className={cn("w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              className={cn(
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
               placeholder="Your name"
             />
           </div>
         </div>
       </div>
-      
+
       {/* Environmental Data */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <Thermometer className="w-5 h-5" />
           Environmental Data
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               Ambient Temperature (°F)
             </label>
             <input
@@ -1538,19 +2192,32 @@ export default function NIRTechnicianInputForm({
               min="-20"
               max="130"
               value={environmentalData.ambientTemperature}
-              onChange={(e) => setEnvironmentalData(prev => ({
-                ...prev,
-                ambientTemperature: parseFloat(e.target.value) || 0
-              }))}
-              className={cn("w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setEnvironmentalData((prev) => ({
+                  ...prev,
+                  ambientTemperature: parseFloat(e.target.value) || 0,
+                }))
+              }
+              className={cn(
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
             />
             {validationErrors.temperature && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.temperature}</p>
+              <p className="text-red-400 text-xs mt-1">
+                {validationErrors.temperature}
+              </p>
             )}
           </div>
-          
+
           <div>
-            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               Humidity Level (%)
             </label>
             <input
@@ -1558,111 +2225,229 @@ export default function NIRTechnicianInputForm({
               min="0"
               max="100"
               value={environmentalData.humidityLevel}
-              onChange={(e) => setEnvironmentalData(prev => ({
-                ...prev,
-                humidityLevel: parseFloat(e.target.value) || 0
-              }))}
-              className={cn("w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setEnvironmentalData((prev) => ({
+                  ...prev,
+                  humidityLevel: parseFloat(e.target.value) || 0,
+                }))
+              }
+              className={cn(
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
             />
             {validationErrors.humidity && (
-              <p className="text-red-400 text-xs mt-1">{validationErrors.humidity}</p>
+              <p className="text-red-400 text-xs mt-1">
+                {validationErrors.humidity}
+              </p>
             )}
           </div>
-          
+
           <div>
-            <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               Dew Point (°F)
             </label>
             <input
               type="number"
               value={environmentalData.dewPoint.toFixed(1)}
               disabled
-              className={cn("w-full px-4 py-2 rounded-lg cursor-not-allowed", "bg-neutral-100 dark:bg-slate-700/30 border border-neutral-200 dark:border-slate-600", "text-neutral-500 dark:text-slate-400")}
+              className={cn(
+                "w-full px-4 py-2 rounded-lg cursor-not-allowed",
+                "bg-neutral-100 dark:bg-slate-700/30 border border-neutral-200 dark:border-slate-600",
+                "text-neutral-500 dark:text-slate-400",
+              )}
             />
-            <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-400")}>Auto-calculated</p>
+            <p
+              className={cn(
+                "text-xs mt-1",
+                "text-neutral-600 dark:text-slate-400",
+              )}
+            >
+              Auto-calculated
+            </p>
           </div>
-          
+
           <div className="flex items-end">
-            <label className={cn("flex items-center gap-2 text-sm font-medium", "text-neutral-700 dark:text-slate-300")}>
+            <label
+              className={cn(
+                "flex items-center gap-2 text-sm font-medium",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
               <input
                 type="checkbox"
                 checked={environmentalData.airCirculation}
-                onChange={(e) => setEnvironmentalData(prev => ({
-                  ...prev,
-                  airCirculation: e.target.checked
-                }))}
-                className={cn("w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
+                onChange={(e) =>
+                  setEnvironmentalData((prev) => ({
+                    ...prev,
+                    airCirculation: e.target.checked,
+                  }))
+                }
+                className={cn(
+                  "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                  "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
+                )}
               />
               Air Circulation
             </label>
           </div>
         </div>
       </div>
-      
+
       {/* Moisture Readings */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <Droplets className="w-5 h-5" />
-          Moisture Readings <span className="text-red-500 dark:text-red-400">*</span>
+          Moisture Readings{" "}
+          <span className="text-red-500 dark:text-red-400">*</span>
         </h3>
-        
+
         {validationErrors.moistureReadings && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>{validationErrors.moistureReadings}</p>
+            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>
+              {validationErrors.moistureReadings}
+            </p>
           </div>
         )}
-        
+
         {/* Add New Moisture Reading */}
-        <div className={cn("grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 p-4 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
+        <div
+          className={cn(
+            "grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 p-4 rounded-lg",
+            "bg-neutral-100 dark:bg-slate-900/50",
+          )}
+        >
           <div>
-            <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Location</label>
+            <label
+              className={cn(
+                "block text-xs font-medium mb-1",
+                "text-neutral-600 dark:text-slate-400",
+              )}
+            >
+              Location
+            </label>
             <input
               type="text"
               value={newMoistureReading.location}
-              onChange={(e) => setNewMoistureReading(prev => ({ ...prev, location: e.target.value }))}
-              className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setNewMoistureReading((prev) => ({
+                  ...prev,
+                  location: e.target.value,
+                }))
+              }
+              className={cn(
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
               placeholder="Room/Zone"
             />
           </div>
-          
+
           <div>
-            <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Surface Type</label>
+            <label
+              className={cn(
+                "block text-xs font-medium mb-1",
+                "text-neutral-600 dark:text-slate-400",
+              )}
+            >
+              Surface Type
+            </label>
             <select
               value={newMoistureReading.surfaceType}
-              onChange={(e) => setNewMoistureReading(prev => ({ ...prev, surfaceType: e.target.value }))}
-              className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setNewMoistureReading((prev) => ({
+                  ...prev,
+                  surfaceType: e.target.value,
+                }))
+              }
+              className={cn(
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
             >
-              {SURFACE_TYPES.map(type => (
-                <option key={type} value={type}>{type}</option>
+              {SURFACE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
           </div>
-          
+
           <div>
-            <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Moisture (%)</label>
+            <label
+              className={cn(
+                "block text-xs font-medium mb-1",
+                "text-neutral-600 dark:text-slate-400",
+              )}
+            >
+              Moisture (%)
+            </label>
             <input
               type="number"
               min="0"
               max="100"
               step="0.1"
               value={newMoistureReading.moistureLevel}
-              onChange={(e) => setNewMoistureReading(prev => ({ ...prev, moistureLevel: parseFloat(e.target.value) || 0 }))}
-              className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setNewMoistureReading((prev) => ({
+                  ...prev,
+                  moistureLevel: parseFloat(e.target.value) || 0,
+                }))
+              }
+              className={cn(
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
             />
           </div>
-          
+
           <div>
-            <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Depth</label>
+            <label
+              className={cn(
+                "block text-xs font-medium mb-1",
+                "text-neutral-600 dark:text-slate-400",
+              )}
+            >
+              Depth
+            </label>
             <select
               value={newMoistureReading.depth}
-              onChange={(e) => setNewMoistureReading(prev => ({ ...prev, depth: e.target.value as "Surface" | "Subsurface" }))}
-              className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+              onChange={(e) =>
+                setNewMoistureReading((prev) => ({
+                  ...prev,
+                  depth: e.target.value as "Surface" | "Subsurface",
+                }))
+              }
+              className={cn(
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+              )}
             >
               <option value="Surface">Surface</option>
               <option value="Subsurface">Subsurface</option>
             </select>
           </div>
-          
+
           <div className="flex items-end">
             <button
               type="button"
@@ -1674,22 +2459,49 @@ export default function NIRTechnicianInputForm({
             </button>
           </div>
         </div>
-        
+
         {/* Existing Moisture Readings */}
         {moistureReadings.length > 0 && (
           <div className="space-y-2">
             {moistureReadings.map((reading) => (
-              <div key={reading.id} className={cn("flex items-center justify-between p-3 rounded-lg text-sm", "bg-neutral-100 dark:bg-slate-900/50")}>
+              <div
+                key={reading.id}
+                className={cn(
+                  "flex items-center justify-between p-3 rounded-lg text-sm",
+                  "bg-neutral-100 dark:bg-slate-900/50",
+                )}
+              >
                 <div className="flex items-center gap-4">
-                  <span className={cn("font-medium", "text-neutral-900 dark:text-white")}>{reading.location}</span>
-                  <span className={cn("text-neutral-600 dark:text-slate-400")}>{reading.surfaceType}</span>
-                  <span className={cn("font-semibold", "text-cyan-600 dark:text-cyan-400")}>{reading.moistureLevel}%</span>
-                  <span className={cn("text-neutral-600 dark:text-slate-400")}>{reading.depth}</span>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    {reading.location}
+                  </span>
+                  <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                    {reading.surfaceType}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      "text-cyan-600 dark:text-cyan-400",
+                    )}
+                  >
+                    {reading.moistureLevel}%
+                  </span>
+                  <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                    {reading.depth}
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleRemoveMoistureReading(reading.id)}
-                  className={cn("p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group", "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10")}
+                  className={cn(
+                    "p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group",
+                    "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10",
+                  )}
                   title="Remove reading"
                 >
                   <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
@@ -1699,120 +2511,198 @@ export default function NIRTechnicianInputForm({
           </div>
         )}
       </div>
-      
+
       {/* Visual Moisture Mapping (Floor Plan Overlay) */}
       {moistureReadings.length > 0 && (
-        <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-          <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+        <div
+          className={cn(
+            "p-6 rounded-lg border",
+            "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+          )}
+        >
+          <h3
+            className={cn(
+              "text-lg font-semibold mb-4 flex items-center gap-2",
+              "text-neutral-900 dark:text-white",
+            )}
+          >
             <Map className="w-5 h-5 text-cyan-400" />
             Visual Moisture Mapping (Floor Plan Overlay)
           </h3>
-          <p className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}>
-            Upload a floor plan image and place your moisture readings on the map to visualize the affected areas.
-            {!inspectionId && (!propertyAddress.trim() || !propertyPostcode.trim()) && (
-              <span className="block mt-2 text-amber-400 text-xs">
-                ⚠️ Enter property address and postcode first. Inspection will be created automatically, then you can upload floor plan.
-              </span>
+          <p
+            className={cn(
+              "text-sm mb-4",
+              "text-neutral-600 dark:text-slate-400",
             )}
+          >
+            Upload a floor plan image and place your moisture readings on the
+            map to visualize the affected areas.
+            {!inspectionId &&
+              (!propertyAddress.trim() || !propertyPostcode.trim()) && (
+                <span className="block mt-2 text-amber-400 text-xs">
+                  ⚠️ Enter property address and postcode first. Inspection will
+                  be created automatically, then you can upload floor plan.
+                </span>
+              )}
             {inspectionId && (
               <span className="block mt-2 text-green-400 text-xs">
                 ✓ Inspection ready. You can upload floor plan and photos.
               </span>
             )}
           </p>
-          
+
           <MoistureMappingCanvas
-            readings={moistureReadings.map(r => ({
+            readings={moistureReadings.map((r) => ({
               id: r.id,
               location: r.location,
               surfaceType: r.surfaceType,
               moistureLevel: r.moistureLevel,
               depth: r.depth,
-              notes: null
+              notes: null,
             }))}
             initialPoints={moistureMapPoints}
             initialBackgroundImage={floorPlanImageUrl}
             onPointsChange={(points) => {
-              setMoistureMapPoints(points)
+              setMoistureMapPoints(points);
             }}
             onBackgroundImageChange={(url) => {
-              setFloorPlanImageUrl(url)
+              setFloorPlanImageUrl(url);
             }}
             onImageUpload={async (file) => {
               // Auto-create inspection if it doesn't exist
-              let currentInspectionId = inspectionId
+              let currentInspectionId = inspectionId;
               if (!currentInspectionId) {
                 if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-                  toast.error("Please enter property address and postcode first")
-                  throw new Error("Property info required")
+                  toast.error(
+                    "Please enter property address and postcode first",
+                  );
+                  throw new Error("Property info required");
                 }
-                
-                currentInspectionId = await ensureInspectionExists(true) // Show toast
+
+                currentInspectionId = await ensureInspectionExists(true); // Show toast
                 if (!currentInspectionId) {
-                  throw new Error("No inspection ID")
+                  throw new Error("No inspection ID");
                 }
               }
-              
-              const formData = new FormData()
-              formData.append("file", file)
-              formData.append("type", "floor-plan")
-              
-              const response = await fetch(`/api/inspections/${currentInspectionId}/floor-plan`, {
-                method: "POST",
-                body: formData
-              })
-              
+
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("type", "floor-plan");
+
+              const response = await fetch(
+                `/api/inspections/${currentInspectionId}/floor-plan`,
+                {
+                  method: "POST",
+                  body: formData,
+                },
+              );
+
               if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || "Failed to upload floor plan")
+                const error = await response.json();
+                throw new Error(error.error || "Failed to upload floor plan");
               }
-              
-              const data = await response.json()
-              setFloorPlanImageUrl(data.imageUrl)
-              return data.imageUrl
+
+              const data = await response.json();
+              setFloorPlanImageUrl(data.imageUrl);
+              return data.imageUrl;
             }}
           />
         </div>
       )}
-      
+
       {/* Affected Areas */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <MapPin className="w-5 h-5" />
-          Affected Areas <span className="text-red-500 dark:text-red-400">*</span>
+          Affected Areas{" "}
+          <span className="text-red-500 dark:text-red-400">*</span>
         </h3>
-        
+
         {validationErrors.affectedAreas && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>{validationErrors.affectedAreas}</p>
+            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>
+              {validationErrors.affectedAreas}
+            </p>
           </div>
         )}
-        
+
         {/* Add New Affected Area */}
-        <div className={cn("space-y-4 mb-4 p-4 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
+        <div
+          className={cn(
+            "space-y-4 mb-4 p-4 rounded-lg",
+            "bg-neutral-100 dark:bg-slate-900/50",
+          )}
+        >
           {/* Room Picker */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Room Type <span className="text-red-500 dark:text-red-400">*</span></label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Room Type{" "}
+                <span className="text-red-500 dark:text-red-400">*</span>
+              </label>
               <select
                 value={newAffectedArea.roomType}
-                onChange={(e) => setNewAffectedArea(prev => ({ ...prev, roomType: e.target.value, customRoomName: "" }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewAffectedArea((prev) => ({
+                    ...prev,
+                    roomType: e.target.value,
+                    customRoomName: "",
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
               >
-                {ROOM_TYPES.map(room => (
-                  <option key={room} value={room}>{room}</option>
+                {ROOM_TYPES.map((room) => (
+                  <option key={room} value={room}>
+                    {room}
+                  </option>
                 ))}
               </select>
             </div>
-            
+
             {newAffectedArea.roomType === "Other" && (
               <div>
-                <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Custom Room Name <span className="text-red-500 dark:text-red-400">*</span></label>
+                <label
+                  className={cn(
+                    "block text-xs font-medium mb-1",
+                    "text-neutral-600 dark:text-slate-400",
+                  )}
+                >
+                  Custom Room Name{" "}
+                  <span className="text-red-500 dark:text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   value={newAffectedArea.customRoomName}
-                  onChange={(e) => setNewAffectedArea(prev => ({ ...prev, customRoomName: e.target.value }))}
-                  className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                  onChange={(e) =>
+                    setNewAffectedArea((prev) => ({
+                      ...prev,
+                      customRoomName: e.target.value,
+                    }))
+                  }
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                    "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                  )}
                   placeholder="Enter room name"
                 />
               </div>
@@ -1822,72 +2712,161 @@ export default function NIRTechnicianInputForm({
           {/* Dimensions for Area Calculation */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Length (m) <span className="text-red-500 dark:text-red-400">*</span></label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Length (m){" "}
+                <span className="text-red-500 dark:text-red-400">*</span>
+              </label>
               <input
                 type="number"
                 min="0"
                 step="0.1"
                 value={newAffectedArea.length}
-                onChange={(e) => setNewAffectedArea(prev => ({ ...prev, length: parseFloat(e.target.value) || 0 }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewAffectedArea((prev) => ({
+                    ...prev,
+                    length: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
                 placeholder="0.0"
               />
             </div>
-            
+
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Width (m) <span className="text-red-500 dark:text-red-400">*</span></label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Width (m){" "}
+                <span className="text-red-500 dark:text-red-400">*</span>
+              </label>
               <input
                 type="number"
                 min="0"
                 step="0.1"
                 value={newAffectedArea.width}
-                onChange={(e) => setNewAffectedArea(prev => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewAffectedArea((prev) => ({
+                    ...prev,
+                    width: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
                 placeholder="0.0"
               />
             </div>
-            
+
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Height (m)</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Height (m)
+              </label>
               <input
                 type="number"
                 min="0"
                 step="0.1"
                 value={newAffectedArea.height}
-                onChange={(e) => setNewAffectedArea(prev => ({ ...prev, height: parseFloat(e.target.value) || 2.7 }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewAffectedArea((prev) => ({
+                    ...prev,
+                    height: parseFloat(e.target.value) || 2.7,
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
                 placeholder="2.7"
               />
             </div>
-            
+
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Calculated Area (m²)</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Calculated Area (m²)
+              </label>
               <input
                 type="number"
                 value={newAffectedArea.affectedSquareFootage.toFixed(2)}
                 disabled
-                className={cn("w-full px-3 py-2 rounded-lg text-sm cursor-not-allowed", "bg-neutral-100 dark:bg-slate-700/30 border border-neutral-200 dark:border-slate-600", "text-neutral-500 dark:text-slate-400")}
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg text-sm cursor-not-allowed",
+                  "bg-neutral-100 dark:bg-slate-700/30 border border-neutral-200 dark:border-slate-600",
+                  "text-neutral-500 dark:text-slate-400",
+                )}
               />
-              <p className={cn("text-xs mt-1", "text-neutral-600 dark:text-slate-500")}>Auto-calculated: Length × Width</p>
+              <p
+                className={cn(
+                  "text-xs mt-1",
+                  "text-neutral-600 dark:text-slate-500",
+                )}
+              >
+                Auto-calculated: Length × Width
+              </p>
             </div>
           </div>
 
           {/* Materials Selection */}
           <div>
-            <label className={cn("block text-xs font-medium mb-2", "text-neutral-700 dark:text-slate-400")}>Affected Materials <span className="text-red-500 dark:text-red-400">*</span></label>
+            <label
+              className={cn(
+                "block text-xs font-medium mb-2",
+                "text-neutral-700 dark:text-slate-400",
+              )}
+            >
+              Affected Materials{" "}
+              <span className="text-red-500 dark:text-red-400">*</span>
+            </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {MATERIAL_TYPES.map((material) => (
                 <label
                   key={material}
-                  className={cn("flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors", "bg-neutral-100 dark:bg-slate-800/50 hover:bg-neutral-200 dark:hover:bg-slate-700/50")}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
+                    "bg-neutral-100 dark:bg-slate-800/50 hover:bg-neutral-200 dark:hover:bg-slate-700/50",
+                  )}
                 >
                   <input
                     type="checkbox"
                     checked={newAffectedArea.materials.includes(material)}
                     onChange={() => handleMaterialToggle(material)}
-                    className={cn("w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
+                    className={cn(
+                      "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                      "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
+                    )}
                   />
-                  <span className={cn("text-xs font-medium", "text-neutral-900 dark:text-white")}>{material}</span>
+                  <span
+                    className={cn(
+                      "text-xs font-medium",
+                      "text-neutral-900 dark:text-white",
+                    )}
+                  >
+                    {material}
+                  </span>
                 </label>
               ))}
             </div>
@@ -1901,30 +2880,64 @@ export default function NIRTechnicianInputForm({
           {/* Water Source and Time */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Water Source</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Water Source
+              </label>
               <select
                 value={newAffectedArea.waterSource}
-                onChange={(e) => setNewAffectedArea(prev => ({ ...prev, waterSource: e.target.value }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewAffectedArea((prev) => ({
+                    ...prev,
+                    waterSource: e.target.value,
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
               >
-                {WATER_SOURCES.map(source => (
-                  <option key={source} value={source}>{source}</option>
+                {WATER_SOURCES.map((source) => (
+                  <option key={source} value={source}>
+                    {source}
+                  </option>
                 ))}
               </select>
             </div>
-            
+
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Time Since Loss (hrs)</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Time Since Loss (hrs)
+              </label>
               <input
                 type="number"
                 min="0"
                 step="0.1"
                 value={newAffectedArea.timeSinceLoss}
-                onChange={(e) => setNewAffectedArea(prev => ({ ...prev, timeSinceLoss: parseFloat(e.target.value) || 0 }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewAffectedArea((prev) => ({
+                    ...prev,
+                    timeSinceLoss: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
               />
             </div>
-            
+
             <div className="flex items-end">
               <button
                 type="button"
@@ -1937,32 +2950,70 @@ export default function NIRTechnicianInputForm({
             </div>
           </div>
         </div>
-        
+
         {/* Existing Affected Areas */}
         {affectedAreas.length > 0 && (
           <div className="space-y-2">
             {affectedAreas.map((area) => (
-              <div key={area.id} className={cn("p-3 rounded-lg border", "bg-white dark:bg-slate-900/50 border-neutral-200 dark:border-slate-700/50")}>
+              <div
+                key={area.id}
+                className={cn(
+                  "p-3 rounded-lg border",
+                  "bg-white dark:bg-slate-900/50 border-neutral-200 dark:border-slate-700/50",
+                )}
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={cn("font-medium", "text-neutral-900 dark:text-white")}>{area.roomZoneId}</span>
-                      <span className={cn("text-xs px-2 py-1 rounded", "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400")}>
+                      <span
+                        className={cn(
+                          "font-medium",
+                          "text-neutral-900 dark:text-white",
+                        )}
+                      >
+                        {area.roomZoneId}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs px-2 py-1 rounded",
+                          "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+                        )}
+                      >
                         {area.affectedSquareFootage.toFixed(2)} m²
                       </span>
-                      <span className={cn("text-xs", "text-neutral-600 dark:text-slate-400")}>
+                      <span
+                        className={cn(
+                          "text-xs",
+                          "text-neutral-600 dark:text-slate-400",
+                        )}
+                      >
                         {area.length}m × {area.width}m × {area.height}m
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <span className={cn("text-neutral-600 dark:text-slate-400")}>Materials:</span>
+                      <span
+                        className={cn("text-neutral-600 dark:text-slate-400")}
+                      >
+                        Materials:
+                      </span>
                       {area.materials.map((material, idx) => (
-                        <span key={idx} className={cn("px-2 py-0.5 rounded", "bg-neutral-200 dark:bg-slate-800 text-neutral-800 dark:text-slate-300")}>
+                        <span
+                          key={idx}
+                          className={cn(
+                            "px-2 py-0.5 rounded",
+                            "bg-neutral-200 dark:bg-slate-800 text-neutral-800 dark:text-slate-300",
+                          )}
+                        >
                           {material}
                         </span>
                       ))}
                     </div>
-                    <div className={cn("flex items-center gap-4 mt-2 text-xs", "text-neutral-600 dark:text-slate-400")}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-4 mt-2 text-xs",
+                        "text-neutral-600 dark:text-slate-400",
+                      )}
+                    >
                       <span>Source: {area.waterSource}</span>
                       <span>Time: {area.timeSinceLoss} hrs</span>
                     </div>
@@ -1970,7 +3021,10 @@ export default function NIRTechnicianInputForm({
                   <button
                     type="button"
                     onClick={() => handleRemoveAffectedArea(area.id)}
-                    className={cn("p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group ml-4", "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10")}
+                    className={cn(
+                      "p-1.5 rounded-md transition-all duration-200 hover:scale-110 active:scale-95 group ml-4",
+                      "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10",
+                    )}
                     title="Remove area"
                   >
                     <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
@@ -1981,20 +3035,38 @@ export default function NIRTechnicianInputForm({
           </div>
         )}
       </div>
-      
+
       {/* Classification UI (Manual Override) */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <Shield className="w-5 h-5 text-cyan-400" />
           IICRC Classification (Optional Manual Override)
         </h3>
-        <p className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}>
-          The system will automatically classify based on your data. You can manually override the classification if needed.
+        <p
+          className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}
+        >
+          The system will automatically classify based on your data. You can
+          manually override the classification if needed.
         </p>
 
         {/* Damage description — feeds rule-based auto-classifier */}
         <div className="mb-4">
-          <label className={cn("block text-sm font-medium mb-1", "text-neutral-700 dark:text-slate-300")}>
+          <label
+            className={cn(
+              "block text-sm font-medium mb-1",
+              "text-neutral-700 dark:text-slate-300",
+            )}
+          >
             Describe the Damage (optional — improves auto-classification)
           </label>
           <textarea
@@ -2004,7 +3076,7 @@ export default function NIRTechnicianInputForm({
             className={cn(
               "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 resize-none",
               "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400"
+              "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
             )}
             placeholder="e.g. Burst pipe in bathroom, grey water from washing machine overflow, sewage backup in basement…"
           />
@@ -2012,15 +3084,23 @@ export default function NIRTechnicianInputForm({
             description={damageDescription}
             averageMoistureReading={
               moistureReadings.length > 0
-                ? moistureReadings.reduce((sum: number, r: { moistureLevel: number }) => sum + r.moistureLevel, 0) / moistureReadings.length
+                ? moistureReadings.reduce(
+                    (sum: number, r: { moistureLevel: number }) =>
+                      sum + r.moistureLevel,
+                    0,
+                  ) / moistureReadings.length
                 : undefined
             }
             onApply={(result, _claimTypes) => {
               if (result.damageCategory || result.damageClass) {
                 setManualClassification({
-                  category: result.damageCategory ? String(result.damageCategory) : manualClassification?.category ?? '',
-                  class: result.damageClass ? String(result.damageClass) : manualClassification?.class ?? '',
-                })
+                  category: result.damageCategory
+                    ? String(result.damageCategory)
+                    : (manualClassification?.category ?? ""),
+                  class: result.damageClass
+                    ? String(result.damageClass)
+                    : (manualClassification?.class ?? ""),
+                });
               }
               // _claimTypes carries the full multi-loss selection — available for future
               // scope generation call-sites that accept claimTypes: string[].
@@ -2031,137 +3111,280 @@ export default function NIRTechnicianInputForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Water Category Selector */}
           <div>
-            <label className={cn("block text-sm font-medium mb-3", "text-neutral-700 dark:text-slate-300")}>Water Category (IICRC S500)</label>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-3",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
+              Water Category (IICRC S500)
+            </label>
             <div className="space-y-2">
               {WATER_CATEGORIES.map((category) => (
                 <label
                   key={category.value}
-                  className={cn("flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors", "bg-neutral-100 dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-600", "hover:bg-neutral-200 dark:hover:bg-slate-900/70")}
+                  className={cn(
+                    "flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                    "bg-neutral-100 dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-600",
+                    "hover:bg-neutral-200 dark:hover:bg-slate-900/70",
+                  )}
                 >
                   <input
                     type="radio"
                     name="waterCategory"
                     value={category.value}
                     checked={manualClassification?.category === category.value}
-                    onChange={(e) => setManualClassification(prev => ({
-                      ...prev,
-                      category: e.target.value,
-                      class: prev?.class || ""
-                    }))}
-                    className={cn("mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
+                    onChange={(e) =>
+                      setManualClassification((prev) => ({
+                        ...prev,
+                        category: e.target.value,
+                        class: prev?.class || "",
+                      }))
+                    }
+                    className={cn(
+                      "mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500",
+                      "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
+                    )}
                   />
                   <div className="flex-1">
-                    <div className={cn("font-medium text-sm", "text-neutral-900 dark:text-white")}>{category.label}</div>
-                    <div className={cn("text-xs mt-0.5", "text-neutral-600 dark:text-slate-400")}>{category.description}</div>
+                    <div
+                      className={cn(
+                        "font-medium text-sm",
+                        "text-neutral-900 dark:text-white",
+                      )}
+                    >
+                      {category.label}
+                    </div>
+                    <div
+                      className={cn(
+                        "text-xs mt-0.5",
+                        "text-neutral-600 dark:text-slate-400",
+                      )}
+                    >
+                      {category.description}
+                    </div>
                   </div>
                 </label>
               ))}
             </div>
           </div>
-          
+
           {/* Water Class Selector */}
           <div>
-            <label className={cn("block text-sm font-medium mb-3", "text-neutral-700 dark:text-slate-300")}>Water Class (IICRC S500)</label>
+            <label
+              className={cn(
+                "block text-sm font-medium mb-3",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
+              Water Class (IICRC S500)
+            </label>
             <div className="space-y-2">
               {WATER_CLASSES.map((waterClass) => (
                 <label
                   key={waterClass.value}
-                  className={cn("flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors", "bg-neutral-100 dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-600", "hover:bg-neutral-200 dark:hover:bg-slate-900/70")}
+                  className={cn(
+                    "flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                    "bg-neutral-100 dark:bg-slate-900/50 border border-neutral-200 dark:border-slate-600",
+                    "hover:bg-neutral-200 dark:hover:bg-slate-900/70",
+                  )}
                 >
                   <input
                     type="radio"
                     name="waterClass"
                     value={waterClass.value}
                     checked={manualClassification?.class === waterClass.value}
-                    onChange={(e) => setManualClassification(prev => ({
-                      category: prev?.category || "",
-                      class: e.target.value
-                    }))}
-                    className={cn("mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
+                    onChange={(e) =>
+                      setManualClassification((prev) => ({
+                        category: prev?.category || "",
+                        class: e.target.value,
+                      }))
+                    }
+                    className={cn(
+                      "mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500",
+                      "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
+                    )}
                   />
                   <div className="flex-1">
-                    <div className={cn("font-medium text-sm", "text-neutral-900 dark:text-white")}>{waterClass.label}</div>
-                    <div className={cn("text-xs mt-0.5", "text-neutral-600 dark:text-slate-400")}>{waterClass.description}</div>
+                    <div
+                      className={cn(
+                        "font-medium text-sm",
+                        "text-neutral-900 dark:text-white",
+                      )}
+                    >
+                      {waterClass.label}
+                    </div>
+                    <div
+                      className={cn(
+                        "text-xs mt-0.5",
+                        "text-neutral-600 dark:text-slate-400",
+                      )}
+                    >
+                      {waterClass.description}
+                    </div>
                   </div>
                 </label>
               ))}
             </div>
           </div>
         </div>
-        
+
         {manualClassification && (
           <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
             <p className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}>
-              <strong>Manual Override Active:</strong> Category {manualClassification.category}, Class {manualClassification.class}
+              <strong>Manual Override Active:</strong> Category{" "}
+              {manualClassification.category}, Class{" "}
+              {manualClassification.class}
             </p>
             <button
               type="button"
               onClick={() => setManualClassification(null)}
-              className={cn("mt-2 text-xs underline", "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300")}
+              className={cn(
+                "mt-2 text-xs underline",
+                "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300",
+              )}
             >
               Clear manual override (use auto-classification)
             </button>
           </div>
         )}
       </div>
-      
+
       {/* Scope Items (Checklist) */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <ClipboardCheck className="w-5 h-5 text-cyan-400" />
           Scope Items
         </h3>
-        <p className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}>
-          Select all applicable scope items. The system will automatically determine required items based on classification.
+        <p
+          className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}
+        >
+          Select all applicable scope items. The system will automatically
+          determine required items based on classification.
         </p>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
           {SCOPE_ITEM_TYPES.map((item) => (
-            <div key={item.id} className={cn("flex items-center gap-3 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
+            <div
+              key={item.id}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-lg",
+                "bg-neutral-100 dark:bg-slate-900/50",
+              )}
+            >
               <input
                 type="checkbox"
                 checked={selectedScopeItems.has(item.id)}
                 onChange={() => handleScopeItemToggle(item.id)}
-                className={cn("w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500", "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700")}
+                className={cn(
+                  "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                  "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
+                )}
               />
-              <label className={cn("text-sm flex-1", "text-neutral-900 dark:text-white")}>{item.label}</label>
-              {item.id === "demolish_drywall" && selectedScopeItems.has(item.id) && (
-                <input
-                  type="text"
-                  placeholder="Height (e.g., 2ft)"
-                  value={scopeItemSpecs[item.id] || ""}
-                  onChange={(e) => setScopeItemSpecs(prev => ({ ...prev, [item.id]: e.target.value }))}
-                  className="w-24 px-2 py-1 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
-                />
-              )}
+              <label
+                className={cn(
+                  "text-sm flex-1",
+                  "text-neutral-900 dark:text-white",
+                )}
+              >
+                {item.label}
+              </label>
+              {item.id === "demolish_drywall" &&
+                selectedScopeItems.has(item.id) && (
+                  <input
+                    type="text"
+                    placeholder="Height (e.g., 2ft)"
+                    value={scopeItemSpecs[item.id] || ""}
+                    onChange={(e) =>
+                      setScopeItemSpecs((prev) => ({
+                        ...prev,
+                        [item.id]: e.target.value,
+                      }))
+                    }
+                    className="w-24 px-2 py-1 bg-slate-700/50 border border-slate-600 rounded text-white text-xs"
+                  />
+                )}
             </div>
           ))}
         </div>
 
         {/* Equipment Selection */}
         <div className="mb-6">
-          <h4 className={cn("text-sm font-semibold mb-3", "text-neutral-800 dark:text-slate-300")}>Equipment Required</h4>
-          <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 rounded-lg", "bg-neutral-100 dark:bg-slate-900/50")}>
+          <h4
+            className={cn(
+              "text-sm font-semibold mb-3",
+              "text-neutral-800 dark:text-slate-300",
+            )}
+          >
+            Equipment Required
+          </h4>
+          <div
+            className={cn(
+              "grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 rounded-lg",
+              "bg-neutral-100 dark:bg-slate-900/50",
+            )}
+          >
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Equipment Type</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Equipment Type
+              </label>
               <select
                 value={newEquipment.type}
-                onChange={(e) => setNewEquipment(prev => ({ ...prev, type: e.target.value }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewEquipment((prev) => ({ ...prev, type: e.target.value }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
               >
-                {EQUIPMENT_TYPES.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {EQUIPMENT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Quantity</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Quantity
+              </label>
               <input
                 type="number"
                 min="1"
                 value={newEquipment.quantity}
-                onChange={(e) => setNewEquipment(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setNewEquipment((prev) => ({
+                    ...prev,
+                    quantity: parseInt(e.target.value) || 1,
+                  }))
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
               />
             </div>
             <div className="flex items-end">
@@ -2169,18 +3392,18 @@ export default function NIRTechnicianInputForm({
                 type="button"
                 onClick={() => {
                   if (newEquipment.quantity < 1) {
-                    toast.error("Quantity must be at least 1")
-                    return
+                    toast.error("Quantity must be at least 1");
+                    return;
                   }
                   setEquipmentSelection([
                     ...equipmentSelection,
                     {
                       id: Date.now().toString(),
-                      ...newEquipment
-                    }
-                  ])
-                  setNewEquipment({ type: EQUIPMENT_TYPES[0], quantity: 1 })
-                  toast.success("Equipment added")
+                      ...newEquipment,
+                    },
+                  ]);
+                  setNewEquipment({ type: EQUIPMENT_TYPES[0], quantity: 1 });
+                  toast.success("Equipment added");
                 }}
                 className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
               >
@@ -2189,21 +3412,32 @@ export default function NIRTechnicianInputForm({
               </button>
             </div>
           </div>
-          
+
           {equipmentSelection.length > 0 && (
             <div className="space-y-2">
               {equipmentSelection.map((eq) => (
-                <div key={eq.id} className={cn("flex items-center justify-between p-2 rounded-lg text-sm", "bg-neutral-100 dark:bg-slate-900/50")}>
+                <div
+                  key={eq.id}
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded-lg text-sm",
+                    "bg-neutral-100 dark:bg-slate-900/50",
+                  )}
+                >
                   <span className={cn("text-neutral-900 dark:text-white")}>
                     {eq.quantity}x {eq.type}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      setEquipmentSelection(equipmentSelection.filter(e => e.id !== eq.id))
-                      toast.success("Equipment removed")
+                      setEquipmentSelection(
+                        equipmentSelection.filter((e) => e.id !== eq.id),
+                      );
+                      toast.success("Equipment removed");
                     }}
-                    className={cn("p-1 rounded transition-colors", "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10")}
+                    className={cn(
+                      "p-1 rounded transition-colors",
+                      "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10",
+                    )}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -2215,57 +3449,104 @@ export default function NIRTechnicianInputForm({
 
         {/* Drying Duration */}
         <div>
-          <h4 className={cn("text-sm font-semibold mb-3", "text-neutral-800 dark:text-slate-300")}>Drying Duration</h4>
+          <h4
+            className={cn(
+              "text-sm font-semibold mb-3",
+              "text-neutral-800 dark:text-slate-300",
+            )}
+          >
+            Drying Duration
+          </h4>
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <label className={cn("block text-xs font-medium mb-1", "text-neutral-600 dark:text-slate-400")}>Estimated Drying Duration (Days)</label>
+              <label
+                className={cn(
+                  "block text-xs font-medium mb-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
+                Estimated Drying Duration (Days)
+              </label>
               <input
                 type="number"
                 min="1"
                 max="30"
                 value={dryingDuration}
-                onChange={(e) => setDryingDuration(parseInt(e.target.value) || 4)}
-                className={cn("w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm", "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600", "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400")}
+                onChange={(e) =>
+                  setDryingDuration(parseInt(e.target.value) || 4)
+                }
+                className={cn(
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                  "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
+                )}
               />
             </div>
             <div className="pt-6">
-              <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>
+              <span
+                className={cn(
+                  "text-sm",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
+              >
                 {dryingDuration === 1 ? "1 day" : `${dryingDuration} days`}
               </span>
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Estimated duration for complete drying based on affected area and classification
+            Estimated duration for complete drying based on affected area and
+            classification
           </p>
         </div>
       </div>
-      
+
       {/* Photos */}
-      <div className={cn("p-6 rounded-lg border", "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50")}>
-        <h3 className={cn("text-lg font-semibold mb-4 flex items-center gap-2", "text-neutral-900 dark:text-white")}>
+      <div
+        className={cn(
+          "p-6 rounded-lg border",
+          "bg-white dark:bg-slate-800/30 border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
+        <h3
+          className={cn(
+            "text-lg font-semibold mb-4 flex items-center gap-2",
+            "text-neutral-900 dark:text-white",
+          )}
+        >
           <Camera className="w-5 h-5" />
           Photos <span className="text-red-400">*</span>
         </h3>
-        
+
         {validationErrors.photos && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
             <p className="text-red-400 text-sm">{validationErrors.photos}</p>
           </div>
         )}
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {photos.map((photo, index) => (
             <div key={photo.id || index} className="relative">
               {photo.uploading ? (
-                <div className={cn("w-full h-32 rounded-lg border-2 flex items-center justify-center", "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50")}>
+                <div
+                  className={cn(
+                    "w-full h-32 rounded-lg border-2 flex items-center justify-center",
+                    "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50",
+                  )}
+                >
                   <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
                 </div>
               ) : (
                 <>
                   <img
-                    src={photo.url || (photo.file ? URL.createObjectURL(photo.file) : "")}
+                    src={
+                      photo.url ||
+                      (photo.file ? URL.createObjectURL(photo.file) : "")
+                    }
                     alt={`Photo ${index + 1}`}
-                    className={cn("w-full h-32 object-cover rounded-lg border-2", "border-neutral-300 dark:border-slate-600")}
+                    className={cn(
+                      "w-full h-32 object-cover rounded-lg border-2",
+                      "border-neutral-300 dark:border-slate-600",
+                    )}
                   />
                   <button
                     type="button"
@@ -2279,23 +3560,29 @@ export default function NIRTechnicianInputForm({
               )}
             </div>
           ))}
-          
-          <label className={cn(
-            "w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 group bg-slate-900/50",
-            uploadingPhotos 
-              ? "border-slate-500 cursor-wait opacity-50" 
-              : "border-slate-600 hover:border-cyan-500 hover:bg-slate-800/50 hover:scale-[1.02] active:scale-[0.98]"
-          )}>
+
+          <label
+            className={cn(
+              "w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 group bg-slate-900/50",
+              uploadingPhotos
+                ? "border-slate-500 cursor-wait opacity-50"
+                : "border-slate-600 hover:border-cyan-500 hover:bg-slate-800/50 hover:scale-[1.02] active:scale-[0.98]",
+            )}
+          >
             <div className="text-center">
               {uploadingPhotos ? (
                 <Loader2 className="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-spin" />
               ) : (
                 <Upload className="w-8 h-8 text-slate-400 group-hover:text-cyan-400 mx-auto mb-2 transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-1" />
               )}
-              <span className={cn(
-                "text-xs transition-colors duration-200 font-medium",
-                uploadingPhotos ? "text-slate-500" : "text-slate-400 group-hover:text-cyan-400"
-              )}>
+              <span
+                className={cn(
+                  "text-xs transition-colors duration-200 font-medium",
+                  uploadingPhotos
+                    ? "text-slate-500"
+                    : "text-slate-400 group-hover:text-cyan-400",
+                )}
+              >
                 {uploadingPhotos ? "Uploading..." : "Add Photo"}
               </span>
             </div>
@@ -2304,27 +3591,36 @@ export default function NIRTechnicianInputForm({
               accept="image/*"
               multiple
               onChange={handlePhotoUpload}
-              disabled={uploadingPhotos || (!propertyAddress.trim() || !propertyPostcode.trim())}
+              disabled={
+                uploadingPhotos ||
+                !propertyAddress.trim() ||
+                !propertyPostcode.trim()
+              }
               className="hidden"
             />
           </label>
         </div>
         <p className="text-xs text-slate-400 mt-2">
-          {!inspectionId && (!propertyAddress.trim() || !propertyPostcode.trim())
+          {!inspectionId &&
+          (!propertyAddress.trim() || !propertyPostcode.trim())
             ? "Enter property address and postcode first. Inspection will be created automatically, then you can upload photos."
             : inspectionId
-            ? "Upload photos of each affected area. Photos are automatically uploaded to Cloudinary and timestamps are added."
-            : "Enter property address and postcode to enable photo uploads. Photos are automatically uploaded to Cloudinary."}
+              ? "Upload photos of each affected area. Photos are automatically uploaded to Cloudinary and timestamps are added."
+              : "Enter property address and postcode to enable photo uploads. Photos are automatically uploaded to Cloudinary."}
         </p>
       </div>
-      
+
       {/* Action Buttons */}
-      <div className="flex justify-end gap-4">
+      <div className="sticky bottom-0 z-10 flex justify-end gap-4 py-4 px-0 bg-white dark:bg-slate-950 border-t border-neutral-200 dark:border-slate-800">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className={cn("px-6 py-2 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md", "border border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50 hover:border-neutral-400 dark:hover:border-slate-500", "text-neutral-900 dark:text-white")}
+            className={cn(
+              "px-6 py-2 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md",
+              "border border-neutral-300 dark:border-slate-600 hover:bg-neutral-100 dark:hover:bg-slate-700/50 hover:border-neutral-400 dark:hover:border-slate-500",
+              "text-neutral-900 dark:text-white",
+            )}
           >
             Cancel
           </button>
@@ -2334,76 +3630,92 @@ export default function NIRTechnicianInputForm({
           onClick={async () => {
             // Save draft (auto-create inspection and save data without requiring photos)
             try {
-              setSaving(true)
+              setSaving(true);
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-                toast.error("Please enter property address and postcode first")
-                setSaving(false)
-                return
+                toast.error("Please enter property address and postcode first");
+                setSaving(false);
+                return;
               }
-              
-              let currentInspectionId = inspectionId || await ensureInspectionExists(true) // Show toast
-              
+
+              let currentInspectionId =
+                inspectionId || (await ensureInspectionExists(true)); // Show toast
+
               if (!currentInspectionId) {
-                toast.error("Failed to create inspection. Please try again.")
-                setSaving(false)
-                return
+                toast.error("Failed to create inspection. Please try again.");
+                setSaving(false);
+                return;
               }
-              
+
               if (currentInspectionId) {
                 // Save environmental data
-                await fetch(`/api/inspections/${currentInspectionId}/environmental`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(environmentalData)
-                })
-                
+                await fetch(
+                  `/api/inspections/${currentInspectionId}/environmental`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(environmentalData),
+                  },
+                );
+
                 // Save moisture readings
                 for (const reading of moistureReadings) {
-                  const mapPoint = moistureMapPoints.find(p => p.id === reading.id)
-                  await fetch(`/api/inspections/${currentInspectionId}/moisture`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      location: reading.location,
-                      surfaceType: reading.surfaceType,
-                      moistureLevel: reading.moistureLevel,
-                      depth: reading.depth,
-                      mapX: mapPoint?.x || null,
-                      mapY: mapPoint?.y || null
-                    })
-                  })
+                  const mapPoint = moistureMapPoints.find(
+                    (p) => p.id === reading.id,
+                  );
+                  await fetch(
+                    `/api/inspections/${currentInspectionId}/moisture`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        location: reading.location,
+                        surfaceType: reading.surfaceType,
+                        moistureLevel: reading.moistureLevel,
+                        depth: reading.depth,
+                        mapX: mapPoint?.x || null,
+                        mapY: mapPoint?.y || null,
+                      }),
+                    },
+                  );
                 }
-                
+
                 // Save affected areas
                 for (const area of affectedAreas) {
-                  await fetch(`/api/inspections/${currentInspectionId}/affected-areas`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      roomZoneId: area.roomZoneId,
-                      affectedSquareFootage: area.affectedSquareFootage,
-                      waterSource: area.waterSource,
-                      timeSinceLoss: area.timeSinceLoss,
-                      length: area.length,
-                      width: area.width,
-                      height: area.height,
-                      materials: area.materials,
-                      description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`
-                    })
-                  })
+                  await fetch(
+                    `/api/inspections/${currentInspectionId}/affected-areas`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        roomZoneId: area.roomZoneId,
+                        affectedSquareFootage: area.affectedSquareFootage,
+                        waterSource: area.waterSource,
+                        timeSinceLoss: area.timeSinceLoss,
+                        length: area.length,
+                        width: area.width,
+                        height: area.height,
+                        materials: area.materials,
+                        description: `Dimensions: ${area.length}m × ${area.width}m × ${area.height}m. Materials: ${area.materials.join(", ")}`,
+                      }),
+                    },
+                  );
                 }
-                
-                toast.success("Draft saved successfully! You can now upload photos and floor plan.")
+
+                toast.success(
+                  "Draft saved successfully! You can now upload photos and floor plan.",
+                );
               } else {
-                toast.error("Failed to save draft")
+                toast.error("Failed to save draft");
               }
             } catch (error: any) {
-              toast.error(error.message || "Failed to save draft")
+              toast.error(error.message || "Failed to save draft");
             } finally {
-              setSaving(false)
+              setSaving(false);
             }
           }}
-          disabled={saving || !propertyAddress.trim() || !propertyPostcode.trim()}
+          disabled={
+            saving || !propertyAddress.trim() || !propertyPostcode.trim()
+          }
           className="px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 hover:border-slate-500 transition-all duration-200 text-white hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? "Saving..." : "Save Draft"}
@@ -2419,7 +3731,7 @@ export default function NIRTechnicianInputForm({
           <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
         </button>
       </div>
-      
+
       {/* Quick Fill Modal */}
       <Dialog open={showQuickFillModal} onOpenChange={setShowQuickFillModal}>
         <DialogContent className="max-w-2xl bg-slate-900 border-slate-700">
@@ -2428,11 +3740,14 @@ export default function NIRTechnicianInputForm({
               <Zap className="w-6 h-6 text-purple-400" />
               Quick Fill Test Data
             </DialogTitle>
-            <DialogDescription className={cn("text-neutral-600 dark:text-slate-400")}>
-              Choose a use case to populate the form with sample NIR inspection data for testing
+            <DialogDescription
+              className={cn("text-neutral-600 dark:text-slate-400")}
+            >
+              Choose a use case to populate the form with sample NIR inspection
+              data for testing
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto">
             {nirUseCases.map((useCase) => (
               <button
@@ -2458,6 +3773,5 @@ export default function NIRTechnicianInputForm({
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
-

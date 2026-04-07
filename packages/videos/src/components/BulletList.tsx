@@ -56,12 +56,10 @@ export const BulletList: React.FC<BulletListProps> = ({
             fps,
             config: { damping: 15, stiffness: 80 },
           });
-          const bulletX = interpolate(
-            frame - bulletDelay,
-            [0, 20],
-            [60, 0],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-          );
+          const bulletX = interpolate(frame - bulletDelay, [0, 20], [60, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
 
           return (
             <div

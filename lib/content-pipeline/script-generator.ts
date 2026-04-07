@@ -7,43 +7,48 @@
  * @module lib/content-pipeline/script-generator
  */
 
-import Anthropic from '@anthropic-ai/sdk'
+import Anthropic from "@anthropic-ai/sdk";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
 export interface ScriptData {
-  hook: string
-  agitation: string
-  solution: string
-  cta: string
-  voiceoverText: string
-  caption: string
-  hashtags: string[]
+  hook: string;
+  agitation: string;
+  solution: string;
+  cta: string;
+  voiceoverText: string;
+  caption: string;
+  hashtags: string[];
 }
 
-export type Platform = 'tiktok' | 'instagram' | 'facebook' | 'pinterest' | 'youtube'
+export type Platform =
+  | "tiktok"
+  | "instagram"
+  | "facebook"
+  | "pinterest"
+  | "youtube";
 
 export interface ScriptGeneratorInput {
-  product: string
-  angle: string
-  platform: Platform | string
-  duration: number
+  product: string;
+  angle: string;
+  platform: Platform | string;
+  duration: number;
 }
 
 // ─── PLATFORM GUIDANCE ──────────────────────────────────────────────────────
 
 const PLATFORM_CONTEXT: Record<string, string> = {
   tiktok:
-    'TikTok short-form video — fast cuts, trending audio, Gen-Z/Millennial tone, 3-second hook',
+    "TikTok short-form video — fast cuts, trending audio, Gen-Z/Millennial tone, 3-second hook",
   instagram:
-    'Instagram Reels/Feed — polished but authentic, hashtag-rich caption, lifestyle aspirational',
+    "Instagram Reels/Feed — polished but authentic, hashtag-rich caption, lifestyle aspirational",
   facebook:
-    'Facebook — slightly longer copy acceptable, trust-focused, community tone, broad demographic',
+    "Facebook — slightly longer copy acceptable, trust-focused, community tone, broad demographic",
   pinterest:
-    'Pinterest — aspirational, keyword-optimised description, link to resource, helpful tone',
+    "Pinterest — aspirational, keyword-optimised description, link to resource, helpful tone",
   youtube:
-    'YouTube — longer-form educational content, SEO-optimised title and description, professional authority, thumbnail-worthy hook',
-}
+    "YouTube — longer-form educational content, SEO-optimised title and description, professional authority, thumbnail-worthy hook",
+};
 
 // ─── SYSTEM PROMPT ──────────────────────────────────────────────────────────
 
@@ -67,7 +72,7 @@ You MUST respond with a single JSON object — no markdown, no preamble, no expl
   "voiceoverText": "string — full narration script optimised for the given duration in seconds",
   "caption": "string — platform-optimised post caption (includes relevant emojis)",
   "hashtags": ["array", "of", "hashtag", "strings", "without", "the", "hash"]
-}`
+}`;
 
 // ─── USER PROMPT ────────────────────────────────────────────────────────────
 
@@ -75,9 +80,9 @@ function buildUserPrompt(
   product: string,
   angle: string,
   platform: string,
-  duration: number
+  duration: number,
 ): string {
-  const platformCtx = PLATFORM_CONTEXT[platform] ?? platform
+  const platformCtx = PLATFORM_CONTEXT[platform] ?? platform;
 
   return `Generate a ${duration}-second ${platform} content script for the following:
 
@@ -87,7 +92,7 @@ Platform context: ${platformCtx}
 
 The voiceoverText must be naturally speakable in exactly ${duration} seconds at a comfortable conversational pace (roughly ${Math.round(duration * 2.5)} words).
 
-Return only the JSON object.`
+Return only the JSON object.`;
 }
 
 // ─── JSON EXTRACTOR ─────────────────────────────────────────────────────────
@@ -95,10 +100,10 @@ Return only the JSON object.`
 function extractJSON(text: string): Record<string, unknown> {
   // Strip any accidental markdown code fences
   const stripped = text
-    .replace(/```(?:json)?\s*/gi, '')
-    .replace(/```\s*/g, '')
-    .trim()
-  return JSON.parse(stripped)
+    .replace(/```(?:json)?\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  return JSON.parse(stripped);
 }
 
 // ─── MAIN FUNCTION ──────────────────────────────────────────────────────────
@@ -110,58 +115,58 @@ function extractJSON(text: string): Record<string, unknown> {
  * Throws on API error or unparseable response.
  */
 export async function generateScript(
-  input: ScriptGeneratorInput
+  input: ScriptGeneratorInput,
 ): Promise<ScriptData> {
-  const { product, angle, platform, duration } = input
+  const { product, angle, platform, duration } = input;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  let fullText = ''
+  let fullText = "";
 
   const stream = anthropic.messages.stream({
-    model: 'claude-sonnet-4-5',
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
     messages: [
       {
-        role: 'user',
+        role: "user",
         content: buildUserPrompt(product, angle, platform, duration),
       },
     ],
-  })
+  });
 
   for await (const chunk of stream) {
     if (
-      chunk.type === 'content_block_delta' &&
-      chunk.delta.type === 'text_delta'
+      chunk.type === "content_block_delta" &&
+      chunk.delta.type === "text_delta"
     ) {
-      fullText += chunk.delta.text
+      fullText += chunk.delta.text;
     }
   }
 
   // Parse the JSON response
-  let parsed: Record<string, unknown>
+  let parsed: Record<string, unknown>;
   try {
-    parsed = extractJSON(fullText)
+    parsed = extractJSON(fullText);
   } catch {
     throw new Error(
-      `Failed to parse Claude response as JSON. Raw text: ${fullText.slice(0, 500)}`
-    )
+      `Failed to parse Claude response as JSON. Raw text: ${fullText.slice(0, 500)}`,
+    );
   }
 
   // Validate and coerce into ScriptData
   const scriptData: ScriptData = {
-    hook: typeof parsed.hook === 'string' ? parsed.hook : '',
-    agitation: typeof parsed.agitation === 'string' ? parsed.agitation : '',
-    solution: typeof parsed.solution === 'string' ? parsed.solution : '',
-    cta: typeof parsed.cta === 'string' ? parsed.cta : '',
+    hook: typeof parsed.hook === "string" ? parsed.hook : "",
+    agitation: typeof parsed.agitation === "string" ? parsed.agitation : "",
+    solution: typeof parsed.solution === "string" ? parsed.solution : "",
+    cta: typeof parsed.cta === "string" ? parsed.cta : "",
     voiceoverText:
-      typeof parsed.voiceoverText === 'string' ? parsed.voiceoverText : '',
-    caption: typeof parsed.caption === 'string' ? parsed.caption : '',
+      typeof parsed.voiceoverText === "string" ? parsed.voiceoverText : "",
+    caption: typeof parsed.caption === "string" ? parsed.caption : "",
     hashtags: Array.isArray(parsed.hashtags)
-      ? parsed.hashtags.filter((h): h is string => typeof h === 'string')
+      ? parsed.hashtags.filter((h): h is string => typeof h === "string")
       : [],
-  }
+  };
 
-  return scriptData
+  return scriptData;
 }

@@ -65,10 +65,10 @@ export const ProductExplainer: React.FC = () => {
       <Sequence from={1500} durationInFrames={300}>
         <CTASlide
           slogan="One System. Fewer Gaps. More Confidence."
-          primaryLabel="Book a Demo"
-          primaryUrl="restoreassist.com.au/contact"
-          secondaryLabel="See How It Works"
-          secondaryUrl="restoreassist.com.au/how-it-works"
+          primaryLabel="Start Free Trial"
+          primaryUrl="restoreassist.app/signup"
+          secondaryLabel="Watch Videos"
+          secondaryUrl="restoreassist.app/resources"
         />
       </Sequence>
     </AbsoluteFill>

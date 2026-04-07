@@ -83,7 +83,8 @@ export const FreeTrialSlide: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        background: "linear-gradient(160deg, #0f1e33 0%, #1C2E47 50%, #0f1e33 100%)",
+        background:
+          "linear-gradient(160deg, #0f1e33 0%, #1C2E47 50%, #0f1e33 100%)",
         justifyContent: "center",
         alignItems: "center",
         fontFamily: "Inter, sans-serif",
@@ -106,7 +107,9 @@ export const FreeTrialSlide: React.FC = () => {
           boxShadow: "0 0 40px rgba(59,130,246,0.4)",
         }}
       >
-        <span style={{ color: "white", fontSize: 28, fontWeight: 700 }}>RA</span>
+        <span style={{ color: "white", fontSize: 28, fontWeight: 700 }}>
+          RA
+        </span>
       </div>
 
       {/* Main heading */}
