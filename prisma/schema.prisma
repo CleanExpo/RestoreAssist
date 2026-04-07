@@ -1574,6 +1574,9 @@ model Inspection {
   evidenceItems       EvidenceItem[]
   inspectionWorkflow  InspectionWorkflow?
 
+  // Sprint H: Contents manifest AI draft (RA-405)
+  contentsManifestDraft String? @db.Text // JSON: ContentsManifestDraft
+
   // RA-416: media assets with EXIF metadata
   mediaAssets MediaAsset[] @relation("InspectionMediaAssets")
 
@@ -4033,6 +4036,14 @@ enum EvidenceClass {
   VOICE_MEMO              // Transcribed voice notes from field
   THIRD_PARTY_REPORT      // External specialist reports (structural, electrical)
   COMPLIANCE_CERTIFICATE  // IICRC/regulatory compliance certificates
+  AFFECTED_CONTENTS       // Photos of household/commercial contents for insurance claims (RA-405)
+}
+
+// Evidence item review status — for submission gate filtering
+enum EvidenceItemStatus {
+  ACTIVE    // Normal — counts toward submission requirements
+  FLAGGED   // Flagged for review — still counts but needs attention
+  REJECTED  // Rejected — does NOT count toward submission requirements
 }
 
 // Workflow step status for guided capture state machine
@@ -4066,9 +4077,13 @@ model EvidenceItem {
 
   // Storage
   fileUrl        String?       // Supabase Storage URL for file-based evidence
+  fileName       String?       // Original filename for file-based evidence (e.g. "kitchen-damage.jpg")
   fileMimeType   String?       // MIME type of the stored file
   fileSizeBytes  Int?          // File size for storage tracking
   thumbnailUrl   String?       // Auto-generated thumbnail for photos/videos
+
+  // Location context
+  roomName       String?       // Room/area name where evidence was captured (e.g. "Kitchen")
 
   // Structured data (JSON) — for readings, measurements, structured results
   structuredData String?       @db.Text // JSON: { value: 42, unit: "%WME", material: "drywall" }
@@ -4086,6 +4101,9 @@ model EvidenceItem {
   verifiedById   String?       // Who verified it
   verifiedAt     DateTime?     // When it was verified
 
+  // Review status — controls submission gate filtering
+  status          EvidenceItemStatus @default(ACTIVE) // RA-401: submission gate filter
+
   // Exception handling — if this evidence replaces a required but unobtainable item
   exceptionReason ExceptionReason?
 
@@ -4098,6 +4116,7 @@ model EvidenceItem {
   @@index([capturedAt])
   @@index([workflowStepId])
   @@index([inspectionId, evidenceClass])
+  @@index([inspectionId, status])
 }
 
 // Inspection workflow — state machine for guided capture
