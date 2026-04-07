@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from "@playwright/test";
 
 /**
  * Warehouse / Inventory E2E Tests (RA-213)
@@ -6,48 +6,60 @@ import { test, expect } from '@playwright/test'
  * plus dashboard navigation redirects for unauthenticated users
  */
 
-test.describe('Warehouse API Authentication', () => {
-  test('should require authentication for GET /api/invoices', async ({ request }) => {
-    const response = await request.get('/api/invoices')
+test.describe("Warehouse API Authentication", () => {
+  test("should require authentication for GET /api/invoices", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/invoices");
 
     // Should return 401 Unauthorized
-    expect(response.status()).toBe(401)
-  })
+    expect(response.status()).toBe(401);
+  });
 
-  test('should require authentication for GET /api/cost-libraries', async ({ request }) => {
-    const response = await request.get('/api/cost-libraries')
-
-    // Should return 401 Unauthorized
-    expect(response.status()).toBe(401)
-  })
-
-  test('should require authentication for GET /api/estimates', async ({ request }) => {
-    const response = await request.get('/api/estimates')
+  test("should require authentication for GET /api/cost-libraries", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/cost-libraries");
 
     // Should return 401 Unauthorized
-    expect(response.status()).toBe(401)
-  })
-})
+    expect(response.status()).toBe(401);
+  });
 
-test.describe('Warehouse Dashboard Navigation', () => {
-  test('should redirect unauthenticated users from /dashboard to login', async ({ page }) => {
-    await page.goto('/dashboard')
+  test("should require authentication for GET /api/estimates", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/estimates");
 
-    // Should redirect to login
-    await expect(page).toHaveURL(/\/login/)
-  })
+    // Should return 401 Unauthorized
+    expect(response.status()).toBe(401);
+  });
+});
 
-  test('should redirect unauthenticated users from /dashboard/invoices to login', async ({ page }) => {
-    await page.goto('/dashboard/invoices')
-
-    // Should redirect to login
-    await expect(page).toHaveURL(/\/login/)
-  })
-
-  test('should redirect unauthenticated users from /dashboard/cost-libraries to login', async ({ page }) => {
-    await page.goto('/dashboard/cost-libraries')
+test.describe("Warehouse Dashboard Navigation", () => {
+  test("should redirect unauthenticated users from /dashboard to login", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
 
     // Should redirect to login
-    await expect(page).toHaveURL(/\/login/)
-  })
-})
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("should redirect unauthenticated users from /dashboard/invoices to login", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/invoices");
+
+    // Should redirect to login
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("should redirect unauthenticated users from /dashboard/cost-libraries to login", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard/cost-libraries");
+
+    // Should redirect to login
+    await expect(page).toHaveURL(/\/login/);
+  });
+});

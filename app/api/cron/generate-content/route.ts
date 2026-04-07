@@ -18,27 +18,27 @@
  *   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyCronAuth, runCronJob } from '@/lib/cron'
-import { runContentPipeline } from '@/lib/content-pipeline/orchestrator'
+import { NextRequest, NextResponse } from "next/server";
+import { verifyCronAuth, runCronJob } from "@/lib/cron";
+import { runContentPipeline } from "@/lib/content-pipeline/orchestrator";
 
-export const maxDuration = 300 // 5 minutes — pipeline may take 2-3 min
-export const dynamic = 'force-dynamic'
+export const maxDuration = 300; // 5 minutes — pipeline may take 2-3 min
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const authError = verifyCronAuth(request)
-  if (authError) return authError
+  const authError = verifyCronAuth(request);
+  if (authError) return authError;
 
-  const systemUserId = process.env.CONTENT_SYSTEM_USER_ID
+  const systemUserId = process.env.CONTENT_SYSTEM_USER_ID;
   if (!systemUserId) {
     return NextResponse.json(
-      { error: 'CONTENT_SYSTEM_USER_ID is not configured' },
-      { status: 500 }
-    )
+      { error: "CONTENT_SYSTEM_USER_ID is not configured" },
+      { status: 500 },
+    );
   }
 
-  const result = await runCronJob('generate-content', async () => {
-    const pipelineResult = await runContentPipeline(systemUserId)
+  const result = await runCronJob("generate-content", async () => {
+    const pipelineResult = await runContentPipeline(systemUserId);
 
     return {
       itemsProcessed: pipelineResult.jobId ? 1 : 0,
@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
         jobId: pipelineResult.jobId || null,
         finalStatus: pipelineResult.finalStatus,
       },
-    }
-  })
+    };
+  });
 
-  return NextResponse.json(result)
+  return NextResponse.json(result);
 }

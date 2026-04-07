@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
-export type SyncStatus = 'idle' | 'syncing' | 'error';
+export type SyncStatus = "idle" | "syncing" | "error";
 
 /**
  * Sync engine stub — offline-first sync between local SQLite and remote API.
@@ -9,8 +9,8 @@ export type SyncStatus = 'idle' | 'syncing' | 'error';
 export function useSyncEngine(): { status: SyncStatus } {
   useEffect(() => {
     // TODO: RA-292 — implement full sync engine
-    console.log('[SyncEngine] Stub initialised');
+    console.log("[SyncEngine] Stub initialised");
   }, []);
 
-  return { status: 'idle' };
+  return { status: "idle" };
 }

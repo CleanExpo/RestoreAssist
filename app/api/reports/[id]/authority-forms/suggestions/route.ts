@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { suggestAuthorityForms, extractReportAnalysis } from "@/lib/authority-forms-suggestions"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import {
+  suggestAuthorityForms,
+  extractReportAnalysis,
+} from "@/lib/authority-forms-suggestions";
 
 /**
  * GET /api/reports/:id/authority-forms/suggestions
@@ -10,15 +13,15 @@ import { suggestAuthorityForms, extractReportAnalysis } from "@/lib/authority-fo
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: reportId } = await params
+    const { id: reportId } = await params;
 
     // Fetch report with all necessary data
     const report = await prisma.report.findUnique({
@@ -35,12 +38,12 @@ export async function GET(
         methamphetamineScreen: true,
         userId: true,
         assignedManagerId: true,
-        assignedAdminId: true
-      }
-    })
+        assignedAdminId: true,
+      },
+    });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 })
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // Check permissions - user must own the report or be assigned to it
@@ -49,44 +52,42 @@ export async function GET(
       report.assignedManagerId !== session.user.id &&
       report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Extract analysis from report
-    const analysis = extractReportAnalysis(report)
+    const analysis = extractReportAnalysis(report);
 
     // Get suggestions
-    const suggestions = suggestAuthorityForms(analysis)
+    const suggestions = suggestAuthorityForms(analysis);
 
     // Check which forms already exist for this report
     const existingForms = await prisma.authorityFormInstance.findMany({
       where: { reportId },
       include: {
         template: {
-          select: { code: true }
-        }
-      }
-    })
+          select: { code: true },
+        },
+      },
+    });
 
-    const existingCodes = new Set(
-      existingForms.map(f => f.template.code)
-    )
+    const existingCodes = new Set(existingForms.map((f) => f.template.code));
 
     // Mark which suggestions are already created
-    const suggestionsWithStatus = suggestions.map(suggestion => ({
+    const suggestionsWithStatus = suggestions.map((suggestion) => ({
       ...suggestion,
-      alreadyCreated: existingCodes.has(suggestion.templateCode)
-    }))
+      alreadyCreated: existingCodes.has(suggestion.templateCode),
+    }));
 
     return NextResponse.json({
       suggestions: suggestionsWithStatus,
-      analysis // Include analysis for debugging/transparency
-    })
+      analysis, // Include analysis for debugging/transparency
+    });
   } catch (error) {
-    console.error("Error getting authority form suggestions:", error)
+    console.error("Error getting authority form suggestions:", error);
     return NextResponse.json(
       { error: "Failed to get suggestions" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

@@ -1,51 +1,51 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { CheckCircle, XCircle, Clock, Plus } from "lucide-react"
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CheckCircle, XCircle, Clock, Plus } from "lucide-react";
 
-type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"
-type ApprovalType = "SCOPE_OF_WORK" | "COST_ESTIMATE"
+type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
+type ApprovalType = "SCOPE_OF_WORK" | "COST_ESTIMATE";
 
 interface Approval {
-  id: string
-  reportId: string
-  approvalType: ApprovalType
-  status: ApprovalStatus
-  requestedAt: string
-  respondedAt: string | null
-  clientComments: string | null
-  amount: number | null
-  createdAt: string
+  id: string;
+  reportId: string;
+  approvalType: ApprovalType;
+  status: ApprovalStatus;
+  requestedAt: string;
+  respondedAt: string | null;
+  clientComments: string | null;
+  amount: number | null;
+  createdAt: string;
 }
 
 interface ApprovalPanelProps {
-  reportId: string
+  reportId: string;
 }
 
 const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
   SCOPE_OF_WORK: "Scope of Work",
   COST_ESTIMATE: "Cost Estimate",
-}
+};
 
 function StatusBadge({ status }: { status: ApprovalStatus }) {
   switch (status) {
@@ -54,61 +54,61 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
         <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
           Awaiting Response
         </Badge>
-      )
+      );
     case "APPROVED":
       return (
         <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
           Approved
         </Badge>
-      )
+      );
     case "REJECTED":
       return (
         <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
           Rejected
         </Badge>
-      )
+      );
     case "CHANGES_REQUESTED":
       return (
         <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
           Changes Requested
         </Badge>
-      )
+      );
   }
 }
 
 export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
-  const [approvals, setApprovals] = useState<Approval[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [respondingId, setRespondingId] = useState<string | null>(null)
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   // Form state for creating a new approval
-  const [newType, setNewType] = useState<ApprovalType | "">("")
-  const [newAmount, setNewAmount] = useState("")
+  const [newType, setNewType] = useState<ApprovalType | "">("");
+  const [newAmount, setNewAmount] = useState("");
 
   const fetchApprovals = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await fetch(`/api/reports/${reportId}/approvals`)
+      setLoading(true);
+      const res = await fetch(`/api/reports/${reportId}/approvals`);
       if (res.ok) {
-        const data = await res.json()
-        setApprovals(data.approvals)
+        const data = await res.json();
+        setApprovals(data.approvals);
       }
     } catch (err) {
-      console.error("Failed to load approvals:", err)
+      console.error("Failed to load approvals:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [reportId])
+  }, [reportId]);
 
   useEffect(() => {
-    fetchApprovals()
-  }, [fetchApprovals])
+    fetchApprovals();
+  }, [fetchApprovals]);
 
   const handleCreate = async () => {
-    if (!newType) return
-    setSubmitting(true)
+    if (!newType) return;
+    setSubmitting(true);
     try {
       const res = await fetch(`/api/reports/${reportId}/approvals`, {
         method: "POST",
@@ -117,50 +117,58 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
           approvalType: newType,
           amount: newAmount ? parseFloat(newAmount) : undefined,
         }),
-      })
+      });
       if (res.ok) {
-        setDialogOpen(false)
-        setNewType("")
-        setNewAmount("")
-        await fetchApprovals()
+        setDialogOpen(false);
+        setNewType("");
+        setNewAmount("");
+        await fetchApprovals();
       }
     } catch (err) {
-      console.error("Failed to create approval:", err)
+      console.error("Failed to create approval:", err);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-  const handleRespond = async (approvalId: string, status: "APPROVED" | "REJECTED") => {
-    setRespondingId(approvalId)
+  const handleRespond = async (
+    approvalId: string,
+    status: "APPROVED" | "REJECTED",
+  ) => {
+    setRespondingId(approvalId);
     try {
-      const res = await fetch(`/api/reports/${reportId}/approvals/${approvalId}/respond`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      })
+      const res = await fetch(
+        `/api/reports/${reportId}/approvals/${approvalId}/respond`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        },
+      );
       if (res.ok) {
-        await fetchApprovals()
+        await fetchApprovals();
       }
     } catch (err) {
-      console.error("Failed to respond to approval:", err)
+      console.error("Failed to respond to approval:", err);
     } finally {
-      setRespondingId(null)
+      setRespondingId(null);
     }
-  }
+  };
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("en-AU", {
       day: "numeric",
       month: "short",
       year: "numeric",
-    })
+    });
 
   return (
     <>
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-base font-semibold text-slate-100">Approvals</CardTitle>
+          <CardTitle className="text-base font-semibold text-slate-100">
+            Approvals
+          </CardTitle>
           <Button
             size="sm"
             onClick={() => setDialogOpen(true)}
@@ -191,7 +199,10 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       {approval.status === "APPROVED" && (
-                        <CheckCircle size={15} className="text-green-400 shrink-0" />
+                        <CheckCircle
+                          size={15}
+                          className="text-green-400 shrink-0"
+                        />
                       )}
                       {approval.status === "REJECTED" && (
                         <XCircle size={15} className="text-red-400 shrink-0" />
@@ -203,7 +214,10 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                         {APPROVAL_TYPE_LABELS[approval.approvalType]}
                         {approval.amount != null && (
                           <span className="ml-1 text-slate-400 font-normal">
-                            — ${approval.amount.toLocaleString("en-AU", { minimumFractionDigits: 2 })}
+                            — $
+                            {approval.amount.toLocaleString("en-AU", {
+                              minimumFractionDigits: 2,
+                            })}
                           </span>
                         )}
                       </span>
@@ -214,7 +228,8 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-slate-500">
                       Requested {formatDate(approval.requestedAt)}
-                      {approval.respondedAt && ` · Responded ${formatDate(approval.respondedAt)}`}
+                      {approval.respondedAt &&
+                        ` · Responded ${formatDate(approval.respondedAt)}`}
                     </span>
 
                     {approval.status === "PENDING" && (
@@ -274,10 +289,16 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                   <SelectValue placeholder="Select type..." />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
-                  <SelectItem value="SCOPE_OF_WORK" className="text-slate-200 focus:bg-slate-700">
+                  <SelectItem
+                    value="SCOPE_OF_WORK"
+                    className="text-slate-200 focus:bg-slate-700"
+                  >
                     Scope of Work
                   </SelectItem>
-                  <SelectItem value="COST_ESTIMATE" className="text-slate-200 focus:bg-slate-700">
+                  <SelectItem
+                    value="COST_ESTIMATE"
+                    className="text-slate-200 focus:bg-slate-700"
+                  >
                     Cost Estimate
                   </SelectItem>
                 </SelectContent>
@@ -322,5 +343,5 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

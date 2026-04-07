@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Activity, Droplets, DollarSign, CheckCircle2 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useEffect, useState } from "react";
+import { Activity, Droplets, DollarSign, CheckCircle2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardStats {
-  activeJobs: number
-  avgDryingDays: number
-  revenueMtdAud: number
-  completionRatePct: number
+  activeJobs: number;
+  avgDryingDays: number;
+  revenueMtdAud: number;
+  completionRatePct: number;
 }
 
 interface KpiCardProps {
-  label: string
-  value: string
-  sublabel: string
-  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>
-  colour: string
+  label: string;
+  value: string;
+  sublabel: string;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+  colour: string;
 }
 
 function KpiCard({ label, value, sublabel, icon: Icon, colour }: KpiCardProps) {
@@ -33,10 +33,12 @@ function KpiCard({ label, value, sublabel, icon: Icon, colour }: KpiCardProps) {
         <div className="text-2xl font-bold" style={{ color: colour }}>
           {value}
         </div>
-        <p className="text-xs text-neutral-500 dark:text-slate-500 mt-1">{sublabel}</p>
+        <p className="text-xs text-neutral-500 dark:text-slate-500 mt-1">
+          {sublabel}
+        </p>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function KpiCardSkeleton() {
@@ -51,32 +53,42 @@ function KpiCardSkeleton() {
         <Skeleton className="h-3 w-32" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export default function KpiPanel() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/analytics/dashboard-stats")
+        const res = await fetch("/api/analytics/dashboard-stats");
         if (res.ok) {
-          const data = (await res.json()) as DashboardStats
-          setStats(data)
+          const data = (await res.json()) as DashboardStats;
+          setStats(data);
         } else {
-          setStats({ activeJobs: 0, avgDryingDays: 0, revenueMtdAud: 0, completionRatePct: 0 })
+          setStats({
+            activeJobs: 0,
+            avgDryingDays: 0,
+            revenueMtdAud: 0,
+            completionRatePct: 0,
+          });
         }
       } catch {
-        setStats({ activeJobs: 0, avgDryingDays: 0, revenueMtdAud: 0, completionRatePct: 0 })
+        setStats({
+          activeJobs: 0,
+          avgDryingDays: 0,
+          revenueMtdAud: 0,
+          completionRatePct: 0,
+        });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    void fetchStats()
-  }, [])
+    void fetchStats();
+  }, []);
 
   if (loading) {
     return (
@@ -86,10 +98,15 @@ export default function KpiPanel() {
         <KpiCardSkeleton />
         <KpiCardSkeleton />
       </div>
-    )
+    );
   }
 
-  const s = stats ?? { activeJobs: 0, avgDryingDays: 0, revenueMtdAud: 0, completionRatePct: 0 }
+  const s = stats ?? {
+    activeJobs: 0,
+    avgDryingDays: 0,
+    revenueMtdAud: 0,
+    completionRatePct: 0,
+  };
 
   const cards: KpiCardProps[] = [
     {
@@ -120,7 +137,7 @@ export default function KpiPanel() {
       icon: CheckCircle2,
       colour: "#8B5CF6",
     },
-  ]
+  ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -128,5 +145,5 @@ export default function KpiPanel() {
         <KpiCard key={card.label} {...card} />
       ))}
     </div>
-  )
+  );
 }

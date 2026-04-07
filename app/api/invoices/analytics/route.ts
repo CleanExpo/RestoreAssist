@@ -1,35 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   OUTSTANDING_STATUSES,
   isDraft,
   isOutstanding,
   isExcludedFromRevenue,
-} from '@/lib/invoice-status'
+} from "@/lib/invoice-status";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const where = { userId: session.user.id }
+    const where = { userId: session.user.id };
 
     // Calculate date ranges
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     // Fetch all required data in parallel
-    const [
-      allInvoices,
-      paidThisMonth,
-      overdueByDate
-    ] = await Promise.all([
+    const [allInvoices, paidThisMonth, overdueByDate] = await Promise.all([
       // All invoices for total revenue, outstanding, and draft total
       prisma.invoice.findMany({
         where,
@@ -38,22 +38,22 @@ export async function GET(request: NextRequest) {
           totalIncGST: true,
           amountDue: true,
           amountPaid: true,
-          dueDate: true
-        }
+          dueDate: true,
+        },
       }),
       // Invoices paid this month
       prisma.invoice.findMany({
         where: {
           ...where,
-          status: 'PAID',
+          status: "PAID",
           paidDate: {
             gte: firstDayOfMonth,
-            lte: lastDayOfMonth
-          }
+            lte: lastDayOfMonth,
+          },
         },
         select: {
-          totalIncGST: true
-        }
+          totalIncGST: true,
+        },
       }),
       // Overdue: due date in the past, amount due > 0, outstanding status
       prisma.invoice.findMany({
@@ -61,47 +61,55 @@ export async function GET(request: NextRequest) {
           ...where,
           dueDate: { lt: startOfToday },
           amountDue: { gt: 0 },
-          status: { in: [...OUTSTANDING_STATUSES] }
+          status: { in: [...OUTSTANDING_STATUSES] },
         },
         select: {
-          amountDue: true
-        }
-      })
-    ])
+          amountDue: true,
+        },
+      }),
+    ]);
 
     // Calculate metrics from all invoices
-    let totalRevenue = 0
-    let outstanding = 0
-    let draftTotal = 0
+    let totalRevenue = 0;
+    let outstanding = 0;
+    let draftTotal = 0;
 
     for (const invoice of allInvoices) {
       // Total revenue: all issued/sent invoices (exclude DRAFT and CANCELLED)
       if (!isExcludedFromRevenue(invoice.status)) {
-        totalRevenue += invoice.totalIncGST
+        totalRevenue += invoice.totalIncGST;
       }
 
       // Outstanding: sent/active invoices with amount due
       if (isOutstanding(invoice.status)) {
-        outstanding += invoice.amountDue
+        outstanding += invoice.amountDue;
       }
 
       // Draft total: sum of draft invoice amounts (so stats reflect real data)
       if (isDraft(invoice.status)) {
-        draftTotal += invoice.totalIncGST
+        draftTotal += invoice.totalIncGST;
       }
     }
 
-    const overdue = overdueByDate.reduce((sum, inv) => sum + inv.amountDue, 0)
-    const paidThisMonthTotal = paidThisMonth.reduce((sum, inv) => sum + inv.totalIncGST, 0)
+    const overdue = overdueByDate.reduce((sum, inv) => sum + inv.amountDue, 0);
+    const paidThisMonthTotal = paidThisMonth.reduce(
+      (sum, inv) => sum + inv.totalIncGST,
+      0,
+    );
 
     // Count invoices by status
-    const statusCounts = allInvoices.reduce((acc, inv) => {
-      acc[inv.status] = (acc[inv.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const statusCounts = allInvoices.reduce(
+      (acc, inv) => {
+        acc[inv.status] = (acc[inv.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     // Calculate monthly revenue for the last 12 months
-    const monthlyRevenue = await prisma.$queryRaw<Array<{ month: string; revenue: bigint; count: bigint }>>`
+    const monthlyRevenue = await prisma.$queryRaw<
+      Array<{ month: string; revenue: bigint; count: bigint }>
+    >`
       SELECT
         TO_CHAR(DATE_TRUNC('month', "invoiceDate"), 'YYYY-MM') as month,
         SUM("totalIncGST") as revenue,
@@ -113,14 +121,14 @@ export async function GET(request: NextRequest) {
         AND "invoiceDate" >= NOW() - INTERVAL '12 months'
       GROUP BY DATE_TRUNC('month', "invoiceDate")
       ORDER BY month DESC
-    `
+    `;
 
     // Convert BigInt to Number for JSON serialization
-    const monthlyRevenueFormatted = monthlyRevenue.map(row => ({
+    const monthlyRevenueFormatted = monthlyRevenue.map((row) => ({
       month: row.month,
       revenue: Number(row.revenue),
-      count: Number(row.count)
-    }))
+      count: Number(row.count),
+    }));
 
     return NextResponse.json({
       stats: {
@@ -128,16 +136,16 @@ export async function GET(request: NextRequest) {
         outstanding,
         overdue,
         paidThisMonth: paidThisMonthTotal,
-        draftTotal
+        draftTotal,
       },
       statusCounts,
-      monthlyRevenue: monthlyRevenueFormatted
-    })
+      monthlyRevenue: monthlyRevenueFormatted,
+    });
   } catch (error: any) {
-    console.error('Error fetching invoice analytics:', error)
+    console.error("Error fetching invoice analytics:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch analytics' },
-      { status: 500 }
-    )
+      { error: "Failed to fetch analytics" },
+      { status: 500 },
+    );
   }
 }

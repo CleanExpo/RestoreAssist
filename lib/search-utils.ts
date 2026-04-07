@@ -7,7 +7,7 @@
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  wait: number,
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
 
@@ -198,7 +198,7 @@ export function validateSearchParams(params: Partial<SearchParams>): {
 export function calculateRelevanceScore(
   text: string,
   query: string,
-  field: "title" | "description"
+  field: "title" | "description",
 ): number {
   const lowerText = text.toLowerCase();
   const lowerQuery = query.toLowerCase();

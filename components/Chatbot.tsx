@@ -1,16 +1,16 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { MessageCircle, X, Send, Loader2 } from "lucide-react"
-import toast from "react-hot-toast"
-import ReactMarkdown from "react-markdown"
-import { useSession } from "next-auth/react"
+import { useState, useRef, useEffect } from "react";
+import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
+import ReactMarkdown from "react-markdown";
+import { useSession } from "next-auth/react";
 
 interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: Date
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -22,38 +22,38 @@ const SUGGESTED_QUESTIONS = [
   "Can you explain the 8-step workflow?",
   "How do I generate a Scope of Works document?",
   "What is the NIR system and how does it work?",
-]
+];
 
 export default function Chatbot() {
-  const { data: session } = useSession()
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  
-  const userName = session?.user?.name || "there"
+  const { data: session } = useSession();
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const userName = session?.user?.name || "there";
 
   // Load chat history from database
   useEffect(() => {
     const loadChatHistory = async () => {
       try {
-        setIsLoadingHistory(true)
-        const response = await fetch("/api/chatbot")
+        setIsLoadingHistory(true);
+        const response = await fetch("/api/chatbot");
         if (response.ok) {
-          const data = await response.json()
+          const data = await response.json();
           if (data.messages && data.messages.length > 0) {
             // Convert timestamp strings to Date objects
             const formattedMessages = data.messages.map((msg: any) => ({
               ...msg,
               timestamp: new Date(msg.timestamp),
-            }))
-            setMessages(formattedMessages)
+            }));
+            setMessages(formattedMessages);
           } else {
             // No chat history, show welcome message with user's name
-            const welcomeName = session?.user?.name || "there"
+            const welcomeName = session?.user?.name || "there";
             setMessages([
               {
                 id: "welcome",
@@ -61,13 +61,13 @@ export default function Chatbot() {
                 content: `Hello ${welcomeName}! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.`,
                 timestamp: new Date(),
               },
-            ])
+            ]);
           }
         }
       } catch (error) {
-        console.error("Error loading chat history:", error)
+        console.error("Error loading chat history:", error);
         // Show welcome message on error
-        const welcomeName = session?.user?.name || "there"
+        const welcomeName = session?.user?.name || "there";
         setMessages([
           {
             id: "welcome",
@@ -75,44 +75,44 @@ export default function Chatbot() {
             content: `Hello ${welcomeName}! I'm your Restore Assist AI assistant. How can I help you today? I can assist with questions about water damage restoration, report generation, equipment selection, compliance standards, and more.`,
             timestamp: new Date(),
           },
-        ])
+        ]);
       } finally {
-        setIsLoadingHistory(false)
+        setIsLoadingHistory(false);
       }
-    }
+    };
 
     if (session) {
-      loadChatHistory()
+      loadChatHistory();
     }
-  }, [session])
+  }, [session]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      inputRef.current.focus()
+      inputRef.current.focus();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
       content: input.trim(),
       timestamp: new Date(),
-    }
+    };
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/chatbot", {
@@ -126,42 +126,43 @@ export default function Chatbot() {
             content: msg.content,
           })),
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to get response")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to get response");
       }
 
-      const data = await response.json()
+      const data = await response.json();
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: data.response,
         timestamp: new Date(),
-      }
+      };
 
-      setMessages((prev) => [...prev, assistantMessage])
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
-      toast.error(error.message || "Failed to send message")
+      toast.error(error.message || "Failed to send message");
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
+        content:
+          "I apologize, but I'm having trouble processing your request right now. Please try again later.",
         timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+      e.preventDefault();
+      handleSend();
     }
-  }
+  };
 
   const handleSuggestedQuestion = async (question: string) => {
     const userMessage: Message = {
@@ -169,16 +170,16 @@ export default function Chatbot() {
       role: "user",
       content: question,
       timestamp: new Date(),
-    }
+    };
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
 
     try {
       // Get current messages including the new one
-      const currentMessages = [...messages, userMessage]
-      
+      const currentMessages = [...messages, userMessage];
+
       const response = await fetch("/api/chatbot", {
         method: "POST",
         headers: {
@@ -190,38 +191,41 @@ export default function Chatbot() {
             content: msg.content,
           })),
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to get response")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to get response");
       }
 
-      const data = await response.json()
+      const data = await response.json();
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: data.response,
         timestamp: new Date(),
-      }
+      };
 
-      setMessages((prev) => [...prev, assistantMessage])
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
-      toast.error(error.message || "Failed to send message")
+      toast.error(error.message || "Failed to send message");
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
+        content:
+          "I apologize, but I'm having trouble processing your request right now. Please try again later.",
         timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Show suggested questions only when there's just the welcome message or no messages
-  const showSuggestedQuestions = messages.length === 0 || (messages.length === 1 && messages[0].id === "welcome")
+  const showSuggestedQuestions =
+    messages.length === 0 ||
+    (messages.length === 1 && messages[0].id === "welcome");
 
   return (
     <>
@@ -229,7 +233,7 @@ export default function Chatbot() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[100] group"
-        style={{ position: 'fixed' }}
+        style={{ position: "fixed" }}
         aria-label="Open chatbot"
       >
         {isOpen ? (
@@ -244,7 +248,10 @@ export default function Chatbot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in" style={{ position: 'fixed' }}>
+        <div
+          className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
+          style={{ position: "fixed" }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 rounded-t-lg">
             <div className="flex items-center gap-3">
@@ -252,8 +259,12 @@ export default function Chatbot() {
                 <MessageCircle className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">AI Assistant</h3>
-                <p className="text-xs text-gray-600 dark:text-slate-400">Restore Assist Support</p>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  AI Assistant
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-slate-400">
+                  Restore Assist Support
+                </p>
               </div>
             </div>
             <button
@@ -270,7 +281,9 @@ export default function Chatbot() {
             {/* Suggested Questions - Show when there's only welcome message */}
             {showSuggestedQuestions && (
               <div className="space-y-2 mb-4">
-                <p className="text-xs text-gray-600 dark:text-slate-400 mb-2">Suggested questions:</p>
+                <p className="text-xs text-gray-600 dark:text-slate-400 mb-2">
+                  Suggested questions:
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTED_QUESTIONS.map((question, index) => (
                     <button
@@ -285,7 +298,7 @@ export default function Chatbot() {
                 </div>
               </div>
             )}
-            
+
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -302,20 +315,56 @@ export default function Chatbot() {
                     <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
                       <ReactMarkdown
                         components={{
-                          p: ({ children }) => <p className="mb-2 last:mb-0 text-gray-900 dark:text-slate-100">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">{children}</ol>,
-                          li: ({ children }) => <li className="ml-2 text-gray-900 dark:text-slate-100">{children}</li>,
-                          strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-slate-100">{children}</strong>,
-                          em: ({ children }) => <em className="italic text-gray-900 dark:text-slate-100">{children}</em>,
+                          p: ({ children }) => (
+                            <p className="mb-2 last:mb-0 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </p>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="list-disc list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="list-decimal list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="ml-2 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </li>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-gray-900 dark:text-slate-100">
+                              {children}
+                            </strong>
+                          ),
+                          em: ({ children }) => (
+                            <em className="italic text-gray-900 dark:text-slate-100">
+                              {children}
+                            </em>
+                          ),
                           code: ({ children }) => (
                             <code className="bg-gray-200 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-xs font-mono text-gray-900 dark:text-slate-100">
                               {children}
                             </code>
                           ),
-                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 text-gray-900 dark:text-slate-100">{children}</h3>,
+                          h1: ({ children }) => (
+                            <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({ children }) => (
+                            <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({ children }) => (
+                            <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 text-gray-900 dark:text-slate-100">
+                              {children}
+                            </h3>
+                          ),
                           blockquote: ({ children }) => (
                             <blockquote className="border-l-4 border-gray-400 dark:border-slate-500 pl-3 my-2 italic text-gray-800 dark:text-slate-200">
                               {children}
@@ -327,7 +376,9 @@ export default function Chatbot() {
                       </ReactMarkdown>
                     </div>
                   ) : (
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {message.content}
+                    </p>
                   )}
                   <p className="text-xs mt-1 opacity-70 text-gray-700 dark:text-slate-300">
                     {message.timestamp.toLocaleTimeString([], {
@@ -341,7 +392,10 @@ export default function Chatbot() {
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-slate-700 rounded-lg px-4 py-2">
-                  <Loader2 className="animate-spin text-cyan-500 dark:text-cyan-400" size={16} />
+                  <Loader2
+                    className="animate-spin text-cyan-500 dark:text-cyan-400"
+                    size={16}
+                  />
                 </div>
               </div>
             )}
@@ -380,6 +434,5 @@ export default function Chatbot() {
         </div>
       )}
     </>
-  )
+  );
 }
-

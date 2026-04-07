@@ -24,7 +24,14 @@
       "p75ValueAud": 8200,
       "maxObservedValueAud": 371143,
       "description": "Burst pipes, flexi-hose failures, appliance overflows, roof leaks with internal water intrusion",
-      "topLocations": ["Forest Lake", "Collingwood Park", "Ipswich", "Logan", "Wooloowin", "Redlands"],
+      "topLocations": [
+        "Forest Lake",
+        "Collingwood Park",
+        "Ipswich",
+        "Logan",
+        "Wooloowin",
+        "Redlands"
+      ],
       "seasonalPeak": "Summer (Dec–Feb) storm season and spring plumbing failures",
       "iicrcStandard": "S500:2025"
     },
@@ -38,7 +45,13 @@
       "maxObservedValueAud": 117677,
       "description": "Microbial growth resulting from chronic moisture, delayed water damage response, or HVAC condensation",
       "typicalConditionLevel": "Condition 2–3 per IICRC S520",
-      "commonMaterials": ["plasterboard", "timber framing", "carpet underlay", "ceiling tiles", "wall insulation"],
+      "commonMaterials": [
+        "plasterboard",
+        "timber framing",
+        "carpet underlay",
+        "ceiling tiles",
+        "wall insulation"
+      ],
       "iicrcStandard": "S520"
     },
     "biohazard": {
@@ -84,7 +97,13 @@
       "p75ValueAud": 7800,
       "description": "Wind and hail damage to roofs, fences, gutters; water intrusion from breached building envelope",
       "makesSafeTimeline": "24–48 hours post-event (ICA make-safe obligations)",
-      "commonMaterials": ["terracotta roof tiles", "Colorbond sheeting", "plasterboard ceilings", "insulation batts", "roof sarking"],
+      "commonMaterials": [
+        "terracotta roof tiles",
+        "Colorbond sheeting",
+        "plasterboard ceilings",
+        "insulation batts",
+        "roof sarking"
+      ],
       "iicrcStandard": "S500:2025 (water intrusion component); NCC 2022 (reinstatement)"
     },
     "inspection_only": {
@@ -142,7 +161,11 @@
       "description": "Multi-room water damage, significant mould remediation, storm damage with water intrusion, small biohazard events",
       "typicalClaimTypes": ["water", "mould_remediation", "storm", "biohazard"],
       "typicalDurationDays": { "min": 5, "max": 14, "avg": 8 },
-      "typicalEquipment": ["4–10 air movers", "2–3 LGR dehumidifiers", "1 air scrubber (Cat 2/3)"],
+      "typicalEquipment": [
+        "4–10 air movers",
+        "2–3 LGR dehumidifiers",
+        "1 air scrubber (Cat 2/3)"
+      ],
       "exampleJobs": [
         "Cat 2 washing machine overflow, kitchen + laundry + hallway 45 m², Class 3, 10-day dry",
         "Condition 3 mould to bathroom + ensuite wall cavity, 6 m² plasterboard removal",
@@ -155,9 +178,19 @@
       "rangeMax": 50000,
       "percentageOfBilledJobs": 12,
       "description": "Whole-house flooding, major fire/smoke events, complex mould jobs, multi-unit residential",
-      "typicalClaimTypes": ["water", "fire_smoke", "mould_remediation", "storm"],
+      "typicalClaimTypes": [
+        "water",
+        "fire_smoke",
+        "mould_remediation",
+        "storm"
+      ],
       "typicalDurationDays": { "min": 14, "max": 42, "avg": 21 },
-      "typicalEquipment": ["10–20 air movers", "4–6 LGR dehumidifiers", "2–4 air scrubbers", "thermal fogging (fire)"],
+      "typicalEquipment": [
+        "10–20 air movers",
+        "4–6 LGR dehumidifiers",
+        "2–4 air scrubbers",
+        "thermal fogging (fire)"
+      ],
       "exampleJobs": [
         "Cat 3 sewer backup, whole-house ground floor 140 m², full biohazard protocol + structural drying",
         "Kitchen fire with smoke migration throughout dwelling, S770 scope + contents pack-out",
@@ -172,8 +205,18 @@
       "description": "Commercial losses, heritage-listed properties, catastrophic events, multi-trade coordination with structural engineers",
       "typicalClaimTypes": ["water", "fire_smoke", "mould_remediation"],
       "typicalDurationDays": { "min": 30, "max": 180, "avg": 60 },
-      "typicalEquipment": ["Desiccant dehumidifiers (Class 4)", "20+ air movers", "continuous air monitoring"],
-      "escalationFactors": ["commercial tenancy", "heritage listing", "asbestos present", "structural engineer engaged", "multiple insurance parties"],
+      "typicalEquipment": [
+        "Desiccant dehumidifiers (Class 4)",
+        "20+ air movers",
+        "continuous air monitoring"
+      ],
+      "escalationFactors": [
+        "commercial tenancy",
+        "heritage listing",
+        "asbestos present",
+        "structural engineer engaged",
+        "multiple insurance parties"
+      ],
       "exampleJobs": [
         "Commercial water damage Wooloowin warehouse, $371K, multi-floor, multi-trade",
         "Large mould remediation Forest Lake, $117K, entire building envelope affected",
@@ -198,7 +241,15 @@
         "Daily monitoring log — moisture readings per material per zone (§11.4)",
         "Drying goal certificate when all readings ≤ IICRC S500:2025 §11.4 EMC targets"
       ],
-      "typicalDurationDays": { "min": 3, "max": 21, "avg": 7, "class1": 3, "class2": 5, "class3": 7, "class4": 14 },
+      "typicalDurationDays": {
+        "min": 3,
+        "max": 21,
+        "avg": 7,
+        "class1": 3,
+        "class2": 5,
+        "class3": 7,
+        "class4": 14
+      },
       "keyRisks": [
         "Secondary mould growth if drying not commenced within 24 hours (Category 1→2 upgrade risk)",
         "Category upgrade: Category 1 water sitting >72 hours becomes Category 2 per S500:2025",
@@ -439,9 +490,21 @@
   "geographicDistribution": {
     "primaryRegion": "South-East Queensland",
     "representedSuburbs": [
-      "Forest Lake", "Collingwood Park", "Ipswich", "Springfield", "Loganholme",
-      "Wooloowin", "Redlands", "Capalaba", "Birkdale", "Cleveland",
-      "Eight Mile Plains", "Sunnybank", "Algester", "Acacia Ridge", "Richlands"
+      "Forest Lake",
+      "Collingwood Park",
+      "Ipswich",
+      "Springfield",
+      "Loganholme",
+      "Wooloowin",
+      "Redlands",
+      "Capalaba",
+      "Birkdale",
+      "Cleveland",
+      "Eight Mile Plains",
+      "Sunnybank",
+      "Algester",
+      "Acacia Ridge",
+      "Richlands"
     ],
     "stateBreakdown": { "QLD": 0.92, "NSW": 0.05, "VIC": 0.02, "other": 0.01 }
   }

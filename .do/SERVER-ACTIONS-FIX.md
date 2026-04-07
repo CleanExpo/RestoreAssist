@@ -11,6 +11,7 @@ This happens because Next.js generates new Server Action IDs on each build. User
 ## Fix: Set a persistent encryption key
 
 1. **Generate a key once** (64-character hex string):
+
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```

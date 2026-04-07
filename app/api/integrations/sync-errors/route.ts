@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/integrations/sync-errors - Get failed sync operations
@@ -10,31 +10,28 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const provider = searchParams.get('provider')
-    const limit = parseInt(searchParams.get('limit') || '50')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const { searchParams } = new URL(request.url);
+    const provider = searchParams.get("provider");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const offset = parseInt(searchParams.get("offset") || "0");
 
     // Build where clause
     const where: any = {
       integration: {
-        userId: session.user.id
+        userId: session.user.id,
       },
-      status: 'FAILED'
-    }
+      status: "FAILED",
+    };
 
     if (provider) {
-      where.integration.provider = provider
+      where.integration.provider = provider;
     }
 
     // Get failed sync logs
@@ -46,30 +43,30 @@ export async function GET(request: NextRequest) {
             id: true,
             provider: true,
             name: true,
-            status: true
-          }
-        }
+            status: true,
+          },
+        },
       },
       orderBy: {
-        startedAt: 'desc'
+        startedAt: "desc",
       },
       take: limit,
-      skip: offset
-    })
+      skip: offset,
+    });
 
     // Get total count
-    const total = await prisma.integrationSyncLog.count({ where })
+    const total = await prisma.integrationSyncLog.count({ where });
 
     // Get webhook errors as well
     const webhookErrors = await prisma.webhookEvent.findMany({
       where: {
         integration: {
-          userId: session.user.id
+          userId: session.user.id,
         },
-        status: 'FAILED',
+        status: "FAILED",
         retryCount: {
-          gte: 5 // Only show events that have maxed out retries
-        }
+          gte: 5, // Only show events that have maxed out retries
+        },
       },
       include: {
         integration: {
@@ -77,15 +74,15 @@ export async function GET(request: NextRequest) {
             id: true,
             provider: true,
             name: true,
-            status: true
-          }
-        }
+            status: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
+        createdAt: "desc",
       },
-      take: 20
-    })
+      take: 20,
+    });
 
     return NextResponse.json({
       success: true,
@@ -95,18 +92,18 @@ export async function GET(request: NextRequest) {
         total,
         limit,
         offset,
-        hasMore: total > offset + limit
-      }
-    })
+        hasMore: total > offset + limit,
+      },
+    });
   } catch (error: any) {
-    console.error('[Sync Errors] Error fetching sync errors:', error)
+    console.error("[Sync Errors] Error fetching sync errors:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to fetch sync errors'
+        error: error.message || "Failed to fetch sync errors",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
@@ -117,46 +114,43 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const olderThanDays = parseInt(searchParams.get('olderThanDays') || '30')
+    const { searchParams } = new URL(request.url);
+    const olderThanDays = parseInt(searchParams.get("olderThanDays") || "30");
 
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
     // Delete old sync errors
     const result = await prisma.integrationSyncLog.deleteMany({
       where: {
         integration: {
-          userId: session.user.id
+          userId: session.user.id,
         },
-        status: 'FAILED',
+        status: "FAILED",
         startedAt: {
-          lt: cutoffDate
-        }
-      }
-    })
+          lt: cutoffDate,
+        },
+      },
+    });
 
     return NextResponse.json({
       success: true,
-      deleted: result.count
-    })
+      deleted: result.count,
+    });
   } catch (error: any) {
-    console.error('[Sync Errors] Error deleting sync errors:', error)
+    console.error("[Sync Errors] Error deleting sync errors:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to delete sync errors'
+        error: error.message || "Failed to delete sync errors",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

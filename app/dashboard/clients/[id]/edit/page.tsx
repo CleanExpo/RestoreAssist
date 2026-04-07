@@ -1,34 +1,34 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react"
-import toast from "react-hot-toast"
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface ClientFormData {
-  name: string
-  email: string
-  phone: string
-  company: string
-  contactPerson: string
-  address: string
-  notes: string
-  status: string
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  contactPerson: string;
+  address: string;
+  notes: string;
+  status: string;
 }
 
-const STATUS_OPTIONS = ["ACTIVE", "INACTIVE", "PROSPECT", "ARCHIVED"]
+const STATUS_OPTIONS = ["ACTIVE", "INACTIVE", "PROSPECT", "ARCHIVED"];
 
 export default function ClientEditPage() {
-  const params = useParams()
-  const router = useRouter()
-  const id = params.id as string
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [clientName, setClientName] = useState("")
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
 
   const [form, setForm] = useState<ClientFormData>({
     name: "",
@@ -39,24 +39,24 @@ export default function ClientEditPage() {
     address: "",
     notes: "",
     status: "ACTIVE",
-  })
+  });
 
   useEffect(() => {
-    fetchClient()
+    fetchClient();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  }, [id]);
 
   const fetchClient = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch(`/api/clients/${id}`)
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`/api/clients/${id}`);
       if (!response.ok) {
-        setError("Failed to load client details.")
-        return
+        setError("Failed to load client details.");
+        return;
       }
-      const data = await response.json()
-      setClientName(data.name ?? "")
+      const data = await response.json();
+      setClientName(data.name ?? "");
       setForm({
         name: data.name ?? "",
         email: data.email ?? "",
@@ -66,72 +66,76 @@ export default function ClientEditPage() {
         address: data.address ?? "",
         notes: data.notes ?? "",
         status: data.status ?? "ACTIVE",
-      })
+      });
     } catch (err) {
-      console.error("Error fetching client:", err)
-      setError("Failed to load client details.")
+      console.error("Error fetching client:", err);
+      setError("Failed to load client details.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaveError(null)
+    e.preventDefault();
+    setSaveError(null);
 
     if (!form.name.trim()) {
-      setSaveError("Name is required.")
-      return
+      setSaveError("Name is required.");
+      return;
     }
     if (!form.email.trim()) {
-      setSaveError("Email is required.")
-      return
+      setSaveError("Email is required.");
+      return;
     }
 
     try {
-      setSaving(true)
+      setSaving(true);
       const response = await fetch(`/api/clients/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
-      })
+      });
 
       if (!response.ok) {
-        const data = await response.json()
-        setSaveError(data.error ?? "Failed to save changes.")
-        return
+        const data = await response.json();
+        setSaveError(data.error ?? "Failed to save changes.");
+        return;
       }
 
-      toast.success("Client updated successfully")
-      router.push(`/dashboard/clients/${id}`)
+      toast.success("Client updated successfully");
+      router.push(`/dashboard/clients/${id}`);
     } catch (err) {
-      console.error("Error saving client:", err)
-      setSaveError("An unexpected error occurred. Please try again.")
+      console.error("Error saving client:", err);
+      setSaveError("An unexpected error occurred. Please try again.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="text-center py-12">
         <AlertTriangle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">Error loading client</h3>
+        <h3 className="text-lg font-medium text-white mb-2">
+          Error loading client
+        </h3>
         <p className="text-slate-400 mb-4">{error}</p>
         <Link
           href={`/dashboard/clients/${id}`}
@@ -141,7 +145,7 @@ export default function ClientEditPage() {
           Back to Client
         </Link>
       </div>
-    )
+    );
   }
 
   return (
@@ -164,10 +168,12 @@ export default function ClientEditPage() {
       {/* Form */}
       <form onSubmit={handleSubmit}>
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-5">
-
           {/* Name */}
           <div className="space-y-1.5">
-            <label htmlFor="name" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-slate-300"
+            >
               Name <span className="text-red-400">*</span>
             </label>
             <input
@@ -184,7 +190,10 @@ export default function ClientEditPage() {
 
           {/* Email */}
           <div className="space-y-1.5">
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-slate-300"
+            >
               Email <span className="text-red-400">*</span>
             </label>
             <input
@@ -201,7 +210,10 @@ export default function ClientEditPage() {
 
           {/* Phone */}
           <div className="space-y-1.5">
-            <label htmlFor="phone" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="phone"
+              className="block text-sm font-medium text-slate-300"
+            >
               Phone
             </label>
             <input
@@ -217,7 +229,10 @@ export default function ClientEditPage() {
 
           {/* Company */}
           <div className="space-y-1.5">
-            <label htmlFor="company" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="company"
+              className="block text-sm font-medium text-slate-300"
+            >
               Company
             </label>
             <input
@@ -233,7 +248,10 @@ export default function ClientEditPage() {
 
           {/* Contact Person */}
           <div className="space-y-1.5">
-            <label htmlFor="contactPerson" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="contactPerson"
+              className="block text-sm font-medium text-slate-300"
+            >
               Contact Person
             </label>
             <input
@@ -249,7 +267,10 @@ export default function ClientEditPage() {
 
           {/* Address */}
           <div className="space-y-1.5">
-            <label htmlFor="address" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="address"
+              className="block text-sm font-medium text-slate-300"
+            >
               Address
             </label>
             <input
@@ -265,7 +286,10 @@ export default function ClientEditPage() {
 
           {/* Status */}
           <div className="space-y-1.5">
-            <label htmlFor="status" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-slate-300"
+            >
               Status
             </label>
             <select
@@ -285,7 +309,10 @@ export default function ClientEditPage() {
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label htmlFor="notes" className="block text-sm font-medium text-slate-300">
+            <label
+              htmlFor="notes"
+              className="block text-sm font-medium text-slate-300"
+            >
               Notes
             </label>
             <textarea
@@ -333,5 +360,5 @@ export default function ClientEditPage() {
         </div>
       </form>
     </div>
-  )
+  );
 }

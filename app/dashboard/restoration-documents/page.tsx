@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { FileText, Plus, Loader2, Receipt, Trash2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { FileText, Plus, Loader2, Receipt, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,84 +15,90 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 interface DocSummary {
-  id: string
-  documentType: string
-  documentNumber: string
-  title: string | null
-  reportId: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  documentType: string;
+  documentNumber: string;
+  title: string | null;
+  reportId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-type FilterType = "ALL" | "RESTORATION_INVOICE" | "ESTIMATE" | "OTHER"
+type FilterType = "ALL" | "RESTORATION_INVOICE" | "ESTIMATE" | "OTHER";
 
 const FILTER_TABS: { value: FilterType; label: string }[] = [
   { value: "ALL", label: "All" },
   { value: "RESTORATION_INVOICE", label: "Tax Invoice" },
   { value: "ESTIMATE", label: "Estimate" },
   { value: "OTHER", label: "Other" },
-]
+];
 
 export default function RestorationDocumentsPage() {
-  const router = useRouter()
-  const [documents, setDocuments] = useState<DocSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeFilter, setActiveFilter] = useState<FilterType>("ALL")
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const router = useRouter();
+  const [documents, setDocuments] = useState<DocSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("ALL");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     async function fetchDocs() {
       try {
-        const res = await fetch("/api/restoration-documents", { cache: "no-store" })
-        if (!res.ok) return
-        const data = await res.json()
-        if (!cancelled) setDocuments(data.documents ?? [])
+        const res = await fetch("/api/restoration-documents", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setDocuments(data.documents ?? []);
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
     }
-    fetchDocs()
+    fetchDocs();
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   const filteredDocuments = useMemo(() => {
-    if (activeFilter === "ALL") return documents
+    if (activeFilter === "ALL") return documents;
     if (activeFilter === "OTHER") {
       return documents.filter(
-        (d) => d.documentType !== "RESTORATION_INVOICE" && d.documentType !== "ESTIMATE"
-      )
+        (d) =>
+          d.documentType !== "RESTORATION_INVOICE" &&
+          d.documentType !== "ESTIMATE",
+      );
     }
-    return documents.filter((d) => d.documentType === activeFilter)
-  }, [documents, activeFilter])
+    return documents.filter((d) => d.documentType === activeFilter);
+  }, [documents, activeFilter]);
 
   const typeLabel = (type: string) => {
-    if (type === "RESTORATION_INVOICE") return "Tax Invoice"
-    if (type === "ESTIMATE") return "Estimate"
-    return type.replace(/_/g, " ")
-  }
+    if (type === "RESTORATION_INVOICE") return "Tax Invoice";
+    if (type === "ESTIMATE") return "Estimate";
+    return type.replace(/_/g, " ");
+  };
 
   async function handleDelete(id: string) {
-    setDeletingId(id)
+    setDeletingId(id);
     try {
-      const res = await fetch(`/api/restoration-documents/${id}`, { method: "DELETE" })
-      if (res.ok) setDocuments((prev) => prev.filter((d) => d.id !== id))
+      const res = await fetch(`/api/restoration-documents/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) setDocuments((prev) => prev.filter((d) => d.id !== id));
     } finally {
-      setDeletingId(null)
+      setDeletingId(null);
     }
   }
 
   const getDocHref = (doc: DocSummary) => {
     if (doc.documentType === "RESTORATION_INVOICE") {
-      return `/dashboard/restoration-documents/invoice/${doc.id}`
+      return `/dashboard/restoration-documents/invoice/${doc.id}`;
     }
-    return `/dashboard/restoration-documents/${doc.id}`
-  }
+    return `/dashboard/restoration-documents/${doc.id}`;
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-slate-950">
@@ -103,15 +109,15 @@ export default function RestorationDocumentsPage() {
               Restoration Documents
             </h1>
             <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-              Australian-law tax invoices and restoration documentation. Auto-filled from your
-              profile and linked reports.
+              Australian-law tax invoices and restoration documentation.
+              Auto-filled from your profile and linked reports.
             </p>
           </div>
           <Link
             href="/dashboard/restoration-documents/invoice/new"
             className={cn(
               "inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700",
-              "focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+              "focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900",
             )}
           >
             <Plus className="h-4 w-4" />
@@ -130,7 +136,7 @@ export default function RestorationDocumentsPage() {
                 "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 activeFilter === tab.value
                   ? "bg-teal-600 text-white shadow-sm"
-                  : "text-neutral-600 hover:bg-neutral-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  : "text-neutral-600 hover:bg-neutral-100 dark:text-slate-400 dark:hover:bg-slate-800",
               )}
             >
               {tab.label}
@@ -140,16 +146,17 @@ export default function RestorationDocumentsPage() {
                     "ml-1.5 rounded-full px-1.5 py-0.5 text-xs",
                     activeFilter === tab.value
                       ? "bg-teal-500 text-white"
-                      : "bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-400"
+                      : "bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-400",
                   )}
                 >
                   {tab.value === "OTHER"
                     ? documents.filter(
                         (d) =>
                           d.documentType !== "RESTORATION_INVOICE" &&
-                          d.documentType !== "ESTIMATE"
+                          d.documentType !== "ESTIMATE",
                       ).length
-                    : documents.filter((d) => d.documentType === tab.value).length}
+                    : documents.filter((d) => d.documentType === tab.value)
+                        .length}
                 </span>
               )}
               {tab.value === "ALL" && (
@@ -158,7 +165,7 @@ export default function RestorationDocumentsPage() {
                     "ml-1.5 rounded-full px-1.5 py-0.5 text-xs",
                     activeFilter === "ALL"
                       ? "bg-teal-500 text-white"
-                      : "bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-400"
+                      : "bg-neutral-100 text-neutral-600 dark:bg-slate-700 dark:text-slate-400",
                   )}
                 >
                   {documents.length}
@@ -184,7 +191,8 @@ export default function RestorationDocumentsPage() {
               {activeFilter === "ALL" && (
                 <>
                   <p className="mt-1 text-sm text-neutral-500 dark:text-slate-500">
-                    Create a Tax Invoice (Water, Fire, Mould, BioClean, etc.) to get started.
+                    Create a Tax Invoice (Water, Fire, Mould, BioClean, etc.) to
+                    get started.
                   </p>
                   <Link
                     href="/dashboard/restoration-documents/invoice/new"
@@ -205,7 +213,7 @@ export default function RestorationDocumentsPage() {
                     onClick={() => router.push(getDocHref(doc))}
                     className={cn(
                       "flex min-w-0 flex-1 items-center gap-4 px-4 py-4 text-left transition-colors",
-                      "hover:bg-neutral-50 dark:hover:bg-slate-800/50"
+                      "hover:bg-neutral-50 dark:hover:bg-slate-800/50",
                     )}
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/30">
@@ -240,7 +248,7 @@ export default function RestorationDocumentsPage() {
                             "flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors",
                             "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400",
                             "focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1",
-                            "disabled:cursor-not-allowed disabled:opacity-50"
+                            "disabled:cursor-not-allowed disabled:opacity-50",
                           )}
                         >
                           {deletingId === doc.id ? (
@@ -254,8 +262,9 @@ export default function RestorationDocumentsPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete document?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete &quot;{doc.title || doc.documentNumber}&quot;. This
-                            action cannot be undone.
+                            This will permanently delete &quot;
+                            {doc.title || doc.documentNumber}&quot;. This action
+                            cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -277,5 +286,5 @@ export default function RestorationDocumentsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

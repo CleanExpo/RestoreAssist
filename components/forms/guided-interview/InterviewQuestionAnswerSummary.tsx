@@ -3,28 +3,34 @@
  * Displays a read-only review of all questions and answers after interview completion
  */
 
-'use client'
+"use client";
 
-import React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { CheckCircle2, Download } from 'lucide-react'
-import type { InterviewQuestionAnswer } from './GuidedInterviewPanel'
+import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, Download } from "lucide-react";
+import type { InterviewQuestionAnswer } from "./GuidedInterviewPanel";
 
 interface InterviewQuestionAnswerSummaryProps {
-  questionsAndAnswers: InterviewQuestionAnswer[]
-  onBackToReports?: () => void
-  onGoToReport?: (reportId: string) => void
-  onExport?: () => void
-  reportId?: string | null
+  questionsAndAnswers: InterviewQuestionAnswer[];
+  onBackToReports?: () => void;
+  onGoToReport?: (reportId: string) => void;
+  onExport?: () => void;
+  reportId?: string | null;
 }
 
 function formatAnswer(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string') return value
-  if (Array.isArray(value)) return value.join(', ')
-  if (typeof value === 'object') return JSON.stringify(value, null, 2)
-  return String(value)
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
 }
 
 export function InterviewQuestionAnswerSummary({
@@ -40,7 +46,9 @@ export function InterviewQuestionAnswerSummary({
         <CardHeader>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <CardTitle className="text-gray-900 dark:text-white">Interview Summary</CardTitle>
+            <CardTitle className="text-gray-900 dark:text-white">
+              Interview Summary
+            </CardTitle>
           </div>
           <CardDescription className="text-gray-600 dark:text-slate-400">
             Review your questions and answers below.
@@ -70,27 +78,20 @@ export function InterviewQuestionAnswerSummary({
 
       <div className="flex flex-col sm:flex-row gap-3">
         {onExport && (
-          <Button
-            variant="outline"
-            onClick={onExport}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={onExport} className="gap-2">
             <Download className="h-4 w-4" />
             Export summary
           </Button>
         )}
         {reportId && onGoToReport && (
-          <Button
-            onClick={() => onGoToReport(reportId)}
-            className="gap-2"
-          >
+          <Button onClick={() => onGoToReport(reportId)} className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
             Go to report
           </Button>
         )}
         {onBackToReports && (
           <Button
-            variant={reportId && onGoToReport ? 'outline' : 'default'}
+            variant={reportId && onGoToReport ? "outline" : "default"}
             onClick={onBackToReports}
           >
             Back to reports
@@ -98,5 +99,5 @@ export function InterviewQuestionAnswerSummary({
         )}
       </div>
     </div>
-  )
+  );
 }

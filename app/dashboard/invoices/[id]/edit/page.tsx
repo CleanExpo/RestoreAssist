@@ -1,252 +1,313 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, User, FileText } from 'lucide-react'
-import toast from 'react-hot-toast'
-import Link from 'next/link'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Plus, Trash2, User, FileText } from "lucide-react";
+import toast from "react-hot-toast";
+import Link from "next/link";
 
 interface Client {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  address?: string
-  company?: string
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  company?: string;
 }
 
 interface LineItem {
-  id: string
-  description: string
-  category?: string
-  quantity: number
-  unitPrice: number
-  gstRate: number
+  id: string;
+  description: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+  gstRate: number;
 }
 
 interface FetchedInvoice {
-  id: string
-  invoiceNumber: string
-  status: string
-  customerName: string
-  customerEmail: string
-  customerPhone?: string | null
-  customerAddress?: string | null
-  customerABN?: string | null
-  invoiceDate: string
-  dueDate: string
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string | null;
+  customerAddress?: string | null;
+  customerABN?: string | null;
+  invoiceDate: string;
+  dueDate: string;
   lineItems: Array<{
-    id: string
-    description: string
-    category?: string | null
-    quantity: number
-    unitPrice: number
-    gstRate: number
-  }>
-  discountAmount?: number | null
-  discountPercentage?: number | null
-  shippingAmount?: number | null
-  notes?: string | null
-  terms?: string | null
-  footer?: string | null
+    id: string;
+    description: string;
+    category?: string | null;
+    quantity: number;
+    unitPrice: number;
+    gstRate: number;
+  }>;
+  discountAmount?: number | null;
+  discountPercentage?: number | null;
+  shippingAmount?: number | null;
+  notes?: string | null;
+  terms?: string | null;
+  footer?: string | null;
 }
 
-export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter()
-  const [invoiceId, setInvoiceId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(true)
-  const [fetchError, setFetchError] = useState<string | null>(null)
-  const [loadingClients, setLoadingClients] = useState(false)
+export default function EditInvoicePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const router = useRouter();
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loadingClients, setLoadingClients] = useState(false);
 
-  const [customerType, setCustomerType] = useState<'client' | 'manual'>('manual')
-  const [clients, setClients] = useState<Client[]>([])
-  const [selectedClientId, setSelectedClientId] = useState('')
+  const [customerType, setCustomerType] = useState<"client" | "manual">(
+    "manual",
+  );
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
 
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [customerAddress, setCustomerAddress] = useState('')
-  const [customerABN, setCustomerABN] = useState('')
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [customerABN, setCustomerABN] = useState("");
 
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10))
-  const [dueInDays, setDueInDays] = useState(30)
+  const [invoiceDate, setInvoiceDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [dueInDays, setDueInDays] = useState(30);
   const [dueDate, setDueDate] = useState(() => {
-    const date = new Date()
-    date.setDate(date.getDate() + 30)
-    return date.toISOString().slice(0, 10)
-  })
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().slice(0, 10);
+  });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: crypto.randomUUID(), description: '', category: '', quantity: 1, unitPrice: 0, gstRate: 10.0 }
-  ])
+    {
+      id: crypto.randomUUID(),
+      description: "",
+      category: "",
+      quantity: 1,
+      unitPrice: 0,
+      gstRate: 10.0,
+    },
+  ]);
 
-  const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount')
-  const [discountAmount, setDiscountAmount] = useState('')
-  const [discountPercentage, setDiscountPercentage] = useState('')
-  const [shippingAmount, setShippingAmount] = useState('')
+  const [discountType, setDiscountType] = useState<"amount" | "percentage">(
+    "amount",
+  );
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountPercentage, setDiscountPercentage] = useState("");
+  const [shippingAmount, setShippingAmount] = useState("");
 
-  const [notes, setNotes] = useState('')
+  const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState(
-    'Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.'
-  )
-  const [footer, setFooter] = useState('Thank you for your business!')
+    "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
+  );
+  const [footer, setFooter] = useState("Thank you for your business!");
 
   useEffect(() => {
     const resolve = async () => {
-      const { id } = await params
-      setInvoiceId(id)
-    }
-    resolve()
-  }, [params])
+      const { id } = await params;
+      setInvoiceId(id);
+    };
+    resolve();
+  }, [params]);
 
   useEffect(() => {
-    if (!invoiceId) return
+    if (!invoiceId) return;
     const fetchInvoice = async () => {
-      setFetching(true)
-      setFetchError(null)
+      setFetching(true);
+      setFetchError(null);
       try {
-        const res = await fetch(`/api/invoices/${invoiceId}`)
+        const res = await fetch(`/api/invoices/${invoiceId}`);
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          setFetchError(err.error || 'Invoice not found')
-          return
+          const err = await res.json().catch(() => ({}));
+          setFetchError(err.error || "Invoice not found");
+          return;
         }
-        const data = await res.json()
-        const inv: FetchedInvoice = data.invoice
-        if (inv.status !== 'DRAFT') {
-          setFetchError('Only draft invoices can be edited.')
-          return
+        const data = await res.json();
+        const inv: FetchedInvoice = data.invoice;
+        if (inv.status !== "DRAFT") {
+          setFetchError("Only draft invoices can be edited.");
+          return;
         }
-        setCustomerName(inv.customerName || '')
-        setCustomerEmail(inv.customerEmail || '')
-        setCustomerPhone(inv.customerPhone || '')
-        setCustomerAddress(inv.customerAddress || '')
-        setCustomerABN(inv.customerABN || '')
-        setInvoiceDate(inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
-        setDueDate(inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10))
+        setCustomerName(inv.customerName || "");
+        setCustomerEmail(inv.customerEmail || "");
+        setCustomerPhone(inv.customerPhone || "");
+        setCustomerAddress(inv.customerAddress || "");
+        setCustomerABN(inv.customerABN || "");
+        setInvoiceDate(
+          inv.invoiceDate
+            ? new Date(inv.invoiceDate).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+        );
+        setDueDate(
+          inv.dueDate
+            ? new Date(inv.dueDate).toISOString().slice(0, 10)
+            : new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        );
         if (inv.invoiceDate && inv.dueDate) {
-          const days = Math.round((new Date(inv.dueDate).getTime() - new Date(inv.invoiceDate).getTime()) / (24 * 60 * 60 * 1000))
-          setDueInDays(days >= 0 ? days : 30)
+          const days = Math.round(
+            (new Date(inv.dueDate).getTime() -
+              new Date(inv.invoiceDate).getTime()) /
+              (24 * 60 * 60 * 1000),
+          );
+          setDueInDays(days >= 0 ? days : 30);
         }
         setLineItems(
           inv.lineItems?.length
             ? inv.lineItems.map((li) => ({
                 id: li.id || crypto.randomUUID(),
-                description: li.description || '',
-                category: li.category || '',
+                description: li.description || "",
+                category: li.category || "",
                 quantity: li.quantity ?? 1,
-                unitPrice: typeof li.unitPrice === 'number' ? li.unitPrice / 100 : 0,
-                gstRate: li.gstRate ?? 10.0
+                unitPrice:
+                  typeof li.unitPrice === "number" ? li.unitPrice / 100 : 0,
+                gstRate: li.gstRate ?? 10.0,
               }))
-            : [{ id: crypto.randomUUID(), description: '', category: '', quantity: 1, unitPrice: 0, gstRate: 10.0 }]
-        )
+            : [
+                {
+                  id: crypto.randomUUID(),
+                  description: "",
+                  category: "",
+                  quantity: 1,
+                  unitPrice: 0,
+                  gstRate: 10.0,
+                },
+              ],
+        );
         if (inv.discountAmount != null && inv.discountAmount > 0) {
-          setDiscountType('amount')
-          setDiscountAmount((inv.discountAmount / 100).toFixed(2))
-        } else if (inv.discountPercentage != null && inv.discountPercentage > 0) {
-          setDiscountType('percentage')
-          setDiscountPercentage(String(inv.discountPercentage))
+          setDiscountType("amount");
+          setDiscountAmount((inv.discountAmount / 100).toFixed(2));
+        } else if (
+          inv.discountPercentage != null &&
+          inv.discountPercentage > 0
+        ) {
+          setDiscountType("percentage");
+          setDiscountPercentage(String(inv.discountPercentage));
         }
         if (inv.shippingAmount != null && inv.shippingAmount > 0) {
-          setShippingAmount((inv.shippingAmount / 100).toFixed(2))
+          setShippingAmount((inv.shippingAmount / 100).toFixed(2));
         }
-        setNotes(inv.notes || '')
-        setTerms(inv.terms || 'Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.')
-        setFooter(inv.footer || 'Thank you for your business!')
+        setNotes(inv.notes || "");
+        setTerms(
+          inv.terms ||
+            "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
+        );
+        setFooter(inv.footer || "Thank you for your business!");
       } catch (e) {
-        setFetchError('Failed to load invoice')
+        setFetchError("Failed to load invoice");
       } finally {
-        setFetching(false)
+        setFetching(false);
       }
-    }
-    fetchInvoice()
-  }, [invoiceId])
+    };
+    fetchInvoice();
+  }, [invoiceId]);
 
   useEffect(() => {
-    const date = new Date(invoiceDate)
-    date.setDate(date.getDate() + parseInt(String(dueInDays), 10))
-    setDueDate(date.toISOString().slice(0, 10))
-  }, [invoiceDate, dueInDays])
+    const date = new Date(invoiceDate);
+    date.setDate(date.getDate() + parseInt(String(dueInDays), 10));
+    setDueDate(date.toISOString().slice(0, 10));
+  }, [invoiceDate, dueInDays]);
 
   useEffect(() => {
     if (selectedClientId && clients.length) {
-      const client = clients.find((c) => c.id === selectedClientId)
+      const client = clients.find((c) => c.id === selectedClientId);
       if (client) {
-        setCustomerName(client.name)
-        setCustomerEmail(client.email)
-        setCustomerPhone(client.phone || '')
-        setCustomerAddress(client.address || '')
+        setCustomerName(client.name);
+        setCustomerEmail(client.email);
+        setCustomerPhone(client.phone || "");
+        setCustomerAddress(client.address || "");
       }
     }
-  }, [selectedClientId, clients])
+  }, [selectedClientId, clients]);
 
   useEffect(() => {
-    fetch('/api/clients?limit=100')
-      .then((r) => r.ok ? r.json() : { clients: [] })
+    fetch("/api/clients?limit=100")
+      .then((r) => (r.ok ? r.json() : { clients: [] }))
       .then((d) => setClients(d.clients || []))
       .catch(() => {})
-      .finally(() => setLoadingClients(false))
-  }, [])
+      .finally(() => setLoadingClients(false));
+  }, []);
 
   const addLineItem = () => {
     setLineItems((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), description: '', category: '', quantity: 1, unitPrice: 0, gstRate: 10.0 }
-    ])
-  }
+      {
+        id: crypto.randomUUID(),
+        description: "",
+        category: "",
+        quantity: 1,
+        unitPrice: 0,
+        gstRate: 10.0,
+      },
+    ]);
+  };
 
   const removeLineItem = (id: string) => {
     if (lineItems.length <= 1) {
-      toast.error('At least one line item is required')
-      return
+      toast.error("At least one line item is required");
+      return;
     }
-    setLineItems((prev) => prev.filter((item) => item.id !== id))
-  }
+    setLineItems((prev) => prev.filter((item) => item.id !== id));
+  };
 
-  const updateLineItem = (id: string, field: keyof LineItem, value: string | number) => {
+  const updateLineItem = (
+    id: string,
+    field: keyof LineItem,
+    value: string | number,
+  ) => {
     setLineItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
-    )
-  }
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+    );
+  };
 
   const calculateFinancials = () => {
-    let subtotal = 0
+    let subtotal = 0;
     lineItems.forEach((item) => {
-      subtotal += item.quantity * item.unitPrice * 100
-    })
-    if (discountType === 'amount' && discountAmount) {
-      subtotal -= parseFloat(discountAmount) * 100
-    } else if (discountType === 'percentage' && discountPercentage) {
-      subtotal -= subtotal * (parseFloat(discountPercentage) / 100)
+      subtotal += item.quantity * item.unitPrice * 100;
+    });
+    if (discountType === "amount" && discountAmount) {
+      subtotal -= parseFloat(discountAmount) * 100;
+    } else if (discountType === "percentage" && discountPercentage) {
+      subtotal -= subtotal * (parseFloat(discountPercentage) / 100);
     }
     if (shippingAmount) {
-      subtotal += parseFloat(shippingAmount) * 100
+      subtotal += parseFloat(shippingAmount) * 100;
     }
-    const gst = Math.round(subtotal * 0.1)
-    return { subtotal: Math.round(subtotal), gst, total: Math.round(subtotal) + gst }
-  }
+    const gst = Math.round(subtotal * 0.1);
+    return {
+      subtotal: Math.round(subtotal),
+      gst,
+      total: Math.round(subtotal) + gst,
+    };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!invoiceId) return
+    e.preventDefault();
+    if (!invoiceId) return;
     if (!customerName.trim()) {
-      toast.error('Customer name is required')
-      return
+      toast.error("Customer name is required");
+      return;
     }
     if (!customerEmail.trim()) {
-      toast.error('Customer email is required')
-      return
+      toast.error("Customer email is required");
+      return;
     }
     const hasValidItems = lineItems.some(
-      (item) => item.description.trim() && item.quantity > 0 && item.unitPrice > 0
-    )
+      (item) =>
+        item.description.trim() && item.quantity > 0 && item.unitPrice > 0,
+    );
     if (!hasValidItems) {
-      toast.error('At least one valid line item is required')
-      return
+      toast.error("At least one valid line item is required");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
       const payload: Record<string, unknown> = {
         customerName: customerName.trim(),
@@ -263,56 +324,56 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
             category: item.category?.trim() || null,
             quantity: item.quantity,
             unitPrice: Math.round(item.unitPrice * 100),
-            gstRate: item.gstRate
+            gstRate: item.gstRate,
           })),
         notes: notes.trim() || null,
         terms: terms.trim() || null,
-        footer: footer.trim() || null
-      }
-      if (discountType === 'amount' && discountAmount) {
-        payload.discountAmount = Math.round(parseFloat(discountAmount) * 100)
-      } else if (discountType === 'percentage' && discountPercentage) {
-        payload.discountPercentage = parseFloat(discountPercentage)
+        footer: footer.trim() || null,
+      };
+      if (discountType === "amount" && discountAmount) {
+        payload.discountAmount = Math.round(parseFloat(discountAmount) * 100);
+      } else if (discountType === "percentage" && discountPercentage) {
+        payload.discountPercentage = parseFloat(discountPercentage);
       }
       if (shippingAmount) {
-        payload.shippingAmount = Math.round(parseFloat(shippingAmount) * 100)
+        payload.shippingAmount = Math.round(parseFloat(shippingAmount) * 100);
       }
 
       const res = await fetch(`/api/invoices/${invoiceId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (res.ok) {
-        toast.success('Invoice updated successfully')
-        router.push(`/dashboard/invoices/${invoiceId}`)
+        toast.success("Invoice updated successfully");
+        router.push(`/dashboard/invoices/${invoiceId}`);
       } else {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Failed to update invoice')
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Failed to update invoice");
       }
     } catch (err) {
-      console.error(err)
-      toast.error('An error occurred while updating the invoice')
+      console.error(err);
+      toast.error("An error occurred while updating the invoice");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const financials = calculateFinancials()
+  const financials = calculateFinancials();
 
   if (fetching) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-10 w-10 border-2 border-cyan-500 border-t-transparent" />
       </div>
-    )
+    );
   }
 
   if (fetchError || !invoiceId) {
     return (
       <div className="max-w-lg mx-auto px-4 py-12 text-center">
-        <p className="text-slate-400 mb-4">{fetchError || 'Invalid invoice'}</p>
+        <p className="text-slate-400 mb-4">{fetchError || "Invalid invoice"}</p>
         <Link
           href="/dashboard/invoices"
           className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
@@ -321,7 +382,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           Back to Invoices
         </Link>
       </div>
-    )
+    );
   }
 
   return (
@@ -335,25 +396,36 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Edit Invoice</h1>
-          <p className="text-slate-600 dark:text-slate-400">Update the details below</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Edit Invoice
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400">
+            Update the details below
+          </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Customer Information</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              Customer Information
+            </h2>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Customer Type</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Customer Type
+              </label>
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setCustomerType('client')}
+                  onClick={() => setCustomerType("client")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    customerType === 'client'
-                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
-                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
+                    customerType === "client"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
                   <User className="h-4 w-4" />
@@ -361,11 +433,11 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCustomerType('manual')}
+                  onClick={() => setCustomerType("manual")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    customerType === 'manual'
-                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
-                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
+                    customerType === "manual"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
                   <FileText className="h-4 w-4" />
@@ -373,9 +445,11 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 </button>
               </div>
             </div>
-            {customerType === 'client' && (
+            {customerType === "client" && (
               <div className="space-y-4 mb-4">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Select Client *</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Select Client *
+                </label>
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
@@ -386,7 +460,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
-                      {c.company ? ` (${c.company})` : ''}
+                      {c.company ? ` (${c.company})` : ""}
                     </option>
                   ))}
                 </select>
@@ -394,7 +468,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
             )}
             <div className="space-y-4 mt-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Customer Name *</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Customer Name *
+                </label>
                 <input
                   type="text"
                   value={customerName}
@@ -405,7 +481,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Email *
+                  </label>
                   <input
                     type="email"
                     value={customerEmail}
@@ -415,7 +493,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Phone
+                  </label>
                   <input
                     type="tel"
                     value={customerPhone}
@@ -425,7 +505,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Address
+                </label>
                 <textarea
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
@@ -434,7 +516,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ABN</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  ABN
+                </label>
                 <input
                   type="text"
                   value={customerABN}
@@ -447,7 +531,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
 
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Line Items</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Line Items
+              </h2>
               <button
                 type="button"
                 onClick={addLineItem}
@@ -464,41 +550,63 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                   className="grid grid-cols-12 gap-3 items-start p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg"
                 >
                   <div className="col-span-5">
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Description *</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Description *
+                    </label>
                     <input
                       type="text"
                       value={item.description}
-                      onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                      onChange={(e) =>
+                        updateLineItem(item.id, "description", e.target.value)
+                      }
                       required
                       className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Qty *</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Qty *
+                    </label>
                     <input
                       type="number"
                       step="0.01"
                       value={item.quantity}
-                      onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateLineItem(
+                          item.id,
+                          "quantity",
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
                       required
                       min={0}
                       className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Unit Price ($) *</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Unit Price ($) *
+                    </label>
                     <input
                       type="number"
                       step="0.01"
                       value={item.unitPrice}
-                      onChange={(e) => updateLineItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateLineItem(
+                          item.id,
+                          "unitPrice",
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
                       required
                       min={0}
                       className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Total</label>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Total
+                    </label>
                     <div className="px-2 py-1.5 bg-slate-100 dark:bg-slate-600 rounded text-sm text-slate-900 dark:text-white">
                       ${(item.quantity * item.unitPrice).toFixed(2)}
                     </div>
@@ -518,13 +626,19 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Additional Charges & Discounts</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              Additional Charges & Discounts
+            </h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Discount Type</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Discount Type
+                </label>
                 <select
                   value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value as 'amount' | 'percentage')}
+                  onChange={(e) =>
+                    setDiscountType(e.target.value as "amount" | "percentage")
+                  }
                   className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="amount">Fixed Amount ($)</option>
@@ -532,8 +646,10 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Discount Value</label>
-                {discountType === 'amount' ? (
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Discount Value
+                </label>
+                {discountType === "amount" ? (
                   <input
                     type="number"
                     step="0.01"
@@ -555,7 +671,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Shipping ($)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Shipping ($)
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -569,10 +687,14 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Notes & Terms</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              Notes & Terms
+            </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Internal Notes</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Internal Notes
+                </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -581,7 +703,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Payment Terms</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Payment Terms
+                </label>
                 <textarea
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
@@ -590,7 +714,9 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Footer</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Footer
+                </label>
                 <input
                   type="text"
                   value={footer}
@@ -604,10 +730,14 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
 
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Invoice Settings</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              Invoice Settings
+            </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Invoice Date *</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Invoice Date *
+                </label>
                 <input
                   type="date"
                   value={invoiceDate}
@@ -617,16 +747,22 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Due In (Days)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Due In (Days)
+                </label>
                 <input
                   type="number"
                   value={dueInDays}
-                  onChange={(e) => setDueInDays(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) =>
+                    setDueInDays(parseInt(e.target.value, 10) || 0)
+                  }
                   className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Due Date *</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Due Date *
+                </label>
                 <input
                   type="date"
                   value={dueDate}
@@ -639,19 +775,31 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Financial Summary</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+              Financial Summary
+            </h2>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">Subtotal (Ex GST)</span>
-                <span className="font-medium text-slate-900 dark:text-white">${(financials.subtotal / 100).toFixed(2)}</span>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Subtotal (Ex GST)
+                </span>
+                <span className="font-medium text-slate-900 dark:text-white">
+                  ${(financials.subtotal / 100).toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">GST (10%)</span>
-                <span className="font-medium text-slate-900 dark:text-white">${(financials.gst / 100).toFixed(2)}</span>
+                <span className="text-slate-600 dark:text-slate-400">
+                  GST (10%)
+                </span>
+                <span className="font-medium text-slate-900 dark:text-white">
+                  ${(financials.gst / 100).toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-200 dark:border-slate-700">
                 <span className="text-slate-900 dark:text-white">Total</span>
-                <span className="text-slate-900 dark:text-white">${(financials.total / 100).toFixed(2)}</span>
+                <span className="text-slate-900 dark:text-white">
+                  ${(financials.total / 100).toFixed(2)}
+                </span>
               </div>
             </div>
           </div>
@@ -662,7 +810,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
               disabled={loading}
               className="w-full px-4 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
             >
-              {loading ? 'Updating...' : 'Update Invoice'}
+              {loading ? "Updating..." : "Update Invoice"}
             </button>
             <button
               type="button"
@@ -676,5 +824,5 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
         </div>
       </form>
     </div>
-  )
+  );
 }

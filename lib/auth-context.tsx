@@ -1,27 +1,27 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import type React from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface User {
-  id: string
-  email: string
-  name: string
-  company: string
-  role: "admin" | "technician" | "manager"
-  avatar?: string
+  id: string;
+  email: string;
+  name: string;
+  company: string;
+  role: "admin" | "technician" | "manager";
+  avatar?: string;
 }
 
 interface AuthContextType {
-  user: User | null
-  isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-  isAuthenticated: boolean
+  user: User | null;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Dummy credentials for demo
 const DEMO_USERS = {
@@ -58,57 +58,60 @@ const DEMO_USERS = {
       avatar: "DP",
     },
   },
-}
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   // Check if user is logged in on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("Restore Assist_user")
+    const storedUser = localStorage.getItem("Restore Assist_user");
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser))
+        setUser(JSON.parse(storedUser));
       } catch (error) {
-        console.error("[v0] Failed to parse stored user:", error)
-        localStorage.removeItem("Restore Assist_user")
+        console.error("[v0] Failed to parse stored user:", error);
+        localStorage.removeItem("Restore Assist_user");
       }
     }
-    setIsLoading(false)
-  }, [])
+    setIsLoading(false);
+  }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
-      const demoUser = DEMO_USERS[email as keyof typeof DEMO_USERS]
+      const demoUser = DEMO_USERS[email as keyof typeof DEMO_USERS];
 
       if (!demoUser || demoUser.password !== password) {
-        throw new Error("Invalid email or password")
+        throw new Error("Invalid email or password");
       }
 
-      setUser(demoUser.user)
-      localStorage.setItem("Restore Assist_user", JSON.stringify(demoUser.user))
+      setUser(demoUser.user);
+      localStorage.setItem(
+        "Restore Assist_user",
+        JSON.stringify(demoUser.user),
+      );
       // Use window.location for more reliable redirect
-      window.location.href = "/dashboard"
+      window.location.href = "/dashboard";
     } catch (error) {
-      console.error("[v0] Login error:", error)
-      throw error
+      console.error("[v0] Login error:", error);
+      throw error;
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const logout = () => {
-    setUser(null)
-    localStorage.removeItem("Restore Assist_user")
+    setUser(null);
+    localStorage.removeItem("Restore Assist_user");
     // Use window.location for more reliable redirect
-    window.location.href = "/login"
-  }
+    window.location.href = "/login";
+  };
 
   return (
     <AuthContext.Provider
@@ -122,13 +125,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
+  return context;
 }

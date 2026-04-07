@@ -1,52 +1,59 @@
-"use client"
+"use client";
 
-import { useState, useEffect, use, useRef, useCallback } from "react"
-import { ArrowLeft, Save, Trash2, Plus, RotateCcw, Loader2 } from "lucide-react"
-import Link from "next/link"
-import toast from "react-hot-toast"
+import { useState, useEffect, use, useRef, useCallback } from "react";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  Plus,
+  RotateCcw,
+  Loader2,
+} from "lucide-react";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
 interface CostItem {
-  id: string
-  category: string
-  description: string
-  rate: number
-  unit: string
-  createdAt: string
-  updatedAt: string
-  libraryId: string
+  id: string;
+  category: string;
+  description: string;
+  rate: number;
+  unit: string;
+  createdAt: string;
+  updatedAt: string;
+  libraryId: string;
 }
 
 interface CostLibrary {
-  id: string
-  name: string
-  region: string
-  description?: string
-  isDefault: boolean
-  items: CostItem[]
-  _count: { items: number }
+  id: string;
+  name: string;
+  region: string;
+  description?: string;
+  isDefault: boolean;
+  items: CostItem[];
+  _count: { items: number };
 }
 
 interface RowState {
   /** Original data as fetched from the server (null for newly added rows) */
-  original: CostItem | null
+  original: CostItem | null;
   /** Currently edited values */
   current: {
-    id: string
-    category: string
-    description: string
-    rate: string
-    unit: string
+    id: string;
+    category: string;
+    description: string;
+    rate: string;
+    unit: string;
     /** True if this row was added locally and has no server id yet */
-    isNew: boolean
+    isNew: boolean;
     /** True if this row is pending deletion */
-    toDelete: boolean
-  }
-  dirty: boolean
+    toDelete: boolean;
+  };
+  dirty: boolean;
 }
 
-let nextTempId = 1
+let nextTempId = 1;
 function tempId() {
-  return `__new_${nextTempId++}`
+  return `__new_${nextTempId++}`;
 }
 
 function itemToRow(item: CostItem): RowState {
@@ -62,7 +69,7 @@ function itemToRow(item: CostItem): RowState {
       toDelete: false,
     },
     dirty: false,
-  }
+  };
 }
 
 function blankRow(libraryId: string): RowState {
@@ -78,236 +85,244 @@ function blankRow(libraryId: string): RowState {
       toDelete: false,
     },
     dirty: true,
-  }
+  };
 }
 
 export default function CostLibraryBulkEditorPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params)
+  const { id } = use(params);
 
-  const [library, setLibrary] = useState<CostLibrary | null>(null)
-  const [rows, setRows] = useState<RowState[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [library, setLibrary] = useState<CostLibrary | null>(null);
+  const [rows, setRows] = useState<RowState[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Checkbox selection
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Bulk price adjustment
-  const [priceAdjust, setPriceAdjust] = useState<string>("")
+  const [priceAdjust, setPriceAdjust] = useState<string>("");
 
   // Inline editing: track which cell is being edited
   const [editingCell, setEditingCell] = useState<{
-    rowId: string
-    field: "category" | "description" | "rate" | "unit"
-  } | null>(null)
+    rowId: string;
+    field: "category" | "description" | "rate" | "unit";
+  } | null>(null);
 
   // Confirmation dialog for delete
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const fetchLibrary = async () => {
       try {
-        setLoading(true)
-        const res = await fetch(`/api/cost-libraries/${id}`)
+        setLoading(true);
+        const res = await fetch(`/api/cost-libraries/${id}`);
         if (!res.ok) {
-          toast.error("Failed to load cost library")
-          return
+          toast.error("Failed to load cost library");
+          return;
         }
-        const data = await res.json()
-        const lib: CostLibrary = data.library ?? data
-        setLibrary(lib)
-        setRows(lib.items.map(itemToRow))
+        const data = await res.json();
+        const lib: CostLibrary = data.library ?? data;
+        setLibrary(lib);
+        setRows(lib.items.map(itemToRow));
       } catch (err) {
-        console.error("Error fetching cost library:", err)
-        toast.error("Failed to load cost library")
+        console.error("Error fetching cost library:", err);
+        toast.error("Failed to load cost library");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchLibrary()
-  }, [id])
+    };
+    fetchLibrary();
+  }, [id]);
 
   // Focus input when a cell enters edit mode
   useEffect(() => {
     if (editingCell && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+      inputRef.current.focus();
+      inputRef.current.select();
     }
-  }, [editingCell])
+  }, [editingCell]);
 
   // ── Row helpers ────────────────────────────────────────────────────────────
 
   const updateCell = useCallback(
-    (rowId: string, field: "category" | "description" | "rate" | "unit", value: string) => {
+    (
+      rowId: string,
+      field: "category" | "description" | "rate" | "unit",
+      value: string,
+    ) => {
       setRows((prev) =>
         prev.map((row) => {
-          if (row.current.id !== rowId) return row
-          const updated = { ...row.current, [field]: value }
+          if (row.current.id !== rowId) return row;
+          const updated = { ...row.current, [field]: value };
           const isDirty =
             row.original === null ||
             updated.category !== row.original.category ||
             updated.description !== row.original.description ||
             updated.rate !== row.original.rate.toString() ||
-            updated.unit !== row.original.unit
-          return { ...row, current: updated, dirty: isDirty }
-        })
-      )
+            updated.unit !== row.original.unit;
+          return { ...row, current: updated, dirty: isDirty };
+        }),
+      );
     },
-    []
-  )
+    [],
+  );
 
   const commitEdit = useCallback(() => {
-    setEditingCell(null)
-  }, [])
+    setEditingCell(null);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === "Escape") {
-      commitEdit()
+      commitEdit();
     }
-  }
+  };
 
   // ── Selection ──────────────────────────────────────────────────────────────
 
   const visibleRowIds = rows
     .filter((r) => !r.current.toDelete)
-    .map((r) => r.current.id)
+    .map((r) => r.current.id);
 
   const allSelected =
-    visibleRowIds.length > 0 &&
-    visibleRowIds.every((rid) => selected.has(rid))
+    visibleRowIds.length > 0 && visibleRowIds.every((rid) => selected.has(rid));
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      setSelected(new Set())
+      setSelected(new Set());
     } else {
-      setSelected(new Set(visibleRowIds))
+      setSelected(new Set(visibleRowIds));
     }
-  }
+  };
 
   const toggleSelect = (rowId: string) => {
     setSelected((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(rowId)) {
-        next.delete(rowId)
+        next.delete(rowId);
       } else {
-        next.add(rowId)
+        next.add(rowId);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   // ── Bulk price adjustment ──────────────────────────────────────────────────
 
   const applyPriceAdjustment = (toSelected: boolean) => {
-    const pct = parseFloat(priceAdjust)
+    const pct = parseFloat(priceAdjust);
     if (isNaN(pct)) {
-      toast.error("Enter a valid percentage (e.g. 10 or -5)")
-      return
+      toast.error("Enter a valid percentage (e.g. 10 or -5)");
+      return;
     }
-    const multiplier = 1 + pct / 100
+    const multiplier = 1 + pct / 100;
     setRows((prev) =>
       prev.map((row) => {
-        if (row.current.toDelete) return row
-        if (toSelected && !selected.has(row.current.id)) return row
-        const currentRate = parseFloat(row.current.rate) || 0
-        const newRate = (currentRate * multiplier).toFixed(2)
+        if (row.current.toDelete) return row;
+        if (toSelected && !selected.has(row.current.id)) return row;
+        const currentRate = parseFloat(row.current.rate) || 0;
+        const newRate = (currentRate * multiplier).toFixed(2);
         const isDirty =
-          row.original === null || newRate !== row.original.rate.toString()
+          row.original === null || newRate !== row.original.rate.toString();
         return {
           ...row,
           current: { ...row.current, rate: newRate },
           dirty: isDirty,
-        }
-      })
-    )
+        };
+      }),
+    );
     toast.success(
-      `Prices adjusted by ${pct >= 0 ? "+" : ""}${pct}% on ${toSelected ? "selected" : "all"} rows`
-    )
-  }
+      `Prices adjusted by ${pct >= 0 ? "+" : ""}${pct}% on ${toSelected ? "selected" : "all"} rows`,
+    );
+  };
 
   // ── Add / Delete ───────────────────────────────────────────────────────────
 
   const addRow = () => {
-    const newRow = blankRow(id)
-    setRows((prev) => [...prev, newRow])
+    const newRow = blankRow(id);
+    setRows((prev) => [...prev, newRow]);
     // Auto-select the new row
-    setSelected((prev) => new Set([...prev, newRow.current.id]))
-  }
+    setSelected((prev) => new Set([...prev, newRow.current.id]));
+  };
 
   const markSelectedForDeletion = () => {
     if (selected.size === 0) {
-      toast.error("No rows selected")
-      return
+      toast.error("No rows selected");
+      return;
     }
-    setShowDeleteConfirm(true)
-  }
+    setShowDeleteConfirm(true);
+  };
 
   const confirmDelete = () => {
-    setRows((prev) =>
-      prev
-        .map((row) => {
-          if (!selected.has(row.current.id)) return row
-          // New (unsaved) rows are simply removed from state
-          if (row.current.isNew) return null
-          // Existing rows are marked toDelete (removed on save)
-          return { ...row, current: { ...row.current, toDelete: true }, dirty: true }
-        })
-        .filter(Boolean) as RowState[]
-    )
-    setSelected(new Set())
-    setShowDeleteConfirm(false)
-    toast.success("Rows marked for deletion — save to confirm")
-  }
+    setRows(
+      (prev) =>
+        prev
+          .map((row) => {
+            if (!selected.has(row.current.id)) return row;
+            // New (unsaved) rows are simply removed from state
+            if (row.current.isNew) return null;
+            // Existing rows are marked toDelete (removed on save)
+            return {
+              ...row,
+              current: { ...row.current, toDelete: true },
+              dirty: true,
+            };
+          })
+          .filter(Boolean) as RowState[],
+    );
+    setSelected(new Set());
+    setShowDeleteConfirm(false);
+    toast.success("Rows marked for deletion — save to confirm");
+  };
 
   // ── Discard ────────────────────────────────────────────────────────────────
 
   const discardChanges = () => {
-    if (!library) return
-    setRows(library.items.map(itemToRow))
-    setSelected(new Set())
-    toast("Changes discarded")
-  }
+    if (!library) return;
+    setRows(library.items.map(itemToRow));
+    setSelected(new Set());
+    toast("Changes discarded");
+  };
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
-  const dirtyCount = rows.filter((r) => r.dirty).length
+  const dirtyCount = rows.filter((r) => r.dirty).length;
 
   const saveChanges = async () => {
     if (dirtyCount === 0) {
-      toast("No changes to save")
-      return
+      toast("No changes to save");
+      return;
     }
 
-    setSaving(true)
-    let errors = 0
-    const updatedItems: CostItem[] = []
+    setSaving(true);
+    let errors = 0;
+    const updatedItems: CostItem[] = [];
 
     try {
       for (const row of rows) {
         if (!row.dirty) {
-          if (row.original) updatedItems.push(row.original)
-          continue
+          if (row.original) updatedItems.push(row.original);
+          continue;
         }
 
         // Delete
         if (row.current.toDelete && row.original) {
           const res = await fetch(`/api/cost-items/${row.original.id}`, {
             method: "DELETE",
-          })
+          });
           if (!res.ok) {
-            console.error("Failed to delete item", row.original.id)
-            errors++
+            console.error("Failed to delete item", row.original.id);
+            errors++;
           }
           // Don't push to updatedItems — it's gone
-          continue
+          continue;
         }
 
         // Create new
@@ -322,15 +337,15 @@ export default function CostLibraryBulkEditorPage({
               unit: row.current.unit,
               libraryId: id,
             }),
-          })
+          });
           if (res.ok) {
-            const saved: CostItem = await res.json()
-            updatedItems.push(saved)
+            const saved: CostItem = await res.json();
+            updatedItems.push(saved);
           } else {
-            console.error("Failed to create item")
-            errors++
+            console.error("Failed to create item");
+            errors++;
           }
-          continue
+          continue;
         }
 
         // Update existing
@@ -344,25 +359,25 @@ export default function CostLibraryBulkEditorPage({
               rate: parseFloat(row.current.rate) || 0,
               unit: row.current.unit,
             }),
-          })
+          });
           if (res.ok) {
-            const saved: CostItem = await res.json()
-            updatedItems.push(saved)
+            const saved: CostItem = await res.json();
+            updatedItems.push(saved);
           } else {
-            console.error("Failed to update item", row.original.id)
-            errors++
+            console.error("Failed to update item", row.original.id);
+            errors++;
           }
         }
       }
 
       if (errors > 0) {
-        toast.error(`Saved with ${errors} error(s). Please review and retry.`)
+        toast.error(`Saved with ${errors} error(s). Please review and retry.`);
       } else {
-        toast.success("All changes saved successfully")
+        toast.success("All changes saved successfully");
       }
 
       // Refresh local state from saved data
-      setRows(updatedItems.map(itemToRow))
+      setRows(updatedItems.map(itemToRow));
       setLibrary((prev) =>
         prev
           ? {
@@ -370,27 +385,27 @@ export default function CostLibraryBulkEditorPage({
               items: updatedItems,
               _count: { items: updatedItems.length },
             }
-          : prev
-      )
-      setSelected(new Set())
+          : prev,
+      );
+      setSelected(new Set());
     } catch (err) {
-      console.error("Error saving changes:", err)
-      toast.error("An unexpected error occurred while saving")
+      console.error("Error saving changes:", err);
+      toast.error("An unexpected error occurred while saving");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const renderCell = (
     row: RowState,
-    field: "category" | "description" | "rate" | "unit"
+    field: "category" | "description" | "rate" | "unit",
   ) => {
-    const rowId = row.current.id
-    const value = row.current[field]
+    const rowId = row.current.id;
+    const value = row.current[field];
     const isEditing =
-      editingCell?.rowId === rowId && editingCell?.field === field
+      editingCell?.rowId === rowId && editingCell?.field === field;
 
     if (isEditing) {
       return (
@@ -404,7 +419,7 @@ export default function CostLibraryBulkEditorPage({
           onKeyDown={handleKeyDown}
           className="w-full bg-slate-900 border border-cyan-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
         />
-      )
+      );
     }
 
     return (
@@ -413,14 +428,18 @@ export default function CostLibraryBulkEditorPage({
         className="block w-full cursor-text rounded px-2 py-1 hover:bg-slate-700/40 transition-colors text-sm"
         title="Click to edit"
       >
-        {field === "rate"
-          ? value
-            ? `$${parseFloat(value).toFixed(2)}`
-            : <span className="text-slate-500 italic">—</span>
-          : value || <span className="text-slate-500 italic">—</span>}
+        {field === "rate" ? (
+          value ? (
+            `$${parseFloat(value).toFixed(2)}`
+          ) : (
+            <span className="text-slate-500 italic">—</span>
+          )
+        ) : (
+          value || <span className="text-slate-500 italic">—</span>
+        )}
       </span>
-    )
-  }
+    );
+  };
 
   // ── Loading / error states ─────────────────────────────────────────────────
 
@@ -429,7 +448,7 @@ export default function CostLibraryBulkEditorPage({
       <div className="flex items-center justify-center py-24">
         <Loader2 className="animate-spin h-8 w-8 text-cyan-500" />
       </div>
-    )
+    );
   }
 
   if (!library) {
@@ -444,10 +463,10 @@ export default function CostLibraryBulkEditorPage({
         </Link>
         <p className="text-slate-400">Library not found.</p>
       </div>
-    )
+    );
   }
 
-  const visibleRows = rows.filter((r) => !r.current.toDelete)
+  const visibleRows = rows.filter((r) => !r.current.toDelete);
 
   return (
     <div className="space-y-6">
@@ -566,7 +585,9 @@ export default function CostLibraryBulkEditorPage({
       {/* Table */}
       {visibleRows.length === 0 ? (
         <div className="p-12 rounded-lg border border-slate-700/50 bg-slate-800/30 text-center">
-          <p className="text-slate-400 mb-4">No items yet. Add a row to get started.</p>
+          <p className="text-slate-400 mb-4">
+            No items yet. Add a row to get started.
+          </p>
           <button
             onClick={addRow}
             className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors text-sm font-medium"
@@ -606,7 +627,7 @@ export default function CostLibraryBulkEditorPage({
               </thead>
               <tbody className="divide-y divide-slate-700/30">
                 {visibleRows.map((row) => {
-                  const isSelected = selected.has(row.current.id)
+                  const isSelected = selected.has(row.current.id);
                   return (
                     <tr
                       key={row.current.id}
@@ -644,11 +665,9 @@ export default function CostLibraryBulkEditorPage({
                       </td>
 
                       {/* Unit */}
-                      <td className="px-1 py-1">
-                        {renderCell(row, "unit")}
-                      </td>
+                      <td className="px-1 py-1">{renderCell(row, "unit")}</td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
@@ -662,7 +681,8 @@ export default function CostLibraryBulkEditorPage({
             </span>
             {dirtyCount > 0 && (
               <span className="text-yellow-400">
-                {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""} — click &ldquo;Save Changes&rdquo; to persist
+                {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""} — click
+                &ldquo;Save Changes&rdquo; to persist
               </span>
             )}
           </div>
@@ -673,10 +693,13 @@ export default function CostLibraryBulkEditorPage({
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <h2 className="text-lg font-semibold mb-2">Delete {selected.size} row{selected.size !== 1 ? "s" : ""}?</h2>
+            <h2 className="text-lg font-semibold mb-2">
+              Delete {selected.size} row{selected.size !== 1 ? "s" : ""}?
+            </h2>
             <p className="text-slate-400 text-sm mb-6">
-              This will remove {selected.size} selected row{selected.size !== 1 ? "s" : ""} from the table.
-              The deletion will only be applied to the server when you click{" "}
+              This will remove {selected.size} selected row
+              {selected.size !== 1 ? "s" : ""} from the table. The deletion will
+              only be applied to the server when you click{" "}
               <strong className="text-white">Save Changes</strong>.
             </p>
             <div className="flex justify-end gap-3">
@@ -697,5 +720,5 @@ export default function CostLibraryBulkEditorPage({
         </div>
       )}
     </div>
-  )
+  );
 }

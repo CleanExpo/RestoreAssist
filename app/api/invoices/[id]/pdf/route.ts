@@ -1,33 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { generateInvoicePDF } from '@/lib/invoices/pdf-generator'
-import { uploadPDFToCloudinary } from '@/lib/cloudinary'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { generateInvoicePDF } from "@/lib/invoices/pdf-generator";
+import { uploadPDFToCloudinary } from "@/lib/cloudinary";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params
-    const session = await getServerSession(authOptions)
+    const { id } = await params;
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Fetch invoice with all related data
     const invoice = await prisma.invoice.findUnique({
       where: {
         id,
-        userId: session.user.id
+        userId: session.user.id,
       },
       include: {
         lineItems: {
-          orderBy: { sortOrder: 'asc' }
+          orderBy: { sortOrder: "asc" },
         },
         payments: {
-          orderBy: { paymentDate: 'desc' }
+          orderBy: { paymentDate: "desc" },
         },
         user: {
           select: {
@@ -38,25 +38,26 @@ export async function GET(
             businessLogo: true,
             businessABN: true,
             businessPhone: true,
-            businessEmail: true
-          }
-        }
-      }
-    })
+            businessEmail: true,
+          },
+        },
+      },
+    });
 
     if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     // Prepare business info
     const businessInfo = {
-      businessName: invoice.user.businessName || invoice.user.name || 'RestoreAssist',
+      businessName:
+        invoice.user.businessName || invoice.user.name || "RestoreAssist",
       businessAddress: invoice.user.businessAddress,
       businessLogo: invoice.user.businessLogo,
       businessABN: invoice.user.businessABN,
       businessPhone: invoice.user.businessPhone,
-      businessEmail: invoice.user.businessEmail || invoice.user.email
-    }
+      businessEmail: invoice.user.businessEmail || invoice.user.email,
+    };
 
     // Generate PDF
     const pdfBytes = await generateInvoicePDF({
@@ -82,55 +83,58 @@ export async function GET(
         footer: invoice.footer,
         discountAmount: invoice.discountAmount,
         discountPercentage: invoice.discountPercentage,
-        shippingAmount: invoice.shippingAmount
+        shippingAmount: invoice.shippingAmount,
       },
       lineItems: invoice.lineItems,
       payments: invoice.payments,
-      businessInfo
-    })
+      businessInfo,
+    });
 
     // Upload PDF to Cloudinary and save URL
     try {
-      const buffer = Buffer.from(pdfBytes)
-      const filename = `${invoice.invoiceNumber}_${Date.now()}`
+      const buffer = Buffer.from(pdfBytes);
+      const filename = `${invoice.invoiceNumber}_${Date.now()}`;
 
       const { url: pdfUrl } = await uploadPDFToCloudinary(
         buffer,
         filename,
-        'invoices',
+        "invoices",
         {
-          tags: ['invoice', invoice.status.toLowerCase()],
+          tags: ["invoice", invoice.status.toLowerCase()],
           // PDFs persist indefinitely (no TTL) for financial records
-        }
-      )
+        },
+      );
 
       // Update invoice with PDF URL
       await prisma.invoice.update({
         where: { id },
         data: {
           pdfUrl,
-          pdfGeneratedAt: new Date()
-        }
-      })
+          pdfGeneratedAt: new Date(),
+        },
+      });
 
-      console.log(`[Invoice PDF] ✅ Uploaded to Cloudinary: ${pdfUrl}`)
+      console.log(`[Invoice PDF] ✅ Uploaded to Cloudinary: ${pdfUrl}`);
     } catch (cloudinaryError) {
-      console.error('[Invoice PDF] ⚠️ Failed to upload to Cloudinary:', cloudinaryError)
+      console.error(
+        "[Invoice PDF] ⚠️ Failed to upload to Cloudinary:",
+        cloudinaryError,
+      );
       // Continue with PDF download even if Cloudinary upload fails
     }
 
     // Return PDF with proper headers
     return new NextResponse(pdfBytes, {
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${invoice.invoiceNumber}.pdf"`
-      }
-    })
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${invoice.invoiceNumber}.pdf"`,
+      },
+    });
   } catch (error: any) {
-    console.error('Error generating invoice PDF:', error)
+    console.error("Error generating invoice PDF:", error);
     return NextResponse.json(
-      { error: 'Failed to generate PDF' },
-      { status: 500 }
-    )
+      { error: "Failed to generate PDF" },
+      { status: 500 },
+    );
   }
 }

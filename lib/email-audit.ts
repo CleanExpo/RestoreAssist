@@ -4,15 +4,15 @@
  * and provides consistent console logging for all email types.
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from "@/lib/prisma";
 
 interface EmailAuditEntry {
-  userId: string
-  reportId: string
-  recipient: string
-  success: boolean
-  error?: string
-  deliveryType: 'immediate' | 'scheduled'
+  userId: string;
+  reportId: string;
+  recipient: string;
+  success: boolean;
+  error?: string;
+  deliveryType: "immediate" | "scheduled";
 }
 
 /**
@@ -30,10 +30,10 @@ export async function logEmailAudit(entry: EmailAuditEntry): Promise<void> {
         error: entry.error,
         deliveryType: entry.deliveryType,
       },
-    })
+    });
   } catch (err) {
     // Don't throw — audit logging should never break the primary operation
-    console.error('[EmailAudit] Failed to log audit entry:', err)
+    console.error("[EmailAudit] Failed to log audit entry:", err);
   }
 }
 
@@ -43,16 +43,19 @@ export async function logEmailAudit(entry: EmailAuditEntry): Promise<void> {
  */
 export async function sendWithAudit<T>(
   sendFn: () => Promise<T>,
-  auditData: Omit<EmailAuditEntry, 'success' | 'error'>
+  auditData: Omit<EmailAuditEntry, "success" | "error">,
 ): Promise<T | null> {
   try {
-    const result = await sendFn()
-    await logEmailAudit({ ...auditData, success: true })
-    return result
+    const result = await sendFn();
+    await logEmailAudit({ ...auditData, success: true });
+    return result;
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    await logEmailAudit({ ...auditData, success: false, error: errorMessage })
-    console.error(`[EmailAudit] Email send failed for report ${auditData.reportId}:`, errorMessage)
-    return null
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    await logEmailAudit({ ...auditData, success: false, error: errorMessage });
+    console.error(
+      `[EmailAudit] Email send failed for report ${auditData.reportId}:`,
+      errorMessage,
+    );
+    return null;
   }
 }

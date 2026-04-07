@@ -15,47 +15,50 @@
  * in the database — no manual entry required for that claim.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   generatePilotReport,
   deriveCycleTimeObservations,
   type PilotObservation,
   type ObservationType,
   type PilotGroup,
-} from '@/lib/nir-pilot-measurement'
+} from "@/lib/nir-pilot-measurement";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if ((session.user as { role?: string }).role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden — admin access required' }, { status: 403 })
+    if ((session.user as { role?: string }).role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Forbidden — admin access required" },
+        { status: 403 },
+      );
     }
 
     // ── 1. Load all recorded observations from the database ─────────────────
 
     const rawObs = await prisma.pilotObservation.findMany({
-      orderBy: { createdAt: 'asc' },
-    })
+      orderBy: { createdAt: "asc" },
+    });
 
-    const dbObservations: PilotObservation[] = rawObs.map(r => ({
-      id:               r.id,
-      claimId:          r.claimId,
-      observationType:  r.observationType as ObservationType,
-      value:            r.value,
-      group:            r.group as PilotGroup,
-      inspectionId:     r.inspectionId ?? undefined,
+    const dbObservations: PilotObservation[] = rawObs.map((r) => ({
+      id: r.id,
+      claimId: r.claimId,
+      observationType: r.observationType as ObservationType,
+      value: r.value,
+      group: r.group as PilotGroup,
+      inspectionId: r.inspectionId ?? undefined,
       recordedByUserId: r.recordedByUserId,
-      context:          r.context as Record<string, unknown> | null,
-      notes:            r.notes ?? undefined,
-      createdAt:        r.createdAt,
-    }))
+      context: r.context as Record<string, unknown> | null,
+      notes: r.notes ?? undefined,
+      createdAt: r.createdAt,
+    }));
 
     // ── 2. Auto-derive CLAIM-007 cycle time from completed inspections ───────
     //
@@ -63,83 +66,87 @@ export async function GET(request: NextRequest) {
     // requirement. Use organizationId as the companyId proxy.
 
     const completedInspections = await prisma.inspection.findMany({
-      where: { status: 'COMPLETED' },
+      where: { status: "COMPLETED" },
       select: {
-        id:             true,
+        id: true,
         inspectionDate: true,
-        completedAt:    true,
-        userId:         true,
-        status:         true,
+        completedAt: true,
+        userId: true,
+        status: true,
         user: {
           select: { organizationId: true },
         },
       },
-    })
+    });
 
     // Group by organization, derive cycle time observations
-    const byOrg: Record<string, typeof completedInspections> = {}
+    const byOrg: Record<string, typeof completedInspections> = {};
     for (const insp of completedInspections) {
-      const orgId = insp.user?.organizationId ?? 'unknown'
-      if (!byOrg[orgId]) byOrg[orgId] = []
-      byOrg[orgId].push(insp)
+      const orgId = insp.user?.organizationId ?? "unknown";
+      if (!byOrg[orgId]) byOrg[orgId] = [];
+      byOrg[orgId].push(insp);
     }
 
-    const derivedCycleTime: PilotObservation[] = []
+    const derivedCycleTime: PilotObservation[] = [];
     for (const [orgId, inspections] of Object.entries(byOrg)) {
       const derived = deriveCycleTimeObservations(
-        inspections.map(i => ({
-          id:             i.id,
+        inspections.map((i) => ({
+          id: i.id,
           inspectionDate: i.inspectionDate,
-          completedAt:    i.completedAt,
-          userId:         i.userId,
-          status:         i.status,
+          completedAt: i.completedAt,
+          userId: i.userId,
+          status: i.status,
         })),
-        orgId
-      )
+        orgId,
+      );
       derivedCycleTime.push(
         ...derived.map((d, idx) => ({
           ...d,
-          id:        `derived-${orgId}-${idx}`,
+          id: `derived-${orgId}-${idx}`,
           createdAt: new Date(),
-        }))
-      )
+        })),
+      );
     }
 
     // Merge manual DB observations with auto-derived cycle time
     // Filter out any manually recorded CLAIM-007 to avoid double-counting
-    const manualNonCycleTime = dbObservations.filter(o => o.claimId !== 'CLAIM-007')
-    const allObservations    = [...manualNonCycleTime, ...derivedCycleTime]
+    const manualNonCycleTime = dbObservations.filter(
+      (o) => o.claimId !== "CLAIM-007",
+    );
+    const allObservations = [...manualNonCycleTime, ...derivedCycleTime];
 
     // ── 3. Generate readiness report ─────────────────────────────────────────
 
-    const report = generatePilotReport(allObservations)
+    const report = generatePilotReport(allObservations);
 
     // ── 4. Augment with derived cycle time summary ────────────────────────────
 
     const cycleTimeSummary = {
       derivedFromInspections: derivedCycleTime.length,
-      companies:              Object.keys(byOrg).length,
+      companies: Object.keys(byOrg).length,
       totalCompletedInspections: completedInspections.length,
-    }
+    };
 
     return NextResponse.json({
       report,
       cycleTimeSummary,
       meta: {
-        generatedAt:        report.generatedAt,
-        totalObservations:  allObservations.length,
+        generatedAt: report.generatedAt,
+        totalObservations: allObservations.length,
         manualObservations: manualNonCycleTime.length,
         derivedObservations: derivedCycleTime.length,
         note: [
-          'CLAIM-007 cycle time is auto-derived from completed inspections — no manual entry required.',
-          'All other claims require observations submitted via POST /api/pilot/observations.',
-          'When readyToPromote is non-empty, update lib/nir-evidence-architecture.ts and open a PR.',
+          "CLAIM-007 cycle time is auto-derived from completed inspections — no manual entry required.",
+          "All other claims require observations submitted via POST /api/pilot/observations.",
+          "When readyToPromote is non-empty, update lib/nir-evidence-architecture.ts and open a PR.",
         ],
       },
-    })
-
+    });
   } catch (error) {
-    console.error('Error generating pilot readiness report:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("Error generating pilot readiness report:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

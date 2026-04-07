@@ -4,26 +4,26 @@
  * Allows jumping back to previous tiers/questions
  */
 
-'use client'
+"use client";
 
-import { useCallback } from 'react'
-import { Lock } from 'lucide-react'
+import { useCallback } from "react";
+import { Lock } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
-import type { Question } from '@/lib/interview'
+} from "@/components/ui/tooltip";
+import type { Question } from "@/lib/interview";
 
 interface ProgressRingProps {
-  current: number
-  total: number
-  tier: number
-  onQuestionSelect?: (questionId: string) => void
-  allQuestions?: Question[]
-  userTierLevel?: 'STANDARD' | 'PREMIUM' | 'ENTERPRISE'
-  onUpgrade?: () => void
+  current: number;
+  total: number;
+  tier: number;
+  onQuestionSelect?: (questionId: string) => void;
+  allQuestions?: Question[];
+  userTierLevel?: "STANDARD" | "PREMIUM" | "ENTERPRISE";
+  onUpgrade?: () => void;
 }
 
 /**
@@ -36,13 +36,14 @@ export function ProgressRing({
   tier,
   onQuestionSelect,
   allQuestions = [],
-  userTierLevel = 'STANDARD',
+  userTierLevel = "STANDARD",
   onUpgrade,
 }: ProgressRingProps) {
   // Determine max unlocked tier based on subscription
-  const maxUnlockedTier = userTierLevel === 'ENTERPRISE' ? 4 : userTierLevel === 'PREMIUM' ? 3 : 2
+  const maxUnlockedTier =
+    userTierLevel === "ENTERPRISE" ? 4 : userTierLevel === "PREMIUM" ? 3 : 2;
 
-  const percentage = total > 0 ? (current / total) * 100 : 0
+  const percentage = total > 0 ? (current / total) * 100 : 0;
 
   /**
    * Get tier boundaries
@@ -50,17 +51,17 @@ export function ProgressRing({
   const getTierBoundaries = (tierNum: number): [number, number] => {
     switch (tierNum) {
       case 1:
-        return [0, 5] // Tier 1: questions 1-5
+        return [0, 5]; // Tier 1: questions 1-5
       case 2:
-        return [5, 8] // Tier 2: questions 6-8
+        return [5, 8]; // Tier 2: questions 6-8
       case 3:
-        return [8, 13] // Tier 3: questions 9-13
+        return [8, 13]; // Tier 3: questions 9-13
       case 4:
-        return [13, 999] // Tier 4: questions 14+
+        return [13, 999]; // Tier 4: questions 14+
       default:
-        return [0, 999]
+        return [0, 999];
     }
-  }
+  };
 
   /**
    * Get tier color
@@ -68,17 +69,17 @@ export function ProgressRing({
   const getTierColor = (tierNum: number): string => {
     switch (tierNum) {
       case 1:
-        return 'from-blue-500 to-blue-600'
+        return "from-blue-500 to-blue-600";
       case 2:
-        return 'from-green-500 to-green-600'
+        return "from-green-500 to-green-600";
       case 3:
-        return 'from-amber-500 to-amber-600'
+        return "from-amber-500 to-amber-600";
       case 4:
-        return 'from-purple-500 to-purple-600'
+        return "from-purple-500 to-purple-600";
       default:
-        return 'from-gray-500 to-gray-600'
+        return "from-gray-500 to-gray-600";
     }
-  }
+  };
 
   /**
    * Get tier label
@@ -86,27 +87,27 @@ export function ProgressRing({
   const getTierLabel = (tierNum: number): string => {
     switch (tierNum) {
       case 1:
-        return 'Essential'
+        return "Essential";
       case 2:
-        return 'Environmental'
+        return "Environmental";
       case 3:
-        return 'Compliance'
+        return "Compliance";
       case 4:
-        return 'Specialized'
+        return "Specialized";
       default:
-        return 'Interview'
+        return "Interview";
     }
-  }
+  };
 
   /**
    * Handle tier click
    */
   const handleTierClick = useCallback(
     (tierNum: number) => {
-      if (!onQuestionSelect || allQuestions.length === 0) return
+      if (!onQuestionSelect || allQuestions.length === 0) return;
 
       // Find first question in tier
-      const [minSeq, maxSeq] = getTierBoundaries(tierNum)
+      const [minSeq, maxSeq] = getTierBoundaries(tierNum);
       const tierQuestion = allQuestions.find(
         (q) =>
           q.sequenceNumber &&
@@ -114,23 +115,25 @@ export function ProgressRing({
           q.sequenceNumber <= maxSeq &&
           (current === 0 || // Always allow first tier
             allQuestions.findIndex((aq) => aq.id === q.id) <=
-              allQuestions.findIndex((aq) => aq.id === allQuestions[current - 1]?.id || '')) // Or if in past
-      )
+              allQuestions.findIndex(
+                (aq) => aq.id === allQuestions[current - 1]?.id || "",
+              )), // Or if in past
+      );
 
       if (tierQuestion) {
-        onQuestionSelect(tierQuestion.id)
+        onQuestionSelect(tierQuestion.id);
       }
     },
-    [onQuestionSelect, allQuestions, current]
-  )
+    [onQuestionSelect, allQuestions, current],
+  );
 
   /**
    * Calculate SVG path for circular progress
    */
   const calculateCirclePath = (): string => {
-    const radius = 40
-    const circumference = 2 * Math.PI * radius
-    const strokeDashoffset = circumference - (percentage / 100) * circumference
+    const radius = 40;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
     return `
       <svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
@@ -159,8 +162,8 @@ export function ProgressRing({
           </linearGradient>
         </defs>
       </svg>
-    `
-  }
+    `;
+  };
 
   return (
     <TooltipProvider>
@@ -170,7 +173,10 @@ export function ProgressRing({
           <TooltipTrigger asChild>
             <div className="relative w-24 h-24 flex items-center justify-center">
               {/* SVG Circle */}
-              <svg className="w-24 h-24 transform -rotate-90 absolute" viewBox="0 0 100 100">
+              <svg
+                className="w-24 h-24 transform -rotate-90 absolute"
+                viewBox="0 0 100 100"
+              >
                 {/* Background circle */}
                 <circle
                   cx="50"
@@ -197,7 +203,13 @@ export function ProgressRing({
 
                 {/* Gradient definition */}
                 <defs>
-                  <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <linearGradient
+                    id="progress-gradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
                     <stop offset="0%" stopColor="#3b82f6" />
                     <stop offset="100%" stopColor="#1e40af" />
                   </linearGradient>
@@ -206,8 +218,12 @@ export function ProgressRing({
 
               {/* Center content */}
               <div className="text-center">
-                <div className="text-2xl font-bold">{Math.round(percentage)}%</div>
-                <div className="text-xs text-muted-foreground">{current} / {total}</div>
+                <div className="text-2xl font-bold">
+                  {Math.round(percentage)}%
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {current} / {total}
+                </div>
               </div>
             </div>
           </TooltipTrigger>
@@ -224,30 +240,38 @@ export function ProgressRing({
         {/* Tier indicators */}
         <div className="flex gap-1">
           {[1, 2, 3, 4].map((tierNum) => {
-            const [minSeq, maxSeq] = getTierBoundaries(tierNum)
+            const [minSeq, maxSeq] = getTierBoundaries(tierNum);
             const tierQuestions = allQuestions.filter(
-              (q) => q.sequenceNumber && q.sequenceNumber >= minSeq && q.sequenceNumber <= maxSeq
-            )
-            const isLocked = tierNum > maxUnlockedTier
+              (q) =>
+                q.sequenceNumber &&
+                q.sequenceNumber >= minSeq &&
+                q.sequenceNumber <= maxSeq,
+            );
+            const isLocked = tierNum > maxUnlockedTier;
 
             return (
               <Tooltip key={tierNum}>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => isLocked && onUpgrade ? onUpgrade() : handleTierClick(tierNum)}
+                    onClick={() =>
+                      isLocked && onUpgrade
+                        ? onUpgrade()
+                        : handleTierClick(tierNum)
+                    }
                     disabled={!onQuestionSelect && !isLocked}
                     className={`
                       w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold
                       transition-all duration-200 cursor-pointer
-                      ${isLocked
-                        ? 'bg-amber-100 text-amber-500 border border-amber-300 cursor-pointer hover:bg-amber-200'
-                        : tierNum === tier
-                          ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
-                          : tierNum < tier
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-400 cursor-default'
+                      ${
+                        isLocked
+                          ? "bg-amber-100 text-amber-500 border border-amber-300 cursor-pointer hover:bg-amber-200"
+                          : tierNum === tier
+                            ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
+                            : tierNum < tier
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : "bg-gray-100 text-gray-400 cursor-default"
                       }
-                      ${onQuestionSelect && !isLocked ? 'hover:shadow-md' : ''}
+                      ${onQuestionSelect && !isLocked ? "hover:shadow-md" : ""}
                     `}
                   >
                     {isLocked ? <Lock size={12} /> : tierNum}
@@ -255,10 +279,13 @@ export function ProgressRing({
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="text-sm">
-                    <p className="font-semibold">Tier {tierNum}: {getTierLabel(tierNum)}</p>
+                    <p className="font-semibold">
+                      Tier {tierNum}: {getTierLabel(tierNum)}
+                    </p>
                     {isLocked ? (
                       <p className="text-xs text-amber-600">
-                        Upgrade to {tierNum <= 3 ? 'Premium' : 'Enterprise'} to unlock
+                        Upgrade to {tierNum <= 3 ? "Premium" : "Enterprise"} to
+                        unlock
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
@@ -269,7 +296,7 @@ export function ProgressRing({
                   </div>
                 </TooltipContent>
               </Tooltip>
-            )
+            );
           })}
         </div>
 
@@ -280,5 +307,5 @@ export function ProgressRing({
         </div>
       </div>
     </TooltipProvider>
-  )
+  );
 }

@@ -15,42 +15,38 @@
  * Old caches are pruned on activate.
  */
 
-const NIR_VERSION = 'nir-v2.0'
-const CACHE_APP = `${NIR_VERSION}-app`
-const CACHE_STATIC = `${NIR_VERSION}-static`
-const ALL_CACHES = [CACHE_APP, CACHE_STATIC]
+const NIR_VERSION = "nir-v2.0";
+const CACHE_APP = `${NIR_VERSION}-app`;
+const CACHE_STATIC = `${NIR_VERSION}-static`;
+const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
 
 /**
  * Pages to precache on install so the app shell is immediately available offline.
  * Keep this list small — only the inspection workflow entry points.
  */
-const PRECACHE_URLS = [
-  '/',
-  '/portal/inspections',
-  '/offline',
-]
+const PRECACHE_URLS = ["/", "/portal/inspections", "/offline"];
 
 // ─── INSTALL ──────────────────────────────────────────────────────────────────
 
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_APP)
       .then((cache) =>
         // addAll is atomic — if any URL fails, no URLs are cached
         // Use individual add() calls so a 404 on one page doesn't break the whole install
-        Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)))
+        Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))),
       )
       .then(() => {
         // Take control immediately — don't wait for existing tabs to close
-        self.skipWaiting()
-      })
-  )
-})
+        self.skipWaiting();
+      }),
+  );
+});
 
 // ─── ACTIVATE ─────────────────────────────────────────────────────────────────
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
@@ -58,58 +54,58 @@ self.addEventListener('activate', (event) => {
         Promise.all(
           keys
             .filter((key) => !ALL_CACHES.includes(key))
-            .map((key) => caches.delete(key))
-        )
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => {
         // Claim all existing clients immediately
-        self.clients.claim()
-      })
-  )
-})
+        self.clients.claim();
+      }),
+  );
+});
 
 // ─── FETCH ────────────────────────────────────────────────────────────────────
 
-self.addEventListener('fetch', (event) => {
-  const { request } = event
-  const url = new URL(request.url)
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
 
   // Only handle same-origin GET requests
-  if (request.method !== 'GET') return
-  if (url.origin !== self.location.origin) return
+  if (request.method !== "GET") return;
+  if (url.origin !== self.location.origin) return;
 
   // ── Next.js static assets — cache-first (content-hashed, safe to cache forever)
-  if (url.pathname.startsWith('/_next/static/')) {
-    event.respondWith(cacheFirst(request, CACHE_STATIC))
-    return
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(cacheFirst(request, CACHE_STATIC));
+    return;
   }
 
   // ── Static public assets (images, fonts, manifest)
   if (
-    url.pathname.startsWith('/fonts/') ||
+    url.pathname.startsWith("/fonts/") ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff|woff2)$/)
   ) {
-    event.respondWith(cacheFirst(request, CACHE_STATIC))
-    return
+    event.respondWith(cacheFirst(request, CACHE_STATIC));
+    return;
   }
 
   // ── API routes — network-only, offline stub response
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkOnlyWithOfflineStub(request))
-    return
+  if (url.pathname.startsWith("/api/")) {
+    event.respondWith(networkOnlyWithOfflineStub(request));
+    return;
   }
 
   // ── App pages — network-first, offline fallback
-  event.respondWith(networkFirstWithOfflineFallback(request))
-})
+  event.respondWith(networkFirstWithOfflineFallback(request));
+});
 
 // ─── BACKGROUND SYNC ──────────────────────────────────────────────────────────
 
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'nir-inspection-sync') {
-    event.waitUntil(triggerClientSync())
+self.addEventListener("sync", (event) => {
+  if (event.tag === "nir-inspection-sync") {
+    event.waitUntil(triggerClientSync());
   }
-})
+});
 
 // ─── STRATEGY IMPLEMENTATIONS ─────────────────────────────────────────────────
 
@@ -118,18 +114,18 @@ self.addEventListener('sync', (event) => {
  * Used for content-hashed static assets that never change at the same URL.
  */
 async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request)
-  if (cached) return cached
+  const cached = await caches.match(request);
+  if (cached) return cached;
 
   try {
-    const response = await fetch(request)
+    const response = await fetch(request);
     if (response.ok) {
-      const cache = await caches.open(cacheName)
-      cache.put(request, response.clone())
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
     }
-    return response
+    return response;
   } catch {
-    return new Response('Asset unavailable offline', { status: 503 })
+    return new Response("Asset unavailable offline", { status: 503 });
   }
 }
 
@@ -139,23 +135,26 @@ async function cacheFirst(request, cacheName) {
  */
 async function networkFirstWithOfflineFallback(request) {
   try {
-    const response = await fetch(request)
+    const response = await fetch(request);
 
     // Cache successful HTML responses for offline fallback
-    if (response.ok && response.headers.get('content-type')?.includes('text/html')) {
-      const cache = await caches.open(CACHE_APP)
-      cache.put(request, response.clone())
+    if (
+      response.ok &&
+      response.headers.get("content-type")?.includes("text/html")
+    ) {
+      const cache = await caches.open(CACHE_APP);
+      cache.put(request, response.clone());
     }
 
-    return response
+    return response;
   } catch {
     // Network failed — try cache
-    const cached = await caches.match(request)
-    if (cached) return cached
+    const cached = await caches.match(request);
+    if (cached) return cached;
 
     // Try the root offline shell
-    const shell = await caches.match('/')
-    if (shell) return shell
+    const shell = await caches.match("/");
+    if (shell) return shell;
 
     return new Response(
       `<!DOCTYPE html>
@@ -166,8 +165,8 @@ async function networkFirstWithOfflineFallback(request) {
           <p>Your inspection data is saved locally and will sync when you reconnect.</p>
         </body>
       </html>`,
-      { status: 200, headers: { 'Content-Type': 'text/html' } }
-    )
+      { status: 200, headers: { "Content-Type": "text/html" } },
+    );
   }
 }
 
@@ -177,22 +176,22 @@ async function networkFirstWithOfflineFallback(request) {
  */
 async function networkOnlyWithOfflineStub(request) {
   try {
-    return await fetch(request)
+    return await fetch(request);
   } catch {
     return new Response(
       JSON.stringify({
-        error: 'offline',
-        message: 'Request queued for sync when connectivity is restored.',
+        error: "offline",
+        message: "Request queued for sync when connectivity is restored.",
         shouldQueue: true,
       }),
       {
         status: 503,
         headers: {
-          'Content-Type': 'application/json',
-          'X-NIR-Offline': 'true',
+          "Content-Type": "application/json",
+          "X-NIR-Offline": "true",
         },
-      }
-    )
+      },
+    );
   }
 }
 
@@ -201,8 +200,8 @@ async function networkOnlyWithOfflineStub(request) {
  * The nir-sync-queue.ts initSyncOnReconnect() listener handles the actual drain.
  */
 async function triggerClientSync() {
-  const clients = await self.clients.matchAll({ includeUncontrolled: true })
+  const clients = await self.clients.matchAll({ includeUncontrolled: true });
   clients.forEach((client) =>
-    client.postMessage({ type: 'NIR_SYNC_TRIGGER', source: 'background-sync' })
-  )
+    client.postMessage({ type: "NIR_SYNC_TRIGGER", source: "background-sync" }),
+  );
 }

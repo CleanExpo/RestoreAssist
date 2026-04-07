@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function InvoicesLoading() {
   return (
@@ -26,7 +26,10 @@ export default function InvoicesLoading() {
       <div className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
         <Skeleton className="h-12 w-full" />
         {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full border-t border-gray-100 dark:border-slate-800" />
+          <Skeleton
+            key={i}
+            className="h-16 w-full border-t border-gray-100 dark:border-slate-800"
+          />
         ))}
       </div>
 
@@ -35,5 +38,5 @@ export default function InvoicesLoading() {
         <Skeleton className="h-10 w-64 rounded-lg" />
       </div>
     </div>
-  )
+  );
 }

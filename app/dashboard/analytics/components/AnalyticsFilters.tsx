@@ -1,24 +1,24 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
-import { Download, Loader2, ChevronDown, Users } from "lucide-react"
-import toast from "react-hot-toast"
-import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { Download, Loader2, ChevronDown, Users } from "lucide-react";
+import toast from "react-hot-toast";
+import { cn } from "@/lib/utils";
 
 export interface AnalyticsFilters {
-  dateRange: string
-  customFrom?: string
-  customTo?: string
-  hazardType?: string
-  status?: string
-  userId?: string // For filtering by specific team member
+  dateRange: string;
+  customFrom?: string;
+  customTo?: string;
+  hazardType?: string;
+  status?: string;
+  userId?: string; // For filtering by specific team member
 }
 
 interface AnalyticsFiltersProps {
-  onFiltersChange: (filters: AnalyticsFilters) => void
-  isLoading: boolean
-  onExport?: (format: "csv" | "excel" | "pdf") => Promise<void>
+  onFiltersChange: (filters: AnalyticsFilters) => void;
+  isLoading: boolean;
+  onExport?: (format: "csv" | "excel" | "pdf") => Promise<void>;
 }
 
 const hazardTypes = [
@@ -28,7 +28,7 @@ const hazardTypes = [
   { value: "Mould", label: "Mould" },
   { value: "Storm", label: "Storm" },
   { value: "Other", label: "Other" },
-]
+];
 
 const statuses = [
   { value: "", label: "All Statuses" },
@@ -36,71 +36,71 @@ const statuses = [
   { value: "PENDING", label: "Pending" },
   { value: "APPROVED", label: "Approved" },
   { value: "COMPLETED", label: "Completed" },
-]
+];
 
 type TeamMember = {
-  id: string
-  name: string | null
-  email: string
-  role: "ADMIN" | "MANAGER" | "USER"
-}
+  id: string;
+  name: string | null;
+  email: string;
+  role: "ADMIN" | "MANAGER" | "USER";
+};
 
 export default function AnalyticsFilters({
   onFiltersChange,
   isLoading,
   onExport,
 }: AnalyticsFiltersProps) {
-  const { data: session } = useSession()
-  const [dateRange, setDateRange] = useState("30days")
-  const [customFrom, setCustomFrom] = useState("")
-  const [customTo, setCustomTo] = useState("")
-  const [hazardType, setHazardType] = useState("")
-  const [status, setStatus] = useState("")
-  const [selectedUserId, setSelectedUserId] = useState("")
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
-  const [loadingMembers, setLoadingMembers] = useState(false)
-  const [exportLoading, setExportLoading] = useState(false)
-  const [showExportMenu, setShowExportMenu] = useState(false)
+  const { data: session } = useSession();
+  const [dateRange, setDateRange] = useState("30days");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [hazardType, setHazardType] = useState("");
+  const [status, setStatus] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const isAdmin = session?.user?.role === "ADMIN"
-  const isManager = session?.user?.role === "MANAGER"
-  const canFilterByTeamMember = isAdmin || isManager
+  const isAdmin = session?.user?.role === "ADMIN";
+  const isManager = session?.user?.role === "MANAGER";
+  const canFilterByTeamMember = isAdmin || isManager;
 
   // Fetch team members for Admin and Manager
   useEffect(() => {
     if (canFilterByTeamMember) {
       const fetchTeamMembers = async () => {
-        setLoadingMembers(true)
+        setLoadingMembers(true);
         try {
-          const res = await fetch("/api/team/members")
+          const res = await fetch("/api/team/members");
           if (res.ok) {
-            const json = await res.json()
+            const json = await res.json();
             let filtered = (json.members || []).filter(
-              (m: TeamMember) => m.id !== session?.user?.id
-            )
-            
+              (m: TeamMember) => m.id !== session?.user?.id,
+            );
+
             // Admin: Show Managers and Technicians
             // Manager: Show only Technicians (their direct reports)
             if (isManager) {
-              filtered = filtered.filter((m: TeamMember) => m.role === "USER")
+              filtered = filtered.filter((m: TeamMember) => m.role === "USER");
             } else if (isAdmin) {
-              filtered = filtered.filter((m: TeamMember) => m.role !== "ADMIN")
+              filtered = filtered.filter((m: TeamMember) => m.role !== "ADMIN");
             }
-            
-            setTeamMembers(filtered)
+
+            setTeamMembers(filtered);
           }
         } catch (err) {
-          console.error("Failed to load team members:", err)
+          console.error("Failed to load team members:", err);
         } finally {
-          setLoadingMembers(false)
+          setLoadingMembers(false);
         }
-      }
-      fetchTeamMembers()
+      };
+      fetchTeamMembers();
     }
-  }, [canFilterByTeamMember, isAdmin, isManager, session?.user?.id])
+  }, [canFilterByTeamMember, isAdmin, isManager, session?.user?.id]);
 
   const handleDateRangeChange = (newRange: string) => {
-    setDateRange(newRange)
+    setDateRange(newRange);
     onFiltersChange({
       dateRange: newRange,
       customFrom: newRange === "custom" ? customFrom : undefined,
@@ -108,8 +108,8 @@ export default function AnalyticsFilters({
       hazardType: hazardType || undefined,
       status: status || undefined,
       userId: selectedUserId || undefined,
-    })
-  }
+    });
+  };
 
   const handleCustomDateChange = () => {
     if (customFrom && customTo) {
@@ -120,51 +120,71 @@ export default function AnalyticsFilters({
         hazardType: hazardType || undefined,
         status: status || undefined,
         userId: selectedUserId || undefined,
-      })
+      });
     }
-  }
+  };
 
-  const handleFilterChange = (newHazard?: string, newStatus?: string, newUserId?: string) => {
-    if (newHazard !== undefined) setHazardType(newHazard)
-    if (newStatus !== undefined) setStatus(newStatus)
-    if (newUserId !== undefined) setSelectedUserId(newUserId)
+  const handleFilterChange = (
+    newHazard?: string,
+    newStatus?: string,
+    newUserId?: string,
+  ) => {
+    if (newHazard !== undefined) setHazardType(newHazard);
+    if (newStatus !== undefined) setStatus(newStatus);
+    if (newUserId !== undefined) setSelectedUserId(newUserId);
 
     onFiltersChange({
       dateRange,
       customFrom: dateRange === "custom" ? customFrom : undefined,
       customTo: dateRange === "custom" ? customTo : undefined,
-      hazardType: newHazard !== undefined ? (newHazard || undefined) : (hazardType || undefined),
-      status: newStatus !== undefined ? (newStatus || undefined) : (status || undefined),
-      userId: newUserId !== undefined ? (newUserId || undefined) : (selectedUserId || undefined),
-    })
-  }
+      hazardType:
+        newHazard !== undefined
+          ? newHazard || undefined
+          : hazardType || undefined,
+      status:
+        newStatus !== undefined ? newStatus || undefined : status || undefined,
+      userId:
+        newUserId !== undefined
+          ? newUserId || undefined
+          : selectedUserId || undefined,
+    });
+  };
 
   const handleExport = async (format: "csv" | "excel" | "pdf") => {
     if (!onExport) {
-      toast.error("Export not configured")
-      return
+      toast.error("Export not configured");
+      return;
     }
 
     try {
-      setExportLoading(true)
-      await onExport(format)
-      toast.success(`Exporting as ${format.toUpperCase()}...`)
-      setShowExportMenu(false)
+      setExportLoading(true);
+      await onExport(format);
+      toast.success(`Exporting as ${format.toUpperCase()}...`);
+      setShowExportMenu(false);
     } catch (error) {
-      console.error("Export error:", error)
-      toast.error(`Failed to export ${format}`)
+      console.error("Export error:", error);
+      toast.error(`Failed to export ${format}`);
     } finally {
-      setExportLoading(false)
+      setExportLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
       {/* Header and Quick Export */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className={cn("text-3xl font-semibold mb-2", "text-neutral-900 dark:text-slate-200")}>Analytics</h1>
-          <p className={cn("text-neutral-600 dark:text-slate-400")}>Business intelligence and performance metrics</p>
+          <h1
+            className={cn(
+              "text-3xl font-semibold mb-2",
+              "text-neutral-900 dark:text-slate-200",
+            )}
+          >
+            Analytics
+          </h1>
+          <p className={cn("text-neutral-600 dark:text-slate-400")}>
+            Business intelligence and performance metrics
+          </p>
         </div>
 
         {/* Export Button Group */}
@@ -177,7 +197,7 @@ export default function AnalyticsFilters({
               "border border-neutral-300 dark:border-slate-700",
               "bg-white dark:bg-slate-800",
               "hover:bg-neutral-50 dark:hover:bg-slate-700",
-              "text-neutral-900 dark:text-slate-200"
+              "text-neutral-900 dark:text-slate-200",
             )}
           >
             {exportLoading ? (
@@ -190,17 +210,19 @@ export default function AnalyticsFilters({
           </button>
 
           {showExportMenu && (
-            <div className={cn(
-              "absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50",
-              "bg-white dark:bg-slate-800",
-              "border border-neutral-200 dark:border-slate-700"
-            )}>
+            <div
+              className={cn(
+                "absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-50",
+                "bg-white dark:bg-slate-800",
+                "border border-neutral-200 dark:border-slate-700",
+              )}
+            >
               <button
                 onClick={() => handleExport("csv")}
                 className={cn(
                   "block w-full text-left px-4 py-2 first:rounded-t-lg",
                   "text-neutral-900 dark:text-slate-200",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700"
+                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
                 )}
               >
                 Export as CSV
@@ -210,7 +232,7 @@ export default function AnalyticsFilters({
                 className={cn(
                   "block w-full text-left px-4 py-2",
                   "text-neutral-900 dark:text-slate-200",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700"
+                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
                 )}
               >
                 Export as Excel
@@ -220,7 +242,7 @@ export default function AnalyticsFilters({
                 className={cn(
                   "block w-full text-left px-4 py-2 last:rounded-b-lg",
                   "text-neutral-900 dark:text-slate-200",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700"
+                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
                 )}
               >
                 Export as PDF
@@ -231,14 +253,20 @@ export default function AnalyticsFilters({
       </div>
 
       {/* Filters Row */}
-      <div className={cn(
-        "flex flex-wrap gap-4 p-4 rounded-lg border",
-        "bg-neutral-50 dark:bg-slate-800/20",
-        "border-neutral-200 dark:border-slate-700/50"
-      )}>
+      <div
+        className={cn(
+          "flex flex-wrap gap-4 p-4 rounded-lg border",
+          "bg-neutral-50 dark:bg-slate-800/20",
+          "border-neutral-200 dark:border-slate-700/50",
+        )}
+      >
         {/* Date Range */}
         <div className="flex items-center gap-2">
-          <label className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}>Date Range:</label>
+          <label
+            className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}
+          >
+            Date Range:
+          </label>
           <select
             value={dateRange}
             onChange={(e) => handleDateRangeChange(e.target.value)}
@@ -247,7 +275,7 @@ export default function AnalyticsFilters({
               "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50",
               "bg-white dark:bg-slate-700",
               "border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-slate-200"
+              "text-neutral-900 dark:text-slate-200",
             )}
           >
             <option value="7days">Last 7 days</option>
@@ -272,10 +300,12 @@ export default function AnalyticsFilters({
                   "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500",
                   "bg-white dark:bg-slate-700",
                   "border border-neutral-300 dark:border-slate-600",
-                  "text-neutral-900 dark:text-slate-200"
+                  "text-neutral-900 dark:text-slate-200",
                 )}
               />
-              <span className={cn("text-neutral-600 dark:text-slate-400")}>to</span>
+              <span className={cn("text-neutral-600 dark:text-slate-400")}>
+                to
+              </span>
               <input
                 type="date"
                 value={customTo}
@@ -285,7 +315,7 @@ export default function AnalyticsFilters({
                   "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500",
                   "bg-white dark:bg-slate-700",
                   "border border-neutral-300 dark:border-slate-600",
-                  "text-neutral-900 dark:text-slate-200"
+                  "text-neutral-900 dark:text-slate-200",
                 )}
               />
             </div>
@@ -294,7 +324,11 @@ export default function AnalyticsFilters({
 
         {/* Hazard Type Filter */}
         <div className="flex items-center gap-2">
-          <label className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}>Hazard:</label>
+          <label
+            className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}
+          >
+            Hazard:
+          </label>
           <select
             value={hazardType}
             onChange={(e) => handleFilterChange(e.target.value, undefined)}
@@ -303,7 +337,7 @@ export default function AnalyticsFilters({
               "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50",
               "bg-white dark:bg-slate-700",
               "border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-slate-200"
+              "text-neutral-900 dark:text-slate-200",
             )}
           >
             {hazardTypes.map((h) => (
@@ -316,7 +350,11 @@ export default function AnalyticsFilters({
 
         {/* Status Filter */}
         <div className="flex items-center gap-2">
-          <label className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}>Status:</label>
+          <label
+            className={cn("text-sm", "text-neutral-700 dark:text-slate-400")}
+          >
+            Status:
+          </label>
           <select
             value={status}
             onChange={(e) => handleFilterChange(undefined, e.target.value)}
@@ -325,7 +363,7 @@ export default function AnalyticsFilters({
               "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50",
               "bg-white dark:bg-slate-700",
               "border border-neutral-300 dark:border-slate-600",
-              "text-neutral-900 dark:text-slate-200"
+              "text-neutral-900 dark:text-slate-200",
             )}
           >
             {statuses.map((s) => (
@@ -339,28 +377,40 @@ export default function AnalyticsFilters({
         {/* Team Member Filter (Admin and Manager) */}
         {canFilterByTeamMember && (
           <div className="flex items-center gap-2">
-            <label className={cn("text-sm flex items-center gap-1", "text-neutral-700 dark:text-slate-400")}>
+            <label
+              className={cn(
+                "text-sm flex items-center gap-1",
+                "text-neutral-700 dark:text-slate-400",
+              )}
+            >
               <Users className="w-4 h-4" />
               {isManager ? "Technician:" : "Team Member:"}
             </label>
             <select
               value={selectedUserId}
-              onChange={(e) => handleFilterChange(undefined, undefined, e.target.value)}
+              onChange={(e) =>
+                handleFilterChange(undefined, undefined, e.target.value)
+              }
               disabled={isLoading || loadingMembers}
               className={cn(
                 "px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-cyan-500 disabled:opacity-50 min-w-[200px]",
                 "bg-white dark:bg-slate-700",
                 "border border-neutral-300 dark:border-slate-600",
-                "text-neutral-900 dark:text-slate-200"
+                "text-neutral-900 dark:text-slate-200",
               )}
             >
-              <option value="">All {isManager ? "Technicians" : "Team Members"}</option>
+              <option value="">
+                All {isManager ? "Technicians" : "Team Members"}
+              </option>
               {loadingMembers ? (
-                <option value="" disabled>Loading...</option>
+                <option value="" disabled>
+                  Loading...
+                </option>
               ) : teamMembers.length > 0 ? (
                 teamMembers.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name || member.email} ({member.role === "MANAGER" ? "Manager" : "Technician"})
+                    {member.name || member.email} (
+                    {member.role === "MANAGER" ? "Manager" : "Technician"})
                   </option>
                 ))
               ) : (
@@ -376,10 +426,14 @@ export default function AnalyticsFilters({
         {isLoading && (
           <div className="flex items-center gap-2 ml-auto">
             <Loader2 size={16} className="animate-spin text-cyan-500" />
-            <span className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}>Updating...</span>
+            <span
+              className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
+            >
+              Updating...
+            </span>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

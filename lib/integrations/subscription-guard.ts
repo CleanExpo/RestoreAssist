@@ -3,15 +3,15 @@
  * Ensures only paid subscribers can access integration features
  */
 
-import { prisma } from '@/lib/prisma'
-import { isIntegrationDevMode } from './dev-mode'
+import { prisma } from "@/lib/prisma";
+import { isIntegrationDevMode } from "./dev-mode";
 
 export interface SubscriptionCheckResult {
-  isAllowed: boolean
-  userId: string
-  subscriptionStatus: string | null
-  subscriptionPlan: string | null
-  error?: string
+  isAllowed: boolean;
+  userId: string;
+  subscriptionStatus: string | null;
+  subscriptionPlan: string | null;
+  error?: string;
 }
 
 /**
@@ -21,15 +21,17 @@ export interface SubscriptionCheckResult {
  * @param userId - The user ID to check
  * @returns SubscriptionCheckResult with access decision and details
  */
-export async function checkIntegrationAccess(userId: string): Promise<SubscriptionCheckResult> {
+export async function checkIntegrationAccess(
+  userId: string,
+): Promise<SubscriptionCheckResult> {
   // Bypass subscription check in development mode
   if (isIntegrationDevMode()) {
     return {
       isAllowed: true,
       userId,
-      subscriptionStatus: 'DEV_MODE',
-      subscriptionPlan: 'development',
-    }
+      subscriptionStatus: "DEV_MODE",
+      subscriptionPlan: "development",
+    };
   }
 
   const user = await prisma.user.findUnique({
@@ -40,7 +42,7 @@ export async function checkIntegrationAccess(userId: string): Promise<Subscripti
       subscriptionPlan: true,
       subscriptionEndsAt: true,
     },
-  })
+  });
 
   if (!user) {
     return {
@@ -48,17 +50,18 @@ export async function checkIntegrationAccess(userId: string): Promise<Subscripti
       userId,
       subscriptionStatus: null,
       subscriptionPlan: null,
-      error: 'User not found',
-    }
+      error: "User not found",
+    };
   }
 
   // Only allow ACTIVE subscribers
   // TRIAL users cannot access external integrations
-  const allowedStatuses = ['ACTIVE']
-  const isAllowed = allowedStatuses.includes(user.subscriptionStatus || '')
+  const allowedStatuses = ["ACTIVE"];
+  const isAllowed = allowedStatuses.includes(user.subscriptionStatus || "");
 
   // Also check if subscription hasn't expired
-  const isExpired = user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) < new Date()
+  const isExpired =
+    user.subscriptionEndsAt && new Date(user.subscriptionEndsAt) < new Date();
 
   if (isExpired) {
     return {
@@ -66,8 +69,8 @@ export async function checkIntegrationAccess(userId: string): Promise<Subscripti
       userId,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionPlan: user.subscriptionPlan,
-      error: 'Subscription has expired. Please renew to access integrations.',
-    }
+      error: "Subscription has expired. Please renew to access integrations.",
+    };
   }
 
   if (!isAllowed) {
@@ -76,8 +79,9 @@ export async function checkIntegrationAccess(userId: string): Promise<Subscripti
       userId,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionPlan: user.subscriptionPlan,
-      error: 'Active subscription required. Upgrade to access external integrations.',
-    }
+      error:
+        "Active subscription required. Upgrade to access external integrations.",
+    };
   }
 
   return {
@@ -85,17 +89,20 @@ export async function checkIntegrationAccess(userId: string): Promise<Subscripti
     userId,
     subscriptionStatus: user.subscriptionStatus,
     subscriptionPlan: user.subscriptionPlan,
-  }
+  };
 }
 
 /**
  * Helper to create a standardized 403 response for subscription-gated features
  */
-export function createSubscriptionRequiredResponse(checkResult: SubscriptionCheckResult) {
+export function createSubscriptionRequiredResponse(
+  checkResult: SubscriptionCheckResult,
+) {
   return {
-    error: checkResult.error || 'Subscription required',
+    error: checkResult.error || "Subscription required",
     upgradeRequired: true,
     currentStatus: checkResult.subscriptionStatus,
-    message: 'External integrations are available for paid subscribers. Please upgrade your plan to connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora.',
-  }
+    message:
+      "External integrations are available for paid subscribers. Please upgrade your plan to connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora.",
+  };
 }

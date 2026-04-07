@@ -71,6 +71,7 @@ Scope: Linear issue ID (`RA-XXX`) or area (`ci`, `auth`, `prisma`)
 ## Rollback
 
 ### Web App
+
 ```bash
 # Find the last good commit
 git log --oneline -10
@@ -82,6 +83,7 @@ git push origin main
 ```
 
 ### Database
+
 ```bash
 # Check migration history
 npx prisma migrate status

@@ -4,20 +4,20 @@
  * Provides back, next, complete, and cancel buttons
  */
 
-'use client'
+"use client";
 
-import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 
 interface BottomActionBarProps {
-  onPrevious?: () => void
-  onNext?: () => void
-  onComplete?: () => void
-  onCancel?: () => void
-  canGoPrevious?: boolean
-  canGoNext?: boolean
-  isComplete?: boolean
-  disabled?: boolean
+  onPrevious?: () => void;
+  onNext?: () => void;
+  onComplete?: () => void;
+  onCancel?: () => void;
+  canGoPrevious?: boolean;
+  canGoNext?: boolean;
+  isComplete?: boolean;
+  disabled?: boolean;
 }
 
 /**
@@ -95,5 +95,5 @@ export function BottomActionBar({
           and would compile to zero height without explicit CSS custom property support. */}
       <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} className="bg-background/95" />
     </div>
-  )
+  );
 }

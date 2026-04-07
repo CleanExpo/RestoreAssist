@@ -1,15 +1,15 @@
 // Firebase Google Authentication Helper (Client-side)
-'use client'
+"use client";
 
-import { getAuth } from './firebase'
+import { getAuth } from "./firebase";
 
 export interface GoogleAuthUser {
-  id: string
-  email: string | null
-  name: string | null
-  image: string | null
-  role?: string
-  googleAuthToken?: string
+  id: string;
+  email: string | null;
+  name: string | null;
+  image: string | null;
+  role?: string;
+  googleAuthToken?: string;
 }
 
 /**
@@ -19,42 +19,45 @@ export interface GoogleAuthUser {
  */
 export async function signInWithGoogleFirebase(): Promise<GoogleAuthUser> {
   // Dynamically import Firebase auth functions
-  const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth')
-  const auth = await getAuth()
-  
-  const provider = new GoogleAuthProvider()
-  const result = await signInWithPopup(auth, provider)
-  const firebaseUser = result.user
+  const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
+  const auth = await getAuth();
+
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  const firebaseUser = result.user;
 
   if (!firebaseUser.email) {
-    throw new Error('Google account does not have an email address')
+    throw new Error("Google account does not have an email address");
   }
 
   // Get ID token to send to server
-  const idToken = await firebaseUser.getIdToken()
+  const idToken = await firebaseUser.getIdToken();
 
   // Create or update user in database via API
-  const response = await fetch('/api/auth/google-signin', {
-    method: 'POST',
+  const response = await fetch("/api/auth/google-signin", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
     },
     body: JSON.stringify({
       email: firebaseUser.email,
-      name: firebaseUser.displayName || firebaseUser.email.split('@')[0] || 'User',
+      name:
+        firebaseUser.displayName || firebaseUser.email.split("@")[0] || "User",
       image: firebaseUser.photoURL,
       firebaseUid: firebaseUser.uid,
       emailVerified: firebaseUser.emailVerified,
     }),
-  })
+  });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.error || 'Failed to create/update user in database')
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || "Failed to create/update user in database",
+    );
   }
 
-  const dbUser = await response.json()
+  const dbUser = await response.json();
 
   return {
     id: dbUser.id,
@@ -63,6 +66,5 @@ export async function signInWithGoogleFirebase(): Promise<GoogleAuthUser> {
     image: dbUser.image,
     role: dbUser.role,
     googleAuthToken: dbUser.googleAuthToken,
-  }
+  };
 }
-

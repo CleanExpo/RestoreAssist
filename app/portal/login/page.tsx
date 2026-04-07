@@ -1,46 +1,46 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import toast from 'react-hot-toast'
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 
 export default function PortalLoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
-      const result = await signIn('client-credentials', {
+      const result = await signIn("client-credentials", {
         email,
         password,
         redirect: false,
-      })
+      });
 
       if (result?.error) {
-        setError('Invalid email or password')
-        toast.error('Invalid email or password')
+        setError("Invalid email or password");
+        toast.error("Invalid email or password");
       } else if (result?.ok) {
-        toast.success('Login successful!')
-        router.push('/portal')
+        toast.success("Login successful!");
+        router.push("/portal");
       }
     } catch (err) {
-      setError('An error occurred. Please try again.')
-      toast.error('An error occurred. Please try again.')
+      setError("An error occurred. Please try again.");
+      toast.error("An error occurred. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F4F5F6] px-4">
@@ -50,9 +50,19 @@ export default function PortalLoginPage() {
         className="max-w-md w-full bg-white rounded-lg shadow-lg p-8"
       >
         <div className="mb-6 text-center">
-          <Image src="/logo.png" alt="RestoreAssist" width={80} height={80} className="mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-[#1C2E47] mb-2">Client Portal</h1>
-          <p className="text-[#5A6A7B] text-sm">Sign in to view your restoration projects</p>
+          <Image
+            src="/logo.png"
+            alt="RestoreAssist"
+            width={80}
+            height={80}
+            className="mx-auto mb-4"
+          />
+          <h1 className="text-2xl font-bold text-[#1C2E47] mb-2">
+            Client Portal
+          </h1>
+          <p className="text-[#5A6A7B] text-sm">
+            Sign in to view your restoration projects
+          </p>
         </div>
 
         {error && (
@@ -95,20 +105,25 @@ export default function PortalLoginPage() {
             disabled={loading}
             className="w-full py-3 bg-[#8A6B4E] text-white rounded-lg font-medium hover:bg-[#8A6B4E]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
         <div className="mt-6 text-center space-y-2">
           <p className="text-sm text-[#5A6A7B]">
-            Don't have an account?{' '}
-            <span className="text-[#5A6A7B]">Contact your restoration contractor for an invitation.</span>
+            Don't have an account?{" "}
+            <span className="text-[#5A6A7B]">
+              Contact your restoration contractor for an invitation.
+            </span>
           </p>
-          <Link href="/" className="block text-sm text-[#8A6B4E] hover:underline">
+          <Link
+            href="/"
+            className="block text-sm text-[#8A6B4E] hover:underline"
+          >
             Return to Home
           </Link>
         </div>
       </motion.div>
     </div>
-  )
+  );
 }
