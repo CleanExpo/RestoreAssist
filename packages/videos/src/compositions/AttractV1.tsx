@@ -1,8 +1,9 @@
 // packages/videos/src/compositions/AttractV1.tsx
 // VIDEO 1: ATTRACT — 60s homepage hero / paid ad video.
-// Premium SaaS aesthetic. Dark base, 25% workflow BG, floating card + text.
+// Premium SaaS aesthetic. Dark base, 45% workflow BG, floating card + text.
 // Audience: Cold traffic — restoration company owners discovering RestoreAssist.
 // Goal: Free trial signup. Punchy. Fast cuts. Every job. One platform.
+// Audio: single continuous ElevenLabs VO (attract-full.mp3) — one voice, one performance.
 import React from "react";
 import {
   AbsoluteFill,
@@ -15,13 +16,13 @@ import {
 import { PremiumScene } from "../components/premium";
 
 // ─── Scene timing (total = 2010f = 67s @ 30fps) ──────────────────────────────
-// Actual audio durations from ElevenLabs output + 1.2s buffer each.
-const S1 = { from: 0, dur: 270 }; //  9.0s — Hook (audio 8.0s)
-const S2 = { from: 270, dur: 300 }; // 10.0s — Problem (audio 8.6s)
-const S3 = { from: 570, dur: 435 }; // 14.5s — AI Scope (audio 13.2s)
-const S4 = { from: 1005, dur: 390 }; // 13.0s — Compliance (audio 11.6s)
-const S5 = { from: 1395, dur: 300 }; // 10.0s — Evidence (audio 8.9s)
-const S6 = { from: 1695, dur: 315 }; // 10.5s — CTA (audio 9.3s)
+// Visual cuts are independent of audio — narration flows continuously across scenes.
+const S1 = { from: 0, dur: 270 }; //  9.0s — Hook
+const S2 = { from: 270, dur: 300 }; // 10.0s — Problem
+const S3 = { from: 570, dur: 435 }; // 14.5s — AI Scope
+const S4 = { from: 1005, dur: 390 }; // 13.0s — Compliance
+const S5 = { from: 1395, dur: 300 }; // 10.0s — Evidence
+const S6 = { from: 1695, dur: 315 }; // 10.5s — CTA
 const TOTAL = S6.from + S6.dur; // 2010f = 67s ✓
 
 // bgOffset per scene so each scene's background shows different workflow steps
@@ -38,6 +39,15 @@ export const AttractV1: React.FC = () => {
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
+  // Single VO track — one continuous performance across all scenes
+  // Audio is ~57s; last 10s of CTA plays with music only (URL on screen)
+  const voVolume = interpolate(
+    frame,
+    [0, 15, TOTAL - 30, TOTAL],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+
   return (
     <AbsoluteFill>
       {/* Google Fonts: Inter — matches RestoreAssist brand */}
@@ -46,6 +56,9 @@ export const AttractV1: React.FC = () => {
       {/* Background music bed */}
       <Audio src={staticFile("audio/bg-music.mp3")} volume={bgMusicVolume} />
 
+      {/* Single continuous voiceover — one performance, no restarts between scenes */}
+      <Audio src={staticFile("audio/attract-full.mp3")} volume={voVolume} />
+
       {/* ── Scene 1: Hook ────────────────────────────────────────────────── */}
       <Sequence from={S1.from} durationInFrames={S1.dur} name="S1: Hook">
         <PremiumScene
@@ -53,7 +66,6 @@ export const AttractV1: React.FC = () => {
           label="RestoreAssist"
           headline={"Every job.\nDocumented.\nPaid."}
           body="The platform Australian restoration professionals use to run their entire business — from first inspection to final invoice."
-          audioSrc="audio/attract-s1.mp3"
           bgOffset={BG_OFFSETS[0]}
         />
       </Sequence>
@@ -65,7 +77,6 @@ export const AttractV1: React.FC = () => {
           label="The Problem"
           headline={"Three hours of\npaperwork.\nPer job."}
           body="Manual scopes. Disputed claims. Moisture readings on paper, typed up later. Data split across phones, emails, and spreadsheets. Your team deserves better."
-          audioSrc="audio/attract-s2.mp3"
           bgOffset={BG_OFFSETS[1]}
         />
       </Sequence>
@@ -77,7 +88,6 @@ export const AttractV1: React.FC = () => {
           label="AI Scope Generation"
           headline={"30 seconds.\nIICRC-cited.\nInsurer-ready."}
           body="AI generates your complete scope of works from inspection data. Every line item calculated. S500, S520, and S700 cited on every scope item. No manual entry. No disputes."
-          audioSrc="audio/attract-s3.mp3"
           bgOffset={BG_OFFSETS[2]}
         />
       </Sequence>
@@ -89,7 +99,6 @@ export const AttractV1: React.FC = () => {
           label="Built-In Compliance"
           headline={"Zero disputed\nclaims from\nmissing citations."}
           body="State-specific compliance triggers fire automatically. All eight Australian states covered. Insurers approve faster when every standard is cited on every scope."
-          audioSrc="audio/attract-s4.mp3"
           bgOffset={BG_OFFSETS[3]}
         />
       </Sequence>
@@ -101,7 +110,6 @@ export const AttractV1: React.FC = () => {
           label="Court-Ready Evidence"
           headline={"Captured on site.\nNot assembled\nfrom memory."}
           body="Timestamped photos, moisture readings, and classifications recorded during inspection — not pieced together afterward. Documentation that insurers accept without dispute."
-          audioSrc="audio/attract-s5.mp3"
           bgOffset={BG_OFFSETS[4]}
         />
       </Sequence>
@@ -113,7 +121,6 @@ export const AttractV1: React.FC = () => {
           label="Start Free Today"
           headline={"Three reports.\nFree. No\ncredit card."}
           body="Join restoration professionals across Australia already saving hours every week."
-          audioSrc="audio/attract-s6.mp3"
           bgOffset={BG_OFFSETS[5]}
           variant="center"
           ctaUrl="restoreassist.app"

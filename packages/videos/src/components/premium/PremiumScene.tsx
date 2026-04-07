@@ -19,7 +19,8 @@ export interface PremiumSceneProps {
   label: string;
   headline: string;
   body: string;
-  audioSrc: string;
+  /** Optional per-scene audio — omit when using a single root-level audio track */
+  audioSrc?: string;
   /** Offset the background cycle so each scene shows different content */
   bgOffset?: number;
   /** "split" = card left + text right (default); "center" = centered CTA */
@@ -102,7 +103,7 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
       }}
     >
       {/* ── Layer 1: Workflow background (25% opacity, Ken Burns, crossfade) ── */}
-      <WorkflowBackground opacity={0.22} startOffset={bgOffset} />
+      <WorkflowBackground opacity={0.45} startOffset={bgOffset} />
 
       {/* ── Layer 2: Directional gradient — heavier on left to protect text ── */}
       <AbsoluteFill
@@ -378,8 +379,8 @@ export const PremiumScene: React.FC<PremiumSceneProps> = ({
         </AbsoluteFill>
       )}
 
-      {/* ── Audio ─────────────────────────────────────────────────────────── */}
-      <Audio src={staticFile(audioSrc)} volume={1} />
+      {/* ── Audio (only if a per-scene src is provided) ───────────────────── */}
+      {audioSrc && <Audio src={staticFile(audioSrc)} volume={1} />}
 
       {/* ── Enter fade (black → transparent) ─────────────────────────────── */}
       <AbsoluteFill
