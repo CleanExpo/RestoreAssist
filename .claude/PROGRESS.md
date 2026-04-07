@@ -26,15 +26,16 @@
 
 All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 
-| Round | Focus | Findings | Commits |
-|-------|-------|----------|---------|
-| 1 | HMAC/timing, SQL injection, basic auth | 8 | `5747459c` |
-| 2 | Race conditions, N+1 queries, IDOR | 10 | `d62ac88c`, `e2efb938` |
-| 3 | Auth inconsistencies, privilege escalation, WCAG | 12 | `ba34e922`, `31faf69f`, `47551092` |
-| 4 | Billing bypass, credit exhaustion, prompt injection | 15 | `5a11cf97` |
-| 5 | Stale JWT role, auth bypass, cross-tenant leaks | 15 | `7c84e803` |
+| Round | Focus                                               | Findings | Commits                            |
+| ----- | --------------------------------------------------- | -------- | ---------------------------------- |
+| 1     | HMAC/timing, SQL injection, basic auth              | 8        | `5747459c`                         |
+| 2     | Race conditions, N+1 queries, IDOR                  | 10       | `d62ac88c`, `e2efb938`             |
+| 3     | Auth inconsistencies, privilege escalation, WCAG    | 12       | `ba34e922`, `31faf69f`, `47551092` |
+| 4     | Billing bypass, credit exhaustion, prompt injection | 15       | `5a11cf97`                         |
+| 5     | Stale JWT role, auth bypass, cross-tenant leaks     | 15       | `7c84e803`                         |
 
 ### Deferred (require infrastructure changes)
+
 - **F5 (R5)**: In-memory rate limiter resets on cold starts → needs Upstash/Redis
 - **F13 (R5)**: jsPDF/Fabric.js CVEs → needs `pnpm update jspdf` + audit
 - **F15 (R5)**: CSP `unsafe-inline`/`unsafe-eval` → needs nonce-based CSP (medium effort)
@@ -277,16 +278,16 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 
 ## 2026-04-06 — Production Cleanup + Sprint J Finalisation
 
-| Task                                              | Status | Notes                                                                                   |
-| ------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
-| Fix placeholder ABN strings                       | Done   | brand.ts → env var, Footer.tsx conditional, InvoiceForm → empty defaults                |
-| Remove 9 tracked SQL artefacts from root          | Done   | `git rm` + `/*.sql` in .gitignore                                                      |
-| Close stale PRs (#136, #137, #142)                | Done   | Content already in main via #138 or superseded by #140/#141                             |
-| Remove 13 stale git worktrees                     | Done   | Only `trusting-einstein` remains active                                                 |
-| RA-424 BYOK settings UI verified complete         | Done   | Page + API routes already built; marked Done in Linear                                  |
-| RA-426 Payment gate wired to media + validate     | Done   | checkPaymentGate() on 4 workspace-scoped routes                                        |
-| RA-427 Demo seed + onboarding checklist           | Done   | Admin "Load Demo" button + OnboardingChecklist on dashboard                             |
-| PR #143 updated — Sprint J + cleanup              | Open   | Pushed `ad90cace`; Vercel CI running                                                    |
+| Task                                          | Status | Notes                                                                    |
+| --------------------------------------------- | ------ | ------------------------------------------------------------------------ |
+| Fix placeholder ABN strings                   | Done   | brand.ts → env var, Footer.tsx conditional, InvoiceForm → empty defaults |
+| Remove 9 tracked SQL artefacts from root      | Done   | `git rm` + `/*.sql` in .gitignore                                        |
+| Close stale PRs (#136, #137, #142)            | Done   | Content already in main via #138 or superseded by #140/#141              |
+| Remove 13 stale git worktrees                 | Done   | Only `trusting-einstein` remains active                                  |
+| RA-424 BYOK settings UI verified complete     | Done   | Page + API routes already built; marked Done in Linear                   |
+| RA-426 Payment gate wired to media + validate | Done   | checkPaymentGate() on 4 workspace-scoped routes                          |
+| RA-427 Demo seed + onboarding checklist       | Done   | Admin "Load Demo" button + OnboardingChecklist on dashboard              |
+| PR #143 updated — Sprint J + cleanup          | Open   | Pushed `ad90cace`; Vercel CI running                                     |
 
 ## Notes for Next Context Window
 
@@ -305,36 +306,36 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 
 ## 2026-04-06 — Sprint K: Insurer Report Portal + IICRC PDF
 
-| Task                                            | Status | Notes                                                                                      |
-| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------------------ |
-| lib/portal-token.ts — insurer token (30d TTL)   | Done   | generateInsurerToken/verifyInsurerToken; HMAC-SHA256, `ins:` prefix, timing-safe compare   |
-| lib/generate-iicrc-report-pdf.ts                | Done   | 10-section pdf-lib PDF: property, water class, moisture, equipment, psychro, declaration   |
-| GET /api/reports/[id]/pdf                       | Done   | Dual auth: session OR insurer share token; streams PDF                                     |
-| POST /api/reports/[id]/insurer-link             | Done   | Generates 30-day tokenized insurer URL, returns expiresInDays                              |
-| /app/portal/insurer/[token]/page.tsx            | Done   | Public read-only portal: classification/moisture/equipment/narrative + PDF CTA             |
-| Report detail page — PDF + Share buttons        | Done   | handleDownloadPDF + handleShareWithInsurer with clipboard copy + toast                     |
-| Linear RA-434 (pgvector) + RA-435 (insurer PDF) | Done   | Marked Done in unite-hub RestoreAssist team                                                |
+| Task                                            | Status | Notes                                                                                    |
+| ----------------------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| lib/portal-token.ts — insurer token (30d TTL)   | Done   | generateInsurerToken/verifyInsurerToken; HMAC-SHA256, `ins:` prefix, timing-safe compare |
+| lib/generate-iicrc-report-pdf.ts                | Done   | 10-section pdf-lib PDF: property, water class, moisture, equipment, psychro, declaration |
+| GET /api/reports/[id]/pdf                       | Done   | Dual auth: session OR insurer share token; streams PDF                                   |
+| POST /api/reports/[id]/insurer-link             | Done   | Generates 30-day tokenized insurer URL, returns expiresInDays                            |
+| /app/portal/insurer/[token]/page.tsx            | Done   | Public read-only portal: classification/moisture/equipment/narrative + PDF CTA           |
+| Report detail page — PDF + Share buttons        | Done   | handleDownloadPDF + handleShareWithInsurer with clipboard copy + toast                   |
+| Linear RA-434 (pgvector) + RA-435 (insurer PDF) | Done   | Marked Done in unite-hub RestoreAssist team                                              |
 
 ## 2026-04-06 — Sprint L: AI Capabilities + App Store CI/CD
 
-| Task                                              | Status | Notes                                                                                             |
-| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
-| lib/ai/constants.ts                               | Done   | IICRC_S500_2025_SYSTEM_PROMPT, SCOPE_OF_WORKS_SYSTEM_PROMPT, COST_ESTIMATION_SYSTEM_PROMPT        |
-| IicrcChunk Prisma model + pgvector migration      | Done   | vector(1536) embedding, ivfflat index (lists=100), CREATE EXTENSION vector                        |
-| lib/rag/embed.ts                                  | Done   | embedText/embedBatch via OpenAI text-embedding-3-small (1536-dim)                                 |
-| lib/rag/retrieve.ts                               | Done   | retrieveChunks with cosine distance (<=>), formatChunksAsContext                                  |
-| scripts/ingest-iicrc.ts                           | Done   | Sliding-window chunking (500 chars, 100 overlap), batch embed, idempotent upsert by contentHash   |
-| lib/vision/meter-prompts.ts                       | Done   | MeterReadingResult type, Delmhorst/Protimeter/Tramex system prompt, parseMeterResponse            |
-| POST /api/vision/extract-reading                  | Done   | Claude Vision (claude-sonnet-4-20250514), auth-gated, 5MB guard, 422 on parse fail                |
-| GET+POST /api/admin/publish/google-play           | Done   | googleapis androidpublisher v3 — track status + release promotion, ADMIN-gated                   |
-| GET+POST /api/admin/publish/app-store             | Done   | jose ES256 JWT + ASC REST API v1 — build status + TestFlight submission, ADMIN-gated             |
-| GET+POST /api/admin/publish/assets                | Done   | Fire-and-forget Playwright screenshot trigger (npx tsx)                                           |
-| scripts/generate-store-assets.ts                  | Done   | 5 viewports: iPhone 8+, iPhone 14 Pro Max, iPad Pro, Android Phone, Android Tablet               |
-| .github/workflows/android-release.yml            | Done   | Tag v*.*.* → Gradle bundleRelease → r0adkll/upload-google-play internal track                    |
-| .github/workflows/ios-release.yml                | Done   | Tag v*.*.* → macOS + Fastlane gym → Fastlane pilot → TestFlight                                  |
-| fix: jose install + npx tsx Turbopack fix         | Done   | Resolved Vercel build failure on PR #145                                                          |
-| PR #145 merged to main                           | Done   | `eef3e7c6` — all 4 CI checks green                                                               |
-| Linear RA-437 (pgvector RAG) + RA-438 (vision)   | Done   | Created and marked Done in unite-hub RestoreAssist team                                           |
+| Task                                           | Status | Notes                                                                                           |
+| ---------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| lib/ai/constants.ts                            | Done   | IICRC_S500_2025_SYSTEM_PROMPT, SCOPE_OF_WORKS_SYSTEM_PROMPT, COST_ESTIMATION_SYSTEM_PROMPT      |
+| IicrcChunk Prisma model + pgvector migration   | Done   | vector(1536) embedding, ivfflat index (lists=100), CREATE EXTENSION vector                      |
+| lib/rag/embed.ts                               | Done   | embedText/embedBatch via OpenAI text-embedding-3-small (1536-dim)                               |
+| lib/rag/retrieve.ts                            | Done   | retrieveChunks with cosine distance (<=>), formatChunksAsContext                                |
+| scripts/ingest-iicrc.ts                        | Done   | Sliding-window chunking (500 chars, 100 overlap), batch embed, idempotent upsert by contentHash |
+| lib/vision/meter-prompts.ts                    | Done   | MeterReadingResult type, Delmhorst/Protimeter/Tramex system prompt, parseMeterResponse          |
+| POST /api/vision/extract-reading               | Done   | Claude Vision (claude-sonnet-4-20250514), auth-gated, 5MB guard, 422 on parse fail              |
+| GET+POST /api/admin/publish/google-play        | Done   | googleapis androidpublisher v3 — track status + release promotion, ADMIN-gated                  |
+| GET+POST /api/admin/publish/app-store          | Done   | jose ES256 JWT + ASC REST API v1 — build status + TestFlight submission, ADMIN-gated            |
+| GET+POST /api/admin/publish/assets             | Done   | Fire-and-forget Playwright screenshot trigger (npx tsx)                                         |
+| scripts/generate-store-assets.ts               | Done   | 5 viewports: iPhone 8+, iPhone 14 Pro Max, iPad Pro, Android Phone, Android Tablet              |
+| .github/workflows/android-release.yml          | Done   | Tag v*.*.\* → Gradle bundleRelease → r0adkll/upload-google-play internal track                  |
+| .github/workflows/ios-release.yml              | Done   | Tag v*.*.\* → macOS + Fastlane gym → Fastlane pilot → TestFlight                                |
+| fix: jose install + npx tsx Turbopack fix      | Done   | Resolved Vercel build failure on PR #145                                                        |
+| PR #145 merged to main                         | Done   | `eef3e7c6` — all 4 CI checks green                                                              |
+| Linear RA-437 (pgvector RAG) + RA-438 (vision) | Done   | Created and marked Done in unite-hub RestoreAssist team                                         |
 
 ## Notes for Next Context Window (updated 2026-04-06)
 
@@ -366,3 +367,74 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 ## 2026-04-07 00:16 — Session End
 
 ## 2026-04-07 01:16 — Session End
+
+## 2026-04-07 16:26 — Session End
+
+## 2026-04-07 16:34 — Session End
+
+## 2026-04-07 16:43 — Session End
+
+## 2026-04-07 — Video Pipeline + Developer Account Enrolment
+
+| Task                                         | Status | Notes                                                               |
+| -------------------------------------------- | ------ | ------------------------------------------------------------------- |
+| SEO 2.4 + 2.5 — priority logos + aria-hidden | Done   | PR #148 merged — `780cafa1`                                         |
+| Skills: nextjs-image-seo + pr-merge-ci-gate  | Done   | Written to `~/.claude/skills/`                                      |
+| Video VO generation (ElevenLabs)             | Done   | find-full.mp3, sell-s1..s8.mp3, advise-s1..s7.mp3 — all 16 segments |
+| FindV1 render                                | Done   | `public/videos/find-v1.mp4` 13MB/60s — committed `19851ea1`         |
+| SellV1 render                                | Done   | `public/videos/sell-v1.mp4` 23MB/90s — committed `19851ea1`         |
+| AdviseV1 render                              | Done   | `public/videos/advise-v1.mp4` 120s — committed `5b46c7e6`           |
+| PR #149 push + merge                         | Done   | Merged — video pipeline complete on main                            |
+
+## 2026-04-08 — Developer Account Enrolment Complete
+
+| Task                                        | Status | Notes                                                                                                      |
+| ------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------- |
+| Google Play Console — store assets uploaded | Done   | Icon 512px, feature graphic 1024×500, 3 phone screenshots (JS bypass technique)                            |
+| Google Play Console — store listing         | Done   | Title, description, category, contact details all complete                                                 |
+| Google Play Console — merchant account      | Done   | Westpac account ···· 48 already linked; verification pending                                               |
+| Google Play Console — app pricing           | Done   | Set to Free (app uses Stripe for in-app billing); saved                                                    |
+| Google Play Console checklist               | Done   | **13/13 complete** — checklist section removed from dashboard                                              |
+| Apple Developer Program enrolment           | Done   | Individual enrolment — **Order W1520046725** — A$149 paid via AMEX; confirmation to phill_bron@hotmail.com |
+
+## Notes for Next Context Window
+
+- Linear API key `LINEAR_API_KEY_REDACTED` returning 401 — generate new key at https://linear.app/settings/api, update mcp.json, restart Claude Code
+- Apple Developer: check phill_bron@hotmail.com for activation email; then access https://appstoreconnect.apple.com to create iOS app listing
+- Google Play: checklist 13/13 done; next step is closed testing (12 testers × 14 days) before production access
+- GitHub secrets still needed: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON, ASC_API_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_BASE64, APPLE_TEAM_ID, IOS_CERTIFICATE_BASE64, KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+- PORTAL_SECRET + NEXT_PUBLIC_COMPANY_ABN=62 580 077 456 still needed on Vercel
+- pgvector migration (20260406_iicrc_chunk_pgvector) needs to be applied to production Supabase DB
+- RA-421/422/396 blocked on Phill input (brand, workspace spec, voice copilot)
+- RA-287 blocked (DO_TOKEN GitHub secret not set)
+- D-U-N-S number needed to convert Play account to Organisation type later (free via dnb.com/duns-number.html — takes 30 days)
+
+## 2026-04-07 16:43 — Session End
+
+## 2026-04-07 16:51 — Session End
+
+## 2026-04-07 16:52 — Session End
+
+## 2026-04-07 19:46 — Session End
+
+## 2026-04-07 19:47 — Session End
+
+## 2026-04-08 07:08 — Session End
+
+## 2026-04-08 07:12 — Session End
+
+## 2026-04-08 07:14 — Session End
+
+## 2026-04-08 07:18 — Session End
+
+## 2026-04-08 07:31 — Session End
+
+## 2026-04-08 07:46 — Session End
+
+## 2026-04-08 07:52 — Session End
+
+## 2026-04-08 07:58 — Session End
+
+## 2026-04-08 08:00 — Session End
+
+## 2026-04-08 08:02 — Session End
