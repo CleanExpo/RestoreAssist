@@ -381,4 +381,38 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 
 ## 2026-04-07 20:11 — Session End
 
+## 2026-04-08 — Sprint M Complete + PR #150 Merged
+
+| Task                                              | Status | Notes                                                                                            |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
+| RA-446: InspectionPhoto label schema              | Done   | 15 fields on InspectionPhoto + Prisma migration + types/inspection-photo-labels.ts               |
+| RA-447: Photo label API (upload + update)         | Done   | POST /api/inspections/[id]/photos + PATCH /api/inspections/[id]/photos/[photoId]/labels          |
+| RA-448: Photos dashboard (evidence screen)        | Done   | AsbestosStopWorkBanner, FilterBar, PhotoCard, PhotoPanel with 15-field label form                |
+| Fix: submission-gate.ts broken imports            | Done   | getWorkflowForClaimType → getWorkflowTemplate; buildPhaseMap → workflow.steps                    |
+| Fix: contents-manifest route broken import       | Done   | routeTask → workspaceRouteAiRequest; systemPrompt/userPrompt interface                           |
+| Fix: .vercelignore mobile/ → /mobile/             | Done   | Was excluding components/mobile/ causing MobileNav build failures                                |
+| PR #150 merged to main                           | Done   | `22db0fbb` — main Vercel ✅, Quality Checks ✅, CodeRabbit ✅ (sandbox missing PORTAL_SECRET)    |
+| Production migrations applied                     | Done   | 20260406_iicrc_chunk_pgvector, 20260407000000_inspection_photo_labels + 5 perf/integrity indexes |
+| RA-446/447/448 marked Done in Linear              | Done   | Marked via browser (Linear API key expired)                                                      |
+
+## Notes for Next Context Window
+
+- Sprint M complete and on main (`22db0fbb`)
+- **Sandbox Vercel still failing**: missing `PORTAL_SECRET` env var — set in Vercel dashboard → restoreassist-sandbox → Settings → Environment Variables
+- **NEXT_PUBLIC_COMPANY_ABN=62 580 077 456** needed on Vercel for footer ABN display
+- **Linear API key expired**: renew at https://linear.app/settings/api → update `~/.claude/mcp.json` → restart Claude Code
+- **pgvector migration applied to prod**: IicrcChunk table updated with edition/heading/pageNumber columns
+- **Google Play closed testing**: 12 testers × 14 days before production access
+- **GitHub secrets needed**: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON, ASC_API_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_BASE64, APPLE_TEAM_ID, IOS_CERTIFICATE_BASE64, KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+- **Apple Developer**: check phill_bron@hotmail.com for activation email; then App Store Connect
+- RA-421/422/396 blocked on Phill input (brand, workspace spec, voice copilot)
+- RA-287 blocked (DO_TOKEN GitHub secret not set)
+
+## 2026-04-08 — Developer Account Enrolment Complete
+
+| Task                                           | Status | Notes                                                                              |
+| ---------------------------------------------- | ------ | ---------------------------------------------------------------------------------- |
+| Apple Developer Program ($149 AUD/yr)          | Done   | Order W1520046725 — confirmation to phill_bron@hotmail.com; activation pending     |
+| Google Play Developer ($25 USD)                | Done   | Account registered; app pricing set to Free; checklist 13/13 complete              |
+
 ## 2026-04-07 20:12 — Session End
