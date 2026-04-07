@@ -24,15 +24,14 @@ export interface ModelConfig {
  */
 export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
   return [
-    // Latest Claude 4.5 models (2025)
-    { name: "claude-sonnet-4-5-20250929", maxTokens }, // Latest Sonnet 4.5
-    { name: "claude-opus-4-5-20251101", maxTokens }, // Latest Opus 4.5
+    // Current Claude 4.6 models (2026)
+    { name: "claude-sonnet-4-6", maxTokens }, // Latest Sonnet 4.6
+    { name: "claude-opus-4-6", maxTokens }, // Latest Opus 4.6
 
-    // Stable Claude 3.x fallbacks
+    // Stable Claude 4.5 fallbacks
+    { name: "claude-haiku-4-5-20251001", maxTokens }, // Fast Haiku 4.5
     { name: "claude-3-5-sonnet-20241022", maxTokens }, // Claude 3.5 Sonnet
-    { name: "claude-3-sonnet-20240229", maxTokens }, // Stable 3.0 Sonnet
     { name: "claude-3-opus-20240229", maxTokens: Math.min(maxTokens, 4096) }, // Stable 3.0 Opus
-    { name: "claude-haiku-4-5-20251001", maxTokens }, // Fast, highly available (Haiku 4.5)
   ];
 }
 

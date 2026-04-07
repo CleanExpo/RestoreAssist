@@ -1,36 +1,41 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { z } from "zod"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Anthropic lazy singleton (same pattern as lib/stripe.ts)
 // ---------------------------------------------------------------------------
-import Anthropic from "@anthropic-ai/sdk"
+import Anthropic from "@anthropic-ai/sdk";
 
-let _anthropic: Anthropic | null = null
+let _anthropic: Anthropic | null = null;
 
 function getAnthropicClient(): Anthropic {
-  if (_anthropic) return _anthropic
+  if (_anthropic) return _anthropic;
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not set")
+    throw new Error("ANTHROPIC_API_KEY is not set");
   }
-  _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  return _anthropic
+  _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _anthropic;
 }
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type SupportCategory = "general" | "billing" | "technical" | "feature_request" | "bug"
-type SupportPriority = "low" | "normal" | "high" | "urgent"
+type SupportCategory =
+  | "general"
+  | "billing"
+  | "technical"
+  | "feature_request"
+  | "bug";
+type SupportPriority = "low" | "normal" | "high" | "urgent";
 
 interface ClaudeTicketAnalysis {
-  category: SupportCategory
-  priority: SupportPriority
-  responseDraft: string
+  category: SupportCategory;
+  priority: SupportPriority;
+  responseDraft: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,11 +46,14 @@ const createTicketSchema = z.object({
   email: z.string().email("Invalid email address"),
   name: z.string().min(1, "Name is required").max(200),
   subject: z.string().min(1, "Subject is required").max(500),
-  body: z.string().min(10, "Please provide more detail (minimum 10 characters)").max(10000),
+  body: z
+    .string()
+    .min(10, "Please provide more detail (minimum 10 characters)")
+    .max(10000),
   category: z
     .enum(["general", "billing", "technical", "feature_request", "bug"])
     .optional(),
-})
+});
 
 // ---------------------------------------------------------------------------
 // Claude analysis helper
@@ -53,10 +61,10 @@ const createTicketSchema = z.object({
 
 async function analyseTicketWithClaude(
   subject: string,
-  body: string
+  body: string,
 ): Promise<ClaudeTicketAnalysis | null> {
   try {
-    const client = getAnthropicClient()
+    const client = getAnthropicClient();
 
     const systemPrompt = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
 
@@ -85,10 +93,10 @@ Response draft must:
 - Reference IICRC S500:2025 if technically relevant
 - End with next-steps and timeline (we respond within 24 hours)
 - Be warm but professional
-- Use Australian English spelling`
+- Use Australian English spelling`;
 
     const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
@@ -97,13 +105,17 @@ Response draft must:
           content: `Subject: ${subject}\n\n${body}`,
         },
       ],
-    })
+    });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : ""
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
 
     // Strip any accidental markdown code fences
-    const cleaned = text.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim()
-    const parsed = JSON.parse(cleaned) as ClaudeTicketAnalysis
+    const cleaned = text
+      .replace(/^```(?:json)?\n?/i, "")
+      .replace(/\n?```$/i, "")
+      .trim();
+    const parsed = JSON.parse(cleaned) as ClaudeTicketAnalysis;
 
     // Validate the fields Claude returned
     const validCategories: SupportCategory[] = [
@@ -112,20 +124,30 @@ Response draft must:
       "technical",
       "feature_request",
       "bug",
-    ]
-    const validPriorities: SupportPriority[] = ["low", "normal", "high", "urgent"]
+    ];
+    const validPriorities: SupportPriority[] = [
+      "low",
+      "normal",
+      "high",
+      "urgent",
+    ];
 
     return {
-      category: validCategories.includes(parsed.category) ? parsed.category : "general",
-      priority: validPriorities.includes(parsed.priority) ? parsed.priority : "normal",
+      category: validCategories.includes(parsed.category)
+        ? parsed.category
+        : "general",
+      priority: validPriorities.includes(parsed.priority)
+        ? parsed.priority
+        : "normal",
       responseDraft:
-        typeof parsed.responseDraft === "string" && parsed.responseDraft.length > 0
+        typeof parsed.responseDraft === "string" &&
+        parsed.responseDraft.length > 0
           ? parsed.responseDraft
           : "",
-    }
+    };
   } catch (err) {
-    console.error("[support/tickets] Claude analysis failed (non-fatal):", err)
-    return null
+    console.error("[support/tickets] Claude analysis failed (non-fatal):", err);
+    return null;
   }
 }
 
@@ -135,18 +157,21 @@ Response draft must:
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const statusFilter = searchParams.get("status") ?? undefined
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100)
-    const cursor = searchParams.get("cursor") ?? undefined
+    const { searchParams } = new URL(request.url);
+    const statusFilter = searchParams.get("status") ?? undefined;
+    const limit = Math.min(
+      parseInt(searchParams.get("limit") ?? "20", 10),
+      100,
+    );
+    const cursor = searchParams.get("cursor") ?? undefined;
 
-    const where = statusFilter ? { status: statusFilter } : {}
+    const where = statusFilter ? { status: statusFilter } : {};
 
     const [tickets, total] = await Promise.all([
       prisma.supportTicket.findMany({
@@ -161,18 +186,21 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.supportTicket.count({ where }),
-    ])
+    ]);
 
-    let nextCursor: string | undefined
+    let nextCursor: string | undefined;
     if (tickets.length > limit) {
-      const lastItem = tickets.pop()
-      nextCursor = lastItem?.id
+      const lastItem = tickets.pop();
+      nextCursor = lastItem?.id;
     }
 
-    return NextResponse.json({ tickets, nextCursor, total })
+    return NextResponse.json({ tickets, nextCursor, total });
   } catch (error) {
-    console.error("[support/tickets GET]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[support/tickets GET]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -182,24 +210,30 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.json()
-    const parsed = createTicketSchema.safeParse(rawBody)
+    const rawBody = await request.json();
+    const parsed = createTicketSchema.safeParse(rawBody);
 
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Validation failed", issues: parsed.error.issues },
-        { status: 422 }
-      )
+        { status: 422 },
+      );
     }
 
-    const { email, name, subject, body, category: providedCategory } = parsed.data
+    const {
+      email,
+      name,
+      subject,
+      body,
+      category: providedCategory,
+    } = parsed.data;
 
     // Resolve the userId if the submitter is logged in
-    const session = await getServerSession(authOptions)
-    const userId = session?.user?.id ?? null
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ?? null;
 
     // Run Claude analysis — gracefully degrade if unavailable
-    const aiResult = await analyseTicketWithClaude(subject, body)
+    const aiResult = await analyseTicketWithClaude(subject, body);
 
     const ticket = await prisma.supportTicket.create({
       data: {
@@ -212,7 +246,7 @@ export async function POST(request: NextRequest) {
         responseDraft: aiResult?.responseDraft ?? null,
         ...(userId ? { userId } : {}),
       },
-    })
+    });
 
     return NextResponse.json(
       {
@@ -221,10 +255,13 @@ export async function POST(request: NextRequest) {
         priority: ticket.priority,
         message: "Support ticket received. We'll respond within 24 hours.",
       },
-      { status: 201 }
-    )
+      { status: 201 },
+    );
   } catch (error) {
-    console.error("[support/tickets POST]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[support/tickets POST]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
