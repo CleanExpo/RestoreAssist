@@ -23,10 +23,10 @@ const tryAudio = (path: string, volume = 1) => {
 export const CinematicLandingV2: React.FC = () => {
   const frame = useCurrentFrame();
 
-  // Background music: fade in over 30f, fade out over last 30f of 4410
+  // Background music: fade in over 30f, fade out over last 30f of 3870
   const bgMusicVolume = interpolate(
     frame,
-    [0, 30, 4380, 4410],
+    [0, 30, 3840, 3870],
     [0, 0.12, 0.12, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
@@ -39,8 +39,8 @@ export const CinematicLandingV2: React.FC = () => {
       {/* Background music bed */}
       {tryAudio("audio/bg-music.mp3", bgMusicVolume)}
 
-      {/* Scene 1: Letterbox Brand Reveal — 0f, 390f (13s) */}
-      <Sequence from={0} durationInFrames={390}>
+      {/* Scene 1: Letterbox Brand Reveal — 0f, 330f (11s) */}
+      <Sequence from={0} durationInFrames={330}>
         <LetterboxReveal
           mode="intro"
           logoSrc="logo.png"
@@ -49,8 +49,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-intro.mp3")}
       </Sequence>
 
-      {/* Scene 2: The Industry Problem — 390f, 420f (14s) */}
-      <Sequence from={390} durationInFrames={420}>
+      {/* Scene 2: The Industry Problem — 330f, 345f (11.5s) */}
+      <Sequence from={330} durationInFrames={345}>
         <KineticTextScene
           label="The Industry Problem"
           bullets={[
@@ -73,8 +73,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-problem.mp3")}
       </Sequence>
 
-      {/* Scene 3: Dashboard — 810f, 450f (15s) */}
-      <Sequence from={810} durationInFrames={450}>
+      {/* Scene 3: Dashboard — 675f, 360f (12s) */}
+      <Sequence from={675} durationInFrames={360}>
         <SplitScene
           beforeStat="6"
           beforeStatContext="Separate tools to manage one job"
@@ -90,8 +90,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-dashboard.mp3")}
       </Sequence>
 
-      {/* Scene 4: AI Scope Generation — 1260f, 480f (16s) */}
-      <Sequence from={1260} durationInFrames={480}>
+      {/* Scene 4: AI Scope Generation — 1035f, 405f (13.5s) */}
+      <Sequence from={1035} durationInFrames={405}>
         <SplitScene
           beforeStat="2h 47m"
           beforeStatContext="Average scope writing time per water damage job"
@@ -107,8 +107,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-scope.mp3")}
       </Sequence>
 
-      {/* Scene 5: IICRC Compliance — 1740f, 450f (15s) */}
-      <Sequence from={1740} durationInFrames={450}>
+      {/* Scene 5: IICRC Compliance — 1440f, 405f (13.5s) */}
+      <Sequence from={1440} durationInFrames={405}>
         <SplitScene
           beforeStat="0"
           beforeStatContext="IICRC citations on a typical scope of works"
@@ -124,8 +124,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-compliance.mp3")}
       </Sequence>
 
-      {/* Scene 6: Inspection Report — 2190f, 450f (15s) */}
-      <Sequence from={2190} durationInFrames={450}>
+      {/* Scene 6: Inspection Report — 1845f, 390f (13s) */}
+      <Sequence from={1845} durationInFrames={390}>
         <SplitScene
           beforeStat="3"
           beforeStatContext="Different phones photos are spread across"
@@ -141,8 +141,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-report.mp3")}
       </Sequence>
 
-      {/* Scene 7: Moisture Mapping — 2640f, 450f (15s) */}
-      <Sequence from={2640} durationInFrames={450}>
+      {/* Scene 7: Moisture Mapping — 2235f, 360f (12s) */}
+      <Sequence from={2235} durationInFrames={360}>
         <SplitScene
           beforeStat="0"
           beforeStatContext="Digital records of drying progress on most jobs"
@@ -158,8 +158,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-moisture.mp3")}
       </Sequence>
 
-      {/* Scene 8: Invoice & Export — 3090f, 390f (13s) */}
-      <Sequence from={3090} durationInFrames={390}>
+      {/* Scene 8: Invoice & Export — 2595f, 390f (13s) */}
+      <Sequence from={2595} durationInFrames={390}>
         <SplitScene
           beforeStat="3×"
           beforeStatContext="Data re-keyed to create one invoice"
@@ -175,8 +175,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-invoice.mp3")}
       </Sequence>
 
-      {/* Scene 9: Impact Stats — 3480f, 510f (17s) */}
-      <Sequence from={3480} durationInFrames={510}>
+      {/* Scene 9: Impact Stats — 2985f, 510f (17s) */}
+      <Sequence from={2985} durationInFrames={510}>
         <StatCounterScene
           heading="Why Restoration Teams Choose RestoreAssist"
           stats={[
@@ -206,8 +206,8 @@ export const CinematicLandingV2: React.FC = () => {
         {tryAudio("audio/lp-stats.mp3")}
       </Sequence>
 
-      {/* Scene 10: Cinematic CTA — 3990f, 420f (14s) */}
-      <Sequence from={3990} durationInFrames={420}>
+      {/* Scene 10: Cinematic CTA — 3495f, 375f (12.5s) */}
+      <Sequence from={3495} durationInFrames={375}>
         <CinematicCTA />
         {tryAudio("audio/lp-cta.mp3")}
       </Sequence>
