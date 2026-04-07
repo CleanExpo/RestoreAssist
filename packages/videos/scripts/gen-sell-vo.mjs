@@ -120,7 +120,9 @@ async function main() {
   console.log(`\nSellV1 VO Generator — ${SEGMENTS.length} segments\n`);
   console.log(`Voice ID : ${VOICE_ID}`);
   console.log(`Output   : ${OUTPUT_DIR}`);
-  console.log(`API key  : ${ELEVENLABS_API_KEY ? "set" : "NOT SET (placeholders only)"}`);
+  console.log(
+    `API key  : ${ELEVENLABS_API_KEY ? "set" : "NOT SET (placeholders only)"}`,
+  );
   console.log("");
 
   for (let i = 0; i < SEGMENTS.length; i++) {

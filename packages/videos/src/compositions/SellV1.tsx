@@ -30,15 +30,15 @@ import {
 } from "../components/cinematic";
 
 // ─── Scene timing ────────────────────────────────────────────────────────────
-const S1 = { from: 0, dur: 360 };     // 12s — Hook
-const S2 = { from: 360, dur: 360 };   // 12s — Dashboard overview
-const S3 = { from: 720, dur: 360 };   // 12s — Scope generation
-const S4 = { from: 1080, dur: 360 };  // 12s — Compliance check
-const S5 = { from: 1440, dur: 360 };  // 12s — Moisture readings
-const S6 = { from: 1800, dur: 360 };  // 12s — Report generated
-const S7 = { from: 2160, dur: 300 };  // 10s — Invoice sent
-const S8 = { from: 2460, dur: 240 };  //  8s — CTA
-const TOTAL = S8.from + S8.dur;       // 2700f = 90s ✓
+const S1 = { from: 0, dur: 360 }; // 12s — Hook
+const S2 = { from: 360, dur: 360 }; // 12s — Dashboard overview
+const S3 = { from: 720, dur: 360 }; // 12s — Scope generation
+const S4 = { from: 1080, dur: 360 }; // 12s — Compliance check
+const S5 = { from: 1440, dur: 360 }; // 12s — Moisture readings
+const S6 = { from: 1800, dur: 360 }; // 12s — Report generated
+const S7 = { from: 2160, dur: 300 }; // 10s — Invoice sent
+const S8 = { from: 2460, dur: 240 }; //  8s — CTA
+const TOTAL = S8.from + S8.dur; // 2700f = 90s ✓
 
 export const SellV1: React.FC = () => {
   const frame = useCurrentFrame();
@@ -65,7 +65,11 @@ export const SellV1: React.FC = () => {
           logoSrc="logo.png"
           tagline="See it work."
         />
-        <Audio src={staticFile("audio/sell-s1.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s1.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 2: Dashboard overview (12s) ─────────────────────────────── */}
@@ -82,7 +86,11 @@ export const SellV1: React.FC = () => {
           afterLabel="Dashboard — Command Centre"
           afterCallout="$284k pipeline. One screen."
         />
-        <Audio src={staticFile("audio/sell-s2.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s2.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 3: Scope generation (12s) ───────────────────────────────── */}
@@ -99,7 +107,11 @@ export const SellV1: React.FC = () => {
           afterLabel="AI Scope Generation"
           afterCallout="Full scope in 30 seconds"
         />
-        <Audio src={staticFile("audio/sell-s3.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s3.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 4: IICRC compliance (12s) ───────────────────────────────── */}
@@ -116,7 +128,11 @@ export const SellV1: React.FC = () => {
           afterLabel="IICRC Compliance Engine"
           afterCallout="S500:2025 · 8 states · 5 classes"
         />
-        <Audio src={staticFile("audio/sell-s4.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s4.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 5: Moisture readings (12s) ──────────────────────────────── */}
@@ -133,7 +149,11 @@ export const SellV1: React.FC = () => {
           afterLabel="Field Capture"
           afterCallout="GPS · timestamp · instrument serial"
         />
-        <Audio src={staticFile("audio/sell-s5.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s5.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 6: Report generated (12s) ───────────────────────────────── */}
@@ -150,7 +170,11 @@ export const SellV1: React.FC = () => {
           afterLabel="Insurer-Ready Report"
           afterCallout="Minutes. Not hours."
         />
-        <Audio src={staticFile("audio/sell-s6.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s6.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 7: Invoice sent (10s) ────────────────────────────────────── */}
@@ -167,13 +191,21 @@ export const SellV1: React.FC = () => {
           afterLabel="Invoice Out the Door"
           afterCallout="23% faster payment on average"
         />
-        <Audio src={staticFile("audio/sell-s7.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s7.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
 
       {/* ── Scene 8: CTA (8s) ─────────────────────────────────────────────── */}
       <Sequence from={S8.from} durationInFrames={S8.dur} name="S8: CTA">
         <CinematicCTA />
-        <Audio src={staticFile("audio/sell-s8.mp3")} volume={1.0} startFrom={15} />
+        <Audio
+          src={staticFile("audio/sell-s8.mp3")}
+          volume={1.0}
+          startFrom={15}
+        />
       </Sequence>
     </AbsoluteFill>
   );
