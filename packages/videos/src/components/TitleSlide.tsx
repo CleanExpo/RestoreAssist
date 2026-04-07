@@ -54,9 +54,7 @@ export const TitleSlide: React.FC<TitleSlideProps> = ({
             opacity: titleOpacity,
           }}
         >
-          <span
-            style={{ color: "white", fontSize: 32, fontWeight: 700 }}
-          >
+          <span style={{ color: "white", fontSize: 32, fontWeight: 700 }}>
             RA
           </span>
         </div>

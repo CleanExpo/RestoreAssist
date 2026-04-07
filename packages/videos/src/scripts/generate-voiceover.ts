@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "onwK4e9ZLuTAKqWW03F9";
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "aGkVQvWUZi16EH8aZJvT";
 
 interface VoiceoverSegment {
   id: string;
@@ -38,7 +38,7 @@ const PRODUCT_EXPLAINER_SEGMENTS: VoiceoverSegment[] = [
   },
   {
     id: "pe-cta",
-    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Book a demo at restoreassist.com.au.",
+    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Start your free trial at restoreassist.app.",
     outputPath: "src/assets/audio/pe-cta.mp3",
   },
 ];
@@ -86,19 +86,86 @@ const INDUSTRY_INSIGHT_SEGMENTS: VoiceoverSegment[] = [
   },
   {
     id: "ii-cta",
-    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Book a demo at restoreassist.com.au.",
+    text: "RestoreAssist. One System. Fewer Gaps. More Confidence. Start your free trial at restoreassist.app.",
     outputPath: "src/assets/audio/ii-cta.mp3",
+  },
+];
+
+const CINEMATIC_LANDING_V2_SEGMENTS: VoiceoverSegment[] = [
+  {
+    id: "lp-intro",
+    // Scene 1: 13s — brand intro + immediate value prop
+    text: "RestoreAssist. The one platform Australian restoration professionals use to document every job, generate compliant scopes, and get paid — without the paperwork chaos that's costing you hours every day.",
+    outputPath: "public/audio/lp-intro.mp3",
+  },
+  {
+    id: "lp-problem",
+    // Scene 2: 14s — industry pain, emotional hook
+    text: "Right now, your team is spending more time on admin than on restoration. Claims get disputed because scopes lack evidence. Critical job data is scattered across phones, emails, and spreadsheets. That changes today.",
+    outputPath: "public/audio/lp-problem.mp3",
+  },
+  {
+    id: "lp-dashboard",
+    // Scene 3: 15s — command centre benefit
+    text: "With RestoreAssist, every active job is visible from one command centre. Status, drying progress, insurer communication — all in one place. No missed updates. No surprises. Complete visibility across every site you manage.",
+    outputPath: "public/audio/lp-dashboard.mp3",
+  },
+  {
+    id: "lp-scope",
+    // Scene 4: 16s — AI scope ROI
+    text: "Your AI scope of works is generated in thirty seconds. Every line item calculated from your inspection data, IICRC-cited and evidence-linked. That's two and a half hours of manual scope writing eliminated on every single water damage job.",
+    outputPath: "public/audio/lp-scope.mp3",
+  },
+  {
+    id: "lp-compliance",
+    // Scene 5: 15s — compliance, fewer disputes
+    text: "IICRC S500, S520, and S700 are cited automatically on every scope item. State-specific compliance triggers fire based on job location. No more disputed claims because your documentation didn't meet insurer standards.",
+    outputPath: "public/audio/lp-compliance.mp3",
+  },
+  {
+    id: "lp-report",
+    // Scene 6: 15s — evidence capture, insurer acceptance
+    text: "Every site visit builds a complete, timestamped evidence register. Moisture readings, photographs, classifications, and observations — captured on site, not assembled from memory later. Court-ready documentation that insurers accept without dispute.",
+    outputPath: "public/audio/lp-report.mp3",
+  },
+  {
+    id: "lp-moisture",
+    // Scene 7: 15s — moisture mapping, prove drying, justify equipment
+    text: "Floor plans, moisture readings, and drying progression mapped in a single view. Show the insurer exactly how the affected area dried down over time. Justify your equipment days. Reduce claim disputes by proving the work.",
+    outputPath: "public/audio/lp-moisture.mp3",
+  },
+  {
+    id: "lp-invoice",
+    // Scene 8: 13s — one-click export, faster payment
+    text: "One click exports your completed scope and invoice to Xero, Ascora, ServiceM8, QuickBooks, or MYOB. Zero re-keying. Zero transcription errors. Faster payment because your paperwork is already done.",
+    outputPath: "public/audio/lp-invoice.mp3",
+  },
+  {
+    id: "lp-stats",
+    // Scene 9: 17s — ROI stats, social proof
+    text: "RestoreAssist saves restoration businesses over two hours per inspection. Every report is one hundred percent IICRC-compliant across all eight Australian states. Teams using RestoreAssist report fewer disputed claims, faster insurer approvals, and more jobs completed per technician every week.",
+    outputPath: "public/audio/lp-stats.mp3",
+  },
+  {
+    id: "lp-cta",
+    // Scene 10: 14s — free trial, no credit card, urgency
+    text: "Start your free trial today. Three complete reports, absolutely free — no credit card required. Australian restoration professionals are already saving thousands of dollars in admin time every month. Visit restoreassist dot app.",
+    outputPath: "public/audio/lp-cta.mp3",
   },
 ];
 
 async function generateVoiceover(segment: VoiceoverSegment): Promise<void> {
   if (!ELEVENLABS_API_KEY) {
-    console.warn(`[SKIP] No ELEVENLABS_API_KEY set \u2014 writing placeholder for ${segment.id}`);
-    const dir = path.dirname(path.resolve(__dirname, "../../", segment.outputPath));
+    console.warn(
+      `[SKIP] No ELEVENLABS_API_KEY set \u2014 writing placeholder for ${segment.id}`,
+    );
+    const dir = path.dirname(
+      path.resolve(__dirname, "../../", segment.outputPath),
+    );
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.resolve(__dirname, "../../", segment.outputPath),
-      `Placeholder for: ${segment.text}`
+      `Placeholder for: ${segment.text}`,
     );
     return;
   }
@@ -117,32 +184,40 @@ async function generateVoiceover(segment: VoiceoverSegment): Promise<void> {
         text: segment.text,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.6,
-          similarity_boost: 0.8,
-          style: 0.3,
+          stability: 0.72,
+          similarity_boost: 0.85,
+          style: 0.2,
           use_speaker_boost: true,
         },
       }),
-    }
+    },
   );
 
   if (!response.ok) {
-    throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `ElevenLabs API error: ${response.status} ${response.statusText}`,
+    );
   }
 
   const audioBuffer = await response.arrayBuffer();
-  const outputDir = path.dirname(path.resolve(__dirname, "../../", segment.outputPath));
+  const outputDir = path.dirname(
+    path.resolve(__dirname, "../../", segment.outputPath),
+  );
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(
     path.resolve(__dirname, "../../", segment.outputPath),
-    Buffer.from(audioBuffer)
+    Buffer.from(audioBuffer),
   );
 
   console.log(`[TTS] Done: ${segment.id} \u2192 ${segment.outputPath}`);
 }
 
 async function generateAll(): Promise<void> {
-  const allSegments = [...PRODUCT_EXPLAINER_SEGMENTS, ...INDUSTRY_INSIGHT_SEGMENTS];
+  const allSegments = [
+    ...PRODUCT_EXPLAINER_SEGMENTS,
+    ...INDUSTRY_INSIGHT_SEGMENTS,
+    ...CINEMATIC_LANDING_V2_SEGMENTS,
+  ];
 
   console.log(`\nGenerating ${allSegments.length} voiceover segments...\n`);
 

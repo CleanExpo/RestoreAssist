@@ -125,7 +125,8 @@ export const LandingPageOverview: React.FC = () => {
             {
               value: "8",
               label: "Australian states covered",
-              detail: "State-specific building codes & regulatory triggers built in",
+              detail:
+                "State-specific building codes & regulatory triggers built in",
               accent: "#3b82f6",
             },
           ]}
