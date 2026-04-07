@@ -342,6 +342,7 @@ export const SplitScene: React.FC<SplitSceneProps> = ({
             width: "100%",
             height: "100%",
             objectFit: "cover",
+            objectPosition: "center 25%",
             transform: `scale(${kenBurnsScale})`,
             transformOrigin: "center center",
           }}
