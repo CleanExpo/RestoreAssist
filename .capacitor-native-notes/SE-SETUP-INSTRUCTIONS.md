@@ -56,6 +56,7 @@ if there's a merge conflict with PR #28.
 The native shell is a **server-hosted WebView** — it loads the production Next.js
 app from `https://restoreassist.com.au`. SSR and API routes are unchanged.
 The native wrapper adds:
+
 - App Store / Play Store distribution
 - Native camera (@capacitor/camera) — better than browser <input capture>
 - Native Bluetooth on iOS (Web Bluetooth blocked in WKWebView)

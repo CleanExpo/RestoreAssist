@@ -1,107 +1,114 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { ArrowLeft, RefreshCw, CheckCircle2, XCircle, AlertCircle, WifiOff } from "lucide-react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect, useCallback } from "react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
+  ArrowLeft,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  WifiOff,
+} from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ProviderSlug = "xero" | "quickbooks" | "myob" | "servicem8" | "ascora"
+type ProviderSlug = "xero" | "quickbooks" | "myob" | "servicem8" | "ascora";
 
 interface HealthCheck {
-  name: string
-  status: "pass" | "warn" | "fail"
-  message: string
-  details?: unknown
+  name: string;
+  status: "pass" | "warn" | "fail";
+  message: string;
+  details?: unknown;
 }
 
 interface HealthData {
-  status: "healthy" | "degraded" | "unhealthy"
-  checks: HealthCheck[]
-  summary: { total: number; passed: number; warned: number; failed: number }
-  timestamp: string
+  status: "healthy" | "degraded" | "unhealthy";
+  checks: HealthCheck[];
+  summary: { total: number; passed: number; warned: number; failed: number };
+  timestamp: string;
 }
 
 interface ProviderMetric {
-  status: string
-  lastSyncAt: string | null
-  totalSyncs: number
-  successfulSyncs: number
-  failedSyncs: number
-  successRate: number
+  status: string;
+  lastSyncAt: string | null;
+  totalSyncs: number;
+  successfulSyncs: number;
+  failedSyncs: number;
+  successRate: number;
 }
 
 interface CircuitBreakerStat {
-  name: string
-  state: "CLOSED" | "OPEN" | "HALF_OPEN"
-  failureCount: number
-  successCount: number
-  recentRequests: number
+  name: string;
+  state: "CLOSED" | "OPEN" | "HALF_OPEN";
+  failureCount: number;
+  successCount: number;
+  recentRequests: number;
 }
 
 interface RateLimiterStat {
-  key: string
-  availableTokens: number
-  maxBurst: number
-  tokensPerMinute: number
+  key: string;
+  availableTokens: number;
+  maxBurst: number;
+  tokensPerMinute: number;
 }
 
 interface MetricsData {
-  success: boolean
+  success: boolean;
   integrations: {
-    total: number
-    connected: number
-    disconnected: number
-    error: number
-    byProvider: Record<string, ProviderMetric>
-  }
+    total: number;
+    connected: number;
+    disconnected: number;
+    error: number;
+    byProvider: Record<string, ProviderMetric>;
+  };
   syncs: {
-    total: number
-    successful: number
-    failed: number
-    successRate: number
-    avgDurationMs: number
-  }
-  circuitBreakers: CircuitBreakerStat[]
-  rateLimiters: RateLimiterStat[]
-  timestamp: string
+    total: number;
+    successful: number;
+    failed: number;
+    successRate: number;
+    avgDurationMs: number;
+  };
+  circuitBreakers: CircuitBreakerStat[];
+  rateLimiters: RateLimiterStat[];
+  timestamp: string;
 }
 
 interface SyncErrorItem {
-  id: string
-  syncType: string
-  status: string
-  errorMessage?: string | null
-  retryCount?: number
-  startedAt: string
+  id: string;
+  syncType: string;
+  status: string;
+  errorMessage?: string | null;
+  retryCount?: number;
+  startedAt: string;
   integration: {
-    provider: string
-    name: string | null
-  }
+    provider: string;
+    name: string | null;
+  };
 }
 
 interface SyncErrorsData {
-  success: boolean
-  syncErrors: SyncErrorItem[]
+  success: boolean;
+  syncErrors: SyncErrorItem[];
   webhookErrors: {
-    id: string
-    eventType: string
-    status: string
-    retryCount: number
-    createdAt: string
-    integration: { provider: string; name: string | null }
-  }[]
-  pagination: { total: number; limit: number; offset: number; hasMore: boolean }
+    id: string;
+    eventType: string;
+    status: string;
+    retryCount: number;
+    createdAt: string;
+    integration: { provider: string; name: string | null };
+  }[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
 }
 
 // ─── Provider config ──────────────────────────────────────────────────────────
@@ -112,116 +119,159 @@ const PROVIDERS: { slug: ProviderSlug; name: string; color: string }[] = [
   { slug: "myob", name: "MYOB", color: "#8B0000" },
   { slug: "servicem8", name: "ServiceM8", color: "#F36F21" },
   { slug: "ascora", name: "Ascora", color: "#1E3A5F" },
-]
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function providerStatusFromMetric(metric: ProviderMetric | undefined): "HEALTHY" | "DEGRADED" | "DOWN" | "NOT_CONNECTED" {
-  if (!metric) return "NOT_CONNECTED"
-  if (metric.status === "DISCONNECTED") return "NOT_CONNECTED"
-  if (metric.status === "ERROR") return "DOWN"
-  if (metric.successRate < 80) return "DEGRADED"
-  return "HEALTHY"
+function providerStatusFromMetric(
+  metric: ProviderMetric | undefined,
+): "HEALTHY" | "DEGRADED" | "DOWN" | "NOT_CONNECTED" {
+  if (!metric) return "NOT_CONNECTED";
+  if (metric.status === "DISCONNECTED") return "NOT_CONNECTED";
+  if (metric.status === "ERROR") return "DOWN";
+  if (metric.successRate < 80) return "DEGRADED";
+  return "HEALTHY";
 }
 
 function circuitBreakerForProvider(
   circuitBreakers: CircuitBreakerStat[],
-  providerSlug: string
+  providerSlug: string,
 ): CircuitBreakerStat | undefined {
-  return circuitBreakers.find(cb =>
-    cb.name.toLowerCase().includes(providerSlug.toLowerCase())
-  )
+  return circuitBreakers.find((cb) =>
+    cb.name.toLowerCase().includes(providerSlug.toLowerCase()),
+  );
 }
 
 function rateLimiterForProvider(
   rateLimiters: RateLimiterStat[],
-  providerSlug: string
+  providerSlug: string,
 ): RateLimiterStat | undefined {
-  return rateLimiters.find(rl =>
-    rl.key.toLowerCase().includes(providerSlug.toLowerCase())
-  )
+  return rateLimiters.find((rl) =>
+    rl.key.toLowerCase().includes(providerSlug.toLowerCase()),
+  );
 }
 
 function formatTimestamp(ts: string): string {
   try {
-    return new Date(ts).toLocaleString()
+    return new Date(ts).toLocaleString();
   } catch {
-    return ts
+    return ts;
   }
 }
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: "HEALTHY" | "DEGRADED" | "DOWN" | "NOT_CONNECTED" }) {
-  const variants: Record<typeof status, { label: string; className: string }> = {
-    HEALTHY: { label: "Healthy", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-    DEGRADED: { label: "Degraded", className: "bg-amber-100 text-amber-800 border-amber-200" },
-    DOWN: { label: "Down", className: "bg-red-100 text-red-800 border-red-200" },
-    NOT_CONNECTED: { label: "Not Connected", className: "bg-gray-100 text-gray-600 border-gray-200" },
-  }
-  const v = variants[status]
+function StatusBadge({
+  status,
+}: {
+  status: "HEALTHY" | "DEGRADED" | "DOWN" | "NOT_CONNECTED";
+}) {
+  const variants: Record<typeof status, { label: string; className: string }> =
+    {
+      HEALTHY: {
+        label: "Healthy",
+        className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      },
+      DEGRADED: {
+        label: "Degraded",
+        className: "bg-amber-100 text-amber-800 border-amber-200",
+      },
+      DOWN: {
+        label: "Down",
+        className: "bg-red-100 text-red-800 border-red-200",
+      },
+      NOT_CONNECTED: {
+        label: "Not Connected",
+        className: "bg-gray-100 text-gray-600 border-gray-200",
+      },
+    };
+  const v = variants[status];
   return (
     <Badge className={`text-xs font-medium border ${v.className}`}>
       {v.label}
     </Badge>
-  )
+  );
 }
 
-function CircuitBadge({ state }: { state: "CLOSED" | "OPEN" | "HALF_OPEN" | undefined }) {
-  if (!state) return <span className="text-xs text-muted-foreground">—</span>
+function CircuitBadge({
+  state,
+}: {
+  state: "CLOSED" | "OPEN" | "HALF_OPEN" | undefined;
+}) {
+  if (!state) return <span className="text-xs text-muted-foreground">—</span>;
   const map: Record<string, { label: string; className: string }> = {
-    CLOSED: { label: "Closed", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-    OPEN: { label: "Open", className: "bg-red-100 text-red-800 border-red-200" },
-    HALF_OPEN: { label: "Half-Open", className: "bg-amber-100 text-amber-800 border-amber-200" },
-  }
-  const v = map[state] ?? { label: state, className: "bg-gray-100 text-gray-600 border-gray-200" }
+    CLOSED: {
+      label: "Closed",
+      className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    },
+    OPEN: {
+      label: "Open",
+      className: "bg-red-100 text-red-800 border-red-200",
+    },
+    HALF_OPEN: {
+      label: "Half-Open",
+      className: "bg-amber-100 text-amber-800 border-amber-200",
+    },
+  };
+  const v = map[state] ?? {
+    label: state,
+    className: "bg-gray-100 text-gray-600 border-gray-200",
+  };
   return (
     <Badge className={`text-xs font-medium border ${v.className}`}>
       {v.label}
     </Badge>
-  )
+  );
 }
 
 function TokenValidityRow({
   providerSlug,
   healthData,
 }: {
-  providerSlug: string
-  healthData: HealthData | null
+  providerSlug: string;
+  healthData: HealthData | null;
 }) {
-  if (!healthData) return <span className="text-xs text-muted-foreground">—</span>
+  if (!healthData)
+    return <span className="text-xs text-muted-foreground">—</span>;
 
-  const tokenCheck = healthData.checks.find(c => c.name === "Token Validity")
-  if (!tokenCheck) return <span className="text-xs text-muted-foreground">—</span>
+  const tokenCheck = healthData.checks.find((c) => c.name === "Token Validity");
+  if (!tokenCheck)
+    return <span className="text-xs text-muted-foreground">—</span>;
 
-  const details = tokenCheck.details as { provider: string; expiredAt: string }[] | undefined
-  const expired = Array.isArray(details) && details.some(
-    d => d.provider.toLowerCase() === providerSlug.toLowerCase()
-  )
+  const details = tokenCheck.details as
+    | { provider: string; expiredAt: string }[]
+    | undefined;
+  const expired =
+    Array.isArray(details) &&
+    details.some(
+      (d) => d.provider.toLowerCase() === providerSlug.toLowerCase(),
+    );
 
   if (expired) {
     return (
       <span className="flex items-center gap-1 text-xs text-red-600">
         <XCircle className="h-3 w-3" /> Expired
       </span>
-    )
+    );
   }
   return (
     <span className="flex items-center gap-1 text-xs text-emerald-600">
       <CheckCircle2 className="h-3 w-3" /> Valid
     </span>
-  )
+  );
 }
 
 function RateLimiterBar({ rl }: { rl: RateLimiterStat | undefined }) {
-  if (!rl) return <span className="text-xs text-muted-foreground">—</span>
-  const pct = rl.maxBurst > 0 ? Math.round((rl.availableTokens / rl.maxBurst) * 100) : 0
-  const barColor = pct > 50 ? "bg-emerald-500" : pct > 20 ? "bg-amber-500" : "bg-red-500"
+  if (!rl) return <span className="text-xs text-muted-foreground">—</span>;
+  const pct =
+    rl.maxBurst > 0 ? Math.round((rl.availableTokens / rl.maxBurst) * 100) : 0;
+  const barColor =
+    pct > 50 ? "bg-emerald-500" : pct > 20 ? "bg-amber-500" : "bg-red-500";
   return (
     <div className="space-y-1">
       <p className="text-xs text-muted-foreground">
@@ -234,7 +284,7 @@ function RateLimiterBar({ rl }: { rl: RateLimiterStat | undefined }) {
         />
       </div>
     </div>
-  )
+  );
 }
 
 function ProviderCard({
@@ -246,16 +296,16 @@ function ProviderCard({
   onRetry,
   retrying,
 }: {
-  provider: { slug: ProviderSlug; name: string; color: string }
-  metric: ProviderMetric | undefined
-  healthData: HealthData | null
-  circuitBreaker: CircuitBreakerStat | undefined
-  rateLimiter: RateLimiterStat | undefined
-  onRetry: (slug: ProviderSlug) => void
-  retrying: boolean
+  provider: { slug: ProviderSlug; name: string; color: string };
+  metric: ProviderMetric | undefined;
+  healthData: HealthData | null;
+  circuitBreaker: CircuitBreakerStat | undefined;
+  rateLimiter: RateLimiterStat | undefined;
+  onRetry: (slug: ProviderSlug) => void;
+  retrying: boolean;
 }) {
-  const overallStatus = providerStatusFromMetric(metric)
-  const showRetry = overallStatus === "DOWN" || overallStatus === "DEGRADED"
+  const overallStatus = providerStatusFromMetric(metric);
+  const showRetry = overallStatus === "DOWN" || overallStatus === "DEGRADED";
 
   return (
     <Card className="flex flex-col gap-0">
@@ -279,7 +329,10 @@ function ProviderCard({
         {/* Token validity */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Token</span>
-          <TokenValidityRow providerSlug={provider.slug} healthData={healthData} />
+          <TokenValidityRow
+            providerSlug={provider.slug}
+            healthData={healthData}
+          />
         </div>
 
         {/* Circuit breaker */}
@@ -305,11 +358,15 @@ function ProviderCard({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Success</p>
-                <p className="text-sm font-semibold text-emerald-600">{metric.successfulSyncs}</p>
+                <p className="text-sm font-semibold text-emerald-600">
+                  {metric.successfulSyncs}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Failed</p>
-                <p className="text-sm font-semibold text-red-600">{metric.failedSyncs}</p>
+                <p className="text-sm font-semibold text-red-600">
+                  {metric.failedSyncs}
+                </p>
               </div>
             </div>
           </>
@@ -339,7 +396,7 @@ function ProviderCard({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function ProviderCardSkeleton() {
@@ -358,87 +415,89 @@ function ProviderCardSkeleton() {
         <Skeleton className="h-3 w-3/4" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function IntegrationHealthPage() {
-  const [healthData, setHealthData] = useState<HealthData | null>(null)
-  const [metricsData, setMetricsData] = useState<MetricsData | null>(null)
-  const [errorsData, setErrorsData] = useState<SyncErrorsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [allFailed, setAllFailed] = useState(false)
-  const [lastChecked, setLastChecked] = useState<string | null>(null)
-  const [retryingProvider, setRetryingProvider] = useState<ProviderSlug | null>(null)
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [metricsData, setMetricsData] = useState<MetricsData | null>(null);
+  const [errorsData, setErrorsData] = useState<SyncErrorsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [allFailed, setAllFailed] = useState(false);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [retryingProvider, setRetryingProvider] = useState<ProviderSlug | null>(
+    null,
+  );
 
   const fetchAll = useCallback(async () => {
-    setLoading(true)
-    setAllFailed(false)
+    setLoading(true);
+    setAllFailed(false);
     try {
       const [healthRes, metricsRes, errorsRes] = await Promise.allSettled([
-        fetch("/api/integrations/health").then(r => r.json()),
-        fetch("/api/integrations/metrics").then(r => r.json()),
-        fetch("/api/integrations/sync-errors").then(r => r.json()),
-      ])
+        fetch("/api/integrations/health").then((r) => r.json()),
+        fetch("/api/integrations/metrics").then((r) => r.json()),
+        fetch("/api/integrations/sync-errors").then((r) => r.json()),
+      ]);
 
-      let anySuccess = false
+      let anySuccess = false;
 
       if (healthRes.status === "fulfilled" && !healthRes.value?.error) {
-        setHealthData(healthRes.value as HealthData)
-        anySuccess = true
+        setHealthData(healthRes.value as HealthData);
+        anySuccess = true;
       }
       if (metricsRes.status === "fulfilled" && metricsRes.value?.success) {
-        setMetricsData(metricsRes.value as MetricsData)
-        anySuccess = true
+        setMetricsData(metricsRes.value as MetricsData);
+        anySuccess = true;
       }
       if (errorsRes.status === "fulfilled" && errorsRes.value?.success) {
-        setErrorsData(errorsRes.value as SyncErrorsData)
-        anySuccess = true
+        setErrorsData(errorsRes.value as SyncErrorsData);
+        anySuccess = true;
       }
 
       if (!anySuccess) {
-        setAllFailed(true)
+        setAllFailed(true);
       } else {
-        setLastChecked(new Date().toLocaleTimeString())
+        setLastChecked(new Date().toLocaleTimeString());
       }
     } catch {
-      setAllFailed(true)
+      setAllFailed(true);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+    fetchAll();
+  }, [fetchAll]);
 
   const handleRetry = async (slug: ProviderSlug) => {
-    setRetryingProvider(slug)
+    setRetryingProvider(slug);
     try {
       await fetch("/api/integrations/nir-sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: slug }),
-      })
+      });
     } catch {
       // fire-and-forget, ignore errors
     } finally {
-      setRetryingProvider(null)
+      setRetryingProvider(null);
       // Re-fetch after short delay to pick up new data
-      setTimeout(() => fetchAll(), 2000)
+      setTimeout(() => fetchAll(), 2000);
     }
-  }
+  };
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const byProvider = metricsData?.integrations?.byProvider ?? {}
-  const circuitBreakers = metricsData?.circuitBreakers ?? []
-  const rateLimiters = metricsData?.rateLimiters ?? []
-  const syncs = metricsData?.syncs
-  const syncErrors = errorsData?.syncErrors ?? []
-  const webhookErrors = errorsData?.webhookErrors ?? []
+  const byProvider = metricsData?.integrations?.byProvider ?? {};
+  const circuitBreakers = metricsData?.circuitBreakers ?? [];
+  const rateLimiters = metricsData?.rateLimiters ?? [];
+  const syncs = metricsData?.syncs;
+  const syncErrors = errorsData?.syncErrors ?? [];
+  const webhookErrors = errorsData?.webhookErrors ?? [];
   const allErrors = [
-    ...syncErrors.map(e => ({
+    ...syncErrors.map((e) => ({
       id: e.id,
       provider: e.integration.provider,
       message: e.errorMessage ?? e.syncType,
@@ -446,7 +505,7 @@ export default function IntegrationHealthPage() {
       retryCount: e.retryCount ?? 0,
       type: "Sync" as const,
     })),
-    ...webhookErrors.map(e => ({
+    ...webhookErrors.map((e) => ({
       id: e.id,
       provider: e.integration.provider,
       message: e.eventType,
@@ -454,7 +513,9 @@ export default function IntegrationHealthPage() {
       retryCount: e.retryCount,
       type: "Webhook" as const,
     })),
-  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  ].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  );
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -469,9 +530,13 @@ export default function IntegrationHealthPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Integrations
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight">Integration Health</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Integration Health
+          </h1>
           {lastChecked && !loading && (
-            <p className="text-sm text-muted-foreground">Last checked at {lastChecked}</p>
+            <p className="text-sm text-muted-foreground">
+              Last checked at {lastChecked}
+            </p>
           )}
         </div>
         <Button
@@ -481,7 +546,9 @@ export default function IntegrationHealthPage() {
           disabled={loading}
           className="shrink-0"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
           {loading ? "Checking…" : "Refresh"}
         </Button>
       </div>
@@ -505,8 +572,8 @@ export default function IntegrationHealthPage() {
             healthData.status === "healthy"
               ? "border-emerald-200 bg-emerald-50"
               : healthData.status === "degraded"
-              ? "border-amber-200 bg-amber-50"
-              : "border-red-200 bg-red-50"
+                ? "border-amber-200 bg-amber-50"
+                : "border-red-200 bg-red-50"
           }
         >
           <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
@@ -524,20 +591,27 @@ export default function IntegrationHealthPage() {
                     healthData.status === "healthy"
                       ? "text-emerald-800"
                       : healthData.status === "degraded"
-                      ? "text-amber-800"
-                      : "text-red-800"
+                        ? "text-amber-800"
+                        : "text-red-800"
                   }`}
                 >
-                  System {healthData.status.charAt(0).toUpperCase() + healthData.status.slice(1)}
+                  System{" "}
+                  {healthData.status.charAt(0).toUpperCase() +
+                    healthData.status.slice(1)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {healthData.summary.passed}/{healthData.summary.total} checks passing
-                  {healthData.summary.warned > 0 && ` · ${healthData.summary.warned} warning${healthData.summary.warned > 1 ? "s" : ""}`}
-                  {healthData.summary.failed > 0 && ` · ${healthData.summary.failed} failure${healthData.summary.failed > 1 ? "s" : ""}`}
+                  {healthData.summary.passed}/{healthData.summary.total} checks
+                  passing
+                  {healthData.summary.warned > 0 &&
+                    ` · ${healthData.summary.warned} warning${healthData.summary.warned > 1 ? "s" : ""}`}
+                  {healthData.summary.failed > 0 &&
+                    ` · ${healthData.summary.failed} failure${healthData.summary.failed > 1 ? "s" : ""}`}
                 </p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">{formatTimestamp(healthData.timestamp)}</p>
+            <p className="text-xs text-muted-foreground">
+              {formatTimestamp(healthData.timestamp)}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -547,24 +621,31 @@ export default function IntegrationHealthPage() {
         <h2 className="text-lg font-semibold mb-3">Provider Status</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {loading
-            ? Array.from({ length: 5 }).map((_, i) => <ProviderCardSkeleton key={i} />)
-            : PROVIDERS.map(p => {
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <ProviderCardSkeleton key={i} />
+              ))
+            : PROVIDERS.map((p) => {
                 const metricKey = Object.keys(byProvider).find(
-                  k => k.toLowerCase() === p.slug.toUpperCase().toLowerCase() || k.toUpperCase() === p.slug.toUpperCase()
-                )
-                const metric = metricKey ? byProvider[metricKey] : undefined
+                  (k) =>
+                    k.toLowerCase() === p.slug.toUpperCase().toLowerCase() ||
+                    k.toUpperCase() === p.slug.toUpperCase(),
+                );
+                const metric = metricKey ? byProvider[metricKey] : undefined;
                 return (
                   <ProviderCard
                     key={p.slug}
                     provider={p}
                     metric={metric}
                     healthData={healthData}
-                    circuitBreaker={circuitBreakerForProvider(circuitBreakers, p.slug)}
+                    circuitBreaker={circuitBreakerForProvider(
+                      circuitBreakers,
+                      p.slug,
+                    )}
                     rateLimiter={rateLimiterForProvider(rateLimiters, p.slug)}
                     onRetry={handleRetry}
                     retrying={retryingProvider === p.slug}
                   />
-                )
+                );
               })}
         </div>
       </section>
@@ -574,12 +655,16 @@ export default function IntegrationHealthPage() {
         <>
           <Separator />
           <section>
-            <h2 className="text-lg font-semibold mb-3">Overall Metrics (last 24h)</h2>
+            <h2 className="text-lg font-semibold mb-3">
+              Overall Metrics (last 24h)
+            </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <Card>
                 <CardContent className="py-4 text-center">
                   <p className="text-2xl font-bold">{syncs.total}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Total Syncs</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Total Syncs
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -587,19 +672,29 @@ export default function IntegrationHealthPage() {
                   <p className="text-2xl font-bold text-emerald-600">
                     {syncs.successRate.toFixed(1)}%
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Success Rate</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Success Rate
+                  </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="py-4 text-center">
-                  <p className="text-2xl font-bold text-red-600">{syncs.failed}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Failed Syncs</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {syncs.failed}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Failed Syncs
+                  </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="py-4 text-center">
-                  <p className="text-2xl font-bold">{formatDuration(syncs.avgDurationMs)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Avg Duration</p>
+                  <p className="text-2xl font-bold">
+                    {formatDuration(syncs.avgDurationMs)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Avg Duration
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -648,16 +743,29 @@ export default function IntegrationHealthPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Provider</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Type</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Error</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Time</th>
-                  <th className="text-center px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Retries</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
+                    Provider
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
+                    Type
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                    Error
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
+                    Time
+                  </th>
+                  <th className="text-center px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
+                    Retries
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {allErrors.map(err => (
-                  <tr key={err.id} className="hover:bg-muted/30 transition-colors">
+                {allErrors.map((err) => (
+                  <tr
+                    key={err.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
                     <td className="px-4 py-2.5 font-medium whitespace-nowrap">
                       {err.provider}
                     </td>
@@ -674,7 +782,9 @@ export default function IntegrationHealthPage() {
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       <Badge
-                        variant={err.retryCount >= 5 ? "destructive" : "secondary"}
+                        variant={
+                          err.retryCount >= 5 ? "destructive" : "secondary"
+                        }
                         className="text-xs"
                       >
                         {err.retryCount}
@@ -688,5 +798,5 @@ export default function IntegrationHealthPage() {
         )}
       </section>
     </div>
-  )
+  );
 }

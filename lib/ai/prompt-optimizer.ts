@@ -13,13 +13,13 @@
  * Caller is responsible for persisting any promoted variant.
  */
 
-import Anthropic from '@anthropic-ai/sdk'
-import { getClaimTypePrompt, type ClaimType } from './claim-type-prompts'
+import Anthropic from "@anthropic-ai/sdk";
+import { getClaimTypePrompt, type ClaimType } from "./claim-type-prompts";
 import {
   evaluateScopeQuality,
   type ScopeEvaluationInput,
   type ScopeQualityScore,
-} from './scope-quality-evaluator'
+} from "./scope-quality-evaluator";
 
 // ============================================================
 // Types
@@ -27,51 +27,51 @@ import {
 
 export interface OptimizationOptions {
   /** Which claim type to optimize */
-  claimType: string
+  claimType: string;
   /** Number of Claude API calls to budget. Default 30 */
-  budget?: number
+  budget?: number;
   /** Minimum score improvement to promote a variant. Default 2 */
-  threshold?: number
+  threshold?: number;
   /** Number of test cases per evaluation. Default 3 */
-  testCasesPerEval?: number
+  testCasesPerEval?: number;
   /** Number of candidate edits per iteration. Default 3 */
-  candidatesPerIteration?: number
+  candidatesPerIteration?: number;
 }
 
 export interface OptimizationResult {
-  claimType: string
-  iterations: number
-  totalApiCalls: number
-  estimatedCostAud: number
-  baselineScore: number
-  bestScore: number
-  improved: boolean
-  bestPromptPreview: string
-  variants: VariantRecord[]
+  claimType: string;
+  iterations: number;
+  totalApiCalls: number;
+  estimatedCostAud: number;
+  baselineScore: number;
+  bestScore: number;
+  improved: boolean;
+  bestPromptPreview: string;
+  variants: VariantRecord[];
 }
 
 interface VariantRecord {
-  version: number
-  compositeScore: number
-  description: string
-  promoted: boolean
+  version: number;
+  compositeScore: number;
+  description: string;
+  promoted: boolean;
 }
 
 interface CandidateEdit {
-  description: string
-  oldText: string
-  newText: string
+  description: string;
+  oldText: string;
+  newText: string;
 }
 
 interface TestCase {
-  id: string
-  claimType: string
-  damageCategory: number | null
-  damageClass: number | null
-  propertyDescription: string
-  causeOfLoss: string
-  scope: string
-  affectedAreaM2: number
+  id: string;
+  claimType: string;
+  damageCategory: number | null;
+  damageClass: number | null;
+  propertyDescription: string;
+  causeOfLoss: string;
+  scope: string;
+  affectedAreaM2: number;
 }
 
 // ============================================================
@@ -79,13 +79,13 @@ interface TestCase {
 // ============================================================
 
 /** Estimated cost per Sonnet API call in AUD (input + output avg) */
-const COST_PER_CALL_AUD = 0.02
+const COST_PER_CALL_AUD = 0.02;
 
 /** Maximum API call budget ceiling (hard limit, regardless of options) */
-const MAX_BUDGET = 50
+const MAX_BUDGET = 50;
 
 /** Claude model for scope generation and meta-prompting */
-const MODEL = 'claude-sonnet-4-6' as const
+const MODEL = "claude-sonnet-4-6" as const;
 
 // ============================================================
 // Test case loader
@@ -98,22 +98,26 @@ const MODEL = 'claude-sonnet-4-6' as const
 async function loadTestCases(claimType: string): Promise<TestCase[]> {
   // Dynamic import for the JSON file — works in both Node.js and Next.js
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const examples: Array<Record<string, unknown>> = await import(
-    '@/content/training/scope-examples.json'
-  ).then((m) => m.default ?? m)
+  const examples: Array<Record<string, unknown>> =
+    await import("@/content/training/scope-examples.json").then(
+      (m) => m.default ?? m,
+    );
 
   return examples
     .filter((ex) => {
-      const ct = ex.claimType as string
+      const ct = ex.claimType as string;
       // Normalise: 'mould_remediation' matches 'mould'
-      const normalised = ct === 'mould_remediation' ? 'mould' : ct
-      const targetNormalised = claimType === 'mould_remediation' ? 'mould' : claimType
-      return normalised === targetNormalised
+      const normalised = ct === "mould_remediation" ? "mould" : ct;
+      const targetNormalised =
+        claimType === "mould_remediation" ? "mould" : claimType;
+      return normalised === targetNormalised;
     })
     .map((ex) => {
       // Extract affected area from scope text or property description
-      const areaMatch = (ex.propertyDescription as string).match(/(\d+)\s*m²\s*(?:affected|total|combined)/i)
-      const affectedAreaM2 = areaMatch ? parseInt(areaMatch[1], 10) : 30
+      const areaMatch = (ex.propertyDescription as string).match(
+        /(\d+)\s*m²\s*(?:affected|total|combined)/i,
+      );
+      const affectedAreaM2 = areaMatch ? parseInt(areaMatch[1], 10) : 30;
 
       return {
         id: ex.id as string,
@@ -124,8 +128,8 @@ async function loadTestCases(claimType: string): Promise<TestCase[]> {
         causeOfLoss: ex.causeOfLoss as string,
         scope: ex.scope as string,
         affectedAreaM2,
-      }
-    })
+      };
+    });
 }
 
 /**
@@ -133,14 +137,14 @@ async function loadTestCases(claimType: string): Promise<TestCase[]> {
  * If fewer than `n` are available, returns all of them.
  */
 function sampleTestCases(cases: TestCase[], n: number): TestCase[] {
-  if (cases.length <= n) return [...cases]
+  if (cases.length <= n) return [...cases];
 
-  const shuffled = [...cases]
+  const shuffled = [...cases];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  return shuffled.slice(0, n)
+  return shuffled.slice(0, n);
 }
 
 // ============================================================
@@ -151,24 +155,24 @@ function sampleTestCases(cases: TestCase[], n: number): TestCase[] {
  * Identify the lowest-scoring sub-dimension from a ScopeQualityScore.
  */
 function findLowestDimension(score: ScopeQualityScore): {
-  name: string
-  value: number
+  name: string;
+  value: number;
 } {
   const dimensions: Array<{ name: string; value: number }> = [
-    { name: 'structural', value: score.structural },
-    { name: 'citationDensity', value: score.citationDensity },
-    { name: 'equipmentAccuracy', value: score.equipmentAccuracy },
-    { name: 'specificity', value: score.specificity },
-    { name: 'categoryCompliance', value: score.categoryCompliance },
-  ]
+    { name: "structural", value: score.structural },
+    { name: "citationDensity", value: score.citationDensity },
+    { name: "equipmentAccuracy", value: score.equipmentAccuracy },
+    { name: "specificity", value: score.specificity },
+    { name: "categoryCompliance", value: score.categoryCompliance },
+  ];
 
-  let lowest = dimensions[0]
+  let lowest = dimensions[0];
   for (const dim of dimensions) {
     if (dim.value < lowest.value) {
-      lowest = dim
+      lowest = dim;
     }
   }
-  return lowest
+  return lowest;
 }
 
 // ============================================================
@@ -183,24 +187,24 @@ async function generateScope(
   anthropic: Anthropic,
   systemPrompt: string,
   testCase: TestCase,
-  callCounter: { count: number }
+  callCounter: { count: number },
 ): Promise<string> {
-  callCounter.count++
+  callCounter.count++;
 
-  const userMessage = buildUserMessage(testCase)
+  const userMessage = buildUserMessage(testCase);
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4096,
     system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-  })
+    messages: [{ role: "user", content: userMessage }],
+  });
 
   // Extract text from response
   const textBlocks = response.content.filter(
-    (block): block is Anthropic.TextBlock => block.type === 'text'
-  )
-  return textBlocks.map((b) => b.text).join('\n')
+    (block): block is Anthropic.TextBlock => block.type === "text",
+  );
+  return textBlocks.map((b) => b.text).join("\n");
 }
 
 /**
@@ -212,10 +216,10 @@ function buildUserMessage(testCase: TestCase): string {
 Property: ${testCase.propertyDescription}
 Cause of loss: ${testCase.causeOfLoss}
 Affected area: ${testCase.affectedAreaM2} m²
-${testCase.damageCategory ? `Damage category: ${testCase.damageCategory}` : ''}
-${testCase.damageClass ? `Damage class: ${testCase.damageClass}` : ''}
+${testCase.damageCategory ? `Damage category: ${testCase.damageCategory}` : ""}
+${testCase.damageClass ? `Damage class: ${testCase.damageClass}` : ""}
 
-Produce the full 7-section scope document.`
+Produce the full 7-section scope document.`;
 }
 
 /**
@@ -228,11 +232,11 @@ async function requestCandidateEdits(
   score: ScopeQualityScore,
   claimType: string,
   candidatesPerIteration: number,
-  callCounter: { count: number }
+  callCounter: { count: number },
 ): Promise<CandidateEdit[]> {
-  callCounter.count++
+  callCounter.count++;
 
-  const lowest = findLowestDimension(score)
+  const lowest = findLowestDimension(score);
 
   const metaPrompt = `You are an IICRC scope prompt engineer. Your task is to improve the system prompt used for generating ${claimType} scope-of-works documents.
 
@@ -269,20 +273,23 @@ Return ONLY a JSON array with exactly ${candidatesPerIteration} objects:
   }
 ]
 
-Return raw JSON only — no markdown code fences, no commentary.`
+Return raw JSON only — no markdown code fences, no commentary.`;
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2048,
-    messages: [{ role: 'user', content: metaPrompt }],
-  })
+    messages: [{ role: "user", content: metaPrompt }],
+  });
 
   const textBlocks = response.content.filter(
-    (block): block is Anthropic.TextBlock => block.type === 'text'
-  )
-  const rawText = textBlocks.map((b) => b.text).join('\n').trim()
+    (block): block is Anthropic.TextBlock => block.type === "text",
+  );
+  const rawText = textBlocks
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
 
-  return parseCandidateEdits(rawText, candidatesPerIteration)
+  return parseCandidateEdits(rawText, candidatesPerIteration);
 }
 
 /**
@@ -291,41 +298,41 @@ Return raw JSON only — no markdown code fences, no commentary.`
  */
 function parseCandidateEdits(
   rawText: string,
-  expectedCount: number
+  expectedCount: number,
 ): CandidateEdit[] {
   // Strip markdown code fences if present
   let cleaned = rawText
-    .replace(/^```(?:json)?\s*\n?/i, '')
-    .replace(/\n?```\s*$/i, '')
-    .trim()
+    .replace(/^```(?:json)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
 
   // Attempt to extract JSON array if wrapped in other text
-  const arrayMatch = cleaned.match(/\[[\s\S]*\]/)
+  const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
   if (arrayMatch) {
-    cleaned = arrayMatch[0]
+    cleaned = arrayMatch[0];
   }
 
   try {
-    const parsed = JSON.parse(cleaned) as unknown[]
+    const parsed = JSON.parse(cleaned) as unknown[];
 
     if (!Array.isArray(parsed)) {
-      return []
+      return [];
     }
 
     return parsed
       .slice(0, expectedCount)
       .filter((item): item is CandidateEdit => {
-        if (typeof item !== 'object' || item === null) return false
-        const obj = item as Record<string, unknown>
+        if (typeof item !== "object" || item === null) return false;
+        const obj = item as Record<string, unknown>;
         return (
-          typeof obj.description === 'string' &&
-          typeof obj.oldText === 'string' &&
-          typeof obj.newText === 'string'
-        )
-      })
+          typeof obj.description === "string" &&
+          typeof obj.oldText === "string" &&
+          typeof obj.newText === "string"
+        );
+      });
   } catch {
     // JSON parse failed — return empty array so the iteration is skipped
-    return []
+    return [];
   }
 }
 
@@ -335,16 +342,16 @@ function parseCandidateEdits(
  * If oldText is not found, returns null (edit cannot be applied).
  */
 function applyEdit(prompt: string, edit: CandidateEdit): string | null {
-  if (edit.oldText === '') {
+  if (edit.oldText === "") {
     // Append mode
-    return prompt + '\n' + edit.newText
+    return prompt + "\n" + edit.newText;
   }
 
   if (!prompt.includes(edit.oldText)) {
-    return null
+    return null;
   }
 
-  return prompt.replace(edit.oldText, edit.newText)
+  return prompt.replace(edit.oldText, edit.newText);
 }
 
 // ============================================================
@@ -359,37 +366,49 @@ async function evaluatePrompt(
   anthropic: Anthropic,
   systemPrompt: string,
   testCases: TestCase[],
-  callCounter: { count: number }
+  callCounter: { count: number },
 ): Promise<{ averageScore: ScopeQualityScore; perCase: ScopeQualityScore[] }> {
-  const scores: ScopeQualityScore[] = []
+  const scores: ScopeQualityScore[] = [];
 
   for (const tc of testCases) {
     const generatedScope = await generateScope(
       anthropic,
       systemPrompt,
       tc,
-      callCounter
-    )
+      callCounter,
+    );
 
     const evalInput: ScopeEvaluationInput = {
       claimType: tc.claimType,
       damageCategory: tc.damageCategory ?? undefined,
       damageClass: tc.damageClass ?? undefined,
       affectedAreaM2: tc.affectedAreaM2,
-    }
+    };
 
-    const score = evaluateScopeQuality(generatedScope, evalInput)
-    scores.push(score)
+    const score = evaluateScopeQuality(generatedScope, evalInput);
+    scores.push(score);
   }
 
   // Average all dimensions
   const avg: ScopeQualityScore = {
-    composite: Math.round(scores.reduce((s, sc) => s + sc.composite, 0) / scores.length),
-    structural: Math.round(scores.reduce((s, sc) => s + sc.structural, 0) / scores.length),
-    citationDensity: Math.round(scores.reduce((s, sc) => s + sc.citationDensity, 0) / scores.length),
-    equipmentAccuracy: Math.round(scores.reduce((s, sc) => s + sc.equipmentAccuracy, 0) / scores.length),
-    specificity: Math.round(scores.reduce((s, sc) => s + sc.specificity, 0) / scores.length),
-    categoryCompliance: Math.round(scores.reduce((s, sc) => s + sc.categoryCompliance, 0) / scores.length),
+    composite: Math.round(
+      scores.reduce((s, sc) => s + sc.composite, 0) / scores.length,
+    ),
+    structural: Math.round(
+      scores.reduce((s, sc) => s + sc.structural, 0) / scores.length,
+    ),
+    citationDensity: Math.round(
+      scores.reduce((s, sc) => s + sc.citationDensity, 0) / scores.length,
+    ),
+    equipmentAccuracy: Math.round(
+      scores.reduce((s, sc) => s + sc.equipmentAccuracy, 0) / scores.length,
+    ),
+    specificity: Math.round(
+      scores.reduce((s, sc) => s + sc.specificity, 0) / scores.length,
+    ),
+    categoryCompliance: Math.round(
+      scores.reduce((s, sc) => s + sc.categoryCompliance, 0) / scores.length,
+    ),
     details: {
       sectionsFound: [],
       sectionsMissing: [],
@@ -397,9 +416,9 @@ async function evaluatePrompt(
       hedgingWords: [],
       equipmentIssues: [],
     },
-  }
+  };
 
-  return { averageScore: avg, perCase: scores }
+  return { averageScore: avg, perCase: scores };
 }
 
 // ============================================================
@@ -418,7 +437,7 @@ async function evaluatePrompt(
  * Returns full audit trail including all variants tried.
  */
 export async function optimizePrompt(
-  options: OptimizationOptions
+  options: OptimizationOptions,
 ): Promise<OptimizationResult> {
   const {
     claimType,
@@ -426,75 +445,75 @@ export async function optimizePrompt(
     threshold = 2,
     testCasesPerEval = 3,
     candidatesPerIteration = 3,
-  } = options
+  } = options;
 
   // Validate ANTHROPIC_API_KEY
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
-      'ANTHROPIC_API_KEY environment variable is not set. ' +
-      'Set it in .env.local (dev) or Vercel env vars (prod) to use the prompt optimizer.'
-    )
+      "ANTHROPIC_API_KEY environment variable is not set. " +
+        "Set it in .env.local (dev) or Vercel env vars (prod) to use the prompt optimizer.",
+    );
   }
 
-  const budget = Math.min(rawBudget, MAX_BUDGET)
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const budget = Math.min(rawBudget, MAX_BUDGET);
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   // ── Step 1: Load current production prompt ──
-  let currentPrompt = getClaimTypePrompt(claimType as ClaimType)
+  let currentPrompt = getClaimTypePrompt(claimType as ClaimType);
 
   // ── Step 2: Load test cases ──
-  const allTestCases = await loadTestCases(claimType)
+  const allTestCases = await loadTestCases(claimType);
   if (allTestCases.length === 0) {
     throw new Error(
       `No test cases found for claim type "${claimType}" in scope-examples.json. ` +
-      'Add test cases before running optimization.'
-    )
+        "Add test cases before running optimization.",
+    );
   }
 
-  const callCounter = { count: 0 }
-  const variants: VariantRecord[] = []
-  let versionCounter = 0
+  const callCounter = { count: 0 };
+  const variants: VariantRecord[] = [];
+  let versionCounter = 0;
 
   // ── Step 3: Baseline evaluation ──
-  const baselineTestCases = sampleTestCases(allTestCases, testCasesPerEval)
+  const baselineTestCases = sampleTestCases(allTestCases, testCasesPerEval);
   const baselineResult = await evaluatePrompt(
     anthropic,
     currentPrompt,
     baselineTestCases,
-    callCounter
-  )
-  const baselineScore = baselineResult.averageScore.composite
+    callCounter,
+  );
+  const baselineScore = baselineResult.averageScore.composite;
 
-  let bestScore = baselineScore
-  let bestPrompt = currentPrompt
+  let bestScore = baselineScore;
+  let bestPrompt = currentPrompt;
 
   variants.push({
     version: versionCounter++,
     compositeScore: baselineScore,
-    description: 'Baseline production prompt',
+    description: "Baseline production prompt",
     promoted: true,
-  })
+  });
 
   // ── Step 4: Optimization loop ──
-  let iterations = 0
+  let iterations = 0;
 
   while (callCounter.count < budget) {
-    iterations++
+    iterations++;
 
     // 4a. Meta-prompt: get candidate edits
     // Check budget for meta-prompt call (1) + evaluation calls (candidates * testCases)
     const estimatedCallsThisIteration =
-      1 + candidatesPerIteration * testCasesPerEval
+      1 + candidatesPerIteration * testCasesPerEval;
     if (callCounter.count + estimatedCallsThisIteration > budget) {
-      break
+      break;
     }
 
     const currentScore = await evaluatePrompt(
       anthropic,
       currentPrompt,
       sampleTestCases(allTestCases, 1), // Quick single-case score for meta-prompt context
-      callCounter
-    )
+      callCounter,
+    );
 
     const candidates = await requestCandidateEdits(
       anthropic,
@@ -502,25 +521,25 @@ export async function optimizePrompt(
       currentScore.averageScore,
       claimType,
       candidatesPerIteration,
-      callCounter
-    )
+      callCounter,
+    );
 
     if (candidates.length === 0) {
       // Meta-prompt returned no valid edits — skip this iteration
-      continue
+      continue;
     }
 
     // 4b–c. Evaluate each candidate
-    let bestCandidateScore = bestScore
-    let bestCandidatePrompt: string | null = null
-    let bestCandidateDescription = ''
+    let bestCandidateScore = bestScore;
+    let bestCandidatePrompt: string | null = null;
+    let bestCandidateDescription = "";
 
     for (const candidate of candidates) {
       if (callCounter.count + testCasesPerEval > budget) {
-        break
+        break;
       }
 
-      const modifiedPrompt = applyEdit(currentPrompt, candidate)
+      const modifiedPrompt = applyEdit(currentPrompt, candidate);
       if (modifiedPrompt === null) {
         // Edit could not be applied (oldText not found)
         variants.push({
@@ -528,31 +547,31 @@ export async function optimizePrompt(
           compositeScore: 0,
           description: `[SKIPPED] ${candidate.description} — oldText not found in prompt`,
           promoted: false,
-        })
-        continue
+        });
+        continue;
       }
 
-      const evalTestCases = sampleTestCases(allTestCases, testCasesPerEval)
+      const evalTestCases = sampleTestCases(allTestCases, testCasesPerEval);
       const evalResult = await evaluatePrompt(
         anthropic,
         modifiedPrompt,
         evalTestCases,
-        callCounter
-      )
+        callCounter,
+      );
 
-      const candidateComposite = evalResult.averageScore.composite
+      const candidateComposite = evalResult.averageScore.composite;
 
       variants.push({
         version: versionCounter++,
         compositeScore: candidateComposite,
         description: candidate.description,
         promoted: false, // Will be updated if promoted
-      })
+      });
 
       if (candidateComposite > bestCandidateScore) {
-        bestCandidateScore = candidateComposite
-        bestCandidatePrompt = modifiedPrompt
-        bestCandidateDescription = candidate.description
+        bestCandidateScore = candidateComposite;
+        bestCandidatePrompt = modifiedPrompt;
+        bestCandidateDescription = candidate.description;
       }
     }
 
@@ -561,19 +580,19 @@ export async function optimizePrompt(
       bestCandidatePrompt !== null &&
       bestCandidateScore >= bestScore + threshold
     ) {
-      currentPrompt = bestCandidatePrompt
-      bestScore = bestCandidateScore
-      bestPrompt = bestCandidatePrompt
+      currentPrompt = bestCandidatePrompt;
+      bestScore = bestCandidateScore;
+      bestPrompt = bestCandidatePrompt;
 
       // Mark the winning variant as promoted
       const winnerVariant = variants.find(
         (v) =>
           v.compositeScore === bestCandidateScore &&
           v.description === bestCandidateDescription &&
-          !v.promoted
-      )
+          !v.promoted,
+      );
       if (winnerVariant) {
-        winnerVariant.promoted = true
+        winnerVariant.promoted = true;
       }
     }
   }
@@ -582,11 +601,12 @@ export async function optimizePrompt(
     claimType,
     iterations,
     totalApiCalls: callCounter.count,
-    estimatedCostAud: Math.round(callCounter.count * COST_PER_CALL_AUD * 100) / 100,
+    estimatedCostAud:
+      Math.round(callCounter.count * COST_PER_CALL_AUD * 100) / 100,
     baselineScore,
     bestScore,
     improved: bestScore > baselineScore,
     bestPromptPreview: bestPrompt.slice(0, 200),
     variants,
-  }
+  };
 }

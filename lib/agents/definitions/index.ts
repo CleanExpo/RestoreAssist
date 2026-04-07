@@ -4,10 +4,10 @@
  */
 
 // Each import triggers registerAgent() at module scope
-import './report-analysis'
-import './classification'
-import './scope-generation'
+import "./report-analysis";
+import "./classification";
+import "./scope-generation";
 
-export { reportAnalysisConfig } from './report-analysis'
-export { classificationConfig } from './classification'
-export { scopeGenerationConfig } from './scope-generation'
+export { reportAnalysisConfig } from "./report-analysis";
+export { classificationConfig } from "./classification";
+export { scopeGenerationConfig } from "./scope-generation";

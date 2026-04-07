@@ -1,233 +1,241 @@
 /**
  * Revolutionary Gap Analysis Engine
- * 
+ *
  * Next-level comprehensive gap analysis that compares documents against
  * ALL standards used in inspection reports and provides detailed rectification steps
- * 
+ *
  * This system revolutionizes the field by providing minute-level analysis
  * of every aspect of a restoration report against Australian and IICRC standards
  */
 
-import Anthropic from '@anthropic-ai/sdk'
-import { extractTextFromPDF } from './file-extraction'
-import { retrieveRelevantStandards, buildStandardsContextPrompt, RetrievalQuery } from './standards-retrieval'
-import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
+import Anthropic from "@anthropic-ai/sdk";
+import { extractTextFromPDF } from "./file-extraction";
+import {
+  retrieveRelevantStandards,
+  buildStandardsContextPrompt,
+  RetrievalQuery,
+} from "./standards-retrieval";
+import {
+  createCachedSystemPrompt,
+  extractCacheMetrics,
+  logCacheMetrics,
+} from "./anthropic/features/prompt-cache";
 
 export interface RevolutionaryGapAnalysisResult {
-  fileName: string
-  fileId: string
-  
+  fileName: string;
+  fileId: string;
+
   // Comprehensive section-by-section analysis
   sectionAnalysis: {
-    sectionName: string
-    present: boolean
-    completeness: number // 0-100
-    missingElements: string[]
-    nonCompliantElements: string[]
-    standardReferences: string[]
+    sectionName: string;
+    present: boolean;
+    completeness: number; // 0-100
+    missingElements: string[];
+    nonCompliantElements: string[];
+    standardReferences: string[];
     rectificationSteps: Array<{
-      step: string
-      priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-      standardReference: string
-      estimatedTime: string
-      estimatedCost?: number
-    }>
-  }[]
-  
+      step: string;
+      priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+      standardReference: string;
+      estimatedTime: string;
+      estimatedCost?: number;
+    }>;
+  }[];
+
   // Detailed issues with rectification
   issues: Array<{
-    category: string
-    section: string
-    elementName: string
-    description: string
-    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-    standardReference: string
-    currentState: string // What's currently in the document
-    requiredState: string // What should be there
-    rectificationSteps: string[] // Step-by-step how to fix
-    isBillable: boolean
-    estimatedCost?: number
-    estimatedHours?: number
-    suggestedLineItem?: string
-    complianceRisk: string // Risk if not rectified
-  }>
-  
+    category: string;
+    section: string;
+    elementName: string;
+    description: string;
+    severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+    standardReference: string;
+    currentState: string; // What's currently in the document
+    requiredState: string; // What should be there
+    rectificationSteps: string[]; // Step-by-step how to fix
+    isBillable: boolean;
+    estimatedCost?: number;
+    estimatedHours?: number;
+    suggestedLineItem?: string;
+    complianceRisk: string; // Risk if not rectified
+  }>;
+
   // Standards compliance matrix
   standardsCompliance: Array<{
-    standard: string
-    standardNumber: string
-    complianceLevel: number // 0-100
-    missingRequirements: string[]
-    presentRequirements: string[]
-    criticalGaps: string[]
-    rectificationPriority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-  }>
-  
+    standard: string;
+    standardNumber: string;
+    complianceLevel: number; // 0-100
+    missingRequirements: string[];
+    presentRequirements: string[];
+    criticalGaps: string[];
+    rectificationPriority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  }>;
+
   // Missing elements by category
   missingElements: {
-    iicrc: number
-    australianStandards: number
-    ohs: number
-    whs: number
-    scopeOfWorks: number
-    billing: number
-    documentation: number
-    equipment: number
-    monitoring: number
-    insurance: number
-    hvac: number
-    electrical: number
-    materials: number
-  }
-  
+    iicrc: number;
+    australianStandards: number;
+    ohs: number;
+    whs: number;
+    scopeOfWorks: number;
+    billing: number;
+    documentation: number;
+    equipment: number;
+    monitoring: number;
+    insurance: number;
+    hvac: number;
+    electrical: number;
+    materials: number;
+  };
+
   // Comprehensive scores
   scores: {
-    completeness: number
-    compliance: number
-    standardization: number
-    scopeAccuracy: number
-    billingAccuracy: number
-    documentationQuality: number
-    technicalAccuracy: number
-    safetyCompliance: number
-    insuranceCompliance: number
-  }
-  
+    completeness: number;
+    compliance: number;
+    standardization: number;
+    scopeAccuracy: number;
+    billingAccuracy: number;
+    documentationQuality: number;
+    technicalAccuracy: number;
+    safetyCompliance: number;
+    insuranceCompliance: number;
+  };
+
   // Revenue analysis
-  estimatedMissingRevenue?: number
+  estimatedMissingRevenue?: number;
   billableItemsMissing: Array<{
-    item: string
-    category: string
-    estimatedCost: number
-    estimatedHours: number
-    frequency: string
-    justification: string
-  }>
-  
+    item: string;
+    category: string;
+    estimatedCost: number;
+    estimatedHours: number;
+    frequency: string;
+    justification: string;
+  }>;
+
   // Report structure analysis
   reportStructure: {
-    sections: string[]
-    missingSections: string[]
-    sectionOrder: string[]
-    flowIssues: string[]
-    recommendedStructure: string[]
-  }
-  
+    sections: string[];
+    missingSections: string[];
+    sectionOrder: string[];
+    flowIssues: string[];
+    recommendedStructure: string[];
+  };
+
   // Technician pattern analysis
   technicianPattern: {
-    reportingStyle: string
-    commonOmissions: string[]
-    strengths: string[]
-    standardizationLevel: 'LOW' | 'MEDIUM' | 'HIGH'
-    trainingNeeds: string[]
-    bestPracticesToAdopt: string[]
-  }
-  
+    reportingStyle: string;
+    commonOmissions: string[];
+    strengths: string[];
+    standardizationLevel: "LOW" | "MEDIUM" | "HIGH";
+    trainingNeeds: string[];
+    bestPracticesToAdopt: string[];
+  };
+
   // Rectification roadmap
   rectificationRoadmap: {
     immediateActions: Array<{
-      action: string
-      priority: 'CRITICAL' | 'HIGH'
-      standardReference: string
-      estimatedTime: string
-      estimatedCost?: number
-    }>
+      action: string;
+      priority: "CRITICAL" | "HIGH";
+      standardReference: string;
+      estimatedTime: string;
+      estimatedCost?: number;
+    }>;
     shortTermImprovements: Array<{
-      improvement: string
-      priority: 'HIGH' | 'MEDIUM'
-      standardReference: string
-      estimatedTime: string
-      estimatedCost?: number
-    }>
+      improvement: string;
+      priority: "HIGH" | "MEDIUM";
+      standardReference: string;
+      estimatedTime: string;
+      estimatedCost?: number;
+    }>;
     longTermEnhancements: Array<{
-      enhancement: string
-      priority: 'MEDIUM' | 'LOW'
-      standardReference: string
-      estimatedTime: string
-      estimatedCost?: number
-    }>
-  }
-  
+      enhancement: string;
+      priority: "MEDIUM" | "LOW";
+      standardReference: string;
+      estimatedTime: string;
+      estimatedCost?: number;
+    }>;
+  };
+
   // Standards referenced
-  standardsReferenced: string[]
-  complianceGaps: string[]
+  standardsReferenced: string[];
+  complianceGaps: string[];
 }
 
 /**
  * Standard report sections that MUST be present
  */
 const REQUIRED_REPORT_SECTIONS = [
-  'Report Header',
-  'Executive Summary',
-  'Date of Attendance',
-  'Client Contacted',
-  'Weather/Seasonal Context',
-  'Areas Affected',
-  'Standards & Compliance',
-  'Material Identification',
-  'Procedures Completed',
-  'Specific Drying Recommendations',
-  'Equipment and Power Requirements',
-  'OH&S Compliance',
-  'Insurance Claim Limitations',
-  'HVAC and Air Systems Assessment',
-  'Electrical Systems Assessment',
-  'Monitoring & Documentation',
-  'Conclusion & Risk Factors',
-  'Psychrometric Assessment',
-  'Loss Details',
-  'Scope of Works',
-  'Cost Estimation',
-  'Timeline/Phases'
-]
+  "Report Header",
+  "Executive Summary",
+  "Date of Attendance",
+  "Client Contacted",
+  "Weather/Seasonal Context",
+  "Areas Affected",
+  "Standards & Compliance",
+  "Material Identification",
+  "Procedures Completed",
+  "Specific Drying Recommendations",
+  "Equipment and Power Requirements",
+  "OH&S Compliance",
+  "Insurance Claim Limitations",
+  "HVAC and Air Systems Assessment",
+  "Electrical Systems Assessment",
+  "Monitoring & Documentation",
+  "Conclusion & Risk Factors",
+  "Psychrometric Assessment",
+  "Loss Details",
+  "Scope of Works",
+  "Cost Estimation",
+  "Timeline/Phases",
+];
 
 /**
  * All Australian and IICRC standards that must be checked
  */
 const ALL_STANDARDS_TO_CHECK = [
   // IICRC Standards
-  'AS-IICRC S500:2025',
-  'IICRC S500 Standard',
-  'AS-IICRC S520',
-  'IICRC S520 Standard',
-  'IICRC S540 Standard',
-  'IICRC RIA Standards',
-  
+  "AS-IICRC S500:2025",
+  "IICRC S500 Standard",
+  "AS-IICRC S520",
+  "IICRC S520 Standard",
+  "IICRC S540 Standard",
+  "IICRC RIA Standards",
+
   // Australian Standards
-  'AS/NZS 3000:2018',
-  'AS/NZS 3500',
-  'AS 1668',
-  'AS/NZS 3666',
-  'AS 3959',
-  'AS 1684',
-  'AS 2870',
-  'AS 2865', // Confined spaces
-  'AS/NZS 3012',
-  
+  "AS/NZS 3000:2018",
+  "AS/NZS 3500",
+  "AS 1668",
+  "AS/NZS 3666",
+  "AS 3959",
+  "AS 1684",
+  "AS 2870",
+  "AS 2865", // Confined spaces
+  "AS/NZS 3012",
+
   // Building Codes
-  'National Construction Code (NCC)',
-  'Queensland Development Code (QDC)',
-  'Building Code of Australia',
-  
+  "National Construction Code (NCC)",
+  "Queensland Development Code (QDC)",
+  "Building Code of Australia",
+
   // OH&S/WHS
-  'Work Health and Safety Act 2011',
-  'Safe Work Australia Guidelines',
-  'State-specific WHS Acts',
-  
+  "Work Health and Safety Act 2011",
+  "Safe Work Australia Guidelines",
+  "State-specific WHS Acts",
+
   // Insurance
-  'General Insurance Code of Practice',
-  'Insurance Council of Australia (ICA) standards',
-  'APRA guidelines',
-  
+  "General Insurance Code of Practice",
+  "Insurance Council of Australia (ICA) standards",
+  "APRA guidelines",
+
   // HVAC
-  'ASHRAE standards',
-  'Indoor air quality standards',
-  
+  "ASHRAE standards",
+  "Indoor air quality standards",
+
   // Environmental
-  'State-specific environmental protection laws',
-  'Water discharge regulations',
-  'Waste disposal requirements'
-]
+  "State-specific environmental protection laws",
+  "Water discharge regulations",
+  "Waste disposal requirements",
+];
 
 /**
  * Perform revolutionary comprehensive gap analysis
@@ -235,10 +243,10 @@ const ALL_STANDARDS_TO_CHECK = [
 export async function performRevolutionaryGapAnalysis(
   file: { id: string; name: string; buffer: Buffer },
   anthropicApiKey: string,
-  standardsContext?: string
+  standardsContext?: string,
 ): Promise<RevolutionaryGapAnalysisResult> {
-  const anthropic = new Anthropic({ apiKey: anthropicApiKey })
-  const base64Data = file.buffer.toString('base64')
+  const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+  const base64Data = file.buffer.toString("base64");
 
   const comprehensiveSystemPrompt = `You are the world's leading expert in water damage restoration compliance, with 40+ years of experience in Australia. You are performing a REVOLUTIONARY, MINUTE-LEVEL gap analysis that will transform the restoration industry.
 
@@ -252,13 +260,13 @@ Your task is to perform the most comprehensive analysis possible by:
 6. **Safety Compliance**: Ensure 100% compliance with OH&S/WHS requirements
 7. **Insurance Compliance**: Verify all insurance documentation requirements
 
-${standardsContext ? `\n**STANDARDS FROM GOOGLE DRIVE (USE THESE AS PRIMARY REFERENCE):**\n${standardsContext}\n` : ''}
+${standardsContext ? `\n**STANDARDS FROM GOOGLE DRIVE (USE THESE AS PRIMARY REFERENCE):**\n${standardsContext}\n` : ""}
 
 **ALL STANDARDS TO CHECK:**
-${ALL_STANDARDS_TO_CHECK.map(s => `- ${s}`).join('\n')}
+${ALL_STANDARDS_TO_CHECK.map((s) => `- ${s}`).join("\n")}
 
 **REQUIRED REPORT SECTIONS:**
-${REQUIRED_REPORT_SECTIONS.map(s => `- ${s}`).join('\n')}
+${REQUIRED_REPORT_SECTIONS.map((s) => `- ${s}`).join("\n")}
 
 **FOR EACH SECTION, CHECK:**
 - Is the section present?
@@ -311,7 +319,7 @@ Identify ALL missing billable items including:
 - Electrical inspections ($200-500)
 - HVAC cleaning ($500-2000)
 
-Return ONLY valid JSON.`
+Return ONLY valid JSON.`;
 
   const comprehensiveUserPrompt = `Perform REVOLUTIONARY gap analysis on: ${file.name}
 
@@ -488,66 +496,69 @@ Return JSON with this EXACT structure:
   },
   "standardsReferenced": ["list"],
   "complianceGaps": ["list"]
-}`
+}`;
 
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: "claude-sonnet-4-20250514",
       max_tokens: 16384, // Maximum tokens for comprehensive analysis
       system: [createCachedSystemPrompt(comprehensiveSystemPrompt)],
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: [
             {
-              type: 'document',
+              type: "document",
               source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64Data
-              }
+                type: "base64",
+                media_type: "application/pdf",
+                data: base64Data,
+              },
             },
             {
-              type: 'text',
-              text: comprehensiveUserPrompt
-            }
-          ]
-        }
-      ]
-    })
+              type: "text",
+              text: comprehensiveUserPrompt,
+            },
+          ],
+        },
+      ],
+    });
 
     // Log cache metrics
-    const metrics = extractCacheMetrics(response)
-    logCacheMetrics('RevolutionaryGapAnalyzer', metrics, response.id)
+    const metrics = extractCacheMetrics(response);
+    logCacheMetrics("RevolutionaryGapAnalyzer", metrics, response.id);
 
     if (!response.content || response.content.length === 0) {
-      throw new Error('Claude returned empty response')
+      throw new Error("Claude returned empty response");
     }
 
-    const content = response.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response format from Claude')
+    const content = response.content[0];
+    if (content.type !== "text") {
+      throw new Error("Unexpected response format from Claude");
     }
 
     // Parse JSON from response
-    let jsonText = content.text.trim()
-    jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
-    
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+    let jsonText = content.text.trim();
+    jsonText = jsonText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/, "")
+      .replace(/```\s*$/, "");
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('No JSON found in Claude response')
+      throw new Error("No JSON found in Claude response");
     }
 
-    const result: RevolutionaryGapAnalysisResult = JSON.parse(jsonMatch[0])
+    const result: RevolutionaryGapAnalysisResult = JSON.parse(jsonMatch[0]);
     return {
       ...result,
       fileId: file.id,
-      fileName: file.name
-    }
-
+      fileName: file.name,
+    };
   } catch (error: any) {
-    throw new Error(`Failed to perform revolutionary gap analysis on ${file.name}: ${error.message}`)
+    throw new Error(
+      `Failed to perform revolutionary gap analysis on ${file.name}: ${error.message}`,
+    );
   }
 }
-

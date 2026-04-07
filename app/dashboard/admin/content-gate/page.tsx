@@ -12,31 +12,31 @@
  * to VALIDATED. See lib/nir-content-gate.ts and docs/CONTENT-GATE.md.
  */
 
-import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { NirContentGateDashboard } from "@/components/nir-content-gate-status"
-import { Lock, ArrowLeft, ExternalLink } from "lucide-react"
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { NirContentGateDashboard } from "@/components/nir-content-gate-status";
+import { Lock, ArrowLeft, ExternalLink } from "lucide-react";
 
 export const metadata = {
   title: "NIR Content Gate — Admin | RestoreAssist",
-  description: "Evidence-based publication gate status for NIR customer-facing content domains.",
-}
+  description:
+    "Evidence-based publication gate status for NIR customer-facing content domains.",
+};
 
 export default async function ContentGatePage() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
 
   // Server-side auth guard — redirect unauthenticated or non-admin users
   if (!session?.user) {
-    redirect("/login")
+    redirect("/login");
   }
   if ((session.user as { role?: string }).role !== "ADMIN") {
-    redirect("/dashboard")
+    redirect("/dashboard");
   }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-
       {/* Header */}
       <div>
         <a
@@ -57,8 +57,9 @@ export default async function ContentGatePage() {
                 NIR Content Gate
               </h1>
               <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
-                Evidence-based publication gate — customer-facing content is blocked until
-                each domain&apos;s HYPOTHESIS claims are promoted to VALIDATED.
+                Evidence-based publication gate — customer-facing content is
+                blocked until each domain&apos;s HYPOTHESIS claims are promoted
+                to VALIDATED.
               </p>
             </div>
           </div>
@@ -82,23 +83,32 @@ export default async function ContentGatePage() {
           <li>
             Collect pilot observations until the claim shows{" "}
             <strong>Ready to promote</strong> on the{" "}
-            <a href="/dashboard/admin/pilot" className="underline hover:no-underline">
+            <a
+              href="/dashboard/admin/pilot"
+              className="underline hover:no-underline"
+            >
               Readiness Dashboard
             </a>
           </li>
           <li>
-            Update <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded text-[10px]">lib/nir-evidence-architecture.ts</code>:
-            {" "}set <code className="font-mono">status: &apos;VALIDATED&apos;</code> with <code className="font-mono">validatedBy</code> and <code className="font-mono">validationNotes</code>
+            Update{" "}
+            <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded text-[10px]">
+              lib/nir-evidence-architecture.ts
+            </code>
+            : set{" "}
+            <code className="font-mono">status: &apos;VALIDATED&apos;</code>{" "}
+            with <code className="font-mono">validatedBy</code> and{" "}
+            <code className="font-mono">validationNotes</code>
           </li>
           <li>
-            Open a PR — the diff is the audit trail. Once merged, this page updates automatically.
+            Open a PR — the diff is the audit trail. Once merged, this page
+            updates automatically.
           </li>
         </ol>
       </div>
 
       {/* The gate dashboard (server component — always current) */}
       <NirContentGateDashboard />
-
     </div>
-  )
+  );
 }

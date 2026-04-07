@@ -1,13 +1,21 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { ArrowLeft, RefreshCw, CheckCircle2, XCircle, AlertCircle, Clock, Activity } from "lucide-react"
-import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect, useCallback } from "react";
+import {
+  ArrowLeft,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Clock,
+  Activity,
+} from "lucide-react";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -15,58 +23,58 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ProviderHealth {
-  provider: string
-  status: string
-  lastSyncAt: string | null
-  totalSyncs: number
-  successfulSyncs: number
-  failedSyncs: number
-  successRate: number
+  provider: string;
+  status: string;
+  lastSyncAt: string | null;
+  totalSyncs: number;
+  successfulSyncs: number;
+  failedSyncs: number;
+  successRate: number;
 }
 
 interface MetricsData {
   integrations: {
-    total: number
-    connected: number
-    byProvider: Record<string, ProviderHealth>
-  }
+    total: number;
+    connected: number;
+    byProvider: Record<string, ProviderHealth>;
+  };
   syncs: {
-    total: number
-    successful: number
-    failed: number
-    successRate: number
-    avgDurationMs: number
-  }
+    total: number;
+    successful: number;
+    failed: number;
+    successRate: number;
+    avgDurationMs: number;
+  };
 }
 
 interface SyncLogEntry {
-  id: string
-  syncType: string
-  status: string
-  recordsProcessed: number
-  recordsFailed: number
-  errorMessage: string | null
-  startedAt: string
-  completedAt: string | null
+  id: string;
+  syncType: string;
+  status: string;
+  recordsProcessed: number;
+  recordsFailed: number;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
   integration: {
-    id: string
-    provider: string
-    name: string
-    status: string
-  }
+    id: string;
+    provider: string;
+    name: string;
+    status: string;
+  };
 }
 
 interface SyncErrorsData {
-  syncErrors: SyncLogEntry[]
+  syncErrors: SyncLogEntry[];
   pagination: {
-    total: number
-    hasMore: boolean
-  }
+    total: number;
+    hasMore: boolean;
+  };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -77,32 +85,32 @@ const PROVIDER_LABELS: Record<string, string> = {
   MYOB: "MYOB",
   SERVICEM8: "ServiceM8",
   ASCORA: "Ascora",
-}
+};
 
-const ALL_PROVIDERS = ["XERO", "QUICKBOOKS", "MYOB", "SERVICEM8", "ASCORA"]
+const ALL_PROVIDERS = ["XERO", "QUICKBOOKS", "MYOB", "SERVICEM8", "ASCORA"];
 
-type FilterTab = "all" | "success" | "failed" | "partial"
+type FilterTab = "all" | "success" | "failed" | "partial";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "—"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  return `${Math.round(ms / 60000)}m`
+  if (!completedAt) return "—";
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms / 60000)}m`;
 }
 
 function formatRelativeTime(iso: string | null): string {
-  if (!iso) return "Never"
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return "Just now"
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
+  if (!iso) return "Never";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 function formatDateTime(iso: string): string {
@@ -111,7 +119,7 @@ function formatDateTime(iso: string): string {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  })
+  });
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -124,35 +132,37 @@ function StatusBadge({ status }: { status: string }) {
           <CheckCircle2 className="w-3 h-3 mr-1" />
           Success
         </Badge>
-      )
+      );
     case "FAILED":
       return (
         <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
           <XCircle className="w-3 h-3 mr-1" />
           Failed
         </Badge>
-      )
+      );
     case "PARTIAL":
       return (
         <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
           <AlertCircle className="w-3 h-3 mr-1" />
           Partial
         </Badge>
-      )
+      );
     default:
       return (
         <Badge variant="secondary">
           <Clock className="w-3 h-3 mr-1" />
           {status}
         </Badge>
-      )
+      );
   }
 }
 
 function IntegrationStatusDot({ status }: { status: string }) {
-  if (status === "CONNECTED") return <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-  if (status === "ERROR") return <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
-  return <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />
+  if (status === "CONNECTED")
+    return <span className="inline-block w-2 h-2 rounded-full bg-green-500" />;
+  if (status === "ERROR")
+    return <span className="inline-block w-2 h-2 rounded-full bg-red-500" />;
+  return <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />;
 }
 
 function HealthCardSkeleton() {
@@ -167,29 +177,43 @@ function HealthCardSkeleton() {
         <Skeleton className="h-4 w-28" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function TableRowSkeleton() {
   return (
     <TableRow>
-      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-      <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-      <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-      <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-12" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-12" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-10" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-28" />
+      </TableCell>
     </TableRow>
-  )
+  );
 }
 
 function ExpandableError({ message }: { message: string }) {
-  const [expanded, setExpanded] = useState(false)
-  const isLong = message.length > 80
+  const [expanded, setExpanded] = useState(false);
+  const isLong = message.length > 80;
 
   if (!isLong) {
-    return <span className="text-red-600 text-xs">{message}</span>
+    return <span className="text-red-600 text-xs">{message}</span>;
   }
 
   return (
@@ -204,7 +228,7 @@ function ExpandableError({ message }: { message: string }) {
         {expanded ? "less" : "more"}
       </button>
     </span>
-  )
+  );
 }
 
 // ─── Health Summary Row ───────────────────────────────────────────────────────
@@ -213,8 +237,8 @@ function HealthSummaryRow({
   metrics,
   loading,
 }: {
-  metrics: MetricsData | null
-  loading: boolean
+  metrics: MetricsData | null;
+  loading: boolean;
 }) {
   if (loading) {
     return (
@@ -223,14 +247,14 @@ function HealthSummaryRow({
           <HealthCardSkeleton key={i} />
         ))}
       </div>
-    )
+    );
   }
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       {ALL_PROVIDERS.map((slug) => {
-        const data = metrics?.integrations.byProvider[slug]
-        const label = PROVIDER_LABELS[slug] ?? slug
+        const data = metrics?.integrations.byProvider[slug];
+        const label = PROVIDER_LABELS[slug] ?? slug;
 
         if (!data) {
           // Provider not connected
@@ -246,12 +270,17 @@ function HealthSummaryRow({
                 <p className="text-xs text-muted-foreground">Not connected</p>
               </CardContent>
             </Card>
-          )
+          );
         }
 
-        const lastSyncStatus = data.successfulSyncs > 0
-          ? (data.failedSyncs > 0 ? "PARTIAL" : "SUCCESS")
-          : (data.failedSyncs > 0 ? "FAILED" : null)
+        const lastSyncStatus =
+          data.successfulSyncs > 0
+            ? data.failedSyncs > 0
+              ? "PARTIAL"
+              : "SUCCESS"
+            : data.failedSyncs > 0
+              ? "FAILED"
+              : null;
 
         return (
           <Card key={slug}>
@@ -263,13 +292,25 @@ function HealthSummaryRow({
             </CardHeader>
             <CardContent className="space-y-1">
               <p className="text-xs text-muted-foreground">
-                Last sync: <span className="font-medium text-foreground">{formatRelativeTime(data.lastSyncAt)}</span>
+                Last sync:{" "}
+                <span className="font-medium text-foreground">
+                  {formatRelativeTime(data.lastSyncAt)}
+                </span>
               </p>
               <p className="text-xs text-muted-foreground">
-                {data.totalSyncs} sync{data.totalSyncs !== 1 ? "s" : ""} &middot;{" "}
-                <span className="text-green-700">{data.successfulSyncs} ok</span>
+                {data.totalSyncs} sync{data.totalSyncs !== 1 ? "s" : ""}{" "}
+                &middot;{" "}
+                <span className="text-green-700">
+                  {data.successfulSyncs} ok
+                </span>
                 {data.failedSyncs > 0 && (
-                  <> &middot; <span className="text-red-600">{data.failedSyncs} failed</span></>
+                  <>
+                    {" "}
+                    &middot;{" "}
+                    <span className="text-red-600">
+                      {data.failedSyncs} failed
+                    </span>
+                  </>
                 )}
               </p>
               {lastSyncStatus && (
@@ -279,10 +320,10 @@ function HealthSummaryRow({
               )}
             </CardContent>
           </Card>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 // ─── Sync Event Feed ──────────────────────────────────────────────────────────
@@ -292,17 +333,17 @@ function SyncEventFeed({
   loading,
   filter,
 }: {
-  entries: SyncLogEntry[]
-  loading: boolean
-  filter: FilterTab
+  entries: SyncLogEntry[];
+  loading: boolean;
+  filter: FilterTab;
 }) {
   const filtered = entries.filter((e) => {
-    if (filter === "all") return true
-    if (filter === "success") return e.status === "SUCCESS"
-    if (filter === "failed") return e.status === "FAILED"
-    if (filter === "partial") return e.status === "PARTIAL"
-    return true
-  })
+    if (filter === "all") return true;
+    if (filter === "success") return e.status === "SUCCESS";
+    if (filter === "failed") return e.status === "FAILED";
+    if (filter === "partial") return e.status === "PARTIAL";
+    return true;
+  });
 
   if (loading) {
     return (
@@ -324,19 +365,21 @@ function SyncEventFeed({
           ))}
         </TableBody>
       </Table>
-    )
+    );
   }
 
   if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Activity className="w-10 h-10 text-muted-foreground/40 mb-3" />
-        <p className="text-muted-foreground font-medium">No sync events recorded yet</p>
+        <p className="text-muted-foreground font-medium">
+          No sync events recorded yet
+        </p>
         <p className="text-sm text-muted-foreground/70 mt-1">
           Sync events will appear here once an integration runs its first sync.
         </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -357,7 +400,8 @@ function SyncEventFeed({
           {filtered.map((entry) => (
             <TableRow key={entry.id}>
               <TableCell className="font-medium">
-                {PROVIDER_LABELS[entry.integration.provider] ?? entry.integration.provider}
+                {PROVIDER_LABELS[entry.integration.provider] ??
+                  entry.integration.provider}
               </TableCell>
               <TableCell>
                 <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
@@ -398,70 +442,69 @@ function SyncEventFeed({
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SyncHistoryPage() {
-  const [metrics, setMetrics] = useState<MetricsData | null>(null)
-  const [syncEntries, setSyncEntries] = useState<SyncLogEntry[]>([])
-  const [metricsLoading, setMetricsLoading] = useState(true)
-  const [feedLoading, setFeedLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<FilterTab>("all")
-  const [refreshing, setRefreshing] = useState(false)
+  const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [syncEntries, setSyncEntries] = useState<SyncLogEntry[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
     // Fetch metrics (health summary)
     try {
-      const res = await fetch("/api/integrations/metrics?window=168") // 7-day window
+      const res = await fetch("/api/integrations/metrics?window=168"); // 7-day window
       if (res.ok) {
-        const data = await res.json()
-        setMetrics(data)
+        const data = await res.json();
+        setMetrics(data);
       }
     } catch (err) {
-      console.error("[SyncHistory] Failed to fetch metrics:", err)
+      console.error("[SyncHistory] Failed to fetch metrics:", err);
     } finally {
-      setMetricsLoading(false)
+      setMetricsLoading(false);
     }
 
     // Fetch sync log entries — call sync-errors with large limit to get the event feed
     // The sync-errors route returns FAILED entries individually; for SUCCESS/PARTIAL
     // we surface aggregate counts via the health cards above.
     try {
-      const res = await fetch("/api/integrations/sync-errors?limit=100")
+      const res = await fetch("/api/integrations/sync-errors?limit=100");
       if (res.ok) {
-        const data: SyncErrorsData = await res.json()
-        setSyncEntries(data.syncErrors ?? [])
+        const data: SyncErrorsData = await res.json();
+        setSyncEntries(data.syncErrors ?? []);
       }
     } catch (err) {
-      console.error("[SyncHistory] Failed to fetch sync entries:", err)
+      console.error("[SyncHistory] Failed to fetch sync entries:", err);
     } finally {
-      setFeedLoading(false)
+      setFeedLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData();
+  }, [fetchData]);
 
   const handleRefresh = async () => {
-    setRefreshing(true)
-    setMetricsLoading(true)
-    setFeedLoading(true)
-    await fetchData()
-    setRefreshing(false)
-  }
+    setRefreshing(true);
+    setMetricsLoading(true);
+    setFeedLoading(true);
+    await fetchData();
+    setRefreshing(false);
+  };
 
   // Overall health derived from metrics
-  const overallStatus =
-    !metrics
-      ? null
-      : metrics.syncs.successRate >= 95
-        ? "healthy"
-        : metrics.syncs.successRate >= 80
-          ? "degraded"
-          : "unhealthy"
+  const overallStatus = !metrics
+    ? null
+    : metrics.syncs.successRate >= 95
+      ? "healthy"
+      : metrics.syncs.successRate >= 80
+        ? "degraded"
+        : "unhealthy";
 
   const overallBadge =
     overallStatus === "healthy" ? (
@@ -479,14 +522,14 @@ export default function SyncHistoryPage() {
         <XCircle className="w-3 h-3 mr-1" />
         Unhealthy
       </Badge>
-    ) : null
+    ) : null;
 
   const tabCounts = {
     all: syncEntries.length,
     success: syncEntries.filter((e) => e.status === "SUCCESS").length,
     failed: syncEntries.filter((e) => e.status === "FAILED").length,
     partial: syncEntries.filter((e) => e.status === "PARTIAL").length,
-  }
+  };
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
@@ -501,11 +544,14 @@ export default function SyncHistoryPage() {
             Back to Integrations
           </Link>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">Sync Health &amp; History</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Sync Health &amp; History
+            </h1>
             {overallBadge}
           </div>
           <p className="text-sm text-muted-foreground">
-            Monitor integration sync activity, performance, and errors across all connected platforms.
+            Monitor integration sync activity, performance, and errors across
+            all connected platforms.
           </p>
         </div>
         <Button
@@ -515,7 +561,9 @@ export default function SyncHistoryPage() {
           disabled={refreshing}
           className="shrink-0"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
@@ -524,11 +572,16 @@ export default function SyncHistoryPage() {
       {!metricsLoading && metrics && (
         <div className="flex flex-wrap gap-6 text-sm text-muted-foreground border-b pb-4">
           <span>
-            <span className="font-medium text-foreground">{metrics.integrations.connected}</span> of{" "}
-            {metrics.integrations.total} connected
+            <span className="font-medium text-foreground">
+              {metrics.integrations.connected}
+            </span>{" "}
+            of {metrics.integrations.total} connected
           </span>
           <span>
-            <span className="font-medium text-foreground">{metrics.syncs.total}</span> syncs (7d)
+            <span className="font-medium text-foreground">
+              {metrics.syncs.total}
+            </span>{" "}
+            syncs (7d)
           </span>
           <span>
             Success rate:{" "}
@@ -570,12 +623,17 @@ export default function SyncHistoryPage() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Sync Event Feed
         </h2>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as FilterTab)}
+        >
           <TabsList>
             <TabsTrigger value="all">
               All
               {!feedLoading && (
-                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5">{tabCounts.all}</span>
+                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5">
+                  {tabCounts.all}
+                </span>
               )}
             </TabsTrigger>
             <TabsTrigger value="success">
@@ -604,13 +662,19 @@ export default function SyncHistoryPage() {
             </TabsTrigger>
           </TabsList>
 
-          {(["all", "success", "failed", "partial"] as FilterTab[]).map((tab) => (
-            <TabsContent key={tab} value={tab} className="mt-4">
-              <SyncEventFeed entries={syncEntries} loading={feedLoading} filter={tab} />
-            </TabsContent>
-          ))}
+          {(["all", "success", "failed", "partial"] as FilterTab[]).map(
+            (tab) => (
+              <TabsContent key={tab} value={tab} className="mt-4">
+                <SyncEventFeed
+                  entries={syncEntries}
+                  loading={feedLoading}
+                  filter={tab}
+                />
+              </TabsContent>
+            ),
+          )}
         </Tabs>
       </section>
     </div>
-  )
+  );
 }

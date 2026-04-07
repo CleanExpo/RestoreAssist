@@ -1,72 +1,72 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 // GET /api/invoices/templates/[id] - Get template details
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     const template = await prisma.invoiceTemplate.findUnique({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
     if (!template) {
       return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
+        { error: "Template not found" },
+        { status: 404 },
+      );
     }
 
-    return NextResponse.json({ template })
+    return NextResponse.json({ template });
   } catch (error) {
-    console.error('Error fetching invoice template:', error)
+    console.error("Error fetching invoice template:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch invoice template' },
-      { status: 500 }
-    )
+      { error: "Failed to fetch invoice template" },
+      { status: 500 },
+    );
   }
 }
 
 // PUT /api/invoices/templates/[id] - Update template
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
-    const body = await request.json()
+    const { id } = await params;
+    const body = await request.json();
 
     // Check template exists and belongs to user
     const existingTemplate = await prisma.invoiceTemplate.findUnique({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
     if (!existingTemplate) {
       return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
+        { error: "Template not found" },
+        { status: 404 },
+      );
     }
 
     const {
@@ -123,8 +123,8 @@ export async function PUT(
       paymentQRCode,
       // Custom
       customCSS,
-      customHTML
-    } = body
+      customHTML,
+    } = body;
 
     // If this is being set as default, unset other defaults
     if (isDefault && !existingTemplate.isDefault) {
@@ -132,12 +132,12 @@ export async function PUT(
         where: {
           userId: session.user.id,
           isDefault: true,
-          id: { not: id }
+          id: { not: id },
         },
         data: {
-          isDefault: false
-        }
-      })
+          isDefault: false,
+        },
+      });
     }
 
     const template = await prisma.invoiceTemplate.update({
@@ -196,73 +196,73 @@ export async function PUT(
         paymentQRCode,
         // Custom
         customCSS,
-        customHTML
-      }
-    })
+        customHTML,
+      },
+    });
 
-    return NextResponse.json({ template })
+    return NextResponse.json({ template });
   } catch (error) {
-    console.error('Error updating invoice template:', error)
+    console.error("Error updating invoice template:", error);
     return NextResponse.json(
-      { error: 'Failed to update invoice template' },
-      { status: 500 }
-    )
+      { error: "Failed to update invoice template" },
+      { status: 500 },
+    );
   }
 }
 
 // DELETE /api/invoices/templates/[id] - Delete template
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     // Check template exists and belongs to user
     const template = await prisma.invoiceTemplate.findUnique({
       where: {
         id,
-        userId: session.user.id
+        userId: session.user.id,
       },
       include: {
         _count: {
-          select: { invoices: true }
-        }
-      }
-    })
+          select: { invoices: true },
+        },
+      },
+    });
 
     if (!template) {
       return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
+        { error: "Template not found" },
+        { status: 404 },
+      );
     }
 
     // Don't allow deleting template if it's being used by invoices
     if (template._count.invoices > 0) {
       return NextResponse.json(
         {
-          error: `Cannot delete template that is used by ${template._count.invoices} invoice(s)`
+          error: `Cannot delete template that is used by ${template._count.invoices} invoice(s)`,
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     await prisma.invoiceTemplate.delete({
-      where: { id }
-    })
+      where: { id },
+    });
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting invoice template:', error)
+    console.error("Error deleting invoice template:", error);
     return NextResponse.json(
-      { error: 'Failed to delete invoice template' },
-      { status: 500 }
-    )
+      { error: "Failed to delete invoice template" },
+      { status: 500 },
+    );
   }
 }

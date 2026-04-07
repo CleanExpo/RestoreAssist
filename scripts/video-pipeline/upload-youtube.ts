@@ -54,7 +54,7 @@ interface YouTubeVideoStatus {
  * Returns the YouTube video ID and watch URL.
  */
 export async function uploadToYouTube(
-  options: YouTubeUploadOptions
+  options: YouTubeUploadOptions,
 ): Promise<YouTubeUploadResult> {
   // Validate env vars
   const clientId = process.env.YOUTUBE_CLIENT_ID;
@@ -65,7 +65,7 @@ export async function uploadToYouTube(
     throw new Error(
       "Missing YouTube OAuth2 credentials. " +
         "Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, and YOUTUBE_REFRESH_TOKEN " +
-        "in your .env.local file or system environment."
+        "in your .env.local file or system environment.",
     );
   }
 
@@ -75,9 +75,7 @@ export async function uploadToYouTube(
     const googModule = await import("googleapis");
     google = googModule.google;
   } catch {
-    throw new Error(
-      "googleapis is not installed. Run: npm install googleapis"
-    );
+    throw new Error("googleapis is not installed. Run: npm install googleapis");
   }
 
   if (!fs.existsSync(options.videoPath)) {
@@ -127,7 +125,7 @@ export async function uploadToYouTube(
   const videoId = insertResponse.data.id;
   if (!videoId) {
     throw new Error(
-      "YouTube upload succeeded but no video ID returned in response"
+      "YouTube upload succeeded but no video ID returned in response",
     );
   }
 
@@ -137,7 +135,7 @@ export async function uploadToYouTube(
   if (thumbnailPath) {
     if (!fs.existsSync(thumbnailPath)) {
       console.warn(
-        `[youtube] Thumbnail file not found at ${thumbnailPath}, skipping.`
+        `[youtube] Thumbnail file not found at ${thumbnailPath}, skipping.`,
       );
     } else {
       const thumbExt = path.extname(thumbnailPath).toLowerCase();
@@ -145,8 +143,8 @@ export async function uploadToYouTube(
         thumbExt === ".png"
           ? "image/png"
           : thumbExt === ".jpg" || thumbExt === ".jpeg"
-          ? "image/jpeg"
-          : "image/jpeg";
+            ? "image/jpeg"
+            : "image/jpeg";
 
       console.log(`[youtube] Uploading thumbnail from ${thumbnailPath}...`);
       await youtube.thumbnails.set({

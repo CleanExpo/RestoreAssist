@@ -1,45 +1,57 @@
-"use client"
+"use client";
 
-import { FileText, Plus, Search, Trash2, Edit, AlertTriangle } from "lucide-react"
-import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import toast from "react-hot-toast"
+import {
+  FileText,
+  Plus,
+  Search,
+  Trash2,
+  Edit,
+  AlertTriangle,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 
 interface FormTemplate {
-  id: string
-  name: string
-  description?: string
-  formType: string
-  category?: string
-  isDefault?: boolean
-  createdAt?: string
-  _count?: { questions: number }
-  questions?: Array<{ id: string }>
+  id: string;
+  name: string;
+  description?: string;
+  formType: string;
+  category?: string;
+  isDefault?: boolean;
+  createdAt?: string;
+  _count?: { questions: number };
+  questions?: Array<{ id: string }>;
 }
 
 const BADGE_COLORS: Record<string, string> = {
   INTERVIEW: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  SURVEY: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  ONBOARDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-}
+  SURVEY:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  ONBOARDING:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+};
 
 function getBadgeClass(formType: string): string {
-  return BADGE_COLORS[formType] ?? "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+  return (
+    BADGE_COLORS[formType] ??
+    "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+  );
 }
 
 function formatDate(dateStr?: string): string {
-  if (!dateStr) return "—"
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-AU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 function getQuestionCount(template: FormTemplate): number | null {
-  if (template._count?.questions != null) return template._count.questions
-  if (template.questions) return template.questions.length
-  return null
+  if (template._count?.questions != null) return template._count.questions;
+  if (template.questions) return template.questions.length;
+  return null;
 }
 
 // Loading skeleton card
@@ -60,7 +72,7 @@ function SkeletonCard() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Delete confirmation dialog
@@ -70,10 +82,10 @@ function DeleteDialog({
   onCancel,
   deleting,
 }: {
-  template: FormTemplate
-  onConfirm: () => void
-  onCancel: () => void
-  deleting: boolean
+  template: FormTemplate;
+  onConfirm: () => void;
+  onCancel: () => void;
+  deleting: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -83,14 +95,20 @@ function DeleteDialog({
             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Delete Template</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+              Delete Template
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              This action cannot be undone
+            </p>
           </div>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
           Are you sure you want to delete{" "}
-          <span className="font-medium text-gray-900 dark:text-white">&ldquo;{template.name}&rdquo;</span>?
-          Any forms using this template will be affected.
+          <span className="font-medium text-gray-900 dark:text-white">
+            &ldquo;{template.name}&rdquo;
+          </span>
+          ? Any forms using this template will be affected.
         </p>
         <div className="flex justify-end gap-3">
           <button
@@ -110,70 +128,74 @@ function DeleteDialog({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function FormTemplatesPage() {
-  const [templates, setTemplates] = useState<FormTemplate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState("ALL")
-  const [deleteTarget, setDeleteTarget] = useState<FormTemplate | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [deleteTarget, setDeleteTarget] = useState<FormTemplate | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetchTemplates()
-  }, [])
+    fetchTemplates();
+  }, []);
 
   async function fetchTemplates() {
     try {
-      setLoading(true)
-      const res = await fetch("/api/form-templates")
-      const data = await res.json()
-      const list = data.templates ?? data ?? []
-      setTemplates(list)
+      setLoading(true);
+      const res = await fetch("/api/form-templates");
+      const data = await res.json();
+      const list = data.templates ?? data ?? [];
+      setTemplates(list);
     } catch (err) {
-      console.error("Error fetching form templates:", err)
-      toast.error("Failed to load form templates")
+      console.error("Error fetching form templates:", err);
+      toast.error("Failed to load form templates");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   // Unique formType values for filter dropdown
   const formTypes = useMemo(() => {
-    const types = Array.from(new Set(templates.map((t) => t.formType).filter(Boolean)))
-    return types.sort()
-  }, [templates])
+    const types = Array.from(
+      new Set(templates.map((t) => t.formType).filter(Boolean)),
+    );
+    return types.sort();
+  }, [templates]);
 
   const filtered = useMemo(() => {
     return templates.filter((t) => {
-      const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesType = typeFilter === "ALL" || t.formType === typeFilter
-      return matchesSearch && matchesType
-    })
-  }, [templates, searchTerm, typeFilter])
+      const matchesSearch = t.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "ALL" || t.formType === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [templates, searchTerm, typeFilter]);
 
   async function handleDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
       const res = await fetch(`/api/form-templates/${deleteTarget.id}`, {
         method: "DELETE",
-      })
+      });
       if (res.ok) {
-        setTemplates((prev) => prev.filter((t) => t.id !== deleteTarget.id))
-        toast.success(`"${deleteTarget.name}" deleted`)
+        setTemplates((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+        toast.success(`"${deleteTarget.name}" deleted`);
       } else {
-        const body = await res.json().catch(() => ({}))
-        toast.error(body.error ?? "Failed to delete template")
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? "Failed to delete template");
       }
     } catch (err) {
-      console.error("Delete error:", err)
-      toast.error("Failed to delete template")
+      console.error("Delete error:", err);
+      toast.error("Failed to delete template");
     } finally {
-      setDeleting(false)
-      setDeleteTarget(null)
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   }
 
@@ -182,9 +204,12 @@ export default function FormTemplatesPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Form Templates</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Form Templates
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage reusable form templates for interviews, surveys, and onboarding
+            Manage reusable form templates for interviews, surveys, and
+            onboarding
           </p>
         </div>
         <Link
@@ -266,7 +291,7 @@ export default function FormTemplatesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((template) => {
-            const questionCount = getQuestionCount(template)
+            const questionCount = getQuestionCount(template);
             return (
               <div
                 key={template.id}
@@ -305,7 +330,9 @@ export default function FormTemplatesPage() {
                 <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 dark:border-gray-700">
                   <div className="text-xs text-gray-400 dark:text-gray-500 space-y-0.5">
                     {questionCount != null && (
-                      <p>{questionCount} question{questionCount !== 1 ? "s" : ""}</p>
+                      <p>
+                        {questionCount} question{questionCount !== 1 ? "s" : ""}
+                      </p>
                     )}
                     {template.createdAt && (
                       <p>Created {formatDate(template.createdAt)}</p>
@@ -329,7 +356,7 @@ export default function FormTemplatesPage() {
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
@@ -337,7 +364,8 @@ export default function FormTemplatesPage() {
       {/* Result count */}
       {!loading && filtered.length > 0 && (
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          Showing {filtered.length} of {templates.length} template{templates.length !== 1 ? "s" : ""}
+          Showing {filtered.length} of {templates.length} template
+          {templates.length !== 1 ? "s" : ""}
         </p>
       )}
 
@@ -351,5 +379,5 @@ export default function FormTemplatesPage() {
         />
       )}
     </div>
-  )
+  );
 }

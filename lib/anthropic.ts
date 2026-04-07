@@ -1,71 +1,77 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { tryClaudeModels } from './anthropic-models'
-import { createCachedSystemPrompt } from './anthropic/features/prompt-cache'
+import Anthropic from "@anthropic-ai/sdk";
+import { tryClaudeModels } from "./anthropic-models";
+import { createCachedSystemPrompt } from "./anthropic/features/prompt-cache";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
-})
+});
 
-export { anthropic }
+export { anthropic };
 
 export interface ReportGenerationRequest {
   basicInfo: {
-    title: string
-    clientName: string
-    propertyAddress: string
-    dateOfLoss: string
-    waterCategory: string
-    waterClass: string
-    hazardType: string
-    insuranceType: string
-  }
-  remediationData: any
-  dryingPlan: any
-  equipmentSizing: any
-  monitoringData: any
-  insuranceData: any
+    title: string;
+    clientName: string;
+    propertyAddress: string;
+    dateOfLoss: string;
+    waterCategory: string;
+    waterClass: string;
+    hazardType: string;
+    insuranceType: string;
+  };
+  remediationData: any;
+  dryingPlan: any;
+  equipmentSizing: any;
+  monitoringData: any;
+  insuranceData: any;
 }
 
-export async function generateDetailedReport(data: ReportGenerationRequest): Promise<string> {
+export async function generateDetailedReport(
+  data: ReportGenerationRequest,
+): Promise<string> {
   try {
-    
-    const prompt = createReportPrompt(data)
-    
+    const prompt = createReportPrompt(data);
+
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await tryClaudeModels(
       anthropic,
       {
-      system: [createCachedSystemPrompt('You are an expert IICRC S500 certified water damage restoration specialist generating comprehensive, professional reports.')],
-      max_tokens: 4000,
-      temperature: 0.7,
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ]
+        system: [
+          createCachedSystemPrompt(
+            "You are an expert IICRC S500 certified water damage restoration specialist generating comprehensive, professional reports.",
+          ),
+        ],
+        max_tokens: 4000,
+        temperature: 0.7,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
       },
       undefined, // use default models
       {
-        agentName: 'DetailedReportGenerator',
-        enableCacheMetrics: true
-      }
-    )
+        agentName: "DetailedReportGenerator",
+        enableCacheMetrics: true,
+      },
+    );
 
-    
-    if (response.content[0].type === 'text') {
-      return response.content[0].text
+    if (response.content[0].type === "text") {
+      return response.content[0].text;
     } else {
-      console.error('Unexpected response type:', response.content[0].type)
-      throw new Error('Unexpected response format from AI')
+      console.error("Unexpected response type:", response.content[0].type);
+      throw new Error("Unexpected response format from AI");
     }
   } catch (error) {
-    console.error('Error generating report with Anthropic:', error)
+    console.error("Error generating report with Anthropic:", error);
     if (error instanceof Error) {
-      console.error('Error message:', error.message)
-      console.error('Error stack:', error.stack)
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
     }
-    throw new Error(`Failed to generate detailed report: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(
+      `Failed to generate detailed report: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
   }
 }
 
@@ -125,5 +131,5 @@ The report should be:
 - Include all necessary documentation for insurance claims
 
 Format the report in a clear, professional structure with proper headings, bullet points, and technical specifications.
-`
+`;
 }

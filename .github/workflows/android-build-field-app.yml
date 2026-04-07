@@ -3,8 +3,8 @@ name: Android Build — Field App (com.restoreassist.app)
 on:
   push:
     tags:
-      - 'android-v*'          # e.g. android-v1.0.0
-  workflow_dispatch:           # Manual trigger from GitHub Actions UI
+      - "android-v*" # e.g. android-v1.0.0
+  workflow_dispatch: # Manual trigger from GitHub Actions UI
 
 jobs:
   build:
@@ -23,8 +23,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -32,8 +32,8 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: "21"
+          distribution: "temurin"
 
       # Server-hosted WebView — no Next.js build needed.
       # The Android app loads https://restoreassist.com.au directly.

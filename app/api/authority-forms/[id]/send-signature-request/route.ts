@@ -1,19 +1,19 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { randomUUID } from "crypto"
-import { Resend } from "resend"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import { Resend } from "resend";
 
-let resend: Resend | null = null
+let resend: Resend | null = null;
 function getResendClient(): Resend {
   if (!resend) {
     if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured")
+      throw new Error("RESEND_API_KEY is not configured");
     }
-    resend = new Resend(process.env.RESEND_API_KEY)
+    resend = new Resend(process.env.RESEND_API_KEY);
   }
-  return resend
+  return resend;
 }
 
 /**
@@ -22,20 +22,23 @@ function getResendClient(): Resend {
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: formId } = await params
-    const body = await request.json()
-    const { signatureId } = body
+    const { id: formId } = await params;
+    const body = await request.json();
+    const { signatureId } = body;
 
     if (!signatureId) {
-      return NextResponse.json({ error: "signatureId is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "signatureId is required" },
+        { status: 400 },
+      );
     }
 
     // Verify form and permissions
@@ -51,10 +54,10 @@ export async function POST(
           },
         },
       },
-    })
+    });
 
     if (!form) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 })
+      return NextResponse.json({ error: "Form not found" }, { status: 404 });
     }
 
     if (
@@ -62,28 +65,34 @@ export async function POST(
       form.report.assignedManagerId !== session.user.id &&
       form.report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get the signature record
     const signature = await prisma.authorityFormSignature.findUnique({
       where: { id: signatureId },
-    })
+    });
 
     if (!signature) {
-      return NextResponse.json({ error: "Signature not found" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Signature not found" },
+        { status: 404 },
+      );
     }
 
     if (!signature.signatoryEmail) {
-      return NextResponse.json({ error: "Signatory has no email address" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Signatory has no email address" },
+        { status: 400 },
+      );
     }
 
     if (signature.signedAt) {
-      return NextResponse.json({ error: "Already signed" }, { status: 400 })
+      return NextResponse.json({ error: "Already signed" }, { status: 400 });
     }
 
     // Generate token
-    const token = randomUUID()
+    const token = randomUUID();
 
     // Update signature record
     await prisma.authorityFormSignature.update({
@@ -93,22 +102,23 @@ export async function POST(
         signatureRequestSent: true,
         signatureRequestSentAt: new Date(),
       },
-    })
+    });
 
     // Update form status
     if (form.status === "DRAFT") {
       await prisma.authorityFormInstance.update({
         where: { id: formId },
         data: { status: "PENDING_SIGNATURES" },
-      })
+      });
     }
 
     // Build signing URL
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3008"
-    const signingUrl = `${baseUrl}/sign/${token}`
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3008";
+    const signingUrl = `${baseUrl}/sign/${token}`;
 
     // Send email
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>"
+    const fromEmail =
+      process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
 
     await getResendClient().emails.send({
       from: fromEmail,
@@ -141,14 +151,14 @@ export async function POST(
         </body>
         </html>
       `,
-    })
+    });
 
-    return NextResponse.json({ success: true, token })
+    return NextResponse.json({ success: true, token });
   } catch (error: any) {
-    console.error("[Send Signature Request] Error:", error)
+    console.error("[Send Signature Request] Error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to send signature request" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

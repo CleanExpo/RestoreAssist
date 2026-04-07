@@ -1,14 +1,14 @@
-import { cn } from '@/lib/utils'
-import { AlertTriangle, AlertCircle, Info, CheckCircle2 } from 'lucide-react'
+import { cn } from "@/lib/utils";
+import { AlertTriangle, AlertCircle, Info, CheckCircle2 } from "lucide-react";
 
 interface SeverityDistributionChartProps {
-  critical: number
-  high: number
-  medium: number
-  low: number
-  size?: 'sm' | 'md' | 'lg'
-  showLegend?: boolean
-  className?: string
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  size?: "sm" | "md" | "lg";
+  showLegend?: boolean;
+  className?: string;
 }
 
 /**
@@ -25,18 +25,18 @@ export function SeverityDistributionChart({
   high,
   medium,
   low,
-  size = 'md',
+  size = "md",
   showLegend = true,
-  className
+  className,
 }: SeverityDistributionChartProps) {
-  const total = critical + high + medium + low
+  const total = critical + high + medium + low;
 
   if (total === 0) {
     return (
-      <div className={cn('flex items-center justify-center', className)}>
+      <div className={cn("flex items-center justify-center", className)}>
         <p className="text-sm text-muted-foreground">No issues to display</p>
       </div>
-    )
+    );
   }
 
   // Calculate percentages
@@ -44,65 +44,84 @@ export function SeverityDistributionChart({
     critical: (critical / total) * 100,
     high: (high / total) * 100,
     medium: (medium / total) * 100,
-    low: (low / total) * 100
-  }
+    low: (low / total) * 100,
+  };
 
   // Size variants
   const sizes = {
-    sm: { dimension: 120, strokeWidth: 20, centerSize: 'text-lg', labelSize: 'text-xs' },
-    md: { dimension: 180, strokeWidth: 30, centerSize: 'text-2xl', labelSize: 'text-sm' },
-    lg: { dimension: 240, strokeWidth: 40, centerSize: 'text-3xl', labelSize: 'text-base' }
-  }
+    sm: {
+      dimension: 120,
+      strokeWidth: 20,
+      centerSize: "text-lg",
+      labelSize: "text-xs",
+    },
+    md: {
+      dimension: 180,
+      strokeWidth: 30,
+      centerSize: "text-2xl",
+      labelSize: "text-sm",
+    },
+    lg: {
+      dimension: 240,
+      strokeWidth: 40,
+      centerSize: "text-3xl",
+      labelSize: "text-base",
+    },
+  };
 
-  const config = sizes[size]
-  const radius = (config.dimension - config.strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const center = config.dimension / 2
+  const config = sizes[size];
+  const radius = (config.dimension - config.strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const center = config.dimension / 2;
 
   // Calculate stroke dash arrays for each segment
   // Starting from top (12 o'clock) and going clockwise
-  let currentOffset = circumference * 0.25 // Start at top
+  let currentOffset = circumference * 0.25; // Start at top
 
   const segments = [
     {
-      label: 'CRITICAL',
+      label: "CRITICAL",
       value: critical,
       percentage: percentages.critical,
-      color: '#ef4444',
+      color: "#ef4444",
       icon: AlertTriangle,
-      offset: currentOffset
+      offset: currentOffset,
     },
     {
-      label: 'HIGH',
+      label: "HIGH",
       value: high,
       percentage: percentages.high,
-      color: '#f97316',
+      color: "#f97316",
       icon: AlertCircle,
-      offset: (currentOffset -= (percentages.critical / 100) * circumference)
+      offset: (currentOffset -= (percentages.critical / 100) * circumference),
     },
     {
-      label: 'MEDIUM',
+      label: "MEDIUM",
       value: medium,
       percentage: percentages.medium,
-      color: '#eab308',
+      color: "#eab308",
       icon: Info,
-      offset: (currentOffset -= (percentages.high / 100) * circumference)
+      offset: (currentOffset -= (percentages.high / 100) * circumference),
     },
     {
-      label: 'LOW',
+      label: "LOW",
       value: low,
       percentage: percentages.low,
-      color: '#3b82f6',
+      color: "#3b82f6",
       icon: CheckCircle2,
-      offset: (currentOffset -= (percentages.medium / 100) * circumference)
-    }
-  ]
+      offset: (currentOffset -= (percentages.medium / 100) * circumference),
+    },
+  ];
 
   return (
-    <div className={cn('flex flex-col items-center gap-4', className)}>
+    <div className={cn("flex flex-col items-center gap-4", className)}>
       {/* Donut Chart */}
       <div className="relative">
-        <svg width={config.dimension} height={config.dimension} className="transform -rotate-90">
+        <svg
+          width={config.dimension}
+          height={config.dimension}
+          className="transform -rotate-90"
+        >
           {/* Background circle */}
           <circle
             cx={center}
@@ -116,9 +135,9 @@ export function SeverityDistributionChart({
 
           {/* Severity segments */}
           {segments.map((segment, idx) => {
-            if (segment.value === 0) return null
+            if (segment.value === 0) return null;
 
-            const segmentLength = (segment.percentage / 100) * circumference
+            const segmentLength = (segment.percentage / 100) * circumference;
 
             return (
               <circle
@@ -134,13 +153,18 @@ export function SeverityDistributionChart({
                 strokeLinecap="butt"
                 className="transition-all duration-500"
               />
-            )
+            );
           })}
         </svg>
 
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn('font-bold text-slate-900 dark:text-slate-100', config.centerSize)}>
+          <span
+            className={cn(
+              "font-bold text-slate-900 dark:text-slate-100",
+              config.centerSize,
+            )}
+          >
             {total}
           </span>
           <span className="text-xs text-muted-foreground">Total Issues</span>
@@ -151,9 +175,9 @@ export function SeverityDistributionChart({
       {showLegend && (
         <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
           {segments.map((segment, idx) => {
-            if (segment.value === 0) return null
+            if (segment.value === 0) return null;
 
-            const Icon = segment.icon
+            const Icon = segment.icon;
 
             return (
               <div key={idx} className="flex items-center gap-2">
@@ -163,7 +187,7 @@ export function SeverityDistributionChart({
                 />
                 <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className={cn('font-medium truncate', config.labelSize)}>
+                  <p className={cn("font-medium truncate", config.labelSize)}>
                     {segment.label}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -171,23 +195,23 @@ export function SeverityDistributionChart({
                   </p>
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * SeveritySummaryBar - Horizontal bar showing severity distribution
  */
 interface SeveritySummaryBarProps {
-  critical: number
-  high: number
-  medium: number
-  low: number
-  className?: string
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  className?: string;
 }
 
 export function SeveritySummaryBar({
@@ -195,21 +219,21 @@ export function SeveritySummaryBar({
   high,
   medium,
   low,
-  className
+  className,
 }: SeveritySummaryBarProps) {
-  const total = critical + high + medium + low
+  const total = critical + high + medium + low;
 
-  if (total === 0) return null
+  if (total === 0) return null;
 
   const percentages = {
     critical: (critical / total) * 100,
     high: (high / total) * 100,
     medium: (medium / total) * 100,
-    low: (low / total) * 100
-  }
+    low: (low / total) * 100,
+  };
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-slate-700 dark:text-slate-300">
           Severity Distribution
@@ -273,5 +297,5 @@ export function SeveritySummaryBar({
         </div>
       </div>
     </div>
-  )
+  );
 }

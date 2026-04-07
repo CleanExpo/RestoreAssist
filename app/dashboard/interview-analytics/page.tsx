@@ -1,12 +1,18 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   TrendingUp,
   Users,
@@ -15,12 +21,12 @@ import {
   AlertCircle,
   BarChart3,
   RefreshCw,
-} from 'lucide-react'
-import { useInterviewAnalytics } from '@/lib/forms/hooks'
+} from "lucide-react";
+import { useInterviewAnalytics } from "@/lib/forms/hooks";
 import type {
   UserAnalyticsSummary,
   TemplatePerformanceAnalytics,
-} from '@/lib/forms/analytics'
+} from "@/lib/forms/analytics";
 
 /**
  * Interview Analytics Dashboard
@@ -28,97 +34,109 @@ import type {
  * Route: /dashboard/interview-analytics
  */
 export default function InterviewAnalyticsDashboard() {
-  const [aggregateStats, setAggregateStats] = useState<any>(null)
-  const [templateStats, setTemplateStats] = useState<any[]>([])
-  const [userStats, setUserStats] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [aggregateStats, setAggregateStats] = useState<any>(null);
+  const [templateStats, setTemplateStats] = useState<any[]>([]);
+  const [userStats, setUserStats] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const { data: userAnalytics, isLoading: isLoadingUser } = useInterviewAnalytics({
-    type: 'user',
-    autoFetch: false,
-  })
+  const { data: userAnalytics, isLoading: isLoadingUser } =
+    useInterviewAnalytics({
+      type: "user",
+      autoFetch: false,
+    });
 
   /**
    * Fetch analytics data
    */
   const fetchAnalytics = async () => {
     try {
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
+      setError(null);
 
       // Fetch aggregate statistics
-      const aggregateResponse = await fetch('/api/forms/interview/analytics?type=aggregate')
+      const aggregateResponse = await fetch(
+        "/api/forms/interview/analytics?type=aggregate",
+      );
       if (!aggregateResponse.ok) {
-        throw new Error('Failed to fetch aggregate statistics')
+        throw new Error("Failed to fetch aggregate statistics");
       }
-      const aggregateData = await aggregateResponse.json()
-      setAggregateStats(aggregateData)
+      const aggregateData = await aggregateResponse.json();
+      setAggregateStats(aggregateData);
 
       // Fetch template analytics
       try {
-        const templateResponse = await fetch('/api/forms/interview/analytics?type=template')
+        const templateResponse = await fetch(
+          "/api/forms/interview/analytics?type=template",
+        );
         if (templateResponse.ok) {
-          const templateData = await templateResponse.json()
-          setTemplateStats(templateData.templates || [])
+          const templateData = await templateResponse.json();
+          setTemplateStats(templateData.templates || []);
         }
-      } catch { /* template stats optional */ }
+      } catch {
+        /* template stats optional */
+      }
 
       // Fetch user analytics
       try {
-        const userResponse = await fetch('/api/forms/interview/analytics?type=user')
+        const userResponse = await fetch(
+          "/api/forms/interview/analytics?type=user",
+        );
         if (userResponse.ok) {
-          const userData = await userResponse.json()
-          setUserStats(userData.users || [])
+          const userData = await userResponse.json();
+          setUserStats(userData.users || []);
         }
-      } catch { /* user stats optional */ }
+      } catch {
+        /* user stats optional */
+      }
 
-      setLastRefresh(new Date())
+      setLastRefresh(new Date());
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch analytics'
-      setError(errorMessage)
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch analytics";
+      setError(errorMessage);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   /**
    * Load analytics on mount
    */
   useEffect(() => {
-    fetchAnalytics()
-  }, [])
+    fetchAnalytics();
+  }, []);
 
   /**
    * Format percentage
    */
   const formatPercentage = (value: number): string => {
-    return `${Math.round(value)}%`
-  }
+    return `${Math.round(value)}%`;
+  };
 
   /**
    * Format currency
    */
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('en-AU', {
-      style: 'currency',
-      currency: 'AUD',
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
       maximumFractionDigits: 0,
-    }).format(value)
-  }
+    }).format(value);
+  };
 
   /**
    * Format duration in minutes/hours
    */
   const formatDuration = (seconds: number): string => {
-    const minutes = Math.round(seconds / 60)
+    const minutes = Math.round(seconds / 60);
     if (minutes < 60) {
-      return `${minutes}m`
+      return `${minutes}m`;
     }
-    const hours = (minutes / 60).toFixed(1)
-    return `${hours}h`
-  }
+    const hours = (minutes / 60).toFixed(1);
+    return `${hours}h`;
+  };
 
   if (isLoading) {
     return (
@@ -128,7 +146,7 @@ export default function InterviewAnalyticsDashboard() {
           <p className="ml-2 text-gray-600">Loading analytics...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -136,8 +154,12 @@ export default function InterviewAnalyticsDashboard() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Interview Analytics</h1>
-          <p className="mt-2 text-gray-600">Monitor guided interview performance and usage metrics</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Interview Analytics
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Monitor guided interview performance and usage metrics
+          </p>
           {lastRefresh && (
             <p className="mt-1 text-xs text-gray-500">
               Last updated: {lastRefresh.toLocaleTimeString()}
@@ -162,19 +184,25 @@ export default function InterviewAnalyticsDashboard() {
       {aggregateStats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Finished</div>
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+              Finished
+            </div>
             <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
               {Math.round(aggregateStats.completionRate ?? 0)}%
             </div>
           </div>
           <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Avg. Time per Interview</div>
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+              Avg. Time per Interview
+            </div>
             <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
               {formatDuration(aggregateStats.averageSessionDuration ?? 0)}
             </div>
           </div>
           <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">Report Fields Filled</div>
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+              Report Fields Filled
+            </div>
             <div className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
               {aggregateStats.averageFieldsPopulated ?? 0}
             </div>
@@ -209,7 +237,9 @@ export default function InterviewAnalyticsDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Sessions Summary</CardTitle>
-                    <CardDescription>Breakdown of all interview sessions</CardDescription>
+                    <CardDescription>
+                      Breakdown of all interview sessions
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
@@ -220,7 +250,9 @@ export default function InterviewAnalyticsDashboard() {
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Total Sessions</span>
+                        <span className="text-sm text-gray-600">
+                          Total Sessions
+                        </span>
                         <span className="font-semibold text-gray-900">
                           {aggregateStats.totalSessions}
                         </span>
@@ -228,7 +260,8 @@ export default function InterviewAnalyticsDashboard() {
                       <Progress
                         value={
                           aggregateStats.totalSessions > 0
-                            ? (aggregateStats.completedSessions / aggregateStats.totalSessions) *
+                            ? (aggregateStats.completedSessions /
+                                aggregateStats.totalSessions) *
                               100
                             : 0
                         }
@@ -242,15 +275,21 @@ export default function InterviewAnalyticsDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Field Confidence</CardTitle>
-                    <CardDescription>Average confidence in auto-populated fields</CardDescription>
+                    <CardDescription>
+                      Average confidence in auto-populated fields
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
                       <div className="text-center">
                         <p className="text-4xl font-bold text-blue-600">
-                          {formatPercentage(aggregateStats.averageFieldConfidence)}
+                          {formatPercentage(
+                            aggregateStats.averageFieldConfidence,
+                          )}
                         </p>
-                        <p className="text-sm text-gray-500 mt-2">average confidence</p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          average confidence
+                        </p>
                       </div>
                       <Progress
                         value={aggregateStats.averageFieldConfidence}
@@ -258,10 +297,10 @@ export default function InterviewAnalyticsDashboard() {
                       />
                       <p className="text-xs text-gray-500">
                         {aggregateStats.averageFieldConfidence >= 80
-                          ? 'Excellent field mapping confidence'
+                          ? "Excellent field mapping confidence"
                           : aggregateStats.averageFieldConfidence >= 70
-                            ? 'Good field mapping confidence'
-                            : 'Consider improving field mapping'}
+                            ? "Good field mapping confidence"
+                            : "Consider improving field mapping"}
                       </p>
                     </div>
                   </CardContent>
@@ -281,7 +320,10 @@ export default function InterviewAnalyticsDashboard() {
                     <div className="space-y-3">
                       {aggregateStats.topPerformingTemplates.map(
                         (template: any, index: number) => (
-                          <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div
+                            key={index}
+                            className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                          >
                             <div>
                               <p className="text-sm font-medium text-gray-900">
                                 {template.templateId}
@@ -294,7 +336,7 @@ export default function InterviewAnalyticsDashboard() {
                               {formatPercentage(template.completionRate)}
                             </Badge>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   </CardContent>
@@ -319,29 +361,54 @@ export default function InterviewAnalyticsDashboard() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Template</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Sessions</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Completion Rate</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Avg Duration</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Avg Fields</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                          Template
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Sessions
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Completion Rate
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Avg Duration
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Avg Fields
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {templateStats.map((tpl: any, i: number) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                          <td className="py-3 px-4 text-sm font-medium">{tpl.templateId || tpl.name || `Template ${i + 1}`}</td>
-                          <td className="py-3 px-4 text-sm text-right">{tpl.sessionCount ?? 0}</td>
+                        <tr
+                          key={i}
+                          className="border-b last:border-0 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4 text-sm font-medium">
+                            {tpl.templateId || tpl.name || `Template ${i + 1}`}
+                          </td>
                           <td className="py-3 px-4 text-sm text-right">
-                            <Badge className={
-                              (tpl.completionRate ?? 0) >= 80 ? 'bg-green-100 text-green-800' :
-                              (tpl.completionRate ?? 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }>
+                            {tpl.sessionCount ?? 0}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            <Badge
+                              className={
+                                (tpl.completionRate ?? 0) >= 80
+                                  ? "bg-green-100 text-green-800"
+                                  : (tpl.completionRate ?? 0) >= 60
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                              }
+                            >
                               {formatPercentage(tpl.completionRate ?? 0)}
                             </Badge>
                           </td>
-                          <td className="py-3 px-4 text-sm text-right">{formatDuration(tpl.averageDuration ?? 0)}</td>
-                          <td className="py-3 px-4 text-sm text-right">{tpl.averageFieldsPopulated ?? 0}</td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            {formatDuration(tpl.averageDuration ?? 0)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            {tpl.averageFieldsPopulated ?? 0}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -351,7 +418,8 @@ export default function InterviewAnalyticsDashboard() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    No template-specific analytics yet. Conduct interviews to see performance metrics per template.
+                    No template-specific analytics yet. Conduct interviews to
+                    see performance metrics per template.
                   </AlertDescription>
                 </Alert>
               )}
@@ -374,27 +442,48 @@ export default function InterviewAnalyticsDashboard() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">User</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Sessions</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Completion Rate</th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Avg Confidence</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                          User
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Sessions
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Completion Rate
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                          Avg Confidence
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {userStats.map((user: any, i: number) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                          <td className="py-3 px-4 text-sm font-medium">{user.name || user.userId || `User ${i + 1}`}</td>
-                          <td className="py-3 px-4 text-sm text-right">{user.sessionCount ?? 0}</td>
+                        <tr
+                          key={i}
+                          className="border-b last:border-0 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4 text-sm font-medium">
+                            {user.name || user.userId || `User ${i + 1}`}
+                          </td>
                           <td className="py-3 px-4 text-sm text-right">
-                            <Badge className={
-                              (user.completionRate ?? 0) >= 80 ? 'bg-green-100 text-green-800' :
-                              (user.completionRate ?? 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }>
+                            {user.sessionCount ?? 0}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            <Badge
+                              className={
+                                (user.completionRate ?? 0) >= 80
+                                  ? "bg-green-100 text-green-800"
+                                  : (user.completionRate ?? 0) >= 60
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                              }
+                            >
                               {formatPercentage(user.completionRate ?? 0)}
                             </Badge>
                           </td>
-                          <td className="py-3 px-4 text-sm text-right">{formatPercentage(user.averageConfidence ?? 0)}</td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            {formatPercentage(user.averageConfidence ?? 0)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -404,7 +493,8 @@ export default function InterviewAnalyticsDashboard() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    No user-specific analytics yet. Team members will appear here after completing interviews.
+                    No user-specific analytics yet. Team members will appear
+                    here after completing interviews.
                   </AlertDescription>
                 </Alert>
               )}
@@ -426,15 +516,18 @@ export default function InterviewAnalyticsDashboard() {
             <div className="space-y-2 text-sm">
               {aggregateStats.completionRate >= 80 ? (
                 <p className="text-green-700">
-                  ✓ Excellent completion rate - users are successfully completing interviews
+                  ✓ Excellent completion rate - users are successfully
+                  completing interviews
                 </p>
               ) : aggregateStats.completionRate >= 60 ? (
                 <p className="text-yellow-700">
-                  ⚠ Completion rate could be improved - consider simplifying questions or providing better guidance
+                  ⚠ Completion rate could be improved - consider simplifying
+                  questions or providing better guidance
                 </p>
               ) : (
                 <p className="text-red-700">
-                  ✗ Low completion rate - urgent review needed for interview flow and questions
+                  ✗ Low completion rate - urgent review needed for interview
+                  flow and questions
                 </p>
               )}
 
@@ -444,7 +537,8 @@ export default function InterviewAnalyticsDashboard() {
                 </p>
               ) : (
                 <p className="text-yellow-700">
-                  ⚠ Field mapping confidence could be improved - review answer-to-field mappings
+                  ⚠ Field mapping confidence could be improved - review
+                  answer-to-field mappings
                 </p>
               )}
 
@@ -454,7 +548,8 @@ export default function InterviewAnalyticsDashboard() {
                 </p>
               ) : (
                 <p className="text-yellow-700">
-                  ⚠ Average session duration is high - consider streamlining the interview
+                  ⚠ Average session duration is high - consider streamlining the
+                  interview
                 </p>
               )}
             </div>
@@ -462,5 +557,5 @@ export default function InterviewAnalyticsDashboard() {
         </Card>
       )}
     </div>
-  )
+  );
 }

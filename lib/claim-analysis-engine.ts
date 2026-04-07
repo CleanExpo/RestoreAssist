@@ -8,74 +8,78 @@
  * 4. Generate standardized templates
  */
 
-import Anthropic from '@anthropic-ai/sdk'
-import { extractTextFromPDF } from './file-extraction'
-import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
+import Anthropic from "@anthropic-ai/sdk";
+import { extractTextFromPDF } from "./file-extraction";
+import {
+  createCachedSystemPrompt,
+  extractCacheMetrics,
+  logCacheMetrics,
+} from "./anthropic/features/prompt-cache";
 
 export interface ClaimAnalysisResult {
   // Extracted claim information
-  claimNumber?: string
-  propertyAddress?: string
-  technicianName?: string
-  inspectionDate?: string
-  reportDate?: string
-  clientName?: string
-  insurerName?: string
-  
+  claimNumber?: string;
+  propertyAddress?: string;
+  technicianName?: string;
+  inspectionDate?: string;
+  reportDate?: string;
+  clientName?: string;
+  insurerName?: string;
+
   // Scores (0-100)
-  completenessScore?: number
-  complianceScore?: number
-  standardizationScore?: number
-  documentationScore?: number
-  billingAccuracyScore?: number
-  
+  completenessScore?: number;
+  complianceScore?: number;
+  standardizationScore?: number;
+  documentationScore?: number;
+  billingAccuracyScore?: number;
+
   // Structure analysis
   reportStructure?: {
     sections: Array<{
-      name: string
-      present: boolean
-      completeness: number
-      order: number
-    }>
-    overallStructure: string
-    missingSections: string[]
-  }
-  
+      name: string;
+      present: boolean;
+      completeness: number;
+      order: number;
+    }>;
+    overallStructure: string;
+    missingSections: string[];
+  };
+
   // Flow analysis
   reportFlow?: {
-    logicalFlow: string
-    transitions: string[]
-    issues: string[]
-    technicianPattern: string
-  }
-  
+    logicalFlow: string;
+    transitions: string[];
+    issues: string[];
+    technicianPattern: string;
+  };
+
   // Missing elements
   missingElements: Array<{
-    category: string
-    elementType: string
-    elementName: string
-    description: string
-    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-    standardReference?: string
-    requirementText?: string
-    isBillable?: boolean
-    estimatedCost?: number
-    estimatedHours?: number
-    suggestedLineItem?: string
-    context?: string
-    suggestedValue?: string
-  }>
-  
+    category: string;
+    elementType: string;
+    elementName: string;
+    description: string;
+    severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+    standardReference?: string;
+    requirementText?: string;
+    isBillable?: boolean;
+    estimatedCost?: number;
+    estimatedHours?: number;
+    suggestedLineItem?: string;
+    context?: string;
+    suggestedValue?: string;
+  }>;
+
   // Billing analysis
   billingAnalysis?: {
-    lineItemsFound: number
-    lineItemsMissing: number
-    estimatedMissingRevenue: number
-    missingCategories: string[]
-  }
-  
+    lineItemsFound: number;
+    lineItemsMissing: number;
+    estimatedMissingRevenue: number;
+    missingCategories: string[];
+  };
+
   // Full analysis data
-  fullAnalysisData?: any
+  fullAnalysisData?: any;
 }
 
 /**
@@ -85,25 +89,28 @@ export async function analyzeClaimPDF(
   pdfBuffer: Buffer,
   fileName: string,
   apiKey: string,
-  integrationName: string = 'Anthropic'
+  integrationName: string = "Anthropic",
 ): Promise<ClaimAnalysisResult> {
   // Support multiple AI providers
-  const anthropic = new Anthropic({ apiKey })
-  
+  const anthropic = new Anthropic({ apiKey });
+
   // Try to extract text from PDF, but don't fail if it doesn't work
   // Claude can read PDFs directly, so we'll use that as fallback
-  let extractedText = ''
+  let extractedText = "";
   try {
-    extractedText = await extractTextFromPDF(pdfBuffer)
+    extractedText = await extractTextFromPDF(pdfBuffer);
   } catch (textError: any) {
-    console.warn(`Text extraction failed for ${fileName}, will use PDF directly:`, textError.message)
+    console.warn(
+      `Text extraction failed for ${fileName}, will use PDF directly:`,
+      textError.message,
+    );
     // Continue without extracted text - Claude can read the PDF directly
-    extractedText = ''
+    extractedText = "";
   }
-  
+
   // Convert PDF to base64 for Claude vision (Claude can read PDFs directly)
-  const base64Data = pdfBuffer.toString('base64')
-  
+  const base64Data = pdfBuffer.toString("base64");
+
   const systemPrompt = `You are an expert water damage restoration consultant and IICRC-certified professional analyzing completed claim reports. Your task is to comprehensively analyze the report to:
 
 1. **Understand Report Standards**: Evaluate the quality, completeness, and standardization level of the report
@@ -164,7 +171,7 @@ export async function analyzeClaimPDF(
 - Photos and documentation
 - Signatures and approvals
 
-Return a comprehensive JSON analysis with all findings.`
+Return a comprehensive JSON analysis with all findings.`;
 
   const userPrompt = `Analyze this completed claim report PDF (filename: ${fileName}) and provide a comprehensive analysis.
 
@@ -250,68 +257,73 @@ Return the analysis as a JSON object matching this structure:
     "estimatedMissingRevenue": 0,
     "missingCategories": [...]
   }
-}`
+}`;
 
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: "claude-sonnet-4-20250514",
       max_tokens: 8192,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: [
             {
-              type: 'document',
+              type: "document",
               source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64Data
-              }
+                type: "base64",
+                media_type: "application/pdf",
+                data: base64Data,
+              },
             },
             {
-              type: 'text',
-              text: userPrompt
-            }
-          ]
-        }
-      ]
-    })
+              type: "text",
+              text: userPrompt,
+            },
+          ],
+        },
+      ],
+    });
 
     // Log cache metrics
-    const metrics = extractCacheMetrics(response)
-    logCacheMetrics('ClaimAnalyzer', metrics, response.id)
+    const metrics = extractCacheMetrics(response);
+    logCacheMetrics("ClaimAnalyzer", metrics, response.id);
 
     if (!response.content || response.content.length === 0) {
-      throw new Error('Claude returned empty response')
+      throw new Error("Claude returned empty response");
     }
 
-    const content = response.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response format from Claude')
+    const content = response.content[0];
+    if (content.type !== "text") {
+      throw new Error("Unexpected response format from Claude");
     }
 
     // Parse JSON from response
-    let jsonText = content.text.trim()
-    jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
-    
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+    let jsonText = content.text.trim();
+    jsonText = jsonText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/, "")
+      .replace(/```\s*$/, "");
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('No JSON found in Claude response')
+      throw new Error("No JSON found in Claude response");
     }
 
-    const analysisResult: ClaimAnalysisResult = JSON.parse(jsonMatch[0])
-    
+    const analysisResult: ClaimAnalysisResult = JSON.parse(jsonMatch[0]);
+
     // Add extracted text to result
     analysisResult.fullAnalysisData = {
       ...analysisResult,
-      extractedText: extractedText ? extractedText.substring(0, 50000) : 'Text extraction not available - PDF analyzed directly by Claude' // Limit size
-    }
+      extractedText: extractedText
+        ? extractedText.substring(0, 50000)
+        : "Text extraction not available - PDF analyzed directly by Claude", // Limit size
+    };
 
-    return analysisResult
+    return analysisResult;
   } catch (error: any) {
-    throw new Error(`Failed to analyze claim PDF: ${error.message}`)
+    throw new Error(`Failed to analyze claim PDF: ${error.message}`);
   }
 }
 
@@ -320,34 +332,37 @@ Return the analysis as a JSON object matching this structure:
  */
 export async function generateStandardTemplate(
   analyses: ClaimAnalysisResult[],
-  templateType: 'INITIAL_INSPECTION_REPORT' | 'SCOPE_OF_WORKS' | 'JOB_COSTING',
+  templateType: "INITIAL_INSPECTION_REPORT" | "SCOPE_OF_WORKS" | "JOB_COSTING",
   apiKey: string,
-  integrationName: string = 'Anthropic'
+  integrationName: string = "Anthropic",
 ): Promise<any> {
-  const anthropic = new Anthropic({ apiKey })
-  
+  const anthropic = new Anthropic({ apiKey });
+
   // Aggregate common patterns and missing elements
-  const commonSections = new Map<string, number>()
-  const commonMissingElements = new Map<string, number>()
-  const technicianPatterns: string[] = []
-  
-  analyses.forEach(analysis => {
-    analysis.reportStructure?.sections.forEach(section => {
+  const commonSections = new Map<string, number>();
+  const commonMissingElements = new Map<string, number>();
+  const technicianPatterns: string[] = [];
+
+  analyses.forEach((analysis) => {
+    analysis.reportStructure?.sections.forEach((section) => {
       if (section.present) {
-        commonSections.set(section.name, (commonSections.get(section.name) || 0) + 1)
+        commonSections.set(
+          section.name,
+          (commonSections.get(section.name) || 0) + 1,
+        );
       }
-    })
-    
-    analysis.missingElements.forEach(element => {
-      const key = `${element.category}:${element.elementName}`
-      commonMissingElements.set(key, (commonMissingElements.get(key) || 0) + 1)
-    })
-    
+    });
+
+    analysis.missingElements.forEach((element) => {
+      const key = `${element.category}:${element.elementName}`;
+      commonMissingElements.set(key, (commonMissingElements.get(key) || 0) + 1);
+    });
+
     if (analysis.reportFlow?.technicianPattern) {
-      technicianPatterns.push(analysis.reportFlow.technicianPattern)
+      technicianPatterns.push(analysis.reportFlow.technicianPattern);
     }
-  })
-  
+  });
+
   const systemPrompt = `You are an expert in creating standardized templates for water damage restoration reports. Based on analysis of multiple completed claims, create a national standardized template that:
 
 1. Includes all essential sections found in quality reports
@@ -357,15 +372,20 @@ export async function generateStandardTemplate(
 5. Ensures all billable items are captured
 6. Creates a logical, professional flow
 
-The template should be comprehensive, professional, and ensure nothing is missed.`
+The template should be comprehensive, professional, and ensure nothing is missed.`;
 
   const userPrompt = `Based on analysis of ${analyses.length} completed claims, create a standardized ${templateType} template.
 
-**Common sections found:** ${Array.from(commonSections.entries()).map(([name, count]) => `${name} (${count}/${analyses.length})`).join(', ')}
+**Common sections found:** ${Array.from(commonSections.entries())
+    .map(([name, count]) => `${name} (${count}/${analyses.length})`)
+    .join(", ")}
 
-**Commonly missing elements:** ${Array.from(commonMissingElements.entries()).slice(0, 20).map(([key, count]) => `${key} (${count}/${analyses.length})`).join(', ')}
+**Commonly missing elements:** ${Array.from(commonMissingElements.entries())
+    .slice(0, 20)
+    .map(([key, count]) => `${key} (${count}/${analyses.length})`)
+    .join(", ")}
 
-**Technician patterns observed:** ${technicianPatterns.slice(0, 5).join('; ')}
+**Technician patterns observed:** ${technicianPatterns.slice(0, 5).join("; ")}
 
 Create a comprehensive template structure with:
 - Required sections in optimal order
@@ -374,46 +394,48 @@ Create a comprehensive template structure with:
 - Standard line items for billing
 - Quality control checkpoints
 
-Return as JSON with structure, checklist, and line items.`
+Return as JSON with structure, checklist, and line items.`;
 
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
-          role: 'user',
-          content: userPrompt
-        }
-      ]
-    })
+          role: "user",
+          content: userPrompt,
+        },
+      ],
+    });
 
     // Log cache metrics
-    const metrics = extractCacheMetrics(response)
-    logCacheMetrics('ClaimTemplateGenerator', metrics, response.id)
+    const metrics = extractCacheMetrics(response);
+    logCacheMetrics("ClaimTemplateGenerator", metrics, response.id);
 
     if (!response.content || response.content.length === 0) {
-      throw new Error('Claude returned empty response')
+      throw new Error("Claude returned empty response");
     }
 
-    const content = response.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response format from Claude')
+    const content = response.content[0];
+    if (content.type !== "text") {
+      throw new Error("Unexpected response format from Claude");
     }
 
-    let jsonText = content.text.trim()
-    jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
-    
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+    let jsonText = content.text.trim();
+    jsonText = jsonText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/, "")
+      .replace(/```\s*$/, "");
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('No JSON found in Claude response')
+      throw new Error("No JSON found in Claude response");
     }
 
-    return JSON.parse(jsonMatch[0])
+    return JSON.parse(jsonMatch[0]);
   } catch (error: any) {
-    throw new Error(`Failed to generate standard template: ${error.message}`)
+    throw new Error(`Failed to generate standard template: ${error.message}`);
   }
 }
-

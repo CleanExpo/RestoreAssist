@@ -1,4 +1,5 @@
 # Linear Issue Templates — RestoreAssist
+
 ## Standardised structure for batch issue creation
 
 **Source:** RA-165 [GAP-002]
@@ -188,39 +189,41 @@ Title: [EPIC] <Feature area> — <milestone>
 
 ## Label Taxonomy
 
-| Label | When to apply |
-|-------|--------------|
-| `bug` | Incorrect behaviour |
-| `feature` | New capability |
-| `dx` | Developer experience / tooling |
-| `compliance` | IICRC / AS/NZS / WHS regulatory |
-| `mobile` | React Native app |
-| `ai` | Claude API / AI features |
+| Label         | When to apply                           |
+| ------------- | --------------------------------------- |
+| `bug`         | Incorrect behaviour                     |
+| `feature`     | New capability                          |
+| `dx`          | Developer experience / tooling          |
+| `compliance`  | IICRC / AS/NZS / WHS regulatory         |
+| `mobile`      | React Native app                        |
+| `ai`          | Claude API / AI features                |
 | `integration` | Third-party API (Ascora, Xero, DR-NRPG) |
-| `content` | YouTube / marketing assets |
-| `blocked` | Waiting on human action or external dep |
-| `p0` | Production blocker |
+| `content`     | YouTube / marketing assets              |
+| `blocked`     | Waiting on human action or external dep |
+| `p0`          | Production blocker                      |
 
 ---
 
 ## Priority Guidelines
 
-| Priority | When to use | Response time |
-|----------|-------------|---------------|
-| Urgent (P0) | Production down, data loss, can't access account | Same session |
-| High (P1) | Major feature broken, payment error | Next sprint |
-| Normal (P2) | Meaningful improvement, non-critical bug | Backlog |
-| Low (P3) | Nice-to-have, cosmetic | When time allows |
+| Priority    | When to use                                      | Response time    |
+| ----------- | ------------------------------------------------ | ---------------- |
+| Urgent (P0) | Production down, data loss, can't access account | Same session     |
+| High (P1)   | Major feature broken, payment error              | Next sprint      |
+| Normal (P2) | Meaningful improvement, non-critical bug         | Backlog          |
+| Low (P3)    | Nice-to-have, cosmetic                           | When time allows |
 
 ---
 
 ## Dependency Notation
 
 Always add:
+
 - **Blocks:** issues that CANNOT start until this is done
 - **Blocked by:** issues that must complete BEFORE this starts
 
 Example:
+
 ```
 INF-006 (prisma migrate deploy)
   Blocks: CORE-009 (e-signature), AI-003 (PromptVariant table)
@@ -229,4 +232,4 @@ INF-006 (prisma migrate deploy)
 
 ---
 
-*Document prepared for RA-165 — Linear issue structure standardisation*
+_Document prepared for RA-165 — Linear issue structure standardisation_

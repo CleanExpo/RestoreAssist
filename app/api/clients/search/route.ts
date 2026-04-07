@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseSearchQuery, toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
+import {
+  parseSearchQuery,
+  toPostgresTsquery,
+  validateSearchParams,
+} from "@/lib/search-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +33,7 @@ export async function GET(request: NextRequest) {
     if (!validation.valid) {
       return NextResponse.json(
         { error: validation.errors?.join(", ") },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -38,7 +42,9 @@ export async function GET(request: NextRequest) {
 
     // Build WHERE clause
     let whereConditions = [`"userId" = '${session.user.id}'`];
-    whereConditions.push(`search_vector @@ to_tsquery('english', '${tsquery}')`);
+    whereConditions.push(
+      `search_vector @@ to_tsquery('english', '${tsquery}')`,
+    );
 
     if (status && status !== "all") {
       whereConditions.push(`"status" = '${status}'`);
@@ -96,9 +102,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Clients search error:", error);
-    return NextResponse.json(
-      { error: "Search failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }

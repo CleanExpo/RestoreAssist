@@ -1,4 +1,5 @@
 # RIA 2026 Conference — RestoreAssist Attendance Plan
+
 ## The Star Gold Coast | August 2026
 
 **Source:** Podcast Monitor intelligence briefing, 2026-03-30
@@ -48,6 +49,7 @@
 **Opening:** "Let me show you what a compliance-ready scope of works looks like in RestoreAssist — the one that gets approved first time."
 
 **Demo 1: Scope Generator (4 min)**
+
 1. Open a water damage inspection in RestoreAssist
 2. Fill in: Category 2, Class 3, 65m² affected area
 3. Click "Generate Scope" → stream the Claude-generated narrative
@@ -56,6 +58,7 @@
 6. Show the "Copy to Scope" export
 
 **Demo 2: Moisture Mapping (3 min)**
+
 1. Open the moisture mapping canvas
 2. Place 12 reading points on the floor plan
 3. Show the colour-coded heat map forming
@@ -63,6 +66,7 @@
 5. Show S500 §8.1 daily monitoring export
 
 **Demo 3: Mobile App (3 min)**
+
 1. Open Expo Go / TestFlight build on phone
 2. Show a job from the Jobs screen
 3. Take a photo → shows auto-compression + sync queue
@@ -70,6 +74,7 @@
 5. "Even when you're in a basement with no signal, everything saves and syncs when you're back in range"
 
 **Demo 4: NIR Report Generation (2 min)**
+
 1. Show the NIR form with pre-filled Ascora data
 2. Click "Generate AI Report" → streaming response
 3. Show PDF export button
@@ -86,6 +91,7 @@
 **Opening:** "We're building a YouTube curriculum for Australian restoration professionals mapped to your CPD framework. We have 13 modules covering the full WRT competency set. I'd love to talk about what a formal CPD endorsement pathway would look like."
 
 **Key points to make:**
+
 1. The content is free — YouTube, no paywall
 2. The CPD component (assessment + certificate) is where the partnership sits
 3. We're already 3 videos into production (show RA-295 scripts)
@@ -97,12 +103,12 @@
 
 ## Competitor Intelligence Targets
 
-| Competitor | Watch for | Key questions |
-|-----------|-----------|---------------|
-| **TM+** (Total Restoration Management) | New features, pricing changes, panel insurer deals | Who are their biggest clients? What do they charge? |
-| **RestorationX** | Mobile app capability, Australian market penetration | Are they targeting SMB or enterprise? |
-| **iRestore** | Report compliance, IICRC integration | How do they handle S500:2025 documentation? |
-| **Encircle** | AU market entry, demo capabilities | Australian-specific features vs US product? |
+| Competitor                             | Watch for                                            | Key questions                                       |
+| -------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
+| **TM+** (Total Restoration Management) | New features, pricing changes, panel insurer deals   | Who are their biggest clients? What do they charge? |
+| **RestorationX**                       | Mobile app capability, Australian market penetration | Are they targeting SMB or enterprise?               |
+| **iRestore**                           | Report compliance, IICRC integration                 | How do they handle S500:2025 documentation?         |
+| **Encircle**                           | AU market entry, demo capabilities                   | Australian-specific features vs US product?         |
 
 **Post-conference action:** Update competitor analysis doc with findings
 
@@ -111,12 +117,14 @@
 ## RestoreAssist Materials to Prepare
 
 ### Printed collateral (A5 card, 200 copies)
+
 - RestoreAssist logo + tagline: "Scope. Document. Get Paid."
 - 3 key features: AI Scope Generator, Mobile Field App, IICRC S500:2025 Compliance
 - QR code linking to: [restoreassist.com.au/demo](https://restoreassist.com.au)
 - Contact: phill@restoreassist.com.au
 
 ### Demo device setup (1 week before)
+
 - [ ] Laptop: Chrome, logged into demo account with sample inspection loaded
 - [ ] iPhone/iPad: Latest TestFlight/Expo Go build installed, sample data loaded
 - [ ] Demo account: 3 realistic sample inspections (water damage, fire, storm)
@@ -124,7 +132,9 @@
 - [ ] Backup: screen recording of full demo in case of wifi issues
 
 ### One-page leave-behind (A4, 50 copies)
+
 Content:
+
 - "The Compliance Problem Every Australian Restorer Knows"
 - S500:2025 documentation requirements summary
 - How RestoreAssist solves each requirement
@@ -136,12 +146,14 @@ Content:
 ## Success Metrics
 
 **During conference:**
+
 - 10+ demo conversations
 - 3+ business card exchanges with qualified prospects (5+ staff companies)
 - 1+ CARSI/NRPG representative conversation
 - Notes on 3+ competitors
 
 **Post-conference (30 days):**
+
 - 3+ demo follow-up calls scheduled
 - 1 CARSI/NRPG exploratory call booked
 - LinkedIn connections: 20+ restoration industry contacts
@@ -150,17 +162,17 @@ Content:
 
 ## Timeline
 
-| Date | Action |
-|------|--------|
-| June 2026 | Register (early bird), book accommodation + flights |
-| July 2026 | Prepare demo materials, print collateral |
-| 2 weeks before | Set up demo devices, rehearse 12-min demo script |
-| 1 week before | Print collateral, final demo rehearsal |
+| Date             | Action                                                   |
+| ---------------- | -------------------------------------------------------- |
+| June 2026        | Register (early bird), book accommodation + flights      |
+| July 2026        | Prepare demo materials, print collateral                 |
+| 2 weeks before   | Set up demo devices, rehearse 12-min demo script         |
+| 1 week before    | Print collateral, final demo rehearsal                   |
 | Conference Day 1 | Networking dinner — priority relationship-building event |
-| Conference Day 2 | Booth/hallway demos + CARSI/NRPG conversation |
-| Within 48h after | Follow-up emails to all contacts + LinkedIn connections |
-| 30 days after | Review success metrics, plan Year 2 approach |
+| Conference Day 2 | Booth/hallway demos + CARSI/NRPG conversation            |
+| Within 48h after | Follow-up emails to all contacts + LinkedIn connections  |
+| 30 days after    | Review success metrics, plan Year 2 approach             |
 
 ---
 
-*Document prepared for RA-296 — Backlog, Q3 2026*
+_Document prepared for RA-296 — Backlog, Q3 2026_

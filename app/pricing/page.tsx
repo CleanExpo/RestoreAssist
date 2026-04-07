@@ -1,74 +1,75 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X } from "lucide-react"
-import Footer from "@/components/landing/Footer"
-import { PRICING_CONFIG } from "@/lib/pricing"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X } from "lucide-react";
+import Footer from "@/components/landing/Footer";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 export default function PricingPage() {
-  const [darkMode, setDarkMode] = useState(true)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [darkMode, setDarkMode] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!document.getElementById('google-fonts-preconnect')) {
-      const link1 = document.createElement('link')
-      link1.id = 'google-fonts-preconnect'
-      link1.rel = 'preconnect'
-      link1.href = 'https://fonts.googleapis.com'
-      document.head.appendChild(link1)
+    if (!document.getElementById("google-fonts-preconnect")) {
+      const link1 = document.createElement("link");
+      link1.id = "google-fonts-preconnect";
+      link1.rel = "preconnect";
+      link1.href = "https://fonts.googleapis.com";
+      document.head.appendChild(link1);
 
-      const link2 = document.createElement('link')
-      link2.rel = 'preconnect'
-      link2.href = 'https://fonts.gstatic.com'
-      link2.crossOrigin = 'anonymous'
-      document.head.appendChild(link2)
+      const link2 = document.createElement("link");
+      link2.rel = "preconnect";
+      link2.href = "https://fonts.gstatic.com";
+      link2.crossOrigin = "anonymous";
+      document.head.appendChild(link2);
 
-      const link3 = document.createElement('link')
-      link3.href = 'https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap'
-      link3.rel = 'stylesheet'
-      document.head.appendChild(link3)
+      const link3 = document.createElement("link");
+      link3.href =
+        "https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap";
+      link3.rel = "stylesheet";
+      document.head.appendChild(link3);
     }
-  }, [])
+  }, []);
 
   // Free Plan (always first)
   const freePlan = {
-    name: 'Free',
-    price: '$0',
-    period: '',
-    description: 'Perfect for trying out Restore Assist. Start with 3 free reports and basic features.',
+    name: "Free",
+    price: "$0",
+    period: "",
+    description:
+      "Perfect for trying out Restore Assist. Start with 3 free reports and basic features.",
     features: [
-      '3 free inspection reports',
-      'Basic report type only',
-      '1 Quick Fill credit (AI-powered form auto-fill)',
-      'IICRC S500 compliant reports',
-      'PDF & Excel export',
-      'Email support',
+      "3 free inspection reports",
+      "Basic report type only",
+      "1 Quick Fill credit (AI-powered form auto-fill)",
+      "IICRC S500 compliant reports",
+      "PDF & Excel export",
+      "Email support",
     ],
     popular: false,
     badge: null,
     monthlyEquivalent: null,
     reportLimit: 3,
     signupBonus: null,
-    isFree: true
-  }
+    isFree: true,
+  };
 
   // Map pricing config to display format
   const plans = Object.values(PRICING_CONFIG.pricing).map((plan) => {
-    const price = plan.amount % 1 === 0 
-      ? `$${plan.amount}` 
-      : `$${plan.amount.toFixed(2)}`
-    
-    const period = 'interval' in plan && plan.interval
-      ? `/${plan.interval}` 
-      : ""
-    
-    const description = plan.name === 'Monthly Plan'
-      ? "Perfect for growing restoration businesses with 50 reports per month."
-      : "Best value with 70 reports per month for long-term commitment."
-    
+    const price =
+      plan.amount % 1 === 0 ? `$${plan.amount}` : `$${plan.amount.toFixed(2)}`;
+
+    const period =
+      "interval" in plan && plan.interval ? `/${plan.interval}` : "";
+
+    const description =
+      plan.name === "Monthly Plan"
+        ? "Perfect for growing restoration businesses with 50 reports per month."
+        : "Best value with 70 reports per month for long-term commitment.";
+
     return {
       name: plan.displayName,
       price,
@@ -76,29 +77,35 @@ export default function PricingPage() {
       description,
       features: plan.features,
       popular: plan.popular,
-      badge: 'badge' in plan ? plan.badge : null,
-      monthlyEquivalent: 'monthlyEquivalent' in plan ? plan.monthlyEquivalent : null,
+      badge: "badge" in plan ? plan.badge : null,
+      monthlyEquivalent:
+        "monthlyEquivalent" in plan ? plan.monthlyEquivalent : null,
       reportLimit: plan.reportLimit,
-      signupBonus: 'signupBonus' in plan ? plan.signupBonus : null,
-      isFree: false
-    }
-  })
+      signupBonus: "signupBonus" in plan ? plan.signupBonus : null,
+      isFree: false,
+    };
+  });
 
   // Combine free plan with paid plans
-  const allPlans = [freePlan, ...plans]
+  const allPlans = [freePlan, ...plans];
 
   // Map addons config to display format
   const addons = Object.values(PRICING_CONFIG.addons).map((addon) => ({
     name: addon.displayName,
-    price: addon.amount % 1 === 0 ? `$${addon.amount}` : `$${addon.amount.toFixed(2)}`,
+    price:
+      addon.amount % 1 === 0
+        ? `$${addon.amount}`
+        : `$${addon.amount.toFixed(2)}`,
     reportLimit: addon.reportLimit,
     description: addon.description,
-    popular: 'popular' in addon ? addon.popular : false,
-    badge: 'badge' in addon ? addon.badge : null
-  }))
+    popular: "popular" in addon ? addon.popular : false,
+    badge: "badge" in addon ? addon.badge : null,
+  }));
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#1C2E47]' : 'bg-[#F4F5F6]'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+    >
       {/* Header - Hamburger menu always visible, even on desktop */}
       <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
@@ -107,11 +114,11 @@ export default function PricingPage() {
             <Link href="/" className="flex items-center gap-2">
               {/* White circular logo */}
               <div className=" flex items-center justify-center relative overflow-hidden">
-                <Image 
-                  src="/logo.png" 
-                  alt="Restore Assist Logo" 
-                  width={100} 
-                  height={100} 
+                <Image
+                  src="/logo.png"
+                  alt="Restore Assist Logo"
+                  width={100}
+                  height={100}
                   className="object-contain p-1 md:p-2"
                 />
               </div>
@@ -146,22 +153,24 @@ export default function PricingPage() {
               className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150]"
               onClick={() => setMobileMenuOpen(false)}
             />
-            
+
             {/* Sidebar Menu - Slides in from right */}
             <motion.div
-              initial={{ x: '100%', opacity: 0 }}
+              initial={{ x: "100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
-              transition={{ 
-                duration: 0.35, 
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{
+                duration: 0.35,
                 ease: [0.32, 0.72, 0, 1],
-                opacity: { duration: 0.2 }
+                opacity: { duration: 0.2 },
               }}
               className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
             >
               {/* Menu Header - Fixed at top */}
               <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white uppercase tracking-wider">Menu</h2>
+                <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
+                  Menu
+                </h2>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
@@ -175,29 +184,29 @@ export default function PricingPage() {
               <div className="flex-1 overflow-y-auto">
                 <div className="p-6">
                   <nav className="space-y-1">
-                    <Link 
-                      href="/features" 
+                    <Link
+                      href="/features"
                       className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Features
                     </Link>
-                    <Link 
-                      href="/solutions" 
+                    <Link
+                      href="/solutions"
                       className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Solutions
                     </Link>
-                    <Link 
-                      href="/pricing" 
+                    <Link
+                      href="/pricing"
                       className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Pricing
                     </Link>
-                    <Link 
-                      href="/resources" 
+                    <Link
+                      href="/resources"
                       className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -228,7 +237,7 @@ export default function PricingPage() {
           </>
         )}
       </AnimatePresence>
-      
+
       {/* Hero Section */}
       <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
@@ -241,8 +250,11 @@ export default function PricingPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            style={{
+              fontFamily:
+                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Restoration Report Software Plans
           </motion.h1>
@@ -250,10 +262,16 @@ export default function PricingPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-            style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            style={{
+              fontFamily:
+                '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
-            Start free with 3 reports and basic features. Upgrade to unlock unlimited Quick Fill, enhanced reports, PDF uploads, and more. All paid plans include first month signup bonus of 10 additional reports.
+            Start free with 3 reports and basic features. Upgrade to unlock
+            unlimited Quick Fill, enhanced reports, PDF uploads, and more. All
+            paid plans include first month signup bonus of 10 additional
+            reports.
           </motion.p>
         </div>
       </section>
@@ -273,50 +291,109 @@ export default function PricingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-8 rounded-lg relative ${plan.popular ? 'border-2 border-[#8A6B4E]' : plan.isFree ? 'border-2 border-[#5A6A7B]' : ''} ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20'} backdrop-blur-sm border`}
+                className={`p-8 rounded-lg relative ${plan.popular ? "border-2 border-[#8A6B4E]" : plan.isFree ? "border-2 border-[#5A6A7B]" : ""} ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20"} backdrop-blur-sm border`}
               >
                 {plan.isFree && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#5A6A7B] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <div
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#5A6A7B] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    style={{
+                      fontFamily:
+                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     Free Forever
                   </div>
                 )}
                 {plan.popular && !plan.isFree && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <div
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    style={{
+                      fontFamily:
+                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     Most Popular
                   </div>
                 )}
                 {plan.badge && !plan.popular && !plan.isFree && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <div
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    style={{
+                      fontFamily:
+                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {plan.badge}
                   </div>
                 )}
-                <h3 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <h3
+                  className={`text-2xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  style={{
+                    fontFamily:
+                      '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
                   {plan.name}
                 </h3>
-                <p className={`text-sm mb-6 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <p
+                  className={`text-sm mb-6 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  style={{
+                    fontFamily:
+                      '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
                   {plan.description}
                 </p>
                 <div className="mb-6">
-                  <span className={`text-4xl font-bold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <span
+                    className={`text-4xl font-bold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    style={{
+                      fontFamily:
+                        '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {plan.price}
                   </span>
                   {plan.period && (
-                    <span className={`text-lg ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                    <span
+                      className={`text-lg ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      style={{
+                        fontFamily:
+                          '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
+                    >
                       {plan.period}
                     </span>
                   )}
                   {plan.monthlyEquivalent && (
-                    <p className={`text-sm mt-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                    <p
+                      className={`text-sm mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      style={{
+                        fontFamily:
+                          '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
+                    >
                       ${plan.monthlyEquivalent}/month equivalent
                     </p>
                   )}
-                  {plan.reportLimit && typeof plan.reportLimit === 'number' && (
-                    <div className={`mt-2 p-3 rounded-lg ${plan.isFree ? (darkMode ? 'bg-[#5A6A7B]/20' : 'bg-[#5A6A7B]/10') : (darkMode ? 'bg-[#8A6B4E]/20' : 'bg-[#8A6B4E]/10')}`}>
-                      <p className={`text-sm font-semibold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}>
-                        {plan.reportLimit} Inspection Reports{plan.period === '/month' ? ' per month' : plan.isFree ? ' (one-time)' : ''}
+                  {plan.reportLimit && typeof plan.reportLimit === "number" && (
+                    <div
+                      className={`mt-2 p-3 rounded-lg ${plan.isFree ? (darkMode ? "bg-[#5A6A7B]/20" : "bg-[#5A6A7B]/10") : darkMode ? "bg-[#8A6B4E]/20" : "bg-[#8A6B4E]/10"}`}
+                    >
+                      <p
+                        className={`text-sm font-semibold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                      >
+                        {plan.reportLimit} Inspection Reports
+                        {plan.period === "/month"
+                          ? " per month"
+                          : plan.isFree
+                            ? " (one-time)"
+                            : ""}
                       </p>
                       {plan.signupBonus && !plan.isFree && (
-                        <p className={`text-xs mt-1 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}>
+                        <p
+                          className={`text-xs mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        >
                           +{plan.signupBonus} bonus reports on first month
                         </p>
                       )}
@@ -325,42 +402,90 @@ export default function PricingPage() {
                 </div>
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, idx) => (
-                    <li key={idx} className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                      <span className={`mt-1 ${plan.isFree ? 'text-[#5A6A7B]' : 'text-[#8A6B4E]'}`}>✓</span>
+                    <li
+                      key={idx}
+                      className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      style={{
+                        fontFamily:
+                          '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
+                    >
+                      <span
+                        className={`mt-1 ${plan.isFree ? "text-[#5A6A7B]" : "text-[#8A6B4E]"}`}
+                      >
+                        ✓
+                      </span>
                       {feature}
                     </li>
                   ))}
                   {!plan.isFree && (
                     <>
-                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      <li
+                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
+                      >
                         <span className="text-[#8A6B4E] mt-1">✓</span>
-                        <span>Unlimited Quick Fill (AI-powered form auto-fill)</span>
+                        <span>
+                          Unlimited Quick Fill (AI-powered form auto-fill)
+                        </span>
                       </li>
-                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      <li
+                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
+                      >
                         <span className="text-[#8A6B4E] mt-1">✓</span>
                         <span>Enhanced & Optimized report types</span>
                       </li>
-                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      <li
+                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
+                      >
                         <span className="text-[#8A6B4E] mt-1">✓</span>
                         <span>PDF upload & processing</span>
                       </li>
-                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      <li
+                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
+                      >
                         <span className="text-[#8A6B4E] mt-1">✓</span>
                         <span>Full profile & pricing configuration</span>
                       </li>
-                      <li className={`flex items-start gap-2 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      <li
+                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
+                      >
                         <span className="text-[#8A6B4E] mt-1">✓</span>
-                        <span>Premium API integrations (Claude, GPT, etc.)</span>
+                        <span>
+                          Premium API integrations (Claude, GPT, etc.)
+                        </span>
                       </li>
                     </>
                   )}
                 </ul>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? 'bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90' : plan.popular ? 'bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90' : 'bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90'}`}
-                  style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? "bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90" : plan.popular ? "bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90" : "bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90"}`}
+                  style={{
+                    fontFamily:
+                      '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
                 >
-                  {plan.isFree ? 'Get Started Free' : 'Start Free Trial'}
+                  {plan.isFree ? "Get Started Free" : "Start Free Trial"}
                 </Link>
               </motion.div>
             ))}
@@ -376,11 +501,24 @@ export default function PricingPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-12"
           >
-            <h2 className={`text-3xl md:text-4xl font-bold mb-4 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+            <h2
+              className={`text-3xl md:text-4xl font-bold mb-4 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+              style={{
+                fontFamily:
+                  '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
+            >
               Add More Reports
             </h2>
-            <p className={`text-lg ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-              Need more reports? Add additional report packs to your subscription
+            <p
+              className={`text-lg ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+              style={{
+                fontFamily:
+                  '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
+            >
+              Need more reports? Add additional report packs to your
+              subscription
             </p>
           </motion.div>
 
@@ -392,38 +530,75 @@ export default function PricingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-6 rounded-lg relative ${addon.popular ? 'border-2 border-[#8A6B4E]' : ''} ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20'} backdrop-blur-sm border`}
+                className={`p-6 rounded-lg relative ${addon.popular ? "border-2 border-[#8A6B4E]" : ""} ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20"} backdrop-blur-sm border`}
               >
                 {addon.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <div
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    style={{
+                      fontFamily:
+                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     Most Popular
                   </div>
                 )}
                 {addon.badge && !addon.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium" style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <div
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    style={{
+                      fontFamily:
+                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {addon.badge}
                   </div>
                 )}
-                <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <h3
+                  className={`text-xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  style={{
+                    fontFamily:
+                      '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
                   {addon.name}
                 </h3>
-                <p className={`text-sm mb-4 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <p
+                  className={`text-sm mb-4 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  style={{
+                    fontFamily:
+                      '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
                   {addon.description}
                 </p>
                 <div className="mb-6">
-                  <span className={`text-3xl font-bold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <span
+                    className={`text-3xl font-bold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    style={{
+                      fontFamily:
+                        '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {addon.price}
                   </span>
-                  <div className={`mt-2 p-3 rounded-lg ${darkMode ? 'bg-[#8A6B4E]/20' : 'bg-[#8A6B4E]/10'}`}>
-                    <p className={`text-sm font-semibold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}>
+                  <div
+                    className={`mt-2 p-3 rounded-lg ${darkMode ? "bg-[#8A6B4E]/20" : "bg-[#8A6B4E]/10"}`}
+                  >
+                    <p
+                      className={`text-sm font-semibold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    >
                       {addon.reportLimit} Additional Reports
                     </p>
                   </div>
                 </div>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${addon.popular ? 'bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90' : 'bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90'}`}
-                  style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${addon.popular ? "bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90" : "bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90"}`}
+                  style={{
+                    fontFamily:
+                      '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
                 >
                   Add to Plan
                 </Link>
@@ -435,6 +610,5 @@ export default function PricingPage() {
 
       <Footer darkMode={darkMode} />
     </div>
-  )
+  );
 }
-

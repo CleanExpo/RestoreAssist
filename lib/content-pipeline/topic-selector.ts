@@ -8,16 +8,16 @@
  * @module lib/content-pipeline/topic-selector
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from "@/lib/prisma";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
 export interface SelectedTopic {
-  id: string
-  product: string
-  angle: string
-  platform: string
-  duration: number
+  id: string;
+  product: string;
+  angle: string;
+  platform: string;
+  duration: number;
 }
 
 // ─── MAIN FUNCTION ──────────────────────────────────────────────────────────
@@ -31,17 +31,14 @@ export interface SelectedTopic {
  * 4. Returns topic details or null if no eligible topics
  */
 export async function selectNextTopic(): Promise<SelectedTopic | null> {
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   // Fetch all enabled topics not used in the last 30 days
   const eligibleTopics = await prisma.contentTopic.findMany({
     where: {
       enabled: true,
-      OR: [
-        { lastUsedAt: null },
-        { lastUsedAt: { lt: thirtyDaysAgo } },
-      ],
+      OR: [{ lastUsedAt: null }, { lastUsedAt: { lt: thirtyDaysAgo } }],
     },
     select: {
       id: true,
@@ -51,18 +48,21 @@ export async function selectNextTopic(): Promise<SelectedTopic | null> {
       duration: true,
       weight: true,
     },
-  })
+  });
 
   if (eligibleTopics.length === 0) {
-    return null
+    return null;
   }
 
   // Weighted random selection
-  const totalWeight = eligibleTopics.reduce((sum: number, t: { weight: number }) => sum + t.weight, 0)
-  let randomValue = Math.random() * totalWeight
+  const totalWeight = eligibleTopics.reduce(
+    (sum: number, t: { weight: number }) => sum + t.weight,
+    0,
+  );
+  let randomValue = Math.random() * totalWeight;
 
   for (const topic of eligibleTopics) {
-    randomValue -= topic.weight
+    randomValue -= topic.weight;
     if (randomValue <= 0) {
       return {
         id: topic.id,
@@ -70,17 +70,17 @@ export async function selectNextTopic(): Promise<SelectedTopic | null> {
         angle: topic.angle,
         platform: topic.platform,
         duration: topic.duration,
-      }
+      };
     }
   }
 
   // Fallback — should not be reached, but return last topic as safety
-  const last = eligibleTopics[eligibleTopics.length - 1]
+  const last = eligibleTopics[eligibleTopics.length - 1];
   return {
     id: last.id,
     product: last.product,
     angle: last.angle,
     platform: last.platform,
     duration: last.duration,
-  }
+  };
 }

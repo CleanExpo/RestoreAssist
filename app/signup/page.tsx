@@ -1,65 +1,78 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Info, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
-import toast from "react-hot-toast"
-import { signInWithGoogleFirebase } from "@/lib/firebase-google-auth"
+import { useState, useEffect } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { signInWithGoogleFirebase } from "@/lib/firebase-google-auth";
 
 export default function SignupPage() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [accountType, setAccountType] = useState<"admin" | "technician">("admin")
-  const [inviteToken, setInviteToken] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [shouldRedirect, setShouldRedirect] = useState(false)
-  const [showInfo, setShowInfo] = useState(false)
-  const router = useRouter()
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [accountType, setAccountType] = useState<"admin" | "technician">(
+    "admin",
+  );
+  const [inviteToken, setInviteToken] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (shouldRedirect) {
       const timer = setTimeout(() => {
-        window.location.href = "/dashboard"
-      }, 1000)
-      return () => clearTimeout(timer)
+        window.location.href = "/dashboard";
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [shouldRedirect])
+  }, [shouldRedirect]);
 
   // Support invite links: /signup?invite=TOKEN
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get("invite")
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("invite");
     if (token) {
-      setAccountType("technician")
-      setInviteToken(token)
+      setAccountType("technician");
+      setInviteToken(token);
     }
-  }, [])
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     // Validation
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters")
-      setIsLoading(false)
-      return
+      setError("Password must be at least 8 characters");
+      setIsLoading(false);
+      return;
     }
 
     try {
@@ -73,86 +86,93 @@ export default function SignupPage() {
           email,
           password,
           signupType: accountType,
-          inviteToken: accountType === "technician" ? inviteToken.trim() : undefined,
+          inviteToken:
+            accountType === "technician" ? inviteToken.trim() : undefined,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (response.ok) {
-        toast.success("Account created successfully!")
+        toast.success("Account created successfully!");
         // Auto sign in after successful registration
         const result = await signIn("contractor-credentials", {
           email,
           password,
           redirect: false,
           callbackUrl: "/dashboard",
-        })
+        });
 
         if (result?.ok) {
-          toast.success("Welcome to Restore Assist!")
+          toast.success("Welcome to Restore Assist!");
           // Redirect to dashboard with welcome param so we show personalization popup
-          window.location.href = "/dashboard?welcome=1"
+          window.location.href = "/dashboard?welcome=1";
         } else {
-          toast.error("Please sign in manually")
+          toast.error("Please sign in manually");
           // Send to login with callbackUrl=dashboard so after login they land on dashboard
           setTimeout(() => {
-            window.location.href = "/login?callbackUrl=" + encodeURIComponent("/dashboard")
-          }, 1000)
+            window.location.href =
+              "/login?callbackUrl=" + encodeURIComponent("/dashboard");
+          }, 1000);
         }
       } else {
-        setError(data.error || "Registration failed")
+        setError(data.error || "Registration failed");
       }
     } catch (error) {
-      setError("An error occurred. Please try again.")
+      setError("An error occurred. Please try again.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setError("")
+    setIsLoading(true);
+    setError("");
     try {
       // Use Firebase Google authentication
-      const googleUser = await signInWithGoogleFirebase()
-      
+      const googleUser = await signInWithGoogleFirebase();
+
       // User is now created/updated in database via /api/auth/google-signin
       // Sign in with NextAuth using credentials (email only, no password for Google users)
-      toast.success("Signing you in...")
-      
+      toast.success("Signing you in...");
+
       // Small delay to ensure database write is complete
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // Sign in with NextAuth using credentials (email only, no password for Google users)
       const signInResult = await signIn("contractor-credentials", {
         email: googleUser.email || "",
         password: googleUser.googleAuthToken || "", // HMAC-signed proof from /api/auth/google-signin
         redirect: false,
-      })
+      });
 
       if (signInResult?.ok) {
-        toast.success("Welcome to Restore Assist!")
-        router.push("/dashboard?welcome=1")
+        toast.success("Welcome to Restore Assist!");
+        router.push("/dashboard?welcome=1");
       } else {
-        console.error("Sign in result:", signInResult)
-        const errorMsg = signInResult?.error || "Failed to create session"
-        toast.error("Failed to create session. Please try logging in manually.")
-        setError(errorMsg)
+        console.error("Sign in result:", signInResult);
+        const errorMsg = signInResult?.error || "Failed to create session";
+        toast.error(
+          "Failed to create session. Please try logging in manually.",
+        );
+        setError(errorMsg);
         // Fallback: redirect to login with email pre-filled
         setTimeout(() => {
-          router.push("/login?email=" + encodeURIComponent(googleUser.email || ""))
-        }, 2000)
+          router.push(
+            "/login?email=" + encodeURIComponent(googleUser.email || ""),
+          );
+        }, 2000);
       }
     } catch (error: any) {
-      console.error("Google sign-in error:", error)
-      const errorMessage = error.message || "Google sign-in failed. Please try again."
-      setError(errorMessage)
-      toast.error(errorMessage)
+      console.error("Google sign-in error:", error);
+      const errorMessage =
+        error.message || "Google sign-in failed. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
@@ -166,9 +186,10 @@ export default function SignupPage() {
         <div className="text-center mb-6">
           <motion.h1
             className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2"
-            style={{ fontFamily: 'Titillium Web, sans-serif' }}
+            style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
-            Restore Assist          </motion.h1>
+            Restore Assist{" "}
+          </motion.h1>
           <p className="text-slate-400">Create your account</p>
         </div>
 
@@ -186,7 +207,9 @@ export default function SignupPage() {
           >
             <div className="flex items-center gap-2">
               <Info className="w-5 h-5 text-cyan-400" />
-              <span className="text-cyan-400 font-medium">What you'll need after signup</span>
+              <span className="text-cyan-400 font-medium">
+                What you'll need after signup
+              </span>
             </div>
             {showInfo ? (
               <ChevronUp className="w-5 h-5 text-cyan-400" />
@@ -194,7 +217,7 @@ export default function SignupPage() {
               <ChevronDown className="w-5 h-5 text-cyan-400" />
             )}
           </button>
-          
+
           {showInfo && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -203,13 +226,22 @@ export default function SignupPage() {
               className="mt-4 space-y-3 text-sm text-slate-300"
             >
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">1. Start Creating Reports (Free Tier Available)</p>
-                <p className="text-slate-400">Get started immediately with 3 free report credits. Create basic reports right away!</p>
+                <p className="font-semibold text-cyan-300 mb-1">
+                  1. Start Creating Reports (Free Tier Available)
+                </p>
+                <p className="text-slate-400">
+                  Get started immediately with 3 free report credits. Create
+                  basic reports right away!
+                </p>
               </div>
-              
+
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">2. Upgrade for Premium Features</p>
-                <p className="text-slate-400 mb-2">Unlock powerful features when you're ready:</p>
+                <p className="font-semibold text-cyan-300 mb-1">
+                  2. Upgrade for Premium Features
+                </p>
+                <p className="text-slate-400 mb-2">
+                  Unlock powerful features when you're ready:
+                </p>
                 <ul className="list-disc list-inside space-y-1 text-slate-400 ml-2">
                   <li>Unlimited Quick Fill (AI-powered form auto-fill)</li>
                   <li>Enhanced & Optimized report types</li>
@@ -218,20 +250,31 @@ export default function SignupPage() {
                   <li>Premium API integrations</li>
                 </ul>
               </div>
-              
+
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">3. Optional: Setup Business Profile</p>
-                <p className="text-slate-400">Add your business details to personalize your reports (available after upgrade).</p>
+                <p className="font-semibold text-cyan-300 mb-1">
+                  3. Optional: Setup Business Profile
+                </p>
+                <p className="text-slate-400">
+                  Add your business details to personalize your reports
+                  (available after upgrade).
+                </p>
               </div>
-              
+
               <div>
-                <p className="font-semibold text-cyan-300 mb-1">4. Optional: Configure Pricing</p>
-                <p className="text-slate-400">Set your company's rates for accurate cost estimates (available after upgrade).</p>
+                <p className="font-semibold text-cyan-300 mb-1">
+                  4. Optional: Configure Pricing
+                </p>
+                <p className="text-slate-400">
+                  Set your company's rates for accurate cost estimates
+                  (available after upgrade).
+                </p>
               </div>
-              
+
               <div className="pt-2 border-t border-cyan-500/20">
                 <p className="text-xs text-slate-400">
-                  💡 <strong>Tip:</strong> You can complete these steps after signing up. We'll guide you through the process!
+                  💡 <strong>Tip:</strong> You can complete these steps after
+                  signing up. We'll guide you through the process!
                 </p>
               </div>
             </motion.div>
@@ -280,11 +323,17 @@ export default function SignupPage() {
 
             {/* Name Field */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Full Name
               </label>
               <div className="relative">
-                <User size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <User
+                  size={20}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                />
                 <input
                   id="name"
                   type="text"
@@ -301,11 +350,17 @@ export default function SignupPage() {
 
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Email Address
               </label>
               <div className="relative">
-                <Mail size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <Mail
+                  size={20}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                />
                 <input
                   id="email"
                   type="email"
@@ -322,11 +377,17 @@ export default function SignupPage() {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Password
               </label>
               <div className="relative">
-                <Lock size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <Lock
+                  size={20}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                />
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -351,11 +412,17 @@ export default function SignupPage() {
 
             {/* Confirm Password Field */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-2">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
                 Confirm Password
               </label>
               <div className="relative">
-                <Lock size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <Lock
+                  size={20}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                />
                 <input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
@@ -369,11 +436,19 @@ export default function SignupPage() {
                 />
                 <button
                   type="button"
-                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  aria-label={
+                    showConfirmPassword
+                      ? "Hide confirm password"
+                      : "Show confirm password"
+                  }
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showConfirmPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
                 </button>
               </div>
             </div>
@@ -396,7 +471,7 @@ export default function SignupPage() {
               className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              style={{ fontFamily: 'Titillium Web, sans-serif' }}
+              style={{ fontFamily: "Titillium Web, sans-serif" }}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -424,7 +499,7 @@ export default function SignupPage() {
             className="w-full py-3 bg-white/10 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-white/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            style={{ fontFamily: 'Titillium Web, sans-serif' }}
+            style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -462,5 +537,5 @@ export default function SignupPage() {
         </motion.div>
       </motion.div>
     </div>
-  )
+  );
 }

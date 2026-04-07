@@ -4,42 +4,54 @@
  * Shows confidence levels, field categories, and submission readiness
  */
 
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { CheckCircle2, AlertCircle, TrendingUp, Copy, Download } from 'lucide-react'
-import type { MergeResult, FormField } from '@/lib/forms/interview-form-merger'
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  Copy,
+  Download,
+} from "lucide-react";
+import type { MergeResult, FormField } from "@/lib/forms/interview-form-merger";
 
 interface InterviewCompletionSummaryProps {
-  mergeResult: MergeResult
-  onContinue?: () => void
-  onExport?: () => void
-  showActions?: boolean
+  mergeResult: MergeResult;
+  onContinue?: () => void;
+  onExport?: () => void;
+  showActions?: boolean;
   /** When true, Continue button shows loading and is disabled (e.g. saving to DB) */
-  isLoading?: boolean
+  isLoading?: boolean;
 }
 
 /**
  * Get badge variant based on confidence level
  */
 function getConfidenceBadgeVariant(
-  confidence: number
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (confidence >= 90) return 'default'
-  if (confidence >= 75) return 'secondary'
-  return 'destructive'
+  confidence: number,
+): "default" | "secondary" | "destructive" | "outline" {
+  if (confidence >= 90) return "default";
+  if (confidence >= 75) return "secondary";
+  return "destructive";
 }
 
 /**
  * Format confidence percentage
  */
 function formatConfidence(confidence: number): string {
-  return `${Math.round(confidence)}%`
+  return `${Math.round(confidence)}%`;
 }
 
 /**
@@ -52,146 +64,155 @@ export function InterviewCompletionSummary({
   showActions = true,
   isLoading = false,
 }: InterviewCompletionSummaryProps) {
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const { statistics, mergedFields, addedFields, updatedFields, conflictedFields } = mergeResult
+  const {
+    statistics,
+    mergedFields,
+    addedFields,
+    updatedFields,
+    conflictedFields,
+  } = mergeResult;
 
   /**
    * Copy field value to clipboard
    */
   const copyToClipboard = (fieldId: string, value: any) => {
-    const text = typeof value === 'string' ? value : JSON.stringify(value)
-    navigator.clipboard.writeText(text)
-    setCopiedField(fieldId)
-    setTimeout(() => setCopiedField(null), 2000)
-  }
+    const text = typeof value === "string" ? value : JSON.stringify(value);
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldId);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   /**
    * Get field categories
    */
   const getFieldCategories = (): Record<string, FormField[]> => {
     const categories: Record<string, FormField[]> = {
-      'Property Information': [],
-      'Technician Details': [],
-      'Environmental Conditions': [],
-      'Damage Assessment': [],
-      'IICRC Classification': [],
-      'Other': [],
-    }
+      "Property Information": [],
+      "Technician Details": [],
+      "Environmental Conditions": [],
+      "Damage Assessment": [],
+      "IICRC Classification": [],
+      Other: [],
+    };
 
     // Process mergedFields
     Object.entries(mergedFields).forEach(([fieldId, field]) => {
-      const category = categorizeField(fieldId)
+      const category = categorizeField(fieldId);
       if (!categories[category]) {
-        categories[category] = []
+        categories[category] = [];
       }
       // Ensure field has id property
       const fieldWithId: FormField = {
         ...field,
         id: fieldId,
-      }
-      categories[category].push(fieldWithId)
-    })
+      };
+      categories[category].push(fieldWithId);
+    });
 
     // Also include addedFields that might not be in mergedFields yet
     addedFields.forEach((fieldId) => {
       if (!mergedFields[fieldId]) {
-        const category = categorizeField(fieldId)
+        const category = categorizeField(fieldId);
         if (!categories[category]) {
-          categories[category] = []
+          categories[category] = [];
         }
         // Create a field entry for added fields
         categories[category].push({
           id: fieldId,
-          value: 'Auto-populated from interview',
-          source: 'interview',
+          value: "Auto-populated from interview",
+          source: "interview",
           metadata: {
             interviewConfidence: statistics.averageConfidence,
           },
-        })
+        });
       }
-    })
+    });
 
-    return categories
-  }
+    return categories;
+  };
 
   /**
    * Categorize field by ID
    */
   const categorizeField = (fieldId: string): string => {
-    const lowerFieldId = fieldId.toLowerCase()
+    const lowerFieldId = fieldId.toLowerCase();
 
     // Property Information
     if (
-      lowerFieldId.includes('property') ||
-      lowerFieldId.includes('address') ||
-      lowerFieldId.includes('postcode') ||
-      lowerFieldId.includes('location') ||
-      lowerFieldId.includes('site') ||
-      lowerFieldId.includes('client')
+      lowerFieldId.includes("property") ||
+      lowerFieldId.includes("address") ||
+      lowerFieldId.includes("postcode") ||
+      lowerFieldId.includes("location") ||
+      lowerFieldId.includes("site") ||
+      lowerFieldId.includes("client")
     ) {
-      return 'Property Information'
+      return "Property Information";
     }
-    
+
     // Technician Details
     if (
-      lowerFieldId.includes('technician') ||
-      lowerFieldId.includes('inspector') ||
-      lowerFieldId.includes('inspectedby') ||
-      lowerFieldId.includes('inspected_by') ||
-      (lowerFieldId.includes('name') && !lowerFieldId.includes('property')) ||
-      (lowerFieldId.includes('date') && !lowerFieldId.includes('damage'))
+      lowerFieldId.includes("technician") ||
+      lowerFieldId.includes("inspector") ||
+      lowerFieldId.includes("inspectedby") ||
+      lowerFieldId.includes("inspected_by") ||
+      (lowerFieldId.includes("name") && !lowerFieldId.includes("property")) ||
+      (lowerFieldId.includes("date") && !lowerFieldId.includes("damage"))
     ) {
-      return 'Technician Details'
+      return "Technician Details";
     }
-    
+
     // Environmental Conditions
     if (
-      lowerFieldId.includes('temperature') ||
-      lowerFieldId.includes('humidity') ||
-      lowerFieldId.includes('environment') ||
-      lowerFieldId.includes('ambient') ||
-      lowerFieldId.includes('relative') ||
-      lowerFieldId.includes('rh') ||
-      lowerFieldId.includes('temp')
+      lowerFieldId.includes("temperature") ||
+      lowerFieldId.includes("humidity") ||
+      lowerFieldId.includes("environment") ||
+      lowerFieldId.includes("ambient") ||
+      lowerFieldId.includes("relative") ||
+      lowerFieldId.includes("rh") ||
+      lowerFieldId.includes("temp")
     ) {
-      return 'Environmental Conditions'
+      return "Environmental Conditions";
     }
-    
+
     // Damage Assessment
     if (
-      lowerFieldId.includes('damage') ||
-      lowerFieldId.includes('area') ||
-      lowerFieldId.includes('material') ||
-      lowerFieldId.includes('moisture') ||
-      lowerFieldId.includes('affected') ||
-      lowerFieldId.includes('scope') ||
-      lowerFieldId.includes('extent')
+      lowerFieldId.includes("damage") ||
+      lowerFieldId.includes("area") ||
+      lowerFieldId.includes("material") ||
+      lowerFieldId.includes("moisture") ||
+      lowerFieldId.includes("affected") ||
+      lowerFieldId.includes("scope") ||
+      lowerFieldId.includes("extent")
     ) {
-      return 'Damage Assessment'
+      return "Damage Assessment";
     }
-    
+
     // IICRC Classification
     if (
-      lowerFieldId.includes('iicrc') ||
-      lowerFieldId.includes('category') ||
-      lowerFieldId.includes('class') ||
-      lowerFieldId.includes('watercategory') ||
-      lowerFieldId.includes('water_category') ||
-      lowerFieldId.includes('classcategory') ||
-      lowerFieldId.includes('class_category')
+      lowerFieldId.includes("iicrc") ||
+      lowerFieldId.includes("category") ||
+      lowerFieldId.includes("class") ||
+      lowerFieldId.includes("watercategory") ||
+      lowerFieldId.includes("water_category") ||
+      lowerFieldId.includes("classcategory") ||
+      lowerFieldId.includes("class_category")
     ) {
-      return 'IICRC Classification'
+      return "IICRC Classification";
     }
 
-    return 'Other'
-  }
+    return "Other";
+  };
 
-  const categories = getFieldCategories()
+  const categories = getFieldCategories();
   const completionPercentage =
     statistics.totalFieldsMerged > 0
-      ? Math.round((statistics.totalFieldsMerged / (statistics.totalFieldsMerged + 5)) * 100)
-      : 0
+      ? Math.round(
+          (statistics.totalFieldsMerged / (statistics.totalFieldsMerged + 5)) *
+            100,
+        )
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -210,19 +231,33 @@ export function InterviewCompletionSummary({
           {/* Completion Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-900">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Fields Merged</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{statistics.totalFieldsMerged}</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Fields Merged
+              </p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {statistics.totalFieldsMerged}
+              </p>
             </div>
             <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-900">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">New Fields Added</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{statistics.newFieldsAdded}</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                New Fields Added
+              </p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {statistics.newFieldsAdded}
+              </p>
             </div>
             <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 border border-amber-200 dark:border-amber-900">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Fields Updated</p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{statistics.fieldsUpdated}</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Fields Updated
+              </p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {statistics.fieldsUpdated}
+              </p>
             </div>
             <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-900">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg. Confidence</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Avg. Confidence
+              </p>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {formatConfidence(statistics.averageConfidence)}
               </p>
@@ -232,8 +267,12 @@ export function InterviewCompletionSummary({
           {/* Completion Progress */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Form Completion</p>
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{completionPercentage}%</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Form Completion
+              </p>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                {completionPercentage}%
+              </p>
             </div>
             <Progress value={completionPercentage} className="h-2" />
           </div>
@@ -245,10 +284,12 @@ export function InterviewCompletionSummary({
                 <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-amber-900">
-                    {conflictedFields.length} field conflict{conflictedFields.length !== 1 ? 's' : ''}
+                    {conflictedFields.length} field conflict
+                    {conflictedFields.length !== 1 ? "s" : ""}
                   </p>
                   <p className="text-sm text-amber-700 mt-1">
-                    Existing values were preserved. Review and override if needed.
+                    Existing values were preserved. Review and override if
+                    needed.
                   </p>
                 </div>
               </div>
@@ -266,20 +307,24 @@ export function InterviewCompletionSummary({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs 
-            defaultValue={Object.entries(categories).find(([_, fields]) => fields.length > 0)?.[0] || Object.keys(categories)[0]} 
+          <Tabs
+            defaultValue={
+              Object.entries(categories).find(
+                ([_, fields]) => fields.length > 0,
+              )?.[0] || Object.keys(categories)[0]
+            }
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-4">
               {Object.entries(categories).map(([category, fields]) => (
-                <TabsTrigger 
-                  key={category} 
-                  value={category} 
+                <TabsTrigger
+                  key={category}
+                  value={category}
                   className="text-xs"
                   disabled={fields.length === 0}
                 >
                   <span className="hidden sm:inline">{category}</span>
-                  <span className="sm:hidden">{category.split(' ')[0]}</span>
+                  <span className="sm:hidden">{category.split(" ")[0]}</span>
                   <Badge variant="secondary" className="ml-1 text-xs">
                     {fields.length}
                   </Badge>
@@ -288,10 +333,16 @@ export function InterviewCompletionSummary({
             </TabsList>
 
             {Object.entries(categories).map(([category, fields]) => (
-              <TabsContent key={category} value={category} className="space-y-3">
+              <TabsContent
+                key={category}
+                value={category}
+                className="space-y-3"
+              >
                 {fields.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">No fields in this category</p>
+                    <p className="text-sm text-muted-foreground">
+                      No fields in this category
+                    </p>
                   </div>
                 ) : (
                   fields.map((field) => (
@@ -304,22 +355,25 @@ export function InterviewCompletionSummary({
                           {field.id}
                         </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 break-words">
-                          {typeof field.value === 'string'
+                          {typeof field.value === "string"
                             ? field.value
-                            : typeof field.value === 'object' && field.value !== null
-                            ? JSON.stringify(field.value, null, 2)
-                            : String(field.value ?? 'N/A')}
+                            : typeof field.value === "object" &&
+                                field.value !== null
+                              ? JSON.stringify(field.value, null, 2)
+                              : String(field.value ?? "N/A")}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {field.metadata?.interviewConfidence && (
                           <Badge
                             variant={getConfidenceBadgeVariant(
-                              field.metadata.interviewConfidence
+                              field.metadata.interviewConfidence,
                             )}
                             className="whitespace-nowrap"
                           >
-                            {formatConfidence(field.metadata.interviewConfidence)}
+                            {formatConfidence(
+                              field.metadata.interviewConfidence,
+                            )}
                           </Badge>
                         )}
                         <Button
@@ -353,8 +407,13 @@ export function InterviewCompletionSummary({
           <CardContent>
             <div className="space-y-3">
               {conflictedFields.map((conflict) => (
-                <div key={conflict.fieldId} className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-900 mb-2">{conflict.fieldId}</p>
+                <div
+                  key={conflict.fieldId}
+                  className="p-3 bg-gray-50 rounded-lg"
+                >
+                  <p className="text-sm font-medium text-gray-900 mb-2">
+                    {conflict.fieldId}
+                  </p>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-gray-600">Existing Value</p>
@@ -379,17 +438,22 @@ export function InterviewCompletionSummary({
       {/* Action Buttons - Enhanced */}
       {showActions && (
         <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border/70">
-          <Button 
-            variant="outline" 
-            onClick={onExport || (() => console.warn('Export handler not provided'))} 
+          <Button
+            variant="outline"
+            onClick={
+              onExport || (() => console.warn("Export handler not provided"))
+            }
             className="gap-2 h-12 text-base font-semibold border-2 hover:bg-accent transition-all duration-200 hover:scale-105 active:scale-95"
             disabled={!onExport}
           >
             <Download className="h-5 w-5" />
             Export Summary
           </Button>
-          <Button 
-            onClick={onContinue || (() => console.warn('Continue handler not provided'))} 
+          <Button
+            onClick={
+              onContinue ||
+              (() => console.warn("Continue handler not provided"))
+            }
             className="gap-2 h-12 text-base font-semibold flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
             disabled={!onContinue || isLoading}
           >
@@ -408,5 +472,5 @@ export function InterviewCompletionSummary({
         </div>
       )}
     </div>
-  )
+  );
 }

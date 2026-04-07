@@ -31,12 +31,12 @@ gh pr diff $ARGUMENTS --repo CleanExpo/RestoreAssist
 
 Classify using the risk matrix from `/pr-manager`:
 
-| Risk | File Patterns | Depth |
-|------|--------------|-------|
-| Trivial | `.md`, `.gitkeep`, `content/` only | Auto-approve |
-| Standard | `app/dashboard/`, `components/` | 5 dimensions |
-| Complex | `app/api/`, `lib/`, multi-domain | 10+ dimensions |
-| Critical | `prisma/`, `lib/auth.ts`, `lib/stripe.ts`, webhooks | All 18 |
+| Risk     | File Patterns                                       | Depth          |
+| -------- | --------------------------------------------------- | -------------- |
+| Trivial  | `.md`, `.gitkeep`, `content/` only                  | Auto-approve   |
+| Standard | `app/dashboard/`, `components/`                     | 5 dimensions   |
+| Complex  | `app/api/`, `lib/`, multi-domain                    | 10+ dimensions |
+| Critical | `prisma/`, `lib/auth.ts`, `lib/stripe.ts`, webhooks | All 18         |
 
 If **Trivial**: output "✅ Auto-approved (trivial change)" and stop.
 
@@ -54,16 +54,17 @@ Using the activated dimensions from Stage 1, review the diff.
 
 **Dispatch parallel sub-reviews** (up to 6 concurrent agents via the Agent tool):
 
-| Agent Group | Dimensions Covered |
-|---|---|
-| **Architecture Agent** | 1 (Architecture), 8 (State Mgmt), 13 (Code Style) |
-| **Security Agent** | 2 (Security), 6 (API Design), 17 (Integration Integrity) |
-| **Reliability Agent** | 4 (Error Handling), 5 (Type Safety), 14 (Scalability) |
-| **Performance Agent** | 3 (Performance), 12 (Dependency Mgmt), 16 (Migration Safety) |
-| **UX Agent** | 9 (Accessibility), 18 (UI/UX Consistency) |
-| **Compliance Agent** | 7 (Data Modelling), 10 (Testing), 11 (Documentation), 15 (AU Compliance) |
+| Agent Group            | Dimensions Covered                                                       |
+| ---------------------- | ------------------------------------------------------------------------ |
+| **Architecture Agent** | 1 (Architecture), 8 (State Mgmt), 13 (Code Style)                        |
+| **Security Agent**     | 2 (Security), 6 (API Design), 17 (Integration Integrity)                 |
+| **Reliability Agent**  | 4 (Error Handling), 5 (Type Safety), 14 (Scalability)                    |
+| **Performance Agent**  | 3 (Performance), 12 (Dependency Mgmt), 16 (Migration Safety)             |
+| **UX Agent**           | 9 (Accessibility), 18 (UI/UX Consistency)                                |
+| **Compliance Agent**   | 7 (Data Modelling), 10 (Testing), 11 (Documentation), 15 (AU Compliance) |
 
 Each agent receives:
+
 - The PR diff (relevant sections only)
 - The dimension criteria from `.claude/rules/review-dimensions.md`
 - Instruction to return findings as structured JSON:
@@ -96,6 +97,7 @@ Each agent receives:
 Print the review in the format specified in `/orchestrator-reviewer`.
 
 If `--post` flag is set:
+
 ```bash
 # For approved:
 gh pr review $ARGUMENTS --repo CleanExpo/RestoreAssist --approve --body "REVIEW"
@@ -108,6 +110,7 @@ gh pr review $ARGUMENTS --repo CleanExpo/RestoreAssist --comment --body "REVIEW"
 ```
 
 Also apply labels:
+
 ```bash
 # Create labels if they don't exist (first run only)
 gh label create "reviewed:approved" --repo CleanExpo/RestoreAssist --color 0E8A16 --force 2>/dev/null

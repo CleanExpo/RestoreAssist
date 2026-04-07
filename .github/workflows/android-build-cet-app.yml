@@ -3,8 +3,8 @@ name: Android Build — CET Kiosk App (com.restoreassist.cet)
 on:
   push:
     tags:
-      - 'cet-v*'              # e.g. cet-v1.0.0
-  workflow_dispatch:           # Manual trigger from GitHub Actions UI
+      - "cet-v*" # e.g. cet-v1.0.0
+  workflow_dispatch: # Manual trigger from GitHub Actions UI
 
 jobs:
   build:
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install CET app dependencies
         working-directory: apps/cet
@@ -33,8 +33,8 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: "21"
+          distribution: "temurin"
 
       - name: Install Capacitor CLI
         run: npm install -g @capacitor/cli

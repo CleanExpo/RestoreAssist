@@ -28,28 +28,34 @@
  * All events are logged to DrNrpgWebhookLog for audit trail.
  */
 
-import { NextRequest, NextResponse } from "next/server"
-import { createHmac, timingSafeEqual, randomBytes } from "crypto"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual, randomBytes } from "crypto";
+import { prisma } from "@/lib/prisma";
 
 // ============================================================
 // HMAC-SHA256 signature verification
 // ============================================================
 
-function verifySignature(body: string, signature: string, secret: string): boolean {
+function verifySignature(
+  body: string,
+  signature: string,
+  secret: string,
+): boolean {
   try {
     // Expected format: "sha256=<hex-digest>"
-    const [prefix, digest] = signature.split("=")
-    if (prefix !== "sha256" || !digest) return false
+    const [prefix, digest] = signature.split("=");
+    if (prefix !== "sha256" || !digest) return false;
 
-    const expected = createHmac("sha256", secret).update(body, "utf8").digest("hex")
-    const expectedBuffer = Buffer.from(expected, "hex")
-    const receivedBuffer = Buffer.from(digest, "hex")
+    const expected = createHmac("sha256", secret)
+      .update(body, "utf8")
+      .digest("hex");
+    const expectedBuffer = Buffer.from(expected, "hex");
+    const receivedBuffer = Buffer.from(digest, "hex");
 
-    if (expectedBuffer.length !== receivedBuffer.length) return false
-    return timingSafeEqual(expectedBuffer, receivedBuffer)
+    if (expectedBuffer.length !== receivedBuffer.length) return false;
+    return timingSafeEqual(expectedBuffer, receivedBuffer);
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -61,29 +67,37 @@ type DrNrpgEventType =
   | "job.dispatched"
   | "job.updated"
   | "job.completed"
-  | "job.cancelled"
+  | "job.cancelled";
 
 interface DrNrpgWebhookPayload {
-  event: DrNrpgEventType
-  jobId: string
-  claimNumber: string
-  insurer?: string
-  policyHolder?: string
-  propertyAddress?: string
-  lossType?: string
-  status?: string
-  timestamp: string
-  metadata?: Record<string, unknown>
+  event: DrNrpgEventType;
+  jobId: string;
+  claimNumber: string;
+  insurer?: string;
+  policyHolder?: string;
+  propertyAddress?: string;
+  lossType?: string;
+  status?: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 // Map DR-NRPG event type → DrNrpgJobSync status
-function mapEventToStatus(event: DrNrpgEventType, payload: DrNrpgWebhookPayload): string {
+function mapEventToStatus(
+  event: DrNrpgEventType,
+  payload: DrNrpgWebhookPayload,
+): string {
   switch (event) {
-    case "job.dispatched": return "dispatched"
-    case "job.updated":    return payload.status ?? "in_progress"
-    case "job.completed":  return "completed"
-    case "job.cancelled":  return "cancelled"
-    default:               return "unknown"
+    case "job.dispatched":
+      return "dispatched";
+    case "job.updated":
+      return payload.status ?? "in_progress";
+    case "job.completed":
+      return "completed";
+    case "job.cancelled":
+      return "cancelled";
+    default:
+      return "unknown";
   }
 }
 
@@ -94,56 +108,67 @@ function mapEventToStatus(event: DrNrpgEventType, payload: DrNrpgWebhookPayload)
 // POST handler — Next.js 15 App Router (no auth — verified by HMAC)
 export async function POST(request: NextRequest) {
   // Read raw body for HMAC verification (must happen before any parsing)
-  const rawBody = await request.text()
-  const signature = request.headers.get("x-drnrpg-signature") ?? ""
-  const eventTimestamp = request.headers.get("x-drnrpg-timestamp") ?? ""
+  const rawBody = await request.text();
+  const signature = request.headers.get("x-drnrpg-signature") ?? "";
+  const eventTimestamp = request.headers.get("x-drnrpg-timestamp") ?? "";
 
   // ── Find the active integration by looking for any active DrNrpgIntegration ──
   // DR-NRPG sends to a single endpoint per RestoreAssist instance.
   // We resolve which user/integration this belongs to via the signature check.
   const integrations = await prisma.drNrpgIntegration.findMany({
     where: { isActive: true },
-  })
+  });
 
   if (integrations.length === 0) {
     // No active integration — return 200 to prevent DR-NRPG retry storms
-    console.warn("[dr-nrpg webhook] No active DrNrpgIntegration found — ignoring event")
-    return NextResponse.json({ received: true, note: "No active integration" }, { status: 200 })
+    console.warn(
+      "[dr-nrpg webhook] No active DrNrpgIntegration found — ignoring event",
+    );
+    return NextResponse.json(
+      { received: true, note: "No active integration" },
+      { status: 200 },
+    );
   }
 
   // Try each integration's webhookSecret until we find the matching one
   const matchedIntegration = integrations.find((i) =>
-    verifySignature(rawBody, signature, i.webhookSecret)
-  )
+    verifySignature(rawBody, signature, i.webhookSecret),
+  );
 
   if (!matchedIntegration) {
-    console.error("[dr-nrpg webhook] Signature verification failed — rejecting")
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+    console.error(
+      "[dr-nrpg webhook] Signature verification failed — rejecting",
+    );
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   // ── Parse payload ──
-  let payload: DrNrpgWebhookPayload
+  let payload: DrNrpgWebhookPayload;
   try {
-    payload = JSON.parse(rawBody)
+    payload = JSON.parse(rawBody);
   } catch {
-    console.error("[dr-nrpg webhook] Invalid JSON body")
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    console.error("[dr-nrpg webhook] Invalid JSON body");
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { event, jobId, claimNumber } = payload
+  const { event, jobId, claimNumber } = payload;
 
   if (!event || !jobId || !claimNumber) {
-    console.error("[dr-nrpg webhook] Missing required fields:", { event, jobId, claimNumber })
+    console.error("[dr-nrpg webhook] Missing required fields:", {
+      event,
+      jobId,
+      claimNumber,
+    });
     return NextResponse.json(
       { error: "event, jobId, and claimNumber are required" },
-      { status: 400 }
-    )
+      { status: 400 },
+    );
   }
 
-  const newStatus = mapEventToStatus(event as DrNrpgEventType, payload)
+  const newStatus = mapEventToStatus(event as DrNrpgEventType, payload);
 
   // ── Upsert DrNrpgJobSync ──
-  let jobSync: { id: string }
+  let jobSync: { id: string };
   try {
     jobSync = await prisma.drNrpgJobSync.upsert({
       where: { drNrpgJobId: jobId },
@@ -171,26 +196,28 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       },
       select: { id: true },
-    })
+    });
   } catch (upsertErr) {
-    console.error("[dr-nrpg webhook] DrNrpgJobSync upsert failed:", upsertErr)
+    console.error("[dr-nrpg webhook] DrNrpgJobSync upsert failed:", upsertErr);
 
     // Log the failure and return 500 so DR-NRPG retries
-    return NextResponse.json({ error: "Failed to sync job" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to sync job" }, { status: 500 });
   }
 
   // ── Log to DrNrpgWebhookLog ──
-  await prisma.drNrpgWebhookLog.create({
-    data: {
-      jobSyncId: jobSync.id,
-      direction: "inbound",
-      eventType: event,
-      payload: payload as Record<string, unknown>,
-      responseStatus: 200,
-      responseBody: "received",
-      deliveredAt: new Date(),
-    },
-  }).catch((e) => console.warn("[dr-nrpg webhook] Log write failed:", e))
+  await prisma.drNrpgWebhookLog
+    .create({
+      data: {
+        jobSyncId: jobSync.id,
+        direction: "inbound",
+        eventType: event,
+        payload: payload as Record<string, unknown>,
+        responseStatus: 200,
+        responseBody: "received",
+        deliveredAt: new Date(),
+      },
+    })
+    .catch((e) => console.warn("[dr-nrpg webhook] Log write failed:", e));
 
   // ── Auto-create Inspection for new dispatched jobs ──
   // Only for job.dispatched and only if an inspection doesn't already exist
@@ -198,7 +225,7 @@ export async function POST(request: NextRequest) {
     const existingSync = await prisma.drNrpgJobSync.findUnique({
       where: { id: jobSync.id },
       select: { inspectionId: true },
-    })
+    });
 
     if (!existingSync?.inspectionId) {
       try {
@@ -206,20 +233,25 @@ export async function POST(request: NextRequest) {
         const integration = await prisma.drNrpgIntegration.findUnique({
           where: { id: matchedIntegration.id },
           select: { userId: true },
-        })
+        });
 
         if (integration?.userId) {
           // Extract postcode from address (AU 4-digit postcode at end of string)
-          const postcodeMatch = payload.propertyAddress?.match(/\b(\d{4})\b\s*$/)
-          const propertyPostcode = postcodeMatch?.[1] ?? "0000" // fallback — must be updated manually
+          const postcodeMatch =
+            payload.propertyAddress?.match(/\b(\d{4})\b\s*$/);
+          const propertyPostcode = postcodeMatch?.[1] ?? "0000"; // fallback — must be updated manually
 
           // Generate NIR inspection number: NIR-YYYY-MM-{random 4 hex chars}{jobId suffix 4 chars}
-          const now = new Date(payload.timestamp)
-          const year = now.getFullYear()
-          const month = String(now.getMonth() + 1).padStart(2, "0")
-          const rand = randomBytes(2).toString("hex").toUpperCase() // 4 hex chars
-          const suffix = jobId.replace(/[^A-Z0-9]/gi, "").slice(-4).toUpperCase().padStart(4, "0")
-          const inspectionNumber = `NIR-${year}-${month}-${rand}${suffix}`
+          const now = new Date(payload.timestamp);
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const rand = randomBytes(2).toString("hex").toUpperCase(); // 4 hex chars
+          const suffix = jobId
+            .replace(/[^A-Z0-9]/gi, "")
+            .slice(-4)
+            .toUpperCase()
+            .padStart(4, "0");
+          const inspectionNumber = `NIR-${year}-${month}-${rand}${suffix}`;
 
           const inspection = await prisma.inspection.create({
             data: {
@@ -232,44 +264,48 @@ export async function POST(request: NextRequest) {
               // claimNumber, insurer, policyHolder live on DrNrpgJobSync — not duplicated here
             },
             select: { id: true },
-          })
+          });
 
           // Link inspection to job sync
           await prisma.drNrpgJobSync.update({
             where: { id: jobSync.id },
             data: { inspectionId: inspection.id },
-          })
+          });
 
           console.log(
-            `[dr-nrpg webhook] Auto-created Inspection ${inspection.id} (${inspectionNumber}) for DR-NRPG job ${jobId}`
-          )
+            `[dr-nrpg webhook] Auto-created Inspection ${inspection.id} (${inspectionNumber}) for DR-NRPG job ${jobId}`,
+          );
         }
       } catch (inspectionErr) {
         // Non-fatal — job sync succeeded, inspection auto-creation is best-effort
         console.warn(
           "[dr-nrpg webhook] Auto-inspection creation failed (non-fatal):",
-          inspectionErr instanceof Error ? inspectionErr.message : inspectionErr
-        )
+          inspectionErr instanceof Error
+            ? inspectionErr.message
+            : inspectionErr,
+        );
       }
     }
   }
 
   // ── Update integration lastSyncAt ──
-  await prisma.drNrpgIntegration.update({
-    where: { id: matchedIntegration.id },
-    data: { lastSyncAt: new Date() },
-  }).catch(() => null)
+  await prisma.drNrpgIntegration
+    .update({
+      where: { id: matchedIntegration.id },
+      data: { lastSyncAt: new Date() },
+    })
+    .catch(() => null);
 
   console.log(
-    `[dr-nrpg webhook] Processed ${event} for job ${jobId} (claim ${claimNumber}) → status: ${newStatus}`
-  )
+    `[dr-nrpg webhook] Processed ${event} for job ${jobId} (claim ${claimNumber}) → status: ${newStatus}`,
+  );
 
   return NextResponse.json({
     received: true,
     eventType: event,
     jobSyncId: jobSync.id,
     status: newStatus,
-  })
+  });
 }
 
 // DR-NRPG may send GET to verify the endpoint during setup
@@ -280,5 +316,5 @@ export async function GET() {
     events: ["job.dispatched", "job.updated", "job.completed", "job.cancelled"],
     signatureHeader: "X-DRNRPG-Signature",
     signatureFormat: "sha256=<hex-digest>",
-  })
+  });
 }

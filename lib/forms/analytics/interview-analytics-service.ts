@@ -4,93 +4,92 @@
  * Provides insights on user behavior, completion rates, and form field confidence
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from "@/lib/prisma";
 
 interface SessionMetadata {
-  totalDurationSeconds?: number
-  averageConfidence?: number
-  autoPopulatedFieldsCount?: number
-  conflictCount?: number
+  totalDurationSeconds?: number;
+  averageConfidence?: number;
+  autoPopulatedFieldsCount?: number;
+  conflictCount?: number;
 }
 
 interface ResponseMetadata {
-  confidence?: number
-  timeToAnswerSeconds?: number
-  fieldsMappedCount?: number
-  averageFieldConfidence?: number
+  confidence?: number;
+  timeToAnswerSeconds?: number;
+  fieldsMappedCount?: number;
+  averageFieldConfidence?: number;
 }
-
 
 /**
  * Interview Session Metrics
  */
 export interface InterviewSessionMetrics {
-  sessionId: string
-  userId: string
-  formTemplateId: string
-  startTime: Date
-  endTime?: Date
-  totalDurationSeconds?: number
-  questionsAnswered: number
-  totalQuestions: number
-  completionRate: number // 0-100
-  status: 'in_progress' | 'completed' | 'abandoned'
-  autoPopulatedFieldsCount: number
-  averageConfidence: number
-  conflictCount: number
-  reportId?: string
+  sessionId: string;
+  userId: string;
+  formTemplateId: string;
+  startTime: Date;
+  endTime?: Date;
+  totalDurationSeconds?: number;
+  questionsAnswered: number;
+  totalQuestions: number;
+  completionRate: number; // 0-100
+  status: "in_progress" | "completed" | "abandoned";
+  autoPopulatedFieldsCount: number;
+  averageConfidence: number;
+  conflictCount: number;
+  reportId?: string;
 }
 
 /**
  * Per-Question Analytics
  */
 export interface QuestionAnalytics {
-  questionId: string
-  sessionId: string
-  timeToAnswerSeconds: number
-  skipLogicTriggered: boolean
-  conditionalShowTriggered: boolean
-  answerValue: any
-  fieldsMappedCount: number
-  averageFieldConfidence: number
+  questionId: string;
+  sessionId: string;
+  timeToAnswerSeconds: number;
+  skipLogicTriggered: boolean;
+  conditionalShowTriggered: boolean;
+  answerValue: any;
+  fieldsMappedCount: number;
+  averageFieldConfidence: number;
 }
 
 /**
  * User Analytics Summary
  */
 export interface UserAnalyticsSummary {
-  userId: string
-  totalInterviewsSessions: number
-  completedSessions: number
-  abandonedSessions: number
-  completionRate: number
-  averageSessionDurationSeconds: number
-  averageFieldConfidence: number
-  mostCommonTemplate: string
-  totalFieldsAutoPopulated: number
-  averageConflicts: number
+  userId: string;
+  totalInterviewsSessions: number;
+  completedSessions: number;
+  abandonedSessions: number;
+  completionRate: number;
+  averageSessionDurationSeconds: number;
+  averageFieldConfidence: number;
+  mostCommonTemplate: string;
+  totalFieldsAutoPopulated: number;
+  averageConflicts: number;
 }
 
 /**
  * Template Performance Analytics
  */
 export interface TemplatePerformanceAnalytics {
-  templateId: string
-  totalSessions: number
-  completionRate: number
-  averageSessionDuration: number
-  averageFieldsPopulated: number
+  templateId: string;
+  totalSessions: number;
+  completionRate: number;
+  averageSessionDuration: number;
+  averageFieldsPopulated: number;
   fieldConfidenceDistribution: {
-    high: number // >= 90%
-    medium: number // 75-89%
-    low: number // < 75%
-  }
+    high: number; // >= 90%
+    medium: number; // 75-89%
+    low: number; // < 75%
+  };
   mostDifficultQuestions: Array<{
-    questionId: string
-    skipRate: number
-    averageTimeSeconds: number
-  }>
-  recommendedImprovements: string[]
+    questionId: string;
+    skipRate: number;
+    averageTimeSeconds: number;
+  }>;
+  recommendedImprovements: string[];
 }
 
 /**
@@ -104,23 +103,21 @@ export class InterviewAnalyticsService {
     sessionId: string,
     userId: string,
     formTemplateId: string,
-    reportId?: string
+    reportId?: string,
   ): Promise<void> {
     try {
-      await prisma.interviewSession.update(
-        {
-          where: { id: sessionId },
-          data: {
-            startedAt: new Date(),
-            metadata: {
-              startedAt: new Date().toISOString(),
-              analyticsEnabled: true,
-            },
+      await prisma.interviewSession.update({
+        where: { id: sessionId },
+        data: {
+          startedAt: new Date(),
+          metadata: {
+            startedAt: new Date().toISOString(),
+            analyticsEnabled: true,
           },
-        }
-      )
+        },
+      });
     } catch (error) {
-      console.error('Error tracking session start:', error)
+      console.error("Error tracking session start:", error);
     }
   }
 
@@ -131,42 +128,40 @@ export class InterviewAnalyticsService {
     sessionId: string,
     autoPopulatedFieldsCount: number,
     averageConfidence: number,
-    conflictCount: number
+    conflictCount: number,
   ): Promise<InterviewSessionMetrics | null> {
     try {
       const session = await prisma.interviewSession.findUnique({
         where: { id: sessionId },
         include: { responses: true },
-      })
+      });
 
       if (!session) {
-        return null
+        return null;
       }
 
-      const endTime = new Date()
-      const startTime = session.startedAt || new Date()
+      const endTime = new Date();
+      const startTime = session.startedAt || new Date();
       const totalDurationSeconds = Math.round(
-        (endTime.getTime() - startTime.getTime()) / 1000
-      )
-      const completionRate = session.responses.length > 0 ? 100 : 0
+        (endTime.getTime() - startTime.getTime()) / 1000,
+      );
+      const completionRate = session.responses.length > 0 ? 100 : 0;
 
       // Update session with completion metrics
-      await prisma.interviewSession.update(
-        {
-          where: { id: sessionId },
-          data: {
-            completedAt: endTime,
-            status: 'COMPLETED',
-            metadata: {
-              completedAt: endTime.toISOString(),
-              totalDurationSeconds,
-              autoPopulatedFieldsCount,
-              averageConfidence,
-              conflictCount,
-            },
+      await prisma.interviewSession.update({
+        where: { id: sessionId },
+        data: {
+          completedAt: endTime,
+          status: "COMPLETED",
+          metadata: {
+            completedAt: endTime.toISOString(),
+            totalDurationSeconds,
+            autoPopulatedFieldsCount,
+            averageConfidence,
+            conflictCount,
           },
-        }
-      )
+        },
+      });
 
       return {
         sessionId,
@@ -178,15 +173,15 @@ export class InterviewAnalyticsService {
         questionsAnswered: session.responses.length,
         totalQuestions: 25, // Default, should be actual count
         completionRate,
-        status: 'completed',
+        status: "completed",
         autoPopulatedFieldsCount,
         averageConfidence,
         conflictCount,
         reportId: session.reportId || undefined,
-      }
+      };
     } catch (error) {
-      console.error('Error tracking session completion:', error)
-      return null
+      console.error("Error tracking session completion:", error);
+      return null;
     }
   }
 
@@ -199,7 +194,7 @@ export class InterviewAnalyticsService {
     answerValue: any,
     timeToAnswerSeconds: number,
     fieldsMappedCount: number = 0,
-    averageFieldConfidence: number = 0
+    averageFieldConfidence: number = 0,
   ): Promise<void> {
     try {
       await prisma.interviewResponse.create({
@@ -214,21 +209,23 @@ export class InterviewAnalyticsService {
             trackedAt: new Date().toISOString(),
           },
         },
-      })
+      });
     } catch (error) {
-      console.error('Error tracking question response:', error)
+      console.error("Error tracking question response:", error);
     }
   }
 
   /**
    * Get user analytics summary
    */
-  static async getUserAnalyticsSummary(userId: string): Promise<UserAnalyticsSummary> {
+  static async getUserAnalyticsSummary(
+    userId: string,
+  ): Promise<UserAnalyticsSummary> {
     try {
       const sessions = await prisma.interviewSession.findMany({
         where: { userId },
         include: { responses: true },
-      })
+      });
 
       if (sessions.length === 0) {
         return {
@@ -239,53 +236,60 @@ export class InterviewAnalyticsService {
           completionRate: 0,
           averageSessionDurationSeconds: 0,
           averageFieldConfidence: 0,
-          mostCommonTemplate: '',
+          mostCommonTemplate: "",
           totalFieldsAutoPopulated: 0,
           averageConflicts: 0,
-        }
+        };
       }
 
-      const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length
-      const abandonedSessions = sessions.filter((s) => s.status === 'ABANDONED').length
+      const completedSessions = sessions.filter(
+        (s) => s.status === "COMPLETED",
+      ).length;
+      const abandonedSessions = sessions.filter(
+        (s) => s.status === "ABANDONED",
+      ).length;
       const completionRate =
-        sessions.length > 0 ? Math.round((completedSessions / sessions.length) * 100) : 0
+        sessions.length > 0
+          ? Math.round((completedSessions / sessions.length) * 100)
+          : 0;
 
       // Calculate average metrics
-      let totalDuration = 0
-      let totalConfidence = 0
-      let totalFieldsPopulated = 0
-      let totalConflicts = 0
-      let confidenceCount = 0
+      let totalDuration = 0;
+      let totalConfidence = 0;
+      let totalFieldsPopulated = 0;
+      let totalConflicts = 0;
+      let confidenceCount = 0;
 
       sessions.forEach((session) => {
-        const metadata = (session as unknown as { metadata?: SessionMetadata }).metadata
+        const metadata = (session as unknown as { metadata?: SessionMetadata })
+          .metadata;
         if (metadata?.totalDurationSeconds) {
-          totalDuration += metadata.totalDurationSeconds
+          totalDuration += metadata.totalDurationSeconds;
         }
         if (metadata?.averageConfidence) {
-          totalConfidence += metadata.averageConfidence
-          confidenceCount++
+          totalConfidence += metadata.averageConfidence;
+          confidenceCount++;
         }
         if (metadata?.autoPopulatedFieldsCount) {
-          totalFieldsPopulated += metadata.autoPopulatedFieldsCount
+          totalFieldsPopulated += metadata.autoPopulatedFieldsCount;
         }
         if (metadata?.conflictCount) {
-          totalConflicts += metadata.conflictCount
+          totalConflicts += metadata.conflictCount;
         }
-      })
+      });
 
       // Find most common template
       const templateCounts = sessions.reduce(
         (acc, session) => {
-          acc[session.formTemplateId] = (acc[session.formTemplateId] || 0) + 1
-          return acc
+          acc[session.formTemplateId] = (acc[session.formTemplateId] || 0) + 1;
+          return acc;
         },
-        {} as Record<string, number>
-      )
+        {} as Record<string, number>,
+      );
 
-      const mostCommonTemplate = Object.entries(templateCounts).sort(
-        ([, a], [, b]) => b - a
-      )[0]?.[0] || ''
+      const mostCommonTemplate =
+        Object.entries(templateCounts).sort(([, a], [, b]) => b - a)[0]?.[0] ||
+        "";
 
       return {
         userId,
@@ -293,17 +297,21 @@ export class InterviewAnalyticsService {
         completedSessions,
         abandonedSessions,
         completionRate,
-        averageSessionDurationSeconds: Math.round(totalDuration / Math.max(sessions.length, 1)),
+        averageSessionDurationSeconds: Math.round(
+          totalDuration / Math.max(sessions.length, 1),
+        ),
         averageFieldConfidence:
           confidenceCount > 0
             ? Math.round(totalConfidence / confidenceCount)
             : 0,
         mostCommonTemplate,
         totalFieldsAutoPopulated: totalFieldsPopulated,
-        averageConflicts: Math.round(totalConflicts / Math.max(sessions.length, 1)),
-      }
+        averageConflicts: Math.round(
+          totalConflicts / Math.max(sessions.length, 1),
+        ),
+      };
     } catch (error) {
-      console.error('Error getting user analytics summary:', error)
+      console.error("Error getting user analytics summary:", error);
       return {
         userId,
         totalInterviewsSessions: 0,
@@ -312,10 +320,10 @@ export class InterviewAnalyticsService {
         completionRate: 0,
         averageSessionDurationSeconds: 0,
         averageFieldConfidence: 0,
-        mostCommonTemplate: '',
+        mostCommonTemplate: "",
         totalFieldsAutoPopulated: 0,
         averageConflicts: 0,
-      }
+      };
     }
   }
 
@@ -323,13 +331,13 @@ export class InterviewAnalyticsService {
    * Get template performance analytics
    */
   static async getTemplatePerformanceAnalytics(
-    templateId: string
+    templateId: string,
   ): Promise<TemplatePerformanceAnalytics> {
     try {
       const sessions = await prisma.interviewSession.findMany({
         where: { formTemplateId: templateId },
         include: { responses: true },
-      })
+      });
 
       if (sessions.length === 0) {
         return {
@@ -341,89 +349,124 @@ export class InterviewAnalyticsService {
           fieldConfidenceDistribution: { high: 0, medium: 0, low: 0 },
           mostDifficultQuestions: [],
           recommendedImprovements: [],
-        }
+        };
       }
 
-      const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length
-      const completionRate = Math.round((completedSessions / sessions.length) * 100)
+      const completedSessions = sessions.filter(
+        (s) => s.status === "COMPLETED",
+      ).length;
+      const completionRate = Math.round(
+        (completedSessions / sessions.length) * 100,
+      );
 
       // Calculate metrics
-      let totalDuration = 0
-      let totalFieldsPopulated = 0
-      let highConfidenceCount = 0
-      let mediumConfidenceCount = 0
-      let lowConfidenceCount = 0
+      let totalDuration = 0;
+      let totalFieldsPopulated = 0;
+      let highConfidenceCount = 0;
+      let mediumConfidenceCount = 0;
+      let lowConfidenceCount = 0;
 
       sessions.forEach((session) => {
-        const metadata = (session as unknown as { metadata?: SessionMetadata }).metadata
+        const metadata = (session as unknown as { metadata?: SessionMetadata })
+          .metadata;
         if (metadata?.totalDurationSeconds) {
-          totalDuration += metadata.totalDurationSeconds
+          totalDuration += metadata.totalDurationSeconds;
         }
         if (metadata?.autoPopulatedFieldsCount) {
-          totalFieldsPopulated += metadata.autoPopulatedFieldsCount
+          totalFieldsPopulated += metadata.autoPopulatedFieldsCount;
         }
         if (metadata?.averageConfidence) {
-          if (metadata.averageConfidence >= 90) highConfidenceCount++
-          else if (metadata.averageConfidence >= 75) mediumConfidenceCount++
-          else lowConfidenceCount++
+          if (metadata.averageConfidence >= 90) highConfidenceCount++;
+          else if (metadata.averageConfidence >= 75) mediumConfidenceCount++;
+          else lowConfidenceCount++;
         }
-      })
+      });
 
-      const recommendations: string[] = []
+      const recommendations: string[] = [];
       if (completionRate < 70) {
-        recommendations.push('Low completion rate - consider simplifying questions or providing better guidance')
+        recommendations.push(
+          "Low completion rate - consider simplifying questions or providing better guidance",
+        );
       }
       if (completionRate > 70 && completionRate < 90) {
-        recommendations.push('Moderate completion rate - some questions may need clarification')
+        recommendations.push(
+          "Moderate completion rate - some questions may need clarification",
+        );
       }
       if (totalFieldsPopulated / Math.max(sessions.length, 1) < 30) {
-        recommendations.push('Low average fields populated - review field mapping coverage')
+        recommendations.push(
+          "Low average fields populated - review field mapping coverage",
+        );
       }
 
       // Calculate most difficult questions based on skip rates and low confidence
-      const questionStats: Map<string, { skipCount: number; lowConfidenceCount: number; totalOccurrences: number }> = new Map()
+      const questionStats: Map<
+        string,
+        {
+          skipCount: number;
+          lowConfidenceCount: number;
+          totalOccurrences: number;
+        }
+      > = new Map();
 
       sessions.forEach((session) => {
         session.responses.forEach((response) => {
-          const questionId = response.questionId
-          const stats = questionStats.get(questionId) || { skipCount: 0, lowConfidenceCount: 0, totalOccurrences: 0 }
-          stats.totalOccurrences++
+          const questionId = response.questionId;
+          const stats = questionStats.get(questionId) || {
+            skipCount: 0,
+            lowConfidenceCount: 0,
+            totalOccurrences: 0,
+          };
+          stats.totalOccurrences++;
 
           // Check if question was skipped (null or empty answer)
-          if (!response.answer || response.answer === '') {
-            stats.skipCount++
+          if (!response.answer || response.answer === "") {
+            stats.skipCount++;
           }
 
           // Check for low confidence (if available in metadata)
-          const metadata = (response as unknown as { metadata?: ResponseMetadata }).metadata
+          const metadata = (
+            response as unknown as { metadata?: ResponseMetadata }
+          ).metadata;
           if (metadata?.confidence && metadata.confidence < 70) {
-            stats.lowConfidenceCount++
+            stats.lowConfidenceCount++;
           }
 
-          questionStats.set(questionId, stats)
-        })
-      })
+          questionStats.set(questionId, stats);
+        });
+      });
 
       // Convert to array and sort by difficulty (skip rate + low confidence rate)
       const mostDifficultQuestions = Array.from(questionStats.entries())
         .map(([questionId, stats]) => ({
           questionId,
-          skipRate: Math.round((stats.skipCount / Math.max(stats.totalOccurrences, 1)) * 100),
-          lowConfidenceRate: Math.round((stats.lowConfidenceCount / Math.max(stats.totalOccurrences, 1)) * 100),
+          skipRate: Math.round(
+            (stats.skipCount / Math.max(stats.totalOccurrences, 1)) * 100,
+          ),
+          lowConfidenceRate: Math.round(
+            (stats.lowConfidenceCount / Math.max(stats.totalOccurrences, 1)) *
+              100,
+          ),
           difficultyScore: Math.round(
-            ((stats.skipCount + stats.lowConfidenceCount) / Math.max(stats.totalOccurrences * 2, 1)) * 100
+            ((stats.skipCount + stats.lowConfidenceCount) /
+              Math.max(stats.totalOccurrences * 2, 1)) *
+              100,
           ),
         }))
         .filter((q) => q.difficultyScore > 20) // Only include questions with >20% difficulty
         .sort((a, b) => b.difficultyScore - a.difficultyScore)
-        .slice(0, 5) // Top 5 most difficult questions
+        .slice(0, 5); // Top 5 most difficult questions
 
       return {
         templateId,
         totalSessions: sessions.length,
         completionRate,
-        averageSessionDuration: Math.round(totalDuration / Math.max(sessions.length, 1)),
-        averageFieldsPopulated: Math.round(totalFieldsPopulated / Math.max(sessions.length, 1)),
+        averageSessionDuration: Math.round(
+          totalDuration / Math.max(sessions.length, 1),
+        ),
+        averageFieldsPopulated: Math.round(
+          totalFieldsPopulated / Math.max(sessions.length, 1),
+        ),
         fieldConfidenceDistribution: {
           high: highConfidenceCount,
           medium: mediumConfidenceCount,
@@ -431,9 +474,9 @@ export class InterviewAnalyticsService {
         },
         mostDifficultQuestions,
         recommendedImprovements: recommendations,
-      }
+      };
     } catch (error) {
-      console.error('Error getting template performance analytics:', error)
+      console.error("Error getting template performance analytics:", error);
       return {
         templateId,
         totalSessions: 0,
@@ -443,7 +486,7 @@ export class InterviewAnalyticsService {
         fieldConfidenceDistribution: { high: 0, medium: 0, low: 0 },
         mostDifficultQuestions: [],
         recommendedImprovements: [],
-      }
+      };
     }
   }
 
@@ -451,55 +494,62 @@ export class InterviewAnalyticsService {
    * Get aggregate statistics for a specific user (dashboard KPIs)
    */
   static async getAggregateStatisticsForUser(userId: string): Promise<{
-    totalSessions: number
-    completedSessions: number
-    completionRate: number
-    averageSessionDuration: number
-    averageFieldsPopulated: number
-    averageFieldConfidence: number
+    totalSessions: number;
+    completedSessions: number;
+    completionRate: number;
+    averageSessionDuration: number;
+    averageFieldsPopulated: number;
+    averageFieldConfidence: number;
     topPerformingTemplates: Array<{
-      templateId: string
-      completionRate: number
-      sessionCount: number
-    }>
+      templateId: string;
+      completionRate: number;
+      sessionCount: number;
+    }>;
   }> {
     try {
       const sessions = await prisma.interviewSession.findMany({
         where: { userId },
         include: { responses: true },
-      })
+      });
 
-      const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length
-      const completionRate = sessions.length > 0 ? Math.round((completedSessions / sessions.length) * 100) : 0
+      const completedSessions = sessions.filter(
+        (s) => s.status === "COMPLETED",
+      ).length;
+      const completionRate =
+        sessions.length > 0
+          ? Math.round((completedSessions / sessions.length) * 100)
+          : 0;
 
-      let totalDuration = 0
-      let totalFieldsPopulated = 0
-      let totalConfidence = 0
-      let confidenceCount = 0
+      let totalDuration = 0;
+      let totalFieldsPopulated = 0;
+      let totalConfidence = 0;
+      let confidenceCount = 0;
 
       sessions.forEach((session) => {
-        const metadata = session.metadata as any
-        if (metadata?.totalDurationSeconds) totalDuration += metadata.totalDurationSeconds
-        if (metadata?.autoPopulatedFieldsCount) totalFieldsPopulated += metadata.autoPopulatedFieldsCount
+        const metadata = session.metadata as any;
+        if (metadata?.totalDurationSeconds)
+          totalDuration += metadata.totalDurationSeconds;
+        if (metadata?.autoPopulatedFieldsCount)
+          totalFieldsPopulated += metadata.autoPopulatedFieldsCount;
         if (metadata?.averageConfidence) {
-          totalConfidence += metadata.averageConfidence
-          confidenceCount++
+          totalConfidence += metadata.averageConfidence;
+          confidenceCount++;
         }
-      })
+      });
 
       const templateStats = sessions.reduce(
         (acc, session) => {
           if (!acc[session.formTemplateId]) {
-            acc[session.formTemplateId] = { completed: 0, total: 0 }
+            acc[session.formTemplateId] = { completed: 0, total: 0 };
           }
-          acc[session.formTemplateId].total++
-          if (session.status === 'COMPLETED') {
-            acc[session.formTemplateId].completed++
+          acc[session.formTemplateId].total++;
+          if (session.status === "COMPLETED") {
+            acc[session.formTemplateId].completed++;
           }
-          return acc
+          return acc;
         },
-        {} as Record<string, { completed: number; total: number }>
-      )
+        {} as Record<string, { completed: number; total: number }>,
+      );
 
       const topPerformingTemplates = Object.entries(templateStats)
         .map(([templateId, { completed, total }]) => ({
@@ -508,19 +558,26 @@ export class InterviewAnalyticsService {
           sessionCount: total,
         }))
         .sort((a, b) => b.completionRate - a.completionRate)
-        .slice(0, 5)
+        .slice(0, 5);
 
       return {
         totalSessions: sessions.length,
         completedSessions,
         completionRate,
-        averageSessionDuration: Math.round(totalDuration / Math.max(sessions.length, 1)),
-        averageFieldsPopulated: Math.round(totalFieldsPopulated / Math.max(sessions.length, 1)),
-        averageFieldConfidence: confidenceCount > 0 ? Math.round(totalConfidence / confidenceCount) : 0,
+        averageSessionDuration: Math.round(
+          totalDuration / Math.max(sessions.length, 1),
+        ),
+        averageFieldsPopulated: Math.round(
+          totalFieldsPopulated / Math.max(sessions.length, 1),
+        ),
+        averageFieldConfidence:
+          confidenceCount > 0
+            ? Math.round(totalConfidence / confidenceCount)
+            : 0,
         topPerformingTemplates,
-      }
+      };
     } catch (error) {
-      console.error('Error getting aggregate statistics for user:', error)
+      console.error("Error getting aggregate statistics for user:", error);
       return {
         totalSessions: 0,
         completedSessions: 0,
@@ -529,7 +586,7 @@ export class InterviewAnalyticsService {
         averageFieldsPopulated: 0,
         averageFieldConfidence: 0,
         topPerformingTemplates: [],
-      }
+      };
     }
   }
 
@@ -537,55 +594,63 @@ export class InterviewAnalyticsService {
    * Get aggregate statistics across all interviews
    */
   static async getAggregateStatistics(): Promise<{
-    totalSessions: number
-    completedSessions: number
-    completionRate: number
-    averageSessionDuration: number
-    averageFieldsPopulated: number
-    averageFieldConfidence: number
+    totalSessions: number;
+    completedSessions: number;
+    completionRate: number;
+    averageSessionDuration: number;
+    averageFieldsPopulated: number;
+    averageFieldConfidence: number;
     topPerformingTemplates: Array<{
-      templateId: string
-      completionRate: number
-      sessionCount: number
-    }>
+      templateId: string;
+      completionRate: number;
+      sessionCount: number;
+    }>;
   }> {
     try {
       const sessions = await prisma.interviewSession.findMany({
         include: { responses: true },
-      })
+      });
 
-      const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length
-      const completionRate = sessions.length > 0 ? Math.round((completedSessions / sessions.length) * 100) : 0
+      const completedSessions = sessions.filter(
+        (s) => s.status === "COMPLETED",
+      ).length;
+      const completionRate =
+        sessions.length > 0
+          ? Math.round((completedSessions / sessions.length) * 100)
+          : 0;
 
-      let totalDuration = 0
-      let totalFieldsPopulated = 0
-      let totalConfidence = 0
-      let confidenceCount = 0
+      let totalDuration = 0;
+      let totalFieldsPopulated = 0;
+      let totalConfidence = 0;
+      let confidenceCount = 0;
 
       sessions.forEach((session) => {
-        const metadata = (session as unknown as { metadata?: SessionMetadata }).metadata
-        if (metadata?.totalDurationSeconds) totalDuration += metadata.totalDurationSeconds
-        if (metadata?.autoPopulatedFieldsCount) totalFieldsPopulated += metadata.autoPopulatedFieldsCount
+        const metadata = (session as unknown as { metadata?: SessionMetadata })
+          .metadata;
+        if (metadata?.totalDurationSeconds)
+          totalDuration += metadata.totalDurationSeconds;
+        if (metadata?.autoPopulatedFieldsCount)
+          totalFieldsPopulated += metadata.autoPopulatedFieldsCount;
         if (metadata?.averageConfidence) {
-          totalConfidence += metadata.averageConfidence
-          confidenceCount++
+          totalConfidence += metadata.averageConfidence;
+          confidenceCount++;
         }
-      })
+      });
 
       // Get top performing templates
       const templateStats = sessions.reduce(
         (acc, session) => {
           if (!acc[session.formTemplateId]) {
-            acc[session.formTemplateId] = { completed: 0, total: 0 }
+            acc[session.formTemplateId] = { completed: 0, total: 0 };
           }
-          acc[session.formTemplateId].total++
-          if (session.status === 'COMPLETED') {
-            acc[session.formTemplateId].completed++
+          acc[session.formTemplateId].total++;
+          if (session.status === "COMPLETED") {
+            acc[session.formTemplateId].completed++;
           }
-          return acc
+          return acc;
         },
-        {} as Record<string, { completed: number; total: number }>
-      )
+        {} as Record<string, { completed: number; total: number }>,
+      );
 
       const topPerformingTemplates = Object.entries(templateStats)
         .map(([templateId, { completed, total }]) => ({
@@ -594,19 +659,26 @@ export class InterviewAnalyticsService {
           sessionCount: total,
         }))
         .sort((a, b) => b.completionRate - a.completionRate)
-        .slice(0, 5)
+        .slice(0, 5);
 
       return {
         totalSessions: sessions.length,
         completedSessions,
         completionRate,
-        averageSessionDuration: Math.round(totalDuration / Math.max(sessions.length, 1)),
-        averageFieldsPopulated: Math.round(totalFieldsPopulated / Math.max(sessions.length, 1)),
-        averageFieldConfidence: confidenceCount > 0 ? Math.round(totalConfidence / confidenceCount) : 0,
+        averageSessionDuration: Math.round(
+          totalDuration / Math.max(sessions.length, 1),
+        ),
+        averageFieldsPopulated: Math.round(
+          totalFieldsPopulated / Math.max(sessions.length, 1),
+        ),
+        averageFieldConfidence:
+          confidenceCount > 0
+            ? Math.round(totalConfidence / confidenceCount)
+            : 0,
         topPerformingTemplates,
-      }
+      };
     } catch (error) {
-      console.error('Error getting aggregate statistics:', error)
+      console.error("Error getting aggregate statistics:", error);
       return {
         totalSessions: 0,
         completedSessions: 0,
@@ -615,7 +687,7 @@ export class InterviewAnalyticsService {
         averageFieldsPopulated: 0,
         averageFieldConfidence: 0,
         topPerformingTemplates: [],
-      }
+      };
     }
   }
 }

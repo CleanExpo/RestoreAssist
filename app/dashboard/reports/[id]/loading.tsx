@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReportDetailLoading() {
   return (
@@ -24,5 +24,5 @@ export default function ReportDetailLoading() {
       <Skeleton className="h-48 rounded-xl" />
       <Skeleton className="h-64 rounded-xl" />
     </div>
-  )
+  );
 }

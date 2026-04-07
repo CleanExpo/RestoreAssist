@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
-import { signOut, useSession } from 'next-auth/react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { LogOut, FileText, User } from 'lucide-react'
+import { signOut, useSession } from "next-auth/react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { LogOut, FileText, User } from "lucide-react";
 
 export default function PortalNav() {
-  const { data: session } = useSession()
-  const router = useRouter()
+  const { data: session } = useSession();
+  const router = useRouter();
 
   const handleSignOut = async () => {
-    await signOut({ redirect: false })
-    router.push('/portal/login')
-  }
+    await signOut({ redirect: false });
+    router.push("/portal/login");
+  };
 
   return (
     <nav className="bg-white border-b border-[#5A6A7B]/20">
@@ -22,7 +22,9 @@ export default function PortalNav() {
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="RestoreAssist" width={40} height={40} />
             <div>
-              <h1 className="text-lg font-bold text-[#1C2E47]">Client Portal</h1>
+              <h1 className="text-lg font-bold text-[#1C2E47]">
+                Client Portal
+              </h1>
               {session?.user?.name && (
                 <p className="text-xs text-[#5A6A7B]">{session.user.name}</p>
               )}
@@ -48,5 +50,5 @@ export default function PortalNav() {
         </div>
       </div>
     </nav>
-  )
+  );
 }

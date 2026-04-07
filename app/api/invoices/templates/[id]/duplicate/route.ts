@@ -1,34 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 // POST /api/invoices/templates/[id]/duplicate - Duplicate template
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     // Get template to duplicate
     const template = await prisma.invoiceTemplate.findUnique({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
     if (!template) {
       return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
+        { error: "Template not found" },
+        { status: 404 },
+      );
     }
 
     // Create duplicate
@@ -89,16 +89,16 @@ export async function POST(
         customCSS: template.customCSS,
         customHTML: template.customHTML,
         // Owner
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
-    return NextResponse.json({ template: duplicate }, { status: 201 })
+    return NextResponse.json({ template: duplicate }, { status: 201 });
   } catch (error) {
-    console.error('Error duplicating invoice template:', error)
+    console.error("Error duplicating invoice template:", error);
     return NextResponse.json(
-      { error: 'Failed to duplicate invoice template' },
-      { status: 500 }
-    )
+      { error: "Failed to duplicate invoice template" },
+      { status: 500 },
+    );
   }
 }

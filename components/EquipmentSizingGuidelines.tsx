@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
   BarChart3,
@@ -9,56 +9,56 @@ import {
   Settings,
   Thermometer,
   Wind,
-  Zap
-} from "lucide-react"
-import { useEffect, useState } from "react"
+  Zap,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface EquipmentSizingGuidelinesProps {
-  waterClass: string
-  affectedArea: number
-  waterCategory: string
-  onSizingUpdate: (sizing: any) => void
-  initialData?: any
+  waterClass: string;
+  affectedArea: number;
+  waterCategory: string;
+  onSizingUpdate: (sizing: any) => void;
+  initialData?: any;
 }
 
-export default function EquipmentSizingGuidelines({ 
-  waterClass, 
-  affectedArea, 
+export default function EquipmentSizingGuidelines({
+  waterClass,
+  affectedArea,
   waterCategory,
   onSizingUpdate,
-  initialData 
+  initialData,
 }: EquipmentSizingGuidelinesProps) {
   const [sizingData, setSizingData] = useState({
     airmovers: {
       count: 0,
       type: "standard",
       placement: "",
-      airflow: 0
+      airflow: 0,
     },
     dehumidifiers: {
       count: 0,
       capacity: 0,
       type: "refrigerant",
-      placement: ""
+      placement: "",
     },
     monitoring: {
       psychrometers: 0,
       moistureMeters: 0,
-      placement: ""
+      placement: "",
     },
     specialEquipment: {
       hepaVacuums: 0,
       airScrubbers: 0,
-      negativePressure: false
-    }
-  })
+      negativePressure: false,
+    },
+  });
 
   // Update component when initialData changes
   useEffect(() => {
     if (initialData) {
-      setSizingData(prev => ({ ...prev, ...initialData }))
+      setSizingData((prev) => ({ ...prev, ...initialData }));
     }
-  }, [initialData])
+  }, [initialData]);
 
   const airmoverTypes = [
     {
@@ -66,23 +66,23 @@ export default function EquipmentSizingGuidelines({
       name: "Standard Airmovers",
       description: "General purpose air circulation",
       cfm: 2000,
-      coverage: 50
+      coverage: 50,
     },
     {
       id: "high_velocity",
       name: "High Velocity Airmovers",
       description: "Enhanced airflow for difficult areas",
       cfm: 3000,
-      coverage: 40
+      coverage: 40,
     },
     {
       id: "low_profile",
       name: "Low Profile Airmovers",
       description: "For confined spaces and under furniture",
       cfm: 1500,
-      coverage: 30
-    }
-  ]
+      coverage: 30,
+    },
+  ];
 
   const dehumidifierTypes = [
     {
@@ -90,176 +90,181 @@ export default function EquipmentSizingGuidelines({
       name: "Refrigerant Dehumidifiers",
       description: "Standard dehumidification for most applications",
       efficiency: "High",
-      capacity: "20-150L/day"
+      capacity: "20-150L/day",
     },
     {
       id: "desiccant",
       name: "Desiccant Dehumidifiers",
       description: "Low temperature and humidity applications",
       efficiency: "Very High",
-      capacity: "50-300L/day"
+      capacity: "50-300L/day",
     },
     {
       id: "lgr",
       name: "Low Grain Refrigerant (LGR)",
       description: "Enhanced refrigerant for difficult conditions",
       efficiency: "Very High",
-      capacity: "30-200L/day"
-    }
-  ]
+      capacity: "30-200L/day",
+    },
+  ];
 
   const calculateAirmoverRequirements = () => {
-    if (!affectedArea || !waterClass) return { count: 0, totalCFM: 0 }
+    if (!affectedArea || !waterClass) return { count: 0, totalCFM: 0 };
 
-    const area = parseFloat(affectedArea.toString())
-    let count = 0
-    let totalCFM = 0
+    const area = parseFloat(affectedArea.toString());
+    let count = 0;
+    let totalCFM = 0;
 
     // IICRC S500 Airmover Sizing Guidelines
     switch (waterClass) {
       case "Class 1":
-        count = Math.ceil(area / 60) // 1 per 50-70 sq ft
-        totalCFM = count * 2000 // Standard 2000 CFM per unit
-        break
+        count = Math.ceil(area / 60); // 1 per 50-70 sq ft
+        totalCFM = count * 2000; // Standard 2000 CFM per unit
+        break;
       case "Class 2":
-        count = Math.ceil(area / 50) // 1 per 50 sq ft
-        totalCFM = count * 2000
-        break
+        count = Math.ceil(area / 50); // 1 per 50 sq ft
+        totalCFM = count * 2000;
+        break;
       case "Class 3":
-        count = Math.ceil(area / 40) // 1 per 40 sq ft
-        totalCFM = count * 2000
-        break
+        count = Math.ceil(area / 40); // 1 per 40 sq ft
+        totalCFM = count * 2000;
+        break;
       case "Class 4":
-        count = Math.ceil(area / 30) // 1 per 30 sq ft
-        totalCFM = count * 2000
-        break
+        count = Math.ceil(area / 30); // 1 per 30 sq ft
+        totalCFM = count * 2000;
+        break;
       default:
-        count = Math.ceil(area / 50)
-        totalCFM = count * 2000
+        count = Math.ceil(area / 50);
+        totalCFM = count * 2000;
     }
 
-    return { count, totalCFM }
-  }
+    return { count, totalCFM };
+  };
 
   const calculateDehumidificationRequirements = () => {
-    if (!affectedArea || !waterClass) return { capacity: 0, count: 0 }
+    if (!affectedArea || !waterClass) return { capacity: 0, count: 0 };
 
-    const area = parseFloat(affectedArea.toString())
-    let capacity = 0
-    let count = 0
+    const area = parseFloat(affectedArea.toString());
+    let capacity = 0;
+    let count = 0;
 
     // IICRC S500 Dehumidification Sizing Guidelines
     switch (waterClass) {
       case "Class 1":
-        capacity = Math.ceil(area / 100) * 20 // 20L per 100 sq ft
-        count = Math.ceil(capacity / 50) // 50L units
-        break
+        capacity = Math.ceil(area / 100) * 20; // 20L per 100 sq ft
+        count = Math.ceil(capacity / 50); // 50L units
+        break;
       case "Class 2":
-        capacity = Math.ceil(area / 80) * 30 // 30L per 80 sq ft
-        count = Math.ceil(capacity / 50)
-        break
+        capacity = Math.ceil(area / 80) * 30; // 30L per 80 sq ft
+        count = Math.ceil(capacity / 50);
+        break;
       case "Class 3":
-        capacity = Math.ceil(area / 60) * 40 // 40L per 60 sq ft
-        count = Math.ceil(capacity / 50)
-        break
+        capacity = Math.ceil(area / 60) * 40; // 40L per 60 sq ft
+        count = Math.ceil(capacity / 50);
+        break;
       case "Class 4":
-        capacity = Math.ceil(area / 40) * 50 // 50L per 40 sq ft
-        count = Math.ceil(capacity / 50)
-        break
+        capacity = Math.ceil(area / 40) * 50; // 50L per 40 sq ft
+        count = Math.ceil(capacity / 50);
+        break;
       default:
-        capacity = Math.ceil(area / 80) * 25
-        count = Math.ceil(capacity / 50)
+        capacity = Math.ceil(area / 80) * 25;
+        count = Math.ceil(capacity / 50);
     }
 
-    return { capacity, count }
-  }
+    return { capacity, count };
+  };
 
   const getPlacementGuidelines = () => {
-    const area = parseFloat(affectedArea.toString())
-    const airmovers = calculateAirmoverRequirements()
-    
+    const area = parseFloat(affectedArea.toString());
+    const airmovers = calculateAirmoverRequirements();
+
     return {
       airmovers: [
         "Position airmovers to create airflow across all wet surfaces",
         "Maintain 600+ FPM airflow velocity during constant drying rate",
         "Reduce to 150 FPM during falling drying rate stages",
         "Ensure continuous airflow across affected materials",
-        "Avoid directing airflow at walls or creating dead spots"
+        "Avoid directing airflow at walls or creating dead spots",
       ],
       dehumidifiers: [
         "Place dehumidifiers for optimal air circulation",
         "Ensure adequate spacing for air intake and exhaust",
         "Position away from direct sunlight and heat sources",
         "Monitor psychrometric conditions at equipment outlets",
-        "Adjust positioning based on humidity readings"
+        "Adjust positioning based on humidity readings",
       ],
       monitoring: [
         "Place psychrometers at multiple strategic locations",
         "Monitor both affected and unaffected areas for comparison",
         "Record readings at same locations throughout project",
         "Position monitoring equipment away from direct airflow",
-        "Document baseline conditions before equipment startup"
-      ]
-    }
-  }
+        "Document baseline conditions before equipment startup",
+      ],
+    };
+  };
 
   const getSpecialEquipmentRequirements = () => {
     const requirements = {
       hepaVacuums: 0,
       airScrubbers: 0,
       negativePressure: false,
-      containment: false
-    }
+      containment: false,
+    };
 
     if (waterCategory === "Category 2" || waterCategory === "Category 3") {
-      requirements.hepaVacuums = Math.ceil(affectedArea / 200) // 1 per 200 sq ft
-      requirements.airScrubbers = Math.ceil(affectedArea / 500) // 1 per 500 sq ft
-      requirements.negativePressure = true
-      requirements.containment = true
+      requirements.hepaVacuums = Math.ceil(affectedArea / 200); // 1 per 200 sq ft
+      requirements.airScrubbers = Math.ceil(affectedArea / 500); // 1 per 500 sq ft
+      requirements.negativePressure = true;
+      requirements.containment = true;
     }
 
     if (waterCategory === "Category 3") {
-      requirements.hepaVacuums = Math.ceil(affectedArea / 100) // More intensive
-      requirements.airScrubbers = Math.ceil(affectedArea / 300)
+      requirements.hepaVacuums = Math.ceil(affectedArea / 100); // More intensive
+      requirements.airScrubbers = Math.ceil(affectedArea / 300);
     }
 
-    return requirements
-  }
+    return requirements;
+  };
 
   const getAirflowRequirements = () => {
-    const area = parseFloat(affectedArea.toString())
-    const airmovers = calculateAirmoverRequirements()
-    
+    const area = parseFloat(affectedArea.toString());
+    const airmovers = calculateAirmoverRequirements();
+
     return {
       constantRate: {
         velocity: "600+ FPM",
         description: "Initial drying phase with high evaporation rates",
-        duration: "First 24-48 hours"
+        duration: "First 24-48 hours",
       },
       fallingRate: {
         velocity: "150 FPM",
         description: "Reduced airflow as surface moisture decreases",
-        duration: "Remaining drying time"
+        duration: "Remaining drying time",
       },
       totalCFM: airmovers.totalCFM,
-      airChanges: Math.round(airmovers.totalCFM / (area * 8)) // Assuming 8ft ceiling
-    }
-  }
+      airChanges: Math.round(airmovers.totalCFM / (area * 8)), // Assuming 8ft ceiling
+    };
+  };
 
   const getPsychrometricTargets = () => {
     const targets = {
       "Class 1": { humidity: 45, temperature: 22 },
       "Class 2": { humidity: 40, temperature: 24 },
       "Class 3": { humidity: 35, temperature: 26 },
-      "Class 4": { humidity: 30, temperature: 28 }
-    }
+      "Class 4": { humidity: 30, temperature: 28 },
+    };
 
-    return targets[waterClass as keyof typeof targets] || { humidity: 40, temperature: 24 }
-  }
+    return (
+      targets[waterClass as keyof typeof targets] || {
+        humidity: 40,
+        temperature: 24,
+      }
+    );
+  };
 
   const getMonitoringRequirements = () => {
-    const area = parseFloat(affectedArea.toString())
-    
+    const area = parseFloat(affectedArea.toString());
+
     return {
       psychrometers: Math.max(2, Math.ceil(area / 500)), // 1 per 500 sq ft, minimum 2
       moistureMeters: Math.max(1, Math.ceil(area / 1000)), // 1 per 1000 sq ft, minimum 1
@@ -268,61 +273,61 @@ export default function EquipmentSizingGuidelines({
         "Affected areas",
         "Unaffected areas (control)",
         "Equipment outlets",
-        "Outside conditions"
-      ]
-    }
-  }
+        "Outside conditions",
+      ],
+    };
+  };
 
   useEffect(() => {
-    const airmovers = calculateAirmoverRequirements()
-    const dehumidifiers = calculateDehumidificationRequirements()
-    const monitoring = getMonitoringRequirements()
-    const special = getSpecialEquipmentRequirements()
-    
+    const airmovers = calculateAirmoverRequirements();
+    const dehumidifiers = calculateDehumidificationRequirements();
+    const monitoring = getMonitoringRequirements();
+    const special = getSpecialEquipmentRequirements();
+
     const newSizing = {
       airmovers: {
         ...sizingData.airmovers,
         count: airmovers.count,
-        airflow: airmovers.totalCFM
+        airflow: airmovers.totalCFM,
       },
       dehumidifiers: {
         ...sizingData.dehumidifiers,
         count: dehumidifiers.count,
-        capacity: dehumidifiers.capacity
+        capacity: dehumidifiers.capacity,
       },
       monitoring: {
         ...sizingData.monitoring,
         psychrometers: monitoring.psychrometers,
-        moistureMeters: monitoring.moistureMeters
+        moistureMeters: monitoring.moistureMeters,
       },
       specialEquipment: {
         ...sizingData.specialEquipment,
         hepaVacuums: special.hepaVacuums,
         airScrubbers: special.airScrubbers,
-        negativePressure: special.negativePressure
-      }
-    }
-    
-    setSizingData(newSizing)
-    onSizingUpdate(newSizing)
-  }, [waterClass, affectedArea, waterCategory])
+        negativePressure: special.negativePressure,
+      },
+    };
+
+    setSizingData(newSizing);
+    onSizingUpdate(newSizing);
+  }, [waterClass, affectedArea, waterCategory]);
 
   const handleInputChange = (section: string, field: string, value: any) => {
     const newSizing = {
       ...sizingData,
       [section]: {
         ...sizingData[section as keyof typeof sizingData],
-        [field]: value
-      }
-    }
-    setSizingData(newSizing)
-    onSizingUpdate(newSizing)
-  }
+        [field]: value,
+      },
+    };
+    setSizingData(newSizing);
+    onSizingUpdate(newSizing);
+  };
 
-  const placementGuidelines = getPlacementGuidelines()
-  const airflowRequirements = getAirflowRequirements()
-  const psychrometricTargets = getPsychrometricTargets()
-  const monitoringRequirements = getMonitoringRequirements()
+  const placementGuidelines = getPlacementGuidelines();
+  const airflowRequirements = getAirflowRequirements();
+  const psychrometricTargets = getPsychrometricTargets();
+  const monitoringRequirements = getMonitoringRequirements();
 
   return (
     <div className="space-y-6">
@@ -338,8 +343,12 @@ export default function EquipmentSizingGuidelines({
             <Wind className="text-cyan-400" size={20} />
             <span className="font-medium text-white">Airmovers</span>
           </div>
-          <div className="text-2xl font-bold text-cyan-400">{sizingData.airmovers.count}</div>
-          <div className="text-sm text-slate-400">{sizingData.airmovers.airflow} CFM</div>
+          <div className="text-2xl font-bold text-cyan-400">
+            {sizingData.airmovers.count}
+          </div>
+          <div className="text-sm text-slate-400">
+            {sizingData.airmovers.airflow} CFM
+          </div>
         </motion.div>
 
         <motion.div
@@ -352,8 +361,12 @@ export default function EquipmentSizingGuidelines({
             <Droplets className="text-blue-400" size={20} />
             <span className="font-medium text-white">Dehumidifiers</span>
           </div>
-          <div className="text-2xl font-bold text-blue-400">{sizingData.dehumidifiers.count}</div>
-          <div className="text-sm text-slate-400">{sizingData.dehumidifiers.capacity}L/day</div>
+          <div className="text-2xl font-bold text-blue-400">
+            {sizingData.dehumidifiers.count}
+          </div>
+          <div className="text-sm text-slate-400">
+            {sizingData.dehumidifiers.capacity}L/day
+          </div>
         </motion.div>
 
         <motion.div
@@ -366,7 +379,9 @@ export default function EquipmentSizingGuidelines({
             <Thermometer className="text-orange-400" size={20} />
             <span className="font-medium text-white">Psychrometers</span>
           </div>
-          <div className="text-2xl font-bold text-orange-400">{sizingData.monitoring.psychrometers}</div>
+          <div className="text-2xl font-bold text-orange-400">
+            {sizingData.monitoring.psychrometers}
+          </div>
           <div className="text-sm text-slate-400">Monitoring</div>
         </motion.div>
 
@@ -380,7 +395,9 @@ export default function EquipmentSizingGuidelines({
             <Zap className="text-emerald-400" size={20} />
             <span className="font-medium text-white">Air Changes</span>
           </div>
-          <div className="text-2xl font-bold text-emerald-400">{airflowRequirements.airChanges}</div>
+          <div className="text-2xl font-bold text-emerald-400">
+            {airflowRequirements.airChanges}
+          </div>
           <div className="text-sm text-slate-400">per hour</div>
         </motion.div>
       </div>
@@ -391,13 +408,17 @@ export default function EquipmentSizingGuidelines({
           <Wind className="text-cyan-400" size={20} />
           Airmover Configuration
         </h4>
-        
+
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2">Airmover Type</label>
+            <label className="block text-sm font-medium mb-2">
+              Airmover Type
+            </label>
             <select
               value={sizingData.airmovers.type}
-              onChange={(e) => handleInputChange("airmovers", "type", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("airmovers", "type", e.target.value)
+              }
               className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
             >
               {airmoverTypes.map((type) => (
@@ -407,9 +428,11 @@ export default function EquipmentSizingGuidelines({
               ))}
             </select>
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium mb-2">Total Airflow</label>
+            <label className="block text-sm font-medium mb-2">
+              Total Airflow
+            </label>
             <div className="text-2xl font-bold text-cyan-400">
               {sizingData.airmovers.airflow.toLocaleString()} CFM
             </div>
@@ -423,19 +446,29 @@ export default function EquipmentSizingGuidelines({
           <h5 className="font-medium text-white mb-3">Airflow Requirements</h5>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-lg p-4">
-              <h6 className="font-medium text-cyan-400 mb-2">Constant Rate Phase</h6>
+              <h6 className="font-medium text-cyan-400 mb-2">
+                Constant Rate Phase
+              </h6>
               <p className="text-sm text-cyan-300">
-                <strong>{airflowRequirements.constantRate.velocity}</strong> - {airflowRequirements.constantRate.description}
+                <strong>{airflowRequirements.constantRate.velocity}</strong> -{" "}
+                {airflowRequirements.constantRate.description}
               </p>
-              <p className="text-xs text-slate-400 mt-1">{airflowRequirements.constantRate.duration}</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {airflowRequirements.constantRate.duration}
+              </p>
             </div>
-            
+
             <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
-              <h6 className="font-medium text-blue-400 mb-2">Falling Rate Phase</h6>
+              <h6 className="font-medium text-blue-400 mb-2">
+                Falling Rate Phase
+              </h6>
               <p className="text-sm text-blue-300">
-                <strong>{airflowRequirements.fallingRate.velocity}</strong> - {airflowRequirements.fallingRate.description}
+                <strong>{airflowRequirements.fallingRate.velocity}</strong> -{" "}
+                {airflowRequirements.fallingRate.description}
               </p>
-              <p className="text-xs text-slate-400 mt-1">{airflowRequirements.fallingRate.duration}</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {airflowRequirements.fallingRate.duration}
+              </p>
             </div>
           </div>
         </div>
@@ -447,13 +480,17 @@ export default function EquipmentSizingGuidelines({
           <Droplets className="text-blue-400" size={20} />
           Dehumidifier Configuration
         </h4>
-        
+
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2">Dehumidifier Type</label>
+            <label className="block text-sm font-medium mb-2">
+              Dehumidifier Type
+            </label>
             <select
               value={sizingData.dehumidifiers.type}
-              onChange={(e) => handleInputChange("dehumidifiers", "type", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("dehumidifiers", "type", e.target.value)
+              }
               className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
             >
               {dehumidifierTypes.map((type) => (
@@ -463,9 +500,11 @@ export default function EquipmentSizingGuidelines({
               ))}
             </select>
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium mb-2">Total Capacity</label>
+            <label className="block text-sm font-medium mb-2">
+              Total Capacity
+            </label>
             <div className="text-2xl font-bold text-blue-400">
               {sizingData.dehumidifiers.capacity}L/day
             </div>
@@ -480,11 +519,15 @@ export default function EquipmentSizingGuidelines({
           <div className="grid md:grid-cols-2 gap-4">
             <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
               <span className="text-slate-300">Target Humidity:</span>
-              <span className="text-xl font-bold text-blue-400">{psychrometricTargets.humidity}%</span>
+              <span className="text-xl font-bold text-blue-400">
+                {psychrometricTargets.humidity}%
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
               <span className="text-slate-300">Target Temperature:</span>
-              <span className="text-xl font-bold text-orange-400">{psychrometricTargets.temperature}°C</span>
+              <span className="text-xl font-bold text-orange-400">
+                {psychrometricTargets.temperature}°C
+              </span>
             </div>
           </div>
         </div>
@@ -497,45 +540,67 @@ export default function EquipmentSizingGuidelines({
             <AlertTriangle className="text-amber-400" size={20} />
             Special Equipment Requirements
           </h4>
-          
+
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h5 className="font-medium text-white mb-3">Contamination Control</h5>
+              <h5 className="font-medium text-white mb-3">
+                Contamination Control
+              </h5>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300">HEPA Vacuums:</span>
-                  <span className="text-lg font-bold text-amber-400">{sizingData.specialEquipment.hepaVacuums}</span>
+                  <span className="text-lg font-bold text-amber-400">
+                    {sizingData.specialEquipment.hepaVacuums}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300">Air Scrubbers:</span>
-                  <span className="text-lg font-bold text-amber-400">{sizingData.specialEquipment.airScrubbers}</span>
+                  <span className="text-lg font-bold text-amber-400">
+                    {sizingData.specialEquipment.airScrubbers}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300">Negative Pressure:</span>
                   <span className="text-lg font-bold text-amber-400">
-                    {sizingData.specialEquipment.negativePressure ? "Required" : "Not Required"}
+                    {sizingData.specialEquipment.negativePressure
+                      ? "Required"
+                      : "Not Required"}
                   </span>
                 </div>
               </div>
             </div>
-            
+
             <div>
-              <h5 className="font-medium text-white mb-3">Containment Requirements</h5>
+              <h5 className="font-medium text-white mb-3">
+                Containment Requirements
+              </h5>
               <ul className="space-y-2 text-sm text-slate-300">
                 <li className="flex items-center gap-2">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-400 flex-shrink-0"
+                  />
                   Containment barriers
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-400 flex-shrink-0"
+                  />
                   Negative pressure setup
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-400 flex-shrink-0"
+                  />
                   HEPA filtration
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-400 flex-shrink-0"
+                  />
                   Air monitoring
                 </li>
               </ul>
@@ -550,7 +615,7 @@ export default function EquipmentSizingGuidelines({
           <Settings className="text-cyan-400" size={20} />
           Equipment Placement Guidelines
         </h4>
-        
+
         <div className="grid md:grid-cols-3 gap-6">
           <div>
             <h5 className="font-medium text-white mb-3">Airmovers</h5>
@@ -565,7 +630,7 @@ export default function EquipmentSizingGuidelines({
               ))}
             </ul>
           </div>
-          
+
           <div>
             <h5 className="font-medium text-white mb-3">Dehumidifiers</h5>
             <ul className="space-y-2 text-sm text-slate-300">
@@ -579,7 +644,7 @@ export default function EquipmentSizingGuidelines({
               ))}
             </ul>
           </div>
-          
+
           <div>
             <h5 className="font-medium text-white mb-3">Monitoring</h5>
             <ul className="space-y-2 text-sm text-slate-300">
@@ -602,32 +667,43 @@ export default function EquipmentSizingGuidelines({
           <BarChart3 className="text-emerald-400" size={20} />
           Monitoring Requirements
         </h4>
-        
+
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <h5 className="font-medium text-white mb-3">Equipment Needs</h5>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Psychrometers:</span>
-                <span className="text-lg font-bold text-emerald-400">{monitoringRequirements.psychrometers}</span>
+                <span className="text-lg font-bold text-emerald-400">
+                  {monitoringRequirements.psychrometers}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Moisture Meters:</span>
-                <span className="text-lg font-bold text-emerald-400">{monitoringRequirements.moistureMeters}</span>
+                <span className="text-lg font-bold text-emerald-400">
+                  {monitoringRequirements.moistureMeters}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Monitoring Frequency:</span>
-                <span className="text-lg font-bold text-emerald-400">{monitoringRequirements.frequency}</span>
+                <span className="text-lg font-bold text-emerald-400">
+                  {monitoringRequirements.frequency}
+                </span>
               </div>
             </div>
           </div>
-          
+
           <div>
-            <h5 className="font-medium text-white mb-3">Monitoring Locations</h5>
+            <h5 className="font-medium text-white mb-3">
+              Monitoring Locations
+            </h5>
             <ul className="space-y-2 text-sm text-slate-300">
               {monitoringRequirements.locations.map((location, index) => (
                 <li key={index} className="flex items-center gap-2">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-400 flex-shrink-0"
+                  />
                   {location}
                 </li>
               ))}
@@ -639,32 +715,44 @@ export default function EquipmentSizingGuidelines({
       {/* Custom Placement Details */}
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Airmover Placement Details</label>
+          <label className="block text-sm font-medium mb-2">
+            Airmover Placement Details
+          </label>
           <textarea
             value={sizingData.airmovers.placement}
-            onChange={(e) => handleInputChange("airmovers", "placement", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("airmovers", "placement", e.target.value)
+            }
             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
             rows={3}
             placeholder="Specific airmover placement instructions, room layouts, airflow patterns"
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium mb-2">Dehumidifier Placement Details</label>
+          <label className="block text-sm font-medium mb-2">
+            Dehumidifier Placement Details
+          </label>
           <textarea
             value={sizingData.dehumidifiers.placement}
-            onChange={(e) => handleInputChange("dehumidifiers", "placement", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("dehumidifiers", "placement", e.target.value)
+            }
             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
             rows={3}
             placeholder="Specific dehumidifier placement instructions, spacing requirements, air circulation"
           />
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium mb-2">Monitoring Placement Details</label>
+          <label className="block text-sm font-medium mb-2">
+            Monitoring Placement Details
+          </label>
           <textarea
             value={sizingData.monitoring.placement}
-            onChange={(e) => handleInputChange("monitoring", "placement", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("monitoring", "placement", e.target.value)
+            }
             className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
             rows={3}
             placeholder="Specific monitoring equipment placement, reading locations, documentation requirements"
@@ -672,5 +760,5 @@ export default function EquipmentSizingGuidelines({
         </div>
       </div>
     </div>
-  )
+  );
 }

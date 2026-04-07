@@ -11,21 +11,24 @@ E.E.A.T (Experience, Expertise, Authoritativeness, Trust) is the primary ranking
 
 ## Gate Conditions by Domain
 
-| Content Domain | Gate Requirement | Gate Owner | Content Types Unlocked |
-|---------------|-----------------|------------|------------------------|
-| Water damage | S500 standards mapping in `lib/nir-standards-mapping.ts` reviewed and signed off by a WRT-certified technician | Restoration Technical Lead | Blog posts, case studies, landing pages, social — all water damage topics |
-| Mould remediation | S520 mapping reviewed by CMRS or ASD-certified technician | Restoration Technical Lead | Blog posts, case studies — mould remediation |
-| Fire/smoke | S700 mapping reviewed by FSRT-certified technician | Restoration Technical Lead | Blog posts, case studies — fire and smoke |
-| Cost/savings claims | Phase 2 pilot data available (minimum 50 claims, all CLAIM-00X promoted to VALIDATED in `lib/nir-evidence-architecture.ts`) | Product Lead | Any content citing NIR cost savings |
-| "Industry standard" claims | ICA working group submission lodged | CEO/Founder | Any content claiming NIR is "the" industry standard |
+| Content Domain             | Gate Requirement                                                                                                            | Gate Owner                 | Content Types Unlocked                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------- |
+| Water damage               | S500 standards mapping in `lib/nir-standards-mapping.ts` reviewed and signed off by a WRT-certified technician              | Restoration Technical Lead | Blog posts, case studies, landing pages, social — all water damage topics |
+| Mould remediation          | S520 mapping reviewed by CMRS or ASD-certified technician                                                                   | Restoration Technical Lead | Blog posts, case studies — mould remediation                              |
+| Fire/smoke                 | S700 mapping reviewed by FSRT-certified technician                                                                          | Restoration Technical Lead | Blog posts, case studies — fire and smoke                                 |
+| Cost/savings claims        | Phase 2 pilot data available (minimum 50 claims, all CLAIM-00X promoted to VALIDATED in `lib/nir-evidence-architecture.ts`) | Product Lead               | Any content citing NIR cost savings                                       |
+| "Industry standard" claims | ICA working group submission lodged                                                                                         | CEO/Founder                | Any content claiming NIR is "the" industry standard                       |
 
 ## How to Check Gate Status
 
 ```typescript
-import { getPublishableClaims, assertClaimsPublishable } from '@/lib/nir-evidence-architecture'
+import {
+  getPublishableClaims,
+  assertClaimsPublishable,
+} from "@/lib/nir-evidence-architecture";
 
 // Before publishing content that uses claims:
-assertClaimsPublishable(['CLAIM-001', 'CLAIM-003']) // throws if any not VALIDATED
+assertClaimsPublishable(["CLAIM-001", "CLAIM-003"]); // throws if any not VALIDATED
 ```
 
 ## What This Enables

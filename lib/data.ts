@@ -43,7 +43,7 @@ export const mockClients = [
     lastJob: "2 days ago",
     status: "active",
   },
-]
+];
 
 export const mockReports = [
   {
@@ -98,7 +98,7 @@ export const mockReports = [
     policyType: "Standalone Contents",
     completionTime: "1.5 hours",
   },
-]
+];
 
 export const mockCostLibraries = [
   {
@@ -107,10 +107,30 @@ export const mockCostLibraries = [
     region: "NSW",
     isDefault: true,
     items: [
-      { category: "Labor", description: "Water Extraction (per hour)", rate: "$150", unit: "hour" },
-      { category: "Labor", description: "Drying & Dehumidification", rate: "$120", unit: "hour" },
-      { category: "Materials", description: "Dehumidifier Rental", rate: "$45", unit: "day" },
-      { category: "Equipment", description: "Air Mover", rate: "$35", unit: "day" },
+      {
+        category: "Labor",
+        description: "Water Extraction (per hour)",
+        rate: "$150",
+        unit: "hour",
+      },
+      {
+        category: "Labor",
+        description: "Drying & Dehumidification",
+        rate: "$120",
+        unit: "hour",
+      },
+      {
+        category: "Materials",
+        description: "Dehumidifier Rental",
+        rate: "$45",
+        unit: "day",
+      },
+      {
+        category: "Equipment",
+        description: "Air Mover",
+        rate: "$35",
+        unit: "day",
+      },
     ],
   },
   {
@@ -119,13 +139,33 @@ export const mockCostLibraries = [
     region: "QLD",
     isDefault: false,
     items: [
-      { category: "Labor", description: "Water Extraction (per hour)", rate: "$140", unit: "hour" },
-      { category: "Labor", description: "Drying & Dehumidification", rate: "$110", unit: "hour" },
-      { category: "Materials", description: "Dehumidifier Rental", rate: "$40", unit: "day" },
-      { category: "Equipment", description: "Air Mover", rate: "$30", unit: "day" },
+      {
+        category: "Labor",
+        description: "Water Extraction (per hour)",
+        rate: "$140",
+        unit: "hour",
+      },
+      {
+        category: "Labor",
+        description: "Drying & Dehumidification",
+        rate: "$110",
+        unit: "hour",
+      },
+      {
+        category: "Materials",
+        description: "Dehumidifier Rental",
+        rate: "$40",
+        unit: "day",
+      },
+      {
+        category: "Equipment",
+        description: "Air Mover",
+        rate: "$30",
+        unit: "day",
+      },
     ],
   },
-]
+];
 
 export const mockIntegrations = [
   {
@@ -170,4 +210,4 @@ export const mockIntegrations = [
     status: "connected",
     icon: "🌦️",
   },
-]
+];

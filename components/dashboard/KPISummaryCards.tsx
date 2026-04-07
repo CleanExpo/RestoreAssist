@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ClipboardCheck,
   Droplets,
@@ -11,34 +11,34 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────
 
 interface KPIStat {
-  value: number
-  delta: string | null
-  label: string
-  sublabel: string
-  href: string
+  value: number;
+  delta: string | null;
+  label: string;
+  sublabel: string;
+  href: string;
 }
 
 interface DashboardStats {
-  activeInspections: KPIStat
-  moistureReadings7d: KPIStat
-  equipmentItems: KPIStat
-  completedThisMonth: KPIStat
-  createdToday: KPIStat
+  activeInspections: KPIStat;
+  moistureReadings7d: KPIStat;
+  equipmentItems: KPIStat;
+  completedThisMonth: KPIStat;
+  createdToday: KPIStat;
 }
 
 // ── Individual Card ───────────────────────────────────────────────
 
 interface CardDef {
-  key: keyof DashboardStats
-  icon: React.ReactNode
-  gradient: string
-  iconBg: string
+  key: keyof DashboardStats;
+  icon: React.ReactNode;
+  gradient: string;
+  iconBg: string;
 }
 
 const CARDS: CardDef[] = [
@@ -72,12 +72,12 @@ const CARDS: CardDef[] = [
     gradient: "from-amber-500 to-orange-500",
     iconBg: "bg-amber-500/10 text-amber-500 dark:text-amber-400",
   },
-]
+];
 
 function DeltaBadge({ delta }: { delta: string | null }) {
-  if (!delta) return null
-  const positive = delta.startsWith("+")
-  const neutral = delta === "0%" || delta === "+0%"
+  if (!delta) return null;
+  const positive = delta.startsWith("+");
+  const neutral = delta === "0%" || delta === "+0%";
 
   return (
     <span
@@ -86,8 +86,8 @@ function DeltaBadge({ delta }: { delta: string | null }) {
         neutral
           ? "text-neutral-400 dark:text-slate-500"
           : positive
-          ? "text-emerald-500 dark:text-emerald-400"
-          : "text-rose-500 dark:text-rose-400"
+            ? "text-emerald-500 dark:text-emerald-400"
+            : "text-rose-500 dark:text-rose-400",
       )}
     >
       {neutral ? (
@@ -99,7 +99,7 @@ function DeltaBadge({ delta }: { delta: string | null }) {
       )}
       {delta}
     </span>
-  )
+  );
 }
 
 function SkeletonCard() {
@@ -112,53 +112,57 @@ function SkeletonCard() {
       <div className="h-8 bg-neutral-200 dark:bg-slate-700 rounded w-16 mb-1" />
       <div className="h-3 bg-neutral-200 dark:bg-slate-700 rounded w-20" />
     </div>
-  )
+  );
 }
 
 // ── Main Component ────────────────────────────────────────────────
 
 export default function KPISummaryCards() {
-  const router = useRouter()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const router = useRouter();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     async function load() {
       try {
-        const res = await fetch("/api/dashboard/stats")
-        if (!res.ok) throw new Error("stats fetch failed")
-        const data = await res.json()
-        if (!cancelled) setStats(data)
+        const res = await fetch("/api/dashboard/stats");
+        if (!res.ok) throw new Error("stats fetch failed");
+        const data = await res.json();
+        if (!cancelled) setStats(data);
       } catch {
-        if (!cancelled) setError(true)
+        if (!cancelled) setError(true);
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
     }
 
-    load()
-    return () => { cancelled = true }
-  }, [])
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (loading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {CARDS.map((_, i) => <SkeletonCard key={i} />)}
+        {CARDS.map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
       </div>
-    )
+    );
   }
 
   if (error || !stats) {
-    return null // Fail silently — dashboard is still usable without KPIs
+    return null; // Fail silently — dashboard is still usable without KPIs
   }
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {CARDS.map(({ key, icon, gradient, iconBg }) => {
-        const stat = stats[key]
+        const stat = stats[key];
         return (
           <button
             key={key}
@@ -168,22 +172,20 @@ export default function KPISummaryCards() {
               "border-neutral-200 dark:border-slate-700/50",
               "bg-white dark:bg-slate-900/50",
               "hover:border-transparent hover:shadow-lg hover:scale-[1.02] active:scale-[0.99]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
             )}
           >
             {/* Hover gradient overlay */}
             <div
               className={cn(
-                `absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-[0.08] transition-opacity duration-200`
+                `absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-[0.08] transition-opacity duration-200`,
               )}
             />
 
             <div className="relative z-10">
               {/* Icon + delta row */}
               <div className="flex items-center justify-between mb-3">
-                <div className={cn("p-1.5 rounded-lg", iconBg)}>
-                  {icon}
-                </div>
+                <div className={cn("p-1.5 rounded-lg", iconBg)}>{icon}</div>
                 <DeltaBadge delta={stat.delta} />
               </div>
 
@@ -203,8 +205,8 @@ export default function KPISummaryCards() {
               </p>
             </div>
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
