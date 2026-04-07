@@ -37,7 +37,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="AttractV1"
         component={AttractV1}
-        durationInFrames={2010}
+        durationInFrames={2310}
         fps={30}
         width={1920}
         height={1080}
