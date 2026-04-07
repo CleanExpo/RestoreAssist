@@ -16,8 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { routeTask } from "@/lib/ai/model-router";
-import type { GemmaMessage } from "@/lib/ai/gemma-client";
+import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -128,6 +127,16 @@ export async function POST(
       );
     }
 
+    if (!inspection.workspaceId) {
+      return NextResponse.json(
+        {
+          error:
+            "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
+        },
+        { status: 422 },
+      );
+    }
+
     const contentItems = inspection.evidenceItems.filter((e) => e.fileUrl);
 
     if (contentItems.length === 0) {
@@ -140,13 +149,21 @@ export async function POST(
       );
     }
 
-    // Build VLM message — include image URLs for vision-capable models
-    const imageContent = contentItems.map((item) => ({
-      type: "image_url" as const,
-      image_url: { url: item.fileUrl! },
-    }));
+    // Build image list for AI context
+    const imageList = contentItems
+      .map(
+        (item, i) =>
+          `${i + 1}. ${item.title ?? item.fileName ?? "Image"} — Room: ${item.roomName ?? "Unknown"}${item.description ? ` — ${item.description}` : ""}`,
+      )
+      .join("\n");
 
-    const userTextContent = `You are analysing ${contentItems.length} photo(s) of household/commercial contents from a water damage restoration inspection in Australia.
+    const systemPrompt =
+      "You are an AI assistant for Australian water damage restoration. You analyse evidence photos and identify contents items for insurance claims. Always return valid JSON.";
+
+    const userPrompt = `You are analysing ${contentItems.length} photo(s) of household/commercial contents from a water damage restoration inspection in Australia.
+
+Images captured:
+${imageList}
 
 For each identifiable item, return structured JSON with this shape:
 {
@@ -174,32 +191,21 @@ Rules:
 - Be conservative — better to flag for review than to guess.
 - Return ONLY valid JSON, no markdown, no explanation.`;
 
-    const messages: GemmaMessage[] = [
-      {
-        role: "system",
-        content:
-          "You are an AI assistant for Australian water damage restoration. You analyse evidence photos and identify contents items for insurance claims. Always return valid JSON.",
-      },
-      {
-        role: "user",
-        content: [...imageContent, { type: "text", text: userTextContent }],
-      },
-    ];
-
     // Use standard tier for basic manifest, premium for detailed
     const body = await request.json().catch(() => ({}));
     const detailed = body?.detailed === true;
 
-    const result = await routeTask({
-      taskType: detailed
-        ? "contents_manifest_detail"
-        : "contents_manifest_basic",
-      userConfig: { userId: session.user.id },
-      messages,
-      maxTokens: detailed ? 8192 : 4096,
-      temperature: 0.2,
-      responseFormat: "json",
-    });
+    const result = await workspaceRouteAiRequest(
+      inspection.workspaceId,
+      {
+        taskType: "contents_manifest",
+        systemPrompt,
+        userPrompt,
+        maxTokens: detailed ? 8192 : 4096,
+        temperature: 0.2,
+      },
+      { memberId: session.user.id },
+    );
 
     // Parse AI response
     let items: ContentsManifestItem[] = [];
@@ -221,7 +227,7 @@ Rules:
       inspectionId: id,
       generatedAt: new Date().toISOString(),
       model: result.model,
-      provider: result.provider,
+      provider: result.tier === "basic" ? "gemma" : "byok",
       imageCount: contentItems.length,
       items,
       lowConfidenceCount: items.filter((i) => i.confidence < 70).length,
