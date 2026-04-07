@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
 import {
   getEffectiveStatus,
   getStatusConfig,
   isDraft,
   isCancelled,
-} from '@/lib/invoice-status'
+} from "@/lib/invoice-status";
 import {
   AlertCircle,
   CheckCircle,
@@ -17,37 +17,37 @@ import {
   Search,
   Trash2,
   X,
-} from 'lucide-react'
-import { useSession } from 'next-auth/react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 interface Invoice {
-  id: string
-  invoiceNumber: string
-  status: string
-  customerName: string
-  invoiceDate: string
-  dueDate: string
-  totalIncGST: number
-  amountPaid: number
-  amountDue: number
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  customerName: string;
+  invoiceDate: string;
+  dueDate: string;
+  totalIncGST: number;
+  amountPaid: number;
+  amountDue: number;
   _count: {
-    lineItems: number
-    payments: number
-  }
+    lineItems: number;
+    payments: number;
+  };
 }
 
 export default function InvoicesPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   // Stats (amounts in cents from API)
   const [stats, setStats] = useState({
@@ -55,131 +55,142 @@ export default function InvoicesPage() {
     outstanding: 0,
     overdue: 0,
     paidThisMonth: 0,
-    draftTotal: 0
-  })
+    draftTotal: 0,
+  });
 
   // Bulk delete: selected invoice IDs (only DRAFT/CANCELLED can be deleted)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  const canDeleteInvoice = (invoice: Invoice) => isDraft(invoice.status) || isCancelled(invoice.status)
-  const deletableInvoices = invoices.filter(canDeleteInvoice)
-  const selectedCount = selectedIds.size
+  const canDeleteInvoice = (invoice: Invoice) =>
+    isDraft(invoice.status) || isCancelled(invoice.status);
+  const deletableInvoices = invoices.filter(canDeleteInvoice);
+  const selectedCount = selectedIds.size;
   const allDeletableSelected =
     deletableInvoices.length > 0 &&
-    deletableInvoices.every((inv) => selectedIds.has(inv.id))
+    deletableInvoices.every((inv) => selectedIds.has(inv.id));
 
   const toggleSelect = (id: string, invoice: Invoice) => {
-    if (!canDeleteInvoice(invoice)) return
+    if (!canDeleteInvoice(invoice)) return;
     setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const toggleSelectAllDeletable = () => {
     if (allDeletableSelected) {
-      setSelectedIds(new Set())
+      setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(deletableInvoices.map((inv) => inv.id)))
+      setSelectedIds(new Set(deletableInvoices.map((inv) => inv.id)));
     }
-  }
+  };
 
   const openDeleteDialog = () => {
-    if (selectedCount === 0) return
-    setShowDeleteDialog(true)
-  }
+    if (selectedCount === 0) return;
+    setShowDeleteDialog(true);
+  };
 
   const handleBulkDelete = async () => {
-    if (selectedCount === 0) return
-    setDeleting(true)
+    if (selectedCount === 0) return;
+    setDeleting(true);
     try {
-      const ids = Array.from(selectedIds)
+      const ids = Array.from(selectedIds);
       const results = await Promise.allSettled(
-        ids.map((id) => fetch(`/api/invoices/${id}`, { method: 'DELETE' }))
-      )
-      const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok))
-      const succeeded = results.length - failed.length
+        ids.map((id) => fetch(`/api/invoices/${id}`, { method: "DELETE" })),
+      );
+      const failed = results.filter(
+        (r) =>
+          r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok),
+      );
+      const succeeded = results.length - failed.length;
       if (succeeded > 0) {
-        setSelectedIds(new Set())
-        setShowDeleteDialog(false)
+        setSelectedIds(new Set());
+        setShowDeleteDialog(false);
         toast.success(
           succeeded === 1
-            ? 'Invoice deleted successfully'
-            : `${succeeded} invoices deleted successfully`
-        )
-        fetchInvoices()
-        fetchStats()
+            ? "Invoice deleted successfully"
+            : `${succeeded} invoices deleted successfully`,
+        );
+        fetchInvoices();
+        fetchStats();
       }
       if (failed.length > 0) {
         toast.error(
           failed.length === 1
-            ? 'Failed to delete one invoice'
-            : `Failed to delete ${failed.length} invoices`
-        )
+            ? "Failed to delete one invoice"
+            : `Failed to delete ${failed.length} invoices`,
+        );
       }
     } catch (e) {
-      console.error('Bulk delete error:', e)
-      toast.error('An error occurred while deleting invoices')
+      console.error("Bulk delete error:", e);
+      toast.error("An error occurred while deleting invoices");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated') {
-      fetchInvoices()
-      fetchStats()
+    if (status === "unauthenticated") {
+      router.push("/login");
+    } else if (status === "authenticated") {
+      fetchInvoices();
+      fetchStats();
     }
-  }, [status, search, statusFilter])
+  }, [status, search, statusFilter]);
 
   const fetchInvoices = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const params = new URLSearchParams()
-      if (search) params.append('search', search)
-      if (statusFilter) params.append('status', statusFilter)
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (statusFilter) params.append("status", statusFilter);
 
-      const res = await fetch(`/api/invoices?${params}`)
-      const data = await res.json()
-      setInvoices(data.invoices || [])
+      const res = await fetch(`/api/invoices?${params}`);
+      const data = await res.json();
+      setInvoices(data.invoices || []);
     } catch (error) {
-      console.error('Failed to fetch invoices:', error)
+      console.error("Failed to fetch invoices:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('/api/invoices/analytics')
-      const data = await res.json()
+      const res = await fetch("/api/invoices/analytics");
+      const data = await res.json();
       setStats({
         totalRevenue: data.stats?.totalRevenue ?? 0,
         outstanding: data.stats?.outstanding ?? 0,
         overdue: data.stats?.overdue ?? 0,
         paidThisMonth: data.stats?.paidThisMonth ?? 0,
-        draftTotal: data.stats?.draftTotal ?? 0
-      })
+        draftTotal: data.stats?.draftTotal ?? 0,
+      });
     } catch (error) {
-      console.error('Failed to fetch stats:', error)
+      console.error("Failed to fetch stats:", error);
     }
-  }
+  };
 
-  const getStatusBadge = (invoice: { status: string; dueDate: string; amountDue: number }) => {
-    const effective = getEffectiveStatus(invoice)
-    const config = getStatusConfig(effective)
+  const getStatusBadge = (invoice: {
+    status: string;
+    dueDate: string;
+    amountDue: number;
+  }) => {
+    const effective = getEffectiveStatus(invoice);
+    const config = getStatusConfig(effective);
     return (
-      <span className={`text-xs px-2 py-1 rounded ${config.badgeClass}`} title={config.description}>
+      <span
+        className={`text-xs px-2 py-1 rounded ${config.badgeClass}`}
+        title={config.description}
+      >
         {config.label}
       </span>
-    )
-  }
+    );
+  };
 
   return (
     <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -390,8 +401,10 @@ export default function InvoicesPage() {
               {invoices.map((invoice) => (
                 <tr
                   key={invoice.id}
-                  className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer ${selectedIds.has(invoice.id) ? 'bg-cyan-500/5 dark:bg-cyan-500/10' : ''}`}
-                  onClick={() => router.push(`/dashboard/invoices/${invoice.id}`)}
+                  className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer ${selectedIds.has(invoice.id) ? "bg-cyan-500/5 dark:bg-cyan-500/10" : ""}`}
+                  onClick={() =>
+                    router.push(`/dashboard/invoices/${invoice.id}`)
+                  }
                 >
                   <td
                     className="px-4 py-4 whitespace-nowrap w-10"
@@ -447,8 +460,11 @@ export default function InvoicesPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     <button
                       onClick={(e) => {
-                        e.stopPropagation()
-                        window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')
+                        e.stopPropagation();
+                        window.open(
+                          `/api/invoices/${invoice.id}/pdf`,
+                          "_blank",
+                        );
                       }}
                       className="text-cyan-500 hover:text-cyan-600"
                     >
@@ -480,7 +496,7 @@ export default function InvoicesPage() {
                 id="bulk-delete-dialog-title"
                 className="text-xl font-semibold text-red-600 dark:text-red-400"
               >
-                Delete {selectedCount} invoice{selectedCount !== 1 ? 's' : ''}?
+                Delete {selectedCount} invoice{selectedCount !== 1 ? "s" : ""}?
               </h2>
               <button
                 type="button"
@@ -493,7 +509,8 @@ export default function InvoicesPage() {
               </button>
             </div>
             <p className="text-slate-600 dark:text-slate-300 mb-6">
-              This action cannot be undone. Only draft and cancelled invoices can be deleted.
+              This action cannot be undone. Only draft and cancelled invoices
+              can be deleted.
             </p>
             <div className="flex gap-3">
               <button
@@ -515,12 +532,12 @@ export default function InvoicesPage() {
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

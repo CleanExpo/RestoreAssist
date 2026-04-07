@@ -36,110 +36,103 @@
  * before Phase 2 pilot deployment.
  */
 const DEVICE_PROFILES = {
-  'tramex-mep': {
-    name: 'Tramex MEP',
-    category: 'pin-moisture-meter' as const,
-    filters: [
-      { namePrefix: 'TRAMEX' },
-      { namePrefix: 'MEP' },
-    ],
-    serviceUUID: '0000ffe0-0000-1000-8000-00805f9b34fb', // TODO: validate
-    characteristicUUID: '0000ffe1-0000-1000-8000-00805f9b34fb', // TODO: validate
-    dataPoints: ['moisture_content_percent', 'material_type'] as const,
+  "tramex-mep": {
+    name: "Tramex MEP",
+    category: "pin-moisture-meter" as const,
+    filters: [{ namePrefix: "TRAMEX" }, { namePrefix: "MEP" }],
+    serviceUUID: "0000ffe0-0000-1000-8000-00805f9b34fb", // TODO: validate
+    characteristicUUID: "0000ffe1-0000-1000-8000-00805f9b34fb", // TODO: validate
+    dataPoints: ["moisture_content_percent", "material_type"] as const,
   },
-  'delmhorst-bd2100': {
-    name: 'Delmhorst BD-2100',
-    category: 'pin-moisture-meter' as const,
-    filters: [
-      { namePrefix: 'BD-2100' },
-      { namePrefix: 'DELMHORST' },
-    ],
-    serviceUUID: '0000fff0-0000-1000-8000-00805f9b34fb', // TODO: validate
-    characteristicUUID: '0000fff1-0000-1000-8000-00805f9b34fb', // TODO: validate
-    dataPoints: ['moisture_content_percent', 'material_type'] as const,
+  "delmhorst-bd2100": {
+    name: "Delmhorst BD-2100",
+    category: "pin-moisture-meter" as const,
+    filters: [{ namePrefix: "BD-2100" }, { namePrefix: "DELMHORST" }],
+    serviceUUID: "0000fff0-0000-1000-8000-00805f9b34fb", // TODO: validate
+    characteristicUUID: "0000fff1-0000-1000-8000-00805f9b34fb", // TODO: validate
+    dataPoints: ["moisture_content_percent", "material_type"] as const,
   },
-  'tramex-cmexv5': {
-    name: 'Tramex CMEXv5',
-    category: 'non-invasive-moisture-meter' as const,
-    filters: [
-      { namePrefix: 'CMEX' },
-      { namePrefix: 'CMEXv5' },
-    ],
-    serviceUUID: '0000ffe0-0000-1000-8000-00805f9b34fb', // TODO: validate
-    characteristicUUID: '0000ffe1-0000-1000-8000-00805f9b34fb', // TODO: validate
-    dataPoints: ['moisture_content_percent', 'mapped_readings'] as const,
+  "tramex-cmexv5": {
+    name: "Tramex CMEXv5",
+    category: "non-invasive-moisture-meter" as const,
+    filters: [{ namePrefix: "CMEX" }, { namePrefix: "CMEXv5" }],
+    serviceUUID: "0000ffe0-0000-1000-8000-00805f9b34fb", // TODO: validate
+    characteristicUUID: "0000ffe1-0000-1000-8000-00805f9b34fb", // TODO: validate
+    dataPoints: ["moisture_content_percent", "mapped_readings"] as const,
   },
-  'testo-605': {
-    name: 'Testo 605-H1',
-    category: 'thermo-hygrometer' as const,
-    filters: [
-      { namePrefix: 'testo 605' },
-      { namePrefix: 'Testo 605' },
-    ],
+  "testo-605": {
+    name: "Testo 605-H1",
+    category: "thermo-hygrometer" as const,
+    filters: [{ namePrefix: "testo 605" }, { namePrefix: "Testo 605" }],
     // Testo Smart App uses standard Environmental Sensing Service (ESS)
-    serviceUUID: '0000181a-0000-1000-8000-00805f9b34fb', // ESS standard UUID
-    characteristicUUID: '00002a6f-0000-1000-8000-00805f9b34fb', // Humidity characteristic
-    temperatureCharUUID: '00002a6e-0000-1000-8000-00805f9b34fb', // Temperature characteristic
-    dataPoints: ['relative_humidity_percent', 'temperature_celsius', 'dew_point_celsius'] as const,
+    serviceUUID: "0000181a-0000-1000-8000-00805f9b34fb", // ESS standard UUID
+    characteristicUUID: "00002a6f-0000-1000-8000-00805f9b34fb", // Humidity characteristic
+    temperatureCharUUID: "00002a6e-0000-1000-8000-00805f9b34fb", // Temperature characteristic
+    dataPoints: [
+      "relative_humidity_percent",
+      "temperature_celsius",
+      "dew_point_celsius",
+    ] as const,
   },
-  'vaisala-hm70': {
-    name: 'Vaisala HM70',
-    category: 'thermo-hygrometer' as const,
-    filters: [
-      { namePrefix: 'HM70' },
-      { namePrefix: 'Vaisala' },
-    ],
-    serviceUUID: '0000181a-0000-1000-8000-00805f9b34fb', // ESS standard UUID
-    characteristicUUID: '00002a6f-0000-1000-8000-00805f9b34fb', // TODO: validate
-    dataPoints: ['relative_humidity_percent', 'temperature_celsius', 'dew_point_celsius'] as const,
+  "vaisala-hm70": {
+    name: "Vaisala HM70",
+    category: "thermo-hygrometer" as const,
+    filters: [{ namePrefix: "HM70" }, { namePrefix: "Vaisala" }],
+    serviceUUID: "0000181a-0000-1000-8000-00805f9b34fb", // ESS standard UUID
+    characteristicUUID: "00002a6f-0000-1000-8000-00805f9b34fb", // TODO: validate
+    dataPoints: [
+      "relative_humidity_percent",
+      "temperature_celsius",
+      "dew_point_celsius",
+    ] as const,
   },
-} as const
+} as const;
 
-export type DeviceKey = keyof typeof DEVICE_PROFILES
+export type DeviceKey = keyof typeof DEVICE_PROFILES;
 export type DeviceCategory =
-  | 'pin-moisture-meter'
-  | 'non-invasive-moisture-meter'
-  | 'thermo-hygrometer'
+  | "pin-moisture-meter"
+  | "non-invasive-moisture-meter"
+  | "thermo-hygrometer";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface MoistureReading {
-  deviceKey: DeviceKey
-  deviceName: string
-  moistureContentPercent: number
+  deviceKey: DeviceKey;
+  deviceName: string;
+  moistureContentPercent: number;
   /** Material type reported by the device (when available) */
-  materialType?: string
+  materialType?: string;
   /** Raw signal value before calibration */
-  rawSignal?: number
-  readingTimestamp: string
+  rawSignal?: number;
+  readingTimestamp: string;
 }
 
 export interface EnvironmentalReading {
-  deviceKey: DeviceKey
-  deviceName: string
-  relativeHumidityPercent: number
-  temperatureCelsius: number
-  dewPointCelsius: number
-  readingTimestamp: string
+  deviceKey: DeviceKey;
+  deviceName: string;
+  relativeHumidityPercent: number;
+  temperatureCelsius: number;
+  dewPointCelsius: number;
+  readingTimestamp: string;
 }
 
-export type DeviceReading = MoistureReading | EnvironmentalReading
+export type DeviceReading = MoistureReading | EnvironmentalReading;
 
 export interface PairedDevice {
-  key: DeviceKey
-  name: string
-  category: DeviceCategory
-  bluetoothDevice: BluetoothDevice
-  characteristic: BluetoothRemoteGATTCharacteristic
+  key: DeviceKey;
+  name: string;
+  category: DeviceCategory;
+  bluetoothDevice: BluetoothDevice;
+  characteristic: BluetoothRemoteGATTCharacteristic;
   /** Remove notification listener and disconnect */
-  disconnect: () => Promise<void>
+  disconnect: () => Promise<void>;
 }
 
 export type BluetoothAvailability =
-  | 'available'
-  | 'unavailable-no-api'
-  | 'unavailable-not-https'
-  | 'unavailable-ios-safari'
+  | "available"
+  | "unavailable-no-api"
+  | "unavailable-not-https"
+  | "unavailable-ios-safari";
 
 // ─── AVAILABILITY CHECK ───────────────────────────────────────────────────────
 
@@ -148,25 +141,28 @@ export type BluetoothAvailability =
  * Returns a typed availability status with a reason.
  */
 export async function checkBluetoothAvailability(): Promise<BluetoothAvailability> {
-  if (typeof window === 'undefined') return 'unavailable-no-api'
+  if (typeof window === "undefined") return "unavailable-no-api";
 
   // iOS Safari does not support Web Bluetooth
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-  if (isIOS && !('bluetooth' in navigator)) {
-    return 'unavailable-ios-safari'
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS && !("bluetooth" in navigator)) {
+    return "unavailable-ios-safari";
   }
 
-  if (!('bluetooth' in navigator)) {
-    return 'unavailable-no-api'
+  if (!("bluetooth" in navigator)) {
+    return "unavailable-no-api";
   }
 
   // Web Bluetooth requires HTTPS
-  if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-    return 'unavailable-not-https'
+  if (
+    window.location.protocol !== "https:" &&
+    window.location.hostname !== "localhost"
+  ) {
+    return "unavailable-not-https";
   }
 
-  const available = await (navigator.bluetooth as any).getAvailability()
-  return available ? 'available' : 'unavailable-no-api'
+  const available = await (navigator.bluetooth as any).getAvailability();
+  return available ? "available" : "unavailable-no-api";
 }
 
 // ─── DEVICE PAIRING ───────────────────────────────────────────────────────────
@@ -181,25 +177,27 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
  * @returns PairedDevice with disconnect function
  */
 export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
-  if (typeof window === 'undefined' || !('bluetooth' in navigator)) {
-    throw new Error('Web Bluetooth API not available in this environment')
+  if (typeof window === "undefined" || !("bluetooth" in navigator)) {
+    throw new Error("Web Bluetooth API not available in this environment");
   }
 
-  const profile = DEVICE_PROFILES[deviceKey]
+  const profile = DEVICE_PROFILES[deviceKey];
 
-  const bluetoothDevice = await (navigator.bluetooth as any).requestDevice({
+  const bluetoothDevice = (await (navigator.bluetooth as any).requestDevice({
     filters: profile.filters,
     optionalServices: [profile.serviceUUID],
-  }) as BluetoothDevice
+  })) as BluetoothDevice;
 
-  const server = await bluetoothDevice.gatt!.connect()
-  const service = await server.getPrimaryService(profile.serviceUUID)
-  const characteristic = await service.getCharacteristic(profile.characteristicUUID)
+  const server = await bluetoothDevice.gatt!.connect();
+  const service = await server.getPrimaryService(profile.serviceUUID);
+  const characteristic = await service.getCharacteristic(
+    profile.characteristicUUID,
+  );
 
   const disconnect = async () => {
-    await characteristic.stopNotifications().catch(() => {})
-    bluetoothDevice.gatt?.disconnect()
-  }
+    await characteristic.stopNotifications().catch(() => {});
+    bluetoothDevice.gatt?.disconnect();
+  };
 
   return {
     key: deviceKey,
@@ -208,7 +206,7 @@ export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
     bluetoothDevice,
     characteristic,
     disconnect,
-  }
+  };
 }
 
 // ─── READING FUNCTIONS ────────────────────────────────────────────────────────
@@ -217,52 +215,60 @@ export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
  * Read a single moisture measurement from a paired pin or non-invasive meter.
  * For continuous readings, use subscribeToReadings() instead.
  */
-export async function readMoistureReading(device: PairedDevice): Promise<MoistureReading> {
+export async function readMoistureReading(
+  device: PairedDevice,
+): Promise<MoistureReading> {
   if (
-    device.category !== 'pin-moisture-meter' &&
-    device.category !== 'non-invasive-moisture-meter'
+    device.category !== "pin-moisture-meter" &&
+    device.category !== "non-invasive-moisture-meter"
   ) {
-    throw new Error(`Device ${device.name} is not a moisture meter`)
+    throw new Error(`Device ${device.name} is not a moisture meter`);
   }
 
-  const value = await device.characteristic.readValue()
-  const parsed = parseMoistureValue(device.key, value)
+  const value = await device.characteristic.readValue();
+  const parsed = parseMoistureValue(device.key, value);
 
   return {
     deviceKey: device.key,
     deviceName: device.name,
     ...parsed,
     readingTimestamp: new Date().toISOString(),
-  }
+  };
 }
 
 /**
  * Read environmental data (RH, temperature, dew point) from a thermo-hygrometer.
  */
-export async function readEnvironmentalData(device: PairedDevice): Promise<EnvironmentalReading> {
-  if (device.category !== 'thermo-hygrometer') {
-    throw new Error(`Device ${device.name} is not a thermo-hygrometer`)
+export async function readEnvironmentalData(
+  device: PairedDevice,
+): Promise<EnvironmentalReading> {
+  if (device.category !== "thermo-hygrometer") {
+    throw new Error(`Device ${device.name} is not a thermo-hygrometer`);
   }
 
-  const rhValue = await device.characteristic.readValue()
-  const rh = parseHumidityValue(device.key, rhValue)
+  const rhValue = await device.characteristic.readValue();
+  const rh = parseHumidityValue(device.key, rhValue);
 
   // For Testo 605 / Vaisala — read temperature from separate characteristic
-  let temperatureCelsius = 22 // fallback default
-  const profile = DEVICE_PROFILES[device.key] as typeof DEVICE_PROFILES['testo-605']
-  if ('temperatureCharUUID' in profile) {
+  let temperatureCelsius = 22; // fallback default
+  const profile = DEVICE_PROFILES[
+    device.key
+  ] as (typeof DEVICE_PROFILES)["testo-605"];
+  if ("temperatureCharUUID" in profile) {
     try {
-      const server = device.bluetoothDevice.gatt!
-      const service = await server.getPrimaryService(profile.serviceUUID)
-      const tempChar = await service.getCharacteristic(profile.temperatureCharUUID)
-      const tempValue = await tempChar.readValue()
-      temperatureCelsius = parseTemperatureValue(device.key, tempValue)
+      const server = device.bluetoothDevice.gatt!;
+      const service = await server.getPrimaryService(profile.serviceUUID);
+      const tempChar = await service.getCharacteristic(
+        profile.temperatureCharUUID,
+      );
+      const tempValue = await tempChar.readValue();
+      temperatureCelsius = parseTemperatureValue(device.key, tempValue);
     } catch {
       // Non-fatal — use fallback
     }
   }
 
-  const dewPointCelsius = calculateDewPoint(rh, temperatureCelsius)
+  const dewPointCelsius = calculateDewPoint(rh, temperatureCelsius);
 
   return {
     deviceKey: device.key,
@@ -271,7 +277,7 @@ export async function readEnvironmentalData(device: PairedDevice): Promise<Envir
     temperatureCelsius,
     dewPointCelsius,
     readingTimestamp: new Date().toISOString(),
-  }
+  };
 }
 
 /**
@@ -285,15 +291,15 @@ export async function readEnvironmentalData(device: PairedDevice): Promise<Envir
 export async function subscribeToReadings(
   device: PairedDevice,
   onReading: (reading: DeviceReading) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
 ): Promise<() => void> {
-  await device.characteristic.startNotifications()
+  await device.characteristic.startNotifications();
 
   const handler = async (event: Event) => {
-    const target = event.target as BluetoothRemoteGATTCharacteristic
+    const target = event.target as BluetoothRemoteGATTCharacteristic;
     try {
-      if (device.category === 'thermo-hygrometer') {
-        const rh = parseHumidityValue(device.key, target.value!)
+      if (device.category === "thermo-hygrometer") {
+        const rh = parseHumidityValue(device.key, target.value!);
         const reading: EnvironmentalReading = {
           deviceKey: device.key,
           deviceName: device.name,
@@ -301,29 +307,32 @@ export async function subscribeToReadings(
           temperatureCelsius: 22, // updated on next full read
           dewPointCelsius: calculateDewPoint(rh, 22),
           readingTimestamp: new Date().toISOString(),
-        }
-        onReading(reading)
+        };
+        onReading(reading);
       } else {
-        const parsed = parseMoistureValue(device.key, target.value!)
+        const parsed = parseMoistureValue(device.key, target.value!);
         const reading: MoistureReading = {
           deviceKey: device.key,
           deviceName: device.name,
           ...parsed,
           readingTimestamp: new Date().toISOString(),
-        }
-        onReading(reading)
+        };
+        onReading(reading);
       }
     } catch (err) {
-      onError?.(err instanceof Error ? err : new Error(String(err)))
+      onError?.(err instanceof Error ? err : new Error(String(err)));
     }
-  }
+  };
 
-  device.characteristic.addEventListener('characteristicvaluechanged', handler)
+  device.characteristic.addEventListener("characteristicvaluechanged", handler);
 
   return () => {
-    device.characteristic.removeEventListener('characteristicvaluechanged', handler)
-    device.characteristic.stopNotifications().catch(() => {})
-  }
+    device.characteristic.removeEventListener(
+      "characteristicvaluechanged",
+      handler,
+    );
+    device.characteristic.stopNotifications().catch(() => {});
+  };
 }
 
 // ─── DATA PARSERS ─────────────────────────────────────────────────────────────
@@ -337,31 +346,38 @@ export async function subscribeToReadings(
  */
 function parseMoistureValue(
   deviceKey: DeviceKey,
-  dataView: DataView
-): Pick<MoistureReading, 'moistureContentPercent' | 'materialType' | 'rawSignal'> {
+  dataView: DataView,
+): Pick<
+  MoistureReading,
+  "moistureContentPercent" | "materialType" | "rawSignal"
+> {
   // Tramex MEP / BD-2100 / CMEXv5 assumed byte layout:
   //   Byte 0-1: moisture reading (uint16 little-endian, value × 0.1 = %)
   //   Byte 2:   material type code (0=wood, 1=drywall, 2=concrete, 3=generic)
   // TODO: validate against manufacturer firmware spec
 
   if (dataView.byteLength < 2) {
-    throw new Error(`Unexpected data length from ${deviceKey}: ${dataView.byteLength} bytes`)
+    throw new Error(
+      `Unexpected data length from ${deviceKey}: ${dataView.byteLength} bytes`,
+    );
   }
 
-  const rawSignal = dataView.getUint16(0, true)
-  const moistureContentPercent = rawSignal / 10
+  const rawSignal = dataView.getUint16(0, true);
+  const moistureContentPercent = rawSignal / 10;
 
   const MATERIAL_CODES: Record<number, string> = {
-    0: 'wood',
-    1: 'drywall',
-    2: 'concrete',
-    3: 'generic',
-  }
+    0: "wood",
+    1: "drywall",
+    2: "concrete",
+    3: "generic",
+  };
 
-  const materialCode = dataView.byteLength > 2 ? dataView.getUint8(2) : undefined
-  const materialType = materialCode !== undefined ? MATERIAL_CODES[materialCode] : undefined
+  const materialCode =
+    dataView.byteLength > 2 ? dataView.getUint8(2) : undefined;
+  const materialType =
+    materialCode !== undefined ? MATERIAL_CODES[materialCode] : undefined;
 
-  return { moistureContentPercent, materialType, rawSignal }
+  return { moistureContentPercent, materialType, rawSignal };
 }
 
 /**
@@ -371,19 +387,26 @@ function parseMoistureValue(
 function parseHumidityValue(deviceKey: DeviceKey, dataView: DataView): number {
   // ESS Humidity characteristic: uint16 little-endian, value × 0.01 = %RH
   if (dataView.byteLength < 2) {
-    throw new Error(`Unexpected humidity data length from ${deviceKey}: ${dataView.byteLength} bytes`)
+    throw new Error(
+      `Unexpected humidity data length from ${deviceKey}: ${dataView.byteLength} bytes`,
+    );
   }
-  return dataView.getUint16(0, true) / 100
+  return dataView.getUint16(0, true) / 100;
 }
 
 /**
  * Parse temperature characteristic DataView (ESS standard: sint16 × 0.01 = °C)
  */
-function parseTemperatureValue(deviceKey: DeviceKey, dataView: DataView): number {
+function parseTemperatureValue(
+  deviceKey: DeviceKey,
+  dataView: DataView,
+): number {
   if (dataView.byteLength < 2) {
-    throw new Error(`Unexpected temperature data length from ${deviceKey}: ${dataView.byteLength} bytes`)
+    throw new Error(
+      `Unexpected temperature data length from ${deviceKey}: ${dataView.byteLength} bytes`,
+    );
   }
-  return dataView.getInt16(0, true) / 100
+  return dataView.getInt16(0, true) / 100;
 }
 
 /**
@@ -391,11 +414,16 @@ function parseTemperatureValue(deviceKey: DeviceKey, dataView: DataView): number
  * Used when the device does not directly report dew point.
  * Accuracy: ±0.35°C over 0–60°C range.
  */
-function calculateDewPoint(relativeHumidity: number, temperatureCelsius: number): number {
-  const a = 17.625
-  const b = 243.04
-  const alpha = Math.log(relativeHumidity / 100) + (a * temperatureCelsius) / (b + temperatureCelsius)
-  return Math.round(((b * alpha) / (a - alpha)) * 10) / 10
+function calculateDewPoint(
+  relativeHumidity: number,
+  temperatureCelsius: number,
+): number {
+  const a = 17.625;
+  const b = 243.04;
+  const alpha =
+    Math.log(relativeHumidity / 100) +
+    (a * temperatureCelsius) / (b + temperatureCelsius);
+  return Math.round(((b * alpha) / (a - alpha)) * 10) / 10;
 }
 
 // ─── UTILITY ──────────────────────────────────────────────────────────────────
@@ -407,5 +435,5 @@ export function getP1DeviceProfiles() {
     name: profile.name,
     category: profile.category,
     dataPoints: [...profile.dataPoints],
-  }))
+  }));
 }

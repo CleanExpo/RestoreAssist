@@ -14,42 +14,52 @@
  *   Removes the record (idempotent).
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
 const fireSchema = z.object({
-  structuralStability: z.enum(['SAFE', 'UNCERTAIN', 'COMPROMISED']).nullable().optional(),
+  structuralStability: z
+    .enum(["SAFE", "UNCERTAIN", "COMPROMISED"])
+    .nullable()
+    .optional(),
   electricalDisconnectVerified: z.boolean().optional(),
   gasShutoffVerified: z.boolean().optional(),
   charringDepthMm: z.number().nonnegative().nullable().optional(),
   engineerClearanceRequired: z.boolean().optional(),
-  smokeResidueType: z.enum(['WET', 'DRY', 'PROTEIN', 'FUEL_OIL']).nullable().optional(),
+  smokeResidueType: z
+    .enum(["WET", "DRY", "PROTEIN", "FUEL_OIL"])
+    .nullable()
+    .optional(),
   residueLocation: z.string().nullable().optional(),
   surfacePH: z.number().min(0).max(14).nullable().optional(),
   pHMeterModel: z.string().nullable().optional(),
   odourSeverityScore: z.number().int().min(0).max(10).nullable().optional(),
   hvacAffected: z.boolean().optional(),
-  odourType: z.enum(['SMOKE', 'PROTEIN', 'CHEMICAL', 'FUEL']).nullable().optional(),
+  odourType: z
+    .enum(["SMOKE", "PROTEIN", "CHEMICAL", "FUEL"])
+    .nullable()
+    .optional(),
   ozoneTreatmentDuration: z.number().nonnegative().nullable().optional(),
   ozoneConcentrationPpm: z.number().nonnegative().nullable().optional(),
   evacuationOrderTimestamp: z.string().datetime().nullable().optional(),
   reentryApprovalTimestamp: z.string().datetime().nullable().optional(),
   spaceVolumeM3: z.number().positive().nullable().optional(),
-})
+});
 
 // ─── Gate computation ──────────────────────────────────────────────────────────
 
 function computeGates(data: z.infer<typeof fireSchema>) {
   return {
-    gateStructuralCleared: data.structuralStability === 'SAFE',
+    gateStructuralCleared: data.structuralStability === "SAFE",
     gateElectricalCleared:
-      data.electricalDisconnectVerified === true && data.gasShutoffVerified === true,
-  }
+      data.electricalDisconnectVerified === true &&
+      data.gasShutoffVerified === true,
+  };
 }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
@@ -58,21 +68,24 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true, fireSmokeDamageAssessment: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  return NextResponse.json(inspection.fireSmokeDamageAssessment ?? null)
+  return NextResponse.json(inspection.fireSmokeDamageAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -81,31 +94,34 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const body = await req.json()
-  const parsed = fireSchema.safeParse(body)
+  const body = await req.json();
+  const parsed = fireSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid data', details: parsed.error.flatten() },
+      { error: "Invalid data", details: parsed.error.flatten() },
       { status: 400 },
-    )
+    );
   }
 
-  const data = parsed.data
-  const gates = computeGates(data)
+  const data = parsed.data;
+  const gates = computeGates(data);
 
   const record = await prisma.fireSmokeDamageAssessment.upsert({
     where: { inspectionId: params.id },
@@ -141,17 +157,31 @@ export async function POST(
       ...(data.electricalDisconnectVerified !== undefined && {
         electricalDisconnectVerified: data.electricalDisconnectVerified,
       }),
-      ...(data.gasShutoffVerified !== undefined && { gasShutoffVerified: data.gasShutoffVerified }),
-      ...(data.charringDepthMm !== undefined && { charringDepthMm: data.charringDepthMm }),
+      ...(data.gasShutoffVerified !== undefined && {
+        gasShutoffVerified: data.gasShutoffVerified,
+      }),
+      ...(data.charringDepthMm !== undefined && {
+        charringDepthMm: data.charringDepthMm,
+      }),
       ...(data.engineerClearanceRequired !== undefined && {
         engineerClearanceRequired: data.engineerClearanceRequired,
       }),
-      ...(data.smokeResidueType !== undefined && { smokeResidueType: data.smokeResidueType }),
-      ...(data.residueLocation !== undefined && { residueLocation: data.residueLocation }),
+      ...(data.smokeResidueType !== undefined && {
+        smokeResidueType: data.smokeResidueType,
+      }),
+      ...(data.residueLocation !== undefined && {
+        residueLocation: data.residueLocation,
+      }),
       ...(data.surfacePH !== undefined && { surfacePH: data.surfacePH }),
-      ...(data.pHMeterModel !== undefined && { pHMeterModel: data.pHMeterModel }),
-      ...(data.odourSeverityScore !== undefined && { odourSeverityScore: data.odourSeverityScore }),
-      ...(data.hvacAffected !== undefined && { hvacAffected: data.hvacAffected }),
+      ...(data.pHMeterModel !== undefined && {
+        pHMeterModel: data.pHMeterModel,
+      }),
+      ...(data.odourSeverityScore !== undefined && {
+        odourSeverityScore: data.odourSeverityScore,
+      }),
+      ...(data.hvacAffected !== undefined && {
+        hvacAffected: data.hvacAffected,
+      }),
       ...(data.odourType !== undefined && { odourType: data.odourType }),
       ...(data.ozoneTreatmentDuration !== undefined && {
         ozoneTreatmentDuration: data.ozoneTreatmentDuration,
@@ -169,17 +199,19 @@ export async function POST(
           ? new Date(data.reentryApprovalTimestamp)
           : null,
       }),
-      ...(data.spaceVolumeM3 !== undefined && { spaceVolumeM3: data.spaceVolumeM3 }),
+      ...(data.spaceVolumeM3 !== undefined && {
+        spaceVolumeM3: data.spaceVolumeM3,
+      }),
       ...gates,
     },
-  })
+  });
 
   await prisma.inspection.update({
     where: { id: params.id },
-    data: { claimType: 'FIRE' },
-  })
+    data: { claimType: "FIRE" },
+  });
 
-  return NextResponse.json(record)
+  return NextResponse.json(record);
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -188,28 +220,31 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
   await prisma.fireSmokeDamageAssessment
     .delete({ where: { inspectionId: params.id } })
-    .catch(() => {})
+    .catch(() => {});
 
   await prisma.inspection.update({
     where: { id: params.id },
     data: { claimType: null },
-  })
+  });
 
-  return NextResponse.json({ deleted: true })
+  return NextResponse.json({ deleted: true });
 }

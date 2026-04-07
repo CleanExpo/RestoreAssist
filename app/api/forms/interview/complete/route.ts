@@ -4,16 +4,16 @@
  * Track interview completion metrics and auto-population statistics
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { InterviewAnalyticsService } from '@/lib/forms/analytics'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { InterviewAnalyticsService } from "@/lib/forms/analytics";
 
 interface CompletionRequest {
-  sessionId: string
-  autoPopulatedFieldsCount: number
-  averageConfidence: number
-  conflictCount: number
+  sessionId: string;
+  autoPopulatedFieldsCount: number;
+  averageConfidence: number;
+  conflictCount: number;
 }
 
 /**
@@ -22,21 +22,26 @@ interface CompletionRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: CompletionRequest = await request.json()
+    const body: CompletionRequest = await request.json();
 
-    const { sessionId, autoPopulatedFieldsCount, averageConfidence, conflictCount } = body
+    const {
+      sessionId,
+      autoPopulatedFieldsCount,
+      averageConfidence,
+      conflictCount,
+    } = body;
 
     if (!sessionId) {
       return NextResponse.json(
-        { error: 'Missing required field: sessionId' },
-        { status: 400 }
-      )
+        { error: "Missing required field: sessionId" },
+        { status: 400 },
+      );
     }
 
     // Track session completion
@@ -44,25 +49,22 @@ export async function POST(request: NextRequest) {
       sessionId,
       autoPopulatedFieldsCount || 0,
       averageConfidence || 0,
-      conflictCount || 0
-    )
+      conflictCount || 0,
+    );
 
     if (!metrics) {
-      return NextResponse.json(
-        { error: 'Session not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
       metrics,
-    })
+    });
   } catch (error) {
-    console.error('Error tracking interview completion:', error)
+    console.error("Error tracking interview completion:", error);
     return NextResponse.json(
-      { error: 'Failed to track interview completion' },
-      { status: 500 }
-    )
+      { error: "Failed to track interview completion" },
+      { status: 500 },
+    );
   }
 }

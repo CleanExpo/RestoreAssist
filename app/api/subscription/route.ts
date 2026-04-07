@@ -1,31 +1,34 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { stripe } from "@/lib/stripe"
-import { prisma } from "@/lib/prisma"
-import { getEffectiveSubscription, getOrganizationOwner } from "@/lib/organization-credits"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { stripe } from "@/lib/stripe";
+import { prisma } from "@/lib/prisma";
+import {
+  getEffectiveSubscription,
+  getOrganizationOwner,
+} from "@/lib/organization-credits";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const forceRefresh = searchParams.get('refresh') === 'true'
+    const { searchParams } = new URL(request.url);
+    const forceRefresh = searchParams.get("refresh") === "true";
 
     // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
-    const effectiveSub = await getEffectiveSubscription(session.user.id)
-    
+    const effectiveSub = await getEffectiveSubscription(session.user.id);
+
     if (!effectiveSub) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Get the organization owner (Admin) to check their Stripe subscription
-    const ownerId = await getOrganizationOwner(session.user.id)
-    const targetUserId = ownerId || session.user.id
+    const ownerId = await getOrganizationOwner(session.user.id);
+    const targetUserId = ownerId || session.user.id;
 
     // Get owner's user data from database
     const user = await prisma.user.findUnique({
@@ -42,54 +45,68 @@ export async function GET(request: NextRequest) {
         lastBillingDate: true,
         nextBillingDate: true,
         lifetimeAccess: true,
-      }
-    })
+      },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // If owner has a Stripe subscription, get details from Stripe
     if (user.subscriptionId && user.stripeCustomerId) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId, {
-          expand: ['default_payment_method'],
-        })
-        const price = await stripe.prices.retrieve(subscription.items.data[0].price.id)
+        const subscription = await stripe.subscriptions.retrieve(
+          user.subscriptionId,
+          {
+            expand: ["default_payment_method"],
+          },
+        );
+        const price = await stripe.prices.retrieve(
+          subscription.items.data[0].price.id,
+        );
 
         // Update database with latest subscription data (on owner's account)
         await prisma.user.update({
           where: { id: targetUserId },
           data: {
-            subscriptionStatus: subscription.status === 'active' ? 'ACTIVE' : 
-                              subscription.status === 'canceled' ? 'CANCELED' : 
-                              subscription.status === 'past_due' ? 'PAST_DUE' : 'EXPIRED',
-            subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
+            subscriptionStatus:
+              subscription.status === "active"
+                ? "ACTIVE"
+                : subscription.status === "canceled"
+                  ? "CANCELED"
+                  : subscription.status === "past_due"
+                    ? "PAST_DUE"
+                    : "EXPIRED",
+            subscriptionEndsAt: new Date(
+              subscription.current_period_end * 1000,
+            ),
             nextBillingDate: new Date(subscription.current_period_end * 1000),
             lastBillingDate: new Date(subscription.current_period_start * 1000),
             // Don't set creditsRemaining for active subscriptions - they use monthly limits
-          }
-        })
+          },
+        });
 
         // Optional: payment method details for display
-        let defaultPaymentMethod: { brand: string; last4: string } | null = null
-        const pm = subscription.default_payment_method
-        if (pm && typeof pm === 'object' && 'card' in pm && pm.card) {
-          const card = pm.card as { brand?: string; last4?: string }
+        let defaultPaymentMethod: { brand: string; last4: string } | null =
+          null;
+        const pm = subscription.default_payment_method;
+        if (pm && typeof pm === "object" && "card" in pm && pm.card) {
+          const card = pm.card as { brand?: string; last4?: string };
           defaultPaymentMethod = {
-            brand: card.brand || 'card',
-            last4: card.last4 || '••••',
-          }
+            brand: card.brand || "card",
+            last4: card.last4 || "••••",
+          };
         }
 
         // Optional: next invoice amount (upcoming invoice)
-        let nextInvoiceAmount: number | null = null
+        let nextInvoiceAmount: number | null = null;
         try {
           const upcoming = await stripe.invoices.retrieveUpcoming({
             customer: user.stripeCustomerId,
             subscription: user.subscriptionId,
-          })
-          if (upcoming.amount_due != null) nextInvoiceAmount = upcoming.amount_due
+          });
+          if (upcoming.amount_due != null)
+            nextInvoiceAmount = upcoming.amount_due;
         } catch {
           // No upcoming invoice or not applicable
         }
@@ -104,43 +121,59 @@ export async function GET(request: NextRequest) {
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             canceledAt: subscription.canceled_at ?? null,
             plan: {
-              name: price.nickname || user.subscriptionPlan || 'Subscription',
+              name: price.nickname || user.subscriptionPlan || "Subscription",
               amount: price.unit_amount || 0,
               currency: price.currency,
-              interval: price.recurring?.interval || 'month',
+              interval: price.recurring?.interval || "month",
             },
             defaultPaymentMethod: defaultPaymentMethod,
             nextInvoiceAmount: nextInvoiceAmount,
             stripeCustomerId: user.stripeCustomerId,
           },
-        })
+        });
       } catch (stripeError) {
-        console.error("Error fetching Stripe subscription:", stripeError)
+        console.error("Error fetching Stripe subscription:", stripeError);
         // Fall back to database data
       }
     }
 
     // Return database subscription data (using effective subscription status)
-    const effectiveStatus = effectiveSub.subscriptionStatus || user.subscriptionStatus
-    const isLifetime = user.lifetimeAccess || effectiveSub.subscriptionPlan === 'Lifetime'
+    const effectiveStatus =
+      effectiveSub.subscriptionStatus || user.subscriptionStatus;
+    const isLifetime =
+      user.lifetimeAccess || effectiveSub.subscriptionPlan === "Lifetime";
     return NextResponse.json({
-      subscription: effectiveStatus !== 'TRIAL' && effectiveStatus !== null ? {
-        id: user.subscriptionId || 'lifetime',
-        status: effectiveStatus.toLowerCase(),
-        currentPeriodStart: user.lastBillingDate ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000) : null,
-        currentPeriodEnd: user.nextBillingDate ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000) : null,
-        cancelAtPeriodEnd: effectiveStatus === 'CANCELED' && !isLifetime,
-        plan: {
-          name: isLifetime ? 'Lifetime' : (effectiveSub.subscriptionPlan || user.subscriptionPlan || 'Subscription'),
-          amount: isLifetime ? 22 : 0,
-          currency: 'AUD',
-          interval: isLifetime ? 'one-time' : 'month',
-        },
-      } : null,
+      subscription:
+        effectiveStatus !== "TRIAL" && effectiveStatus !== null
+          ? {
+              id: user.subscriptionId || "lifetime",
+              status: effectiveStatus.toLowerCase(),
+              currentPeriodStart: user.lastBillingDate
+                ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000)
+                : null,
+              currentPeriodEnd: user.nextBillingDate
+                ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000)
+                : null,
+              cancelAtPeriodEnd: effectiveStatus === "CANCELED" && !isLifetime,
+              plan: {
+                name: isLifetime
+                  ? "Lifetime"
+                  : effectiveSub.subscriptionPlan ||
+                    user.subscriptionPlan ||
+                    "Subscription",
+                amount: isLifetime ? 22 : 0,
+                currency: "AUD",
+                interval: isLifetime ? "one-time" : "month",
+              },
+            }
+          : null,
       lifetimeAccess: user.lifetimeAccess ?? false,
-    })
+    });
   } catch (error) {
-    console.error("Error fetching subscription:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching subscription:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

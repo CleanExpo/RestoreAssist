@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useSession } from "next-auth/react"
-import toast from "react-hot-toast"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Mail,
@@ -18,30 +18,30 @@ import {
   Send,
   Edit,
   User,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 type Member = {
-  id: string
-  name: string | null
-  email: string
-  role: "ADMIN" | "MANAGER" | "USER"
-  managedById: string | null
-  createdAt: string
-}
+  id: string;
+  name: string | null;
+  email: string;
+  role: "ADMIN" | "MANAGER" | "USER";
+  managedById: string | null;
+  createdAt: string;
+};
 
 type Inspection = {
-  id: string
-  inspectionNumber?: string
-  propertyAddress?: string
-  status: string
-  createdAt: string
-  technicianName?: string
-}
+  id: string;
+  inspectionNumber?: string;
+  propertyAddress?: string;
+  status: string;
+  createdAt: string;
+  technicianName?: string;
+};
 
 const roleConfig = {
   ADMIN: {
@@ -65,7 +65,7 @@ const roleConfig = {
     textColor: "text-cyan-400",
     borderColor: "border-cyan-500/30",
   },
-}
+};
 
 const statusConfig: Record<string, { bg: string; text: string }> = {
   completed: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
@@ -76,17 +76,17 @@ const statusConfig: Record<string, { bg: string; text: string }> = {
   IN_PROGRESS: { bg: "bg-amber-500/20", text: "text-amber-400" },
   draft: { bg: "bg-slate-500/20", text: "text-slate-400" },
   DRAFT: { bg: "bg-slate-500/20", text: "text-slate-400" },
-}
+};
 
 function getInitials(name: string | null, email: string): string {
   if (name) {
-    const parts = name.trim().split(" ")
+    const parts = name.trim().split(" ");
     if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
-    return name.substring(0, 2).toUpperCase()
+    return name.substring(0, 2).toUpperCase();
   }
-  return email.substring(0, 2).toUpperCase()
+  return email.substring(0, 2).toUpperCase();
 }
 
 function formatDate(dateString: string): string {
@@ -94,115 +94,123 @@ function formatDate(dateString: string): string {
     day: "numeric",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 function formatStatusLabel(status: string): string {
   return status
     .replace(/_/g, " ")
     .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function TeamMemberDetailPage({ params }: { params: { id: string } }) {
-  const { data: session } = useSession()
-  const [member, setMember] = useState<Member | null>(null)
-  const [inspections, setInspections] = useState<Inspection[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingInspections, setLoadingInspections] = useState(false)
-  const [notFound, setNotFound] = useState(false)
-  const [sendingInvite, setSendingInvite] = useState(false)
+export default function TeamMemberDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const { data: session } = useSession();
+  const [member, setMember] = useState<Member | null>(null);
+  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingInspections, setLoadingInspections] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   // Edit state
-  const [editing, setEditing] = useState(false)
-  const [editName, setEditName] = useState("")
-  const [editRole, setEditRole] = useState<"ADMIN" | "MANAGER" | "USER">("USER")
-  const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState<"ADMIN" | "MANAGER" | "USER">(
+    "USER",
+  );
+  const [saving, setSaving] = useState(false);
 
-  const isAdmin = session?.user?.role === "ADMIN"
+  const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
-    fetchMember()
-  }, [params.id])
+    fetchMember();
+  }, [params.id]);
 
   const fetchMember = async () => {
     try {
-      setLoading(true)
-      const res = await fetch("/api/team/members")
+      setLoading(true);
+      const res = await fetch("/api/team/members");
       if (!res.ok) {
-        toast.error("Failed to load team member")
-        setNotFound(true)
-        return
+        toast.error("Failed to load team member");
+        setNotFound(true);
+        return;
       }
-      const data = await res.json()
-      const found = (data.members || []).find((m: Member) => m.id === params.id)
+      const data = await res.json();
+      const found = (data.members || []).find(
+        (m: Member) => m.id === params.id,
+      );
       if (!found) {
-        setNotFound(true)
-        return
+        setNotFound(true);
+        return;
       }
-      setMember(found)
-      setEditName(found.name || "")
-      setEditRole(found.role)
-      fetchInspections()
+      setMember(found);
+      setEditName(found.name || "");
+      setEditRole(found.role);
+      fetchInspections();
     } catch (err) {
-      console.error("Error fetching member:", err)
-      toast.error("Failed to load team member")
-      setNotFound(true)
+      console.error("Error fetching member:", err);
+      toast.error("Failed to load team member");
+      setNotFound(true);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fetchInspections = async () => {
     try {
-      setLoadingInspections(true)
-      const res = await fetch(`/api/inspections?limit=10`)
+      setLoadingInspections(true);
+      const res = await fetch(`/api/inspections?limit=10`);
       if (res.ok) {
-        const data = await res.json()
-        setInspections(data.inspections || [])
+        const data = await res.json();
+        setInspections(data.inspections || []);
       }
     } catch (err) {
-      console.error("Error fetching inspections:", err)
+      console.error("Error fetching inspections:", err);
     } finally {
-      setLoadingInspections(false)
+      setLoadingInspections(false);
     }
-  }
+  };
 
   const handleSendInvite = async () => {
-    if (!member) return
-    setSendingInvite(true)
+    if (!member) return;
+    setSendingInvite(true);
     try {
       const res = await fetch(`/api/team/${member.id}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      })
+      });
       if (res.ok) {
-        toast.success(`Invite sent to ${member.email}`)
+        toast.success(`Invite sent to ${member.email}`);
       } else {
         // Stub: show success anyway since this is a no-op stub
-        toast.success(`Invite sent to ${member.email}`)
+        toast.success(`Invite sent to ${member.email}`);
       }
     } catch {
-      toast.success(`Invite sent to ${member.email}`)
+      toast.success(`Invite sent to ${member.email}`);
     } finally {
-      setSendingInvite(false)
+      setSendingInvite(false);
     }
-  }
+  };
 
   const handleSaveEdit = async () => {
-    if (!member) return
-    setSaving(true)
+    if (!member) return;
+    setSaving(true);
     try {
       // Optimistic update — no dedicated PATCH endpoint yet, reflect locally
-      setMember({ ...member, name: editName || member.name, role: editRole })
-      setEditing(false)
-      toast.success("Profile updated")
+      setMember({ ...member, name: editName || member.name, role: editRole });
+      setEditing(false);
+      toast.success("Profile updated");
     } catch {
-      toast.error("Failed to update profile")
+      toast.error("Failed to update profile");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -237,16 +245,19 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
           <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
-    )
+    );
   }
 
   if (notFound || !member) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
         <AlertTriangle className="h-14 w-14 text-slate-400" />
-        <h3 className="text-xl font-medium text-white">Team member not found</h3>
+        <h3 className="text-xl font-medium text-white">
+          Team member not found
+        </h3>
         <p className="text-slate-400 text-sm">
-          This member may have been removed or you don&apos;t have permission to view them.
+          This member may have been removed or you don&apos;t have permission to
+          view them.
         </p>
         <Link
           href="/dashboard/team"
@@ -256,12 +267,12 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
           Back to Team
         </Link>
       </div>
-    )
+    );
   }
 
-  const rc = roleConfig[member.role]
-  const RoleIcon = rc.icon
-  const initials = getInitials(member.name, member.email)
+  const rc = roleConfig[member.role];
+  const RoleIcon = rc.icon;
+  const initials = getInitials(member.name, member.email);
 
   return (
     <div className="space-y-6">
@@ -309,7 +320,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
       {editing && isAdmin && (
         <Card className="bg-slate-800/50 border-cyan-500/30">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-cyan-400">Edit Member Details</CardTitle>
+            <CardTitle className="text-base text-cyan-400">
+              Edit Member Details
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
@@ -331,7 +344,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                 </label>
                 <select
                   value={editRole}
-                  onChange={(e) => setEditRole(e.target.value as "ADMIN" | "MANAGER" | "USER")}
+                  onChange={(e) =>
+                    setEditRole(e.target.value as "ADMIN" | "MANAGER" | "USER")
+                  }
                   className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="ADMIN">Admin</option>
@@ -345,9 +360,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setEditing(false)
-                  setEditName(member.name || "")
-                  setEditRole(member.role)
+                  setEditing(false);
+                  setEditName(member.name || "");
+                  setEditRole(member.role);
                 }}
                 className="border-slate-600 text-slate-300"
               >
@@ -380,7 +395,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
             {/* Info */}
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-semibold text-white truncate">
-                {member.name || <span className="text-slate-400 italic">No name set</span>}
+                {member.name || (
+                  <span className="text-slate-400 italic">No name set</span>
+                )}
               </h2>
               <div className="flex items-center gap-2 mt-1 text-sm text-slate-400">
                 <Mail size={14} />
@@ -425,7 +442,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
             ) : inspections.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center space-y-2">
                 <FileText size={36} className="text-slate-500" />
-                <p className="text-slate-400 text-sm">No recent activity found.</p>
+                <p className="text-slate-400 text-sm">
+                  No recent activity found.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -433,7 +452,7 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                   const sc = statusConfig[inspection.status] ?? {
                     bg: "bg-slate-500/20",
                     text: "text-slate-400",
-                  }
+                  };
                   return (
                     <Link
                       key={inspection.id}
@@ -462,7 +481,7 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                         {formatStatusLabel(inspection.status)}
                       </span>
                     </Link>
-                  )
+                  );
                 })}
               </div>
             )}
@@ -517,7 +536,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                   <Calendar size={14} />
                   Member Since
                 </span>
-                <span className="text-sm text-white">{formatDate(member.createdAt)}</span>
+                <span className="text-sm text-white">
+                  {formatDate(member.createdAt)}
+                </span>
               </div>
 
               {member.managedById && (
@@ -526,7 +547,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                     <UserCog size={14} />
                     Reports To
                   </span>
-                  <span className="text-sm text-slate-300 italic">Manager assigned</span>
+                  <span className="text-sm text-slate-300 italic">
+                    Manager assigned
+                  </span>
                 </div>
               )}
 
@@ -535,7 +558,9 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
                   <Clock size={14} />
                   Last Login
                 </span>
-                <span className="text-sm text-slate-500 italic">Not recorded</span>
+                <span className="text-sm text-slate-500 italic">
+                  Not recorded
+                </span>
               </div>
             </div>
 
@@ -557,5 +582,5 @@ export default function TeamMemberDetailPage({ params }: { params: { id: string 
         </Card>
       </div>
     </div>
-  )
+  );
 }

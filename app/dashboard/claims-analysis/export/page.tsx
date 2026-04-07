@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,9 +21,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Checkbox } from '@/components/ui/checkbox'
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft,
   Download,
@@ -31,74 +31,74 @@ import {
   Filter,
   Loader2,
   RefreshCw,
-} from 'lucide-react'
-import toast from 'react-hot-toast'
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 interface MissingElement {
-  id: string
-  category: string
-  elementType: string
-  elementName: string
-  description?: string
-  severity: string
+  id: string;
+  category: string;
+  elementType: string;
+  elementName: string;
+  description?: string;
+  severity: string;
 }
 
 interface BatchInfo {
-  id: string
-  folderName: string
-  status: string
+  id: string;
+  folderName: string;
+  status: string;
 }
 
 interface Analysis {
-  id: string
-  fileName: string
-  claimNumber?: string
-  propertyAddress?: string
-  technicianName?: string
-  completenessScore?: number
-  complianceScore?: number
-  standardizationScore?: number
-  status: string
-  missingIICRCElements: number
-  missingOHSElements: number
-  missingBillingItems: number
-  missingDocumentation: number
-  estimatedMissingRevenue?: number
-  createdAt: string
-  missingElements: MissingElement[]
-  batch: BatchInfo
+  id: string;
+  fileName: string;
+  claimNumber?: string;
+  propertyAddress?: string;
+  technicianName?: string;
+  completenessScore?: number;
+  complianceScore?: number;
+  standardizationScore?: number;
+  status: string;
+  missingIICRCElements: number;
+  missingOHSElements: number;
+  missingBillingItems: number;
+  missingDocumentation: number;
+  estimatedMissingRevenue?: number;
+  createdAt: string;
+  missingElements: MissingElement[];
+  batch: BatchInfo;
 }
 
 interface Pagination {
-  page: number
-  limit: number
-  total: number
-  totalPages: number
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 const CLAIM_TYPE_OPTIONS = [
-  { value: 'all', label: 'All Types' },
-  { value: 'IICRC', label: 'IICRC' },
-  { value: 'OHS', label: 'OHS / WHS' },
-  { value: 'BILLING', label: 'Billing' },
-  { value: 'DOCUMENTATION', label: 'Documentation' },
-]
+  { value: "all", label: "All Types" },
+  { value: "IICRC", label: "IICRC" },
+  { value: "OHS", label: "OHS / WHS" },
+  { value: "BILLING", label: "Billing" },
+  { value: "DOCUMENTATION", label: "Documentation" },
+];
 
 const STATUS_COLOR: Record<string, string> = {
-  COMPLETED: 'bg-green-100 text-green-800',
-  PROCESSING: 'bg-blue-100 text-blue-800',
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  FAILED: 'bg-red-100 text-red-800',
-}
+  COMPLETED: "bg-green-100 text-green-800",
+  PROCESSING: "bg-blue-100 text-blue-800",
+  PENDING: "bg-yellow-100 text-yellow-800",
+  FAILED: "bg-red-100 text-red-800",
+};
 
 function getOverallScore(analysis: Analysis): number | null {
   const scores = [
     analysis.completenessScore,
     analysis.complianceScore,
     analysis.standardizationScore,
-  ].filter((s): s is number => s != null)
-  if (scores.length === 0) return null
-  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  ].filter((s): s is number => s != null);
+  if (scores.length === 0) return null;
+  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 }
 
 function getTotalIssues(analysis: Analysis): number {
@@ -107,47 +107,47 @@ function getTotalIssues(analysis: Analysis): number {
     analysis.missingOHSElements +
     analysis.missingBillingItems +
     analysis.missingDocumentation
-  )
+  );
 }
 
 function scoreColor(score: number | null): string {
-  if (score === null) return 'text-gray-400'
-  if (score >= 80) return 'text-green-600'
-  if (score >= 60) return 'text-yellow-600'
-  return 'text-red-600'
+  if (score === null) return "text-gray-400";
+  if (score >= 80) return "text-green-600";
+  if (score >= 60) return "text-yellow-600";
+  return "text-red-600";
 }
 
-function exportToCSV(analyses: Analysis[], filename = 'claims-analyses.csv') {
+function exportToCSV(analyses: Analysis[], filename = "claims-analyses.csv") {
   const headers = [
-    'Date',
-    'File Name',
-    'Claim Number',
-    'Property Address',
-    'Technician',
-    'Completeness Score',
-    'Compliance Score',
-    'Standardization Score',
-    'Overall Score',
-    'Total Issues',
-    'Missing IICRC',
-    'Missing OHS',
-    'Missing Billing',
-    'Missing Documentation',
-    'Est. Missing Revenue',
-    'Status',
-    'Batch',
-  ]
+    "Date",
+    "File Name",
+    "Claim Number",
+    "Property Address",
+    "Technician",
+    "Completeness Score",
+    "Compliance Score",
+    "Standardization Score",
+    "Overall Score",
+    "Total Issues",
+    "Missing IICRC",
+    "Missing OHS",
+    "Missing Billing",
+    "Missing Documentation",
+    "Est. Missing Revenue",
+    "Status",
+    "Batch",
+  ];
 
-  const rows = analyses.map(a => [
-    new Date(a.createdAt).toLocaleDateString('en-AU'),
-    a.fileName ?? '',
-    a.claimNumber ?? '',
-    a.propertyAddress ?? '',
-    a.technicianName ?? '',
-    a.completenessScore ?? '',
-    a.complianceScore ?? '',
-    a.standardizationScore ?? '',
-    getOverallScore(a) ?? '',
+  const rows = analyses.map((a) => [
+    new Date(a.createdAt).toLocaleDateString("en-AU"),
+    a.fileName ?? "",
+    a.claimNumber ?? "",
+    a.propertyAddress ?? "",
+    a.technicianName ?? "",
+    a.completenessScore ?? "",
+    a.complianceScore ?? "",
+    a.standardizationScore ?? "",
+    getOverallScore(a) ?? "",
     getTotalIssues(a),
     a.missingIICRCElements,
     a.missingOHSElements,
@@ -155,101 +155,105 @@ function exportToCSV(analyses: Analysis[], filename = 'claims-analyses.csv') {
     a.missingDocumentation,
     a.estimatedMissingRevenue != null
       ? `$${a.estimatedMissingRevenue.toFixed(2)}`
-      : '',
-    a.status ?? '',
-    a.batch?.folderName ?? '',
-  ])
+      : "",
+    a.status ?? "",
+    a.batch?.folderName ?? "",
+  ]);
 
   const csv = [headers, ...rows]
-    .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function ClaimsAnalysisExportPage() {
-  const [analyses, setAnalyses] = useState<Analysis[]>([])
-  const [pagination, setPagination] = useState<Pagination | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Filters
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [claimTypeFilter, setClaimTypeFilter] = useState('all')
-  const [technicianFilter, setTechnicianFilter] = useState('')
-  const [minScore, setMinScore] = useState('')
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [claimTypeFilter, setClaimTypeFilter] = useState("all");
+  const [technicianFilter, setTechnicianFilter] = useState("");
+  const [minScore, setMinScore] = useState("");
 
   // Pending filter state (applied on button click)
   const [appliedFilters, setAppliedFilters] = useState({
-    dateFrom: '',
-    dateTo: '',
-    claimType: 'all',
-    technician: '',
-    minScore: '',
-  })
+    dateFrom: "",
+    dateTo: "",
+    claimType: "all",
+    technician: "",
+    minScore: "",
+  });
 
   // Selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchAnalyses = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const params = new URLSearchParams()
-      params.set('limit', '100') // fetch up to 100 for export
+      const params = new URLSearchParams();
+      params.set("limit", "100"); // fetch up to 100 for export
 
       if (appliedFilters.technician) {
-        params.set('technicianName', appliedFilters.technician)
+        params.set("technicianName", appliedFilters.technician);
       }
       if (appliedFilters.minScore) {
-        params.set('minScore', appliedFilters.minScore)
+        params.set("minScore", appliedFilters.minScore);
       }
 
-      const res = await fetch(`/api/claims/analyses?${params.toString()}`)
-      if (!res.ok) throw new Error('Failed to fetch analyses')
-      const data = await res.json()
+      const res = await fetch(`/api/claims/analyses?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch analyses");
+      const data = await res.json();
 
-      let filtered: Analysis[] = data.analyses ?? []
+      let filtered: Analysis[] = data.analyses ?? [];
 
       // Client-side date filtering (API doesn't support date range directly)
       if (appliedFilters.dateFrom) {
-        const from = new Date(appliedFilters.dateFrom)
-        filtered = filtered.filter(a => new Date(a.createdAt) >= from)
+        const from = new Date(appliedFilters.dateFrom);
+        filtered = filtered.filter((a) => new Date(a.createdAt) >= from);
       }
       if (appliedFilters.dateTo) {
-        const to = new Date(appliedFilters.dateTo)
-        to.setHours(23, 59, 59, 999)
-        filtered = filtered.filter(a => new Date(a.createdAt) <= to)
+        const to = new Date(appliedFilters.dateTo);
+        to.setHours(23, 59, 59, 999);
+        filtered = filtered.filter((a) => new Date(a.createdAt) <= to);
       }
 
       // Client-side claim type filter (filter by missing element category)
-      if (appliedFilters.claimType !== 'all') {
-        filtered = filtered.filter(a => {
-          if (appliedFilters.claimType === 'IICRC') return a.missingIICRCElements > 0
-          if (appliedFilters.claimType === 'OHS') return a.missingOHSElements > 0
-          if (appliedFilters.claimType === 'BILLING') return a.missingBillingItems > 0
-          if (appliedFilters.claimType === 'DOCUMENTATION') return a.missingDocumentation > 0
-          return true
-        })
+      if (appliedFilters.claimType !== "all") {
+        filtered = filtered.filter((a) => {
+          if (appliedFilters.claimType === "IICRC")
+            return a.missingIICRCElements > 0;
+          if (appliedFilters.claimType === "OHS")
+            return a.missingOHSElements > 0;
+          if (appliedFilters.claimType === "BILLING")
+            return a.missingBillingItems > 0;
+          if (appliedFilters.claimType === "DOCUMENTATION")
+            return a.missingDocumentation > 0;
+          return true;
+        });
       }
 
-      setAnalyses(filtered)
-      setPagination(data.pagination)
+      setAnalyses(filtered);
+      setPagination(data.pagination);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load analyses')
+      toast.error(err.message || "Failed to load analyses");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [appliedFilters])
+  }, [appliedFilters]);
 
   useEffect(() => {
-    fetchAnalyses()
-  }, [fetchAnalyses])
+    fetchAnalyses();
+  }, [fetchAnalyses]);
 
   const applyFilters = () => {
     setAppliedFilters({
@@ -258,66 +262,66 @@ export default function ClaimsAnalysisExportPage() {
       claimType: claimTypeFilter,
       technician: technicianFilter,
       minScore,
-    })
-    setSelectedIds(new Set())
-  }
+    });
+    setSelectedIds(new Set());
+  };
 
   const resetFilters = () => {
-    setDateFrom('')
-    setDateTo('')
-    setClaimTypeFilter('all')
-    setTechnicianFilter('')
-    setMinScore('')
+    setDateFrom("");
+    setDateTo("");
+    setClaimTypeFilter("all");
+    setTechnicianFilter("");
+    setMinScore("");
     setAppliedFilters({
-      dateFrom: '',
-      dateTo: '',
-      claimType: 'all',
-      technician: '',
-      minScore: '',
-    })
-    setSelectedIds(new Set())
-  }
+      dateFrom: "",
+      dateTo: "",
+      claimType: "all",
+      technician: "",
+      minScore: "",
+    });
+    setSelectedIds(new Set());
+  };
 
   const allSelected =
-    analyses.length > 0 && analyses.every(a => selectedIds.has(a.id))
-  const someSelected = selectedIds.size > 0
+    analyses.length > 0 && analyses.every((a) => selectedIds.has(a.id));
+  const someSelected = selectedIds.size > 0;
 
   const toggleAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(analyses.map(a => a.id)))
+      setSelectedIds(new Set(analyses.map((a) => a.id)));
     } else {
-      setSelectedIds(new Set())
+      setSelectedIds(new Set());
     }
-  }
+  };
 
   const toggleRow = (id: string, checked: boolean) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (checked) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
 
-  const selectedAnalyses = analyses.filter(a => selectedIds.has(a.id))
+  const selectedAnalyses = analyses.filter((a) => selectedIds.has(a.id));
 
   const handleExportSelected = () => {
     if (selectedAnalyses.length === 0) {
-      toast.error('No analyses selected')
-      return
+      toast.error("No analyses selected");
+      return;
     }
-    exportToCSV(selectedAnalyses, 'claims-analyses-selected.csv')
-    toast.success(`Exported ${selectedAnalyses.length} analyses`)
-  }
+    exportToCSV(selectedAnalyses, "claims-analyses-selected.csv");
+    toast.success(`Exported ${selectedAnalyses.length} analyses`);
+  };
 
   const handleExportAll = () => {
     if (analyses.length === 0) {
-      toast.error('No analyses to export')
-      return
+      toast.error("No analyses to export");
+      return;
     }
-    exportToCSV(analyses, 'claims-analyses-all.csv')
-    toast.success(`Exported ${analyses.length} analyses`)
-  }
+    exportToCSV(analyses, "claims-analyses-all.csv");
+    toast.success(`Exported ${analyses.length} analyses`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -384,7 +388,7 @@ export default function ClaimsAnalysisExportPage() {
                   id="date-from"
                   type="date"
                   value={dateFrom}
-                  onChange={e => setDateFrom(e.target.value)}
+                  onChange={(e) => setDateFrom(e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
@@ -397,7 +401,7 @@ export default function ClaimsAnalysisExportPage() {
                   id="date-to"
                   type="date"
                   value={dateTo}
-                  onChange={e => setDateTo(e.target.value)}
+                  onChange={(e) => setDateTo(e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
@@ -406,12 +410,15 @@ export default function ClaimsAnalysisExportPage() {
                 <Label htmlFor="claim-type" className="text-xs">
                   Issue Category
                 </Label>
-                <Select value={claimTypeFilter} onValueChange={setClaimTypeFilter}>
+                <Select
+                  value={claimTypeFilter}
+                  onValueChange={setClaimTypeFilter}
+                >
                   <SelectTrigger id="claim-type" className="h-8 text-sm">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CLAIM_TYPE_OPTIONS.map(opt => (
+                    {CLAIM_TYPE_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
@@ -429,7 +436,7 @@ export default function ClaimsAnalysisExportPage() {
                   type="text"
                   placeholder="Filter by name"
                   value={technicianFilter}
-                  onChange={e => setTechnicianFilter(e.target.value)}
+                  onChange={(e) => setTechnicianFilter(e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
@@ -445,14 +452,19 @@ export default function ClaimsAnalysisExportPage() {
                   max={100}
                   placeholder="0–100"
                   value={minScore}
-                  onChange={e => setMinScore(e.target.value)}
+                  onChange={(e) => setMinScore(e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
             </div>
 
             <div className="flex items-center gap-2 mt-4">
-              <Button size="sm" onClick={applyFilters} disabled={loading} className="gap-2">
+              <Button
+                size="sm"
+                onClick={applyFilters}
+                disabled={loading}
+                className="gap-2"
+              >
                 {loading ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
@@ -483,14 +495,16 @@ export default function ClaimsAnalysisExportPage() {
                   <span className="text-gray-400">Loading...</span>
                 ) : (
                   <span>
-                    Showing{' '}
-                    <span className="font-bold text-gray-900">{analyses.length}</span>{' '}
+                    Showing{" "}
+                    <span className="font-bold text-gray-900">
+                      {analyses.length}
+                    </span>{" "}
                     {pagination && pagination.total !== analyses.length ? (
                       <span className="text-gray-500 text-sm">
                         (filtered from {pagination.total} total)
                       </span>
-                    ) : null}{' '}
-                    {analyses.length === 1 ? 'analysis' : 'analyses'}
+                    ) : null}{" "}
+                    {analyses.length === 1 ? "analysis" : "analyses"}
                   </span>
                 )}
               </CardTitle>
@@ -511,9 +525,11 @@ export default function ClaimsAnalysisExportPage() {
             ) : analyses.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                 <FileDown className="h-10 w-10 mb-3 opacity-30" />
-                <p className="text-sm font-medium">No analyses match your filters</p>
+                <p className="text-sm font-medium">
+                  No analyses match your filters
+                </p>
                 <p className="text-xs mt-1">
-                  Try adjusting your filters or{' '}
+                  Try adjusting your filters or{" "}
                   <button
                     onClick={resetFilters}
                     className="underline hover:text-gray-600"
@@ -530,14 +546,24 @@ export default function ClaimsAnalysisExportPage() {
                       <TableHead className="w-10 pl-4">
                         <Checkbox
                           checked={allSelected}
-                          onCheckedChange={checked => toggleAll(Boolean(checked))}
+                          onCheckedChange={(checked) =>
+                            toggleAll(Boolean(checked))
+                          }
                           aria-label="Select all"
                         />
                       </TableHead>
-                      <TableHead className="text-xs font-semibold">Date</TableHead>
-                      <TableHead className="text-xs font-semibold">File / Claim</TableHead>
-                      <TableHead className="text-xs font-semibold">Property</TableHead>
-                      <TableHead className="text-xs font-semibold">Technician</TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Date
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        File / Claim
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Property
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Technician
+                      </TableHead>
                       <TableHead className="text-xs font-semibold text-center">
                         Score
                       </TableHead>
@@ -550,27 +576,33 @@ export default function ClaimsAnalysisExportPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {analyses.map(analysis => {
-                      const score = getOverallScore(analysis)
-                      const issues = getTotalIssues(analysis)
-                      const isSelected = selectedIds.has(analysis.id)
+                    {analyses.map((analysis) => {
+                      const score = getOverallScore(analysis);
+                      const issues = getTotalIssues(analysis);
+                      const isSelected = selectedIds.has(analysis.id);
 
                       return (
                         <TableRow
                           key={analysis.id}
-                          className={isSelected ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-gray-50'}
+                          className={
+                            isSelected
+                              ? "bg-blue-50 hover:bg-blue-50"
+                              : "hover:bg-gray-50"
+                          }
                         >
                           <TableCell className="pl-4">
                             <Checkbox
                               checked={isSelected}
-                              onCheckedChange={checked =>
+                              onCheckedChange={(checked) =>
                                 toggleRow(analysis.id, Boolean(checked))
                               }
                               aria-label={`Select ${analysis.fileName}`}
                             />
                           </TableCell>
                           <TableCell className="text-xs text-gray-600 whitespace-nowrap">
-                            {new Date(analysis.createdAt).toLocaleDateString('en-AU')}
+                            {new Date(analysis.createdAt).toLocaleDateString(
+                              "en-AU",
+                            )}
                           </TableCell>
                           <TableCell className="max-w-[200px]">
                             <p className="text-sm font-medium text-gray-900 truncate">
@@ -596,7 +628,9 @@ export default function ClaimsAnalysisExportPage() {
                           </TableCell>
                           <TableCell className="text-center">
                             {score !== null ? (
-                              <span className={`text-sm font-semibold ${scoreColor(score)}`}>
+                              <span
+                                className={`text-sm font-semibold ${scoreColor(score)}`}
+                              >
                                 {score}
                               </span>
                             ) : (
@@ -623,14 +657,15 @@ export default function ClaimsAnalysisExportPage() {
                           <TableCell className="text-center">
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                STATUS_COLOR[analysis.status] ?? 'bg-gray-100 text-gray-700'
+                                STATUS_COLOR[analysis.status] ??
+                                "bg-gray-100 text-gray-700"
                               }`}
                             >
                               {analysis.status}
                             </span>
                           </TableCell>
                         </TableRow>
-                      )
+                      );
                     })}
                   </TableBody>
                 </Table>
@@ -640,5 +675,5 @@ export default function ClaimsAnalysisExportPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

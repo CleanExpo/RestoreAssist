@@ -77,7 +77,7 @@ const DEFAULT_PAGES: ScreenshotPage[] = [
  * The running Next.js app must be accessible at baseUrl before calling this.
  */
 export async function captureScreenshots(
-  options: ScreenshotOptions = {}
+  options: ScreenshotOptions = {},
 ): Promise<ScreenshotResult[]> {
   // Dynamic import for SSR-safety and graceful missing-dependency handling
   let chromium: typeof import("playwright").chromium;
@@ -86,7 +86,7 @@ export async function captureScreenshots(
     chromium = playwright.chromium;
   } catch {
     throw new Error(
-      "playwright is not installed. Run: npm install --save-dev playwright && npx playwright install chromium"
+      "playwright is not installed. Run: npm install --save-dev playwright && npx playwright install chromium",
     );
   }
 
@@ -97,7 +97,7 @@ export async function captureScreenshots(
 
   const repoRoot = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
-    "../.."
+    "../..",
   );
   const outputDir =
     options.outputDir ?? path.join(repoRoot, "public", "screenshots");
@@ -159,7 +159,7 @@ export async function captureScreenshots(
 
   const succeeded = results.filter((r) => r.success).length;
   console.log(
-    `[screenshot] Captured ${succeeded}/${results.length} pages successfully`
+    `[screenshot] Captured ${succeeded}/${results.length} pages successfully`,
   );
 
   return results;

@@ -1,74 +1,88 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Sparkles, ArrowRight, CheckCircle, Zap, Building2, KeyRound, DollarSign, FileText } from "lucide-react"
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Sparkles,
+  ArrowRight,
+  CheckCircle,
+  Zap,
+  Building2,
+  KeyRound,
+  DollarSign,
+  FileText,
+} from "lucide-react";
 // @ts-ignore - canvas-confetti types
-import confetti from "canvas-confetti"
+import confetti from "canvas-confetti";
 
 interface WelcomeScreenProps {
-  onContinue: () => void
+  onContinue: () => void;
 }
 
 export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
-  const [currentSlide, setCurrentSlide] = useState(0)
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     // Trigger confetti on mount
     confetti({
       particleCount: 50,
       spread: 60,
-      origin: { y: 0.5 }
-    })
-  }, [])
+      origin: { y: 0.5 },
+    });
+  }, []);
 
   const slides = [
     {
       icon: Sparkles,
       title: "Welcome to Restore Assist! 🎉",
-      description: "Your professional forensic restoration reporting platform. Let's get you set up in just 4 quick steps.",
-      color: "from-cyan-500 to-blue-500"
+      description:
+        "Your professional forensic restoration reporting platform. Let's get you set up in just 4 quick steps.",
+      color: "from-cyan-500 to-blue-500",
     },
     {
       icon: Building2,
       title: "Step 1: Business Profile",
-      description: "Add your business details, logo, and contact information. This will appear on all your reports.",
-      color: "from-blue-500 to-purple-500"
+      description:
+        "Add your business details, logo, and contact information. This will appear on all your reports.",
+      color: "from-blue-500 to-purple-500",
     },
     {
       icon: KeyRound,
       title: "Step 2: AI Integration",
-      description: "Connect your AI API key (Anthropic, OpenAI, or Gemini) to enable intelligent report generation.",
-      color: "from-purple-500 to-pink-500"
+      description:
+        "Connect your AI API key (Anthropic, OpenAI, or Gemini) to enable intelligent report generation.",
+      color: "from-purple-500 to-pink-500",
     },
     {
       icon: DollarSign,
       title: "Step 3: Pricing Setup",
-      description: "Configure your company rates for labour, equipment, and services for accurate cost estimates.",
-      color: "from-pink-500 to-orange-500"
+      description:
+        "Configure your company rates for labour, equipment, and services for accurate cost estimates.",
+      color: "from-pink-500 to-orange-500",
     },
     {
       icon: FileText,
       title: "Step 4: Create Your First Report",
-      description: "Generate your first professional forensic assessment report with AI-powered insights.",
-      color: "from-orange-500 to-cyan-500"
-    }
-  ]
+      description:
+        "Generate your first professional forensic assessment report with AI-powered insights.",
+      color: "from-orange-500 to-cyan-500",
+    },
+  ];
 
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
-      setCurrentSlide(currentSlide + 1)
+      setCurrentSlide(currentSlide + 1);
     } else {
-      onContinue()
+      onContinue();
     }
-  }
+  };
 
   const handleSkip = () => {
-    onContinue()
-  }
+    onContinue();
+  };
 
-  const currentSlideData = slides[currentSlide] || slides[0]
-  const IconComponent = currentSlideData.icon
+  const currentSlideData = slides[currentSlide] || slides[0];
+  const IconComponent = currentSlideData.icon;
 
   return (
     <motion.div
@@ -78,7 +92,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
       className="fixed inset-0 z-[200] flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
     >
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-      
+
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -91,16 +105,16 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
             <motion.div
               key={index}
               initial={{ scale: 0.8 }}
-              animate={{ 
+              animate={{
                 scale: index === currentSlide ? 1.2 : 0.8,
-                opacity: index <= currentSlide ? 1 : 0.5
+                opacity: index <= currentSlide ? 1 : 0.5,
               }}
               className={`h-2 rounded-full transition-all ${
-                index === currentSlide 
-                  ? 'w-8 bg-cyan-400' 
-                  : index < currentSlide 
-                  ? 'w-2 bg-green-400' 
-                  : 'w-2 bg-slate-600'
+                index === currentSlide
+                  ? "w-8 bg-cyan-400"
+                  : index < currentSlide
+                    ? "w-2 bg-green-400"
+                    : "w-2 bg-slate-600"
               }`}
             />
           ))}
@@ -146,9 +160,9 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
                     { icon: Building2, text: "Business Details" },
                     { icon: KeyRound, text: "AI Integration" },
                     { icon: DollarSign, text: "Pricing Setup" },
-                    { icon: FileText, text: "First Report" }
+                    { icon: FileText, text: "First Report" },
                   ].map((item, idx) => {
-                    const ItemIcon = item.icon
+                    const ItemIcon = item.icon;
                     return (
                       <motion.div
                         key={idx}
@@ -158,9 +172,11 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
                         className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
                       >
                         <ItemIcon className="w-4 h-4 text-cyan-400" />
-                        <span className="text-sm text-slate-300">{item.text}</span>
+                        <span className="text-sm text-slate-300">
+                          {item.text}
+                        </span>
                       </motion.div>
-                    )
+                    );
                   })}
                 </motion.div>
               )}
@@ -198,5 +214,5 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
         </div>
       </motion.div>
     </motion.div>
-  )
+  );
 }

@@ -1,13 +1,8 @@
-'use client'
+"use client";
 
-import { Badge } from '@/components/ui/badge'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,113 +10,118 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
-} from 'lucide-react'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AnalyticsStats {
-  totalRevenue: number
-  outstanding: number
-  overdue: number
-  paidThisMonth: number
-  draftTotal: number
+  totalRevenue: number;
+  outstanding: number;
+  overdue: number;
+  paidThisMonth: number;
+  draftTotal: number;
 }
 
 interface MonthlyRevenueRow {
-  month: string // "YYYY-MM"
-  revenue: number
-  count: number
+  month: string; // "YYYY-MM"
+  revenue: number;
+  count: number;
 }
 
 interface AnalyticsData {
-  stats: AnalyticsStats
-  monthlyRevenue: MonthlyRevenueRow[]
+  stats: AnalyticsStats;
+  monthlyRevenue: MonthlyRevenueRow[];
 }
 
 interface InvoiceForComputed {
-  id: string
-  customerName: string
-  status: string
-  totalIncGST: number
-  amountDue: number
-  amountPaid: number
-  dueDate: string
+  id: string;
+  customerName: string;
+  status: string;
+  totalIncGST: number;
+  amountDue: number;
+  amountPaid: number;
+  dueDate: string;
 }
 
 interface AgingBucket {
-  label: string
-  count: number
-  amount: number
+  label: string;
+  count: number;
+  amount: number;
 }
 
 interface TopClient {
-  name: string
-  totalInvoiced: number
-  invoiceCount: number
-  outstanding: number
+  name: string;
+  totalInvoiced: number;
+  invoiceCount: number;
+  outstanding: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const OVERDUE_STATUSES = new Set(['SENT', 'VIEWED', 'PARTIALLY_PAID', 'OVERDUE'])
+const OVERDUE_STATUSES = new Set([
+  "SENT",
+  "VIEWED",
+  "PARTIALLY_PAID",
+  "OVERDUE",
+]);
 
 function fmt(cents: number): string {
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency: 'AUD',
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(cents / 100)
+  }).format(cents / 100);
 }
 
 function monthLabel(yyyyMM: string): string {
-  const [year, month] = yyyyMM.split('-').map(Number)
-  const date = new Date(year, month - 1, 1)
-  return date.toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })
+  const [year, month] = yyyyMM.split("-").map(Number);
+  const date = new Date(year, month - 1, 1);
+  return date.toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
 }
 
 function computeAgingBuckets(invoices: InvoiceForComputed[]): AgingBucket[] {
   const buckets: AgingBucket[] = [
-    { label: '< 30 days', count: 0, amount: 0 },
-    { label: '30–60 days', count: 0, amount: 0 },
-    { label: '61–90 days', count: 0, amount: 0 },
-    { label: '90+ days', count: 0, amount: 0 },
-  ]
+    { label: "< 30 days", count: 0, amount: 0 },
+    { label: "30–60 days", count: 0, amount: 0 },
+    { label: "61–90 days", count: 0, amount: 0 },
+    { label: "90+ days", count: 0, amount: 0 },
+  ];
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   for (const inv of invoices) {
-    if (!OVERDUE_STATUSES.has(inv.status)) continue
-    if (inv.amountDue <= 0) continue
-    const due = new Date(inv.dueDate)
-    due.setHours(0, 0, 0, 0)
-    if (due >= today) continue // not yet overdue
+    if (!OVERDUE_STATUSES.has(inv.status)) continue;
+    if (inv.amountDue <= 0) continue;
+    const due = new Date(inv.dueDate);
+    due.setHours(0, 0, 0, 0);
+    if (due >= today) continue; // not yet overdue
 
-    const diffDays = Math.floor((today.getTime() - due.getTime()) / 86_400_000)
+    const diffDays = Math.floor((today.getTime() - due.getTime()) / 86_400_000);
 
     if (diffDays < 30) {
-      buckets[0].count++
-      buckets[0].amount += inv.amountDue
+      buckets[0].count++;
+      buckets[0].amount += inv.amountDue;
     } else if (diffDays < 60) {
-      buckets[1].count++
-      buckets[1].amount += inv.amountDue
+      buckets[1].count++;
+      buckets[1].amount += inv.amountDue;
     } else if (diffDays < 90) {
-      buckets[2].count++
-      buckets[2].amount += inv.amountDue
+      buckets[2].count++;
+      buckets[2].amount += inv.amountDue;
     } else {
-      buckets[3].count++
-      buckets[3].amount += inv.amountDue
+      buckets[3].count++;
+      buckets[3].amount += inv.amountDue;
     }
   }
 
-  return buckets
+  return buckets;
 }
 
 function computeTopClients(invoices: InvoiceForComputed[]): TopClient[] {
-  const map = new Map<string, TopClient>()
+  const map = new Map<string, TopClient>();
 
   for (const inv of invoices) {
     if (!map.has(inv.customerName)) {
@@ -130,19 +130,19 @@ function computeTopClients(invoices: InvoiceForComputed[]): TopClient[] {
         totalInvoiced: 0,
         invoiceCount: 0,
         outstanding: 0,
-      })
+      });
     }
-    const client = map.get(inv.customerName)!
-    client.totalInvoiced += inv.totalIncGST
-    client.invoiceCount++
+    const client = map.get(inv.customerName)!;
+    client.totalInvoiced += inv.totalIncGST;
+    client.invoiceCount++;
     if (OVERDUE_STATUSES.has(inv.status) && inv.amountDue > 0) {
-      client.outstanding += inv.amountDue
+      client.outstanding += inv.amountDue;
     }
   }
 
   return Array.from(map.values())
     .sort((a, b) => b.totalInvoiced - a.totalInvoiced)
-    .slice(0, 5)
+    .slice(0, 5);
 }
 
 // ─── Skeleton loaders ─────────────────────────────────────────────────────────
@@ -158,54 +158,55 @@ function SummaryCardSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function InvoiceAnalyticsPage() {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [invoices, setInvoices] = useState<InvoiceForComputed[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceForComputed[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
         const [analyticsRes, invoicesRes] = await Promise.all([
-          fetch('/api/invoices/analytics'),
-          fetch('/api/invoices?limit=500'),
-        ])
+          fetch("/api/invoices/analytics"),
+          fetch("/api/invoices?limit=500"),
+        ]);
 
-        if (!analyticsRes.ok) throw new Error('Failed to load analytics')
-        const analyticsData = await analyticsRes.json()
-        setAnalytics(analyticsData)
+        if (!analyticsRes.ok) throw new Error("Failed to load analytics");
+        const analyticsData = await analyticsRes.json();
+        setAnalytics(analyticsData);
 
         if (invoicesRes.ok) {
-          const invoicesData = await invoicesRes.json()
-          setInvoices(invoicesData.invoices ?? [])
+          const invoicesData = await invoicesRes.json();
+          setInvoices(invoicesData.invoices ?? []);
         }
       } catch (err: any) {
-        setError(err.message ?? 'Unknown error')
+        setError(err.message ?? "Unknown error");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadData()
-  }, [])
+    loadData();
+  }, []);
 
   // Derived data from invoices list
-  const agingBuckets = computeAgingBuckets(invoices)
-  const topClients = computeTopClients(invoices)
+  const agingBuckets = computeAgingBuckets(invoices);
+  const topClients = computeTopClients(invoices);
 
   // Last 6 months from the monthly revenue data
-  const last6Months = (analytics?.monthlyRevenue ?? []).slice(0, 6).reverse()
-  const maxMonthRevenue = Math.max(...last6Months.map((r) => r.revenue), 1)
+  const last6Months = (analytics?.monthlyRevenue ?? []).slice(0, 6).reverse();
+  const maxMonthRevenue = Math.max(...last6Months.map((r) => r.revenue), 1);
 
-  const hasData = (analytics?.stats.totalRevenue ?? 0) > 0 || invoices.length > 0
+  const hasData =
+    (analytics?.stats.totalRevenue ?? 0) > 0 || invoices.length > 0;
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -355,7 +356,9 @@ export default function InvoiceAnalyticsPage() {
               ) : (
                 <div className="space-y-3">
                   {last6Months.map((row) => {
-                    const pct = Math.round((row.revenue / maxMonthRevenue) * 100)
+                    const pct = Math.round(
+                      (row.revenue / maxMonthRevenue) * 100,
+                    );
                     return (
                       <div key={row.month} className="flex items-center gap-3">
                         {/* Month label */}
@@ -377,13 +380,13 @@ export default function InvoiceAnalyticsPage() {
                         </div>
                         {/* Amount label outside bar (for narrow bars) */}
                         <div className="w-24 text-xs font-semibold text-slate-700 dark:text-slate-300 flex-shrink-0">
-                          {pct < 20 ? fmt(row.revenue) : ''}
+                          {pct < 20 ? fmt(row.revenue) : ""}
                           <span className="text-slate-400 dark:text-slate-500 font-normal ml-1">
                             ({row.count} inv)
                           </span>
                         </div>
                       </div>
-                    )
+                    );
                   })}
                 </div>
               )}
@@ -414,10 +417,10 @@ export default function InvoiceAnalyticsPage() {
                     </div>
                     <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                       {bucket.count === 0
-                        ? 'No invoices'
+                        ? "No invoices"
                         : bucket.count === 1
-                        ? '1 invoice'
-                        : `${bucket.count} invoices`}
+                          ? "1 invoice"
+                          : `${bucket.count} invoices`}
                     </div>
                   </div>
                 ))}
@@ -460,7 +463,7 @@ export default function InvoiceAnalyticsPage() {
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-500">
                           {client.invoiceCount === 1
-                            ? '1 invoice'
+                            ? "1 invoice"
                             : `${client.invoiceCount} invoices`}
                         </p>
                       </div>
@@ -533,5 +536,5 @@ export default function InvoiceAnalyticsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

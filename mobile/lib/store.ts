@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import type { Inspection } from '@/shared/types';
+import { create } from "zustand";
+import type { Inspection } from "@/shared/types";
 
 interface AppStore {
   // Inspection list

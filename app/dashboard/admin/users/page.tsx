@@ -1,20 +1,20 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Users, Shield, Search, ArrowLeft, ExternalLink } from "lucide-react";
 import {
-  Users,
-  Shield,
-  Search,
-  ArrowLeft,
-  ExternalLink,
-} from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -22,58 +22,62 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type UserRole = 'ADMIN' | 'MANAGER' | 'USER'
+type UserRole = "ADMIN" | "MANAGER" | "USER";
 
 interface AdminUser {
-  id: string
-  name: string | null
-  email: string
-  role: UserRole
-  createdAt: string
-  organizationId: string | null
-  subscriptionStatus: string | null
+  id: string;
+  name: string | null;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  organizationId: string | null;
+  subscriptionStatus: string | null;
   _count: {
-    inspections: number
-    reports: number
-  }
+    inspections: number;
+    reports: number;
+  };
 }
 
-type RoleFilter = 'ALL' | UserRole
+type RoleFilter = "ALL" | UserRole;
 
-const roleBadgeConfig: Record<UserRole, { label: string; className: string }> = {
-  ADMIN: {
-    label: 'Admin',
-    className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
-  },
-  MANAGER: {
-    label: 'Manager',
-    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-  },
-  USER: {
-    label: 'User',
-    className: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700',
-  },
-}
+const roleBadgeConfig: Record<UserRole, { label: string; className: string }> =
+  {
+    ADMIN: {
+      label: "Admin",
+      className:
+        "bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+    },
+    MANAGER: {
+      label: "Manager",
+      className:
+        "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+    },
+    USER: {
+      label: "User",
+      className:
+        "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700",
+    },
+  };
 
 function RoleBadge({ role }: { role: UserRole }) {
-  const config = roleBadgeConfig[role]
+  const config = roleBadgeConfig[role];
   return (
     <Badge variant="outline" className={config.className}>
       {config.label}
     </Badge>
-  )
+  );
 }
 
 function formatJoinedDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function TableSkeleton() {
@@ -89,72 +93,74 @@ function TableSkeleton() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 export default function AdminUsersPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL')
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
 
   // Debounce search input 300ms
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(timer)
-  }, [search])
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchUsers = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const params = new URLSearchParams()
-      if (debouncedSearch) params.set('search', debouncedSearch)
-      if (roleFilter !== 'ALL') params.set('role', roleFilter)
-      const response = await fetch(`/api/admin/users?${params.toString()}`)
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (roleFilter !== "ALL") params.set("role", roleFilter);
+      const response = await fetch(`/api/admin/users?${params.toString()}`);
       if (response.ok) {
-        const data = await response.json()
-        setUsers(data.users ?? [])
-        setTotal(data.total ?? 0)
+        const data = await response.json();
+        setUsers(data.users ?? []);
+        setTotal(data.total ?? 0);
       }
     } catch (error) {
-      console.error('Error fetching users:', error)
+      console.error("Error fetching users:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [debouncedSearch, roleFilter])
+  }, [debouncedSearch, roleFilter]);
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (status === 'unauthenticated') {
-      router.push('/login')
-      return
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      router.push("/login");
+      return;
     }
-    if (session?.user?.role !== 'ADMIN') {
-      router.push('/dashboard')
-      return
+    if (session?.user?.role !== "ADMIN") {
+      router.push("/dashboard");
+      return;
     }
-    fetchUsers()
-  }, [status, session, router, fetchUsers])
+    fetchUsers();
+  }, [status, session, router, fetchUsers]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
       </div>
-    )
+    );
   }
 
-  if (session?.user?.role !== 'ADMIN') {
+  if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Shield className="h-12 w-12 text-neutral-400" />
-        <p className="text-neutral-600 dark:text-neutral-400">Admin access required</p>
+        <p className="text-neutral-600 dark:text-neutral-400">
+          Admin access required
+        </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -164,7 +170,7 @@ export default function AdminUsersPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => router.push('/dashboard/admin')}
+          onClick={() => router.push("/dashboard/admin")}
           className="gap-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -207,7 +213,10 @@ export default function AdminUsersPage() {
           />
         </div>
 
-        <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as RoleFilter)}>
+        <Tabs
+          value={roleFilter}
+          onValueChange={(v) => setRoleFilter(v as RoleFilter)}
+        >
           <TabsList>
             <TabsTrigger value="ALL">All</TabsTrigger>
             <TabsTrigger value="ADMIN">Admin</TabsTrigger>
@@ -225,7 +234,9 @@ export default function AdminUsersPage() {
             All Users
           </CardTitle>
           <CardDescription>
-            {loading ? 'Loading…' : `${total} user${total !== 1 ? 's' : ''} found`}
+            {loading
+              ? "Loading…"
+              : `${total} user${total !== 1 ? "s" : ""} found`}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -237,13 +248,13 @@ export default function AdminUsersPage() {
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-neutral-500">
               <Users className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
               <p className="text-sm">No users found</p>
-              {(search || roleFilter !== 'ALL') && (
+              {(search || roleFilter !== "ALL") && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setSearch('')
-                    setRoleFilter('ALL')
+                    setSearch("");
+                    setRoleFilter("ALL");
                   }}
                 >
                   Clear filters
@@ -257,8 +268,12 @@ export default function AdminUsersPage() {
                   <TableHead className="pl-6">Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead className="hidden md:table-cell">Reports</TableHead>
-                  <TableHead className="hidden md:table-cell">Inspections</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Reports
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Inspections
+                  </TableHead>
                   <TableHead className="hidden sm:table-cell">Joined</TableHead>
                   <TableHead className="pr-6 text-right">Actions</TableHead>
                 </TableRow>
@@ -308,5 +323,5 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -13,8 +13,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { FileText, Loader2, RefreshCw, Send } from "lucide-react"
+} from "@/components/ui/table";
+import { FileText, Loader2, RefreshCw, Send } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,40 +23,40 @@ type AuthorityFormStatus =
   | "PENDING_SIGNATURES"
   | "PARTIALLY_SIGNED"
   | "COMPLETED"
-  | "CANCELLED"
+  | "CANCELLED";
 
-type StatusFilter = "ALL" | AuthorityFormStatus
+type StatusFilter = "ALL" | AuthorityFormStatus;
 
 interface FormSignature {
-  id: string
-  signatoryName: string
-  signatoryRole: string
-  signedAt: string | null
-  signatureRequestSentAt: string | null
+  id: string;
+  signatoryName: string;
+  signatoryRole: string;
+  signedAt: string | null;
+  signatureRequestSentAt: string | null;
 }
 
 interface AuthorityForm {
-  id: string
-  templateId: string
-  reportId: string
-  status: AuthorityFormStatus
-  createdAt: string
-  updatedAt: string
-  completedAt: string | null
-  clientName: string
+  id: string;
+  templateId: string;
+  reportId: string;
+  status: AuthorityFormStatus;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  clientName: string;
   template: {
-    id: string
-    name: string
-    code: string
-    description: string | null
-  }
+    id: string;
+    name: string;
+    code: string;
+    description: string | null;
+  };
   report: {
-    id: string
-    reportNumber: string | null
-    clientName: string
-    propertyAddress: string
-  }
-  signatures: FormSignature[]
+    id: string;
+    reportNumber: string | null;
+    clientName: string;
+    propertyAddress: string;
+  };
+  signatures: FormSignature[];
 }
 
 // ─── Status config ─────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ const STATUS_CONFIG: Record<
     label: "Cancelled",
     className: "bg-red-100 text-red-700 border-red-200",
   },
-}
+};
 
 const FILTER_TABS: { value: StatusFilter; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -94,33 +94,33 @@ const FILTER_TABS: { value: StatusFilter; label: string }[] = [
   { value: "PARTIALLY_SIGNED", label: "Partially Signed" },
   { value: "COMPLETED", label: "Completed" },
   { value: "CANCELLED", label: "Cancelled" },
-]
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—"
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-AU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 function getEarliestSentDate(signatures: FormSignature[]): string | null {
   const dates = signatures
     .map((s) => s.signatureRequestSentAt)
-    .filter((d): d is string => d !== null)
-  if (dates.length === 0) return null
-  return dates.sort()[0]
+    .filter((d): d is string => d !== null);
+  if (dates.length === 0) return null;
+  return dates.sort()[0];
 }
 
 function getLatestSignedDate(signatures: FormSignature[]): string | null {
   const dates = signatures
     .map((s) => s.signedAt)
-    .filter((d): d is string => d !== null)
-  if (dates.length === 0) return null
-  return dates.sort().reverse()[0]
+    .filter((d): d is string => d !== null);
+  if (dates.length === 0) return null;
+  return dates.sort().reverse()[0];
 }
 
 // ─── Row skeleton ─────────────────────────────────────────────────────────────
@@ -134,47 +134,47 @@ function TableRowSkeleton() {
         </TableCell>
       ))}
     </TableRow>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AuthorityFormsPage() {
-  const [forms, setForms] = useState<AuthorityForm[]>([])
-  const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL")
-  const [resending, setResending] = useState<string | null>(null)
+  const [forms, setForms] = useState<AuthorityForm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [resending, setResending] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   async function fetchForms() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch("/api/authority-forms")
-      if (!res.ok) throw new Error("Failed to fetch authority forms")
-      const data = await res.json()
-      setForms(data.forms ?? [])
+      const res = await fetch("/api/authority-forms");
+      if (!res.ok) throw new Error("Failed to fetch authority forms");
+      const data = await res.json();
+      setForms(data.forms ?? []);
     } catch (err) {
-      console.error("[AuthorityFormsPage] fetch error:", err)
+      console.error("[AuthorityFormsPage] fetch error:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchForms()
-  }, [])
+    fetchForms();
+  }, []);
 
   // ── Resend handler ─────────────────────────────────────────────────────────
 
   async function handleResend(form: AuthorityForm) {
     // Find the first signature that hasn't been signed and was already sent
     const pendingSig = form.signatures.find(
-      (s) => !s.signedAt && s.signatureRequestSentAt
-    )
-    if (!pendingSig) return
+      (s) => !s.signedAt && s.signatureRequestSentAt,
+    );
+    if (!pendingSig) return;
 
-    setResending(form.id)
+    setResending(form.id);
     try {
       const res = await fetch(
         `/api/authority-forms/${form.id}/send-signature-request`,
@@ -182,18 +182,18 @@ export default function AuthorityFormsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ signatureId: pendingSig.id }),
-        }
-      )
+        },
+      );
       if (!res.ok) {
-        const data = await res.json()
-        console.error("[AuthorityFormsPage] resend failed:", data.error)
+        const data = await res.json();
+        console.error("[AuthorityFormsPage] resend failed:", data.error);
       } else {
-        await fetchForms()
+        await fetchForms();
       }
     } catch (err) {
-      console.error("[AuthorityFormsPage] resend error:", err)
+      console.error("[AuthorityFormsPage] resend error:", err);
     } finally {
-      setResending(null)
+      setResending(null);
     }
   }
 
@@ -202,7 +202,7 @@ export default function AuthorityFormsPage() {
   const filtered =
     statusFilter === "ALL"
       ? forms
-      : forms.filter((f) => f.status === statusFilter)
+      : forms.filter((f) => f.status === statusFilter);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -231,9 +231,7 @@ export default function AuthorityFormsPage() {
           disabled={loading}
           className="gap-2"
         >
-          <RefreshCw
-            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -244,8 +242,8 @@ export default function AuthorityFormsPage() {
           const count =
             tab.value === "ALL"
               ? forms.length
-              : forms.filter((f) => f.status === tab.value).length
-          const active = statusFilter === tab.value
+              : forms.filter((f) => f.status === tab.value).length;
+          const active = statusFilter === tab.value;
           return (
             <button
               key={tab.value}
@@ -269,7 +267,7 @@ export default function AuthorityFormsPage() {
                 </span>
               )}
             </button>
-          )
+          );
         })}
       </div>
 
@@ -327,11 +325,11 @@ export default function AuthorityFormsPage() {
               ) : (
                 filtered.map((form) => {
                   const config =
-                    STATUS_CONFIG[form.status] ?? STATUS_CONFIG.DRAFT
-                  const sentDate = getEarliestSentDate(form.signatures)
-                  const signedDate = getLatestSignedDate(form.signatures)
-                  const canResend = form.status === "PENDING_SIGNATURES"
-                  const isResending = resending === form.id
+                    STATUS_CONFIG[form.status] ?? STATUS_CONFIG.DRAFT;
+                  const sentDate = getEarliestSentDate(form.signatures);
+                  const signedDate = getLatestSignedDate(form.signatures);
+                  const canResend = form.status === "PENDING_SIGNATURES";
+                  const isResending = resending === form.id;
 
                   return (
                     <TableRow key={form.id} className="hover:bg-slate-50/60">
@@ -343,7 +341,8 @@ export default function AuthorityFormsPage() {
                           href={`/dashboard/reports/${form.reportId}`}
                           className="text-cyan-600 hover:underline underline-offset-2"
                         >
-                          {form.report?.reportNumber ?? form.reportId.slice(0, 8)}
+                          {form.report?.reportNumber ??
+                            form.reportId.slice(0, 8)}
                         </Link>
                       </TableCell>
                       <TableCell className="text-slate-600">
@@ -382,7 +381,7 @@ export default function AuthorityFormsPage() {
                         )}
                       </TableCell>
                     </TableRow>
-                  )
+                  );
                 })
               )}
             </TableBody>
@@ -390,5 +389,5 @@ export default function AuthorityFormsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

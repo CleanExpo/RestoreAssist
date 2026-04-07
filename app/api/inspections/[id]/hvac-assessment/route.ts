@@ -11,31 +11,31 @@
  *   Removes the record (idempotent).
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
 const hvacSchema = z.object({
   hvacSystemInspected: z.boolean().optional(),
   ductContaminationLevel: z
-    .enum(['NONE', 'LIGHT', 'MODERATE', 'HEAVY'])
+    .enum(["NONE", "LIGHT", "MODERATE", "HEAVY"])
     .nullable()
     .optional(),
   visibleSootInDucts: z.boolean().optional(),
   smokeOdourInDucts: z.boolean().optional(),
   filterCondition: z.string().nullable().optional(),
   coilContaminationLevel: z
-    .enum(['NONE', 'LIGHT', 'MODERATE', 'HEAVY'])
+    .enum(["NONE", "LIGHT", "MODERATE", "HEAVY"])
     .nullable()
     .optional(),
   hvacCleaningRequired: z.boolean().optional(),
   insulationResistanceMegaohm: z.number().nonnegative().nullable().optional(),
   insulationTestPerformedBy: z.string().nullable().optional(),
-})
+});
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
@@ -43,21 +43,24 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true, hvacAssessment: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  return NextResponse.json(inspection.hvacAssessment ?? null)
+  return NextResponse.json(inspection.hvacAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -66,30 +69,33 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const body = await req.json()
-  const parsed = hvacSchema.safeParse(body)
+  const body = await req.json();
+  const parsed = hvacSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid data', details: parsed.error.flatten() },
+      { error: "Invalid data", details: parsed.error.flatten() },
       { status: 400 },
-    )
+    );
   }
 
-  const data = parsed.data
+  const data = parsed.data;
 
   const record = await prisma.hVACAssessment.upsert({
     where: { inspectionId: params.id },
@@ -102,7 +108,8 @@ export async function POST(
       filterCondition: data.filterCondition ?? undefined,
       coilContaminationLevel: data.coilContaminationLevel ?? undefined,
       hvacCleaningRequired: data.hvacCleaningRequired ?? false,
-      insulationResistanceMegaohm: data.insulationResistanceMegaohm ?? undefined,
+      insulationResistanceMegaohm:
+        data.insulationResistanceMegaohm ?? undefined,
       insulationTestPerformedBy: data.insulationTestPerformedBy ?? undefined,
     },
     update: {
@@ -112,9 +119,15 @@ export async function POST(
       ...(data.ductContaminationLevel !== undefined && {
         ductContaminationLevel: data.ductContaminationLevel,
       }),
-      ...(data.visibleSootInDucts !== undefined && { visibleSootInDucts: data.visibleSootInDucts }),
-      ...(data.smokeOdourInDucts !== undefined && { smokeOdourInDucts: data.smokeOdourInDucts }),
-      ...(data.filterCondition !== undefined && { filterCondition: data.filterCondition }),
+      ...(data.visibleSootInDucts !== undefined && {
+        visibleSootInDucts: data.visibleSootInDucts,
+      }),
+      ...(data.smokeOdourInDucts !== undefined && {
+        smokeOdourInDucts: data.smokeOdourInDucts,
+      }),
+      ...(data.filterCondition !== undefined && {
+        filterCondition: data.filterCondition,
+      }),
       ...(data.coilContaminationLevel !== undefined && {
         coilContaminationLevel: data.coilContaminationLevel,
       }),
@@ -128,14 +141,14 @@ export async function POST(
         insulationTestPerformedBy: data.insulationTestPerformedBy,
       }),
     },
-  })
+  });
 
   await prisma.inspection.update({
     where: { id: params.id },
-    data: { claimType: 'HVAC' },
-  })
+    data: { claimType: "HVAC" },
+  });
 
-  return NextResponse.json(record)
+  return NextResponse.json(record);
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -144,28 +157,31 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
   await prisma.hVACAssessment
     .delete({ where: { inspectionId: params.id } })
-    .catch(() => {})
+    .catch(() => {});
 
   await prisma.inspection.update({
     where: { id: params.id },
     data: { claimType: null },
-  })
+  });
 
-  return NextResponse.json({ deleted: true })
+  return NextResponse.json({ deleted: true });
 }

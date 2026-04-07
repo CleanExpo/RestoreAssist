@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/authority-forms/templates
@@ -14,17 +14,20 @@ export async function GET() {
         name: true,
         code: true,
         description: true,
-        isActive: true
+        isActive: true,
       },
-      orderBy: { name: "asc" }
-    })
-    
-    return NextResponse.json({ templates })
+      orderBy: { name: "asc" },
+    });
+
+    return NextResponse.json({ templates });
   } catch (error) {
-    console.error("Error fetching authority form templates:", error)
+    console.error("Error fetching authority form templates:", error);
     return NextResponse.json(
-      { error: "Failed to fetch templates", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    )
+      {
+        error: "Failed to fetch templates",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   }
 }

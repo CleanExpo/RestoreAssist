@@ -89,7 +89,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&limit=12`
+        `/api/search?q=${encodeURIComponent(searchQuery)}&limit=12`,
       );
       if (response.ok) {
         const data = await response.json();
@@ -125,9 +125,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((prev) =>
-        prev < results.length - 1 ? prev + 1 : prev
-      );
+      setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : prev));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));

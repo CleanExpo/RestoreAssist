@@ -41,6 +41,7 @@ Classify each PR by risk level using the PR Manager's risk matrix.
 ### Stage 3: Priority Ordering
 
 Sort PRs for review in this order:
+
 1. **Critical risk** (Prisma/auth/payment) — review immediately, these block the repo
 2. **Complex risk** (API routes, business logic) — review next
 3. **Standard risk** (UI pages, components) — batch review
@@ -55,6 +56,7 @@ If `--risk X` is set, filter to only that risk level.
 Process PRs in waves of 3 (to avoid overwhelming context):
 
 **For each wave:**
+
 1. Run `/review-pr {number}` for each PR in the wave (can dispatch 3 parallel agents)
 2. Collect verdicts
 3. If `--post` flag: post reviews to GitHub
@@ -62,6 +64,7 @@ Process PRs in waves of 3 (to avoid overwhelming context):
 5. Proceed to next wave
 
 **For Trivial PRs:**
+
 - Skip full review
 - Apply label `risk:trivial` and `reviewed:approved`
 - Add to summary as "Auto-approved (trivial)"
@@ -69,6 +72,7 @@ Process PRs in waves of 3 (to avoid overwhelming context):
 ### Stage 5: Stale PR Detection
 
 For PRs older than `--stale` days (default 30):
+
 - Flag as "⏰ Stale — consider closing or rebasing"
 - Do NOT auto-close — that requires Phill's decision
 - Add to a separate "Stale PRs" section in the report
@@ -85,14 +89,15 @@ Output a consolidated report:
 
 ### Results
 
-| PR | Title | Risk | Verdict | Critical | Important | Suggestions |
-|----|-------|------|---------|----------|-----------|-------------|
-| #124 | Brand messaging | Standard | ✅ Approved | 0 | 1 | 2 |
-| #125 | Remotion videos | Complex | ⚠️ Changes | 1 | 3 | 1 |
-| #123 | Invoice payments | Standard | ✅ Approved | 0 | 0 | 1 |
-| ... | ... | ... | ... | ... | ... | ... |
+| PR   | Title            | Risk     | Verdict     | Critical | Important | Suggestions |
+| ---- | ---------------- | -------- | ----------- | -------- | --------- | ----------- |
+| #124 | Brand messaging  | Standard | ✅ Approved | 0        | 1         | 2           |
+| #125 | Remotion videos  | Complex  | ⚠️ Changes  | 1        | 3         | 1           |
+| #123 | Invoice payments | Standard | ✅ Approved | 0        | 0         | 1           |
+| ...  | ...              | ...      | ...         | ...      | ...       | ...         |
 
 ### Summary by Verdict
+
 - ✅ **Approved:** XX PRs — ready to merge
 - ⚠️ **Changes Requested:** XX PRs — need fixes before merge
 - 💬 **Needs Discussion:** XX PRs — require Phill's input
@@ -100,19 +105,25 @@ Output a consolidated report:
 - ⏰ **Stale:** XX PRs — consider closing
 
 ### Critical Findings Across All PRs
+
 <!-- Deduplicated list of all Critical-severity findings -->
+
 1. PR #XXX: [Security] Missing auth check in `app/api/foo/route.ts`
 2. PR #XXX: [Migration] Destructive column drop in `prisma/migrations/...`
 
 ### Recommended Merge Order
+
 <!-- PRs that are approved, ordered by dependency and risk -->
+
 1. Merge trivial/auto-approved PRs first (low risk, quick wins)
 2. Merge standard-approved PRs next
 3. Address changes-requested PRs
 4. Discuss needs-discussion PRs with Phill
 
 ### PRs Recommended for Closure
+
 <!-- Stale PRs or PRs superseded by newer work -->
+
 - PR #XX: [title] — last updated [date], superseded by PR #YY
 ```
 
@@ -127,6 +138,7 @@ Output a consolidated report:
 ## Integration with Linear
 
 After batch review, optionally update Linear issues:
+
 - Approved PRs → move linked RA-XXX issue to "In Review" (if not already)
 - Changes Requested PRs → keep RA-XXX in "In Progress"
 - Stale PRs → flag RA-XXX for backlog grooming

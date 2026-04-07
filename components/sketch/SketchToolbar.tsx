@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import {
   MousePointer2,
   Square,
@@ -17,35 +17,40 @@ import {
   ZoomOut,
   Trash2,
   Download,
-} from "lucide-react"
-import type { ToolMode } from "./SketchCanvas"
+} from "lucide-react";
+import type { ToolMode } from "./SketchCanvas";
 
 interface SketchToolbarProps {
-  toolMode: ToolMode
-  onToolChange: (mode: ToolMode) => void
-  canUndo?: boolean
-  canRedo?: boolean
-  onUndo?: () => void
-  onRedo?: () => void
-  onZoomIn?: () => void
-  onZoomOut?: () => void
-  onClear?: () => void
-  onExport?: () => void
-  readonly?: boolean
-  className?: string
+  toolMode: ToolMode;
+  onToolChange: (mode: ToolMode) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onClear?: () => void;
+  onExport?: () => void;
+  readonly?: boolean;
+  className?: string;
 }
 
-const TOOLS: { mode: ToolMode; Icon: React.ElementType; label: string; shortcut: string }[] = [
-  { mode: "select",   Icon: MousePointer2, label: "Select",      shortcut: "V" },
-  { mode: "room",     Icon: Square,        label: "Room",         shortcut: "R" },
-  { mode: "line",     Icon: Minus,         label: "Wall/Line",    shortcut: "L" },
-  { mode: "freehand", Icon: Pencil,        label: "Freehand",     shortcut: "P" },
-  { mode: "text",     Icon: Type,          label: "Text Label",   shortcut: "T" },
-  { mode: "arrow",    Icon: ArrowUpRight,  label: "Arrow",        shortcut: "A" },
-  { mode: "measure",  Icon: Ruler,         label: "Measurement",  shortcut: "M" },
-  { mode: "photo",    Icon: Camera,        label: "Photo Marker", shortcut: "C" },
-  { mode: "pan",      Icon: Hand,          label: "Pan",          shortcut: "H" },
-]
+const TOOLS: {
+  mode: ToolMode;
+  Icon: React.ElementType;
+  label: string;
+  shortcut: string;
+}[] = [
+  { mode: "select", Icon: MousePointer2, label: "Select", shortcut: "V" },
+  { mode: "room", Icon: Square, label: "Room", shortcut: "R" },
+  { mode: "line", Icon: Minus, label: "Wall/Line", shortcut: "L" },
+  { mode: "freehand", Icon: Pencil, label: "Freehand", shortcut: "P" },
+  { mode: "text", Icon: Type, label: "Text Label", shortcut: "T" },
+  { mode: "arrow", Icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
+  { mode: "measure", Icon: Ruler, label: "Measurement", shortcut: "M" },
+  { mode: "photo", Icon: Camera, label: "Photo Marker", shortcut: "C" },
+  { mode: "pan", Icon: Hand, label: "Pan", shortcut: "H" },
+];
 
 export function SketchToolbar({
   toolMode,
@@ -62,7 +67,12 @@ export function SketchToolbar({
   className,
 }: SketchToolbarProps) {
   return (
-    <div className={cn("flex flex-col gap-1 p-1.5 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm w-11", className)}>
+    <div
+      className={cn(
+        "flex flex-col gap-1 p-1.5 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm w-11",
+        className,
+      )}
+    >
       {/* Drawing tools */}
       {TOOLS.map(({ mode, Icon, label, shortcut }) => (
         <button
@@ -75,7 +85,7 @@ export function SketchToolbar({
             "disabled:opacity-30 disabled:cursor-not-allowed",
             toolMode === mode
               ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
-              : "text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white"
+              : "text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white",
           )}
         >
           <Icon size={16} />
@@ -143,5 +153,5 @@ export function SketchToolbar({
         </button>
       )}
     </div>
-  )
+  );
 }

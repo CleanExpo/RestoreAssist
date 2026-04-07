@@ -1,420 +1,450 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useRef } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { CheckCircle, Loader2, ArrowRight, Zap, DollarSign, FileText, X, Sparkles, TrendingUp } from "lucide-react"
-import toast from "react-hot-toast"
-import { useSession } from "next-auth/react"
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  CheckCircle,
+  Loader2,
+  ArrowRight,
+  Zap,
+  DollarSign,
+  FileText,
+  X,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { useSession } from "next-auth/react";
 
 // Module-level flag to prevent verification from running multiple times across remounts
-let globalVerificationComplete = false
+let globalVerificationComplete = false;
 
 export default function SuccessPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { data: session, update } = useSession()
-  const addonKey = searchParams.get('addon')
-  const isAddonPurchase = !!addonKey
-  const [loading, setLoading] = useState(true)
-  const [checking, setChecking] = useState(true)
-  const [showSetupGuide, setShowSetupGuide] = useState(false)
-  const [countdown, setCountdown] = useState(5)
-  const [isRedirecting, setIsRedirecting] = useState(false)
-  const hasVerifiedRef = useRef(false)
-  const isCompletedRef = useRef(false)
-  const toastShownRef = useRef(false)
-  const timeoutRefs = useRef<NodeJS.Timeout[]>([])
-  const isProcessingRef = useRef(false)
-  const sessionIdRef = useRef<string | null>(null)
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session, update } = useSession();
+  const addonKey = searchParams.get("addon");
+  const isAddonPurchase = !!addonKey;
+  const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(true);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const hasVerifiedRef = useRef(false);
+  const isCompletedRef = useRef(false);
+  const toastShownRef = useRef(false);
+  const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
+  const isProcessingRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to safely set state only if not completed
   const safeSetState = (fn: () => void) => {
     if (!isCompletedRef.current && !isProcessingRef.current) {
-      fn()
+      fn();
     }
-  }
+  };
 
   // Helper to show toast only once
   const showToastOnce = (message: string) => {
     if (!toastShownRef.current && !isCompletedRef.current) {
-      toastShownRef.current = true
-      toast.success(message)
+      toastShownRef.current = true;
+      toast.success(message);
     }
-  }
+  };
 
   // Helper to mark as completed
   const markCompleted = () => {
     if (!isCompletedRef.current) {
-      isCompletedRef.current = true
-      isProcessingRef.current = false
-      globalVerificationComplete = true // Set global flag to persist across remounts
-        setChecking(false)
-        setLoading(false)
+      isCompletedRef.current = true;
+      isProcessingRef.current = false;
+      globalVerificationComplete = true; // Set global flag to persist across remounts
+      setChecking(false);
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     // Only verify once - guard against re-runs (including across remounts)
-    if (hasVerifiedRef.current || isCompletedRef.current || isProcessingRef.current || globalVerificationComplete) {
+    if (
+      hasVerifiedRef.current ||
+      isCompletedRef.current ||
+      isProcessingRef.current ||
+      globalVerificationComplete
+    ) {
       // If globally completed, mark local state as complete too
       if (globalVerificationComplete && !isCompletedRef.current) {
-        markCompleted()
+        markCompleted();
       }
-      return
+      return;
     }
 
     // Extract session_id once (only on first run)
     if (sessionIdRef.current === null) {
-      sessionIdRef.current = searchParams.get('session_id')
+      sessionIdRef.current = searchParams.get("session_id");
     }
 
     // Mark as processing immediately to prevent concurrent runs
-    isProcessingRef.current = true
-    hasVerifiedRef.current = true
+    isProcessingRef.current = true;
+    hasVerifiedRef.current = true;
 
     // Cleanup function to clear timeouts
     const cleanup = () => {
-      timeoutRefs.current.forEach(timeout => clearTimeout(timeout))
-      timeoutRefs.current = []
-    }
+      timeoutRefs.current.forEach((timeout) => clearTimeout(timeout));
+      timeoutRefs.current = [];
+    };
 
     const verifyAndUpdateSubscription = async () => {
       // FIRST: Check if subscription is already active before doing anything
       // This prevents re-running verification if component remounts after completion
       try {
-        const preCheckResponse = await fetch('/api/user/profile')
+        const preCheckResponse = await fetch("/api/user/profile");
         if (preCheckResponse.ok) {
-          const preCheckData = await preCheckResponse.json()
-          if (preCheckData.profile?.subscriptionStatus === 'ACTIVE') {
+          const preCheckData = await preCheckResponse.json();
+          if (preCheckData.profile?.subscriptionStatus === "ACTIVE") {
             // Already active, just mark as completed and return
-            markCompleted()
-            showToastOnce("Subscription activated successfully!")
-            cleanup()
-            return
+            markCompleted();
+            showToastOnce("Subscription activated successfully!");
+            cleanup();
+            return;
           }
         }
       } catch (error) {
         // Continue with verification if pre-check fails
       }
-      
+
       // Check if already completed (race condition guard)
       if (isCompletedRef.current) {
-        cleanup()
-        return
+        cleanup();
+        return;
       }
       try {
         // Get session_id from ref
-        const sessionId = sessionIdRef.current
-        
+        const sessionId = sessionIdRef.current;
+
         // If this is an add-on purchase, handle it first
         if (isAddonPurchase) {
           if (sessionId) {
             try {
-              const addonVerifyResponse = await fetch('/api/addons/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId })
-              })
-              
+              const addonVerifyResponse = await fetch("/api/addons/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId }),
+              });
+
               if (addonVerifyResponse.ok) {
-                const addonData = await addonVerifyResponse.json()
-                
+                const addonData = await addonVerifyResponse.json();
+
                 if (isCompletedRef.current) {
-                  cleanup()
-                  return
+                  cleanup();
+                  return;
                 }
-                
-                markCompleted()
-                showToastOnce(`Add-on purchase successful! You now have ${addonData.addonReports} additional reports.`)
-                cleanup()
-                return
+
+                markCompleted();
+                showToastOnce(
+                  `Add-on purchase successful! You now have ${addonData.addonReports} additional reports.`,
+                );
+                cleanup();
+                return;
               } else {
-                const errorData = await addonVerifyResponse.json().catch(() => ({}))
+                const errorData = await addonVerifyResponse
+                  .json()
+                  .catch(() => ({}));
                 // Continue to try finding session
               }
             } catch (addonError) {
-              console.error('❌ Error verifying add-on:', addonError)
+              console.error("❌ Error verifying add-on:", addonError);
             }
           }
-          
+
           // If no session_id, try to find recent add-on purchases
           try {
             // Wait a bit for webhook to process
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
             // Check user profile to see if add-ons were updated
-            const profileCheck = await fetch('/api/user/profile?refresh=true')
+            const profileCheck = await fetch("/api/user/profile?refresh=true");
             if (profileCheck.ok) {
-              const profileData = await profileCheck.json()
-              const currentAddons = profileData.profile?.addonReports || 0
-              
+              const profileData = await profileCheck.json();
+              const currentAddons = profileData.profile?.addonReports || 0;
+
               if (currentAddons > 0) {
                 if (isCompletedRef.current) {
-                  cleanup()
-                  return
+                  cleanup();
+                  return;
                 }
-                markCompleted()
-                showToastOnce(`Add-on purchase successful! You now have ${currentAddons} additional reports.`)
-                cleanup()
-                return
+                markCompleted();
+                showToastOnce(
+                  `Add-on purchase successful! You now have ${currentAddons} additional reports.`,
+                );
+                cleanup();
+                return;
               }
             }
           } catch (error) {
-            console.error('❌ Error checking add-on status:', error)
+            console.error("❌ Error checking add-on status:", error);
           }
-          
+
           // If still not found, mark as completed anyway (webhook might process later)
-          markCompleted()
-          showToastOnce("Add-on purchase received! Processing may take a moment. Please refresh the page.")
-          cleanup()
-          return
+          markCompleted();
+          showToastOnce(
+            "Add-on purchase received! Processing may take a moment. Please refresh the page.",
+          );
+          cleanup();
+          return;
         }
-        
+
         if (!sessionId) {
           // Try checking active subscription directly first
           try {
-            const checkResponse = await fetch('/api/check-active-subscription', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
-            })
-            
+            const checkResponse = await fetch(
+              "/api/check-active-subscription",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+
             if (checkResponse.ok) {
               if (isCompletedRef.current) {
-                cleanup()
-                return
+                cleanup();
+                return;
               }
-              
-              const checkData = await checkResponse.json()
-              
+
+              const checkData = await checkResponse.json();
+
               // DON'T call update() here - it causes re-renders/remounts
               // Just mark as completed - session will update naturally
-              markCompleted()
-              showToastOnce("Subscription activated successfully!")
-              cleanup()
-              return
+              markCompleted();
+              showToastOnce("Subscription activated successfully!");
+              cleanup();
+              return;
             }
           } catch (error) {
-            console.error('Error checking active subscription:', error)
+            console.error("Error checking active subscription:", error);
           }
-          
+
           // Fallback to checking profile
-          await checkProfileAndUpdate()
-          cleanup()
-          return
+          await checkProfileAndUpdate();
+          cleanup();
+          return;
         }
 
         // First, wait a moment for webhook to process (if it fires quickly)
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
         // Check if completed during wait
         if (isCompletedRef.current) {
-          cleanup()
-          return
+          cleanup();
+          return;
         }
-        
+
         // Check current profile status
-        const profileResponse = await fetch('/api/user/profile')
+        const profileResponse = await fetch("/api/user/profile");
         if (profileResponse.ok) {
-          const profileData = await profileResponse.json()
-          if (profileData.profile.subscriptionStatus === 'ACTIVE') {
+          const profileData = await profileResponse.json();
+          if (profileData.profile.subscriptionStatus === "ACTIVE") {
             // Already updated by webhook
             if (isCompletedRef.current) {
-              cleanup()
-              return
+              cleanup();
+              return;
             }
-            
+
             // DON'T call update() - it causes remounts
-            markCompleted()
-            showToastOnce("Subscription activated successfully!")
-            cleanup()
-            return
+            markCompleted();
+            showToastOnce("Subscription activated successfully!");
+            cleanup();
+            return;
           }
         }
 
         // Check again if completed
         if (isCompletedRef.current) {
-          cleanup()
-          return
+          cleanup();
+          return;
         }
 
         // If not updated yet, manually verify and update subscription
-        const verifyResponse = await fetch('/api/verify-subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId })
-        })
+        const verifyResponse = await fetch("/api/verify-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
 
         if (verifyResponse.ok) {
           if (isCompletedRef.current) {
-            cleanup()
-            return
+            cleanup();
+            return;
           }
-          
-          const verifyData = await verifyResponse.json()
-          
+
+          const verifyData = await verifyResponse.json();
+
           // DON'T call update() - it causes remounts and infinite loops
-          markCompleted()
-          showToastOnce("Subscription activated successfully!")
-          cleanup()
+          markCompleted();
+          showToastOnce("Subscription activated successfully!");
+          cleanup();
         } else {
           // If verification fails, try checking active subscription directly
-          const errorData = await verifyResponse.json().catch(() => ({ error: 'Unknown error' }))
-          
+          const errorData = await verifyResponse
+            .json()
+            .catch(() => ({ error: "Unknown error" }));
+
           // Check if completed
           if (isCompletedRef.current) {
-            cleanup()
-            return
+            cleanup();
+            return;
           }
-          
+
           // Try to find and update subscription by checking Stripe customer
-          const checkResponse = await fetch('/api/check-active-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          })
-          
+          const checkResponse = await fetch("/api/check-active-subscription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+
           if (checkResponse.ok) {
             if (isCompletedRef.current) {
-              cleanup()
-              return
+              cleanup();
+              return;
             }
-            
-            const checkData = await checkResponse.json()
-            
+
+            const checkData = await checkResponse.json();
+
             // DON'T call update() - it causes remounts
-            markCompleted()
-            showToastOnce("Subscription activated successfully!")
-            cleanup()
+            markCompleted();
+            showToastOnce("Subscription activated successfully!");
+            cleanup();
           } else {
             // If that also fails, wait a bit more for webhook
             if (isCompletedRef.current) {
-              cleanup()
-              return
+              cleanup();
+              return;
             }
-            
+
             const timeout = setTimeout(async () => {
-              if (isCompletedRef.current) return
-              await checkProfileAndUpdate()
-            }, 3000)
-            timeoutRefs.current.push(timeout)
+              if (isCompletedRef.current) return;
+              await checkProfileAndUpdate();
+            }, 3000);
+            timeoutRefs.current.push(timeout);
           }
         }
       } catch (error) {
-        console.error('Error verifying subscription:', error)
+        console.error("Error verifying subscription:", error);
         // Fallback to checking profile
         if (!isCompletedRef.current) {
-        await checkProfileAndUpdate()
+          await checkProfileAndUpdate();
         }
-        cleanup()
+        cleanup();
       }
-    }
+    };
 
     const checkProfileAndUpdate = async () => {
       // Guard against running if already completed
       if (isCompletedRef.current) {
-        cleanup()
-        return
+        cleanup();
+        return;
       }
-      
+
       try {
-        const response = await fetch('/api/user/profile')
+        const response = await fetch("/api/user/profile");
         if (response.ok && !isCompletedRef.current) {
-          const data = await response.json()
-          const profile = data.profile
-          
-          if (profile.subscriptionStatus === 'ACTIVE') {
+          const data = await response.json();
+          const profile = data.profile;
+
+          if (profile.subscriptionStatus === "ACTIVE") {
             if (isCompletedRef.current) {
-              cleanup()
-              return
+              cleanup();
+              return;
             }
-            
+
             // DON'T call update() - it causes remounts
-            markCompleted()
-            showToastOnce("Subscription activated successfully!")
-            cleanup()
+            markCompleted();
+            showToastOnce("Subscription activated successfully!");
+            cleanup();
           } else {
             // Try one more time after delay
             if (isCompletedRef.current) {
-              cleanup()
-              return
+              cleanup();
+              return;
             }
-            
+
             const timeout = setTimeout(async () => {
               if (isCompletedRef.current) {
-                cleanup()
-                return
+                cleanup();
+                return;
               }
-              
-              const retryResponse = await fetch('/api/user/profile')
+
+              const retryResponse = await fetch("/api/user/profile");
               if (retryResponse.ok && !isCompletedRef.current) {
-                const retryData = await retryResponse.json()
-                if (retryData.profile.subscriptionStatus === 'ACTIVE') {
+                const retryData = await retryResponse.json();
+                if (retryData.profile.subscriptionStatus === "ACTIVE") {
                   if (isCompletedRef.current) {
-                    cleanup()
-                    return
+                    cleanup();
+                    return;
                   }
-                  
+
                   // DON'T call update() - it causes remounts
-                  markCompleted()
-                  showToastOnce("Subscription activated successfully!")
-                  cleanup()
+                  markCompleted();
+                  showToastOnce("Subscription activated successfully!");
+                  cleanup();
                 } else {
                   if (isCompletedRef.current) {
-                    cleanup()
-                    return
+                    cleanup();
+                    return;
                   }
-                  markCompleted()
-                  showToastOnce("Payment received! Your subscription is being processed. Please refresh in a moment.")
-                  cleanup()
+                  markCompleted();
+                  showToastOnce(
+                    "Payment received! Your subscription is being processed. Please refresh in a moment.",
+                  );
+                  cleanup();
                 }
               } else {
                 if (isCompletedRef.current) {
-                  cleanup()
-                  return
+                  cleanup();
+                  return;
                 }
-                markCompleted()
-                cleanup()
+                markCompleted();
+                cleanup();
               }
-            }, 3000)
-            timeoutRefs.current.push(timeout)
+            }, 3000);
+            timeoutRefs.current.push(timeout);
           }
         } else {
           if (isCompletedRef.current) {
-            cleanup()
-            return
+            cleanup();
+            return;
           }
-          markCompleted()
-          cleanup()
+          markCompleted();
+          cleanup();
         }
       } catch (error) {
-        console.error('Error checking profile:', error)
+        console.error("Error checking profile:", error);
         if (isCompletedRef.current) {
-          cleanup()
-          return
+          cleanup();
+          return;
         }
-        markCompleted()
-        cleanup()
+        markCompleted();
+        cleanup();
       }
-    }
+    };
 
-    verifyAndUpdateSubscription()
-    
+    verifyAndUpdateSubscription();
+
     // Return cleanup function
-    return cleanup
+    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty deps - effect should run only once on mount, guards prevent re-runs
+  }, []); // Empty deps - effect should run only once on mount, guards prevent re-runs
 
   // Auto-redirect to subscription page for add-ons IMMEDIATELY (no modal shown)
   useEffect(() => {
     if (isAddonPurchase) {
       // Redirect immediately without showing any UI
-      router.push('/dashboard/subscription?addon=success')
+      router.push("/dashboard/subscription?addon=success");
     }
-  }, [isAddonPurchase, router])
+  }, [isAddonPurchase, router]);
 
   // For add-ons, don't show any UI - redirect immediately
   if (isAddonPurchase) {
-    return null
+    return null;
   }
 
   // Auto-show setup guide after verification completes
@@ -422,58 +452,61 @@ export default function SuccessPage() {
     if (!loading && !checking && !isAddonPurchase && !isCompletedRef.current) {
       // Small delay to show success first
       const timer = setTimeout(() => {
-        setShowSetupGuide(true)
+        setShowSetupGuide(true);
         // Start countdown for auto-redirect
         countdownIntervalRef.current = setInterval(() => {
           setCountdown((prev) => {
             if (prev <= 1) {
               if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current)
+                clearInterval(countdownIntervalRef.current);
               }
               // Call handleStartSetup directly
               if (!isRedirecting) {
-                setIsRedirecting(true)
+                setIsRedirecting(true);
                 update().then(() => {
-                  router.push('/dashboard/integrations?onboarding=true')
-                })
+                  router.push("/dashboard/integrations?onboarding=true");
+                });
               }
-              return 0
+              return 0;
             }
-            return prev - 1
-          })
-        }, 1000)
-      }, 2000)
+            return prev - 1;
+          });
+        }, 1000);
+      }, 2000);
       return () => {
-        clearTimeout(timer)
+        clearTimeout(timer);
         if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current)
+          clearInterval(countdownIntervalRef.current);
         }
-      }
+      };
     }
-  }, [loading, checking, isAddonPurchase, router, update])
+  }, [loading, checking, isAddonPurchase, router, update]);
 
   const handleStartSetup = async () => {
-    if (isRedirecting) return
-    setIsRedirecting(true)
-    await update()
-    router.push('/dashboard/integrations?onboarding=true')
-  }
+    if (isRedirecting) return;
+    setIsRedirecting(true);
+    await update();
+    router.push("/dashboard/integrations?onboarding=true");
+  };
 
   const handleSkipSetup = async () => {
     if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current)
+      clearInterval(countdownIntervalRef.current);
     }
-    setShowSetupGuide(false)
-    await update()
-    toast.success("Setup skipped! You can complete it anytime from Settings or the sidebar.", {
-      duration: 4000,
-      icon: "ℹ️"
-    })
+    setShowSetupGuide(false);
+    await update();
+    toast.success(
+      "Setup skipped! You can complete it anytime from Settings or the sidebar.",
+      {
+        duration: 4000,
+        icon: "ℹ️",
+      },
+    );
     // Redirect to dashboard after a moment
     setTimeout(() => {
-      router.push('/dashboard')
-    }, 1500)
-  }
+      router.push("/dashboard");
+    }, 1500);
+  };
 
   if (loading || checking) {
     return (
@@ -485,7 +518,7 @@ export default function SuccessPage() {
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   const setupSteps = [
@@ -493,25 +526,29 @@ export default function SuccessPage() {
       number: 1,
       icon: Zap,
       title: "Connect API Key",
-      description: "Add your Anthropic API key to enable AI-powered report generation",
+      description:
+        "Add your Anthropic API key to enable AI-powered report generation",
       impact: "High Impact",
       impactColor: "text-emerald-600 dark:text-emerald-400",
       impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
-      details: "Personalizes report generation, enables advanced AI features, and improves report quality",
+      details:
+        "Personalizes report generation, enables advanced AI features, and improves report quality",
       route: "/dashboard/integrations?onboarding=true",
-      timeEstimate: "2 min"
+      timeEstimate: "2 min",
     },
     {
       number: 2,
       icon: DollarSign,
       title: "Configure Pricing",
-      description: "Set up your business rates for labour, equipment, and services",
+      description:
+        "Set up your business rates for labour, equipment, and services",
       impact: "High Impact",
       impactColor: "text-emerald-600 dark:text-emerald-400",
       impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
-      details: "Ensures accurate cost estimations and professional quotes for your clients",
+      details:
+        "Ensures accurate cost estimations and professional quotes for your clients",
       route: "/dashboard/pricing-config?onboarding=true",
-      timeEstimate: "5 min"
+      timeEstimate: "5 min",
     },
     {
       number: 3,
@@ -521,11 +558,12 @@ export default function SuccessPage() {
       impact: "Medium Impact",
       impactColor: "text-blue-600 dark:text-blue-400",
       impactBg: "bg-blue-50 dark:bg-blue-500/10",
-      details: "Test the system and see how reports are generated with your settings",
+      details:
+        "Test the system and see how reports are generated with your settings",
       route: "/dashboard/reports/new?onboarding=true",
-      timeEstimate: "10 min"
-    }
-  ]
+      timeEstimate: "10 min",
+    },
+  ];
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
@@ -537,11 +575,14 @@ export default function SuccessPage() {
               <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
             </div>
           </div>
-          
+
           <div className="space-y-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payment Successful!</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Payment Successful!
+            </h1>
             <p className="text-sm text-gray-600 dark:text-slate-400">
-              Thank you for your subscription. Your account has been upgraded and you now have unlimited access.
+              Thank you for your subscription. Your account has been upgraded
+              and you now have unlimited access.
             </p>
           </div>
 
@@ -569,8 +610,12 @@ export default function SuccessPage() {
                     <Sparkles className="text-white" size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Complete Your Setup</h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-400">3 quick steps to get started</p>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Complete Your Setup
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">
+                      3 quick steps to get started
+                    </p>
                   </div>
                 </div>
                 <button
@@ -586,13 +631,14 @@ export default function SuccessPage() {
             {/* Content */}
             <div className="p-6 space-y-4">
               <p className="text-sm text-gray-600 dark:text-slate-400 text-center">
-                Complete these steps to unlock the full potential of your account. Each step takes just a few minutes.
+                Complete these steps to unlock the full potential of your
+                account. Each step takes just a few minutes.
               </p>
 
               {/* Setup Steps */}
               <div className="space-y-4">
                 {setupSteps.map((step, index) => {
-                  const Icon = step.icon
+                  const Icon = step.icon;
                   return (
                     <div
                       key={step.number}
@@ -605,7 +651,9 @@ export default function SuccessPage() {
                             <Icon className="text-white" size={24} />
                           </div>
                           <div className="mt-2 text-center">
-                            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">Step {step.number}</span>
+                            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">
+                              Step {step.number}
+                            </span>
                           </div>
                         </div>
 
@@ -613,10 +661,16 @@ export default function SuccessPage() {
                         <div className="flex-1 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
-                              <h3 className="font-bold text-gray-900 dark:text-white text-lg">{step.title}</h3>
-                              <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">{step.description}</p>
+                              <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                                {step.title}
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">
+                                {step.description}
+                              </p>
                             </div>
-                            <div className={`px-2.5 py-1 rounded-full text-xs font-semibold ${step.impactBg} ${step.impactColor}`}>
+                            <div
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${step.impactBg} ${step.impactColor}`}
+                            >
                               {step.impact}
                             </div>
                           </div>
@@ -634,8 +688,8 @@ export default function SuccessPage() {
                             </span>
                             <button
                               onClick={async () => {
-                                await update()
-                                router.push(step.route)
+                                await update();
+                                router.push(step.route);
                               }}
                               className="px-4 py-1.5 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2 group/btn"
                             >
@@ -646,7 +700,7 @@ export default function SuccessPage() {
                         </div>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
 
@@ -657,9 +711,17 @@ export default function SuccessPage() {
                     <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <p className="text-sm text-gray-700 dark:text-slate-300">
                       {countdown > 0 ? (
-                        <>Auto-starting setup in <strong className="text-blue-600 dark:text-blue-400">{countdown}</strong> seconds...</>
+                        <>
+                          Auto-starting setup in{" "}
+                          <strong className="text-blue-600 dark:text-blue-400">
+                            {countdown}
+                          </strong>{" "}
+                          seconds...
+                        </>
                       ) : (
-                        <span className="text-blue-600 dark:text-blue-400 font-medium">Redirecting...</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-medium">
+                          Redirecting...
+                        </span>
                       )}
                     </p>
                   </div>
@@ -685,8 +747,8 @@ export default function SuccessPage() {
                 </button>
                 <button
                   onClick={async () => {
-                    await update()
-                    router.push('/dashboard/subscription')
+                    await update();
+                    router.push("/dashboard/subscription");
                   }}
                   className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
                 >
@@ -701,6 +763,5 @@ export default function SuccessPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
-

@@ -15,114 +15,134 @@
  * Response: OptimizationResult JSON
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { optimizePrompt, type OptimizationOptions } from '@/lib/ai/prompt-optimizer'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import {
+  optimizePrompt,
+  type OptimizationOptions,
+} from "@/lib/ai/prompt-optimizer";
 
 const VALID_CLAIM_TYPES = [
-  'water_damage',
-  'fire_smoke',
-  'storm',
-  'mould',
-  'contents',
-] as const
+  "water_damage",
+  "fire_smoke",
+  "storm",
+  "mould",
+  "contents",
+] as const;
 
 export async function POST(request: NextRequest) {
   try {
     // ── Auth check ──
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    if (session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Forbidden: Admin access required" },
+        { status: 403 },
+      );
     }
 
     // ── Parse body ──
-    const body = await request.json() as Record<string, unknown>
+    const body = (await request.json()) as Record<string, unknown>;
     const {
       claimType,
       budget,
       threshold,
       testCasesPerEval,
       candidatesPerIteration,
-    } = body
+    } = body;
 
     // ── Validate claimType ──
-    if (!claimType || typeof claimType !== 'string') {
+    if (!claimType || typeof claimType !== "string") {
       return NextResponse.json(
-        { error: 'claimType is required (string)' },
-        { status: 400 }
-      )
+        { error: "claimType is required (string)" },
+        { status: 400 },
+      );
     }
 
-    if (!VALID_CLAIM_TYPES.includes(claimType as typeof VALID_CLAIM_TYPES[number])) {
+    if (
+      !VALID_CLAIM_TYPES.includes(
+        claimType as (typeof VALID_CLAIM_TYPES)[number],
+      )
+    ) {
       return NextResponse.json(
         {
-          error: `Invalid claimType "${claimType}". Valid types: ${VALID_CLAIM_TYPES.join(', ')}`,
+          error: `Invalid claimType "${claimType}". Valid types: ${VALID_CLAIM_TYPES.join(", ")}`,
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     // ── Validate optional numeric params ──
-    if (budget !== undefined && (typeof budget !== 'number' || budget < 1 || budget > 50)) {
+    if (
+      budget !== undefined &&
+      (typeof budget !== "number" || budget < 1 || budget > 50)
+    ) {
       return NextResponse.json(
-        { error: 'budget must be a number between 1 and 50' },
-        { status: 400 }
-      )
+        { error: "budget must be a number between 1 and 50" },
+        { status: 400 },
+      );
     }
 
-    if (threshold !== undefined && (typeof threshold !== 'number' || threshold < 0)) {
+    if (
+      threshold !== undefined &&
+      (typeof threshold !== "number" || threshold < 0)
+    ) {
       return NextResponse.json(
-        { error: 'threshold must be a non-negative number' },
-        { status: 400 }
-      )
+        { error: "threshold must be a non-negative number" },
+        { status: 400 },
+      );
     }
 
-    if (testCasesPerEval !== undefined && (typeof testCasesPerEval !== 'number' || testCasesPerEval < 1)) {
+    if (
+      testCasesPerEval !== undefined &&
+      (typeof testCasesPerEval !== "number" || testCasesPerEval < 1)
+    ) {
       return NextResponse.json(
-        { error: 'testCasesPerEval must be a positive number' },
-        { status: 400 }
-      )
+        { error: "testCasesPerEval must be a positive number" },
+        { status: 400 },
+      );
     }
 
-    if (candidatesPerIteration !== undefined && (typeof candidatesPerIteration !== 'number' || candidatesPerIteration < 1)) {
+    if (
+      candidatesPerIteration !== undefined &&
+      (typeof candidatesPerIteration !== "number" || candidatesPerIteration < 1)
+    ) {
       return NextResponse.json(
-        { error: 'candidatesPerIteration must be a positive number' },
-        { status: 400 }
-      )
+        { error: "candidatesPerIteration must be a positive number" },
+        { status: 400 },
+      );
     }
 
     // ── Run optimizer ──
     const options: OptimizationOptions = {
       claimType,
-      ...(typeof budget === 'number' && { budget }),
-      ...(typeof threshold === 'number' && { threshold }),
-      ...(typeof testCasesPerEval === 'number' && { testCasesPerEval }),
-      ...(typeof candidatesPerIteration === 'number' && { candidatesPerIteration }),
-    }
+      ...(typeof budget === "number" && { budget }),
+      ...(typeof threshold === "number" && { threshold }),
+      ...(typeof testCasesPerEval === "number" && { testCasesPerEval }),
+      ...(typeof candidatesPerIteration === "number" && {
+        candidatesPerIteration,
+      }),
+    };
 
-    const result = await optimizePrompt(options)
+    const result = await optimizePrompt(options);
 
-    return NextResponse.json(result)
+    return NextResponse.json(result);
   } catch (error: unknown) {
     const message =
-      error instanceof Error ? error.message : 'Unknown error during optimization'
+      error instanceof Error
+        ? error.message
+        : "Unknown error during optimization";
 
     // Distinguish missing API key from other errors
-    if (message.includes('ANTHROPIC_API_KEY')) {
-      return NextResponse.json(
-        { error: message },
-        { status: 503 }
-      )
+    if (message.includes("ANTHROPIC_API_KEY")) {
+      return NextResponse.json({ error: message }, { status: 503 });
     }
 
-    console.error('[optimize-prompts] Error:', message)
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    )
+    console.error("[optimize-prompts] Error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

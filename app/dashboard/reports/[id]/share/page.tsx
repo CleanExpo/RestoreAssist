@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Copy,
@@ -14,156 +14,167 @@ import {
   Info,
   AlertTriangle,
   Loader2,
-} from "lucide-react"
-import toast from "react-hot-toast"
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Report {
-  id: string
-  title: string
-  reportNumber?: string
-  status: string
-  clientName: string
-  propertyAddress: string
-  clientId?: string | null
+  id: string;
+  title: string;
+  reportNumber?: string;
+  status: string;
+  clientName: string;
+  propertyAddress: string;
+  clientId?: string | null;
 }
 
 interface Invitation {
-  id: string
-  email: string
-  token: string
-  status: string
-  expiresAt: string
-  createdAt: string
+  id: string;
+  email: string;
+  token: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
 }
 
 export default function ReportSharePage() {
-  const params = useParams()
-  const router = useRouter()
-  const id = params?.id as string
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
 
-  const [report, setReport] = useState<Report | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
+  const [report, setReport] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   // Portal invitation state
-  const [invitation, setInvitation] = useState<Invitation | null>(null)
-  const [invitationsLoading, setInvitationsLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Copy state
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
   // Build the portal URL (client logs in first, then sees this report)
-  const portalBaseUrl = typeof window !== "undefined" ? window.location.origin : ""
+  const portalBaseUrl =
+    typeof window !== "undefined" ? window.location.origin : "";
   const portalUrl = invitation
     ? `${portalBaseUrl}/portal/signup?token=${invitation.token}`
-    : `${portalBaseUrl}/portal`
+    : `${portalBaseUrl}/portal`;
 
   // Portal preview URL for the contractor (logged-in as client-type)
-  const portalReportUrl = `${portalBaseUrl}/portal/reports/${id}`
+  const portalReportUrl = `${portalBaseUrl}/portal/reports/${id}`;
 
   useEffect(() => {
-    if (!id) return
+    if (!id) return;
     const load = async () => {
       try {
-        const res = await fetch(`/api/reports/${id}`)
+        const res = await fetch(`/api/reports/${id}`);
         if (res.status === 404) {
-          setNotFound(true)
-          return
+          setNotFound(true);
+          return;
         }
-        if (!res.ok) throw new Error("Failed to fetch report")
-        const data = await res.json()
-        setReport(data)
+        if (!res.ok) throw new Error("Failed to fetch report");
+        const data = await res.json();
+        setReport(data);
 
         // Load any existing invitations for this client
         if (data.clientId) {
-          setInvitationsLoading(true)
+          setInvitationsLoading(true);
           try {
-            const invRes = await fetch(`/api/portal/invitations?clientId=${data.clientId}`)
+            const invRes = await fetch(
+              `/api/portal/invitations?clientId=${data.clientId}`,
+            );
             if (invRes.ok) {
-              const invData = await invRes.json()
+              const invData = await invRes.json();
               const active = (invData.invitations as Invitation[]).find(
-                (inv) => inv.status === "PENDING" && new Date(inv.expiresAt) > new Date()
-              )
-              if (active) setInvitation(active)
+                (inv) =>
+                  inv.status === "PENDING" &&
+                  new Date(inv.expiresAt) > new Date(),
+              );
+              if (active) setInvitation(active);
             }
           } catch {
             // Silently ignore — invitation load is non-critical
           } finally {
-            setInvitationsLoading(false)
+            setInvitationsLoading(false);
           }
         }
       } catch {
-        setNotFound(true)
+        setNotFound(true);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    load()
-  }, [id])
+    };
+    load();
+  }, [id]);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(portalUrl)
-      setCopied(true)
-      toast.success("Link copied to clipboard!")
-      setTimeout(() => setCopied(false), 2000)
+      await navigator.clipboard.writeText(portalUrl);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for browsers without clipboard API
-      const el = document.createElement("textarea")
-      el.value = portalUrl
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand("copy")
-      document.body.removeChild(el)
-      setCopied(true)
-      toast.success("Link copied to clipboard!")
-      setTimeout(() => setCopied(false), 2000)
+      const el = document.createElement("textarea");
+      el.value = portalUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
     }
-  }
+  };
 
   const handleGenerateLink = async () => {
     if (!report?.clientId) {
-      toast.error("This report is not linked to a client. Link a client first to generate a share link.")
-      return
+      toast.error(
+        "This report is not linked to a client. Link a client first to generate a share link.",
+      );
+      return;
     }
-    setGenerating(true)
+    setGenerating(true);
     try {
       const res = await fetch("/api/portal/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: report.clientId }),
-      })
+      });
       if (res.status === 400) {
-        const data = await res.json()
+        const data = await res.json();
         // If invitation already exists, reload
         if (data.error?.includes("already")) {
-          const invRes = await fetch(`/api/portal/invitations?clientId=${report.clientId}`)
+          const invRes = await fetch(
+            `/api/portal/invitations?clientId=${report.clientId}`,
+          );
           if (invRes.ok) {
-            const invData = await invRes.json()
+            const invData = await invRes.json();
             const active = (invData.invitations as Invitation[]).find(
-              (inv) => inv.status === "PENDING" && new Date(inv.expiresAt) > new Date()
-            )
+              (inv) =>
+                inv.status === "PENDING" &&
+                new Date(inv.expiresAt) > new Date(),
+            );
             if (active) {
-              setInvitation(active)
-              toast.success("Existing share link loaded!")
-              return
+              setInvitation(active);
+              toast.success("Existing share link loaded!");
+              return;
             }
           }
         }
-        toast.error(data.error || "Failed to generate link")
-        return
+        toast.error(data.error || "Failed to generate link");
+        return;
       }
-      if (!res.ok) throw new Error("Failed to generate")
-      const data = await res.json()
-      setInvitation(data.invitation)
-      toast.success("Share link generated!")
+      if (!res.ok) throw new Error("Failed to generate");
+      const data = await res.json();
+      setInvitation(data.invitation);
+      toast.success("Share link generated!");
     } catch {
-      toast.error("Failed to generate share link. Please try again.")
+      toast.error("Failed to generate share link. Please try again.");
     } finally {
-      setGenerating(false)
+      setGenerating(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -175,15 +186,19 @@ export default function ReportSharePage() {
           <div className="h-10 bg-slate-100 rounded w-full" />
         </div>
       </div>
-    )
+    );
   }
 
   if (notFound || !report) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
         <AlertTriangle className="h-12 w-12 text-red-400 mb-4" />
-        <h2 className="text-xl font-semibold text-slate-800 mb-2">Report Not Found</h2>
-        <p className="text-slate-500 mb-6">This report does not exist or you do not have access.</p>
+        <h2 className="text-xl font-semibold text-slate-800 mb-2">
+          Report Not Found
+        </h2>
+        <p className="text-slate-500 mb-6">
+          This report does not exist or you do not have access.
+        </p>
         <Link
           href="/dashboard/reports"
           className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
@@ -192,10 +207,10 @@ export default function ReportSharePage() {
           Back to Reports
         </Link>
       </div>
-    )
+    );
   }
 
-  const isExpired = invitation && new Date(invitation.expiresAt) <= new Date()
+  const isExpired = invitation && new Date(invitation.expiresAt) <= new Date();
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -259,22 +274,28 @@ export default function ReportSharePage() {
                     year: "numeric",
                   })}
                 </span>
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                  Active
+                </span>
               </div>
             </>
           ) : (
             <div className="text-center py-4">
               {isExpired && (
-                <p className="text-sm text-amber-600 mb-3">Your previous share link has expired.</p>
+                <p className="text-sm text-amber-600 mb-3">
+                  Your previous share link has expired.
+                </p>
               )}
               {!report.clientId ? (
                 <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg text-left">
                   <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-amber-800">No client linked</p>
+                    <p className="text-sm font-medium text-amber-800">
+                      No client linked
+                    </p>
                     <p className="text-xs text-amber-600 mt-0.5">
-                      Link a client to this report before generating a share link. You can do this from the report
-                      detail page.
+                      Link a client to this report before generating a share
+                      link. You can do this from the report detail page.
                     </p>
                   </div>
                 </div>
@@ -309,8 +330,8 @@ export default function ReportSharePage() {
               <h2 className="font-semibold text-slate-800">Preview Portal</h2>
             </div>
             <p className="text-sm text-slate-500 mb-4">
-              Open the portal report view to see exactly what your client sees. You must be logged in as a client
-              account to view this page.
+              Open the portal report view to see exactly what your client sees.
+              You must be logged in as a client account to view this page.
             </p>
             <a
               href={portalReportUrl}
@@ -328,7 +349,9 @@ export default function ReportSharePage() {
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="flex items-center gap-2 mb-3">
             <Users size={16} className="text-slate-500" />
-            <h2 className="font-semibold text-slate-800">What Your Client Sees</h2>
+            <h2 className="font-semibold text-slate-800">
+              What Your Client Sees
+            </h2>
           </div>
           <ul className="space-y-2 text-sm text-slate-600">
             {[
@@ -347,12 +370,13 @@ export default function ReportSharePage() {
           <div className="mt-4 flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
             <Info size={15} className="text-blue-500 mt-0.5 shrink-0" />
             <p className="text-xs text-blue-700">
-              The share link takes your client through account creation. Once signed up, they can view all reports
-              linked to their client profile, not just this one.
+              The share link takes your client through account creation. Once
+              signed up, they can view all reports linked to their client
+              profile, not just this one.
             </p>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

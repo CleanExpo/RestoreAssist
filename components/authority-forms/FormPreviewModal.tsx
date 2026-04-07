@@ -1,56 +1,56 @@
-'use client'
+"use client";
 
-import { X, PenTool, Eye, FileText, Download } from 'lucide-react'
+import { X, PenTool, Eye, FileText, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface Signature {
-  id: string
-  signatoryName: string
-  signatoryRole: string
-  signatoryEmail: string | null
-  signatureData: string | null
-  signedAt: Date | null
+  id: string;
+  signatoryName: string;
+  signatoryRole: string;
+  signatoryEmail: string | null;
+  signatureData: string | null;
+  signedAt: Date | null;
 }
 
 interface FormData {
-  id: string
+  id: string;
   template: {
-    id: string
-    name: string
-    code: string
-    description: string | null
-  }
-  companyName: string
-  companyLogo: string | null
-  companyABN: string | null
-  companyPhone: string | null
-  companyEmail: string | null
-  companyWebsite: string | null
-  companyAddress: string | null
-  clientName: string
-  clientAddress: string
-  incidentBrief: string | null
-  incidentDate: Date | null
-  authorityDescription: string
-  status: string
-  signatures: Signature[]
-  createdAt: string
+    id: string;
+    name: string;
+    code: string;
+    description: string | null;
+  };
+  companyName: string;
+  companyLogo: string | null;
+  companyABN: string | null;
+  companyPhone: string | null;
+  companyEmail: string | null;
+  companyWebsite: string | null;
+  companyAddress: string | null;
+  clientName: string;
+  clientAddress: string;
+  incidentBrief: string | null;
+  incidentDate: Date | null;
+  authorityDescription: string;
+  status: string;
+  signatures: Signature[];
+  createdAt: string;
 }
 
 interface FormPreviewModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  form: FormData
-  onSign?: () => void
-  onDownload?: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  form: FormData;
+  onSign?: () => void;
+  onDownload?: () => void;
 }
 
 /**
@@ -66,8 +66,10 @@ export function FormPreviewModal({
   onSign,
   onDownload,
 }: FormPreviewModalProps) {
-  const canSign = form && ['DRAFT', 'PENDING_SIGNATURES', 'PARTIALLY_SIGNED'].includes(form.status) &&
-    form.signatures.some(s => !s.signedAt)
+  const canSign =
+    form &&
+    ["DRAFT", "PENDING_SIGNATURES", "PARTIALLY_SIGNED"].includes(form.status) &&
+    form.signatures.some((s) => !s.signedAt);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,24 +113,37 @@ export function FormPreviewModal({
                     {form.companyName}
                   </h2>
                   {form.companyABN && (
-                    <p className="text-sm text-muted-foreground">ABN: {form.companyABN}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ABN: {form.companyABN}
+                    </p>
                   )}
                   {form.companyAddress && (
-                    <p className="text-sm text-muted-foreground mt-1">{form.companyAddress}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {form.companyAddress}
+                    </p>
                   )}
                   <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
-                    {form.companyPhone && <span>Phone: {form.companyPhone}</span>}
-                    {form.companyEmail && <span>Email: {form.companyEmail}</span>}
-                    {form.companyWebsite && <span>Website: {form.companyWebsite}</span>}
+                    {form.companyPhone && (
+                      <span>Phone: {form.companyPhone}</span>
+                    )}
+                    {form.companyEmail && (
+                      <span>Email: {form.companyEmail}</span>
+                    )}
+                    {form.companyWebsite && (
+                      <span>Website: {form.companyWebsite}</span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right text-sm text-muted-foreground">
                   <p>Form ID: {form.id.slice(-8)}</p>
-                  <p>Date: {new Date(form.createdAt).toLocaleDateString('en-AU', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric'
-                  })}</p>
+                  <p>
+                    Date:{" "}
+                    {new Date(form.createdAt).toLocaleDateString("en-AU", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
                 </div>
               </div>
             </div>
@@ -139,7 +154,9 @@ export function FormPreviewModal({
                 {form.template.name}
               </h3>
               {form.template.description && (
-                <p className="text-muted-foreground">{form.template.description}</p>
+                <p className="text-muted-foreground">
+                  {form.template.description}
+                </p>
               )}
             </div>
 
@@ -161,10 +178,10 @@ export function FormPreviewModal({
                   <div>
                     <p className="text-muted-foreground">Incident Date</p>
                     <p className="font-medium mt-0.5">
-                      {new Date(form.incidentDate).toLocaleDateString('en-AU', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric'
+                      {new Date(form.incidentDate).toLocaleDateString("en-AU", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
                       })}
                     </p>
                   </div>
@@ -193,7 +210,9 @@ export function FormPreviewModal({
             {/* Signatures Section */}
             <div className="border-t-2 border-gray-300 dark:border-slate-700 pt-6">
               <h4 className="text-base font-semibold mb-4 text-slate-900 dark:text-white">
-                Required Signatures ({form.signatures.filter(s => s.signedAt).length} of {form.signatures.length})
+                Required Signatures (
+                {form.signatures.filter((s) => s.signedAt).length} of{" "}
+                {form.signatures.length})
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {form.signatures.map((signature) => (
@@ -203,28 +222,39 @@ export function FormPreviewModal({
                       "border-2 rounded-lg p-4 transition-colors",
                       signature.signedAt
                         ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20"
-                        : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800",
                     )}
                   >
                     <div className="mb-3 min-h-[100px] flex items-center justify-center bg-white dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700">
                       {signature.signatureData ? (
                         <img
-                          src={signature.signatureData.includes(',')
-                            ? signature.signatureData
-                            : `data:image/png;base64,${signature.signatureData}`}
+                          src={
+                            signature.signatureData.includes(",")
+                              ? signature.signatureData
+                              : `data:image/png;base64,${signature.signatureData}`
+                          }
                           alt="Signature"
                           className="max-w-full max-h-[90px] object-contain"
                         />
                       ) : (
-                        <div className="text-muted-foreground text-xs py-4">Signature pending</div>
+                        <div className="text-muted-foreground text-xs py-4">
+                          Signature pending
+                        </div>
                       )}
                     </div>
                     <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                      <p className="font-semibold text-sm">{signature.signatoryName}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{signature.signatoryRole}</p>
+                      <p className="font-semibold text-sm">
+                        {signature.signatoryName}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {signature.signatoryRole}
+                      </p>
                       {signature.signedAt && (
                         <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                          ✓ Signed {new Date(signature.signedAt).toLocaleDateString('en-AU')}
+                          ✓ Signed{" "}
+                          {new Date(signature.signedAt).toLocaleDateString(
+                            "en-AU",
+                          )}
                         </p>
                       )}
                     </div>
@@ -272,5 +302,5 @@ export function FormPreviewModal({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

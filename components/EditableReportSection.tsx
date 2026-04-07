@@ -1,64 +1,77 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Edit2, Save, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import toast from "react-hot-toast"
+import { useState } from "react";
+import { Edit2, Save, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import toast from "react-hot-toast";
 
 interface EditableReportSectionProps {
-  section: string
-  fields: Record<string, {
-    label: string
-    type: 'text' | 'textarea' | 'select' | 'number' | 'date' | 'boolean'
-    value: any
-    options?: string[]
-    multiline?: boolean
-  }>
-  onSave: (section: string, data: Record<string, any>) => Promise<void>
+  section: string;
+  fields: Record<
+    string,
+    {
+      label: string;
+      type: "text" | "textarea" | "select" | "number" | "date" | "boolean";
+      value: any;
+      options?: string[];
+      multiline?: boolean;
+    }
+  >;
+  onSave: (section: string, data: Record<string, any>) => Promise<void>;
 }
 
-export default function EditableReportSection({ section, fields, onSave }: EditableReportSectionProps) {
-  const [isEditing, setIsEditing] = useState(false)
+export default function EditableReportSection({
+  section,
+  fields,
+  onSave,
+}: EditableReportSectionProps) {
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>(() => {
-    const initial: Record<string, any> = {}
-    Object.keys(fields).forEach(key => {
-      initial[key] = fields[key].value
-    })
-    return initial
-  })
-  const [saving, setSaving] = useState(false)
+    const initial: Record<string, any> = {};
+    Object.keys(fields).forEach((key) => {
+      initial[key] = fields[key].value;
+    });
+    return initial;
+  });
+  const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     try {
-      setSaving(true)
-      await onSave(section, formData)
-      setIsEditing(false)
-      toast.success(`${section} updated successfully`)
+      setSaving(true);
+      await onSave(section, formData);
+      setIsEditing(false);
+      toast.success(`${section} updated successfully`);
     } catch (error) {
-      console.error("Error saving section:", error)
-      toast.error("Failed to save changes")
+      console.error("Error saving section:", error);
+      toast.error("Failed to save changes");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleCancel = () => {
     // Reset form data to original values
-    const reset: Record<string, any> = {}
-    Object.keys(fields).forEach(key => {
-      reset[key] = fields[key].value
-    })
-    setFormData(reset)
-    setIsEditing(false)
-  }
+    const reset: Record<string, any> = {};
+    Object.keys(fields).forEach((key) => {
+      reset[key] = fields[key].value;
+    });
+    setFormData(reset);
+    setIsEditing(false);
+  };
 
   const updateField = (key: string, value: any) => {
-    setFormData(prev => ({ ...prev, [key]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
 
   return (
     <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
@@ -101,44 +114,48 @@ export default function EditableReportSection({ section, fields, onSave }: Edita
       <div className="p-6 space-y-4">
         {Object.entries(fields).map(([key, field]) => (
           <div key={key}>
-            <Label className="text-sm text-slate-400 mb-2 block">{field.label}</Label>
+            <Label className="text-sm text-slate-400 mb-2 block">
+              {field.label}
+            </Label>
             {isEditing ? (
               <>
-                {field.type === 'textarea' && (
+                {field.type === "textarea" && (
                   <Textarea
-                    value={formData[key] || ''}
+                    value={formData[key] || ""}
                     onChange={(e) => updateField(key, e.target.value)}
                     className="bg-slate-900 border-slate-700 text-white"
                     rows={field.multiline ? 4 : 2}
                   />
                 )}
-                {field.type === 'text' && (
+                {field.type === "text" && (
                   <Input
                     type="text"
-                    value={formData[key] || ''}
+                    value={formData[key] || ""}
                     onChange={(e) => updateField(key, e.target.value)}
                     className="bg-slate-900 border-slate-700 text-white"
                   />
                 )}
-                {field.type === 'number' && (
+                {field.type === "number" && (
                   <Input
                     type="number"
-                    value={formData[key] || ''}
-                    onChange={(e) => updateField(key, parseFloat(e.target.value) || 0)}
+                    value={formData[key] || ""}
+                    onChange={(e) =>
+                      updateField(key, parseFloat(e.target.value) || 0)
+                    }
                     className="bg-slate-900 border-slate-700 text-white"
                   />
                 )}
-                {field.type === 'date' && (
+                {field.type === "date" && (
                   <Input
                     type="datetime-local"
-                    value={formData[key] || ''}
+                    value={formData[key] || ""}
                     onChange={(e) => updateField(key, e.target.value)}
                     className="bg-slate-900 border-slate-700 text-white"
                   />
                 )}
-                {field.type === 'select' && field.options && (
+                {field.type === "select" && field.options && (
                   <Select
-                    value={formData[key] || ''}
+                    value={formData[key] || ""}
                     onValueChange={(value) => updateField(key, value)}
                   >
                     <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
@@ -146,40 +163,48 @@ export default function EditableReportSection({ section, fields, onSave }: Edita
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-700">
                       {field.options.map((option) => (
-                        <SelectItem key={option} value={option} className="text-white">
+                        <SelectItem
+                          key={option}
+                          value={option}
+                          className="text-white"
+                        >
                           {option}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
-                {field.type === 'boolean' && (
+                {field.type === "boolean" && (
                   <Select
-                    value={formData[key] ? 'Yes' : 'No'}
-                    onValueChange={(value) => updateField(key, value === 'Yes')}
+                    value={formData[key] ? "Yes" : "No"}
+                    onValueChange={(value) => updateField(key, value === "Yes")}
                   >
                     <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-700">
-                      <SelectItem value="Yes" className="text-white">Yes</SelectItem>
-                      <SelectItem value="No" className="text-white">No</SelectItem>
+                      <SelectItem value="Yes" className="text-white">
+                        Yes
+                      </SelectItem>
+                      <SelectItem value="No" className="text-white">
+                        No
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
               </>
             ) : (
               <p className="text-white font-medium">
-                {field.type === 'boolean' 
-                  ? (formData[key] ? 'Yes' : 'No')
-                  : (formData[key] || 'N/A')
-                }
+                {field.type === "boolean"
+                  ? formData[key]
+                    ? "Yes"
+                    : "No"
+                  : formData[key] || "N/A"}
               </p>
             )}
           </div>
         ))}
       </div>
     </div>
-  )
+  );
 }
-

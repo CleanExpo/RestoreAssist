@@ -10,23 +10,23 @@
  *   E2E_USER_PASSWORD (default: Test1234!)
  */
 
-import { test as setup, expect } from "@playwright/test"
-import path from "path"
+import { test as setup, expect } from "@playwright/test";
+import path from "path";
 
-export const AUTH_FILE = path.join(__dirname, "../playwright/.auth/user.json")
+export const AUTH_FILE = path.join(__dirname, "../playwright/.auth/user.json");
 
 setup("authenticate", async ({ page }) => {
-  const email = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app"
-  const password = process.env.E2E_USER_PASSWORD ?? "Test1234!"
+  const email = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
+  const password = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
-  await page.goto("/login")
-  await page.getByLabel(/email/i).fill(email)
-  await page.getByLabel(/password/i).fill(password)
-  await page.getByRole("button", { name: /sign in/i }).click()
+  await page.goto("/login");
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/password/i).fill(password);
+  await page.getByRole("button", { name: /sign in/i }).click();
 
   // Wait for successful redirect to dashboard
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
   // Save auth state for other test files
-  await page.context().storageState({ path: AUTH_FILE })
-})
+  await page.context().storageState({ path: AUTH_FILE });
+});

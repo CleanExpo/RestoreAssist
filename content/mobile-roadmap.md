@@ -12,57 +12,68 @@ EAS Project ID being configured (RA-246).
 ## V1 Features (Complete)
 
 ### Field Inspection Capture
+
 Technicians can capture moisture readings, GPS coordinates, and photos directly
 on site. The camera integration uses `expo-camera` with automatic EXIF
 geolocation tagging. Moisture readings are validated against IICRC S500
 thresholds in real time.
 
 ### Offline-First SQLite Storage
+
 All inspection data is stored locally in Expo SQLite 15 before syncing to the
 cloud. The sync queue handles network interruptions gracefully — technicians can
 work in areas with no signal and all data is uploaded when connectivity is
 restored.
 
 ### BYOK API Key Management
+
 Technicians can bring their own OpenAI, Anthropic, or Gemini API keys, stored
 securely in Expo SecureStore (iOS Keychain / Android Keystore). Keys are never
 transmitted to RestoreAssist servers.
 
 ### Authentication
+
 Full auth flow: login, signup, and session persistence. NextAuth JWT tokens are
 stored in SecureStore and refreshed automatically. Supports the same user roles
 as the web platform (Admin, Manager, Technician).
 
 ### Jobs Screen
+
 Lists all active and recent jobs assigned to the technician. Supports pull-to-
 refresh, search, and filtering by status. Job cards show address, insurance
 reference, and damage category at a glance.
 
 ### Reports Screen
+
 Browse and view completed reports. PDF preview using `expo-file-system` and
 `expo-sharing` for sharing reports directly from the device.
 
 ### Inspection Detail Screen
+
 Full inspection detail view with moisture readings, photos, room-by-room
 breakdown, and IICRC classification. Supports adding additional readings and
 photos from the field.
 
 ### AI Report Generation on Mobile
+
 Generate full IICRC-compliant scope narratives from the mobile app using the
 device's stored API key. Streams the response using the same SSE endpoint as
 the web platform.
 
 ### Push Notifications
+
 Expo Push Notifications service with `expo-notifications`. Technicians receive
 alerts for new job dispatches, inspection completions, and sync errors. PushToken
 model stores device tokens in the database linked to each user.
 
 ### Sync Engine with Image Compression
+
 Background sync engine that compresses inspection photos (90% quality JPEG,
 max 1920px) before uploading to Supabase Storage. Sync status is visible in
 the app — pending, syncing, and synced states are shown per-inspection.
 
 ### Prisma Schema (MobileInspection + PushToken)
+
 Database models added: `MobileInspection` (offline-created inspections with
 sync state), `PushToken` (per-device notification tokens linked to users).
 
@@ -120,17 +131,17 @@ sync state), `PushToken` (per-device notification tokens linked to users).
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | React Native 0.76.0, Expo SDK 52 |
-| Navigation | expo-router 4.0 (file-based, matching web app) |
-| Backend | Supabase JS 2.86 (shared with web platform) |
-| Local storage | Expo SQLite 15 — offline-first |
-| Secure storage | Expo SecureStore (API keys, auth tokens) |
-| Push notifications | Expo Notifications + FCM / APNs |
-| Image handling | expo-camera, expo-image-picker, expo-image-manipulator |
-| Build & deploy | EAS Build — development / preview / production profiles |
-| OTA updates | EAS Update — hot-fix delivery without App Store review |
+| Layer              | Technology                                              |
+| ------------------ | ------------------------------------------------------- |
+| Framework          | React Native 0.76.0, Expo SDK 52                        |
+| Navigation         | expo-router 4.0 (file-based, matching web app)          |
+| Backend            | Supabase JS 2.86 (shared with web platform)             |
+| Local storage      | Expo SQLite 15 — offline-first                          |
+| Secure storage     | Expo SecureStore (API keys, auth tokens)                |
+| Push notifications | Expo Notifications + FCM / APNs                         |
+| Image handling     | expo-camera, expo-image-picker, expo-image-manipulator  |
+| Build & deploy     | EAS Build — development / preview / production profiles |
+| OTA updates        | EAS Update — hot-fix delivery without App Store review  |
 
 ---
 
@@ -151,4 +162,4 @@ D:\RestoreAssist\mobile\
 
 ---
 
-*Last updated: 2026-03-31 | Linear: RA-162 | EPIC: RA-241*
+_Last updated: 2026-03-31 | Linear: RA-162 | EPIC: RA-241_

@@ -1,30 +1,36 @@
-"use client"
+"use client";
 
-import React, { useRef, useState } from "react"
-import { motion } from "framer-motion"
+import React, { useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 interface VideoCardProps {
-  src: string
-  poster?: string
-  title: string
-  subtitle: string
-  duration: string
+  src: string;
+  poster?: string;
+  title: string;
+  subtitle: string;
+  duration: string;
 }
 
-export function VideoCard({ src, poster, title, subtitle, duration }: VideoCardProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
+export function VideoCard({
+  src,
+  poster,
+  title,
+  subtitle,
+  duration,
+}: VideoCardProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const handlePlay = () => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.pause()
+        videoRef.current.pause();
       } else {
-        videoRef.current.play()
+        videoRef.current.play();
       }
-      setIsPlaying(!isPlaying)
+      setIsPlaying(!isPlaying);
     }
-  }
+  };
 
   return (
     <motion.div
@@ -47,7 +53,11 @@ export function VideoCard({ src, poster, title, subtitle, duration }: VideoCardP
         {!isPlaying && (
           <div className="absolute inset-0 bg-[#1C2E47]/60 flex items-center justify-center transition-all duration-300 group-hover:bg-[#1C2E47]/40">
             <div className="w-20 h-20 rounded-full bg-[#8A6B4E] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-8 h-8 text-white ml-1"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
@@ -63,7 +73,7 @@ export function VideoCard({ src, poster, title, subtitle, duration }: VideoCardP
         <p className="text-sm text-white/70 mt-1">{subtitle}</p>
       </div>
     </motion.div>
-  )
+  );
 }
 
 export default function VideoDemoSection() {
@@ -75,7 +85,7 @@ export default function VideoDemoSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-3xl md:text-4xl font-bold text-white text-center mb-4"
-          style={{ fontFamily: 'Inter, sans-serif' }}
+          style={{ fontFamily: "Inter, sans-serif" }}
         >
           See RestoreAssist in Action
         </motion.h2>
@@ -86,7 +96,8 @@ export default function VideoDemoSection() {
           transition={{ delay: 0.1 }}
           className="text-lg text-white/70 text-center mb-12 max-w-2xl mx-auto"
         >
-          Watch how RestoreAssist streamlines the restoration workflow from inspection to invoice.
+          Watch how RestoreAssist streamlines the restoration workflow from
+          inspection to invoice.
         </motion.p>
         <div className="grid md:grid-cols-2 gap-8">
           <VideoCard
@@ -104,5 +115,5 @@ export default function VideoDemoSection() {
         </div>
       </div>
     </section>
-  )
+  );
 }

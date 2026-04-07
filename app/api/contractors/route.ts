@@ -1,32 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(request.url);
 
     // Query parameters
-    const search = searchParams.get('search')
-    const postcode = searchParams.get('postcode')
-    const state = searchParams.get('state')
-    const certification = searchParams.get('certification')
-    const minRating = searchParams.get('minRating')
-    const specialization = searchParams.get('specialization')
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50)
+    const search = searchParams.get("search");
+    const postcode = searchParams.get("postcode");
+    const state = searchParams.get("state");
+    const certification = searchParams.get("certification");
+    const minRating = searchParams.get("minRating");
+    const specialization = searchParams.get("specialization");
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
     // Build where clause
     const where: any = {
-      isPubliclyVisible: true
-    }
+      isPubliclyVisible: true,
+    };
 
     // Search filter
     if (search) {
       where.OR = [
-        { user: { businessName: { contains: search, mode: 'insensitive' } } },
-        { publicDescription: { contains: search, mode: 'insensitive' } },
-        { specializations: { hasSome: [search] } }
-      ]
+        { user: { businessName: { contains: search, mode: "insensitive" } } },
+        { publicDescription: { contains: search, mode: "insensitive" } },
+        { specializations: { hasSome: [search] } },
+      ];
     }
 
     // Postcode filter
@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
       where.serviceAreas = {
         some: {
           postcode,
-          isActive: true
-        }
-      }
+          isActive: true,
+        },
+      };
     }
 
     // State filter
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
       where.serviceAreas = {
         some: {
           state,
-          isActive: true
-        }
-      }
+          isActive: true,
+        },
+      };
     }
 
     // Certification filter
@@ -54,24 +54,24 @@ export async function GET(request: NextRequest) {
       where.certifications = {
         some: {
           certificationType: certification,
-          verificationStatus: 'VERIFIED'
-        }
-      }
+          verificationStatus: "VERIFIED",
+        },
+      };
     }
 
     // Minimum rating filter
     if (minRating) {
-      const rating = parseFloat(minRating)
+      const rating = parseFloat(minRating);
       if (!isNaN(rating)) {
-        where.averageRating = { gte: rating }
+        where.averageRating = { gte: rating };
       }
     }
 
     // Specialization filter
     if (specialization) {
       where.specializations = {
-        has: specialization
-      }
+        has: specialization,
+      };
     }
 
     // Fetch contractors
@@ -83,39 +83,39 @@ export async function GET(request: NextRequest) {
             select: {
               businessName: true,
               businessLogo: true,
-              businessAddress: true
-            }
+              businessAddress: true,
+            },
           },
           certifications: {
-            where: { verificationStatus: 'VERIFIED' },
+            where: { verificationStatus: "VERIFIED" },
             select: {
               certificationType: true,
-              certificationName: true
-            }
+              certificationName: true,
+            },
           },
           serviceAreas: {
             where: { isActive: true },
             select: {
               postcode: true,
               suburb: true,
-              state: true
+              state: true,
             },
-            take: 5
-          }
+            take: 5,
+          },
         },
         orderBy: [
-          { isVerified: 'desc' },
-          { averageRating: 'desc' },
-          { totalReviews: 'desc' }
+          { isVerified: "desc" },
+          { averageRating: "desc" },
+          { totalReviews: "desc" },
         ],
         skip: (page - 1) * limit,
-        take: limit
+        take: limit,
       }),
-      prisma.contractorProfile.count({ where })
-    ])
+      prisma.contractorProfile.count({ where }),
+    ]);
 
     return NextResponse.json({
-      contractors: contractors.map(c => ({
+      contractors: contractors.map((c) => ({
         id: c.id,
         slug: c.slug,
         businessName: c.user.businessName,
@@ -130,20 +130,20 @@ export async function GET(request: NextRequest) {
         completedJobs: c.completedJobs,
         specializations: c.specializations,
         certifications: c.certifications,
-        serviceAreas: c.serviceAreas
+        serviceAreas: c.serviceAreas,
       })),
       pagination: {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit)
-      }
-    })
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error: any) {
-    console.error('Error fetching contractors:', error)
+    console.error("Error fetching contractors:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch contractors' },
-      { status: 500 }
-    )
+      { error: "Failed to fetch contractors" },
+      { status: 500 },
+    );
   }
 }

@@ -16,7 +16,10 @@ export default function AdminLoading() {
           <div className="h-6 w-32 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse" />
+              <div
+                key={i}
+                className="h-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse"
+              />
             ))}
           </div>
         </div>
@@ -46,11 +49,14 @@ export default function AdminLoading() {
           <div className="h-6 w-32 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-20 bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse" />
+              <div
+                key={i}
+                className="h-20 bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse"
+              />
             ))}
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

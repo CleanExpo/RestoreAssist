@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function QuoteLoading() {
   return (
@@ -13,5 +13,5 @@ export default function QuoteLoading() {
         <Skeleton className="h-80 rounded-xl" />
       </div>
     </div>
-  )
+  );
 }

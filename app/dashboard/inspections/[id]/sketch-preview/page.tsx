@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /**
  * /dashboard/inspections/[id]/sketch-preview
@@ -6,60 +6,60 @@
  * Restorers use this to verify what the homeowner will see before sharing.
  */
 
-import { useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
-import { useRouter, useParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, ExternalLink } from "lucide-react"
-import { SketchViewer } from "@/components/sketch/SketchViewer"
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, ExternalLink } from "lucide-react";
+import { SketchViewer } from "@/components/sketch/SketchViewer";
 
 interface InspectionMeta {
-  id: string
-  title?: string
-  propertyAddress?: string
+  id: string;
+  title?: string;
+  propertyAddress?: string;
 }
 
 export default function SketchPreviewPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const params = useParams<{ id: string }>()
-  const inspectionId = params.id
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const inspectionId = params.id;
 
-  const [meta, setMeta] = useState<InspectionMeta | null>(null)
+  const [meta, setMeta] = useState<InspectionMeta | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/login")
+      router.replace("/login");
     }
-  }, [status, router])
+  }, [status, router]);
 
   // Fetch inspection metadata for the header
   useEffect(() => {
-    if (!inspectionId || status !== "authenticated") return
-    ;(async () => {
+    if (!inspectionId || status !== "authenticated") return;
+    (async () => {
       try {
-        const res = await fetch(`/api/inspections/${inspectionId}`)
-        if (!res.ok) return
-        const data = await res.json()
+        const res = await fetch(`/api/inspections/${inspectionId}`);
+        if (!res.ok) return;
+        const data = await res.json();
         setMeta({
           id: inspectionId,
           title: data.inspection?.title ?? data.title,
-          propertyAddress: data.inspection?.propertyAddress ?? data.propertyAddress,
-        })
+          propertyAddress:
+            data.inspection?.propertyAddress ?? data.propertyAddress,
+        });
       } catch {
         // non-fatal — viewer still loads
       }
-    })()
-  }, [inspectionId, status])
+    })();
+  }, [inspectionId, status]);
 
   if (status === "loading" || status === "unauthenticated") {
-    return null
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-slate-950 py-8 px-4">
       <div className="max-w-6xl mx-auto space-y-5">
-
         {/* Back navigation */}
         <div className="flex items-center justify-between">
           <Link
@@ -93,14 +93,14 @@ export default function SketchPreviewPage() {
           <div>
             <p className="font-medium mb-0.5">Sharing options</p>
             <p className="opacity-80">
-              Use the <strong>Download PDF</strong> button above to export a branded floor plan document.
-              You can attach this to your report or email it directly to your client.
-              Moisture readings, equipment placements, and technical annotations are excluded from this view.
+              Use the <strong>Download PDF</strong> button above to export a
+              branded floor plan document. You can attach this to your report or
+              email it directly to your client. Moisture readings, equipment
+              placements, and technical annotations are excluded from this view.
             </p>
           </div>
         </div>
-
       </div>
     </div>
-  )
+  );
 }

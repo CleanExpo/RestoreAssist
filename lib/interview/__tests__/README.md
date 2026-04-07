@@ -3,6 +3,7 @@
 ## Overview
 
 Comprehensive unit test suite for the premium guided interview system, covering:
+
 - **QuestionGenerationEngine** - 20+ test cases
 - **Question Templates** - 40+ test cases
 
@@ -13,6 +14,7 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 #### Test Suites:
 
 **generateQuestions**
+
 - Returns all required response fields (questions, tieredQuestions, estimatedDuration, etc.)
 - Generates estimated duration between 5-30 minutes
 - Organizes questions into 4 tiers
@@ -21,6 +23,7 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 - Prioritizes questions by sequence number, standards count, and field impacts
 
 **evaluateSkipLogic**
+
 - Returns shouldSkip: false when no skip logic defined
 - Evaluates skip logic rules correctly
 - Matches answers case-insensitively for string values
@@ -28,6 +31,7 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 - Supports multiple answer types
 
 **evaluateConditionalShow**
+
 - Returns true when no conditions defined
 - Evaluates all condition operators:
   - `eq` (equals)
@@ -42,22 +46,26 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 - Enforces AND logic for multiple conditions
 
 **calculateFieldConfidence**
+
 - Returns original confidence for certain answers
 - Reduces confidence for uncertain answers ("unsure", "maybe") by 30%
 - Reduces confidence for transformed/derived values by 10%
 - Applies multiple reductions correctly
 
 **validateQuestion**
+
 - Validates complete questions successfully
 - Detects missing required fields (id, text, type, standards, mappings)
 - Validates field mapping structure (formFieldId, confidence 0-100)
 
 **getNextQuestion**
+
 - Returns next question when moving forward
 - Skips questions with unmet conditions
 - Returns undefined at end of questions
 
 **Question Library Validation**
+
 - All questions pass validation
 - All questions have at least 1 field mapping
 - All questions reference IICRC S500 or building standards
@@ -65,6 +73,7 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 - All confidence levels within 0-100 range
 
 **Subscription Tier Filtering**
+
 - Filters questions by subscription tier
 - Has premium tier questions in library
 
@@ -75,17 +84,20 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 #### Test Suites:
 
 **Library Structure**
+
 - INTERVIEW_QUESTION_LIBRARY is an array
 - Contains at least 20 questions
 - Has questions from all 4 tiers
 
 **Individual Question Quality**
+
 - Each question has unique ID
 - All questions pass validation
 - All questions have text longer than 5 characters
 - All questions have valid types (yes_no, multiple_choice, text, numeric, measurement, location, multiselect, checkbox)
 
 **Standards References**
+
 - Each question references at least 1 standard
 - Each question has standards justification
 - Standards include recognized codes:
@@ -96,6 +108,7 @@ Comprehensive unit test suite for the premium guided interview system, covering:
   - QDC (Queensland Development Code)
 
 **Field Mappings**
+
 - Each question has at least 1 field mapping
 - All field mappings have valid formFieldId
 - All confidence scores within 0-100
@@ -103,16 +116,19 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 - Derived mappings (with transformer) have confidence >70%
 
 **Skip Logic**
+
 - Skip logic rules have valid nextQuestionId
 - Skip logic references existing questions
 - No circular references in skip logic
 
 **Conditional Shows**
+
 - Conditional show rules have valid fields and operators
 - All conditional operators are valid
 - All conditional rules have values
 
 **Tier Organization**
+
 - Tier 1: 1-10 essential questions (sequence 1-5)
 - Tier 2: 1-10 environmental questions (sequence 5-8)
 - Tier 3: Multiple compliance questions (sequence 8-13)
@@ -120,12 +136,14 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 - Most Tier 4 questions are premium tier
 
 **Subscription Tier Levels**
+
 - All questions have valid minTierLevel (standard, premium, enterprise)
 - Has standard tier questions (free)
 - Has premium tier questions
 - Premium questions primarily in Tier 3+
 
 **Helper Functions**
+
 - `getQuestionsForTier(1-4)` returns correct tiers
 - `getQuestionsForTier(5)` returns empty array
 - `getQuestionsForSubscriptionTier()`:
@@ -136,14 +154,17 @@ Comprehensive unit test suite for the premium guided interview system, covering:
   - Enterprise has most questions
 
 **Cross-Question Logic**
+
 - No circular references in skip logic
 - Reasonable progression (sequential tiers)
 
 **Data Consistency**
+
 - Field ID naming is consistent (snake_case or camelCase)
 - No duplicate field names within question
 
 **Documentation Quality**
+
 - Most questions have helper text or options
 - Standards justification is meaningful (>20 characters)
 
@@ -151,16 +172,16 @@ Comprehensive unit test suite for the premium guided interview system, covering:
 
 ## Test Coverage Summary
 
-| Component | Test Cases | Coverage |
-|-----------|-----------|----------|
-| QuestionGenerationEngine | 20+ | 95%+ |
-| Question Templates | 40+ | 98%+ |
-| Skip Logic | 8+ | 100% |
-| Conditional Shows | 10+ | 100% |
-| Field Mappings | 8+ | 95%+ |
-| Tier Organization | 10+ | 100% |
-| Standards Validation | 8+ | 95%+ |
-| **TOTAL** | **100+** | **96%+** |
+| Component                | Test Cases | Coverage |
+| ------------------------ | ---------- | -------- |
+| QuestionGenerationEngine | 20+        | 95%+     |
+| Question Templates       | 40+        | 98%+     |
+| Skip Logic               | 8+         | 100%     |
+| Conditional Shows        | 10+        | 100%     |
+| Field Mappings           | 8+         | 95%+     |
+| Tier Organization        | 10+        | 100%     |
+| Standards Validation     | 8+         | 95%+     |
+| **TOTAL**                | **100+**   | **96%+** |
 
 ---
 
@@ -178,14 +199,14 @@ Create `jest.config.js`:
 
 ```javascript
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/lib'],
-  testMatch: ['**/__tests__/**/*.test.ts'],
+  preset: "ts-jest",
+  testEnvironment: "node",
+  roots: ["<rootDir>/lib"],
+  testMatch: ["**/__tests__/**/*.test.ts"],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
+    "^@/(.*)$": "<rootDir>/$1",
   },
-}
+};
 ```
 
 ### Add Test Script
@@ -265,25 +286,30 @@ curl -X POST http://localhost:3000/api/forms/interview/start \
 ## Key Test Scenarios
 
 ### Scenario 1: Standard Tier User Starts Interview
+
 - ✅ Receives Tier 1 questions (5 essential)
 - ✅ Cannot access premium questions
 - ✅ All 12 standard questions available
 
 ### Scenario 2: Skip Logic Evaluation
+
 - ✅ Answer "black_water" to Q1 shows Q2
 - ✅ Answer "clean_water" to Q1 skips conditional questions
 - ✅ No circular logic
 
 ### Scenario 3: Multi-Condition Display
+
 - ✅ Q8 only shows if: water_source = "black_water" AND affected_area > 30%
 - ✅ AND logic enforced (both conditions required)
 
 ### Scenario 4: Field Confidence Scoring
+
 - ✅ Direct mappings: 95-100% confidence
 - ✅ Uncertain answers ("unsure"): 30% reduction
 - ✅ Derived values (transformer): 10% reduction
 
 ### Scenario 5: Standards Coverage
+
 - ✅ 25+ questions reference IICRC S500
 - ✅ Building code questions reference NCC 2025
 - ✅ Safety questions reference WHS Act 2011
@@ -307,15 +333,16 @@ All tests use realistic mock data:
 
 ```typescript
 const mockContext: QuestionGenerationContext = {
-  formTemplateId: 'form_123',
-  jobType: 'WATER_DAMAGE',
-  postcode: '4000', // Brisbane
-  userId: 'user_123',
-  userTierLevel: 'standard',
-}
+  formTemplateId: "form_123",
+  jobType: "WATER_DAMAGE",
+  postcode: "4000", // Brisbane
+  userId: "user_123",
+  userTierLevel: "standard",
+};
 ```
 
 Questions are validated against:
+
 - Real IICRC S500 standards
 - Real NCC 2025 building codes
 - Real WHS Act 2011 requirements

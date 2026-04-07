@@ -1,101 +1,103 @@
-"use client"
+"use client";
 
-import { useState, useEffect, use } from "react"
-import { ArrowLeft, Search, Trash2, Download } from "lucide-react"
-import Link from "next/link"
-import toast from "react-hot-toast"
+import { useState, useEffect, use } from "react";
+import { ArrowLeft, Search, Trash2, Download } from "lucide-react";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
 interface CostItem {
-  id: string
-  category: string
-  description: string
-  rate: number
-  unit: string
-  createdAt: string
+  id: string;
+  category: string;
+  description: string;
+  rate: number;
+  unit: string;
+  createdAt: string;
 }
 
 interface CostLibrary {
-  id: string
-  name: string
-  region: string
-  description?: string
-  isDefault: boolean
-  items: CostItem[]
-  _count: { items: number }
+  id: string;
+  name: string;
+  region: string;
+  description?: string;
+  isDefault: boolean;
+  items: CostItem[];
+  _count: { items: number };
 }
 
 export default function CostLibraryDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params)
+  const { id } = use(params);
 
-  const [library, setLibrary] = useState<CostLibrary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState("")
+  const [library, setLibrary] = useState<CostLibrary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   useEffect(() => {
     const fetchLibrary = async () => {
       try {
-        setLoading(true)
-        const res = await fetch(`/api/cost-libraries/${id}`)
+        setLoading(true);
+        const res = await fetch(`/api/cost-libraries/${id}`);
         if (!res.ok) {
-          toast.error("Failed to load cost library")
-          return
+          toast.error("Failed to load cost library");
+          return;
         }
-        const data = await res.json()
-        const lib: CostLibrary = data.library ?? data
-        setLibrary(lib)
+        const data = await res.json();
+        const lib: CostLibrary = data.library ?? data;
+        setLibrary(lib);
       } catch (err) {
-        console.error("Error fetching cost library:", err)
-        toast.error("Failed to load cost library")
+        console.error("Error fetching cost library:", err);
+        toast.error("Failed to load cost library");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchLibrary()
-  }, [id])
+    };
+    fetchLibrary();
+  }, [id]);
 
   const categories = library
     ? Array.from(new Set(library.items.map((i) => i.category))).sort()
-    : []
+    : [];
 
   const filteredItems = library
     ? library.items.filter((item) => {
         const matchesSearch =
           search === "" ||
           item.description.toLowerCase().includes(search.toLowerCase()) ||
-          item.category.toLowerCase().includes(search.toLowerCase())
+          item.category.toLowerCase().includes(search.toLowerCase());
         const matchesCategory =
-          categoryFilter === "" || item.category === categoryFilter
-        return matchesSearch && matchesCategory
+          categoryFilter === "" || item.category === categoryFilter;
+        return matchesSearch && matchesCategory;
       })
-    : []
+    : [];
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!library) return
+    if (!library) return;
     try {
-      const res = await fetch(`/api/cost-items/${itemId}`, { method: "DELETE" })
+      const res = await fetch(`/api/cost-items/${itemId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
-        toast.error("Failed to delete item")
-        return
+        toast.error("Failed to delete item");
+        return;
       }
       setLibrary({
         ...library,
         items: library.items.filter((i) => i.id !== itemId),
         _count: { items: library._count.items - 1 },
-      })
-      toast.success("Item deleted")
+      });
+      toast.success("Item deleted");
     } catch (err) {
-      console.error("Error deleting cost item:", err)
-      toast.error("Failed to delete item")
+      console.error("Error deleting cost item:", err);
+      toast.error("Failed to delete item");
     }
-  }
+  };
 
   const exportCSV = () => {
-    if (!library) return
+    if (!library) return;
     const rows = [
       ["Category", "Description", "Rate (AUD)", "Unit"],
       ...filteredItems.map((i) => [
@@ -104,25 +106,25 @@ export default function CostLibraryDetailPage({
         i.rate.toFixed(2),
         i.unit,
       ]),
-    ]
+    ];
     const csv = rows
       .map((r) => r.map((cell) => `"${cell}"`).join(","))
-      .join("\n")
-    const blob = new Blob([csv], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${library.name}-items.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${library.name}-items.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
-    )
+    );
   }
 
   if (!library) {
@@ -137,7 +139,7 @@ export default function CostLibraryDetailPage({
         </Link>
         <p className="text-slate-400">Library not found.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -156,7 +158,9 @@ export default function CostLibraryDetailPage({
         <div>
           <h1 className="text-3xl font-semibold">{library.name}</h1>
           <div className="flex flex-wrap items-center gap-3 mt-2">
-            <span className="text-slate-400 text-sm">Region: {library.region}</span>
+            <span className="text-slate-400 text-sm">
+              Region: {library.region}
+            </span>
             <span className="text-slate-500 text-sm">•</span>
             <span className="text-slate-400 text-sm">
               {library._count.items} item{library._count.items !== 1 ? "s" : ""}
@@ -247,8 +251,12 @@ export default function CostLibraryDetailPage({
                     key={item.id}
                     className="hover:bg-slate-700/20 transition-colors"
                   >
-                    <td className="px-4 py-3 text-slate-300">{item.category}</td>
-                    <td className="px-4 py-3 text-slate-100">{item.description}</td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {item.category}
+                    </td>
+                    <td className="px-4 py-3 text-slate-100">
+                      {item.description}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium text-cyan-400">
                       ${item.rate.toFixed(2)}
                     </td>
@@ -274,5 +282,5 @@ export default function CostLibraryDetailPage({
         </div>
       )}
     </div>
-  )
+  );
 }

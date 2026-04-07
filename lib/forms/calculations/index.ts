@@ -7,4 +7,4 @@ export {
   EquipmentCostCalculator,
   EQUIPMENT_PRICING,
   type EquipmentCostEstimate,
-} from './equipment-cost-calculator'
+} from "./equipment-cost-calculator";

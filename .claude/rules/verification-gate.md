@@ -6,6 +6,7 @@
 ## The Rule
 
 Before claiming any task is done, Claude MUST produce a **VERIFICATION CHECKLIST** with:
+
 1. Where to check
 2. How to get there
 3. What to see

@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AuthorityFormDetailLoading() {
   return (
@@ -9,7 +9,10 @@ export default function AuthorityFormDetailLoading() {
       </div>
       <div className="grid gap-6 md:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="space-y-3 border border-gray-200 dark:border-slate-700 rounded-xl p-6">
+          <div
+            key={i}
+            className="space-y-3 border border-gray-200 dark:border-slate-700 rounded-xl p-6"
+          >
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-3/4" />
@@ -17,5 +20,5 @@ export default function AuthorityFormDetailLoading() {
         ))}
       </div>
     </div>
-  )
+  );
 }

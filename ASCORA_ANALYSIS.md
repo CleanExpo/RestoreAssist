@@ -9,12 +9,12 @@
 
 ## Connectivity
 
-| Item | Value |
-|------|-------|
-| Status | Connected |
-| Total jobs | **4,003** |
-| Total pages (pageSize=100) | 41 |
-| Date range | 2020-06-01 → 2025-10-13 (5+ years) |
+| Item                       | Value                              |
+| -------------------------- | ---------------------------------- |
+| Status                     | Connected                          |
+| Total jobs                 | **4,003**                          |
+| Total pages (pageSize=100) | 41                                 |
+| Date range                 | 2020-06-01 → 2025-10-13 (5+ years) |
 
 ---
 
@@ -22,16 +22,16 @@
 
 Based on a stratified sample of ~300 jobs (pages 1, 20, and 41):
 
-| Job Type | Count (sampled 300) | % |
-|----------|---------------------|---|
-| Water | 214 | 71.3% |
-| Microbial Growth | 50 | 16.7% |
-| Biohazard | 12 | 4.0% |
-| Contents | 9 | 3.0% |
-| Fire | 6 | 2.0% |
-| Inspection | 4 | 1.3% |
-| Cleaning | 3 | 1.0% |
-| Other | 2 | 0.7% |
+| Job Type         | Count (sampled 300) | %     |
+| ---------------- | ------------------- | ----- |
+| Water            | 214                 | 71.3% |
+| Microbial Growth | 50                  | 16.7% |
+| Biohazard        | 12                  | 4.0%  |
+| Contents         | 9                   | 3.0%  |
+| Fire             | 6                   | 2.0%  |
+| Inspection       | 4                   | 1.3%  |
+| Cleaning         | 3                   | 1.0%  |
+| Other            | 2                   | 0.7%  |
 
 Water damage dominates (~71%). Microbial growth (mould) is the clear second category at ~17%.
 
@@ -39,13 +39,13 @@ Water damage dominates (~71%). Microbial growth (mould) is the clear second cate
 
 ## Job Value Ranges (totalExTax)
 
-| Metric | Value |
-|--------|-------|
+| Metric               | Value                   |
+| -------------------- | ----------------------- |
 | Jobs with value > $0 | 169 / 300 sampled (56%) |
-| Minimum | $165.00 |
-| Maximum | $371,143.22 |
-| Average | $7,184.59 |
-| Median | $2,020.00 |
+| Minimum              | $165.00                 |
+| Maximum              | $371,143.22             |
+| Average              | $7,184.59               |
+| Median               | $2,020.00               |
 
 **Note:** ~44% of sampled jobs have $0 totalExTax. These appear to be jobs where
 invoicing was handled externally (e.g. insurer-direct) or the job was a non-billable
@@ -54,25 +54,25 @@ handles this cleanly.
 
 ### Top 3 High-Value Jobs
 
-| Job # | Type | Value | Location | Name |
-|-------|------|-------|----------|------|
-| JOB12649 | Water | $371,143 | Wooloowin, QLD | Commercial water damage |
-| DRQ13363 | Microbial Growth | $117,677 | Forest Lake, QLD | Large mould remediation |
-| JOB15915 | Water | $32,817 | Collingwood Park, QLD | Multi-unit water |
+| Job #    | Type             | Value    | Location              | Name                    |
+| -------- | ---------------- | -------- | --------------------- | ----------------------- |
+| JOB12649 | Water            | $371,143 | Wooloowin, QLD        | Commercial water damage |
+| DRQ13363 | Microbial Growth | $117,677 | Forest Lake, QLD      | Large mould remediation |
+| JOB15915 | Water            | $32,817  | Collingwood Park, QLD | Multi-unit water        |
 
 ---
 
 ## Job Status Codes
 
-| Code | Meaning | Count (sampled 300) |
-|------|---------|---------------------|
-| 0 | Draft | 1 |
-| 1 | Pending | 5 |
-| 2 | Scheduled | 1 |
-| 3 | In Progress | 28 |
-| 5 | On Hold | 9 |
-| 6 | Cancelled | 1 |
-| 8 | **Complete** | **255 (85%)** |
+| Code | Meaning      | Count (sampled 300) |
+| ---- | ------------ | ------------------- |
+| 0    | Draft        | 1                   |
+| 1    | Pending      | 5                   |
+| 2    | Scheduled    | 1                   |
+| 3    | In Progress  | 28                  |
+| 5    | On Hold      | 9                   |
+| 6    | Cancelled    | 1                   |
+| 8    | **Complete** | **255 (85%)**       |
 
 ---
 
@@ -128,6 +128,7 @@ billingContact         { id: UUID, name: "..." }     (optional)
 ### Key Patterns in Scope Descriptions
 
 The `jobDescription` field is a goldmine for AI training:
+
 - Narratives consistently describe: loss cause → affected areas → materials → measurements
 - Most include room-by-room damage assessments ("2 bedrooms, hallway, laundry")
 - Some include temperature/humidity readings and IICRC material classifications
@@ -137,16 +138,16 @@ The `jobDescription` field is a goldmine for AI training:
 
 ## API Endpoints Discovered
 
-| Endpoint | Status | Notes |
-|----------|--------|-------|
-| `GET /jobs` | ✅ Works | Paginated, `pageSize` + `page` params |
-| `GET /jobs?pageSize=100&page=N` | ✅ Works | Up to 4003 jobs, 41 pages |
-| `GET /invoicelines` | ❌ 404/error | Line item endpoint not found |
-| `GET /invoices` | ❌ 404/error | Tried by sync route |
-| `GET /jobcostings` | ❌ 404/error | Tried by sync route |
-| `GET /joblines` | ❌ 404/error | Tried by sync route |
-| `GET /lineitems` | ❌ 404/error | Tried by sync route |
-| `GET /items` | ❌ 404/error | Tried by sync route |
+| Endpoint                        | Status       | Notes                                 |
+| ------------------------------- | ------------ | ------------------------------------- |
+| `GET /jobs`                     | ✅ Works     | Paginated, `pageSize` + `page` params |
+| `GET /jobs?pageSize=100&page=N` | ✅ Works     | Up to 4003 jobs, 41 pages             |
+| `GET /invoicelines`             | ❌ 404/error | Line item endpoint not found          |
+| `GET /invoices`                 | ❌ 404/error | Tried by sync route                   |
+| `GET /jobcostings`              | ❌ 404/error | Tried by sync route                   |
+| `GET /joblines`                 | ❌ 404/error | Tried by sync route                   |
+| `GET /lineitems`                | ❌ 404/error | Tried by sync route                   |
+| `GET /items`                    | ❌ 404/error | Tried by sync route                   |
 
 **Action required:** Contact Ascora support to get the correct line item endpoint.
 
@@ -164,10 +165,10 @@ The `jobDescription` field is a goldmine for AI training:
 
 ### Files Created
 
-| File | Purpose |
-|------|---------|
-| `lib/ai/embeddings.ts` | `buildJobEmbeddingText`, `embedText`, `hashEmbedText`, `findSimilarJobs` |
-| `app/api/inspections/[id]/vectorise-jobs/route.ts` | POST worker: embed all un-vectorised HistoricalJobs |
+| File                                               | Purpose                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------ |
+| `lib/ai/embeddings.ts`                             | `buildJobEmbeddingText`, `embedText`, `hashEmbedText`, `findSimilarJobs` |
+| `app/api/inspections/[id]/vectorise-jobs/route.ts` | POST worker: embed all un-vectorised HistoricalJobs                      |
 
 ### HistoricalJob Model
 

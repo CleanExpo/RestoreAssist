@@ -74,7 +74,7 @@ function parseArgs(argv: string[]): CliArgs {
   if (!slug) {
     console.error("Error: --slug is required");
     console.error(
-      "Usage: npx tsx scripts/video-pipeline/index.ts --slug <slug> [--voice <voiceId>] [--step voiceover|screenshot|render|upload|all] [--dry-run]"
+      "Usage: npx tsx scripts/video-pipeline/index.ts --slug <slug> [--voice <voiceId>] [--step voiceover|screenshot|render|upload|all] [--dry-run]",
     );
     process.exit(1);
   }
@@ -89,7 +89,7 @@ function parseArgs(argv: string[]): CliArgs {
   ];
   if (!validSteps.includes(step)) {
     console.error(
-      `Error: --step must be one of: ${validSteps.join(", ")}. Got: ${step}`
+      `Error: --step must be one of: ${validSteps.join(", ")}. Got: ${step}`,
     );
     process.exit(1);
   }
@@ -114,13 +114,13 @@ function loadResourceJson(repoRoot: string, slug: string): ResourceJson {
     repoRoot,
     "content",
     "resources",
-    `${slug}.json`
+    `${slug}.json`,
   );
 
   if (!fs.existsSync(resourcePath)) {
     throw new Error(
       `Resource JSON not found: ${resourcePath}\n` +
-        `Create content/resources/${slug}.json with at least a "videoScript" field.`
+        `Create content/resources/${slug}.json with at least a "videoScript" field.`,
     );
   }
 
@@ -130,7 +130,7 @@ function loadResourceJson(repoRoot: string, slug: string): ResourceJson {
   if (!data.videoScript) {
     throw new Error(
       `No "videoScript" field in ${resourcePath}.\n` +
-        `Add a "videoScript" field with the voiceover script text.`
+        `Add a "videoScript" field with the voiceover script text.`,
     );
   }
 
@@ -147,7 +147,7 @@ async function runPipeline(): Promise<void> {
 
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    "../.."
+    "../..",
   );
 
   console.log("\n=== RestoreAssist Video Pipeline ===");
@@ -207,14 +207,14 @@ async function runPipeline(): Promise<void> {
       repoRoot,
       "public",
       "rendered-videos",
-      `${args.slug}.mp4`
+      `${args.slug}.mp4`,
     );
 
     const thumbnailPath = path.join(
       repoRoot,
       "public",
       "screenshots",
-      "dashboard.png"
+      "dashboard.png",
     );
 
     await uploadToYouTube({
@@ -228,7 +228,7 @@ async function runPipeline(): Promise<void> {
   } else if (args.dryRun && (args.step === "all" || args.step === "upload")) {
     console.log("\n--- Step 4: Upload to YouTube (SKIPPED — dry-run mode) ---");
     console.log(
-      "Re-run without --dry-run to upload after reviewing the rendered video."
+      "Re-run without --dry-run to upload after reviewing the rendered video.",
     );
   }
 

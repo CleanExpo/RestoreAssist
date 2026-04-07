@@ -9,18 +9,18 @@
  * Gracefully reports if the key is missing rather than throwing.
  */
 
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
   evaluateScopeQuality,
   type ScopeEvaluationInput,
   type ScopeQualityScore,
-} from './scope-quality-evaluator'
+} from "./scope-quality-evaluator";
 import {
   getClaimTypePrompt,
   type ClaimType,
   type ClaimTypePromptOptions,
-} from './claim-type-prompts'
+} from "./claim-type-prompts";
 
 // ============================================================
 // Types
@@ -28,32 +28,32 @@ import {
 
 export interface EvaluationOptions {
   /** Which claim types to evaluate. Default: all */
-  claimTypes?: string[]
+  claimTypes?: string[];
   /** Max test cases per claim type. Default: all available */
-  sampleSize?: number
+  sampleSize?: number;
   /** Optional custom prompt text to evaluate instead of production prompt */
-  promptOverride?: string
+  promptOverride?: string;
 }
 
 export interface TestCaseResult {
-  testCaseId: string
-  claimType: string
-  score: ScopeQualityScore
-  generatedScope: string
-  durationMs: number
+  testCaseId: string;
+  claimType: string;
+  score: ScopeQualityScore;
+  generatedScope: string;
+  durationMs: number;
 }
 
 export interface EvaluationReport {
-  timestamp: string
-  totalTestCases: number
-  results: TestCaseResult[]
+  timestamp: string;
+  totalTestCases: number;
+  results: TestCaseResult[];
   aggregate: {
-    meanComposite: number
-    minComposite: number
-    maxComposite: number
-    stdDev: number
-    meanByClaimType: Record<string, number>
-  }
+    meanComposite: number;
+    minComposite: number;
+    maxComposite: number;
+    stdDev: number;
+    meanByClaimType: Record<string, number>;
+  };
 }
 
 // ============================================================
@@ -61,17 +61,20 @@ export interface EvaluationReport {
 // ============================================================
 
 interface ScopeTestCase {
-  id: string
-  claimType: string
-  damageCategory: number | null
-  damageClass: number | null
-  propertyDescription: string
-  causeOfLoss: string
-  scope: string
-  equipmentList: Record<string, { quantity: number; spec?: string; days?: number; uses?: number }>
-  estimatedValueAud: number
-  estimatedDurationDays: number
-  iicrcReferences: string[]
+  id: string;
+  claimType: string;
+  damageCategory: number | null;
+  damageClass: number | null;
+  propertyDescription: string;
+  causeOfLoss: string;
+  scope: string;
+  equipmentList: Record<
+    string,
+    { quantity: number; spec?: string; days?: number; uses?: number }
+  >;
+  estimatedValueAud: number;
+  estimatedDurationDays: number;
+  iicrcReferences: string[];
 }
 
 // ============================================================
@@ -80,9 +83,14 @@ interface ScopeTestCase {
 
 function loadTestCases(): ScopeTestCase[] {
   // Resolve relative to the project root. In Next.js the cwd is project root.
-  const filePath = join(process.cwd(), 'content', 'training', 'scope-examples.json')
-  const raw = readFileSync(filePath, 'utf-8')
-  return JSON.parse(raw) as ScopeTestCase[]
+  const filePath = join(
+    process.cwd(),
+    "content",
+    "training",
+    "scope-examples.json",
+  );
+  const raw = readFileSync(filePath, "utf-8");
+  return JSON.parse(raw) as ScopeTestCase[];
 }
 
 /**
@@ -92,17 +100,17 @@ function loadTestCases(): ScopeTestCase[] {
  */
 function normaliseClaimType(raw: string): ClaimType {
   const map: Record<string, ClaimType> = {
-    water_damage: 'water_damage',
-    fire_smoke: 'fire_smoke',
-    fire: 'fire_smoke',
-    smoke: 'fire_smoke',
-    storm: 'storm',
-    mould: 'mould',
-    mould_remediation: 'mould',
-    mold: 'mould',
-    contents: 'contents',
-  }
-  return map[raw.toLowerCase()] ?? 'water_damage'
+    water_damage: "water_damage",
+    fire_smoke: "fire_smoke",
+    fire: "fire_smoke",
+    smoke: "fire_smoke",
+    storm: "storm",
+    mould: "mould",
+    mould_remediation: "mould",
+    mold: "mould",
+    contents: "contents",
+  };
+  return map[raw.toLowerCase()] ?? "water_damage";
 }
 
 /**
@@ -111,19 +119,22 @@ function normaliseClaimType(raw: string): ClaimType {
  */
 function extractAreaFromDescription(description: string): number | undefined {
   // Try to find the "total affected area" or the last m² mention
-  const allAreas = [...description.matchAll(/(\d+(?:\.\d+)?)\s*m²/g)]
-  if (allAreas.length === 0) return undefined
+  const allAreas = [...description.matchAll(/(\d+(?:\.\d+)?)\s*m²/g)];
+  if (allAreas.length === 0) return undefined;
   // Prefer a match near "affected" or "total"
   for (const m of allAreas) {
-    const idx = m.index ?? 0
-    const context = description.slice(Math.max(0, idx - 30), idx + (m[0]?.length ?? 0) + 10)
+    const idx = m.index ?? 0;
+    const context = description.slice(
+      Math.max(0, idx - 30),
+      idx + (m[0]?.length ?? 0) + 10,
+    );
     if (/affected|total|combined/i.test(context)) {
-      return parseFloat(m[1])
+      return parseFloat(m[1]);
     }
   }
   // Fallback: last area mentioned is often the total
-  const lastMatch = allAreas[allAreas.length - 1]
-  return lastMatch ? parseFloat(lastMatch[1]) : undefined
+  const lastMatch = allAreas[allAreas.length - 1];
+  return lastMatch ? parseFloat(lastMatch[1]) : undefined;
 }
 
 /**
@@ -132,13 +143,9 @@ function extractAreaFromDescription(description: string): number | undefined {
  * test case data (no DB or moisture readings).
  */
 function buildEvalUserMessage(tc: ScopeTestCase): string {
-  const area = extractAreaFromDescription(tc.propertyDescription)
-  const catLabel = tc.damageCategory
-    ? `Category ${tc.damageCategory}`
-    : 'N/A'
-  const classLabel = tc.damageClass
-    ? `Class ${tc.damageClass}`
-    : 'N/A'
+  const area = extractAreaFromDescription(tc.propertyDescription);
+  const catLabel = tc.damageCategory ? `Category ${tc.damageCategory}` : "N/A";
+  const classLabel = tc.damageClass ? `Class ${tc.damageClass}` : "N/A";
 
   const lines: string[] = [
     `Generate a scope of works for the following restoration inspection:`,
@@ -146,40 +153,40 @@ function buildEvalUserMessage(tc: ScopeTestCase): string {
     `**Property:** ${tc.propertyDescription}`,
     `**IICRC Classification:** ${catLabel} / ${classLabel}`,
     `**Cause of Loss:** ${tc.causeOfLoss}`,
-  ]
+  ];
 
   if (area) {
-    lines.push(`**Total Affected Area:** ${area} m²`)
+    lines.push(`**Total Affected Area:** ${area} m²`);
   }
 
   // Include equipment list as context (the model should reference ratios)
-  const equipKeys = Object.keys(tc.equipmentList)
+  const equipKeys = Object.keys(tc.equipmentList);
   if (equipKeys.length > 0) {
-    lines.push(``)
-    lines.push(`**Equipment Calculated (IICRC ratios):**`)
+    lines.push(``);
+    lines.push(`**Equipment Calculated (IICRC ratios):**`);
     for (const key of equipKeys) {
-      const eq = tc.equipmentList[key]
-      lines.push(`- ${key}: ${eq.quantity} × ${eq.spec ?? 'standard unit'}`)
+      const eq = tc.equipmentList[key];
+      lines.push(`- ${key}: ${eq.quantity} × ${eq.spec ?? "standard unit"}`);
     }
   }
 
-  lines.push(``)
+  lines.push(``);
   lines.push(
     `Produce the scope in exactly 7 numbered sections with IICRC citations. ` +
-    `Include equipment table, moisture targets, and drying validation criteria.`
-  )
+      `Include equipment table, moisture targets, and drying validation criteria.`,
+  );
 
-  return lines.join('\n')
+  return lines.join("\n");
 }
 
 /**
  * Compute standard deviation from an array of numbers.
  */
 function stdDev(values: number[]): number {
-  if (values.length === 0) return 0
-  const mean = values.reduce((s, v) => s + v, 0) / values.length
-  const sqDiffs = values.map((v) => (v - mean) ** 2)
-  return Math.sqrt(sqDiffs.reduce((s, v) => s + v, 0) / values.length)
+  if (values.length === 0) return 0;
+  const mean = values.reduce((s, v) => s + v, 0) / values.length;
+  const sqDiffs = values.map((v) => (v - mean) ** 2);
+  return Math.sqrt(sqDiffs.reduce((s, v) => s + v, 0) / values.length);
 }
 
 // ============================================================
@@ -187,92 +194,95 @@ function stdDev(values: number[]): number {
 // ============================================================
 
 export async function runEvaluationSuite(
-  options?: EvaluationOptions
+  options?: EvaluationOptions,
 ): Promise<EvaluationReport> {
   // Lazy-import the Anthropic SDK so we fail gracefully if not installed
-  let Anthropic: typeof import('@anthropic-ai/sdk').default
+  let Anthropic: typeof import("@anthropic-ai/sdk").default;
   try {
-    const mod = await import('@anthropic-ai/sdk')
-    Anthropic = mod.default
+    const mod = await import("@anthropic-ai/sdk");
+    Anthropic = mod.default;
   } catch {
     throw new Error(
-      'Anthropic SDK not available. Install @anthropic-ai/sdk to run evaluations.'
-    )
+      "Anthropic SDK not available. Install @anthropic-ai/sdk to run evaluations.",
+    );
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
-      'ANTHROPIC_API_KEY environment variable is not set. ' +
-      'Set it to run live scope generation evaluations.'
-    )
+      "ANTHROPIC_API_KEY environment variable is not set. " +
+        "Set it to run live scope generation evaluations.",
+    );
   }
 
-  const anthropic = new Anthropic()
+  const anthropic = new Anthropic();
 
   // Load and filter test cases
-  let testCases = loadTestCases()
+  let testCases = loadTestCases();
 
   if (options?.claimTypes && options.claimTypes.length > 0) {
-    const allowed = new Set(options.claimTypes.map((t) => normaliseClaimType(t)))
+    const allowed = new Set(
+      options.claimTypes.map((t) => normaliseClaimType(t)),
+    );
     testCases = testCases.filter((tc) =>
-      allowed.has(normaliseClaimType(tc.claimType))
-    )
+      allowed.has(normaliseClaimType(tc.claimType)),
+    );
   }
 
   if (options?.sampleSize && options.sampleSize > 0) {
     // Group by claim type, take sampleSize per group
-    const grouped: Record<string, ScopeTestCase[]> = {}
+    const grouped: Record<string, ScopeTestCase[]> = {};
     for (const tc of testCases) {
-      const key = normaliseClaimType(tc.claimType)
-      if (!grouped[key]) grouped[key] = []
-      grouped[key].push(tc)
+      const key = normaliseClaimType(tc.claimType);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(tc);
     }
-    testCases = []
+    testCases = [];
     for (const group of Object.values(grouped)) {
-      testCases.push(...group.slice(0, options.sampleSize))
+      testCases.push(...group.slice(0, options.sampleSize));
     }
   }
 
-  const results: TestCaseResult[] = []
+  const results: TestCaseResult[] = [];
 
   for (const tc of testCases) {
-    const claimType = normaliseClaimType(tc.claimType)
-    const area = extractAreaFromDescription(tc.propertyDescription)
+    const claimType = normaliseClaimType(tc.claimType);
+    const area = extractAreaFromDescription(tc.propertyDescription);
 
     // Build system prompt
     const promptOptions: ClaimTypePromptOptions = {
       damageCategory: tc.damageCategory ?? undefined,
       damageClass: tc.damageClass ?? undefined,
-    }
-    const systemPrompt = options?.promptOverride ?? getClaimTypePrompt(claimType, promptOptions)
+    };
+    const systemPrompt =
+      options?.promptOverride ?? getClaimTypePrompt(claimType, promptOptions);
 
     // Build user message
-    const userMessage = buildEvalUserMessage(tc)
+    const userMessage = buildEvalUserMessage(tc);
 
     // Generate scope via Anthropic SDK
-    const startTime = Date.now()
-    let generatedScope = ''
+    const startTime = Date.now();
+    let generatedScope = "";
 
     try {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: "claude-sonnet-4-6",
         max_tokens: 2000,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      })
+        messages: [{ role: "user", content: userMessage }],
+      });
 
       // Extract text content from response
       for (const block of response.content) {
-        if (block.type === 'text') {
-          generatedScope += block.text
+        if (block.type === "text") {
+          generatedScope += block.text;
         }
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown API error'
-      generatedScope = `[GENERATION FAILED: ${message}]`
+      const message = err instanceof Error ? err.message : "Unknown API error";
+      generatedScope = `[GENERATION FAILED: ${message}]`;
     }
 
-    const durationMs = Date.now() - startTime
+    const durationMs = Date.now() - startTime;
 
     // Score the generated scope
     const evalInput: ScopeEvaluationInput = {
@@ -280,9 +290,9 @@ export async function runEvaluationSuite(
       damageCategory: tc.damageCategory ?? undefined,
       damageClass: tc.damageClass ?? undefined,
       affectedAreaM2: area,
-    }
+    };
 
-    const score = evaluateScopeQuality(generatedScope, evalInput)
+    const score = evaluateScopeQuality(generatedScope, evalInput);
 
     results.push({
       testCaseId: tc.id,
@@ -290,29 +300,32 @@ export async function runEvaluationSuite(
       score,
       generatedScope,
       durationMs,
-    })
+    });
   }
 
   // Compute aggregates
-  const composites = results.map((r) => r.score.composite)
+  const composites = results.map((r) => r.score.composite);
   const meanComposite =
     composites.length > 0
-      ? Math.round((composites.reduce((s, v) => s + v, 0) / composites.length) * 100) / 100
-      : 0
-  const minComposite = composites.length > 0 ? Math.min(...composites) : 0
-  const maxComposite = composites.length > 0 ? Math.max(...composites) : 0
-  const compositeStdDev = Math.round(stdDev(composites) * 100) / 100
+      ? Math.round(
+          (composites.reduce((s, v) => s + v, 0) / composites.length) * 100,
+        ) / 100
+      : 0;
+  const minComposite = composites.length > 0 ? Math.min(...composites) : 0;
+  const maxComposite = composites.length > 0 ? Math.max(...composites) : 0;
+  const compositeStdDev = Math.round(stdDev(composites) * 100) / 100;
 
   // Mean by claim type
-  const meanByClaimType: Record<string, number> = {}
-  const grouped: Record<string, number[]> = {}
+  const meanByClaimType: Record<string, number> = {};
+  const grouped: Record<string, number[]> = {};
   for (const r of results) {
-    if (!grouped[r.claimType]) grouped[r.claimType] = []
-    grouped[r.claimType].push(r.score.composite)
+    if (!grouped[r.claimType]) grouped[r.claimType] = [];
+    grouped[r.claimType].push(r.score.composite);
   }
   for (const [ct, scores] of Object.entries(grouped)) {
     meanByClaimType[ct] =
-      Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 100) / 100
+      Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 100) /
+      100;
   }
 
   return {
@@ -326,5 +339,5 @@ export async function runEvaluationSuite(
       stdDev: compositeStdDev,
       meanByClaimType,
     },
-  }
+  };
 }

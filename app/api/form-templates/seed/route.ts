@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { DEFAULT_FORM_TEMPLATES } from "@/lib/form-templates-defaults"
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { DEFAULT_FORM_TEMPLATES } from "@/lib/form-templates-defaults";
 
 /**
  * POST - Create default form templates for the current user.
@@ -10,13 +10,13 @@ import { DEFAULT_FORM_TEMPLATES } from "@/lib/form-templates-defaults"
  */
 export async function POST() {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id
-    let created = 0
+    const userId = session.user.id;
+    let created = 0;
 
     for (const t of DEFAULT_FORM_TEMPLATES) {
       const existing = await prisma.formTemplate.findFirst({
@@ -24,8 +24,8 @@ export async function POST() {
           userId,
           name: t.name,
         },
-      })
-      if (existing) continue
+      });
+      if (existing) continue;
 
       await prisma.formTemplate.create({
         data: {
@@ -42,17 +42,23 @@ export async function POST() {
           requiresSignatures: t.requiresSignatures,
           signatureConfig: t.signatureConfig,
         },
-      })
-      created++
+      });
+      created++;
     }
 
     return NextResponse.json({
-      message: created === 0 ? "All default templates already exist." : `${created} default form template(s) created.`,
+      message:
+        created === 0
+          ? "All default templates already exist."
+          : `${created} default form template(s) created.`,
       created,
       total: DEFAULT_FORM_TEMPLATES.length,
-    })
+    });
   } catch (error) {
-    console.error("Error seeding form templates:", error)
-    return NextResponse.json({ error: "Failed to create templates" }, { status: 500 })
+    console.error("Error seeding form templates:", error);
+    return NextResponse.json(
+      { error: "Failed to create templates" },
+      { status: 500 },
+    );
   }
 }

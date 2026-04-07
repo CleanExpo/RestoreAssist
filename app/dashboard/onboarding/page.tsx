@@ -1,37 +1,43 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { CheckCircle2, Circle, ArrowRight, Loader2, Sparkles } from "lucide-react"
-import Link from "next/link"
-import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react";
+import {
+  CheckCircle2,
+  Circle,
+  ArrowRight,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface OnboardingStep {
-  completed: boolean
-  required: boolean
-  title: string
-  description: string
-  route: string
+  completed: boolean;
+  required: boolean;
+  title: string;
+  description: string;
+  route: string;
 }
 
 interface OnboardingStepsMap {
-  [key: string]: OnboardingStep
+  [key: string]: OnboardingStep;
 }
 
 interface OnboardingData {
-  isComplete: boolean
-  incompleteSteps: string[]
-  steps: OnboardingStepsMap
-  nextStep: string | null
+  isComplete: boolean;
+  incompleteSteps: string[];
+  steps: OnboardingStepsMap;
+  nextStep: string | null;
 }
 
 interface DisplayStep {
-  id: string
-  title: string
-  description: string
-  href: string
-  time: string
-  completed: boolean
-  required: boolean
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  time: string;
+  completed: boolean;
+  required: boolean;
 }
 
 const FALLBACK_STEPS: DisplayStep[] = [
@@ -71,32 +77,32 @@ const FALLBACK_STEPS: DisplayStep[] = [
     completed: false,
     required: false,
   },
-]
+];
 
 // Step time estimates keyed by API step id
 const STEP_TIME_MAP: Record<string, string> = {
   business_profile: "2 min",
   pricing_config: "5 min",
   first_report: "10 min",
-}
+};
 
 function ProgressRing({
   percentage,
   size = 120,
 }: {
-  percentage: number
-  size?: number
+  percentage: number;
+  size?: number;
 }) {
-  const radius = (size - 16) / 2
-  const circumference = 2 * Math.PI * radius
-  const strokeDashoffset = circumference - (percentage / 100) * circumference
+  const radius = (size - 16) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   const strokeColor =
     percentage === 100
       ? "#10b981" // green
       : percentage >= 50
         ? "#06b6d4" // cyan
-        : "#f59e0b" // amber
+        : "#f59e0b"; // amber
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -121,37 +127,36 @@ function ProgressRing({
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }}
+          style={{
+            transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease",
+          }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span
-          className="text-2xl font-bold"
-          style={{ color: strokeColor }}
-        >
+        <span className="text-2xl font-bold" style={{ color: strokeColor }}>
           {percentage}%
         </span>
       </div>
     </div>
-  )
+  );
 }
 
 export default function OnboardingPage() {
-  const [loading, setLoading] = useState(true)
-  const [steps, setSteps] = useState<DisplayStep[]>([])
-  const [isAllDone, setIsAllDone] = useState(false)
+  const [loading, setLoading] = useState(true);
+  const [steps, setSteps] = useState<DisplayStep[]>([]);
+  const [isAllDone, setIsAllDone] = useState(false);
 
   useEffect(() => {
     async function fetchStatus() {
       try {
-        const res = await fetch("/api/onboarding/status")
+        const res = await fetch("/api/onboarding/status");
         if (!res.ok) {
-          throw new Error("Failed to fetch onboarding status")
+          throw new Error("Failed to fetch onboarding status");
         }
-        const data: OnboardingData = await res.json()
+        const data: OnboardingData = await res.json();
 
         // Build display steps from API response
-        const apiSteps = data.steps
+        const apiSteps = data.steps;
         const displaySteps: DisplayStep[] = Object.entries(apiSteps).map(
           ([id, step]) => ({
             id,
@@ -161,33 +166,31 @@ export default function OnboardingPage() {
             time: STEP_TIME_MAP[id] ?? "~5 min",
             completed: step.completed,
             required: step.required,
-          })
-        )
+          }),
+        );
 
         // Add extra steps not returned by API
-        const apiIds = new Set(displaySteps.map((s) => s.id))
-        const extras = FALLBACK_STEPS.filter(
-          (s) => !apiIds.has(s.id)
-        )
+        const apiIds = new Set(displaySteps.map((s) => s.id));
+        const extras = FALLBACK_STEPS.filter((s) => !apiIds.has(s.id));
 
-        setSteps([...displaySteps, ...extras])
-        setIsAllDone(data.isComplete)
+        setSteps([...displaySteps, ...extras]);
+        setIsAllDone(data.isComplete);
       } catch {
         // Fall back to static list
-        setSteps(FALLBACK_STEPS)
-        setIsAllDone(false)
+        setSteps(FALLBACK_STEPS);
+        setIsAllDone(false);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    fetchStatus()
-  }, [])
+    fetchStatus();
+  }, []);
 
-  const completedCount = steps.filter((s) => s.completed).length
-  const totalCount = steps.length
+  const completedCount = steps.filter((s) => s.completed).length;
+  const totalCount = steps.length;
   const percentage =
-    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   if (loading) {
     return (
@@ -199,7 +202,7 @@ export default function OnboardingPage() {
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -209,12 +212,17 @@ export default function OnboardingPage() {
         <h1
           className={cn(
             "text-3xl font-bold tracking-tight",
-            "text-neutral-900 dark:text-slate-100"
+            "text-neutral-900 dark:text-slate-100",
           )}
         >
           Setup Guide
         </h1>
-        <p className={cn("mt-1 text-base", "text-neutral-600 dark:text-slate-400")}>
+        <p
+          className={cn(
+            "mt-1 text-base",
+            "text-neutral-600 dark:text-slate-400",
+          )}
+        >
           {completedCount} of {totalCount} steps complete
         </p>
       </div>
@@ -225,7 +233,7 @@ export default function OnboardingPage() {
           "rounded-2xl border p-6 flex flex-col sm:flex-row items-center gap-6",
           "bg-white/50 dark:bg-slate-800/50",
           "border-neutral-200 dark:border-slate-700/50",
-          "shadow-sm"
+          "shadow-sm",
         )}
       >
         <ProgressRing percentage={percentage} size={128} />
@@ -235,13 +243,16 @@ export default function OnboardingPage() {
               <p
                 className={cn(
                   "text-lg font-semibold",
-                  "text-emerald-600 dark:text-emerald-400"
+                  "text-emerald-600 dark:text-emerald-400",
                 )}
               >
                 You&apos;re all set!
               </p>
               <p
-                className={cn("text-sm mt-1", "text-neutral-600 dark:text-slate-400")}
+                className={cn(
+                  "text-sm mt-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
               >
                 Your account is fully configured and ready to use.
               </p>
@@ -251,7 +262,7 @@ export default function OnboardingPage() {
               <p
                 className={cn(
                   "text-lg font-semibold",
-                  "text-neutral-900 dark:text-slate-100"
+                  "text-neutral-900 dark:text-slate-100",
                 )}
               >
                 {percentage < 50
@@ -261,7 +272,10 @@ export default function OnboardingPage() {
                     : "Completed!"}
               </p>
               <p
-                className={cn("text-sm mt-1", "text-neutral-600 dark:text-slate-400")}
+                className={cn(
+                  "text-sm mt-1",
+                  "text-neutral-600 dark:text-slate-400",
+                )}
               >
                 Complete the steps below to finish setting up your account.
               </p>
@@ -276,7 +290,7 @@ export default function OnboardingPage() {
           className={cn(
             "rounded-2xl border p-6 text-center space-y-3",
             "bg-emerald-50 dark:bg-emerald-900/20",
-            "border-emerald-200 dark:border-emerald-700/50"
+            "border-emerald-200 dark:border-emerald-700/50",
           )}
         >
           <div className="flex justify-center">
@@ -285,20 +299,22 @@ export default function OnboardingPage() {
           <h2
             className={cn(
               "text-xl font-bold",
-              "text-emerald-700 dark:text-emerald-300"
+              "text-emerald-700 dark:text-emerald-300",
             )}
           >
             You&apos;re all set!
           </h2>
-          <p className={cn("text-sm", "text-emerald-600 dark:text-emerald-400")}>
-            Your account is fully configured. You&apos;re ready to create reports and
-            manage your restoration business.
+          <p
+            className={cn("text-sm", "text-emerald-600 dark:text-emerald-400")}
+          >
+            Your account is fully configured. You&apos;re ready to create
+            reports and manage your restoration business.
           </p>
           <Link
             href="/dashboard"
             className={cn(
               "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              "bg-emerald-600 hover:bg-emerald-700 text-white"
+              "bg-emerald-600 hover:bg-emerald-700 text-white",
             )}
           >
             Go to Dashboard
@@ -318,7 +334,7 @@ export default function OnboardingPage() {
               "border-neutral-200 dark:border-slate-700/50",
               step.completed
                 ? "opacity-60"
-                : "hover:border-cyan-500/40 hover:shadow-sm"
+                : "hover:border-cyan-500/40 hover:shadow-sm",
             )}
           >
             {/* Icon */}
@@ -331,7 +347,7 @@ export default function OnboardingPage() {
                     "w-6 h-6",
                     step.required
                       ? "text-amber-400"
-                      : "text-neutral-400 dark:text-slate-500"
+                      : "text-neutral-400 dark:text-slate-500",
                   )}
                 />
               )}
@@ -345,7 +361,7 @@ export default function OnboardingPage() {
                     "font-medium text-sm",
                     step.completed
                       ? "line-through text-neutral-500 dark:text-slate-500"
-                      : "text-neutral-900 dark:text-slate-100"
+                      : "text-neutral-900 dark:text-slate-100",
                   )}
                 >
                   {step.title}
@@ -354,7 +370,7 @@ export default function OnboardingPage() {
                   <span
                     className={cn(
                       "text-xs px-2 py-0.5 rounded-full font-medium",
-                      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
                     )}
                   >
                     Required
@@ -364,7 +380,7 @@ export default function OnboardingPage() {
               <p
                 className={cn(
                   "text-xs mt-0.5",
-                  "text-neutral-500 dark:text-slate-400"
+                  "text-neutral-500 dark:text-slate-400",
                 )}
               >
                 {step.description}
@@ -372,7 +388,7 @@ export default function OnboardingPage() {
               <p
                 className={cn(
                   "text-xs mt-1",
-                  "text-neutral-400 dark:text-slate-500"
+                  "text-neutral-400 dark:text-slate-500",
                 )}
               >
                 ~{step.time}
@@ -385,7 +401,7 @@ export default function OnboardingPage() {
                 href={step.href}
                 className={cn(
                   "shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                  "bg-cyan-600 hover:bg-cyan-700 text-white"
+                  "bg-cyan-600 hover:bg-cyan-700 text-white",
                 )}
               >
                 Complete
@@ -396,5 +412,5 @@ export default function OnboardingPage() {
         ))}
       </div>
     </div>
-  )
+  );
 }

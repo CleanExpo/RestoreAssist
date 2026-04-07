@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ChangePasswordLoading() {
   return (
@@ -14,5 +14,5 @@ export default function ChangePasswordLoading() {
       </div>
       <Skeleton className="h-10 w-32 rounded-lg" />
     </div>
-  )
+  );
 }

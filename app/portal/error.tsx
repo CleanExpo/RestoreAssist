@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { ErrorFallback } from '@/components/ErrorFallback'
+import { useEffect } from "react";
+import { ErrorFallback } from "@/components/ErrorFallback";
 
 export default function PortalError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string }
-  reset: () => void
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
-    console.error('[PortalError]', error)
-  }, [error])
+    console.error("[PortalError]", error);
+  }, [error]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -24,5 +24,5 @@ export default function PortalError({
         homeHref="/portal"
       />
     </div>
-  )
+  );
 }

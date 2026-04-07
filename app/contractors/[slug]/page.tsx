@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import Image from 'next/image'
-import Link from 'next/link'
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   Star,
   Shield,
@@ -18,138 +18,156 @@ import {
   Calendar,
   Lock,
   ThumbsUp,
-  ThumbsDown
-} from 'lucide-react'
+  ThumbsDown,
+} from "lucide-react";
 
 interface ContractorProfile {
-  id: string
-  slug: string
-  businessName: string
-  businessLogo: string | null
-  businessAddress: string | null
-  publicDescription: string | null
-  yearsInBusiness: number | null
-  teamSize: number | null
-  isVerified: boolean
-  verifiedAt: string | null
-  averageRating: number
-  totalReviews: number
-  completedJobs: number
-  responseRatePercent: number | null
-  averageResponseHours: number | null
-  specializations: string[]
-  servicesOffered: string | null
-  insuranceCertificate: string | null
-  phoneNumber?: string
-  email?: string
-  website?: string
+  id: string;
+  slug: string;
+  businessName: string;
+  businessLogo: string | null;
+  businessAddress: string | null;
+  publicDescription: string | null;
+  yearsInBusiness: number | null;
+  teamSize: number | null;
+  isVerified: boolean;
+  verifiedAt: string | null;
+  averageRating: number;
+  totalReviews: number;
+  completedJobs: number;
+  responseRatePercent: number | null;
+  averageResponseHours: number | null;
+  specializations: string[];
+  servicesOffered: string | null;
+  insuranceCertificate: string | null;
+  phoneNumber?: string;
+  email?: string;
+  website?: string;
 }
 
 interface Certification {
-  id: string
-  certificationType: string
-  certificationName: string
-  issuingBody: string
-  issueDate: string
-  expiryDate: string | null
+  id: string;
+  certificationType: string;
+  certificationName: string;
+  issuingBody: string;
+  issueDate: string;
+  expiryDate: string | null;
 }
 
 interface ServiceArea {
-  postcode: string
-  suburb: string | null
-  state: string
-  radius: number | null
+  postcode: string;
+  suburb: string | null;
+  state: string;
+  radius: number | null;
 }
 
 interface Review {
-  id: string
-  overallRating: number
-  qualityRating: number | null
-  timelinessRating: number | null
-  communicationRating: number | null
-  valueRating: number | null
-  reviewTitle: string | null
-  reviewText: string
-  contractorResponse: string | null
-  respondedAt: string | null
-  isVerifiedJob: boolean
-  helpfulCount: number
-  notHelpfulCount: number
-  createdAt: string
-  clientName: string
-  reportTitle: string | null
+  id: string;
+  overallRating: number;
+  qualityRating: number | null;
+  timelinessRating: number | null;
+  communicationRating: number | null;
+  valueRating: number | null;
+  reviewTitle: string | null;
+  reviewText: string;
+  contractorResponse: string | null;
+  respondedAt: string | null;
+  isVerifiedJob: boolean;
+  helpfulCount: number;
+  notHelpfulCount: number;
+  createdAt: string;
+  clientName: string;
+  reportTitle: string | null;
 }
 
 interface ProfileData {
-  contractor: ContractorProfile
-  certifications: Certification[]
-  serviceAreas: ServiceArea[]
-  reviews: Review[]
-  ratingBreakdown: Record<number, number>
+  contractor: ContractorProfile;
+  certifications: Certification[];
+  serviceAreas: ServiceArea[];
+  reviews: Review[];
+  ratingBreakdown: Record<number, number>;
   subRatings: {
-    quality: number | null
-    timeliness: number | null
-    communication: number | null
-    value: number | null
-  }
-  requiresAuthForContact: boolean
+    quality: number | null;
+    timeliness: number | null;
+    communication: number | null;
+    value: number | null;
+  };
+  requiresAuthForContact: boolean;
 }
 
 export default function ContractorProfilePage() {
-  const params = useParams()
-  const { data: session } = useSession()
-  const [data, setData] = useState<ProfileData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const params = useParams();
+  const { data: session } = useSession();
+  const [data, setData] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchProfile()
-  }, [params.slug, session])
+    fetchProfile();
+  }, [params.slug, session]);
 
   const fetchProfile = async () => {
     try {
-      const res = await fetch(`/api/contractors/${params.slug}`)
+      const res = await fetch(`/api/contractors/${params.slug}`);
       if (!res.ok) {
-        throw new Error('Contractor not found')
+        throw new Error("Contractor not found");
       }
-      const profileData = await res.json()
-      setData(profileData)
+      const profileData = await res.json();
+      setData(profileData);
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-slate-400 text-lg">Loading contractor profile...</div>
+        <div className="text-slate-400 text-lg">
+          Loading contractor profile...
+        </div>
       </div>
-    )
+    );
   }
 
   if (error || !data) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">{error || 'Contractor not found'}</p>
-          <Link href="/contractors" className="text-cyan-400 hover:text-cyan-300">
+          <p className="text-red-400 text-lg mb-4">
+            {error || "Contractor not found"}
+          </p>
+          <Link
+            href="/contractors"
+            className="text-cyan-400 hover:text-cyan-300"
+          >
             Back to directory
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
-  const { contractor, certifications, serviceAreas, reviews, ratingBreakdown, subRatings, requiresAuthForContact } = data
+  const {
+    contractor,
+    certifications,
+    serviceAreas,
+    reviews,
+    ratingBreakdown,
+    subRatings,
+    requiresAuthForContact,
+  } = data;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="border-b border-slate-700/50 bg-black/20 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Link href="/contractors" className="text-cyan-400 hover:text-cyan-300 mb-4 inline-block">
+          <Link
+            href="/contractors"
+            className="text-cyan-400 hover:text-cyan-300 mb-4 inline-block"
+          >
             ← Back to directory
           </Link>
 
@@ -190,8 +208,8 @@ export default function ContractorProfilePage() {
                         key={i}
                         className={`h-6 w-6 ${
                           i < Math.floor(contractor.averageRating)
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-600'
+                            ? "text-amber-400 fill-amber-400"
+                            : "text-slate-600"
                         }`}
                       />
                     ))}
@@ -238,15 +256,21 @@ export default function ContractorProfilePage() {
             {/* About */}
             {contractor.publicDescription && (
               <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-                <h2 className="text-2xl font-semibold text-white mb-4">About</h2>
-                <p className="text-slate-300 whitespace-pre-wrap">{contractor.publicDescription}</p>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  About
+                </h2>
+                <p className="text-slate-300 whitespace-pre-wrap">
+                  {contractor.publicDescription}
+                </p>
               </div>
             )}
 
             {/* Specializations */}
             {contractor.specializations.length > 0 && (
               <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-                <h2 className="text-2xl font-semibold text-white mb-4">Specializations</h2>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  Specializations
+                </h2>
                 <div className="flex flex-wrap gap-2">
                   {contractor.specializations.map((spec, idx) => (
                     <span
@@ -263,35 +287,49 @@ export default function ContractorProfilePage() {
             {/* Reviews */}
             {reviews.length > 0 && (
               <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-                <h2 className="text-2xl font-semibold text-white mb-6">Reviews</h2>
+                <h2 className="text-2xl font-semibold text-white mb-6">
+                  Reviews
+                </h2>
 
                 {/* Rating Breakdown */}
                 {subRatings.quality && (
                   <div className="mb-6 grid grid-cols-2 gap-4">
                     {subRatings.quality && (
                       <div>
-                        <div className="text-sm text-slate-400 mb-1">Quality</div>
+                        <div className="text-sm text-slate-400 mb-1">
+                          Quality
+                        </div>
                         <div className="flex items-center gap-2">
                           <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                          <span className="text-white font-medium">{subRatings.quality.toFixed(1)}</span>
+                          <span className="text-white font-medium">
+                            {subRatings.quality.toFixed(1)}
+                          </span>
                         </div>
                       </div>
                     )}
                     {subRatings.timeliness && (
                       <div>
-                        <div className="text-sm text-slate-400 mb-1">Timeliness</div>
+                        <div className="text-sm text-slate-400 mb-1">
+                          Timeliness
+                        </div>
                         <div className="flex items-center gap-2">
                           <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                          <span className="text-white font-medium">{subRatings.timeliness.toFixed(1)}</span>
+                          <span className="text-white font-medium">
+                            {subRatings.timeliness.toFixed(1)}
+                          </span>
                         </div>
                       </div>
                     )}
                     {subRatings.communication && (
                       <div>
-                        <div className="text-sm text-slate-400 mb-1">Communication</div>
+                        <div className="text-sm text-slate-400 mb-1">
+                          Communication
+                        </div>
                         <div className="flex items-center gap-2">
                           <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                          <span className="text-white font-medium">{subRatings.communication.toFixed(1)}</span>
+                          <span className="text-white font-medium">
+                            {subRatings.communication.toFixed(1)}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -300,7 +338,9 @@ export default function ContractorProfilePage() {
                         <div className="text-sm text-slate-400 mb-1">Value</div>
                         <div className="flex items-center gap-2">
                           <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                          <span className="text-white font-medium">{subRatings.value.toFixed(1)}</span>
+                          <span className="text-white font-medium">
+                            {subRatings.value.toFixed(1)}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -310,11 +350,16 @@ export default function ContractorProfilePage() {
                 {/* Individual Reviews */}
                 <div className="space-y-6">
                   {reviews.map((review) => (
-                    <div key={review.id} className="border-t border-slate-700 pt-6 first:border-0 first:pt-0">
+                    <div
+                      key={review.id}
+                      className="border-t border-slate-700 pt-6 first:border-0 first:pt-0"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-3 mb-2">
-                            <span className="font-medium text-white">{review.clientName}</span>
+                            <span className="font-medium text-white">
+                              {review.clientName}
+                            </span>
                             {review.isVerifiedJob && (
                               <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-400">
                                 Verified Job
@@ -327,8 +372,8 @@ export default function ContractorProfilePage() {
                                 key={i}
                                 className={`h-4 w-4 ${
                                   i < review.overallRating
-                                    ? 'text-amber-400 fill-amber-400'
-                                    : 'text-slate-600'
+                                    ? "text-amber-400 fill-amber-400"
+                                    : "text-slate-600"
                                 }`}
                               />
                             ))}
@@ -340,7 +385,9 @@ export default function ContractorProfilePage() {
                       </div>
 
                       {review.reviewTitle && (
-                        <h4 className="font-semibold text-white mb-2">{review.reviewTitle}</h4>
+                        <h4 className="font-semibold text-white mb-2">
+                          {review.reviewTitle}
+                        </h4>
                       )}
                       <p className="text-slate-300 mb-3">{review.reviewText}</p>
 
@@ -348,14 +395,20 @@ export default function ContractorProfilePage() {
                       {review.contractorResponse && (
                         <div className="mt-4 pl-4 border-l-2 border-cyan-500/30 bg-slate-700/20 p-4 rounded">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-medium text-cyan-400">Response from {contractor.businessName}</span>
+                            <span className="text-sm font-medium text-cyan-400">
+                              Response from {contractor.businessName}
+                            </span>
                             {review.respondedAt && (
                               <span className="text-xs text-slate-400">
-                                {new Date(review.respondedAt).toLocaleDateString()}
+                                {new Date(
+                                  review.respondedAt,
+                                ).toLocaleDateString()}
                               </span>
                             )}
                           </div>
-                          <p className="text-slate-300 text-sm">{review.contractorResponse}</p>
+                          <p className="text-slate-300 text-sm">
+                            {review.contractorResponse}
+                          </p>
                         </div>
                       )}
 
@@ -382,12 +435,16 @@ export default function ContractorProfilePage() {
           <div className="space-y-6">
             {/* Contact Info */}
             <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Contact Information</h3>
+              <h3 className="text-xl font-semibold text-white mb-4">
+                Contact Information
+              </h3>
 
               {requiresAuthForContact ? (
                 <div className="text-center py-6">
                   <Lock className="h-12 w-12 text-slate-500 mx-auto mb-3" />
-                  <p className="text-slate-400 mb-4">Sign in to view contact details</p>
+                  <p className="text-slate-400 mb-4">
+                    Sign in to view contact details
+                  </p>
                   <Link
                     href="/login"
                     className="inline-block px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
@@ -400,7 +457,10 @@ export default function ContractorProfilePage() {
                   {contractor.phoneNumber && (
                     <div className="flex items-center gap-3 text-slate-300">
                       <Phone className="h-5 w-5 text-cyan-400" />
-                      <a href={`tel:${contractor.phoneNumber}`} className="hover:text-cyan-400">
+                      <a
+                        href={`tel:${contractor.phoneNumber}`}
+                        className="hover:text-cyan-400"
+                      >
                         {contractor.phoneNumber}
                       </a>
                     </div>
@@ -408,7 +468,10 @@ export default function ContractorProfilePage() {
                   {contractor.email && (
                     <div className="flex items-center gap-3 text-slate-300">
                       <Mail className="h-5 w-5 text-cyan-400" />
-                      <a href={`mailto:${contractor.email}`} className="hover:text-cyan-400">
+                      <a
+                        href={`mailto:${contractor.email}`}
+                        className="hover:text-cyan-400"
+                      >
                         {contractor.email}
                       </a>
                     </div>
@@ -439,17 +502,24 @@ export default function ContractorProfilePage() {
             {/* Certifications */}
             {certifications.length > 0 && (
               <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">Certifications</h3>
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  Certifications
+                </h3>
                 <div className="space-y-3">
                   {certifications.map((cert) => (
                     <div key={cert.id} className="flex items-start gap-3">
                       <Award className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-1" />
                       <div>
-                        <div className="font-medium text-white">{cert.certificationName}</div>
-                        <div className="text-sm text-slate-400">{cert.issuingBody}</div>
+                        <div className="font-medium text-white">
+                          {cert.certificationName}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          {cert.issuingBody}
+                        </div>
                         {cert.expiryDate && (
                           <div className="text-xs text-slate-500 mt-1">
-                            Expires: {new Date(cert.expiryDate).toLocaleDateString()}
+                            Expires:{" "}
+                            {new Date(cert.expiryDate).toLocaleDateString()}
                           </div>
                         )}
                       </div>
@@ -462,13 +532,19 @@ export default function ContractorProfilePage() {
             {/* Service Areas */}
             {serviceAreas.length > 0 && (
               <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-4">Service Areas</h3>
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  Service Areas
+                </h3>
                 <div className="space-y-2">
                   {serviceAreas.slice(0, 10).map((area, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-slate-300">
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 text-slate-300"
+                    >
                       <MapPin className="h-4 w-4 text-cyan-400" />
                       <span>
-                        {area.suburb ? `${area.suburb}, ` : ''}{area.postcode}, {area.state}
+                        {area.suburb ? `${area.suburb}, ` : ""}
+                        {area.postcode}, {area.state}
                       </span>
                     </div>
                   ))}
@@ -484,5 +560,5 @@ export default function ContractorProfilePage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

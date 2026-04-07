@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import Link from "next/link"
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -11,21 +11,21 @@ import {
   Loader2,
   X,
   FileText,
-} from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -33,9 +33,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ type FormType =
   | "SDS"
   | "SWIMS"
   | "SITE_INDUCTION"
-  | "CUSTOM"
+  | "CUSTOM";
 
 const FORM_TYPES: FormType[] = [
   "WORK_ORDER",
@@ -56,7 +56,7 @@ const FORM_TYPES: FormType[] = [
   "SWIMS",
   "SITE_INDUCTION",
   "CUSTOM",
-]
+];
 
 const FORM_CATEGORIES = [
   "SAFETY",
@@ -66,16 +66,16 @@ const FORM_CATEGORIES = [
   "INSURANCE",
   "QUALITY_CONTROL",
   "CUSTOM",
-] as const
+] as const;
 
 interface FormTemplate {
-  id: string
-  name: string
-  formType: FormType
-  category: string
-  description?: string | null
-  isActive?: boolean
-  formSchema?: string | null
+  id: string;
+  name: string;
+  formType: FormType;
+  category: string;
+  description?: string | null;
+  isActive?: boolean;
+  formSchema?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ const FORM_TYPE_LABELS: Record<FormType, string> = {
   SWIMS: "SWIMS",
   SITE_INDUCTION: "Site Induction",
   CUSTOM: "Custom",
-}
+};
 
 const FORM_TYPE_COLOURS: Record<FormType, string> = {
   WORK_ORDER:
@@ -103,30 +103,30 @@ const FORM_TYPE_COLOURS: Record<FormType, string> = {
     "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
   CUSTOM:
     "bg-slate-100 text-slate-700 dark:bg-slate-700/40 dark:text-slate-300",
-}
+};
 
 function countQuestions(formSchema: string | null | undefined): number | null {
-  if (!formSchema) return null
+  if (!formSchema) return null;
   try {
-    const parsed = JSON.parse(formSchema)
-    if (Array.isArray(parsed)) return parsed.length
+    const parsed = JSON.parse(formSchema);
+    if (Array.isArray(parsed)) return parsed.length;
     if (parsed?.questions && Array.isArray(parsed.questions))
-      return parsed.questions.length
+      return parsed.questions.length;
     if (parsed?.fields && Array.isArray(parsed.fields))
-      return parsed.fields.length
-    return null
+      return parsed.fields.length;
+    return null;
   } catch {
-    return null
+    return null;
   }
 }
 
 // ─── Create Template Form ─────────────────────────────────────────────────────
 
 interface CreateFormState {
-  name: string
-  formType: FormType | ""
-  category: string
-  description: string
+  name: string;
+  formType: FormType | "";
+  category: string;
+  description: string;
 }
 
 const EMPTY_FORM: CreateFormState = {
@@ -134,30 +134,30 @@ const EMPTY_FORM: CreateFormState = {
   formType: "",
   category: "",
   description: "",
-}
+};
 
 interface CreateTemplateFormProps {
-  onCreated: (template: FormTemplate) => void
-  onCancel: () => void
+  onCreated: (template: FormTemplate) => void;
+  onCancel: () => void;
 }
 
 function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
-  const [form, setForm] = useState<CreateFormState>(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
     if (!form.name.trim()) {
-      setError("Name is required.")
-      return
+      setError("Name is required.");
+      return;
     }
     if (!form.formType) {
-      setError("Form type is required.")
-      return
+      setError("Form type is required.");
+      return;
     }
-    setSaving(true)
-    setError(null)
+    setSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/form-templates", {
         method: "POST",
@@ -168,17 +168,19 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
           category: form.category || "CUSTOM",
           description: form.description.trim() || undefined,
         }),
-      })
+      });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data?.error ?? `Server error ${res.status}`)
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error ?? `Server error ${res.status}`);
       }
-      const data = await res.json()
-      onCreated(data.template ?? data)
+      const data = await res.json();
+      onCreated(data.template ?? data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create template.")
+      setError(
+        err instanceof Error ? err.message : "Failed to create template.",
+      );
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -299,16 +301,16 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
         </Button>
       </div>
     </form>
-  )
+  );
 }
 
 // ─── Delete Confirmation ──────────────────────────────────────────────────────
 
 interface DeleteConfirmProps {
-  templateName: string
-  onConfirm: () => void
-  onCancel: () => void
-  deleting: boolean
+  templateName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  deleting: boolean;
 }
 
 function DeleteConfirm({
@@ -342,7 +344,7 @@ function DeleteConfirm({
         Cancel
       </Button>
     </div>
-  )
+  );
 }
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
@@ -356,52 +358,52 @@ function TemplateSkeleton() {
         </TableCell>
       ))}
     </TableRow>
-  )
+  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FormTemplatesPage() {
-  const [templates, setTemplates] = useState<FormTemplate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // UI state
-  const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState<FormType | "ALL">("ALL")
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<FormType | "ALL">("ALL");
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Per-row state
-  const [togglingId, setTogglingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     async function load() {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch("/api/form-templates")
-        if (!res.ok) throw new Error(`Server error ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setTemplates(data.templates ?? [])
+        const res = await fetch("/api/form-templates");
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setTemplates(data.templates ?? []);
       } catch (err) {
         if (!cancelled)
           setError(
-            err instanceof Error ? err.message : "Failed to load templates."
-          )
+            err instanceof Error ? err.message : "Failed to load templates.",
+          );
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
     }
-    load()
+    load();
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   // ── Derived lists ──────────────────────────────────────────────────────────
 
@@ -409,64 +411,64 @@ export default function FormTemplatesPage() {
     return templates.filter((t) => {
       const matchesSearch =
         search.trim() === "" ||
-        t.name.toLowerCase().includes(search.trim().toLowerCase())
-      const matchesType = typeFilter === "ALL" || t.formType === typeFilter
-      return matchesSearch && matchesType
-    })
-  }, [templates, search, typeFilter])
+        t.name.toLowerCase().includes(search.trim().toLowerCase());
+      const matchesType = typeFilter === "ALL" || t.formType === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [templates, search, typeFilter]);
 
   // Collect types actually present for the filter tabs
   const presentTypes = useMemo(() => {
-    const set = new Set(templates.map((t) => t.formType))
-    return FORM_TYPES.filter((ft) => set.has(ft))
-  }, [templates])
+    const set = new Set(templates.map((t) => t.formType));
+    return FORM_TYPES.filter((ft) => set.has(ft));
+  }, [templates]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
   async function handleToggleActive(template: FormTemplate) {
-    setTogglingId(template.id)
+    setTogglingId(template.id);
     const optimistic = templates.map((t) =>
-      t.id === template.id ? { ...t, isActive: !t.isActive } : t
-    )
-    setTemplates(optimistic)
+      t.id === template.id ? { ...t, isActive: !t.isActive } : t,
+    );
+    setTemplates(optimistic);
     try {
       const res = await fetch(`/api/form-templates/${template.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !template.isActive }),
-      })
-      if (!res.ok) throw new Error("Toggle failed")
+      });
+      if (!res.ok) throw new Error("Toggle failed");
     } catch {
       // Revert on failure
       setTemplates((prev) =>
         prev.map((t) =>
-          t.id === template.id ? { ...t, isActive: template.isActive } : t
-        )
-      )
+          t.id === template.id ? { ...t, isActive: template.isActive } : t,
+        ),
+      );
     } finally {
-      setTogglingId(null)
+      setTogglingId(null);
     }
   }
 
   async function handleDelete(id: string) {
-    setDeletingId(id)
+    setDeletingId(id);
     try {
       const res = await fetch(`/api/form-templates/${id}`, {
         method: "DELETE",
-      })
-      if (!res.ok) throw new Error("Delete failed")
-      setTemplates((prev) => prev.filter((t) => t.id !== id))
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
     } catch {
       // Keep row on failure, clear confirm state
     } finally {
-      setDeletingId(null)
-      setConfirmDeleteId(null)
+      setDeletingId(null);
+      setConfirmDeleteId(null);
     }
   }
 
   function handleCreated(template: FormTemplate) {
-    setTemplates((prev) => [template, ...prev])
-    setShowCreateForm(false)
+    setTemplates((prev) => [template, ...prev]);
+    setShowCreateForm(false);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -624,11 +626,10 @@ export default function FormTemplatesPage() {
             {/* Rows */}
             {!loading &&
               filteredTemplates.map((template) => {
-                const qCount = countQuestions(template.formSchema)
-                const isDeleting =
-                  deletingId === template.id
-                const isConfirming = confirmDeleteId === template.id
-                const isToggling = togglingId === template.id
+                const qCount = countQuestions(template.formSchema);
+                const isDeleting = deletingId === template.id;
+                const isConfirming = confirmDeleteId === template.id;
+                const isToggling = togglingId === template.id;
 
                 return (
                   <TableRow
@@ -740,11 +741,11 @@ export default function FormTemplatesPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                )
+                );
               })}
           </TableBody>
         </Table>
       </div>
     </div>
-  )
+  );
 }
