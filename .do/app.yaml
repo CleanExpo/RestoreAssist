@@ -55,6 +55,12 @@ services:
       - key: CONTENT_SYSTEM_USER_ID
         scope: RUN_TIME
         type: GENERAL
+      - key: STRIPE_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
       - key: CRON_SECRET
         scope: RUN_TIME
         type: SECRET

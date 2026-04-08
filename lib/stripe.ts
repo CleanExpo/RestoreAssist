@@ -1,10 +1,13 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set');
-}
+// Use empty-string fallback so this module doesn't throw at import time during
+// Next.js build (SSG "Collecting page data" phase). All callers are server-side
+// API routes — at runtime STRIPE_SECRET_KEY is always present via env vars.
+// Stripe's constructor accepts an empty string; auth errors only surface on
+// actual API calls, which are caught in each route's try/catch.
+const key = process.env.STRIPE_SECRET_KEY ?? '';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+export const stripe = new Stripe(key, {
   apiVersion: '2025-09-30.clover' as const,
   typescript: true,
 });
