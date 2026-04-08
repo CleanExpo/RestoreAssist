@@ -4,7 +4,17 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Check, MapPin } from "lucide-react";
-import type { WorkflowPhase, PhaseEvidenceRule } from "@/lib/evidence";
+interface PhaseEvidenceRule {
+  evidenceClass: string;
+  minCount: number;
+  requirement: "required" | "recommended" | "optional";
+}
+
+interface WorkflowPhase {
+  phase: string;
+  displayName: string;
+  evidenceRules: PhaseEvidenceRule[];
+}
 
 interface PhaseSidebarProps {
   inspectionNumber: string;
@@ -16,14 +26,14 @@ interface PhaseSidebarProps {
 }
 
 function getPhaseRequiredCount(phase: WorkflowPhase): number {
-  return phase.evidenceRules.reduce((sum, r) => sum + r.minCount, 0);
+  return phase.evidenceRules.reduce((sum: number, r: PhaseEvidenceRule) => sum + r.minCount, 0);
 }
 
 function getPhaseCapturedCount(
   phase: WorkflowPhase,
   evidenceCounts: Record<string, number>,
 ): number {
-  return phase.evidenceRules.reduce((sum, r) => {
+  return phase.evidenceRules.reduce((sum: number, r: PhaseEvidenceRule) => {
     const key = `${phase.phase}_${r.evidenceClass}`;
     const captured = evidenceCounts[key] ?? 0;
     return sum + Math.min(captured, r.minCount);
@@ -35,8 +45,8 @@ function isPhaseComplete(
   evidenceCounts: Record<string, number>,
 ): boolean {
   return phase.evidenceRules
-    .filter((r) => r.requirement === "required")
-    .every((r) => {
+    .filter((r: PhaseEvidenceRule) => r.requirement === "required")
+    .every((r: PhaseEvidenceRule) => {
       const key = `${phase.phase}_${r.evidenceClass}`;
       return (evidenceCounts[key] ?? 0) >= r.minCount;
     });

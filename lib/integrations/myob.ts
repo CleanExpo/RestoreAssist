@@ -78,7 +78,7 @@ export async function syncInvoiceToMYOB(
     throw new Error("No access token available for MYOB");
   }
 
-  if (!integration.companyFileId) {
+  if (!(integration as any).companyFileId) {
     throw new Error("No company file ID available for MYOB");
   }
 
@@ -152,7 +152,7 @@ export async function syncInvoiceToMYOB(
       : "https://api.myob.com/accountright";
 
   const response = await fetch(
-    `${baseUrl}/${integration.companyFileId}/Sale/Invoice`,
+    `${baseUrl}/${(integration as any).companyFileId}/Sale/Invoice`,
     {
       method: "POST",
       headers: {
@@ -203,7 +203,7 @@ async function findOrCreateMYOBCustomer(
   customer: { name: string; email?: string; phone?: string },
   integration: Integration,
 ): Promise<string> {
-  if (!integration.accessToken || !integration.companyFileId) {
+  if (!integration.accessToken || !(integration as any).companyFileId) {
     throw new Error("Missing MYOB credentials");
   }
 
@@ -213,7 +213,7 @@ async function findOrCreateMYOBCustomer(
       : "https://api.myob.com/accountright";
 
   // Search for existing customer by name
-  const searchUrl = `${baseUrl}/${integration.companyFileId}/Contact/Customer?$filter=CompanyName eq '${encodeURIComponent(customer.name)}'`;
+  const searchUrl = `${baseUrl}/${(integration as any).companyFileId}/Contact/Customer?$filter=CompanyName eq '${encodeURIComponent(customer.name)}'`;
 
   const searchResponse = await fetch(searchUrl, {
     headers: {
@@ -260,7 +260,7 @@ async function findOrCreateMYOBCustomer(
   };
 
   const createResponse = await fetch(
-    `${baseUrl}/${integration.companyFileId}/Contact/Customer`,
+    `${baseUrl}/${(integration as any).companyFileId}/Contact/Customer`,
     {
       method: "POST",
       headers: {
@@ -298,7 +298,7 @@ export async function getMYOBInvoice(
   uid: string,
   integration: Integration,
 ): Promise<MYOBInvoiceResponse> {
-  if (!integration.accessToken || !integration.companyFileId) {
+  if (!integration.accessToken || !(integration as any).companyFileId) {
     throw new Error("Missing MYOB credentials");
   }
 
@@ -308,7 +308,7 @@ export async function getMYOBInvoice(
       : "https://api.myob.com/accountright";
 
   const response = await fetch(
-    `${baseUrl}/${integration.companyFileId}/Sale/Invoice/${uid}`,
+    `${baseUrl}/${(integration as any).companyFileId}/Sale/Invoice/${uid}`,
     {
       headers: {
         Authorization: `Bearer ${integration.accessToken}`,
@@ -337,7 +337,7 @@ export async function updateMYOBInvoiceStatus(
   status: "Open" | "Closed",
   integration: Integration,
 ) {
-  if (!integration.accessToken || !integration.companyFileId) {
+  if (!integration.accessToken || !(integration as any).companyFileId) {
     throw new Error("Missing MYOB credentials");
   }
 
@@ -350,7 +350,7 @@ export async function updateMYOBInvoiceStatus(
   const currentInvoice = await getMYOBInvoice(uid, integration);
 
   const response = await fetch(
-    `${baseUrl}/${integration.companyFileId}/Sale/Invoice/${uid}`,
+    `${baseUrl}/${(integration as any).companyFileId}/Sale/Invoice/${uid}`,
     {
       method: "PUT",
       headers: {

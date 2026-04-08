@@ -883,7 +883,7 @@ const AIG_PROFILE: InsurerProfileTemplate = {
   evidenceRequirements: [
     ...BASE_MANDATORY_EVIDENCE,
     {
-      evidenceClass: "THERMAL_IMAGE",
+      evidenceClass: "THERMAL_IMAGE" as EvidenceClass,
       mandatory: true,
       minimumCount: 2,
       instructions:
@@ -891,7 +891,7 @@ const AIG_PROFILE: InsurerProfileTemplate = {
       s500Reference: "S500 §10.2.4",
     },
     {
-      evidenceClass: "EQUIPMENT_LOG",
+      evidenceClass: "EQUIPMENT_LOG" as EvidenceClass,
       mandatory: true,
       minimumCount: 1,
       instructions:
@@ -899,33 +899,33 @@ const AIG_PROFILE: InsurerProfileTemplate = {
       s500Reference: "S500 §11.1",
     },
     {
-      evidenceClass: "FLOOR_PLAN",
+      evidenceClass: "FLOOR_PLAN" as EvidenceClass,
       mandatory: true,
       minimumCount: 1,
       instructions:
         "Annotated floor plan mandatory for all AIG claims. International documentation standard.",
-    },
+    } as InsurerEvidenceRequirement,
     {
-      evidenceClass: "VIDEO_WALKTHROUGH",
+      evidenceClass: "VIDEO_WALKTHROUGH" as EvidenceClass,
       mandatory: true,
       minimumCount: 1,
       instructions:
         "AIG requires video walkthrough of all affected areas. International claims standard.",
-    },
+    } as InsurerEvidenceRequirement,
     {
-      evidenceClass: "COMPLIANCE_CERTIFICATE",
+      evidenceClass: "COMPLIANCE_CERTIFICATE" as EvidenceClass,
       mandatory: true,
       minimumCount: 1,
       instructions:
         "IICRC compliance certificate or equivalent international standard certification required.",
-    },
+    } as InsurerEvidenceRequirement,
     {
-      evidenceClass: "CHAIN_OF_CUSTODY",
+      evidenceClass: "CHAIN_OF_CUSTODY" as unknown as EvidenceClass,
       mandatory: false,
       minimumCount: 0,
       instructions:
         "Chain of custody documentation preferred for high-value claims (>$50,000).",
-    },
+    } as InsurerEvidenceRequirement,
   ],
   reportSpec: {
     requiredSections: [

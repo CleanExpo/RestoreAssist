@@ -244,7 +244,7 @@ export async function generateAssessmentReportPDF(
     jobRef,
     scopeItems,
     report,
-    equipmentSelection,
+    equipmentSelection: equipmentSelection ?? [],
     hvacAffected: report.hvacAffected || false,
   });
 
@@ -260,7 +260,7 @@ export async function generateAssessmentReportPDF(
     moistureData,
     psychrometricData,
     report,
-    scopeAreas,
+    scopeAreas: scopeAreas ?? [],
   });
 
   // PAGE 4: Authorisation & Terms
@@ -634,5 +634,181 @@ async function renderPage1(
   });
 }
 
-// Continue with other page renderers...
-// (I'll continue in the next part due to length)
+// ─── Stub helpers ────────────────────────────────────────────────────────────
+
+/** Sanitize a string so pdf-lib won't throw on non-latin characters */
+function sanitizeTextForPDF(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/[\u0100-\uffff]/g, "?") // Strip non-latin-1
+    .replace(/\r?\n/g, " "); // Collapse newlines
+}
+
+/** Wrap text to fit within maxWidth, returning an array of lines */
+function wrapText(
+  text: string,
+  maxWidth: number,
+  font: PDFFont,
+  fontSize: number,
+): string[] {
+  if (!text) return [];
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(test, fontSize);
+    if (testWidth > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/** Extract water category label from a source string */
+function extractWaterCategory(source: string): string {
+  if (!source) return "Category 1";
+  const s = source.toLowerCase();
+  if (s.includes("cat 3") || s.includes("category 3") || s.includes("sewage") || s.includes("black")) return "Category 3";
+  if (s.includes("cat 2") || s.includes("category 2") || s.includes("grey")) return "Category 2";
+  return "Category 1";
+}
+
+/** Build a forensic summary paragraph from report components */
+function buildForensicSummary(
+  report: any,
+  analysis: any,
+  waterCategory: string,
+  waterClass: string,
+  methScreen: string,
+  bioMouldDetected: boolean,
+  buildingAge: number | null,
+  structureType: string,
+  accessNotes: string | null,
+  insurerName: string,
+  propertyAddress: string,
+  technicianName: string,
+): string {
+  const mould = bioMouldDetected ? "Microbial growth was detected. " : "";
+  const age = buildingAge ? `Building age: ${buildingAge} years. ` : "";
+  return (
+    `Assessment conducted at ${propertyAddress} by ${technicianName}. ` +
+    `Water damage classified as ${waterCategory}, ${waterClass}. ` +
+    mould +
+    age +
+    `Structure type: ${structureType}. ` +
+    `Methamphetamine screen: ${methScreen}. ` +
+    (accessNotes ? `Access notes: ${accessNotes}. ` : "") +
+    (insurerName ? `Insurer: ${insurerName}.` : "")
+  );
+}
+
+/** Build scope items list from report data */
+function buildScopeItems(data: ReportData, _standardsContext: string): ScopeItem[] {
+  if (data.scopeAreas && data.scopeAreas.length > 0) {
+    return data.scopeAreas.map((area: any) => ({
+      item: area.name || area.item || "Scope Item",
+      description: area.description || "",
+      justification: area.justification || "",
+      standardReference: area.standardReference || "",
+    }));
+  }
+  return [];
+}
+
+/** Build timeline data from phase dates */
+function buildTimelineData(
+  _data: ReportData,
+  phase1Start: Date | null,
+  phase1End: Date | null,
+  phase2Start: Date | null,
+  phase2End: Date | null,
+  phase3Start: Date | null,
+  phase3End: Date | null,
+): object {
+  return { phase1Start, phase1End, phase2Start, phase2End, phase3Start, phase3End };
+}
+
+/** Build moisture readings summary */
+function buildMoistureData(_data: ReportData): object {
+  return {};
+}
+
+/** Build psychrometric data summary */
+function buildPsychrometricData(_data: ReportData): object {
+  return {};
+}
+
+/** Render Page 2 — Scope of Works */
+async function renderPage2(
+  _page: PDFPage,
+  _options: {
+    pdfDoc: PDFDocument;
+    helvetica: PDFFont;
+    helveticaBold: PDFFont;
+    colors: any;
+    jobRef: string;
+    scopeItems: ScopeItem[];
+    report: any;
+    equipmentSelection: any[];
+    hvacAffected: boolean;
+  },
+): Promise<void> {
+  // Placeholder — full implementation pending
+}
+
+/** Render Page 3 — Data Evidence & Project Management */
+async function renderPage3(
+  _page: PDFPage,
+  _options: {
+    pdfDoc: PDFDocument;
+    helvetica: PDFFont;
+    helveticaBold: PDFFont;
+    colors: any;
+    jobRef: string;
+    timelineData: any;
+    moistureData: any;
+    psychrometricData: any;
+    report: any;
+    scopeAreas: any[];
+  },
+): Promise<void> {
+  // Placeholder — full implementation pending
+}
+
+/** Render Page 4 — Authorisation & Terms */
+async function renderPage4(
+  _page: PDFPage,
+  _options: {
+    pdfDoc: PDFDocument;
+    helvetica: PDFFont;
+    helveticaBold: PDFFont;
+    colors: any;
+    jobRef: string;
+    businessInfo: BusinessInfo;
+  },
+): Promise<void> {
+  // Placeholder — full implementation pending
+}
+
+/** Add header/footer to every page */
+function addHeaderFooter(
+  _page: PDFPage,
+  _options: {
+    helvetica: PDFFont;
+    helveticaBold: PDFFont;
+    colors: any;
+    businessInfo: BusinessInfo;
+    logoImage: PDFImage | null;
+    jobRef: string;
+    inspectionDate: string;
+    pageNumber: number;
+    totalPages: number;
+  },
+): void {
+  // Placeholder — full implementation pending
+}

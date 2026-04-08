@@ -109,7 +109,7 @@ export function validateCitationAgainstStandards(
   standardsContext: StandardsContext,
 ): boolean {
   // Check if citation matches any document in standards context
-  const documentCode = citation.documentCode.toLowerCase();
+  const documentCode = (citation.documentCode ?? "").toLowerCase();
 
   return standardsContext.documents.some((doc) => {
     const docName = doc.name.toLowerCase();
@@ -181,14 +181,14 @@ export function getRecommendedCitations(
   if (context.reportType === "water") {
     filtered = filtered.filter(
       (c) =>
-        c.documentCode.includes("S500") || c.documentCode.includes("WATER"),
+        (c.documentCode ?? "").includes("S500") || (c.documentCode ?? "").includes("WATER"),
     );
   } else if (context.reportType === "mould") {
     filtered = filtered.filter(
       (c) =>
-        c.documentCode.includes("S520") ||
-        c.documentCode.includes("MOULD") ||
-        c.documentCode.includes("MOLD"),
+        (c.documentCode ?? "").includes("S520") ||
+        (c.documentCode ?? "").includes("MOULD") ||
+        (c.documentCode ?? "").includes("MOLD"),
     );
   }
 
@@ -219,7 +219,7 @@ export function formatCitationsForPrompt(
   // Group by document type
   const grouped = new Map<string, ExtractedCitation[]>();
   citations.forEach((citation) => {
-    const key = citation.documentCode.split("-")[0]; // Get prefix (IICRC, AS/NZS, etc.)
+    const key = (citation.documentCode ?? "").split("-")[0]; // Get prefix (IICRC, AS/NZS, etc.)
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }

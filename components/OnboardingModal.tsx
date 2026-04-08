@@ -107,7 +107,7 @@ export default function OnboardingModal({
 
   const handleStepAction = (step: string) => {
     if (status?.steps[step as keyof typeof status.steps]) {
-      const stepInfo = status.steps[step as keyof typeof status.steps];
+      const stepInfo = status.steps[step as keyof typeof status.steps]!;
       router.push(stepInfo.route);
       onClose();
     }
@@ -116,7 +116,7 @@ export default function OnboardingModal({
   const getStepInfo = (step: string) => {
     if (!status?.steps[step as keyof typeof status.steps]) return null;
 
-    const stepData = status.steps[step as keyof typeof status.steps];
+    const stepData = status.steps[step as keyof typeof status.steps]!;
 
     switch (step) {
       case "business_profile":
