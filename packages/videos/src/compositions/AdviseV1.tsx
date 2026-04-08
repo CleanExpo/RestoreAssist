@@ -52,12 +52,13 @@ export const AdviseV1: React.FC = () => {
       {/* ── Scene 1: Hook — What is IICRC S500:2025? ──────────────────────── */}
       <Sequence from={S1.from} durationInFrames={S1.dur} name="S1: Hook">
         {/* Per-scene VO — offset 15 frames to let scene fade in first */}
-        <Audio
-          src={staticFile("audio/advise-s1.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s1.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <KineticTextScene
           label="IICRC S500:2025"
           bullets={[
@@ -80,12 +81,13 @@ export const AdviseV1: React.FC = () => {
 
       {/* ── Scene 2: Why claims get disputed ──────────────────────────────── */}
       <Sequence from={S2.from} durationInFrames={S2.dur} name="S2: Disputes">
-        <Audio
-          src={staticFile("audio/advise-s2.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s2.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <KineticTextScene
           label="Why Claims Are Disputed"
           bullets={[
@@ -116,12 +118,13 @@ export const AdviseV1: React.FC = () => {
         durationInFrames={S3.dur}
         name="S3: Water Classes"
       >
-        <Audio
-          src={staticFile("audio/advise-s3.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s3.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <FullBleedScene
           screenshotPath="screenshots/real/moisture.png"
           primaryStatement="Five water damage classes. One standard."
@@ -136,12 +139,13 @@ export const AdviseV1: React.FC = () => {
         durationInFrames={S4.dur}
         name="S4: Documentation"
       >
-        <Audio
-          src={staticFile("audio/advise-s4.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s4.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <KineticTextScene
           label="Compliant Documentation"
           bullets={[
@@ -173,12 +177,13 @@ export const AdviseV1: React.FC = () => {
         durationInFrames={S5.dur}
         name="S5: RestoreAssist"
       >
-        <Audio
-          src={staticFile("audio/advise-s5.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s5.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <KineticTextScene
           label="Automatic Compliance"
           bullets={[
@@ -208,12 +213,13 @@ export const AdviseV1: React.FC = () => {
 
       {/* ── Scene 6: Stats ────────────────────────────────────────────────── */}
       <Sequence from={S6.from} durationInFrames={S6.dur} name="S6: Stats">
-        <Audio
-          src={staticFile("audio/advise-s6.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s6.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <StatCounterScene
           heading="The numbers speak clearly."
           stats={[
@@ -247,12 +253,13 @@ export const AdviseV1: React.FC = () => {
 
       {/* ── Scene 7: CTA ──────────────────────────────────────────────────── */}
       <Sequence from={S7.from} durationInFrames={S7.dur} name="S7: CTA">
-        <Audio
-          src={staticFile("audio/advise-s7.mp3")}
-          startFrom={0}
-          volume={1.0}
-          delay={15}
-        />
+        <Sequence from={15}>
+          <Audio
+            src={staticFile("audio/advise-s7.mp3")}
+            startFrom={0}
+            volume={1.0}
+          />
+        </Sequence>
         <CinematicCTA />
       </Sequence>
     </AbsoluteFill>

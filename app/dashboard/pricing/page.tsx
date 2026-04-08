@@ -9,11 +9,6 @@ export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null)
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    if (plan === 'freeTrial') {
-      toast.success("Free trial activated! You can now create up to 3 reports.")
-      return
-    }
-
     setLoading(plan)
     try {
       const response = await fetch('/api/create-checkout-session', {
@@ -105,24 +100,17 @@ export default function PricingPage() {
                 </h3>
                 <div className="mb-4">
                   <span className="text-4xl font-bold text-cyan-400">
-                    {plan.amount === 0 ? 'Free' : formatPrice(plan.amount, plan.currency)}
+                    {formatPrice(plan.amount, plan.currency)}
                   </span>
                   {'interval' in plan && plan.interval && (
                     <span className="text-slate-400">/{plan.interval}</span>
                   )}
                 </div>
                 
-                {/* Discount Display */}
-                {'discount' in plan && plan.discount && (
-                  <div className="text-sm text-green-400 mb-2">
-                    {plan.discount} discount - Save ${'savings' in plan ? plan.savings : 0}/year
-                  </div>
-                )}
-
                 {/* Monthly Equivalent */}
-                {'monthlyEquivalent' in plan && plan.monthlyEquivalent && (
+                {'monthlyEquivalent' in plan && (plan as any).monthlyEquivalent && (
                   <div className="text-sm text-slate-400">
-                    ${plan.monthlyEquivalent}/month equivalent
+                    ${(plan as any).monthlyEquivalent}/month equivalent
                   </div>
                 )}
               </div>
@@ -144,10 +132,10 @@ export default function PricingPage() {
                   <span className="font-semibold text-white">Report Limit</span>
                 </div>
                 <div className="text-2xl font-bold text-cyan-400">
-                  {plan.reportLimit === 'unlimited' ? 'Unlimited' : plan.reportLimit}
+                  {plan.reportLimit}
                 </div>
                 <div className="text-sm text-slate-400">
-                  {plan.reportLimit === 'unlimited' ? 'Create as many reports as you need' : 'Reports per month'}
+                  Reports per month
                 </div>
               </div>
 
@@ -167,7 +155,7 @@ export default function PricingPage() {
                     Processing...
                   </div>
                 ) : (
-                  plan.amount === 0 ? 'Start Free Trial' : `Subscribe to ${plan.displayName}`
+                  `Subscribe to ${plan.displayName}`
                 )}
               </button>
             </div>

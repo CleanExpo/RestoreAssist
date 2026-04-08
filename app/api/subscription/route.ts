@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     // Return database subscription data
     return NextResponse.json({
-      subscription: user.subscriptionStatus !== 'TRIAL' ? {
+      subscription: user.subscriptionStatus != null && user.subscriptionStatus !== 'TRIAL' ? {
         id: user.subscriptionId,
         status: user.subscriptionStatus.toLowerCase(),
         currentPeriodStart: user.lastBillingDate ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000) : null,

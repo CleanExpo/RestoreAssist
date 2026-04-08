@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as any,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as { role?: string }).role
+        token.role = (user as { role?: string }).role ?? ''
       }
       return token
     },

@@ -340,8 +340,9 @@ Estimate: ${JSON.stringify(estimate)}`,
       ["HVAC Affected:", parsedReport.hvacAffected ? "Yes" : "No"],
     ]
 
-    assessmentInfo.forEach(([label, value]) => {
-      page.drawText(label, {
+    assessmentInfo.forEach((item) => {
+      const [label, value] = item
+      page.drawText(String(label ?? ''), {
         x: 50,
         y: yPosition,
         size: 10,
@@ -743,16 +744,17 @@ Estimate: ${JSON.stringify(estimate)}`,
         ["Waste Subtotal:", estimate.wasteSubtotal],
       ]
 
-      costItems.forEach(([label, value]) => {
-        if (value) {
-          page.drawText(label, {
+      costItems.forEach((item) => {
+        const [label, value] = item
+        if (value != null && value !== 0) {
+          page.drawText(typeof label === 'string' ? label : String(label ?? ''), {
             x: 70,
             y: yPosition,
             size: 9,
             font: font,
             color: darkColor,
           })
-          page.drawText(`$${value.toFixed(2)}`, {
+          page.drawText(`$${typeof value === 'number' ? value.toFixed(2) : String(value ?? '')}`, {
             x: 200,
             y: yPosition,
             size: 9,

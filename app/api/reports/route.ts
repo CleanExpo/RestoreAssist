@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     // Map reports to include estimatedCost from estimate
     const reportsWithCost = reports.map((report: typeof reports[number]) => ({
       ...report,
-      estimatedCost: report.estimates?.[0]?.totalIncGST || report.estimatedCost || null
+      estimatedCost: report.estimates?.[0]?.totalIncGST || (report as any).estimatedCost || null
     }))
 
     const total = await prisma.report.count({ where })
@@ -132,9 +132,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user has enough credits (only for trial users)
-    if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
+    if (user.subscriptionStatus === 'TRIAL' && (user.creditsRemaining ?? 0) < 1) {
       return NextResponse.json(
-        { 
+        {
           error: "Insufficient credits. Please upgrade your plan to create more reports.",
           upgradeRequired: true,
           creditsRemaining: user.creditsRemaining
@@ -148,8 +148,8 @@ export async function POST(request: NextRequest) {
       await prisma.user.update({
         where: { id: session.user.id },
         data: {
-          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
-          totalCreditsUsed: user.totalCreditsUsed + 1,
+          creditsRemaining: Math.max(0, (user.creditsRemaining ?? 0) - 1),
+          totalCreditsUsed: (user.totalCreditsUsed ?? 0) + 1,
         }
       })
     }
