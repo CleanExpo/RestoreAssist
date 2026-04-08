@@ -64,12 +64,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: trackResponse.data });
     } finally {
       // Always delete the transient edit
-      await androidpublisher.edits.delete({
-        packageName: PACKAGE_NAME,
-        editId,
-      }).catch((err: unknown) => {
-        console.warn("Failed to delete transient edit:", err);
-      });
+      await androidpublisher.edits
+        .delete({
+          packageName: PACKAGE_NAME,
+          editId,
+        })
+        .catch((err: unknown) => {
+          console.warn("Failed to delete transient edit:", err);
+        });
     }
   } catch (error) {
     console.error("Google Play API error (GET):", error);
@@ -105,14 +107,13 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
-  const {
-    fromTrack = "internal",
-    toTrack = "alpha",
-    versionCodes,
-  } = body;
+  const { fromTrack = "internal", toTrack = "alpha", versionCodes } = body;
 
   try {
     const androidpublisher = getAndroidPublisher();
@@ -134,7 +135,9 @@ export async function POST(req: NextRequest) {
     const latestRelease = sourceReleases[0];
 
     if (!latestRelease) {
-      await androidpublisher.edits.delete({ packageName: PACKAGE_NAME, editId }).catch(() => {});
+      await androidpublisher.edits
+        .delete({ packageName: PACKAGE_NAME, editId })
+        .catch(() => {});
       return NextResponse.json(
         { error: `No releases found on track: ${fromTrack}` },
         { status: 404 },
@@ -142,9 +145,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Determine version codes to promote
-    const promotedVersionCodes = versionCodes?.map(String) ??
-      latestRelease.versionCodes ??
-      [];
+    const promotedVersionCodes =
+      versionCodes?.map(String) ?? latestRelease.versionCodes ?? [];
 
     // Promote to destination track
     await androidpublisher.edits.tracks.update({

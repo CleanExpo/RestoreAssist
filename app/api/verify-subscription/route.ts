@@ -167,7 +167,9 @@ export async function POST(request: NextRequest) {
         subscriptionEndsAt: new Date(
           (stripeSubscription as any).current_period_end * 1000,
         ),
-        nextBillingDate: new Date((stripeSubscription as any).current_period_end * 1000),
+        nextBillingDate: new Date(
+          (stripeSubscription as any).current_period_end * 1000,
+        ),
         lastBillingDate: new Date(
           (stripeSubscription as any).current_period_start * 1000,
         ),

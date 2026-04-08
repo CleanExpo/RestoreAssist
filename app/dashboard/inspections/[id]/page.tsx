@@ -684,12 +684,19 @@ export default function InspectionDetailPage({
         {loadError && (
           <Button
             variant="outline"
-            onClick={() => { setLoadError(false); fetchInspection(); }}
+            onClick={() => {
+              setLoadError(false);
+              fetchInspection();
+            }}
           >
             Retry
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/inspections")}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push("/dashboard/inspections")}
+        >
           Back to inspections
         </Button>
       </div>
@@ -857,9 +864,19 @@ export default function InspectionDetailPage({
               </DialogHeader>
               <div className="py-2" aria-live="polite" aria-atomic="true">
                 {shareLoading ? (
-                  <div role="status" aria-label="Generating client portal link" className="flex items-center justify-center py-4">
-                    <Loader2 className="animate-spin text-cyan-500" size={24} aria-hidden="true" />
-                    <span className="sr-only">Generating client portal link…</span>
+                  <div
+                    role="status"
+                    aria-label="Generating client portal link"
+                    className="flex items-center justify-center py-4"
+                  >
+                    <Loader2
+                      className="animate-spin text-cyan-500"
+                      size={24}
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">
+                      Generating client portal link…
+                    </span>
                   </div>
                 ) : shareUrl ? (
                   <div className="space-y-3">
@@ -909,7 +926,11 @@ export default function InspectionDetailPage({
       <StatusTimeline currentStatus={inspection.status} />
 
       {/* Tabs */}
-      <div role="tablist" aria-label="Inspection sections" className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700">
+      <div
+        role="tablist"
+        aria-label="Inspection sections"
+        className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700"
+      >
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -2147,7 +2168,11 @@ export default function InspectionDetailPage({
                         }}
                         role="checkbox"
                         aria-checked={item.isSelected}
-                        aria-label={item.isSelected ? `Deselect: ${item.description}` : `Select: ${item.description}`}
+                        aria-label={
+                          item.isSelected
+                            ? `Deselect: ${item.description}`
+                            : `Select: ${item.description}`
+                        }
                         className={cn(
                           "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none",
                           item.isSelected
@@ -2155,7 +2180,9 @@ export default function InspectionDetailPage({
                             : "bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600",
                         )}
                       >
-                        {item.isSelected && <CheckCircle2 size={14} aria-hidden="true" />}
+                        {item.isSelected && (
+                          <CheckCircle2 size={14} aria-hidden="true" />
+                        )}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -2355,30 +2382,31 @@ export default function InspectionDetailPage({
                   <Camera size={14} />
                   Evidence Screen
                 </Link>
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                disabled={uploadingPhoto}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                {uploadingPhoto ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Upload size={16} />
-                )}
-                {uploadingPhoto ? "Uploading..." : "Upload Photo"}
-              </button>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                aria-label="Upload inspection photos"
-                aria-hidden="true"
-                tabIndex={-1}
-                className="hidden"
-                onChange={(e) => handlePhotoUpload(e.target.files)}
-              />
-              </div>{/* end button group — RA-448 */}
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+                </button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  aria-label="Upload inspection photos"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  className="hidden"
+                  onChange={(e) => handlePhotoUpload(e.target.files)}
+                />
+              </div>
+              {/* end button group — RA-448 */}
             </div>
             {inspection.photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

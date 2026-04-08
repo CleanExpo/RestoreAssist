@@ -603,7 +603,11 @@ export function extractAndFormatCitations(text: string): FormattedCitation[] {
     seen.add(key);
 
     const formatted = formatCitationAGLC4(docCode, sectionNum);
-    results.push({ ...formatted, documentCode: docCode, sectionNumber: sectionNum || undefined });
+    results.push({
+      ...formatted,
+      documentCode: docCode,
+      sectionNumber: sectionNum || undefined,
+    });
   }
 
   return results;

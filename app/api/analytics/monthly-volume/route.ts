@@ -129,7 +129,10 @@ export async function GET(request: NextRequest) {
 
     // Aggregate report data
     reports.forEach((report) => {
-      const date = report.createdAt instanceof Date ? report.createdAt : new Date(report.createdAt as any);
+      const date =
+        report.createdAt instanceof Date
+          ? report.createdAt
+          : new Date(report.createdAt as any);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
       const data = monthlyMap.get(monthKey);
@@ -137,7 +140,10 @@ export async function GET(request: NextRequest) {
         data.reports += 1;
         data.revenue += (report as any).totalEstimate || 0;
 
-        if ((report as any).status === "COMPLETED" || (report as any).status === "APPROVED") {
+        if (
+          (report as any).status === "COMPLETED" ||
+          (report as any).status === "APPROVED"
+        ) {
           data.completed += 1;
         } else {
           data.pending += 1;

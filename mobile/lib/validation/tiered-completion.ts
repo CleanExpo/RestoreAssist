@@ -1,4 +1,4 @@
-import type { Inspection } from '@/shared/types';
+import type { Inspection } from "@/shared/types";
 
 interface CompletionItem {
   label: string;
@@ -10,26 +10,28 @@ export interface CompletionResult {
   items: CompletionItem[];
 }
 
-export function checkTieredCompletion(inspection: Inspection): CompletionResult {
+export function checkTieredCompletion(
+  inspection: Inspection,
+): CompletionResult {
   const items: CompletionItem[] = [
     {
-      label: 'Property address',
+      label: "Property address",
       met: !!inspection.propertyAddress,
     },
     {
-      label: 'Property postcode',
+      label: "Property postcode",
       met: !!inspection.propertyPostcode,
     },
     {
-      label: 'Inspection date',
+      label: "Inspection date",
       met: !!inspection.inspectionDate,
     },
     {
-      label: 'At least 1 affected area',
+      label: "At least 1 affected area",
       met: (inspection.affectedAreas?.length ?? 0) > 0,
     },
     {
-      label: 'At least 1 photo',
+      label: "At least 1 photo",
       met: (inspection.photos?.length ?? 0) > 0,
     },
   ];

@@ -66,7 +66,9 @@ export default function FieldDashboardPage() {
 
     async function loadInspections() {
       try {
-        const res = await fetch("/api/inspections?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10");
+        const res = await fetch(
+          "/api/inspections?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10",
+        );
         if (!res.ok) return;
         const data = await res.json();
         const items = (data.inspections ?? data.data ?? []) as Array<{
@@ -81,8 +83,12 @@ export default function FieldDashboardPage() {
         const enriched = await Promise.all(
           items.map(async (insp) => {
             try {
-              const clRes = await fetch(`/api/inspections/${insp.id}/voice/checklist`);
-              const cl = clRes.ok ? await clRes.json() : { criticalMissing: [], readyToLeave: false };
+              const clRes = await fetch(
+                `/api/inspections/${insp.id}/voice/checklist`,
+              );
+              const cl = clRes.ok
+                ? await clRes.json()
+                : { criticalMissing: [], readyToLeave: false };
               return {
                 id: insp.id,
                 inspectionNumber: insp.inspectionNumber,
@@ -118,7 +124,9 @@ export default function FieldDashboardPage() {
   }, []);
 
   const activeJobs = inspections.filter((i) =>
-    ["DRAFT", "SUBMITTED", "PROCESSING", "CLASSIFIED", "SCOPED"].includes(i.status),
+    ["DRAFT", "SUBMITTED", "PROCESSING", "CLASSIFIED", "SCOPED"].includes(
+      i.status,
+    ),
   );
 
   return (
@@ -136,9 +144,24 @@ export default function FieldDashboardPage() {
       <div className="px-4 mb-6">
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "New Job", icon: Plus, href: "/dashboard/inspections/new", color: "bg-[#1C2E47]" },
-            { label: "Voice", icon: Mic, href: "#active", color: "bg-[#8A6B4E]/30" },
-            { label: "Camera", icon: Camera, href: "#active", color: "bg-white/5" },
+            {
+              label: "New Job",
+              icon: Plus,
+              href: "/dashboard/inspections/new",
+              color: "bg-[#1C2E47]",
+            },
+            {
+              label: "Voice",
+              icon: Mic,
+              href: "#active",
+              color: "bg-[#8A6B4E]/30",
+            },
+            {
+              label: "Camera",
+              icon: Camera,
+              href: "#active",
+              color: "bg-white/5",
+            },
           ].map((action) => (
             <Link
               key={action.label}
@@ -158,8 +181,13 @@ export default function FieldDashboardPage() {
       {/* Active jobs */}
       <div id="active" className="px-4">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-white/40 uppercase tracking-wider">Active jobs</p>
-          <Link href="/dashboard/inspections" className="text-xs text-[#D4A574]">
+          <p className="text-xs text-white/40 uppercase tracking-wider">
+            Active jobs
+          </p>
+          <Link
+            href="/dashboard/inspections"
+            className="text-xs text-[#D4A574]"
+          >
             All jobs
           </Link>
         </div>
@@ -190,12 +218,21 @@ export default function FieldDashboardPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-white/40">{insp.inspectionNumber}</span>
-                      <span className={cn("text-xs font-medium", STATUS_COLOR[insp.status])}>
+                      <span className="text-xs text-white/40">
+                        {insp.inspectionNumber}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          STATUS_COLOR[insp.status],
+                        )}
+                      >
                         {insp.status}
                       </span>
                     </div>
-                    <p className="font-medium text-white text-sm leading-snug">{insp.propertyAddress}</p>
+                    <p className="font-medium text-white text-sm leading-snug">
+                      {insp.propertyAddress}
+                    </p>
                     <div className="flex items-center gap-3 mt-2 text-xs text-white/40">
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
@@ -213,7 +250,9 @@ export default function FieldDashboardPage() {
                     ) : insp.criticalMissing > 0 ? (
                       <div className="flex items-center gap-1 text-amber-400">
                         <AlertTriangle className="h-4 w-4" />
-                        <span className="text-xs font-bold">{insp.criticalMissing}</span>
+                        <span className="text-xs font-bold">
+                          {insp.criticalMissing}
+                        </span>
                       </div>
                     ) : null}
                     <ChevronRight className="h-4 w-4 text-white/20" />

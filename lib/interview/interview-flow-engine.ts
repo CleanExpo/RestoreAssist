@@ -5,11 +5,7 @@
  */
 
 import { QuestionGenerationEngine } from "./question-generation-engine";
-import {
-  Question,
-  QuestionGenerationContext,
-  InterviewState,
-} from "./types";
+import { Question, QuestionGenerationContext, InterviewState } from "./types";
 
 // Type alias for interview response (not yet in types.ts)
 type InterviewResponse = Record<string, unknown>;

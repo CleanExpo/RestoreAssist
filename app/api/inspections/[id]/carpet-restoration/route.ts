@@ -70,7 +70,9 @@ export async function GET(
     );
   }
 
-  return NextResponse.json((inspection as any).carpetRestorationAssessment ?? null);
+  return NextResponse.json(
+    (inspection as any).carpetRestorationAssessment ?? null,
+  );
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────

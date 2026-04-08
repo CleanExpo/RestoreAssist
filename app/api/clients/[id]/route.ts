@@ -1,26 +1,26 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { sanitizeString } from "@/lib/sanitize"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { sanitizeString } from "@/lib/sanitize";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     const client = await prisma.client.findFirst({
       where: {
         id,
-        userId: session.user.id
+        userId: session.user.id,
       },
       include: {
         reports: {
@@ -34,72 +34,83 @@ export async function GET(
             reportNumber: true,
             waterCategory: true,
             waterClass: true,
-            affectedArea: true
+            affectedArea: true,
           },
-          orderBy: { createdAt: "desc" }
+          orderBy: { createdAt: "desc" },
         },
         _count: {
-          select: { reports: true }
-        }
-      }
-    })
+          select: { reports: true },
+        },
+      },
+    });
 
     if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 })
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
     // Calculate client statistics
-    const totalRevenue = client.reports.reduce((sum: number, report: { totalCost: number | null }) => sum + (report.totalCost || 0), 0)
-    const lastJob = client.reports.length > 0 ? client.reports[0].createdAt : null
-    
+    const totalRevenue = client.reports.reduce(
+      (sum: number, report: { totalCost: number | null }) =>
+        sum + (report.totalCost || 0),
+      0,
+    );
+    const lastJob =
+      client.reports.length > 0 ? client.reports[0].createdAt : null;
+
     return NextResponse.json({
       ...client,
       totalRevenue,
       lastJob: lastJob ? new Date(lastJob).toLocaleDateString() : "Never",
-      reportsCount: client._count.reports
-    })
+      reportsCount: client._count.reports,
+    });
   } catch (error) {
-    console.error("Error fetching client:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching client:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
-    const body = await request.json()
-    const name = sanitizeString(body.name, 200)
-    const email = sanitizeString(body.email, 320).toLowerCase()
-    const phone = sanitizeString(body.phone, 50)
-    const address = sanitizeString(body.address, 500)
-    const company = sanitizeString(body.company, 200)
-    const contactPerson = sanitizeString(body.contactPerson, 200)
-    const notes = sanitizeString(body.notes, 5000)
-    const status = body.status
+    const { id } = await params;
+    const body = await request.json();
+    const name = sanitizeString(body.name, 200);
+    const email = sanitizeString(body.email, 320).toLowerCase();
+    const phone = sanitizeString(body.phone, 50);
+    const address = sanitizeString(body.address, 500);
+    const company = sanitizeString(body.company, 200);
+    const contactPerson = sanitizeString(body.contactPerson, 200);
+    const notes = sanitizeString(body.notes, 5000);
+    const status = body.status;
 
     if (!name || !email) {
-      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Name and email are required" },
+        { status: 400 },
+      );
     }
 
     // Check if client exists and belongs to user
     const existingClient = await prisma.client.findFirst({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
     if (!existingClient) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 })
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
     // Check if email is being changed and if it conflicts with another client
@@ -108,12 +119,15 @@ export async function PUT(
         where: {
           email,
           userId: session.user.id,
-          id: { not: id }
-        }
-      })
+          id: { not: id },
+        },
+      });
 
       if (emailConflict) {
-        return NextResponse.json({ error: "Client with this email already exists" }, { status: 400 })
+        return NextResponse.json(
+          { error: "Client with this email already exists" },
+          { status: 400 },
+        );
       }
     }
 
@@ -127,70 +141,80 @@ export async function PUT(
         company,
         contactPerson,
         notes,
-        status
+        status,
       },
       include: {
         _count: {
-          select: { reports: true }
-        }
-      }
-    })
+          select: { reports: true },
+        },
+      },
+    });
 
     return NextResponse.json({
       ...client,
       totalRevenue: 0,
       lastJob: "Never",
-      reportsCount: client._count.reports
-    })
+      reportsCount: client._count.reports,
+    });
   } catch (error) {
-    console.error("Error updating client:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error updating client:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     // Check if client exists and belongs to user
     const existingClient = await prisma.client.findFirst({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
     if (!existingClient) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 })
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
     // Check if client has reports
     const reportCount = await prisma.report.count({
-      where: { clientId: id }
-    })
+      where: { clientId: id },
+    });
 
     if (reportCount > 0) {
-      return NextResponse.json({ 
-        error: "Cannot delete client with existing reports. Please archive instead." 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error:
+            "Cannot delete client with existing reports. Please archive instead.",
+        },
+        { status: 400 },
+      );
     }
 
     await prisma.client.delete({
-      where: { id }
-    })
+      where: { id },
+    });
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting client:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error deleting client:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

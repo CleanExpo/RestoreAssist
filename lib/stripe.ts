@@ -1,4 +1,4 @@
-import Stripe from 'stripe';
+import Stripe from "stripe";
 
 // Lazy singleton — the Stripe constructor throws on falsy keys, so we defer
 // instantiation until the first actual call. This prevents Next.js build from
@@ -12,9 +12,9 @@ let _stripe: Stripe | null = null;
 function getInstance(): Stripe {
   if (!_stripe) {
     const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) throw new Error('STRIPE_SECRET_KEY is not set');
+    if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
     _stripe = new Stripe(key, {
-      apiVersion: '2025-09-30.clover' as const,
+      apiVersion: "2025-09-30.clover" as const,
       typescript: true,
     });
   }
@@ -29,4 +29,6 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
-export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_51SK3Z3BY5KEPMwxd73NBxV7AFPamtEy8dbfwPs3ziBMmM4bfP0pQr3IDkaqbhIm5DJ66chBIVLWkwD6SiEAwt5lr007K6qZY7z';
+export const STRIPE_PUBLISHABLE_KEY =
+  process.env.STRIPE_PUBLISHABLE_KEY ||
+  "pk_test_51SK3Z3BY5KEPMwxd73NBxV7AFPamtEy8dbfwPs3ziBMmM4bfP0pQr3IDkaqbhIm5DJ66chBIVLWkwD6SiEAwt5lr007K6qZY7z";

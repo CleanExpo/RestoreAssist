@@ -31,7 +31,10 @@ export async function POST(
     });
 
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
 
     if (inspection.userId !== session.user.id) {
@@ -66,7 +69,10 @@ export async function POST(
     });
   } catch (error) {
     console.error("[POST /api/inspections/[id]/voice/session] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -84,9 +90,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId } = await req.json().catch(() => ({})) as { sessionId?: string };
+    const { sessionId } = (await req.json().catch(() => ({}))) as {
+      sessionId?: string;
+    };
     if (!sessionId) {
-      return NextResponse.json({ error: "sessionId required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "sessionId required" },
+        { status: 400 },
+      );
     }
 
     const { endSession } = await import("@/lib/voice/session");
@@ -95,6 +106,9 @@ export async function DELETE(
     return NextResponse.json({ status: "ended" });
   } catch (error) {
     console.error("[DELETE /api/inspections/[id]/voice/session] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

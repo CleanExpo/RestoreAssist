@@ -85,7 +85,9 @@ export async function GET(
     );
   }
 
-  return NextResponse.json((inspection as any).fireSmokeDamageAssessment ?? null);
+  return NextResponse.json(
+    (inspection as any).fireSmokeDamageAssessment ?? null,
+  );
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────

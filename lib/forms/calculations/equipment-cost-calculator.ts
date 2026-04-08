@@ -87,7 +87,11 @@ export class EquipmentCostCalculator {
     );
 
     // Build cost line items
-    const equipmentItems: { name: string; quantity: number; dailyRate: number }[] = [
+    const equipmentItems: {
+      name: string;
+      quantity: number;
+      dailyRate: number;
+    }[] = [
       {
         name: `Air Movers (Standard) - ${equipmentNeeds.airMovers}x`,
         quantity: equipmentNeeds.airMovers,

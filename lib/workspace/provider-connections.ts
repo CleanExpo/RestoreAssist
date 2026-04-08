@@ -339,11 +339,14 @@ async function testAnthropicKey(
   });
 
   if (res.status === 401) throw new Error("Invalid Anthropic API key");
-  if (res.status === 403) throw new Error("Anthropic API key lacks permissions");
+  if (res.status === 403)
+    throw new Error("Anthropic API key lacks permissions");
   // 200 or any non-auth error = key is valid
   if (res.status >= 500) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Anthropic API server error ${res.status}: ${body.slice(0, 100)}`);
+    throw new Error(
+      `Anthropic API server error ${res.status}: ${body.slice(0, 100)}`,
+    );
   }
 }
 
@@ -361,7 +364,9 @@ async function testOpenAiKey(
   if (res.status === 403) throw new Error("OpenAI API key lacks permissions");
   if (res.status >= 500) {
     const body = await res.text().catch(() => "");
-    throw new Error(`OpenAI API server error ${res.status}: ${body.slice(0, 100)}`);
+    throw new Error(
+      `OpenAI API server error ${res.status}: ${body.slice(0, 100)}`,
+    );
   }
 }
 
@@ -377,7 +382,9 @@ async function testGoogleKey(
   }
   if (res.status >= 500) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Google AI server error ${res.status}: ${body.slice(0, 100)}`);
+    throw new Error(
+      `Google AI server error ${res.status}: ${body.slice(0, 100)}`,
+    );
   }
 }
 

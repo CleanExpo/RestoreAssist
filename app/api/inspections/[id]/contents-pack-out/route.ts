@@ -99,10 +99,15 @@ export async function GET(
     items,
     summary: {
       totalItems: items.length,
-      cleanOnsite: (items as any[]).filter((i: any) => i.packOutDecision === "CLEAN_ONSITE")
-        .length,
-      packOut: (items as any[]).filter((i: any) => i.packOutDecision === "PACK_OUT").length,
-      totalLoss: (items as any[]).filter((i: any) => i.packOutDecision === "TOTAL_LOSS").length,
+      cleanOnsite: (items as any[]).filter(
+        (i: any) => i.packOutDecision === "CLEAN_ONSITE",
+      ).length,
+      packOut: (items as any[]).filter(
+        (i: any) => i.packOutDecision === "PACK_OUT",
+      ).length,
+      totalLoss: (items as any[]).filter(
+        (i: any) => i.packOutDecision === "TOTAL_LOSS",
+      ).length,
       totalReplacementValueAud,
     },
   });

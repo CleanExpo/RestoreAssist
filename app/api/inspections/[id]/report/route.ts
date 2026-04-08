@@ -118,7 +118,8 @@ function generateJSONReport(inspection: NirReportInspectionData) {
           ambientTemperatureCelsius:
             inspection.environmentalData.ambientTemperatureCelsius,
           humidityPercent: inspection.environmentalData.humidityPercent,
-          dewPointCelsius: inspection.environmentalData.dewPointCelsius ?? undefined,
+          dewPointCelsius:
+            inspection.environmentalData.dewPointCelsius ?? undefined,
         }
       : null,
     moistureReadings: inspection.moistureReadings,
@@ -219,7 +220,8 @@ async function generateExcelReport(inspection: NirReportInspectionData) {
           ambientTemperatureCelsius:
             inspection.environmentalData.ambientTemperatureCelsius,
           humidityPercent: inspection.environmentalData.humidityPercent,
-          dewPointCelsius: inspection.environmentalData.dewPointCelsius ?? undefined,
+          dewPointCelsius:
+            inspection.environmentalData.dewPointCelsius ?? undefined,
         }
       : null,
     moistureReadings: inspection.moistureReadings,

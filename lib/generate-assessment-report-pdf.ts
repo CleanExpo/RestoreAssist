@@ -673,8 +673,15 @@ function wrapText(
 function extractWaterCategory(source: string): string {
   if (!source) return "Category 1";
   const s = source.toLowerCase();
-  if (s.includes("cat 3") || s.includes("category 3") || s.includes("sewage") || s.includes("black")) return "Category 3";
-  if (s.includes("cat 2") || s.includes("category 2") || s.includes("grey")) return "Category 2";
+  if (
+    s.includes("cat 3") ||
+    s.includes("category 3") ||
+    s.includes("sewage") ||
+    s.includes("black")
+  )
+    return "Category 3";
+  if (s.includes("cat 2") || s.includes("category 2") || s.includes("grey"))
+    return "Category 2";
   return "Category 1";
 }
 
@@ -708,7 +715,10 @@ function buildForensicSummary(
 }
 
 /** Build scope items list from report data */
-function buildScopeItems(data: ReportData, _standardsContext: string): ScopeItem[] {
+function buildScopeItems(
+  data: ReportData,
+  _standardsContext: string,
+): ScopeItem[] {
   if (data.scopeAreas && data.scopeAreas.length > 0) {
     return data.scopeAreas.map((area: any) => ({
       item: area.name || area.item || "Scope Item",
@@ -730,7 +740,14 @@ function buildTimelineData(
   phase3Start: Date | null,
   phase3End: Date | null,
 ): object {
-  return { phase1Start, phase1End, phase2Start, phase2End, phase3Start, phase3End };
+  return {
+    phase1Start,
+    phase1End,
+    phase2Start,
+    phase2End,
+    phase3Start,
+    phase3End,
+  };
 }
 
 /** Build moisture readings summary */

@@ -1,19 +1,19 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { stripe } from "@/lib/stripe"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { stripe } from "@/lib/stripe";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const forceRefresh = searchParams.get('refresh') === 'true'
+    const { searchParams } = new URL(request.url);
+    const forceRefresh = searchParams.get("refresh") === "true";
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -29,72 +29,102 @@ export async function GET(request: NextRequest) {
         totalCreditsUsed: true,
         lastBillingDate: true,
         nextBillingDate: true,
-      }
-    })
+      },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // If user has a Stripe subscription, get details from Stripe
     if (user.subscriptionId && user.stripeCustomerId) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId)
-        const price = await stripe.prices.retrieve(subscription.items.data[0].price.id)
+        const subscription = await stripe.subscriptions.retrieve(
+          user.subscriptionId,
+        );
+        const price = await stripe.prices.retrieve(
+          subscription.items.data[0].price.id,
+        );
 
         // Update database with latest subscription data
         await prisma.user.update({
           where: { id: session.user.id },
           data: {
-            subscriptionStatus: subscription.status === 'active' ? 'ACTIVE' : 
-                              subscription.status === 'canceled' ? 'CANCELED' : 
-                              subscription.status === 'past_due' ? 'PAST_DUE' : 'EXPIRED',
-            subscriptionEndsAt: new Date(((subscription as any).current_period_end ?? Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000),
-            nextBillingDate: new Date(((subscription as any).current_period_end ?? Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000),
-            lastBillingDate: new Date(((subscription as any).current_period_start ?? Math.floor(Date.now() / 1000)) * 1000),
-            creditsRemaining: subscription.status === 'active' ? 999999 : user.creditsRemaining,
-          }
-        })
+            subscriptionStatus:
+              subscription.status === "active"
+                ? "ACTIVE"
+                : subscription.status === "canceled"
+                  ? "CANCELED"
+                  : subscription.status === "past_due"
+                    ? "PAST_DUE"
+                    : "EXPIRED",
+            subscriptionEndsAt: new Date(
+              ((subscription as any).current_period_end ??
+                Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
+            ),
+            nextBillingDate: new Date(
+              ((subscription as any).current_period_end ??
+                Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
+            ),
+            lastBillingDate: new Date(
+              ((subscription as any).current_period_start ??
+                Math.floor(Date.now() / 1000)) * 1000,
+            ),
+            creditsRemaining:
+              subscription.status === "active" ? 999999 : user.creditsRemaining,
+          },
+        });
 
         return NextResponse.json({
           subscription: {
             id: subscription.id,
             status: subscription.status,
-            currentPeriodStart: (subscription as any).current_period_start ?? null,
+            currentPeriodStart:
+              (subscription as any).current_period_start ?? null,
             currentPeriodEnd: (subscription as any).current_period_end ?? null,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             plan: {
-              name: price.nickname || user.subscriptionPlan || 'Subscription',
+              name: price.nickname || user.subscriptionPlan || "Subscription",
               amount: price.unit_amount || 0,
               currency: price.currency,
-              interval: price.recurring?.interval || 'month',
+              interval: price.recurring?.interval || "month",
             },
           },
-        })
+        });
       } catch (stripeError) {
-        console.error("Error fetching Stripe subscription:", stripeError)
+        console.error("Error fetching Stripe subscription:", stripeError);
         // Fall back to database data
       }
     }
 
     // Return database subscription data
     return NextResponse.json({
-      subscription: user.subscriptionStatus != null && user.subscriptionStatus !== 'TRIAL' ? {
-        id: user.subscriptionId,
-        status: user.subscriptionStatus.toLowerCase(),
-        currentPeriodStart: user.lastBillingDate ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000) : null,
-        currentPeriodEnd: user.nextBillingDate ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000) : null,
-        cancelAtPeriodEnd: user.subscriptionStatus === 'CANCELED',
-        plan: {
-          name: user.subscriptionPlan || 'Subscription',
-          amount: 0,
-          currency: 'AUD',
-          interval: 'month',
-        },
-      } : null
-    })
+      subscription:
+        user.subscriptionStatus != null && user.subscriptionStatus !== "TRIAL"
+          ? {
+              id: user.subscriptionId,
+              status: user.subscriptionStatus.toLowerCase(),
+              currentPeriodStart: user.lastBillingDate
+                ? Math.floor(new Date(user.lastBillingDate).getTime() / 1000)
+                : null,
+              currentPeriodEnd: user.nextBillingDate
+                ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000)
+                : null,
+              cancelAtPeriodEnd: user.subscriptionStatus === "CANCELED",
+              plan: {
+                name: user.subscriptionPlan || "Subscription",
+                amount: 0,
+                currency: "AUD",
+                interval: "month",
+              },
+            }
+          : null,
+    });
   } catch (error) {
-    console.error("Error fetching subscription:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching subscription:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

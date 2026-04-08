@@ -26,7 +26,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
 
-    const profile = await (prisma as any).insurerProfile.findUnique({ where: { id } });
+    const profile = await (prisma as any).insurerProfile.findUnique({
+      where: { id },
+    });
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
@@ -107,7 +109,9 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
 
-    const profile = await (prisma as any).insurerProfile.findUnique({ where: { id } });
+    const profile = await (prisma as any).insurerProfile.findUnique({
+      where: { id },
+    });
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }

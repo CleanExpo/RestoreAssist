@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Rate limiter — Upstash Redis when configured, in-memory fallback otherwise.
@@ -11,81 +11,90 @@ import { NextRequest, NextResponse } from "next/server"
 
 // ─── Upstash Redis path ───────────────────────────────────────────────────────
 
-let _upstashRatelimit: any = null
+let _upstashRatelimit: any = null;
 
 async function getUpstashRatelimit(windowMs: number, maxRequests: number) {
   if (
     !process.env.UPSTASH_REDIS_REST_URL ||
     !process.env.UPSTASH_REDIS_REST_TOKEN
   ) {
-    return null
+    return null;
   }
 
   try {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore — optional peer dep; installed in production, may be absent locally
-    const { Ratelimit } = await import("@upstash/ratelimit")
+    const { Ratelimit } = await import("@upstash/ratelimit");
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    const { Redis } = await import("@upstash/redis")
+    const { Redis } = await import("@upstash/redis");
 
     const redis = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
+    });
 
     return new Ratelimit({
       redis,
-      limiter: Ratelimit.slidingWindow(maxRequests, `${Math.round(windowMs / 1000)} s`),
+      limiter: Ratelimit.slidingWindow(
+        maxRequests,
+        `${Math.round(windowMs / 1000)} s`,
+      ),
       analytics: false,
-    })
+    });
   } catch {
     // Package not installed or Redis unreachable — fall back to in-memory
-    return null
+    return null;
   }
 }
 
 // ─── In-memory fallback ───────────────────────────────────────────────────────
 
-const store = new Map<string, number[]>()
+const store = new Map<string, number[]>();
 
-let cleanupTimer: ReturnType<typeof setInterval> | null = null
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 function ensureCleanup(windowMs: number) {
-  if (cleanupTimer) return
+  if (cleanupTimer) return;
   cleanupTimer = setInterval(() => {
-    const now = Date.now()
+    const now = Date.now();
     for (const [key, timestamps] of store) {
-      const valid = timestamps.filter((t) => now - t < windowMs)
+      const valid = timestamps.filter((t) => now - t < windowMs);
       if (valid.length === 0) {
-        store.delete(key)
+        store.delete(key);
       } else {
-        store.set(key, valid)
+        store.set(key, valid);
       }
     }
-  }, 60_000)
-  if (cleanupTimer && typeof cleanupTimer === "object" && "unref" in cleanupTimer) {
-    cleanupTimer.unref()
+  }, 60_000);
+  if (
+    cleanupTimer &&
+    typeof cleanupTimer === "object" &&
+    "unref" in cleanupTimer
+  ) {
+    cleanupTimer.unref();
   }
 }
 
 function rateLimitInMemory(
   key: string,
-  opts: { windowMs: number; maxRequests: number }
+  opts: { windowMs: number; maxRequests: number },
 ): { success: boolean; remaining: number; retryAfterMs?: number } {
-  ensureCleanup(opts.windowMs)
-  const now = Date.now()
-  const timestamps = (store.get(key) || []).filter((t) => now - t < opts.windowMs)
+  ensureCleanup(opts.windowMs);
+  const now = Date.now();
+  const timestamps = (store.get(key) || []).filter(
+    (t) => now - t < opts.windowMs,
+  );
 
   if (timestamps.length >= opts.maxRequests) {
-    const oldestInWindow = timestamps[0]
-    const retryAfterMs = opts.windowMs - (now - oldestInWindow)
-    return { success: false, remaining: 0, retryAfterMs }
+    const oldestInWindow = timestamps[0];
+    const retryAfterMs = opts.windowMs - (now - oldestInWindow);
+    return { success: false, remaining: 0, retryAfterMs };
   }
 
-  timestamps.push(now)
-  store.set(key, timestamps)
-  return { success: true, remaining: opts.maxRequests - timestamps.length }
+  timestamps.push(now);
+  store.set(key, timestamps);
+  return { success: true, remaining: opts.maxRequests - timestamps.length };
 }
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -98,13 +107,16 @@ function rateLimitInMemory(
  * client sending a crafted X-Forwarded-For header.
  */
 export function getClientIp(req: NextRequest): string {
-  const xff = req.headers.get("x-forwarded-for")
+  const xff = req.headers.get("x-forwarded-for");
   if (xff) {
-    const ips = xff.split(",").map((s) => s.trim()).filter(Boolean)
-    const lastIp = ips[ips.length - 1]
-    if (lastIp) return lastIp
+    const ips = xff
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const lastIp = ips[ips.length - 1];
+    if (lastIp) return lastIp;
   }
-  return req.headers.get("x-real-ip") || "unknown"
+  return req.headers.get("x-real-ip") || "unknown";
 }
 
 function build429(maxRequests: number, retryAfterSec: number): NextResponse {
@@ -117,24 +129,24 @@ function build429(maxRequests: number, retryAfterSec: number): NextResponse {
         "X-RateLimit-Limit": String(maxRequests),
         "X-RateLimit-Remaining": "0",
       },
-    }
-  )
+    },
+  );
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export interface RateLimitResult {
-  success: boolean
-  remaining: number
-  retryAfterMs?: number
+  success: boolean;
+  remaining: number;
+  retryAfterMs?: number;
 }
 
 /** Low-level rate limit check (in-memory only). Use applyRateLimit for routes. */
 export function rateLimit(
   key: string,
-  opts: { windowMs: number; maxRequests: number }
+  opts: { windowMs: number; maxRequests: number },
 ): RateLimitResult {
-  return rateLimitInMemory(key, opts)
+  return rateLimitInMemory(key, opts);
 }
 
 /**
@@ -146,33 +158,50 @@ export function rateLimit(
  */
 export async function applyRateLimit(
   req: NextRequest,
-  opts: { windowMs?: number; maxRequests?: number; prefix?: string; key?: string } = {}
+  opts: {
+    windowMs?: number;
+    maxRequests?: number;
+    prefix?: string;
+    key?: string;
+  } = {},
 ): Promise<NextResponse | null> {
-  const { windowMs = 15 * 60 * 1000, maxRequests = 5, prefix = "api", key: customKey } = opts
-  const rateLimitKey = customKey ? `${prefix}:${customKey}` : `${prefix}:${getClientIp(req)}`
+  const {
+    windowMs = 15 * 60 * 1000,
+    maxRequests = 5,
+    prefix = "api",
+    key: customKey,
+  } = opts;
+  const rateLimitKey = customKey
+    ? `${prefix}:${customKey}`
+    : `${prefix}:${getClientIp(req)}`;
 
   // Try Upstash first
-  const limiter = await getUpstashRatelimit(windowMs, maxRequests)
+  const limiter = await getUpstashRatelimit(windowMs, maxRequests);
   if (limiter) {
     try {
-      const { success, remaining, reset } = await limiter.limit(rateLimitKey)
+      const { success, remaining, reset } = await limiter.limit(rateLimitKey);
       if (!success) {
-        const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000))
-        return build429(maxRequests, retryAfterSec)
+        const retryAfterSec = Math.max(
+          1,
+          Math.ceil((reset - Date.now()) / 1000),
+        );
+        return build429(maxRequests, retryAfterSec);
       }
-      return null
+      return null;
     } catch {
       // Redis error — fall through to in-memory
-      console.warn("[rate-limiter] Upstash Redis error, falling back to in-memory")
+      console.warn(
+        "[rate-limiter] Upstash Redis error, falling back to in-memory",
+      );
     }
   }
 
   // In-memory fallback
-  const result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests })
+  const result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests });
   if (!result.success) {
-    const retryAfterSec = Math.ceil((result.retryAfterMs || 0) / 1000)
-    return build429(maxRequests, retryAfterSec)
+    const retryAfterSec = Math.ceil((result.retryAfterMs || 0) / 1000);
+    return build429(maxRequests, retryAfterSec);
   }
 
-  return null
+  return null;
 }

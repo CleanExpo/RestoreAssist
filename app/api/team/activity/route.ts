@@ -324,7 +324,10 @@ export async function GET(request: NextRequest) {
         actorRole: member.role,
         description: `started inspection "${(inspection as any).title || inspection.id.slice(0, 8)}"`,
         timestamp: inspection.createdAt.toISOString(),
-        metadata: { inspectionId: inspection.id, title: (inspection as any).title },
+        metadata: {
+          inspectionId: inspection.id,
+          title: (inspection as any).title,
+        },
       });
 
       if (
@@ -340,7 +343,10 @@ export async function GET(request: NextRequest) {
           actorRole: member.role,
           description: `submitted inspection "${(inspection as any).title || inspection.id.slice(0, 8)}"`,
           timestamp: inspection.updatedAt.toISOString(),
-          metadata: { inspectionId: inspection.id, title: (inspection as any).title },
+          metadata: {
+            inspectionId: inspection.id,
+            title: (inspection as any).title,
+          },
         });
       }
     }

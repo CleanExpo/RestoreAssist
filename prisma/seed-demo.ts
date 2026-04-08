@@ -652,7 +652,9 @@ async function main() {
     },
   ];
 
-  await (prisma as any).equipmentDeployment.createMany({ data: equipmentDeployments });
+  await (prisma as any).equipmentDeployment.createMany({
+    data: equipmentDeployments,
+  });
   console.log(
     `✓ Created ${equipmentDeployments.length} equipment deployments (2 dehu + 3 air movers)`,
   );

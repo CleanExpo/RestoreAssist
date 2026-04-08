@@ -186,7 +186,9 @@ export const EVIDENCE_CLASSES: Record<string, EvidenceClassMeta> = {
 };
 
 /** Get metadata for an evidence class */
-export function getEvidenceClassMeta(cls: EvidenceClass | string): EvidenceClassMeta {
+export function getEvidenceClassMeta(
+  cls: EvidenceClass | string,
+): EvidenceClassMeta {
   return EVIDENCE_CLASSES[cls as string];
 }
 

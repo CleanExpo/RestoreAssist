@@ -24,11 +24,36 @@ interface Viewport {
 }
 
 const VIEWPORTS: Viewport[] = [
-  { name: "iPhone 8 Plus", width: 1242, height: 2208, filename: "iphone-8-plus.png" },
-  { name: "iPhone 14 Pro Max", width: 1290, height: 2796, filename: "iphone-14-pro-max.png" },
-  { name: "iPad Pro 12.9", width: 2048, height: 2732, filename: "ipad-pro-12-9.png" },
-  { name: "Android Phone", width: 1080, height: 1920, filename: "android-phone.png" },
-  { name: "Android Tablet", width: 2560, height: 1600, filename: "android-tablet.png" },
+  {
+    name: "iPhone 8 Plus",
+    width: 1242,
+    height: 2208,
+    filename: "iphone-8-plus.png",
+  },
+  {
+    name: "iPhone 14 Pro Max",
+    width: 1290,
+    height: 2796,
+    filename: "iphone-14-pro-max.png",
+  },
+  {
+    name: "iPad Pro 12.9",
+    width: 2048,
+    height: 2732,
+    filename: "ipad-pro-12-9.png",
+  },
+  {
+    name: "Android Phone",
+    width: 1080,
+    height: 1920,
+    filename: "android-phone.png",
+  },
+  {
+    name: "Android Tablet",
+    width: 2560,
+    height: 1600,
+    filename: "android-tablet.png",
+  },
 ];
 
 function parseArgs(argv: string[]): { url: string; outDir: string } {
@@ -71,7 +96,9 @@ async function main(): Promise<void> {
 
       const page = await context.newPage();
 
-      console.log(`Capturing ${viewport.name} (${viewport.width}x${viewport.height})...`);
+      console.log(
+        `Capturing ${viewport.name} (${viewport.width}x${viewport.height})...`,
+      );
 
       await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
 

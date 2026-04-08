@@ -750,7 +750,9 @@ export default function NIRTechnicianInputForm({
           }
           if (data.inspection.scopeItems) {
             const selected = new Set<string>(
-              data.inspection.scopeItems.map((item: any) => item.itemType as string),
+              data.inspection.scopeItems.map(
+                (item: any) => item.itemType as string,
+              ),
             );
             setSelectedScopeItems(selected);
           }

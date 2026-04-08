@@ -13,6 +13,7 @@
 Phase 2 voice copilot provides real-time AI guidance to restoration technicians on-site. It listens, watches (via phone camera), and talks — capturing S500:2025 evidence that gets missed most often in the field, without patronising experienced operators.
 
 **Architecture (unchanged from Phase 1 spec):**
+
 - On-device STT: WhisperKit (iOS) / Moonshine (Android) — <500 MB, works offline
 - Cloud VLM: Claude Vision for damage classification and moisture pattern analysis
 - On-device TTS: AVSpeechSynthesizer (iOS) / Android TextToSpeech — low latency
@@ -28,6 +29,7 @@ Phase 2 voice copilot provides real-time AI guidance to restoration technicians 
 The tech holds the phone in one hand or clips it to their belt/vest. Voice in, voice out. Screen is secondary — used for moisture readings and photo capture only.
 
 **Screen use cases:**
+
 - Confirming a moisture reading value ("Did you mean 18.5% or 81.5%?")
 - Displaying a moisture map as it builds
 - Showing classification summary before the tech leaves site
@@ -41,25 +43,31 @@ The tech holds the phone in one hand or clips it to their belt/vest. Voice in, v
 **Hybrid — three trigger types:**
 
 ### A. Missing Data Alerts (proactive, unprompted)
+
 The AI flags when required S500:2025 evidence items haven't been captured within expected time windows.
 
 Examples:
+
 - "You haven't taken a moisture reading in the subfloor yet — it's been 8 minutes."
 - "No photo of the water source logged. Can you get one before you leave?"
 - "Psychrometric data missing — what's the ambient temp and RH in this room?"
 
 ### B. On-Demand Query (tech-initiated)
+
 Tech asks a question, AI answers.
 
 Examples:
+
 - "What class is this?" → AI analyses latest moisture readings + visible damage → "Based on the readings you've logged — 18% in the wall cavity, 22% at the skirting — this looks like Class 2. Do you want me to log that?"
 - "Is this Cat 2 or Cat 3?" → "The source is a washing machine overflow with no sewage contamination — that's Category 2. Confirm?"
 - "What sections do I still need to complete for the report?"
 
 ### C. Observation Acknowledgment (passive, confirmatory)
+
 AI confirms what it hears the tech say out loud, adds to the report.
 
 Example:
+
 - Tech says: "Moisture reading bathroom wall, 24 percent" → AI: "Got it — bathroom wall, 24% MC. Want me to flag that as elevated?" → Tech: "Yes" → logged.
 
 **Not used:** Constant narration / unsolicited commentary. The AI only speaks when it has something useful to add. Silence is the default.
@@ -70,18 +78,18 @@ Example:
 
 These are the items most commonly missing from reports that cause insurance claim delays or rejections — ranked by field frequency:
 
-| Priority | Missing item | S500:2025 ref | Why it gets missed |
-|----------|-------------|---------------|-------------------|
-| 1 | Psychrometric data (temp + RH) in every affected room | §6 | Tech forgets to record — not visible in photos |
-| 2 | Moisture readings at structural elements (studs, joists) | §8 | Requires drilling access holes — skipped under time pressure |
-| 3 | Water source photo (origin point) | §9 | Tech finds it, fixes it, moves on — no photo |
-| 4 | Pre-drying moisture baseline for all affected materials | §8, §12 | Not recorded until post-drying visit — baseline is gone |
-| 5 | Category classification justification | §7.1 | Assumed by tech, not documented |
-| 6 | Damage class with square meterage | §7.2 | Rough estimates only — no measurement |
-| 7 | Equipment serial numbers and placement positions | §14 | Logged in head, not in report |
-| 8 | Affected material list with quantities | §9 | Generic descriptions ("plasterboard walls") not specific enough |
-| 9 | Secondary damage indicators (mould, efflorescence) | §10.3 | Visible but not photographed |
-| 10 | Scope boundary — what's affected vs. adjacent | §9 | Ambiguous boundaries cause scope creep disputes |
+| Priority | Missing item                                             | S500:2025 ref | Why it gets missed                                              |
+| -------- | -------------------------------------------------------- | ------------- | --------------------------------------------------------------- |
+| 1        | Psychrometric data (temp + RH) in every affected room    | §6            | Tech forgets to record — not visible in photos                  |
+| 2        | Moisture readings at structural elements (studs, joists) | §8            | Requires drilling access holes — skipped under time pressure    |
+| 3        | Water source photo (origin point)                        | §9            | Tech finds it, fixes it, moves on — no photo                    |
+| 4        | Pre-drying moisture baseline for all affected materials  | §8, §12       | Not recorded until post-drying visit — baseline is gone         |
+| 5        | Category classification justification                    | §7.1          | Assumed by tech, not documented                                 |
+| 6        | Damage class with square meterage                        | §7.2          | Rough estimates only — no measurement                           |
+| 7        | Equipment serial numbers and placement positions         | §14           | Logged in head, not in report                                   |
+| 8        | Affected material list with quantities                   | §9            | Generic descriptions ("plasterboard walls") not specific enough |
+| 9        | Secondary damage indicators (mould, efflorescence)       | §10.3         | Visible but not photographed                                    |
+| 10       | Scope boundary — what's affected vs. adjacent            | §9            | Ambiguous boundaries cause scope creep disputes                 |
 
 The voice copilot's primary job is ensuring items 1–5 are captured before the tech leaves site.
 
@@ -90,7 +98,9 @@ The voice copilot's primary job is ensuring items 1–5 are captured before the 
 ## 4. Environment Constraints
 
 ### Noise
+
 Sites are loud. Running dehumidifiers, air movers, compressors, traffic. The STT model must handle:
+
 - 60–80 dB ambient noise
 - Tech speaking at normal volume from 30–60 cm (clip-on mic preferred; phone mic acceptable)
 - Background machinery noise is constant, not intermittent
@@ -98,16 +108,19 @@ Sites are loud. Running dehumidifiers, air movers, compressors, traffic. The STT
 **Design implication:** STT confidence threshold must be higher than standard. Low-confidence transcriptions should be confirmed verbally ("Did you say 18 or 80?") before logging.
 
 ### PPE
+
 - N95/P2 masks muffle speech — STT must account for muffled fricatives
 - Nitrile gloves prevent touchscreen use — voice must be fully operable without screen
 - Tyvek suits reduce phone pocket access — clip/belt mount assumed
 
 ### Connectivity
+
 - Most residential sites: good 4G/5G
 - Subfloor / roof cavity: often zero signal
 - The copilot must queue observations locally and sync when connectivity restores — never lose a reading
 
 ### Hands
+
 Both hands are often occupied (moisture meter + torch, or meter + notepad). Voice input replaces the need to type. The phone can be on a lanyard or clip — not necessarily in hand.
 
 ---
@@ -115,16 +128,19 @@ Both hands are often occupied (moisture meter + torch, or meter + notepad). Voic
 ## 5. Trust Calibration
 
 ### Junior technician (0–3 years)
+
 - Needs step-by-step guidance: "Next, take moisture readings at the base of every wall in this room."
 - Benefits from S500:2025 section references: "S500:2025 §8 requires baseline readings on all affected materials."
 - Wants confirmation: "Good — that's 8 readings in the bathroom. Bathroom is complete."
 
 ### Mid-level technician (3–8 years)
+
 - Wants prompts, not instructions: "Bathroom — anything left to do here?"
 - Doesn't want section numbers read out — just the action.
 - Benefits from: completion checklists, time estimates, flagging unusual readings.
 
 ### Senior technician / site manager (8+ years)
+
 - Does NOT want to be told what to do.
 - Wants: exception alerts only ("Your bathroom reading of 42% is significantly above equilibrium — worth noting?"), not routine prompts.
 - Wants: dictation mode — speak observations, AI structures them silently.
@@ -138,17 +154,17 @@ Both hands are often occupied (moisture meter + torch, or meter + notepad). Voic
 
 These are the specific fields that cause insurance claim rejections, from field experience and conversations with Australian insurers (IAG, Suncorp, QBE patterns):
 
-| Rejection trigger | Frequency | Prevention |
-|-------------------|-----------|-----------|
-| No documented water category (Cat 1/2/3) | Very common | Auto-prompt at inspection start |
-| Moisture readings taken but no baseline recorded | Very common | Require baseline reading before equipment placement |
-| Photos not linked to room/location | Common | GPS + room label required at photo capture |
-| Equipment log missing serial numbers | Common | Serial number OCR or manual entry required |
-| Scope includes "affected areas" without measurements | Common | AI prompts for m² estimate when area is mentioned |
-| No psychrometric readings | Common | Required field — cannot submit report without |
-| Damage class not documented | Occasional | Auto-calculated from readings, requires confirmation |
-| Missing tech IICRC certification details | Occasional | Pre-filled from profile, shown in report |
-| No sign-off / declaration | Occasional | Digital declaration with timestamp required |
+| Rejection trigger                                    | Frequency   | Prevention                                           |
+| ---------------------------------------------------- | ----------- | ---------------------------------------------------- |
+| No documented water category (Cat 1/2/3)             | Very common | Auto-prompt at inspection start                      |
+| Moisture readings taken but no baseline recorded     | Very common | Require baseline reading before equipment placement  |
+| Photos not linked to room/location                   | Common      | GPS + room label required at photo capture           |
+| Equipment log missing serial numbers                 | Common      | Serial number OCR or manual entry required           |
+| Scope includes "affected areas" without measurements | Common      | AI prompts for m² estimate when area is mentioned    |
+| No psychrometric readings                            | Common      | Required field — cannot submit report without        |
+| Damage class not documented                          | Occasional  | Auto-calculated from readings, requires confirmation |
+| Missing tech IICRC certification details             | Occasional  | Pre-filled from profile, shown in report             |
+| No sign-off / declaration                            | Occasional  | Digital declaration with timestamp required          |
 
 ---
 
@@ -186,4 +202,4 @@ These are the specific fields that cause insurance claim rejections, from field 
 
 ---
 
-*Related: RA-394 (inspection image schema — shared data capture design), RA-437 (vision meter extraction — can be triggered from voice session)*
+_Related: RA-394 (inspection image schema — shared data capture design), RA-437 (vision meter extraction — can be triggered from voice session)_

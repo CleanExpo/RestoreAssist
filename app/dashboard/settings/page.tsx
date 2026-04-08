@@ -1,175 +1,205 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { User, Mail, Calendar, CreditCard, Crown, Zap, Shield, Download, Bell, Key, Trash2, Edit, RefreshCw } from "lucide-react"
-import { useSession } from "next-auth/react"
-import toast from "react-hot-toast"
+import { useState, useEffect } from "react";
+import {
+  User,
+  Mail,
+  Calendar,
+  CreditCard,
+  Crown,
+  Zap,
+  Shield,
+  Download,
+  Bell,
+  Key,
+  Trash2,
+  Edit,
+  RefreshCw,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 
 interface UserProfile {
-  id: string
-  name: string
-  email: string
-  image?: string
-  createdAt: string
-  subscriptionStatus: 'TRIAL' | 'ACTIVE' | 'CANCELED' | 'EXPIRED' | 'PAST_DUE'
-  subscriptionPlan?: string
-  creditsRemaining: number
-  totalCreditsUsed: number
-  trialEndsAt?: string
-  subscriptionEndsAt?: string
-  lastBillingDate?: string
-  nextBillingDate?: string
+  id: string;
+  name: string;
+  email: string;
+  image?: string;
+  createdAt: string;
+  subscriptionStatus: "TRIAL" | "ACTIVE" | "CANCELED" | "EXPIRED" | "PAST_DUE";
+  subscriptionPlan?: string;
+  creditsRemaining: number;
+  totalCreditsUsed: number;
+  trialEndsAt?: string;
+  subscriptionEndsAt?: string;
+  lastBillingDate?: string;
+  nextBillingDate?: string;
 }
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [editing, setEditing] = useState(false)
+  const { data: session, status } = useSession();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    email: ''
-  })
+    name: "",
+    email: "",
+  });
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      fetchProfile()
-    } else if (status === 'unauthenticated') {
-      setLoading(false)
+    if (status === "authenticated" && session?.user) {
+      fetchProfile();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
     }
-  }, [status, session])
+  }, [status, session]);
 
   const fetchProfile = async (isRefresh = false) => {
     if (isRefresh) {
-      setRefreshing(true)
+      setRefreshing(true);
     }
-    
+
     try {
-      const response = await fetch('/api/user/profile')
+      const response = await fetch("/api/user/profile");
       if (response.ok) {
-        const data = await response.json()
-        setProfile(data.profile)
+        const data = await response.json();
+        setProfile(data.profile);
         setFormData({
-          name: data.profile.name || session?.user?.name || '',
-          email: data.profile.email || session?.user?.email || ''
-        })
+          name: data.profile.name || session?.user?.name || "",
+          email: data.profile.email || session?.user?.email || "",
+        });
       } else {
         // Fallback to session data
         setProfile({
-          id: session?.user?.id || 'current-user',
-          name: session?.user?.name || 'User Name',
-          email: session?.user?.email || 'user@example.com',
+          id: session?.user?.id || "current-user",
+          name: session?.user?.name || "User Name",
+          email: session?.user?.email || "user@example.com",
           image: session?.user?.image ?? undefined,
           createdAt: new Date().toISOString(),
-          subscriptionStatus: 'TRIAL',
+          subscriptionStatus: "TRIAL",
           creditsRemaining: 3,
-          totalCreditsUsed: 0
-        })
+          totalCreditsUsed: 0,
+        });
         setFormData({
-          name: session?.user?.name || 'User Name',
-          email: session?.user?.email || 'user@example.com'
-        })
+          name: session?.user?.name || "User Name",
+          email: session?.user?.email || "user@example.com",
+        });
       }
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      console.error("Error fetching profile:", error);
       // Fallback to session data
       setProfile({
-        id: session?.user?.id || 'current-user',
-        name: session?.user?.name || 'User Name',
-        email: session?.user?.email || 'user@example.com',
+        id: session?.user?.id || "current-user",
+        name: session?.user?.name || "User Name",
+        email: session?.user?.email || "user@example.com",
         image: session?.user?.image ?? undefined,
         createdAt: new Date().toISOString(),
-        subscriptionStatus: 'TRIAL',
+        subscriptionStatus: "TRIAL",
         creditsRemaining: 3,
-        totalCreditsUsed: 0
-      })
+        totalCreditsUsed: 0,
+      });
       setFormData({
-        name: session?.user?.name || 'User Name',
-        email: session?.user?.email || 'user@example.com'
-      })
+        name: session?.user?.name || "User Name",
+        email: session?.user?.email || "user@example.com",
+      });
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
   const handleUpdateProfile = async () => {
     try {
-      const response = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
       if (response.ok) {
-        toast.success('Profile updated successfully')
-        setEditing(false)
-        fetchProfile()
+        toast.success("Profile updated successfully");
+        setEditing(false);
+        fetchProfile();
       } else {
-        toast.error('Failed to update profile')
+        toast.error("Failed to update profile");
       }
     } catch (error) {
-      console.error('Error updating profile:', error)
-      toast.error('Failed to update profile')
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
     }
-  }
+  };
 
   // Refresh profile data periodically to show updated credits
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchProfile()
-    }, 5000) // Refresh every 5 seconds
+      fetchProfile();
+    }, 5000); // Refresh every 5 seconds
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearInterval(interval);
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'text-green-400 bg-green-500/20'
-      case 'TRIAL': return 'text-blue-400 bg-blue-500/20'
-      case 'CANCELED': return 'text-yellow-400 bg-yellow-500/20'
-      case 'EXPIRED': return 'text-red-400 bg-red-500/20'
-      case 'PAST_DUE': return 'text-orange-400 bg-orange-500/20'
-      default: return 'text-slate-400 bg-slate-500/20'
+      case "ACTIVE":
+        return "text-green-400 bg-green-500/20";
+      case "TRIAL":
+        return "text-blue-400 bg-blue-500/20";
+      case "CANCELED":
+        return "text-yellow-400 bg-yellow-500/20";
+      case "EXPIRED":
+        return "text-red-400 bg-red-500/20";
+      case "PAST_DUE":
+        return "text-orange-400 bg-orange-500/20";
+      default:
+        return "text-slate-400 bg-slate-500/20";
     }
-  }
+  };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'Active'
-      case 'TRIAL': return 'Free Trial'
-      case 'CANCELED': return 'Canceled'
-      case 'EXPIRED': return 'Expired'
-      case 'PAST_DUE': return 'Past Due'
-      default: return 'Unknown'
+      case "ACTIVE":
+        return "Active";
+      case "TRIAL":
+        return "Free Trial";
+      case "CANCELED":
+        return "Canceled";
+      case "EXPIRED":
+        return "Expired";
+      case "PAST_DUE":
+        return "Past Due";
+      default:
+        return "Unknown";
     }
-  }
+  };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-AU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-AU", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
-  if (status === 'loading' || loading) {
+  if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
-    )
+    );
   }
 
-  if (status === 'unauthenticated') {
+  if (status === "unauthenticated") {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold text-white mb-2">Please log in</h2>
-        <p className="text-slate-400">You need to be logged in to view your profile.</p>
+        <h2 className="text-2xl font-semibold text-white mb-2">
+          Please log in
+        </h2>
+        <p className="text-slate-400">
+          You need to be logged in to view your profile.
+        </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -178,7 +208,9 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Settings & Profile</h1>
-          <p className="text-slate-400">Manage your account settings and subscription</p>
+          <p className="text-slate-400">
+            Manage your account settings and subscription
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -186,11 +218,13 @@ export default function SettingsPage() {
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
           <button
-            onClick={() => window.location.href = '/dashboard/subscription'}
+            onClick={() => (window.location.href = "/dashboard/subscription")}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
           >
             <CreditCard className="w-4 h-4" />
@@ -214,7 +248,7 @@ export default function SettingsPage() {
                 className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
               >
                 <Edit className="w-4 h-4" />
-                {editing ? 'Cancel' : 'Edit'}
+                {editing ? "Cancel" : "Edit"}
               </button>
             </div>
 
@@ -223,56 +257,76 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-xl">
                   {profile?.image ? (
-                    <img 
-                      src={profile.image} 
-                      alt="Profile" 
+                    <img
+                      src={profile.image}
+                      alt="Profile"
                       className="w-16 h-16 rounded-full object-cover"
                     />
                   ) : (
-                    profile?.name?.charAt(0) || session?.user?.name?.charAt(0) || 'U'
+                    profile?.name?.charAt(0) ||
+                    session?.user?.name?.charAt(0) ||
+                    "U"
                   )}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">
-                    {profile?.name || session?.user?.name || 'User Name'}
+                    {profile?.name || session?.user?.name || "User Name"}
                   </h3>
                   <p className="text-slate-400 text-sm">
-                    {profile?.email || session?.user?.email || 'user@example.com'}
+                    {profile?.email ||
+                      session?.user?.email ||
+                      "user@example.com"}
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
+                <label className="block text-sm font-medium mb-2">
+                  Full Name
+                </label>
                 {editing ? (
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.name || session?.user?.name || 'Not provided'}</p>
+                  <p className="text-slate-300">
+                    {profile?.name || session?.user?.name || "Not provided"}
+                  </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Email Address</label>
+                <label className="block text-sm font-medium mb-2">
+                  Email Address
+                </label>
                 {editing ? (
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                   />
                 ) : (
-                  <p className="text-slate-300">{profile?.email || session?.user?.email || 'Not provided'}</p>
+                  <p className="text-slate-300">
+                    {profile?.email || session?.user?.email || "Not provided"}
+                  </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Member Since</label>
-                <p className="text-slate-300">{formatDate(profile?.createdAt) || 'Recently'}</p>
+                <label className="block text-sm font-medium mb-2">
+                  Member Since
+                </label>
+                <p className="text-slate-300">
+                  {formatDate(profile?.createdAt) || "Recently"}
+                </p>
               </div>
 
               {editing && (
@@ -332,8 +386,10 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || 'TRIAL')}`}>
-                  {getStatusText(profile?.subscriptionStatus || 'TRIAL')}
+                <div
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || "TRIAL")}`}
+                >
+                  {getStatusText(profile?.subscriptionStatus || "TRIAL")}
                 </div>
               </div>
 
@@ -346,15 +402,23 @@ export default function SettingsPage() {
 
               {profile?.trialEndsAt && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Trial Ends</label>
-                  <p className="text-slate-300">{formatDate(profile.trialEndsAt)}</p>
+                  <label className="block text-sm font-medium mb-2">
+                    Trial Ends
+                  </label>
+                  <p className="text-slate-300">
+                    {formatDate(profile.trialEndsAt)}
+                  </p>
                 </div>
               )}
 
               {profile?.nextBillingDate && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Next Billing</label>
-                  <p className="text-slate-300">{formatDate(profile.nextBillingDate)}</p>
+                  <label className="block text-sm font-medium mb-2">
+                    Next Billing
+                  </label>
+                  <p className="text-slate-300">
+                    {formatDate(profile.nextBillingDate)}
+                  </p>
                 </div>
               )}
 
@@ -377,7 +441,9 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Remaining</label>
+                <label className="block text-sm font-medium mb-2">
+                  Remaining
+                </label>
                 <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
                   {profile?.creditsRemaining || 0}
@@ -385,17 +451,19 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Used This Month</label>
+                <label className="block text-sm font-medium mb-2">
+                  Used This Month
+                </label>
                 <div className="text-lg text-slate-300">
                   {profile?.totalCreditsUsed || 0}
                 </div>
               </div>
 
               <div className="w-full bg-slate-700 rounded-full h-2">
-                <div 
+                <div
                   className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0))) * 100)}%` 
+                  style={{
+                    width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0))) * 100)}%`,
                   }}
                 ></div>
               </div>
@@ -419,15 +487,17 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Two-Factor Authentication</span>
+                <span className="text-sm text-slate-300">
+                  Two-Factor Authentication
+                </span>
                 <span className="text-xs text-slate-500">Not enabled</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Login Sessions</span>
                 <span className="text-xs text-slate-500">1 active</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Last Login</span>
                 <span className="text-xs text-slate-500">Today</span>
@@ -437,5 +507,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

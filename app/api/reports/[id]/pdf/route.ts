@@ -97,8 +97,10 @@ export async function GET(
 
     const pdfBytes = await generateIICRCReportPDF(reportData as any);
 
-    const filename = `RestoreAssist-${report.reportNumber ?? id}.pdf`
-      .replace(/[^a-zA-Z0-9.\-_]/g, "-");
+    const filename = `RestoreAssist-${report.reportNumber ?? id}.pdf`.replace(
+      /[^a-zA-Z0-9.\-_]/g,
+      "-",
+    );
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,

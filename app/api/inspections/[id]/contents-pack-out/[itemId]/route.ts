@@ -39,7 +39,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
 
-  await (prisma as any).contentsPackOutItem.delete({ where: { id: params.itemId } });
+  await (prisma as any).contentsPackOutItem.delete({
+    where: { id: params.itemId },
+  });
 
   return NextResponse.json({ deleted: true });
 }

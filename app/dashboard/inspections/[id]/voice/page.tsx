@@ -22,7 +22,12 @@ import {
   Circle,
   Volume2,
 } from "lucide-react";
-import type { VoiceSession, VoiceObservation, S500CompletionItem, VoiceCopilotMode } from "@/lib/voice/types";
+import type {
+  VoiceSession,
+  VoiceObservation,
+  S500CompletionItem,
+  VoiceCopilotMode,
+} from "@/lib/voice/types";
 import { cn } from "@/lib/utils";
 
 interface PageProps {
@@ -65,11 +70,14 @@ export default function VoiceSessionPage({ params }: PageProps) {
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/inspections/${inspectionId}/voice/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/voice/session`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode }),
+        },
+      );
       if (!res.ok) throw new Error("Failed to start session");
       const data = await res.json();
       setSession(data.session);
@@ -85,13 +93,19 @@ export default function VoiceSessionPage({ params }: PageProps) {
 
   // ── Web Speech API setup ──
   const startListening = useCallback(() => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      setError("Your browser doesn't support voice input. Try Chrome on Android or Safari on iOS.");
+    if (
+      !("webkitSpeechRecognition" in window) &&
+      !("SpeechRecognition" in window)
+    ) {
+      setError(
+        "Your browser doesn't support voice input. Try Chrome on Android or Safari on iOS.",
+      );
       return;
     }
 
     const w = window as any;
-    const SpeechRecognitionAPI = w.SpeechRecognition || w.webkitSpeechRecognition;
+    const SpeechRecognitionAPI =
+      w.SpeechRecognition || w.webkitSpeechRecognition;
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -128,29 +142,35 @@ export default function VoiceSessionPage({ params }: PageProps) {
   }, []);
 
   // ── Submit observation ──
-  const submitObservation = useCallback(async (sessionId: string, transcript: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/inspections/${inspectionId}/voice/observation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, transcript }),
-      });
-      if (!res.ok) throw new Error("Failed to submit");
-      const data = await res.json();
+  const submitObservation = useCallback(
+    async (sessionId: string, transcript: string) => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/inspections/${inspectionId}/voice/observation`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId, transcript }),
+          },
+        );
+        if (!res.ok) throw new Error("Failed to submit");
+        const data = await res.json();
 
-      setObservations((prev) => [data.observation, ...prev]);
-      setPendingItems(data.updatedMissingItems);
+        setObservations((prev) => [data.observation, ...prev]);
+        setPendingItems(data.updatedMissingItems);
 
-      if (data.confirmationPrompt) {
-        speak(data.confirmationPrompt);
+        if (data.confirmationPrompt) {
+          speak(data.confirmationPrompt);
+        }
+      } catch {
+        speak("Sorry, I didn't catch that. Can you repeat?");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      speak("Sorry, I didn't catch that. Can you repeat?");
-    } finally {
-      setLoading(false);
-    }
-  }, [inspectionId, speak]);
+    },
+    [inspectionId, speak],
+  );
 
   // Scroll to top of observation feed on new entry
   useEffect(() => {
@@ -190,38 +210,45 @@ export default function VoiceSessionPage({ params }: PageProps) {
         /* ── Pre-session: mode selection ── */
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">Voice Copilot</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Voice Copilot
+            </h2>
             <p className="text-white/60 text-sm max-w-xs">
               Captures S500:2025 evidence hands-free while you work on site.
             </p>
           </div>
 
           <div className="w-full max-w-xs space-y-3">
-            <p className="text-xs text-white/40 uppercase tracking-wider text-center">Mode</p>
-            {(["guided", "assisted", "dictation"] as VoiceCopilotMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={cn(
-                  "w-full px-4 py-3 rounded-xl border text-sm text-left transition-colors",
-                  mode === m
-                    ? "border-[#D4A574] bg-[#D4A574]/10 text-white"
-                    : "border-white/10 text-white/60 hover:border-white/30",
-                )}
-              >
-                <span className="font-medium capitalize">{m}</span>
-                <span className="block text-xs mt-0.5 text-white/40">
-                  {m === "guided" && "Step-by-step instructions — for newer techs"}
-                  {m === "assisted" && "Prompts when needed — for experienced techs"}
-                  {m === "dictation" && "Exceptions only — for senior operators"}
-                </span>
-              </button>
-            ))}
+            <p className="text-xs text-white/40 uppercase tracking-wider text-center">
+              Mode
+            </p>
+            {(["guided", "assisted", "dictation"] as VoiceCopilotMode[]).map(
+              (m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-xl border text-sm text-left transition-colors",
+                    mode === m
+                      ? "border-[#D4A574] bg-[#D4A574]/10 text-white"
+                      : "border-white/10 text-white/60 hover:border-white/30",
+                  )}
+                >
+                  <span className="font-medium capitalize">{m}</span>
+                  <span className="block text-xs mt-0.5 text-white/40">
+                    {m === "guided" &&
+                      "Step-by-step instructions — for newer techs"}
+                    {m === "assisted" &&
+                      "Prompts when needed — for experienced techs"}
+                    {m === "dictation" &&
+                      "Exceptions only — for senior operators"}
+                  </span>
+                </button>
+              ),
+            )}
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
           <Button
             onClick={startSession}
@@ -248,18 +275,25 @@ export default function VoiceSessionPage({ params }: PageProps) {
           {criticalMissing.length > 0 && (
             <div className="px-4 py-2 bg-amber-900/30 border-b border-amber-500/20">
               <p className="text-xs text-amber-300">
-                {criticalMissing.length} critical item{criticalMissing.length !== 1 ? "s" : ""} needed before you leave site
+                {criticalMissing.length} critical item
+                {criticalMissing.length !== 1 ? "s" : ""} needed before you
+                leave site
               </p>
             </div>
           )}
 
           {/* Observations feed */}
-          <ScrollArea className="flex-1 px-4" ref={scrollRef as React.RefObject<HTMLDivElement>}>
+          <ScrollArea
+            className="flex-1 px-4"
+            ref={scrollRef as React.RefObject<HTMLDivElement>}
+          >
             <div className="py-4 space-y-2">
               {/* Live interim transcript */}
               {currentTranscript && (
                 <Card className="p-3 bg-white/5 border-white/10">
-                  <p className="text-sm text-white/40 italic">{currentTranscript}…</p>
+                  <p className="text-sm text-white/40 italic">
+                    {currentTranscript}…
+                  </p>
                 </Card>
               )}
 
@@ -273,19 +307,32 @@ export default function VoiceSessionPage({ params }: PageProps) {
                 <Card key={obs.id} className="p-3 bg-white/5 border-white/10">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/90 truncate">{obs.rawTranscript}</p>
-                      {obs.parsed.value !== undefined && obs.parsed.value !== null && (
-                        <p className="text-xs text-[#D4A574] mt-0.5">
-                          {obs.parsed.value}{obs.parsed.unit === "%" ? "%" : ` ${obs.parsed.unit}`}
-                          {obs.parsed.room ? ` — ${obs.parsed.room}` : ""}
-                          {obs.parsed.material ? ` · ${obs.parsed.material}` : ""}
+                      <p className="text-sm text-white/90 truncate">
+                        {obs.rawTranscript}
+                      </p>
+                      {obs.parsed.value !== undefined &&
+                        obs.parsed.value !== null && (
+                          <p className="text-xs text-[#D4A574] mt-0.5">
+                            {obs.parsed.value}
+                            {obs.parsed.unit === "%"
+                              ? "%"
+                              : ` ${obs.parsed.unit}`}
+                            {obs.parsed.room ? ` — ${obs.parsed.room}` : ""}
+                            {obs.parsed.material
+                              ? ` · ${obs.parsed.material}`
+                              : ""}
+                          </p>
+                        )}
+                      {obs.parsed.s500Section && (
+                        <p className="text-xs text-white/30 mt-0.5">
+                          S500:2025 {obs.parsed.s500Section}
                         </p>
                       )}
-                      {obs.parsed.s500Section && (
-                        <p className="text-xs text-white/30 mt-0.5">S500:2025 {obs.parsed.s500Section}</p>
-                      )}
                     </div>
-                    <ConfidenceBadge confidence={obs.confidence} stored={!!obs.storedAt} />
+                    <ConfidenceBadge
+                      confidence={obs.confidence}
+                      stored={!!obs.storedAt}
+                    />
                   </div>
                 </Card>
               ))}
@@ -308,7 +355,9 @@ export default function VoiceSessionPage({ params }: PageProps) {
                   ) : (
                     <Circle className="h-3 w-3" />
                   )}
-                  <span className="max-w-[80px] truncate">{item.label.split(" ")[0]}</span>
+                  <span className="max-w-[80px] truncate">
+                    {item.label.split(" ")[0]}
+                  </span>
                 </div>
               ))}
             </div>
@@ -328,7 +377,9 @@ export default function VoiceSessionPage({ params }: PageProps) {
                   : "bg-[#1C2E47] hover:bg-[#1C2E47]/80",
                 loading && "opacity-50",
               )}
-              aria-label={isListening ? "Recording — release to stop" : "Hold to speak"}
+              aria-label={
+                isListening ? "Recording — release to stop" : "Hold to speak"
+              }
             >
               {isListening ? (
                 <MicOff className="h-8 w-8 text-white" />

@@ -83,7 +83,7 @@ RestoreAssist | restoreassist.com.au
 
 First question: how many S500 reports do you generate per week, and what's your current process for getting them from field to insurer?"
 
-*[Listen. Note their answer — this becomes your hook for the demo.]*
+_[Listen. Note their answer — this becomes your hook for the demo.]_
 
 ---
 
@@ -94,6 +94,7 @@ First question: how many S500 reports do you generate per week, and what's your 
 Open: `/dashboard/reports/[demo-id]`
 
 **What to show:**
+
 - Water classification section — Category and Class auto-populated with S500:2025 §7.1 and §7.2 references
 - Moisture readings table with material-specific readings
 - Equipment log with S500:2025 §14 reference
@@ -110,6 +111,7 @@ Open: `/dashboard/reports/[demo-id]`
 Click: Share with Insurer button → copy link → open in incognito
 
 **What to show:**
+
 - Insurer portal with no login required
 - Classification, moisture readings, equipment, narrative all visible
 - PDF download button
@@ -123,6 +125,7 @@ Click: Share with Insurer button → copy link → open in incognito
 Click: Download PDF
 
 **What to show:**
+
 - 10-section IICRC-compliant PDF
 - Cover page with S500:2025 standard reference
 - Section headings matching the standard
@@ -139,7 +142,7 @@ Click: Download PDF
 2. Is the insurer portal something you'd actually use — or does your current insurer relationship work differently?
 3. We're inviting a small group of IICRC contractors to pilot this at no cost. Would you be interested?"
 
-*[If yes: schedule onboarding call. If not sure: ask what would need to be different.]*
+_[If yes: schedule onboarding call. If not sure: ask what would need to be different.]_
 
 ---
 
@@ -167,11 +170,11 @@ Phill
 
 ## Tracking
 
-| Company | Contact name | Contact made | Demo scheduled | Demo completed | Outcome |
-|---------|-------------|--------------|----------------|----------------|---------|
-| Beyond Clean Group | TBC | ☐ | ☐ | ☐ | — |
-| Elite Restoration Australia | TBC | ☐ | ☐ | ☐ | — |
-| CRSA | TBC | ☐ | ☐ | ☐ | — |
+| Company                     | Contact name | Contact made | Demo scheduled | Demo completed | Outcome |
+| --------------------------- | ------------ | ------------ | -------------- | -------------- | ------- |
+| Beyond Clean Group          | TBC          | ☐            | ☐              | ☐              | —       |
+| Elite Restoration Australia | TBC          | ☐            | ☐              | ☐              | —       |
+| CRSA                        | TBC          | ☐            | ☐              | ☐              | —       |
 
 ---
 
@@ -184,4 +187,4 @@ Phill
 
 ---
 
-*Update the tracking table above as outreach progresses. Feedback notes go in the individual company rows.*
+_Update the tracking table above as outreach progresses. Feedback notes go in the individual company rows._

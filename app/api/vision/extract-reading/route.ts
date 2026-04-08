@@ -64,9 +64,15 @@ export async function POST(request: NextRequest) {
 
     // Runtime mediaType allowlist — TypeScript cast alone doesn't validate at runtime;
     // an attacker can send arbitrary strings that get forwarded to Anthropic's API.
-    const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-    type AllowedMediaType = typeof ALLOWED_MEDIA_TYPES[number];
-    const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(rawMediaType as AllowedMediaType)
+    const ALLOWED_MEDIA_TYPES = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ] as const;
+    type AllowedMediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
+    const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(
+      rawMediaType as AllowedMediaType,
+    )
       ? (rawMediaType as AllowedMediaType)
       : "image/jpeg";
 

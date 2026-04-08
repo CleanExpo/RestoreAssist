@@ -44,7 +44,10 @@ interface Inspection {
     surfaceType: string;
     recordedAt: string;
   }>;
-  classifications: Array<{ waterCategory: number | null; damageClass: number | null }>;
+  classifications: Array<{
+    waterCategory: number | null;
+    damageClass: number | null;
+  }>;
 }
 
 interface ChecklistItem {
@@ -99,7 +102,9 @@ export default function FieldModePage({ params }: PageProps) {
     load();
   }, [inspectionId, readingsSaved]);
 
-  const criticalMissing = checklist.filter((i) => !i.complete && i.priority === 1);
+  const criticalMissing = checklist.filter(
+    (i) => !i.complete && i.priority === 1,
+  );
   const completedCount = checklist.filter((i) => i.complete).length;
   const readyToLeave = criticalMissing.length === 0 && checklist.length > 0;
 
@@ -124,14 +129,23 @@ export default function FieldModePage({ params }: PageProps) {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate">{inspection?.propertyAddress ?? "Loading…"}</p>
-            <p className="text-xs text-white/40">{inspection?.inspectionNumber}</p>
+            <p className="font-semibold text-sm truncate">
+              {inspection?.propertyAddress ?? "Loading…"}
+            </p>
+            <p className="text-xs text-white/40">
+              {inspection?.inspectionNumber}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {readyToLeave ? (
-              <Badge className="bg-green-700 text-white text-xs">Ready to leave</Badge>
+              <Badge className="bg-green-700 text-white text-xs">
+                Ready to leave
+              </Badge>
             ) : (
-              <Badge variant="outline" className="border-amber-500 text-amber-400 text-xs">
+              <Badge
+                variant="outline"
+                className="border-amber-500 text-amber-400 text-xs"
+              >
                 {criticalMissing.length} critical
               </Badge>
             )}
@@ -141,9 +155,21 @@ export default function FieldModePage({ params }: PageProps) {
         {/* Quick action row */}
         <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
           {[
-            { label: "Photos", icon: Camera, href: `/dashboard/inspections/${inspectionId}/photos` },
-            { label: "Voice", icon: Mic, href: `/dashboard/inspections/${inspectionId}/voice` },
-            { label: "Report", icon: FileText, href: `/dashboard/inspections/${inspectionId}` },
+            {
+              label: "Photos",
+              icon: Camera,
+              href: `/dashboard/inspections/${inspectionId}/photos`,
+            },
+            {
+              label: "Voice",
+              icon: Mic,
+              href: `/dashboard/inspections/${inspectionId}/voice`,
+            },
+            {
+              label: "Report",
+              icon: FileText,
+              href: `/dashboard/inspections/${inspectionId}`,
+            },
           ].map((action) => (
             <Link
               key={action.label}
@@ -203,35 +229,52 @@ export default function FieldModePage({ params }: PageProps) {
             />
 
             {/* Recent readings */}
-            {inspection?.moistureReadings && inspection.moistureReadings.length > 0 && (
-              <div>
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Recent readings</p>
-                <div className="space-y-2">
-                  {[...inspection.moistureReadings]
-                    .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())
-                    .slice(0, 10)
-                    .map((r) => (
-                      <div
-                        key={r.id}
-                        className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-white">{r.location}</p>
-                          <p className="text-xs text-white/40">{r.surfaceType}</p>
+            {inspection?.moistureReadings &&
+              inspection.moistureReadings.length > 0 && (
+                <div>
+                  <p className="text-xs text-white/40 uppercase tracking-wider mb-3">
+                    Recent readings
+                  </p>
+                  <div className="space-y-2">
+                    {[...inspection.moistureReadings]
+                      .sort(
+                        (a, b) =>
+                          new Date(b.recordedAt).getTime() -
+                          new Date(a.recordedAt).getTime(),
+                      )
+                      .slice(0, 10)
+                      .map((r) => (
+                        <div
+                          key={r.id}
+                          className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-white">
+                              {r.location}
+                            </p>
+                            <p className="text-xs text-white/40">
+                              {r.surfaceType}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p
+                              className={cn(
+                                "text-lg font-bold tabular-nums",
+                                r.moistureLevel > 25
+                                  ? "text-red-400"
+                                  : r.moistureLevel > 15
+                                    ? "text-amber-400"
+                                    : "text-green-400",
+                              )}
+                            >
+                              {r.moistureLevel}%
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className={cn(
-                            "text-lg font-bold tabular-nums",
-                            r.moistureLevel > 25 ? "text-red-400" : r.moistureLevel > 15 ? "text-amber-400" : "text-green-400",
-                          )}>
-                            {r.moistureLevel}%
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
 
@@ -239,7 +282,9 @@ export default function FieldModePage({ params }: PageProps) {
           <div id="checklist" className="space-y-3">
             {checklist.length === 0 ? (
               <div className="text-center py-12 text-white/30">
-                <p className="text-sm">Start an inspection to see the S500:2025 checklist</p>
+                <p className="text-sm">
+                  Start an inspection to see the S500:2025 checklist
+                </p>
               </div>
             ) : (
               <>
@@ -247,12 +292,16 @@ export default function FieldModePage({ params }: PageProps) {
                 <div className="bg-white/5 rounded-xl p-4 mb-4">
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-white/60">S500:2025 completion</span>
-                    <span className="font-medium">{completedCount}/{checklist.length}</span>
+                    <span className="font-medium">
+                      {completedCount}/{checklist.length}
+                    </span>
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[#D4A574] rounded-full transition-all"
-                      style={{ width: `${(completedCount / checklist.length) * 100}%` }}
+                      style={{
+                        width: `${(completedCount / checklist.length) * 100}%`,
+                      }}
                     />
                   </div>
                   {readyToLeave && (
@@ -264,12 +313,18 @@ export default function FieldModePage({ params }: PageProps) {
 
                 {/* Priority 1 items first */}
                 {[1, 2, 3].map((priority) => {
-                  const items = checklist.filter((i) => i.priority === priority);
+                  const items = checklist.filter(
+                    (i) => i.priority === priority,
+                  );
                   if (!items.length) return null;
                   return (
                     <div key={priority}>
                       <p className="text-xs text-white/30 uppercase tracking-wider mb-2 mt-4">
-                        {priority === 1 ? "Must complete before leaving" : priority === 2 ? "Should complete" : "Nice to have"}
+                        {priority === 1
+                          ? "Must complete before leaving"
+                          : priority === 2
+                            ? "Should complete"
+                            : "Nice to have"}
                       </p>
                       <div className="space-y-2">
                         {items.map((item) => (
@@ -277,7 +332,11 @@ export default function FieldModePage({ params }: PageProps) {
                             key={item.id}
                             className={cn(
                               "flex items-start gap-3 rounded-xl px-4 py-3",
-                              item.complete ? "bg-green-900/20" : priority === 1 ? "bg-amber-900/20" : "bg-white/5",
+                              item.complete
+                                ? "bg-green-900/20"
+                                : priority === 1
+                                  ? "bg-amber-900/20"
+                                  : "bg-white/5",
                             )}
                           >
                             <div className="mt-0.5 shrink-0">
@@ -290,13 +349,19 @@ export default function FieldModePage({ params }: PageProps) {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={cn(
-                                "text-sm",
-                                item.complete ? "text-white/50 line-through" : "text-white",
-                              )}>
+                              <p
+                                className={cn(
+                                  "text-sm",
+                                  item.complete
+                                    ? "text-white/50 line-through"
+                                    : "text-white",
+                                )}
+                              >
                                 {item.label}
                               </p>
-                              <p className="text-xs text-white/30 mt-0.5">S500:2025 {item.s500Section}</p>
+                              <p className="text-xs text-white/30 mt-0.5">
+                                S500:2025 {item.s500Section}
+                              </p>
                             </div>
                           </div>
                         ))}

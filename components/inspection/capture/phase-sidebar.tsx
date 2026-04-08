@@ -26,7 +26,10 @@ interface PhaseSidebarProps {
 }
 
 function getPhaseRequiredCount(phase: WorkflowPhase): number {
-  return phase.evidenceRules.reduce((sum: number, r: PhaseEvidenceRule) => sum + r.minCount, 0);
+  return phase.evidenceRules.reduce(
+    (sum: number, r: PhaseEvidenceRule) => sum + r.minCount,
+    0,
+  );
 }
 
 function getPhaseCapturedCount(

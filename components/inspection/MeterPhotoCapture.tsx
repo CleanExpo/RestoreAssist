@@ -730,7 +730,11 @@ export function MeterPhotoCapture({
           <button
             onClick={analyse}
             disabled={analysing}
-            aria-label={analysing ? "Reading meter with AI…" : "Analyse meter photo with AI"}
+            aria-label={
+              analysing
+                ? "Reading meter with AI…"
+                : "Analyse meter photo with AI"
+            }
             className="w-full min-h-[44px] py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             {analysing ? (

@@ -413,14 +413,16 @@ export default function MonthlyVolumeChart({
                 borderRadius: "8px",
                 color: "#111827",
               }}
-              formatter={((value: any, name: string) => {
-                if (name === "reports") return [value, "Reports"];
-                if (name === "revenue")
-                  return [`$${value.toLocaleString()}`, "Revenue"];
-                if (name === "completed") return [value, "Completed"];
-                if (name === "pending") return [value, "Pending"];
-                return [value, name];
-              }) as any}
+              formatter={
+                ((value: any, name: string) => {
+                  if (name === "reports") return [value, "Reports"];
+                  if (name === "revenue")
+                    return [`$${value.toLocaleString()}`, "Revenue"];
+                  if (name === "completed") return [value, "Completed"];
+                  if (name === "pending") return [value, "Pending"];
+                  return [value, name];
+                }) as any
+              }
             />
             <Legend />
             {viewMode === "reports" ? (

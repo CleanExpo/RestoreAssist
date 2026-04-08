@@ -7,12 +7,18 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
-  return (sub.items.data[0] as any)?.current_period_end ??
-    (sub as any).current_period_end ?? 0
+  return (
+    (sub.items.data[0] as any)?.current_period_end ??
+    (sub as any).current_period_end ??
+    0
+  );
 }
 function subPeriodStart(sub: import("stripe").Stripe.Subscription): number {
-  return (sub.items.data[0] as any)?.current_period_start ??
-    (sub as any).current_period_start ?? 0
+  return (
+    (sub.items.data[0] as any)?.current_period_start ??
+    (sub as any).current_period_start ??
+    0
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -155,15 +161,9 @@ export async function POST(request: NextRequest) {
           subscriptionPlan: subscriptionPlan,
           stripeCustomerId: customerId,
           subscriptionId: activeSubscription.id,
-          subscriptionEndsAt: new Date(
-            subPeriodEnd(activeSubscription) * 1000,
-          ),
-          nextBillingDate: new Date(
-            subPeriodEnd(activeSubscription) * 1000,
-          ),
-          lastBillingDate: new Date(
-            subPeriodStart(activeSubscription) * 1000,
-          ),
+          subscriptionEndsAt: new Date(subPeriodEnd(activeSubscription) * 1000),
+          nextBillingDate: new Date(subPeriodEnd(activeSubscription) * 1000),
+          lastBillingDate: new Date(subPeriodStart(activeSubscription) * 1000),
           monthlyReportsUsed: 0,
           monthlyResetDate: nextReset,
           // Don't set creditsRemaining for active subscriptions - they use monthly limits

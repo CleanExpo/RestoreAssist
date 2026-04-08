@@ -1,71 +1,90 @@
-"use client"
+"use client";
 
-import { useState, useMemo, useEffect } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Search, Filter, Download, Eye, Edit, MoreVertical, ChevronLeft, ChevronRight, Copy, Trash2, CheckSquare, Square, X, GitBranch, RefreshCw } from "lucide-react"
-import toast from "react-hot-toast"
-import { EvaluatorScoreBadge, PhaseProgressBar } from "@/components/SessionMetadataCard"
-import type { ReportWithSessionData } from "@/lib/session-types"
+import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Search,
+  Filter,
+  Download,
+  Eye,
+  Edit,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Trash2,
+  CheckSquare,
+  Square,
+  X,
+  GitBranch,
+  RefreshCw,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  EvaluatorScoreBadge,
+  PhaseProgressBar,
+} from "@/components/SessionMetadataCard";
+import type { ReportWithSessionData } from "@/lib/session-types";
 
 export default function ReportsPage() {
-  const router = useRouter()
-  const [filterOpen, setFilterOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [reports, setReports] = useState<ReportWithSessionData[]>([])
-  const [duplicating, setDuplicating] = useState<string | null>(null)
-  const [downloading, setDownloading] = useState<string | null>(null)
-  const [selectedReports, setSelectedReports] = useState<string[]>([])
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const router = useRouter();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [reports, setReports] = useState<ReportWithSessionData[]>([]);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [selectedReports, setSelectedReports] = useState<string[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [filters, setFilters] = useState({
     status: "all",
     hazard: "all",
     insurance: "all",
     dateFrom: "",
     dateTo: "",
-  })
+  });
 
-  const itemsPerPage = 10
+  const itemsPerPage = 10;
 
   // Duplicate report function
   const duplicateReport = async (reportId: string) => {
     try {
-      setDuplicating(reportId)
+      setDuplicating(reportId);
       const response = await fetch(`/api/reports/${reportId}/duplicate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-      })
-      
+      });
+
       if (response.ok) {
-        const newReport = await response.json()
+        const newReport = await response.json();
         toast.success("Report duplicated successfully!", {
           duration: 4000,
           style: {
-            background: '#1e293b',
-            color: '#10b981',
-            border: '1px solid #059669'
-          }
-        })
+            background: "#1e293b",
+            color: "#10b981",
+            border: "1px solid #059669",
+          },
+        });
         // Refresh the reports list
         const fetchReports = async () => {
           try {
-            const response = await fetch('/api/reports')
+            const response = await fetch("/api/reports");
             if (response.ok) {
-              const data = await response.json()
-              setReports(data.reports || [])
+              const data = await response.json();
+              setReports(data.reports || []);
             }
           } catch (error) {
-            console.error('Error fetching reports:', error)
+            console.error("Error fetching reports:", error);
           }
-        }
-        fetchReports()
+        };
+        fetchReports();
       } else {
-        const errorData = await response.json()
-        
+        const errorData = await response.json();
+
         // Handle credit-related errors
         if (response.status === 402 && errorData.upgradeRequired) {
           toast.error(
@@ -73,138 +92,150 @@ export default function ReportsPage() {
             {
               duration: 6000,
               style: {
-                background: '#1e293b',
-                color: '#f87171',
-                border: '1px solid #dc2626'
-              }
-            }
-          )
+                background: "#1e293b",
+                color: "#f87171",
+                border: "1px solid #dc2626",
+              },
+            },
+          );
           // Redirect to pricing page
           setTimeout(() => {
-            router.push("/dashboard/pricing")
-          }, 2000)
-          return
+            router.push("/dashboard/pricing");
+          }, 2000);
+          return;
         }
-        
+
         // Handle other errors
-        toast.error(errorData.error || "Failed to duplicate report. Please try again.")
+        toast.error(
+          errorData.error || "Failed to duplicate report. Please try again.",
+        );
       }
     } catch (error) {
-      console.error('Error duplicating report:', error)
-      toast.error("Failed to duplicate report. Please try again.")
+      console.error("Error duplicating report:", error);
+      toast.error("Failed to duplicate report. Please try again.");
     } finally {
-      setDuplicating(null)
+      setDuplicating(null);
     }
-  }
+  };
 
   // Download report function
   const downloadReport = async (reportId: string) => {
     try {
-      setDownloading(reportId)
-      const response = await fetch(`/api/reports/${reportId}/download`)
-      
+      setDownloading(reportId);
+      const response = await fetch(`/api/reports/${reportId}/download`);
+
       if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `water-damage-report-${reportId}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `water-damage-report-${reportId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
       } else {
-        console.error('Failed to download report')
+        console.error("Failed to download report");
       }
     } catch (error) {
-      console.error('Error downloading report:', error)
+      console.error("Error downloading report:", error);
     } finally {
-      setDownloading(null)
+      setDownloading(null);
     }
-  }
+  };
 
   // Bulk delete functions
   const handleBulkDelete = async () => {
-    if (selectedReports.length === 0) return
+    if (selectedReports.length === 0) return;
 
     try {
-      const response = await fetch('/api/reports/bulk-delete', {
-        method: 'DELETE',
+      const response = await fetch("/api/reports/bulk-delete", {
+        method: "DELETE",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ids: selectedReports })
-      })
+        body: JSON.stringify({ ids: selectedReports }),
+      });
 
       if (response.ok) {
-        setReports(reports.filter(r => !selectedReports.includes(r.id)))
-        setSelectedReports([])
-        setShowBulkDeleteModal(false)
+        setReports(reports.filter((r) => !selectedReports.includes(r.id)));
+        setSelectedReports([]);
+        setShowBulkDeleteModal(false);
         // Show success message
-        console.log(`${selectedReports.length} reports deleted successfully`)
+        console.log(`${selectedReports.length} reports deleted successfully`);
       } else {
-        console.error('Failed to delete reports')
+        console.error("Failed to delete reports");
       }
     } catch (error) {
-      console.error('Error deleting reports:', error)
+      console.error("Error deleting reports:", error);
     }
-  }
+  };
 
   const toggleReportSelection = (reportId: string) => {
-    setSelectedReports(prev => 
-      prev.includes(reportId) 
-        ? prev.filter(id => id !== reportId)
-        : [...prev, reportId]
-    )
-  }
+    setSelectedReports((prev) =>
+      prev.includes(reportId)
+        ? prev.filter((id) => id !== reportId)
+        : [...prev, reportId],
+    );
+  };
 
   const selectAllReports = () => {
-    setSelectedReports(paginatedReports.map(r => r.id))
-  }
+    setSelectedReports(paginatedReports.map((r) => r.id));
+  };
 
   const clearSelection = () => {
-    setSelectedReports([])
-  }
+    setSelectedReports([]);
+  };
 
   // Fetch reports from API
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        setLoading(true)
-        const response = await fetch('/api/reports')
+        setLoading(true);
+        const response = await fetch("/api/reports");
         if (response.ok) {
-          const data = await response.json()
-          setReports(data.reports || [])
+          const data = await response.json();
+          setReports(data.reports || []);
         } else {
-          console.error('Failed to fetch reports')
+          console.error("Failed to fetch reports");
         }
       } catch (error) {
-        console.error('Error fetching reports:', error)
+        console.error("Error fetching reports:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchReports()
-  }, [])
+    fetchReports();
+  }, []);
 
   const filteredReports = useMemo(() => {
     return reports.filter((report) => {
       const matchesSearch =
         report.reportNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         report.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.propertyAddress?.toLowerCase().includes(searchTerm.toLowerCase())
+        report.propertyAddress
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase());
 
-      const matchesStatus = filters.status === "all" || report.status === filters.status
-      const matchesHazard = filters.hazard === "all" || report.waterCategory === filters.hazard
-      const matchesInsurance = filters.insurance === "all" || report.policyType === filters.insurance
+      const matchesStatus =
+        filters.status === "all" || report.status === filters.status;
+      const matchesHazard =
+        filters.hazard === "all" || report.waterCategory === filters.hazard;
+      const matchesInsurance =
+        filters.insurance === "all" || report.policyType === filters.insurance;
 
-      return matchesSearch && matchesStatus && matchesHazard && matchesInsurance
-    })
-  }, [reports, searchTerm, filters])
+      return (
+        matchesSearch && matchesStatus && matchesHazard && matchesInsurance
+      );
+    });
+  }, [reports, searchTerm, filters]);
 
-  const totalPages = Math.ceil(filteredReports.length / itemsPerPage)
-  const paginatedReports = filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const paginatedReports = filteredReports.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   const statusColors = {
     COMPLETED: "bg-emerald-500/20 text-emerald-400",
@@ -213,43 +244,47 @@ export default function ReportsPage() {
     "In Progress": "bg-blue-500/20 text-blue-400",
     DRAFT: "bg-slate-500/20 text-slate-400",
     ARCHIVED: "bg-gray-500/20 text-gray-400",
-  }
+  };
 
   const hazardIcons = {
     "Category 1": "💧",
     "Category 2": "🔥",
     "Category 3": "☣️",
-    "Fire": "🔥",
-    "Storm": "⛈️",
-    "Mould": "🍄",
-    "Flood": "🌊",
-    "Biohazard": "☣️",
-    "Impact": "💥",
-  }
+    Fire: "🔥",
+    Storm: "⛈️",
+    Mould: "🍄",
+    Flood: "🌊",
+    Biohazard: "☣️",
+    Impact: "💥",
+  };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A"
-    const date = new Date(dateString)
-    return date.toLocaleDateString()
-  }
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  };
 
   const formatCost = (cost: number | string | null | undefined) => {
-    if (cost == null || cost === "") return "N/A"
-    return typeof cost === 'number' ? `$${cost.toLocaleString()}` : cost
-  }
+    if (cost == null || cost === "") return "N/A";
+    return typeof cost === "number" ? `$${cost.toLocaleString()}` : cost;
+  };
 
   return (
-    <div >
+    <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Reports</h1>
-          <p className="text-slate-400">Manage and view all restoration reports</p>
+          <p className="text-slate-400">
+            Manage and view all restoration reports
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {selectedReports.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">{selectedReports.length} selected</span>
+              <span className="text-sm text-slate-400">
+                {selectedReports.length} selected
+              </span>
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
@@ -277,14 +312,17 @@ export default function ReportsPage() {
       {/* Filters & Search */}
       <div className="flex gap-4 items-center mb-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+          <Search
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+            size={18}
+          />
           <input
             type="text"
             placeholder="Search by ID, client, address..."
             value={searchTerm}
             onChange={(e) => {
-              setSearchTerm(e.target.value)
-              setCurrentPage(1)
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
             }}
             className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
           />
@@ -295,10 +333,10 @@ export default function ReportsPage() {
         >
           <Filter size={20} />
         </button>
-        <button 
+        <button
           onClick={() => {
             // Download all reports as a batch (you can implement this later)
-            console.log('Batch download not implemented yet')
+            console.log("Batch download not implemented yet");
           }}
           className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
           title="Download All Reports"
@@ -316,8 +354,8 @@ export default function ReportsPage() {
               <select
                 value={filters.status}
                 onChange={(e) => {
-                  setFilters({ ...filters, status: e.target.value })
-                  setCurrentPage(1)
+                  setFilters({ ...filters, status: e.target.value });
+                  setCurrentPage(1);
                 }}
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               >
@@ -330,12 +368,14 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Water Category</label>
+              <label className="block text-sm font-medium mb-2">
+                Water Category
+              </label>
               <select
                 value={filters.hazard}
                 onChange={(e) => {
-                  setFilters({ ...filters, hazard: e.target.value })
-                  setCurrentPage(1)
+                  setFilters({ ...filters, hazard: e.target.value });
+                  setCurrentPage(1);
                 }}
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               >
@@ -346,12 +386,14 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Insurance Type</label>
+              <label className="block text-sm font-medium mb-2">
+                Insurance Type
+              </label>
               <select
                 value={filters.insurance}
                 onChange={(e) => {
-                  setFilters({ ...filters, insurance: e.target.value })
-                  setCurrentPage(1)
+                  setFilters({ ...filters, insurance: e.target.value });
+                  setCurrentPage(1);
                 }}
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               >
@@ -364,11 +406,15 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">From Date</label>
+              <label className="block text-sm font-medium mb-2">
+                From Date
+              </label>
               <input
                 type="date"
                 value={filters.dateFrom}
-                onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, dateFrom: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               />
             </div>
@@ -377,7 +423,9 @@ export default function ReportsPage() {
               <input
                 type="date"
                 value={filters.dateTo}
-                onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, dateTo: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               />
             </div>
@@ -388,8 +436,14 @@ export default function ReportsPage() {
             </button>
             <button
               onClick={() => {
-                setFilters({ status: "all", hazard: "all", insurance: "all", dateFrom: "", dateTo: "" })
-                setCurrentPage(1)
+                setFilters({
+                  status: "all",
+                  hazard: "all",
+                  insurance: "all",
+                  dateFrom: "",
+                  dateTo: "",
+                });
+                setCurrentPage(1);
               }}
               className="px-4 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-800"
             >
@@ -413,7 +467,11 @@ export default function ReportsPage() {
                 <tr className="border-b border-slate-700 bg-slate-900/50">
                   <th className="text-left py-4 px-6 text-slate-400 font-medium">
                     <button
-                      onClick={selectedReports.length === paginatedReports.length ? clearSelection : selectAllReports}
+                      onClick={
+                        selectedReports.length === paginatedReports.length
+                          ? clearSelection
+                          : selectAllReports
+                      }
                       className="flex items-center gap-2 hover:text-white transition-colors"
                     >
                       {selectedReports.length === paginatedReports.length ? (
@@ -424,28 +482,60 @@ export default function ReportsPage() {
                       Select All
                     </button>
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Report ID</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Client</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Property</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Category</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Insurance</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Status</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Cost</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Session</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Date</th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Report ID
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Client
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Property
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Category
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Insurance
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Status
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Cost
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Session
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Date
+                  </th>
+                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 text-center text-slate-400">
-                      No reports found. <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">Create your first report</Link>
+                    <td
+                      colSpan={11}
+                      className="py-8 text-center text-slate-400"
+                    >
+                      No reports found.{" "}
+                      <Link
+                        href="/dashboard/reports/new"
+                        className="text-cyan-400 hover:underline"
+                      >
+                        Create your first report
+                      </Link>
                     </td>
                   </tr>
                 ) : (
                   paginatedReports.map((report, i) => (
-                    <tr key={report.id || i} className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                    <tr
+                      key={report.id || i}
+                      className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
+                    >
                       <td className="py-4 px-6">
                         <button
                           onClick={() => toggleReportSelection(report.id)}
@@ -459,19 +549,32 @@ export default function ReportsPage() {
                         </button>
                       </td>
                       <td className="py-4 px-6 font-medium text-cyan-400">
-                        <Link href={`/dashboard/reports/${report.id}`} className="hover:underline">
+                        <Link
+                          href={`/dashboard/reports/${report.id}`}
+                          className="hover:underline"
+                        >
                           {report.reportNumber || report.id}
                         </Link>
                       </td>
-                      <td className="py-4 px-6">{report.clientName || "N/A"}</td>
-                      <td className="py-4 px-6 text-slate-400 text-xs">{report.propertyAddress || "N/A"}</td>
+                      <td className="py-4 px-6">
+                        {report.clientName || "N/A"}
+                      </td>
+                      <td className="py-4 px-6 text-slate-400 text-xs">
+                        {report.propertyAddress || "N/A"}
+                      </td>
                       <td className="py-4 px-6">
                         <span className="flex items-center gap-2">
-                          <span>{hazardIcons[report.waterCategory as keyof typeof hazardIcons] || "💧"}</span>
+                          <span>
+                            {hazardIcons[
+                              report.waterCategory as keyof typeof hazardIcons
+                            ] || "💧"}
+                          </span>
                           {report.waterCategory || "N/A"}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-xs">{report.policyType || "N/A"}</td>
+                      <td className="py-4 px-6 text-xs">
+                        {report.policyType || "N/A"}
+                      </td>
                       <td className="py-4 px-6">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
@@ -479,7 +582,9 @@ export default function ReportsPage() {
                           {report.status || "COMPLETED"}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-medium">{formatCost(report.estimatedCost)}</td>
+                      <td className="py-4 px-6 font-medium">
+                        {formatCost(report.estimatedCost)}
+                      </td>
                       <td className="py-4 px-6">
                         <div className="flex flex-col gap-1 min-w-[130px]">
                           {/* Phase progress mini-bar */}
@@ -491,19 +596,27 @@ export default function ReportsPage() {
                                     key={p.phase}
                                     title={p.label}
                                     className={`flex-1 h-1.5 rounded-sm ${
-                                      p.completed ? 'bg-cyan-500' : 'bg-slate-700'
+                                      p.completed
+                                        ? "bg-cyan-500"
+                                        : "bg-slate-700"
                                     }`}
                                   />
                                 ))}
                               </div>
                               <span className="text-xs text-slate-400 flex-shrink-0">
-                                {report.phases.filter((p) => p.completed).length}/{report.phases.length}
+                                {
+                                  report.phases.filter((p) => p.completed)
+                                    .length
+                                }
+                                /{report.phases.length}
                               </span>
                             </div>
                           )}
                           {/* Evaluator score badge */}
                           {report.evaluatorScores != null && (
-                            <EvaluatorScoreBadge scores={report.evaluatorScores} />
+                            <EvaluatorScoreBadge
+                              scores={report.evaluatorScores}
+                            />
                           )}
                           {/* Fan-out count + retry count */}
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -522,7 +635,9 @@ export default function ReportsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-slate-400">{formatDate(report.createdAt)}</td>
+                      <td className="py-4 px-6 text-slate-400">
+                        {formatDate(report.createdAt)}
+                      </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
                           <Link
@@ -539,7 +654,7 @@ export default function ReportsPage() {
                           >
                             <Edit size={16} />
                           </Link>
-                          <button 
+                          <button
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}
                             className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
@@ -580,8 +695,9 @@ export default function ReportsPage() {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-slate-400 text-sm">
-          Showing {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}{" "}
-          of {filteredReports.length} reports
+          Showing {(currentPage - 1) * itemsPerPage + 1}-
+          {Math.min(currentPage * itemsPerPage, filteredReports.length)} of{" "}
+          {filteredReports.length} reports
         </p>
         <div className="flex gap-2">
           <button
@@ -593,7 +709,7 @@ export default function ReportsPage() {
             Previous
           </button>
           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-            const pageNum = i + 1
+            const pageNum = i + 1;
             return (
               <button
                 key={pageNum}
@@ -606,11 +722,13 @@ export default function ReportsPage() {
               >
                 {pageNum}
               </button>
-            )
+            );
           })}
           {totalPages > 5 && <span className="px-3 py-2">...</span>}
           <button
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            onClick={() =>
+              setCurrentPage(Math.min(totalPages, currentPage + 1))
+            }
             disabled={currentPage === totalPages}
             className="px-3 py-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center gap-1"
           >
@@ -625,19 +743,28 @@ export default function ReportsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-red-400">Delete Selected Reports</h2>
-              <button onClick={() => setShowBulkDeleteModal(false)} className="p-1 hover:bg-slate-700 rounded">
+              <h2 className="text-xl font-semibold text-red-400">
+                Delete Selected Reports
+              </h2>
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="p-1 hover:bg-slate-700 rounded"
+              >
                 <X size={20} />
               </button>
             </div>
             <div className="space-y-4">
               <p className="text-slate-300">
-                Are you sure you want to delete <span className="font-medium text-white">{selectedReports.length}</span> selected report(s)? 
-                This action cannot be undone.
+                Are you sure you want to delete{" "}
+                <span className="font-medium text-white">
+                  {selectedReports.length}
+                </span>{" "}
+                selected report(s)? This action cannot be undone.
               </p>
               <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
                 <p className="text-amber-300 text-sm">
-                  ⚠️ This will permanently delete all selected reports and their associated data.
+                  ⚠️ This will permanently delete all selected reports and their
+                  associated data.
                 </p>
               </div>
               <div className="flex gap-3 pt-4">
@@ -659,5 +786,5 @@ export default function ReportsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

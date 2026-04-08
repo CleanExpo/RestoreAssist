@@ -12,19 +12,40 @@
 import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Camera, Upload, AlertTriangle, ChevronDown,
-  ChevronUp, X, Save, Loader2, Filter, Image as ImageIcon,
+  ArrowLeft,
+  Camera,
+  Upload,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  X,
+  Save,
+  Loader2,
+  Filter,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  DamageCategory, DamageClass, RoomType, MoistureSource,
-  AffectedMaterial, SurfaceOrientation, DamageExtentEstimate,
-  SecondaryDamageIndicator, PhotoStage, CaptureAngle, LabelledBy,
+  DamageCategory,
+  DamageClass,
+  RoomType,
+  MoistureSource,
+  AffectedMaterial,
+  SurfaceOrientation,
+  DamageExtentEstimate,
+  SecondaryDamageIndicator,
+  PhotoStage,
+  CaptureAngle,
+  LabelledBy,
   InspectionPhotoLabelPatch,
 } from "@/types/inspection-photo-labels";
 
@@ -91,7 +112,10 @@ const PHOTO_STAGE_LABELS: Record<PhotoStage, string> = {
   REINSTATEMENT: "Reinstatement",
 };
 const DAMAGE_CLASS_LABELS: Record<DamageClass, string> = {
-  CLASS_1: "Class 1", CLASS_2: "Class 2", CLASS_3: "Class 3", CLASS_4: "Class 4",
+  CLASS_1: "Class 1",
+  CLASS_2: "Class 2",
+  CLASS_3: "Class 3",
+  CLASS_4: "Class 4",
 };
 
 // ---------------------------------------------------------------------------
@@ -110,9 +134,9 @@ function AsbestosStopWorkBanner({ count }: { count: number }) {
             STOP WORK — Possible Asbestos-Containing Material
           </p>
           <p className="mt-1 text-sm text-red-400">
-            {count} photo{count > 1 ? "s" : ""} flagged with possible asbestos (ACM).
-            Do not proceed with demolition or disturbance. Contact a licensed asbestos
-            assessor. Refer to Safe Work Australia guidance.
+            {count} photo{count > 1 ? "s" : ""} flagged with possible asbestos
+            (ACM). Do not proceed with demolition or disturbance. Contact a
+            licensed asbestos assessor. Refer to Safe Work Australia guidance.
           </p>
         </div>
       </div>
@@ -121,13 +145,21 @@ function AsbestosStopWorkBanner({ count }: { count: number }) {
 }
 
 /** Label chip — small coloured pill for a label value */
-function LabelChip({ label, className }: { label: string; className?: string }) {
+function LabelChip({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
   return (
-    <span className={cn(
-      "inline-block rounded-full border px-2 py-0.5 text-xs font-medium",
-      "border-neutral-700 bg-neutral-800 text-neutral-300",
-      className,
-    )}>
+    <span
+      className={cn(
+        "inline-block rounded-full border px-2 py-0.5 text-xs font-medium",
+        "border-neutral-700 bg-neutral-800 text-neutral-300",
+        className,
+      )}
+    >
       {label}
     </span>
   );
@@ -135,9 +167,12 @@ function LabelChip({ label, className }: { label: string; className?: string }) 
 
 /** Filter bar for the photo grid */
 function FilterBar({
-  damageCategory, setDamageCategory,
-  roomType, setRoomType,
-  photoStage, setPhotoStage,
+  damageCategory,
+  setDamageCategory,
+  roomType,
+  setRoomType,
+  photoStage,
+  setPhotoStage,
   onClear,
 }: {
   damageCategory: string;
@@ -148,7 +183,8 @@ function FilterBar({
   setPhotoStage: (v: string) => void;
   onClear: () => void;
 }) {
-  const hasFilter = damageCategory !== "all" || roomType !== "all" || photoStage !== "all";
+  const hasFilter =
+    damageCategory !== "all" || roomType !== "all" || photoStage !== "all";
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
       <Filter className="h-4 w-4 text-neutral-500" />
@@ -169,11 +205,30 @@ function FilterBar({
         </SelectTrigger>
         <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
           <SelectItem value="all">All rooms</SelectItem>
-          {(["KITCHEN","BATHROOM","LAUNDRY","TOILET","BEDROOM","LIVING","DINING",
-             "HALLWAY","GARAGE","ROOF_SPACE","SUBFLOOR","BASEMENT",
-             "COMMERCIAL_OFFICE","COMMERCIAL_WAREHOUSE","COMMON_AREA","EXTERNAL","OTHER",
-          ] as RoomType[]).map((r) => (
-            <SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>
+          {(
+            [
+              "KITCHEN",
+              "BATHROOM",
+              "LAUNDRY",
+              "TOILET",
+              "BEDROOM",
+              "LIVING",
+              "DINING",
+              "HALLWAY",
+              "GARAGE",
+              "ROOF_SPACE",
+              "SUBFLOOR",
+              "BASEMENT",
+              "COMMERCIAL_OFFICE",
+              "COMMERCIAL_WAREHOUSE",
+              "COMMON_AREA",
+              "EXTERNAL",
+              "OTHER",
+            ] as RoomType[]
+          ).map((r) => (
+            <SelectItem key={r} value={r}>
+              {r.replace(/_/g, " ")}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -183,13 +238,20 @@ function FilterBar({
         </SelectTrigger>
         <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
           <SelectItem value="all">All stages</SelectItem>
-          {(Object.entries(PHOTO_STAGE_LABELS) as [PhotoStage, string][]).map(([v, l]) => (
-            <SelectItem key={v} value={v}>{l}</SelectItem>
-          ))}
+          {(Object.entries(PHOTO_STAGE_LABELS) as [PhotoStage, string][]).map(
+            ([v, l]) => (
+              <SelectItem key={v} value={v}>
+                {l}
+              </SelectItem>
+            ),
+          )}
         </SelectContent>
       </Select>
       {hasFilter && (
-        <button onClick={onClear} className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white">
+        <button
+          onClick={onClear}
+          className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white"
+        >
           <X className="h-3 w-3" /> Clear
         </button>
       )}
@@ -199,7 +261,8 @@ function FilterBar({
 
 /** Photo card in the grid */
 function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
-  const hasAsbestos = photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT");
+  const hasAsbestos =
+    photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT");
   return (
     <button
       onClick={onClick}
@@ -225,10 +288,12 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
       {/* Category badge overlay */}
       <div className="absolute bottom-0 left-0 right-0 flex flex-wrap gap-1 bg-black/60 p-1.5">
         {photo.damageCategory && (
-          <span className={cn(
-            "rounded px-1.5 py-0.5 text-[10px] font-semibold",
-            DAMAGE_CATEGORY_COLORS[photo.damageCategory],
-          )}>
+          <span
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-semibold",
+              DAMAGE_CATEGORY_COLORS[photo.damageCategory],
+            )}
+          >
             {photo.damageCategory}
           </span>
         )}
@@ -249,7 +314,10 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
 
 /** Full-view photo panel with label display and edit form */
 function PhotoPanel({
-  photo, inspectionId, onClose, onUpdate,
+  photo,
+  inspectionId,
+  onClose,
+  onUpdate,
 }: {
   photo: Photo;
   inspectionId: string;
@@ -262,24 +330,25 @@ function PhotoPanel({
   const [patch, setPatch] = useState<InspectionPhotoLabelPatch>({});
   const [asbestosWarning, setAsbestosWarning] = useState(false);
 
-  const hasAsbestos = photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT");
+  const hasAsbestos =
+    photo.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT");
 
   function startEdit() {
     setPatch({
-      damageCategory:            photo.damageCategory ?? undefined,
-      damageClass:               photo.damageClass ?? undefined,
-      s500SectionRef:            photo.s500SectionRef ?? undefined,
-      roomType:                  photo.roomType ?? undefined,
-      moistureSource:            photo.moistureSource ?? undefined,
-      affectedMaterial:          photo.affectedMaterial,
-      surfaceOrientation:        photo.surfaceOrientation ?? undefined,
-      damageExtentEstimate:      photo.damageExtentEstimate ?? undefined,
-      equipmentVisible:          photo.equipmentVisible,
+      damageCategory: photo.damageCategory ?? undefined,
+      damageClass: photo.damageClass ?? undefined,
+      s500SectionRef: photo.s500SectionRef ?? undefined,
+      roomType: photo.roomType ?? undefined,
+      moistureSource: photo.moistureSource ?? undefined,
+      affectedMaterial: photo.affectedMaterial,
+      surfaceOrientation: photo.surfaceOrientation ?? undefined,
+      damageExtentEstimate: photo.damageExtentEstimate ?? undefined,
+      equipmentVisible: photo.equipmentVisible,
       secondaryDamageIndicators: photo.secondaryDamageIndicators,
-      photoStage:                photo.photoStage ?? undefined,
-      captureAngle:              photo.captureAngle ?? undefined,
-      labelledBy:                photo.labelledBy,
-      technicianNotes:           photo.technicianNotes ?? undefined,
+      photoStage: photo.photoStage ?? undefined,
+      captureAngle: photo.captureAngle ?? undefined,
+      labelledBy: photo.labelledBy,
+      technicianNotes: photo.technicianNotes ?? undefined,
     });
     setEditing(true);
   }
@@ -290,7 +359,11 @@ function PhotoPanel({
     try {
       const res = await fetch(
         `/api/inspections/${inspectionId}/photos/${photo.id}/labels`,
-        { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) },
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        },
       );
       const data = await res.json();
       if (!res.ok) {
@@ -308,22 +381,33 @@ function PhotoPanel({
   }
 
   function toggleMultiSelect<T extends string>(
-    field: keyof Pick<InspectionPhotoLabelPatch, "affectedMaterial" | "secondaryDamageIndicators">,
+    field: keyof Pick<
+      InspectionPhotoLabelPatch,
+      "affectedMaterial" | "secondaryDamageIndicators"
+    >,
     value: T,
   ) {
     const current = (patch[field] ?? []) as T[];
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
     setPatch((p) => ({ ...p, [field]: next }));
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch bg-black/80" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-stretch bg-black/80"
+      onClick={onClose}
+    >
       <div
         className="relative ml-auto flex h-full w-full max-w-lg flex-col overflow-y-auto bg-[#0a0a0a] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
-        <button onClick={onClose} className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-1.5 text-neutral-400 hover:text-white">
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-1.5 text-neutral-400 hover:text-white"
+        >
           <X className="h-4 w-4" />
         </button>
 
@@ -339,7 +423,12 @@ function PhotoPanel({
 
         {/* Photo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt="Inspection photo" className="w-full object-contain" style={{ maxHeight: 320 }} />
+        <img
+          src={photo.url}
+          alt="Inspection photo"
+          className="w-full object-contain"
+          style={{ maxHeight: 320 }}
+        />
 
         {/* Header */}
         <div className="border-b border-neutral-800 p-4">
@@ -353,8 +442,12 @@ function PhotoPanel({
               </p>
             </div>
             {!editing && (
-              <Button size="sm" variant="outline" onClick={startEdit}
-                className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={startEdit}
+                className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+              >
                 Edit Labels
               </Button>
             )}
@@ -366,23 +459,49 @@ function PhotoPanel({
           <div className="space-y-3 p-4">
             <div className="flex flex-wrap gap-2">
               {photo.damageCategory && (
-                <span className={cn("rounded-full border px-2 py-0.5 text-xs font-semibold",
-                  DAMAGE_CATEGORY_COLORS[photo.damageCategory])}>
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-xs font-semibold",
+                    DAMAGE_CATEGORY_COLORS[photo.damageCategory],
+                  )}
+                >
                   {DAMAGE_CATEGORY_LABELS[photo.damageCategory]}
                 </span>
               )}
-              {photo.damageClass && <LabelChip label={DAMAGE_CLASS_LABELS[photo.damageClass]} />}
-              {photo.photoStage && <LabelChip label={PHOTO_STAGE_LABELS[photo.photoStage]} />}
-              {photo.roomType && <LabelChip label={photo.roomType.replace(/_/g, " ")} />}
-              {photo.moistureSource && <LabelChip label={photo.moistureSource.replace(/_/g, " ")} />}
-              {photo.surfaceOrientation && <LabelChip label={photo.surfaceOrientation.replace(/_/g, " ")} />}
-              {photo.damageExtentEstimate && <LabelChip label={photo.damageExtentEstimate} />}
-              {photo.captureAngle && <LabelChip label={photo.captureAngle.replace(/_/g, " ")} />}
-              <LabelChip label={photo.equipmentVisible ? "Equipment visible" : "No equipment"} />
+              {photo.damageClass && (
+                <LabelChip label={DAMAGE_CLASS_LABELS[photo.damageClass]} />
+              )}
+              {photo.photoStage && (
+                <LabelChip label={PHOTO_STAGE_LABELS[photo.photoStage]} />
+              )}
+              {photo.roomType && (
+                <LabelChip label={photo.roomType.replace(/_/g, " ")} />
+              )}
+              {photo.moistureSource && (
+                <LabelChip label={photo.moistureSource.replace(/_/g, " ")} />
+              )}
+              {photo.surfaceOrientation && (
+                <LabelChip
+                  label={photo.surfaceOrientation.replace(/_/g, " ")}
+                />
+              )}
+              {photo.damageExtentEstimate && (
+                <LabelChip label={photo.damageExtentEstimate} />
+              )}
+              {photo.captureAngle && (
+                <LabelChip label={photo.captureAngle.replace(/_/g, " ")} />
+              )}
+              <LabelChip
+                label={
+                  photo.equipmentVisible ? "Equipment visible" : "No equipment"
+                }
+              />
             </div>
             {photo.affectedMaterial.length > 0 && (
               <div>
-                <p className="mb-1 text-xs text-neutral-500">Affected materials</p>
+                <p className="mb-1 text-xs text-neutral-500">
+                  Affected materials
+                </p>
                 <div className="flex flex-wrap gap-1">
                   {photo.affectedMaterial.map((m) => (
                     <LabelChip key={m} label={m.replace(/_/g, " ")} />
@@ -392,19 +511,29 @@ function PhotoPanel({
             )}
             {photo.secondaryDamageIndicators.length > 0 && (
               <div>
-                <p className="mb-1 text-xs text-neutral-500">Secondary indicators</p>
+                <p className="mb-1 text-xs text-neutral-500">
+                  Secondary indicators
+                </p>
                 <div className="flex flex-wrap gap-1">
                   {photo.secondaryDamageIndicators.map((s) => (
-                    <LabelChip key={s}
+                    <LabelChip
+                      key={s}
                       label={s.replace(/_/g, " ")}
-                      className={s === "ASBESTOS_SUSPECT" ? "border-red-700 bg-red-950 text-red-300" : ""}
+                      className={
+                        s === "ASBESTOS_SUSPECT"
+                          ? "border-red-700 bg-red-950 text-red-300"
+                          : ""
+                      }
                     />
                   ))}
                 </div>
               </div>
             )}
             {photo.s500SectionRef && (
-              <p className="text-xs text-neutral-500">S500 ref: <span className="text-neutral-300">{photo.s500SectionRef}</span></p>
+              <p className="text-xs text-neutral-500">
+                S500 ref:{" "}
+                <span className="text-neutral-300">{photo.s500SectionRef}</span>
+              </p>
             )}
             {photo.technicianNotes && (
               <div className="rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-300">
@@ -423,8 +552,18 @@ function PhotoPanel({
 
             {/* Damage Category */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Damage Category *</label>
-              <Select value={patch.damageCategory ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, damageCategory: v as DamageCategory }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Damage Category *
+              </label>
+              <Select
+                value={patch.damageCategory ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({
+                    ...p,
+                    damageCategory: v as DamageCategory,
+                  }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -438,8 +577,15 @@ function PhotoPanel({
 
             {/* Damage Class */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Damage Class *</label>
-              <Select value={patch.damageClass ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, damageClass: v as DamageClass }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Damage Class *
+              </label>
+              <Select
+                value={patch.damageClass ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({ ...p, damageClass: v as DamageClass }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
@@ -454,14 +600,25 @@ function PhotoPanel({
 
             {/* Photo Stage */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Photo Stage *</label>
-              <Select value={patch.photoStage ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, photoStage: v as PhotoStage }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Photo Stage *
+              </label>
+              <Select
+                value={patch.photoStage ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({ ...p, photoStage: v as PhotoStage }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select stage" />
                 </SelectTrigger>
                 <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
-                  {(Object.entries(PHOTO_STAGE_LABELS) as [PhotoStage, string][]).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  {(
+                    Object.entries(PHOTO_STAGE_LABELS) as [PhotoStage, string][]
+                  ).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>
+                      {l}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -469,17 +626,43 @@ function PhotoPanel({
 
             {/* Room Type */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Room Type *</label>
-              <Select value={patch.roomType ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, roomType: v as RoomType }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Room Type *
+              </label>
+              <Select
+                value={patch.roomType ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({ ...p, roomType: v as RoomType }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select room" />
                 </SelectTrigger>
                 <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
-                  {(["KITCHEN","BATHROOM","LAUNDRY","TOILET","BEDROOM","LIVING","DINING",
-                    "HALLWAY","GARAGE","ROOF_SPACE","SUBFLOOR","BASEMENT",
-                    "COMMERCIAL_OFFICE","COMMERCIAL_WAREHOUSE","COMMON_AREA","EXTERNAL","OTHER",
-                  ] as RoomType[]).map((r) => (
-                    <SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>
+                  {(
+                    [
+                      "KITCHEN",
+                      "BATHROOM",
+                      "LAUNDRY",
+                      "TOILET",
+                      "BEDROOM",
+                      "LIVING",
+                      "DINING",
+                      "HALLWAY",
+                      "GARAGE",
+                      "ROOF_SPACE",
+                      "SUBFLOOR",
+                      "BASEMENT",
+                      "COMMERCIAL_OFFICE",
+                      "COMMERCIAL_WAREHOUSE",
+                      "COMMON_AREA",
+                      "EXTERNAL",
+                      "OTHER",
+                    ] as RoomType[]
+                  ).map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r.replace(/_/g, " ")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -487,17 +670,45 @@ function PhotoPanel({
 
             {/* Moisture Source */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Moisture Source *</label>
-              <Select value={patch.moistureSource ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, moistureSource: v as MoistureSource }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Moisture Source *
+              </label>
+              <Select
+                value={patch.moistureSource ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({
+                    ...p,
+                    moistureSource: v as MoistureSource,
+                  }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>
                 <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
-                  {(["FLEXI_HOSE","TAP_FAILURE","PIPE_BURST","PIPE_LEAK","ROOF_LEAK","STORMWATER",
-                    "SEWAGE_OVERFLOW","WASHING_MACHINE","DISHWASHER","HOT_WATER_SYSTEM",
-                    "AIR_CON_DRAIN","FLOOD_EXTERNAL","RISING_DAMP","CONDENSATION","UNKNOWN","OTHER",
-                  ] as MoistureSource[]).map((s) => (
-                    <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                  {(
+                    [
+                      "FLEXI_HOSE",
+                      "TAP_FAILURE",
+                      "PIPE_BURST",
+                      "PIPE_LEAK",
+                      "ROOF_LEAK",
+                      "STORMWATER",
+                      "SEWAGE_OVERFLOW",
+                      "WASHING_MACHINE",
+                      "DISHWASHER",
+                      "HOT_WATER_SYSTEM",
+                      "AIR_CON_DRAIN",
+                      "FLOOD_EXTERNAL",
+                      "RISING_DAMP",
+                      "CONDENSATION",
+                      "UNKNOWN",
+                      "OTHER",
+                    ] as MoistureSource[]
+                  ).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s.replace(/_/g, " ")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -505,16 +716,38 @@ function PhotoPanel({
 
             {/* Surface Orientation */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Surface Orientation *</label>
-              <Select value={patch.surfaceOrientation ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, surfaceOrientation: v as SurfaceOrientation }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Surface Orientation *
+              </label>
+              <Select
+                value={patch.surfaceOrientation ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({
+                    ...p,
+                    surfaceOrientation: v as SurfaceOrientation,
+                  }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select orientation" />
                 </SelectTrigger>
                 <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
-                  {(["FLOOR","WALL_LOWER","WALL_MID","WALL_UPPER","CEILING",
-                    "JUNCTION","COLUMN_PIER","SUBFLOOR_BEARER","ROOF_RAFTER",
-                  ] as SurfaceOrientation[]).map((o) => (
-                    <SelectItem key={o} value={o}>{o.replace(/_/g, " ")}</SelectItem>
+                  {(
+                    [
+                      "FLOOR",
+                      "WALL_LOWER",
+                      "WALL_MID",
+                      "WALL_UPPER",
+                      "CEILING",
+                      "JUNCTION",
+                      "COLUMN_PIER",
+                      "SUBFLOOR_BEARER",
+                      "ROOF_RAFTER",
+                    ] as SurfaceOrientation[]
+                  ).map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o.replace(/_/g, " ")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -522,8 +755,18 @@ function PhotoPanel({
 
             {/* Damage Extent */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Damage Extent *</label>
-              <Select value={patch.damageExtentEstimate ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, damageExtentEstimate: v as DamageExtentEstimate }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Damage Extent *
+              </label>
+              <Select
+                value={patch.damageExtentEstimate ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({
+                    ...p,
+                    damageExtentEstimate: v as DamageExtentEstimate,
+                  }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select extent" />
                 </SelectTrigger>
@@ -539,14 +782,31 @@ function PhotoPanel({
 
             {/* Capture Angle */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Capture Angle *</label>
-              <Select value={patch.captureAngle ?? ""} onValueChange={(v) => setPatch((p) => ({ ...p, captureAngle: v as CaptureAngle }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Capture Angle *
+              </label>
+              <Select
+                value={patch.captureAngle ?? ""}
+                onValueChange={(v) =>
+                  setPatch((p) => ({ ...p, captureAngle: v as CaptureAngle }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue placeholder="Select angle" />
                 </SelectTrigger>
                 <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
-                  {(["STRAIGHT_ON","OBLIQUE","OVERHEAD","MACRO","WIDE"] as CaptureAngle[]).map((a) => (
-                    <SelectItem key={a} value={a}>{a.replace(/_/g, " ")}</SelectItem>
+                  {(
+                    [
+                      "STRAIGHT_ON",
+                      "OBLIQUE",
+                      "OVERHEAD",
+                      "MACRO",
+                      "WIDE",
+                    ] as CaptureAngle[]
+                  ).map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a.replace(/_/g, " ")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -554,39 +814,71 @@ function PhotoPanel({
 
             {/* Equipment Visible toggle */}
             <div className="flex items-center justify-between">
-              <label className="text-xs text-neutral-400">Equipment visible in frame</label>
+              <label className="text-xs text-neutral-400">
+                Equipment visible in frame
+              </label>
               <button
-                onClick={() => setPatch((p) => ({ ...p, equipmentVisible: !p.equipmentVisible }))}
+                onClick={() =>
+                  setPatch((p) => ({
+                    ...p,
+                    equipmentVisible: !p.equipmentVisible,
+                  }))
+                }
                 className={cn(
                   "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
                   patch.equipmentVisible ? "bg-blue-600" : "bg-neutral-700",
                 )}
               >
-                <span className={cn(
-                  "inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition-transform",
-                  patch.equipmentVisible && "translate-x-6",
-                )} />
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition-transform",
+                    patch.equipmentVisible && "translate-x-6",
+                  )}
+                />
               </button>
             </div>
 
             {/* Affected Materials (multi-select chips) */}
             <div>
-              <label className="mb-2 block text-xs text-neutral-400">Affected Materials * (select all visible)</label>
+              <label className="mb-2 block text-xs text-neutral-400">
+                Affected Materials * (select all visible)
+              </label>
               <div className="flex flex-wrap gap-1.5">
-                {(["PLASTERBOARD","VILLABOARD","FIBRE_CEMENT_SHEET","TIMBER_FRAME","TIMBER_FLOORING",
-                  "PARTICLE_BOARD_FLOOR","PLYWOOD_SUBFLOOR","SLAB_ON_GROUND","BRICK_VENEER",
-                  "DOUBLE_BRICK","TERRACOTTA_TILE","VINYL_FLOORING","CARPET","INSULATION_BATTS",
-                  "INSULATION_FOAM","CORNICE","RENDER","CABINETRY","OTHER",
-                ] as AffectedMaterial[]).map((m) => {
+                {(
+                  [
+                    "PLASTERBOARD",
+                    "VILLABOARD",
+                    "FIBRE_CEMENT_SHEET",
+                    "TIMBER_FRAME",
+                    "TIMBER_FLOORING",
+                    "PARTICLE_BOARD_FLOOR",
+                    "PLYWOOD_SUBFLOOR",
+                    "SLAB_ON_GROUND",
+                    "BRICK_VENEER",
+                    "DOUBLE_BRICK",
+                    "TERRACOTTA_TILE",
+                    "VINYL_FLOORING",
+                    "CARPET",
+                    "INSULATION_BATTS",
+                    "INSULATION_FOAM",
+                    "CORNICE",
+                    "RENDER",
+                    "CABINETRY",
+                    "OTHER",
+                  ] as AffectedMaterial[]
+                ).map((m) => {
                   const selected = (patch.affectedMaterial ?? []).includes(m);
                   return (
-                    <button key={m} onClick={() => toggleMultiSelect("affectedMaterial", m)}
+                    <button
+                      key={m}
+                      onClick={() => toggleMultiSelect("affectedMaterial", m)}
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-xs transition",
                         selected
                           ? "border-blue-500 bg-blue-900 text-blue-200"
                           : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
-                      )}>
+                      )}
+                    >
                       {m.replace(/_/g, " ")}
                     </button>
                   );
@@ -596,22 +888,48 @@ function PhotoPanel({
 
             {/* Secondary Damage Indicators (multi-select chips) */}
             <div>
-              <label className="mb-2 block text-xs text-neutral-400">Secondary Indicators</label>
+              <label className="mb-2 block text-xs text-neutral-400">
+                Secondary Indicators
+              </label>
               <div className="flex flex-wrap gap-1.5">
-                {(["MOULD_VISIBLE","MOULD_ODOUR","EFFLORESCENCE","STAINING_RUST","STAINING_TANNIN",
-                  "DELAMINATION","BUCKLING","SWELLING","PEELING","CEILING_SAG","INSULATION_COLLAPSE",
-                  "SUBFLOOR_STANDING","CONTAMINATION_SEWAGE","TERMITE_DAMAGE","ASBESTOS_SUSPECT",
-                ] as SecondaryDamageIndicator[]).map((s) => {
-                  const selected = (patch.secondaryDamageIndicators ?? []).includes(s);
+                {(
+                  [
+                    "MOULD_VISIBLE",
+                    "MOULD_ODOUR",
+                    "EFFLORESCENCE",
+                    "STAINING_RUST",
+                    "STAINING_TANNIN",
+                    "DELAMINATION",
+                    "BUCKLING",
+                    "SWELLING",
+                    "PEELING",
+                    "CEILING_SAG",
+                    "INSULATION_COLLAPSE",
+                    "SUBFLOOR_STANDING",
+                    "CONTAMINATION_SEWAGE",
+                    "TERMITE_DAMAGE",
+                    "ASBESTOS_SUSPECT",
+                  ] as SecondaryDamageIndicator[]
+                ).map((s) => {
+                  const selected = (
+                    patch.secondaryDamageIndicators ?? []
+                  ).includes(s);
                   const isAcm = s === "ASBESTOS_SUSPECT";
                   return (
-                    <button key={s} onClick={() => toggleMultiSelect("secondaryDamageIndicators", s)}
+                    <button
+                      key={s}
+                      onClick={() =>
+                        toggleMultiSelect("secondaryDamageIndicators", s)
+                      }
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-xs transition",
-                        selected && isAcm ? "border-red-500 bg-red-900 text-red-200 font-semibold" :
-                        selected ? "border-amber-500 bg-amber-900 text-amber-200" :
-                        "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
-                      )}>
+                        selected && isAcm
+                          ? "border-red-500 bg-red-900 text-red-200 font-semibold"
+                          : selected
+                            ? "border-amber-500 bg-amber-900 text-amber-200"
+                            : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
+                      )}
+                    >
                       {s.replace(/_/g, " ")}
                     </button>
                   );
@@ -621,39 +939,60 @@ function PhotoPanel({
 
             {/* S500 Section Ref */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">S500 Section Reference</label>
+              <label className="mb-1 block text-xs text-neutral-400">
+                S500 Section Reference
+              </label>
               <input
                 type="text"
                 placeholder="e.g. §13.1"
                 value={patch.s500SectionRef ?? ""}
-                onChange={(e) => setPatch((p) => ({ ...p, s500SectionRef: e.target.value }))}
+                onChange={(e) =>
+                  setPatch((p) => ({ ...p, s500SectionRef: e.target.value }))
+                }
                 className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             {/* Technician Notes */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Technician Notes</label>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Technician Notes
+              </label>
               <textarea
                 rows={3}
                 placeholder="Free-text observations..."
                 value={patch.technicianNotes ?? ""}
-                onChange={(e) => setPatch((p) => ({ ...p, technicianNotes: e.target.value }))}
+                onChange={(e) =>
+                  setPatch((p) => ({ ...p, technicianNotes: e.target.value }))
+                }
                 className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             {/* Labelled By */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">Labelled By</label>
-              <Select value={patch.labelledBy ?? "HUMAN_TECH"} onValueChange={(v) => setPatch((p) => ({ ...p, labelledBy: v as LabelledBy }))}>
+              <label className="mb-1 block text-xs text-neutral-400">
+                Labelled By
+              </label>
+              <Select
+                value={patch.labelledBy ?? "HUMAN_TECH"}
+                onValueChange={(v) =>
+                  setPatch((p) => ({ ...p, labelledBy: v as LabelledBy }))
+                }
+              >
                 <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
-                  <SelectItem value="HUMAN_TECH">Field technician at capture</SelectItem>
-                  <SelectItem value="HUMAN_OFFICE">Office staff – post-job review</SelectItem>
-                  <SelectItem value="AI_ASSISTED">AI-suggested, reviewed by human</SelectItem>
+                  <SelectItem value="HUMAN_TECH">
+                    Field technician at capture
+                  </SelectItem>
+                  <SelectItem value="HUMAN_OFFICE">
+                    Office staff – post-job review
+                  </SelectItem>
+                  <SelectItem value="AI_ASSISTED">
+                    AI-suggested, reviewed by human
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -667,13 +1006,25 @@ function PhotoPanel({
 
             {/* Save / Cancel */}
             <div className="flex gap-2 pt-2">
-              <Button onClick={saveLabels} disabled={saving} size="sm"
-                className="flex-1 bg-blue-700 text-white hover:bg-blue-600">
-                {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Save className="mr-1 h-3 w-3" />}
+              <Button
+                onClick={saveLabels}
+                disabled={saving}
+                size="sm"
+                className="flex-1 bg-blue-700 text-white hover:bg-blue-600"
+              >
+                {saving ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="mr-1 h-3 w-3" />
+                )}
                 Save Labels
               </Button>
-              <Button onClick={() => setEditing(false)} variant="outline" size="sm"
-                className="flex-1 border-neutral-700 bg-neutral-900 hover:bg-neutral-800">
+              <Button
+                onClick={() => setEditing(false)}
+                variant="outline"
+                size="sm"
+                className="flex-1 border-neutral-700 bg-neutral-900 hover:bg-neutral-800"
+              >
                 Cancel
               </Button>
             </div>
@@ -725,7 +1076,9 @@ export default function InspectionPhotosPage({ params }: PageProps) {
     }
   }, [id]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function handleUpload(file: File) {
     setUploadError(null);
@@ -733,7 +1086,10 @@ export default function InspectionPhotosPage({ params }: PageProps) {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`/api/inspections/${id}/photos`, { method: "POST", body: form });
+      const res = await fetch(`/api/inspections/${id}/photos`, {
+        method: "POST",
+        body: form,
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? "Upload failed");
@@ -748,13 +1104,14 @@ export default function InspectionPhotosPage({ params }: PageProps) {
   }
 
   function handlePhotoUpdate(updated: Photo) {
-    setPhotos((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+    setPhotos((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPhoto(updated);
   }
 
   // Filtered photos
   const filtered = photos.filter((p) => {
-    if (filterCategory !== "all" && p.damageCategory !== filterCategory) return false;
+    if (filterCategory !== "all" && p.damageCategory !== filterCategory)
+      return false;
     if (filterRoom !== "all" && p.roomType !== filterRoom) return false;
     if (filterStage !== "all" && p.photoStage !== filterStage) return false;
     return true;
@@ -762,7 +1119,7 @@ export default function InspectionPhotosPage({ params }: PageProps) {
 
   // Asbestos count across ALL photos (not just filtered)
   const asbestosCount = photos.filter((p) =>
-    p.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT")
+    p.secondaryDamageIndicators.includes("ASBESTOS_SUSPECT"),
   ).length;
 
   return (
@@ -770,26 +1127,44 @@ export default function InspectionPhotosPage({ params }: PageProps) {
       {/* Header */}
       <div className="sticky top-0 z-40 border-b border-neutral-800 bg-[#050505] px-4 py-3">
         <div className="flex items-center gap-3">
-          <Link href={`/dashboard/inspections/${id}`}
-            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white">
+          <Link
+            href={`/dashboard/inspections/${id}`}
+            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex-1">
             <p className="text-sm font-semibold">Photo Evidence</p>
             {inspection && (
-              <p className="text-xs text-neutral-500">{inspection.inspectionNumber} · {inspection.propertyAddress}</p>
+              <p className="text-xs text-neutral-500">
+                {inspection.inspectionNumber} · {inspection.propertyAddress}
+              </p>
             )}
           </div>
           {/* Upload button */}
-          <label className={cn(
-            "flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
-            "border-blue-700 bg-blue-900/40 text-blue-300 hover:bg-blue-900/70 transition",
-            uploading && "pointer-events-none opacity-50",
-          )}>
-            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          <label
+            className={cn(
+              "flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
+              "border-blue-700 bg-blue-900/40 text-blue-300 hover:bg-blue-900/70 transition",
+              uploading && "pointer-events-none opacity-50",
+            )}
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" />
+            )}
             {uploading ? "Uploading…" : "Upload"}
-            <input type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleUpload(f);
+                e.target.value = "";
+              }}
+            />
           </label>
         </div>
         {uploadError && (
@@ -805,16 +1180,25 @@ export default function InspectionPhotosPage({ params }: PageProps) {
       {/* Filter bar */}
       <div className="pt-2">
         <FilterBar
-          damageCategory={filterCategory} setDamageCategory={setFilterCategory}
-          roomType={filterRoom} setRoomType={setFilterRoom}
-          photoStage={filterStage} setPhotoStage={setFilterStage}
-          onClear={() => { setFilterCategory("all"); setFilterRoom("all"); setFilterStage("all"); }}
+          damageCategory={filterCategory}
+          setDamageCategory={setFilterCategory}
+          roomType={filterRoom}
+          setRoomType={setFilterRoom}
+          photoStage={filterStage}
+          setPhotoStage={setFilterStage}
+          onClear={() => {
+            setFilterCategory("all");
+            setFilterRoom("all");
+            setFilterStage("all");
+          }}
         />
       </div>
 
       {/* Photo count */}
       <p className="px-4 pb-3 text-xs text-neutral-500">
-        {loading ? "Loading…" : `${filtered.length} of ${photos.length} photo${photos.length !== 1 ? "s" : ""}`}
+        {loading
+          ? "Loading…"
+          : `${filtered.length} of ${photos.length} photo${photos.length !== 1 ? "s" : ""}`}
       </p>
 
       {/* Grid */}
@@ -826,13 +1210,19 @@ export default function InspectionPhotosPage({ params }: PageProps) {
         <div className="flex flex-col items-center justify-center py-16 text-neutral-500">
           <Camera className="mb-3 h-10 w-10" />
           <p className="text-sm">
-            {photos.length === 0 ? "No photos yet — upload one to get started" : "No photos match the current filters"}
+            {photos.length === 0
+              ? "No photos yet — upload one to get started"
+              : "No photos match the current filters"}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 px-4 sm:grid-cols-3 md:grid-cols-4">
           {filtered.map((photo) => (
-            <PhotoCard key={photo.id} photo={photo} onClick={() => setSelectedPhoto(photo)} />
+            <PhotoCard
+              key={photo.id}
+              photo={photo}
+              onClick={() => setSelectedPhoto(photo)}
+            />
           ))}
         </div>
       )}

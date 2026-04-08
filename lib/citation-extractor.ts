@@ -181,7 +181,8 @@ export function getRecommendedCitations(
   if (context.reportType === "water") {
     filtered = filtered.filter(
       (c) =>
-        (c.documentCode ?? "").includes("S500") || (c.documentCode ?? "").includes("WATER"),
+        (c.documentCode ?? "").includes("S500") ||
+        (c.documentCode ?? "").includes("WATER"),
     );
   } else if (context.reportType === "mould") {
     filtered = filtered.filter(

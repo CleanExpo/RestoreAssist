@@ -467,7 +467,8 @@ export default function CompletionMetrics({
                 }}
                 className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 formatter={(value: any) =>
-                  `${(value as number).toFixed(1)} days`}
+                  `${(value as number).toFixed(1)} days`
+                }
               />
               <Legend />
               <Line

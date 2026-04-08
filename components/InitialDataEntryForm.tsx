@@ -5482,29 +5482,32 @@ export default function InitialDataEntryForm({
                         {area.affectedSquareFootage.toFixed(2)} m²
                       </span>
                     </div>
-                    {(area as any).materials && (area as any).materials.length > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap text-xs mt-2">
-                        <span
-                          className={cn(
-                            "text-neutral-600 dark:text-neutral-400",
-                          )}
-                        >
-                          Materials:
-                        </span>
-                        {(area as any).materials.map((material: any, idx: number) => (
+                    {(area as any).materials &&
+                      (area as any).materials.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap text-xs mt-2">
                           <span
-                            key={idx}
                             className={cn(
-                              "px-2 py-0.5 rounded",
-                              "bg-neutral-200 dark:bg-neutral-700",
-                              "text-neutral-900 dark:text-neutral-50",
+                              "text-neutral-600 dark:text-neutral-400",
                             )}
                           >
-                            {material}
+                            Materials:
                           </span>
-                        ))}
-                      </div>
-                    )}
+                          {(area as any).materials.map(
+                            (material: any, idx: number) => (
+                              <span
+                                key={idx}
+                                className={cn(
+                                  "px-2 py-0.5 rounded",
+                                  "bg-neutral-200 dark:bg-neutral-700",
+                                  "text-neutral-900 dark:text-neutral-50",
+                                )}
+                              >
+                                {material}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>

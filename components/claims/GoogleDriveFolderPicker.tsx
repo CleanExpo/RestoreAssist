@@ -173,8 +173,7 @@ export function GoogleDriveFolderPicker({
           const picked =
             action === "picked" ||
             (typeof pickerApi.Action !== "undefined" &&
-              action ===
-                (pickerApi.Action as Record<string, string>).PICKED);
+              action === (pickerApi.Action as Record<string, string>).PICKED);
           if (picked && docs?.[0]) {
             const doc = docs[0] as Record<string, unknown>;
             const id = (doc.id ?? doc.ID) as string;

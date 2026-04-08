@@ -9,7 +9,7 @@ function getPortalSecret(): string {
   if (!secret) {
     throw new Error(
       "PORTAL_SECRET environment variable is required. " +
-      "Generate with: openssl rand -hex 32"
+        "Generate with: openssl rand -hex 32",
     );
   }
   return secret;

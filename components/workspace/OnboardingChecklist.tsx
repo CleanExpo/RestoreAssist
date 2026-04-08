@@ -2,13 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CheckCircle2,
-  Circle,
-  ChevronRight,
-  X,
-  Rocket,
-} from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight, X, Rocket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,7 +25,8 @@ const CHECKLIST: Omit<ChecklistItem, "check">[] = [
   {
     id: "ai-key",
     label: "Add an AI provider key",
-    description: "Connect Anthropic, OpenAI, or Google AI to enable smart features",
+    description:
+      "Connect Anthropic, OpenAI, or Google AI to enable smart features",
     href: "/dashboard/settings/ai-providers",
   },
   {
@@ -59,10 +54,14 @@ export default function OnboardingChecklist() {
       try {
         // Check each step via lightweight API calls
         const [profileRes, aiRes, inspRes, clientRes] = await Promise.all([
-          fetch("/api/user/profile").then((r) => r.ok ? r.json() : null),
-          fetch("/api/workspace/provider-connections").then((r) => r.ok ? r.json() : null),
-          fetch("/api/inspections?take=1").then((r) => r.ok ? r.json() : null),
-          fetch("/api/clients?take=1").then((r) => r.ok ? r.json() : null),
+          fetch("/api/user/profile").then((r) => (r.ok ? r.json() : null)),
+          fetch("/api/workspace/provider-connections").then((r) =>
+            r.ok ? r.json() : null,
+          ),
+          fetch("/api/inspections?take=1").then((r) =>
+            r.ok ? r.json() : null,
+          ),
+          fetch("/api/clients?take=1").then((r) => (r.ok ? r.json() : null)),
         ]);
 
         setCompleted({

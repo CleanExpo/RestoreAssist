@@ -8,7 +8,11 @@
 
 export type VoiceCopilotMode = "guided" | "assisted" | "dictation";
 
-export type VoiceSessionState = "idle" | "listening" | "processing" | "responding";
+export type VoiceSessionState =
+  | "idle"
+  | "listening"
+  | "processing"
+  | "responding";
 
 export interface VoiceSession {
   sessionId: string;

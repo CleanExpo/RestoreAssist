@@ -35,7 +35,10 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
 
     const photos = await prisma.inspectionPhoto.findMany({
@@ -56,7 +59,10 @@ export async function GET(
     return NextResponse.json({ photos });
   } catch (error) {
     console.error("Error fetching photos:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -104,31 +110,42 @@ export async function POST(
 
     // RA-447: Optional label fields at upload time (multipart form fields)
     const labelFields = {
-      damageCategory:            formData.get("damageCategory") as string | null,
-      damageClass:               formData.get("damageClass") as string | null,
-      s500SectionRef:            formData.get("s500SectionRef") as string | null,
-      roomType:                  formData.get("roomType") as string | null,
-      moistureSource:            formData.get("moistureSource") as string | null,
-      affectedMaterial:          formData.get("affectedMaterial")
-                                   ? (formData.get("affectedMaterial") as string).split(",").filter(Boolean)
-                                   : undefined,
-      surfaceOrientation:        formData.get("surfaceOrientation") as string | null,
-      damageExtentEstimate:      formData.get("damageExtentEstimate") as string | null,
-      equipmentVisible:          formData.get("equipmentVisible") === "true" ? true
-                                   : formData.get("equipmentVisible") === "false" ? false
-                                   : undefined,
+      damageCategory: formData.get("damageCategory") as string | null,
+      damageClass: formData.get("damageClass") as string | null,
+      s500SectionRef: formData.get("s500SectionRef") as string | null,
+      roomType: formData.get("roomType") as string | null,
+      moistureSource: formData.get("moistureSource") as string | null,
+      affectedMaterial: formData.get("affectedMaterial")
+        ? (formData.get("affectedMaterial") as string)
+            .split(",")
+            .filter(Boolean)
+        : undefined,
+      surfaceOrientation: formData.get("surfaceOrientation") as string | null,
+      damageExtentEstimate: formData.get("damageExtentEstimate") as
+        | string
+        | null,
+      equipmentVisible:
+        formData.get("equipmentVisible") === "true"
+          ? true
+          : formData.get("equipmentVisible") === "false"
+            ? false
+            : undefined,
       secondaryDamageIndicators: formData.get("secondaryDamageIndicators")
-                                   ? (formData.get("secondaryDamageIndicators") as string).split(",").filter(Boolean)
-                                   : undefined,
-      photoStage:                formData.get("photoStage") as string | null,
-      captureAngle:              formData.get("captureAngle") as string | null,
-      labelledBy:                formData.get("labelledBy") as string | null,
-      technicianNotes:           formData.get("technicianNotes") as string | null,
-      moistureReadingLink:       formData.get("moistureReadingLink") as string | null,
+        ? (formData.get("secondaryDamageIndicators") as string)
+            .split(",")
+            .filter(Boolean)
+        : undefined,
+      photoStage: formData.get("photoStage") as string | null,
+      captureAngle: formData.get("captureAngle") as string | null,
+      labelledBy: formData.get("labelledBy") as string | null,
+      technicianNotes: formData.get("technicianNotes") as string | null,
+      moistureReadingLink: formData.get("moistureReadingLink") as string | null,
     };
     // Strip undefined/null so Prisma only sets provided fields
     const labelData = Object.fromEntries(
-      Object.entries(labelFields).filter(([, v]) => v !== null && v !== undefined)
+      Object.entries(labelFields).filter(
+        ([, v]) => v !== null && v !== undefined,
+      ),
     );
 
     if (!file) {

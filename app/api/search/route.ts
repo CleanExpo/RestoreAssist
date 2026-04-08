@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Rate limit: 60 searches per 15 minutes per user
-    const rateLimited = await applyRateLimit(request, { maxRequests: 60, prefix: "search", key: session.user.id });
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 60,
+      prefix: "search",
+      key: session.user.id,
+    });
     if (rateLimited) return rateLimited;
 
     const { searchParams } = new URL(request.url);
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
     if (!query) {
       return NextResponse.json(
         { error: "Search query must be at least 2 characters" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -134,16 +138,12 @@ export async function GET(request: NextRequest) {
           },
         })),
       },
-      totalCount:
-        reports.length + clients.length + inspections.length,
+      totalCount: reports.length + clients.length + inspections.length,
     };
 
     return NextResponse.json(results);
   } catch (error) {
     console.error("Search error:", error);
-    return NextResponse.json(
-      { error: "Search failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }

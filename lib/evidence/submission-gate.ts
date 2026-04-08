@@ -10,11 +10,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import {
-  getWorkflowTemplate,
-  JOB_TYPES,
-  type JobType,
-} from "@/lib/evidence";
+import { getWorkflowTemplate, JOB_TYPES, type JobType } from "@/lib/evidence";
 import { EVIDENCE_CLASSES } from "@/lib/evidence/evidence-classes";
 import type { EvidenceClass } from "@prisma/client";
 
@@ -76,7 +72,11 @@ export async function validateSubmission(
   });
 
   // 2. Build submission gate requirements from workflow template
-  type Requirement = { evidenceClass: EvidenceClass; minCount: number; guidance: string };
+  type Requirement = {
+    evidenceClass: EvidenceClass;
+    minCount: number;
+    guidance: string;
+  };
   const requirements: Requirement[] = [];
   if ((JOB_TYPES as readonly string[]).includes(claimType)) {
     const workflow = getWorkflowTemplate(claimType as JobType);

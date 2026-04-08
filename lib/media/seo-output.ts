@@ -124,10 +124,12 @@ export interface SeoAssetInput {
  */
 export function generateImageObjectJsonLd(
   asset: SeoAssetInput,
-  publicUrl: string
+  publicUrl: string,
 ): ImageObjectJsonLd {
   const room = asset.tags.find((t) => t.category === "room")?.value;
-  const damageType = asset.tags.find((t) => t.category === "damage_type")?.value;
+  const damageType = asset.tags.find(
+    (t) => t.category === "damage_type",
+  )?.value;
   const technician = asset.tags.find((t) => t.category === "technician")?.value;
 
   const suburb =
@@ -136,9 +138,19 @@ export function generateImageObjectJsonLd(
 
   const description =
     asset.altText ??
-    buildDefaultAltText({ damageType, room, suburb, postcode: asset.inspection?.propertyPostcode });
+    buildDefaultAltText({
+      damageType,
+      room,
+      suburb,
+      postcode: asset.inspection?.propertyPostcode,
+    });
 
-  const keywords = buildKeywords({ damageType, room, suburb, postcode: asset.inspection?.propertyPostcode });
+  const keywords = buildKeywords({
+    damageType,
+    room,
+    suburb,
+    postcode: asset.inspection?.propertyPostcode,
+  });
 
   const jsonLd: ImageObjectJsonLd = {
     "@context": "https://schema.org",
@@ -161,7 +173,9 @@ export function generateImageObjectJsonLd(
       latitude: asset.latitude,
       longitude: asset.longitude,
       ...(suburb ? { addressLocality: suburb } : {}),
-      ...(asset.inspection?.propertyPostcode ? { postalCode: asset.inspection.propertyPostcode } : {}),
+      ...(asset.inspection?.propertyPostcode
+        ? { postalCode: asset.inspection.propertyPostcode }
+        : {}),
     };
   }
 
@@ -298,7 +312,8 @@ export function generateGeoSnippet(params: {
   damageTypes: string[];
   assetCount: number;
 }): string {
-  const types = params.damageTypes.slice(0, 3).join(", ").toLowerCase() || "water damage";
+  const types =
+    params.damageTypes.slice(0, 3).join(", ").toLowerCase() || "water damage";
   return [
     `${params.workspaceName} is a licensed restoration contractor servicing ${params.suburb} (${params.postcode}).`,
     `This portfolio documents ${params.assetCount} inspection photo${params.assetCount !== 1 ? "s" : ""} of ${types} in the area.`,
@@ -314,7 +329,7 @@ export function generateGeoSnippet(params: {
  */
 export async function generateAndCacheSeoOutput(
   assetId: string,
-  publicUrl: string
+  publicUrl: string,
 ): Promise<{
   imageObject: ImageObjectJsonLd;
   embedCode: string;

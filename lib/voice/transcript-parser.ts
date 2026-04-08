@@ -22,7 +22,7 @@ const ROOM_ALIASES: Record<string, string> = {
   ensuite: "ensuite",
   en: "ensuite",
   "en suite": "ensuite",
-  "toilet": "bathroom",
+  toilet: "bathroom",
   lounge: "living room",
   family: "family room",
   dining: "dining room",
@@ -62,7 +62,8 @@ const MATERIAL_ALIASES: Record<string, string> = {
 };
 
 // Moisture reading patterns — handles "18", "18.5", "18 percent", "18 point 5"
-const MOISTURE_RE = /(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:percent|%|wme|WME|rh|RH|point\s+(\d))?/i;
+const MOISTURE_RE =
+  /(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:percent|%|wme|WME|rh|RH|point\s+(\d))?/i;
 
 // Room detection — looks for room name anywhere in the transcript
 function extractRoom(text: string): string | undefined {
@@ -105,7 +106,12 @@ function extractUnit(text: string): ParsedObservation["unit"] {
   const lower = text.toLowerCase();
   if (lower.includes("wme")) return "WME";
   if (lower.includes(" rh") || lower.includes("relative humidity")) return "RH";
-  if (lower.includes("temperature") || lower.includes("temp") || lower.includes("degrees")) return "°C";
+  if (
+    lower.includes("temperature") ||
+    lower.includes("temp") ||
+    lower.includes("degrees")
+  )
+    return "°C";
   return "%";
 }
 
@@ -133,18 +139,22 @@ function extractClass(text: string): 1 | 2 | 3 | 4 | undefined {
 function isPsychrometric(text: string): boolean {
   return (
     (/temp(?:erature)?/i.test(text) || /degrees/i.test(text)) &&
-    (/relative humidity|rh|\bhumidity\b/i.test(text))
+    /relative humidity|rh|\bhumidity\b/i.test(text)
   );
 }
 
 // Equipment note detection
 function isEquipmentNote(text: string): boolean {
-  return /dehumidifier|air mover|blower|fan|desiccant|inject|hepa|LGR|dryer/i.test(text);
+  return /dehumidifier|air mover|blower|fan|desiccant|inject|hepa|LGR|dryer/i.test(
+    text,
+  );
 }
 
 // Room entry detection ("entering", "moving to", "now in")
 function isRoomEntry(text: string): boolean {
-  return /(?:entering|moving to|now in|in the|going to)\s+(?:the\s+)?/i.test(text);
+  return /(?:entering|moving to|now in|in the|going to)\s+(?:the\s+)?/i.test(
+    text,
+  );
 }
 
 /**
@@ -214,11 +224,7 @@ export function parseTranscript(transcript: string): ParseResult {
   // ── Moisture reading — the most common observation ──
   if (value !== null) {
     const confidence: "high" | "medium" | "low" =
-      room && material
-        ? "high"
-        : room || material
-        ? "medium"
-        : "low";
+      room && material ? "high" : room || material ? "medium" : "low";
 
     return {
       type: "moisture_reading",
@@ -286,9 +292,13 @@ export function buildConfirmationPrompt(
 
 function getCategoryDesc(category?: 1 | 2 | 3): string {
   switch (category) {
-    case 1: return "clean water source";
-    case 2: return "grey water";
-    case 3: return "black water / sewage";
-    default: return "";
+    case 1:
+      return "clean water source";
+    case 2:
+      return "grey water";
+    case 3:
+      return "black water / sewage";
+    default:
+      return "";
   }
 }

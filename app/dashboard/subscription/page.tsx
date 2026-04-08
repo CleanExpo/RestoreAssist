@@ -1,202 +1,227 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Check, X, Calendar, CreditCard, Download, AlertCircle, CheckCircle, Star, Zap, Shield, Users, Clock, Award, RefreshCw } from "lucide-react"
-import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
-import toast from "react-hot-toast"
+import { useState, useEffect } from "react";
+import {
+  Check,
+  X,
+  Calendar,
+  CreditCard,
+  Download,
+  AlertCircle,
+  CheckCircle,
+  Star,
+  Zap,
+  Shield,
+  Users,
+  Clock,
+  Award,
+  RefreshCw,
+} from "lucide-react";
+import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
+import toast from "react-hot-toast";
 
 interface Subscription {
-  id: string
-  status: string
-  currentPeriodStart: number
-  currentPeriodEnd: number
-  cancelAtPeriodEnd: boolean
+  id: string;
+  status: string;
+  currentPeriodStart: number;
+  currentPeriodEnd: number;
+  cancelAtPeriodEnd: boolean;
   plan: {
-    name: string
-    amount: number
-    currency: string
-    interval: string
-  }
+    name: string;
+    amount: number;
+    currency: string;
+    interval: string;
+  };
 }
 
 export default function SubscriptionPage() {
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [canceling, setCanceling] = useState(false)
-  const [reactivating, setReactivating] = useState(false)
-  const [pricingLoading, setPricingLoading] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [checking, setChecking] = useState(false)
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [canceling, setCanceling] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    fetchSubscription()
-  }, [])
+    fetchSubscription();
+  }, []);
 
   const fetchSubscription = async (forceRefresh = false) => {
     if (forceRefresh) {
-      setRefreshing(true)
+      setRefreshing(true);
     }
-    
+
     try {
-      const url = forceRefresh ? '/api/subscription?refresh=true' : '/api/subscription'
-      const response = await fetch(url)
+      const url = forceRefresh
+        ? "/api/subscription?refresh=true"
+        : "/api/subscription";
+      const response = await fetch(url);
       if (response.ok) {
-        const data = await response.json()
-        setSubscription(data.subscription)
+        const data = await response.json();
+        setSubscription(data.subscription);
         if (forceRefresh) {
-          toast.success('Subscription data refreshed!')
+          toast.success("Subscription data refreshed!");
         }
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error)
+      console.error("Error fetching subscription:", error);
       if (forceRefresh) {
-        toast.error('Failed to refresh subscription data')
+        toast.error("Failed to refresh subscription data");
       }
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
   const checkSubscription = async () => {
-    setChecking(true)
+    setChecking(true);
     try {
-      const response = await fetch('/api/subscription/check', {
-        method: 'POST',
+      const response = await fetch("/api/subscription/check", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         if (data.success) {
-          toast.success('Subscription found and updated!')
+          toast.success("Subscription found and updated!");
           // Refresh the subscription data
-          await fetchSubscription(true)
+          await fetchSubscription(true);
         } else {
-          toast.error(data.message || 'No active subscription found')
+          toast.error(data.message || "No active subscription found");
         }
       } else {
-        const errorData = await response.json()
-        toast.error(errorData.error || 'Failed to check subscription')
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to check subscription");
       }
     } catch (error) {
-      console.error('Error checking subscription:', error)
-      toast.error('Failed to check subscription status')
+      console.error("Error checking subscription:", error);
+      toast.error("Failed to check subscription status");
     } finally {
-      setChecking(false)
+      setChecking(false);
     }
-  }
+  };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.')) {
-      return
+    if (
+      !confirm(
+        "Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.",
+      )
+    ) {
+      return;
     }
 
-    setCanceling(true)
+    setCanceling(true);
     try {
-      const response = await fetch('/api/cancel-subscription', {
-        method: 'POST'
-      })
+      const response = await fetch("/api/cancel-subscription", {
+        method: "POST",
+      });
 
       if (response.ok) {
-        toast.success('Subscription canceled successfully')
-        fetchSubscription()
+        toast.success("Subscription canceled successfully");
+        fetchSubscription();
       } else {
-        toast.error('Failed to cancel subscription')
+        toast.error("Failed to cancel subscription");
       }
     } catch (error) {
-      console.error('Error canceling subscription:', error)
-      toast.error('Failed to cancel subscription')
+      console.error("Error canceling subscription:", error);
+      toast.error("Failed to cancel subscription");
     } finally {
-      setCanceling(false)
+      setCanceling(false);
     }
-  }
+  };
 
   const handleReactivateSubscription = async () => {
-    setReactivating(true)
+    setReactivating(true);
     try {
-      const response = await fetch('/api/reactivate-subscription', {
-        method: 'POST'
-      })
+      const response = await fetch("/api/reactivate-subscription", {
+        method: "POST",
+      });
 
       if (response.ok) {
-        toast.success('Subscription reactivated successfully')
-        fetchSubscription()
+        toast.success("Subscription reactivated successfully");
+        fetchSubscription();
       } else {
-        toast.error('Failed to reactivate subscription')
+        toast.error("Failed to reactivate subscription");
       }
     } catch (error) {
-      console.error('Error reactivating subscription:', error)
-      toast.error('Failed to reactivate subscription')
+      console.error("Error reactivating subscription:", error);
+      toast.error("Failed to reactivate subscription");
     } finally {
-      setReactivating(false)
+      setReactivating(false);
     }
-  }
+  };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString('en-AU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+    return new Date(timestamp * 1000).toLocaleDateString("en-AU", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   const formatPrice = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-AU', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
       currency: currency,
-    }).format(amount / 100)
-  }
+    }).format(amount / 100);
+  };
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    setPricingLoading(plan)
+    setPricingLoading(plan);
     try {
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ priceId: PRICING_CONFIG.prices[plan] }),
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create checkout session')
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create checkout session");
       }
 
-      const { sessionId, url } = await response.json()
-      console.log('Checkout session created:', sessionId)
-      
+      const { sessionId, url } = await response.json();
+      console.log("Checkout session created:", sessionId);
+
       if (url) {
-        console.log('Redirecting to Stripe checkout...')
-        window.location.href = url
+        console.log("Redirecting to Stripe checkout...");
+        window.location.href = url;
       } else {
-        console.error('No checkout URL received')
-        toast.error('Failed to get checkout URL')
+        console.error("No checkout URL received");
+        toast.error("Failed to get checkout URL");
       }
     } catch (error) {
-      console.error('Error creating checkout session:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
+      console.error("Error creating checkout session:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to start checkout process",
+      );
     } finally {
-      setPricingLoading(null)
+      setPricingLoading(null);
     }
-  }
+  };
 
   const formatPricingAmount = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-AU', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
       currency: currency,
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -213,16 +238,20 @@ export default function SubscriptionPage() {
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            <RefreshCw
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+            />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
           <button
             onClick={checkSubscription}
             disabled={checking}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <CheckCircle className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
-            {checking ? 'Checking...' : 'Check Subscription'}
+            <CheckCircle
+              className={`w-4 h-4 ${checking ? "animate-spin" : ""}`}
+            />
+            {checking ? "Checking..." : "Check Subscription"}
           </button>
         </div>
       </div>
@@ -233,22 +262,31 @@ export default function SubscriptionPage() {
           <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Current Plan</h2>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                subscription.status === 'active' 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : subscription.status === 'canceled'
-                  ? 'bg-red-500/20 text-red-400'
-                  : 'bg-yellow-500/20 text-yellow-400'
-              }`}>
-                {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+              <div
+                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  subscription.status === "active"
+                    ? "bg-green-500/20 text-green-400"
+                    : subscription.status === "canceled"
+                      ? "bg-red-500/20 text-red-400"
+                      : "bg-yellow-500/20 text-yellow-400"
+                }`}
+              >
+                {subscription.status.charAt(0).toUpperCase() +
+                  subscription.status.slice(1)}
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <h3 className="text-2xl font-bold text-white">{subscription.plan.name}</h3>
+                <h3 className="text-2xl font-bold text-white">
+                  {subscription.plan.name}
+                </h3>
                 <p className="text-slate-400">
-                  {formatPrice(subscription.plan.amount, subscription.plan.currency)}/{subscription.plan.interval}
+                  {formatPrice(
+                    subscription.plan.amount,
+                    subscription.plan.currency,
+                  )}
+                  /{subscription.plan.interval}
                 </p>
               </div>
 
@@ -256,14 +294,18 @@ export default function SubscriptionPage() {
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4 text-slate-400" />
                   <span className="text-slate-300">
-                    Current period: {formatDate(subscription.currentPeriodStart)} - {formatDate(subscription.currentPeriodEnd)}
+                    Current period:{" "}
+                    {formatDate(subscription.currentPeriodStart)} -{" "}
+                    {formatDate(subscription.currentPeriodEnd)}
                   </span>
                 </div>
-                
+
                 {subscription.cancelAtPeriodEnd && (
                   <div className="flex items-center gap-2 text-sm text-yellow-400">
                     <AlertCircle className="w-4 h-4" />
-                    <span>Subscription will cancel at the end of the current period</span>
+                    <span>
+                      Subscription will cancel at the end of the current period
+                    </span>
                   </div>
                 )}
               </div>
@@ -273,7 +315,7 @@ export default function SubscriptionPage() {
           {/* Billing Actions */}
           <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4">Billing Actions</h2>
-            
+
             <div className="space-y-4">
               {subscription.cancelAtPeriodEnd ? (
                 <button
@@ -281,7 +323,7 @@ export default function SubscriptionPage() {
                   disabled={reactivating}
                   className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg font-medium hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {reactivating ? 'Reactivating...' : 'Reactivate Subscription'}
+                  {reactivating ? "Reactivating..." : "Reactivate Subscription"}
                 </button>
               ) : (
                 <button
@@ -289,7 +331,7 @@ export default function SubscriptionPage() {
                   disabled={canceling}
                   className="w-full px-4 py-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {canceling ? 'Canceling...' : 'Cancel Subscription'}
+                  {canceling ? "Canceling..." : "Cancel Subscription"}
                 </button>
               )}
 
@@ -308,7 +350,7 @@ export default function SubscriptionPage() {
           {/* Plan Features */}
           <div className="lg:col-span-2 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
-            
+
             <div className="grid md:grid-cols-2 gap-4">
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-green-400" />
@@ -344,9 +386,12 @@ export default function SubscriptionPage() {
             <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <CreditCard className="w-8 h-8 text-slate-400" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">No Active Subscription</h2>
+            <h2 className="text-2xl font-semibold text-white mb-2">
+              No Active Subscription
+            </h2>
             <p className="text-slate-400">
-              You're currently on the free trial. Choose a plan below to unlock all features.
+              You're currently on the free trial. Choose a plan below to unlock
+              all features.
             </p>
           </div>
 
@@ -357,8 +402,8 @@ export default function SubscriptionPage() {
                 key={key}
                 className={`relative bg-slate-800/50 rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105 ${
                   plan.popular
-                    ? 'border-cyan-500 shadow-2xl shadow-cyan-500/20'
-                    : 'border-slate-700 hover:border-slate-600'
+                    ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
+                    : "border-slate-700 hover:border-slate-600"
                 }`}
               >
                 {/* Popular Badge */}
@@ -372,7 +417,7 @@ export default function SubscriptionPage() {
                 )}
 
                 {/* Best Value Badge */}
-                {'badge' in plan && plan.badge && (
+                {"badge" in plan && plan.badge && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
                       <Award className="w-4 h-4" />
@@ -389,17 +434,20 @@ export default function SubscriptionPage() {
                     <span className="text-3xl font-bold text-cyan-400">
                       {formatPricingAmount(plan.amount, plan.currency)}
                     </span>
-                    {'interval' in plan && plan.interval && (
-                      <span className="text-slate-400">/{plan.interval as string}</span>
+                    {"interval" in plan && plan.interval && (
+                      <span className="text-slate-400">
+                        /{plan.interval as string}
+                      </span>
                     )}
                   </div>
 
                   {/* Monthly Equivalent */}
-                  {'monthlyEquivalent' in plan && (plan as any).monthlyEquivalent && (
-                    <div className="text-sm text-slate-400">
-                      ${(plan as any).monthlyEquivalent}/month equivalent
-                    </div>
-                  )}
+                  {"monthlyEquivalent" in plan &&
+                    (plan as any).monthlyEquivalent && (
+                      <div className="text-sm text-slate-400">
+                        ${(plan as any).monthlyEquivalent}/month equivalent
+                      </div>
+                    )}
                 </div>
 
                 {/* Features */}
@@ -416,7 +464,9 @@ export default function SubscriptionPage() {
                 <div className="mb-6 p-3 bg-slate-700/30 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
                     <Zap className="w-4 h-4 text-yellow-400" />
-                    <span className="font-semibold text-white text-sm">Report Limit</span>
+                    <span className="font-semibold text-white text-sm">
+                      Report Limit
+                    </span>
                   </div>
                   <div className="text-lg font-bold text-cyan-400">
                     {plan.reportLimit}
@@ -429,8 +479,8 @@ export default function SubscriptionPage() {
                   disabled={pricingLoading === key}
                   className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                     plan.popular
-                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
-                      : 'bg-slate-700 text-white hover:bg-slate-600'
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
+                      : "bg-slate-700 text-white hover:bg-slate-600"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {pricingLoading === key ? (
@@ -454,28 +504,36 @@ export default function SubscriptionPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="text-center p-4 bg-slate-800/30 rounded-lg">
                 <Shield className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">IICRC S500 Compliant</h4>
+                <h4 className="text-lg font-semibold text-white mb-2">
+                  IICRC S500 Compliant
+                </h4>
                 <p className="text-slate-400 text-sm">
                   All reports follow IICRC S500 standards
                 </p>
               </div>
               <div className="text-center p-4 bg-slate-800/30 rounded-lg">
                 <Download className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">PDF Export</h4>
+                <h4 className="text-lg font-semibold text-white mb-2">
+                  PDF Export
+                </h4>
                 <p className="text-slate-400 text-sm">
                   Professional PDF reports ready for submission
                 </p>
               </div>
               <div className="text-center p-4 bg-slate-800/30 rounded-lg">
                 <Users className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">Client Management</h4>
+                <h4 className="text-lg font-semibold text-white mb-2">
+                  Client Management
+                </h4>
                 <p className="text-slate-400 text-sm">
                   Manage clients and track jobs
                 </p>
               </div>
               <div className="text-center p-4 bg-slate-800/30 rounded-lg">
                 <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                <h4 className="text-lg font-semibold text-white mb-2">24/7 Access</h4>
+                <h4 className="text-lg font-semibold text-white mb-2">
+                  24/7 Access
+                </h4>
                 <p className="text-slate-400 text-sm">
                   Access your data anytime, anywhere
                 </p>
@@ -485,5 +543,5 @@ export default function SubscriptionPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

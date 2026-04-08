@@ -1,4 +1,5 @@
 # Competitive Intelligence: AU/NZ Insurer & Restoration Software Market
+
 **Date:** April 2026
 **Prepared for:** RestoreAssist (RestoreAssist.com.au)
 **Classification:** Internal Strategic Document
@@ -29,22 +30,23 @@
 
 ### Collapse Timeline
 
-| Date | Event |
-|------|-------|
-| Early 2025 | Wilbur Technologies separated as standalone business under Brian Siemsen, independently capitalised |
-| July 2024 | AUB Group acquires Hello Claims motor brand from Claim Central |
-| **17 October 2025** | Claim Central Pty Limited enters **voluntary administration**; Olvera Advisors appointed as administrator (ASIC Notice ACN 102 685 343) |
-| 20 October 2025 | ASIC Published Notice issued (NSW) |
-| 21 October 2025 | Claim Central NSW Pty Ltd (ACN 657 554 624) also enters voluntary administration |
-| 22 October 2025 | InsuranceNews.com.au reports the administration; CGU begins contacting affected customers |
-| 27 October 2025 | CGU publicly confirms it is contacting customers affected by the Claim Central halt |
-| 14 November 2025 | ASIC meeting notice published — creditors meeting under s.439A |
-| 24 November 2025 | Creditors approve deed proposal; **unsecured creditors expected to receive 2.74c–6.32c in the dollar** |
-| November 2025 (pending) | Deed cannot proceed without CBA's consent (secured creditor, owed ~$1.5M) |
+| Date                    | Event                                                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Early 2025              | Wilbur Technologies separated as standalone business under Brian Siemsen, independently capitalised                                     |
+| July 2024               | AUB Group acquires Hello Claims motor brand from Claim Central                                                                          |
+| **17 October 2025**     | Claim Central Pty Limited enters **voluntary administration**; Olvera Advisors appointed as administrator (ASIC Notice ACN 102 685 343) |
+| 20 October 2025         | ASIC Published Notice issued (NSW)                                                                                                      |
+| 21 October 2025         | Claim Central NSW Pty Ltd (ACN 657 554 624) also enters voluntary administration                                                        |
+| 22 October 2025         | InsuranceNews.com.au reports the administration; CGU begins contacting affected customers                                               |
+| 27 October 2025         | CGU publicly confirms it is contacting customers affected by the Claim Central halt                                                     |
+| 14 November 2025        | ASIC meeting notice published — creditors meeting under s.439A                                                                          |
+| 24 November 2025        | Creditors approve deed proposal; **unsecured creditors expected to receive 2.74c–6.32c in the dollar**                                  |
+| November 2025 (pending) | Deed cannot proceed without CBA's consent (secured creditor, owed ~$1.5M)                                                               |
 
 ### Causes of Failure
 
 Per industry reporting (InsuranceNews.com.au):
+
 1. **Loss of major insurer contracts** — Over **$50 million** of contracted restoration work from **Hollard** and **Commonwealth Insurance** was withdrawn as those insurers consolidated or internalised their repair panels
 2. **Benign catastrophe period** — Reduced claims volumes due to lower natural disaster frequency compressed revenue
 3. **Margin squeeze** — Rising labour and subcontractor costs locked into fixed-price or capped-rate insurance contract structures
@@ -63,7 +65,7 @@ Per industry reporting (InsuranceNews.com.au):
 - Claim Central Pty Limited | ACN: 102 685 343 | Voluntary Administration | NSW | Appointment Date: 17/10/2025
 - Claim Central NSW Pty Ltd | ACN: 657 554 624 | Voluntary Administration | NSW
 
-*Note: ASIC Published Notices are publicly accessible at publishednotices.asic.gov.au*
+_Note: ASIC Published Notices are publicly accessible at publishednotices.asic.gov.au_
 
 ---
 
@@ -77,14 +79,14 @@ Wilbur describes itself as "Claims Management. By Design." — a modular, AI-pow
 
 ### Platform Capabilities
 
-| Module | Description |
-|--------|------------|
-| Claims Workflow | Configurable first-notification-of-loss to final resolution, custom workflows per claim type |
-| Supplier Network | Connects insurers with repair/assessment supplier networks |
-| LiveGenic Integration | Real-time video/photo capture paired with AI analysis for faster assessment |
-| BAIS Policy Integration | Partnership with BAIS for policy + claims combined solutions |
-| AI & Analytics (launched Sept 2024) | Fraud detection, underwriting analytics, workflow automation |
-| North America Module | Licensed exclusively to Eberl Claims Service (partnership announced Sept 2022) |
+| Module                              | Description                                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| Claims Workflow                     | Configurable first-notification-of-loss to final resolution, custom workflows per claim type |
+| Supplier Network                    | Connects insurers with repair/assessment supplier networks                                   |
+| LiveGenic Integration               | Real-time video/photo capture paired with AI analysis for faster assessment                  |
+| BAIS Policy Integration             | Partnership with BAIS for policy + claims combined solutions                                 |
+| AI & Analytics (launched Sept 2024) | Fraud detection, underwriting analytics, workflow automation                                 |
+| North America Module                | Licensed exclusively to Eberl Claims Service (partnership announced Sept 2022)               |
 
 ### Markets Served
 
@@ -96,6 +98,7 @@ Wilbur describes itself as "Claims Management. By Design." — a modular, AI-pow
 ### Clients
 
 Wilbur does not publicly list all clients, but available information indicates it serves:
+
 - General and specialty P&C insurers (property, cyber, automotive, commercial)
 - MGAs and TPAs
 
@@ -108,6 +111,7 @@ Wilbur does not publicly list all clients, but available information indicates i
 ### Strategic Position Post-Claim Central
 
 Wilbur is now an independent technology company, separated from the collapsed field services operations. This means:
+
 - No operational liability from Claim Central Property's administration
 - Technology IP fully preserved and operational
 - Brian Siemsen retains full executive control
@@ -121,34 +125,34 @@ Wilbur is now an independent technology company, separated from the collapsed fi
 
 ### Core Claims Management Layer (Insurer Back-Office)
 
-| Vendor | Product | Key AU/NZ Clients | Notes |
-|--------|---------|-------------------|-------|
-| **Guidewire** | ClaimCenter (cloud) | IAG (CGU), Suncorp, QBE, RAA, Hollard, Youi, Auto & General | Dominant platform; ~all major AU P&C carriers on Guidewire. IAG partnership with Codafication (Crunchwork) layered on top. Hollard deployed Guidewire ClaimCenter on cloud in 2023. Suncorp early adopter. |
-| **Duck Creek Technologies** | Policy, Claims, Billing, Rating, Clarity | Suncorp (Dec 2024 — multi-year digital insurer program), RAA (March 2025 — replacing legacy) | Major 2024–2025 AU market wins; challenger to Guidewire |
-| **SCOR VClaims** | Digital rules engine for life claims | AIA Australia (2025), and 4 other AU/NZ life insurers | Life insurance automation only |
+| Vendor                      | Product                                  | Key AU/NZ Clients                                                                            | Notes                                                                                                                                                                                                      |
+| --------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Guidewire**               | ClaimCenter (cloud)                      | IAG (CGU), Suncorp, QBE, RAA, Hollard, Youi, Auto & General                                  | Dominant platform; ~all major AU P&C carriers on Guidewire. IAG partnership with Codafication (Crunchwork) layered on top. Hollard deployed Guidewire ClaimCenter on cloud in 2023. Suncorp early adopter. |
+| **Duck Creek Technologies** | Policy, Claims, Billing, Rating, Clarity | Suncorp (Dec 2024 — multi-year digital insurer program), RAA (March 2025 — replacing legacy) | Major 2024–2025 AU market wins; challenger to Guidewire                                                                                                                                                    |
+| **SCOR VClaims**            | Digital rules engine for life claims     | AIA Australia (2025), and 4 other AU/NZ life insurers                                        | Life insurance automation only                                                                                                                                                                             |
 
 ### Field / Supply Chain / Contractor Layer
 
-| Vendor | Product | Key AU/NZ Clients | Notes |
-|--------|---------|-------------------|-------|
-| **Codafication** (Brisbane, est. 2015) | **Crunchwork** (field claims supply chain) + **Virtual Assist** (video assessment) | Suncorp, IAG (Dec 2025 major partnership), QBE, RAA, Youi, Auto & General | Most significant AU-native player in the insurer field layer. IAG partnership to modernise property claims supply chain announced Dec 2025. Won Guidewire Insurtech Vanguards 2024. Expanding internationally. |
-| **CoreLogic / Cotality** | **Prime Ecosystem → Contractor Workspace** (acquired Jan 2025), **Symbility Claims Workspace** (formerly Symbility Solutions, acquired 2018) | Vero NZ (Symbility), AU/NZ contractors generally | Prime Ecosystem was "Australia's leading contractor solution." Now rebranded CoreLogic Contractor Workspace — expanding to UK. Symbility used for estimating at Vero NZ. |
-| **Wilbur** (Sydney) | SaaS claims management platform | AU insurers, MGAs, TPAs | Post-Claim Central separation; Brian Siemsen-led. See Section 2. |
+| Vendor                                 | Product                                                                                                                                      | Key AU/NZ Clients                                                         | Notes                                                                                                                                                                                                          |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Codafication** (Brisbane, est. 2015) | **Crunchwork** (field claims supply chain) + **Virtual Assist** (video assessment)                                                           | Suncorp, IAG (Dec 2025 major partnership), QBE, RAA, Youi, Auto & General | Most significant AU-native player in the insurer field layer. IAG partnership to modernise property claims supply chain announced Dec 2025. Won Guidewire Insurtech Vanguards 2024. Expanding internationally. |
+| **CoreLogic / Cotality**               | **Prime Ecosystem → Contractor Workspace** (acquired Jan 2025), **Symbility Claims Workspace** (formerly Symbility Solutions, acquired 2018) | Vero NZ (Symbility), AU/NZ contractors generally                          | Prime Ecosystem was "Australia's leading contractor solution." Now rebranded CoreLogic Contractor Workspace — expanding to UK. Symbility used for estimating at Vero NZ.                                       |
+| **Wilbur** (Sydney)                    | SaaS claims management platform                                                                                                              | AU insurers, MGAs, TPAs                                                   | Post-Claim Central separation; Brian Siemsen-led. See Section 2.                                                                                                                                               |
 
 ### Estimating / Pricing Layer
 
-| Vendor | Product | AU/NZ Presence | Notes |
-|--------|---------|----------------|-------|
-| **Verisk / Xactware** | **Xactimate** (property claims estimating) | Via **Insurtech Systems Pty Ltd** (subsidiary of Stream Group Ltd, ASX-listed) — exclusive AU/NZ representative | Gold standard in US (75–80% of adjusters). AU market penetration lower; distributed via Insurtech Systems. Xactimate AU/NZ pricing database maintained. |
-| **CoreLogic / Cotality** | **Claims Estimate** (formerly Mobile Claims) | AU/NZ market via Symbility/CoreLogic infrastructure | Redesigned Dec 2024. Used by restoration and claims professionals. ANSI/IICRC S500 integrated into Cotality Mitigate product. |
+| Vendor                   | Product                                      | AU/NZ Presence                                                                                                  | Notes                                                                                                                                                   |
+| ------------------------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Verisk / Xactware**    | **Xactimate** (property claims estimating)   | Via **Insurtech Systems Pty Ltd** (subsidiary of Stream Group Ltd, ASX-listed) — exclusive AU/NZ representative | Gold standard in US (75–80% of adjusters). AU market penetration lower; distributed via Insurtech Systems. Xactimate AU/NZ pricing database maintained. |
+| **CoreLogic / Cotality** | **Claims Estimate** (formerly Mobile Claims) | AU/NZ market via Symbility/CoreLogic infrastructure                                                             | Redesigned Dec 2024. Used by restoration and claims professionals. ANSI/IICRC S500 integrated into Cotality Mitigate product.                           |
 
 ### Restoration Field Documentation (Emerging / Niche)
 
-| Vendor | Product | Notes |
-|--------|---------|-------|
-| **Encircle** (Canada) | Encircle Hydro | Follows AS-IICRC S500:2025; AI-generated mitigation scopes. US/Canada primary; AU presence limited. |
-| **Xcelerate** | Moisture tracking / drying logs | IICRC compliance tools for water damage; primarily US market. |
-| **RestoreAssist** | Full-stack compliance platform | Only AU-native IICRC S500:2025-specific platform with scope generation, moisture mapping, report workflow |
+| Vendor                | Product                         | Notes                                                                                                     |
+| --------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Encircle** (Canada) | Encircle Hydro                  | Follows AS-IICRC S500:2025; AI-generated mitigation scopes. US/Canada primary; AU presence limited.       |
+| **Xcelerate**         | Moisture tracking / drying logs | IICRC compliance tools for water damage; primarily US market.                                             |
+| **RestoreAssist**     | Full-stack compliance platform  | Only AU-native IICRC S500:2025-specific platform with scope generation, moisture mapping, report workflow |
 
 ### Key Standards Context
 
@@ -160,32 +164,32 @@ The **AS-IICRC S500:2025** standard was published by Standards Australia in earl
 
 ### Corporate Overview
 
-| Metric | Value (FY2024) |
-|--------|---------------|
-| Revenue | $2,882M (up 7.5% YoY) |
-| Adjusted EBITDA | $1,576M |
-| Income from continuing operations | $951M (up 23.7%) |
-| Market cap (approximate) | ~$35–38B (NASDAQ: VRSK) |
-| Employees | Global; teams in 20+ countries |
+| Metric                            | Value (FY2024)                 |
+| --------------------------------- | ------------------------------ |
+| Revenue                           | $2,882M (up 7.5% YoY)          |
+| Adjusted EBITDA                   | $1,576M                        |
+| Income from continuing operations | $951M (up 23.7%)               |
+| Market cap (approximate)          | ~$35–38B (NASDAQ: VRSK)        |
+| Employees                         | Global; teams in 20+ countries |
 
 ### Verisk's Insurance Technology Portfolio
 
 Verisk is a pure-play insurance data, analytics and technology company. Key product lines relevant to restoration:
 
-| Product | Description |
-|---------|------------|
-| **Xactimate** | Property claims estimating software — the global standard for restoration, roofing, fire, and water damage. Used by ~80% of top US property insurance carriers and 75–80% of adjusters. |
-| **XactAnalysis** | Business intelligence and claims data analytics on top of Xactimate estimates |
-| **XactAI** (launched Sept 2025) | AI suite embedded into Xactware — generative AI for claims summarisation, document organisation, workflow automation |
-| **Pricing Data Services** | Independently researched reconstruction pricing database used by Xactimate |
-| **Extreme Event Solutions** | Catastrophe risk modelling |
-| **Underwriting Solutions** | Forms, rules, loss costs for insurers |
-| **HOVER integration** | 3D interior/exterior property measurement inside Xactimate |
-| **EagleView integration** (Feb 2025) | Aerial imagery assessment integrated into Xactimate |
-| **ServiceTitan integration** (Sept 2025) | Roofing/exterior contractor workflow connected to Xactimate |
-| **Nasdaq Risk Modelling (NRMC / Simplitium)** | Acquired April 2025 — 300+ third-party catastrophe models |
-| **SuranceBay** (announced July 2025) | Life & annuity producer licensing/compliance ($162.5M cash) |
-| **Rocket Enterprise Solutions GmbH** | Acquired Jan 2024 — Germany-based property claims insurtech (EU expansion) |
+| Product                                       | Description                                                                                                                                                                             |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Xactimate**                                 | Property claims estimating software — the global standard for restoration, roofing, fire, and water damage. Used by ~80% of top US property insurance carriers and 75–80% of adjusters. |
+| **XactAnalysis**                              | Business intelligence and claims data analytics on top of Xactimate estimates                                                                                                           |
+| **XactAI** (launched Sept 2025)               | AI suite embedded into Xactware — generative AI for claims summarisation, document organisation, workflow automation                                                                    |
+| **Pricing Data Services**                     | Independently researched reconstruction pricing database used by Xactimate                                                                                                              |
+| **Extreme Event Solutions**                   | Catastrophe risk modelling                                                                                                                                                              |
+| **Underwriting Solutions**                    | Forms, rules, loss costs for insurers                                                                                                                                                   |
+| **HOVER integration**                         | 3D interior/exterior property measurement inside Xactimate                                                                                                                              |
+| **EagleView integration** (Feb 2025)          | Aerial imagery assessment integrated into Xactimate                                                                                                                                     |
+| **ServiceTitan integration** (Sept 2025)      | Roofing/exterior contractor workflow connected to Xactimate                                                                                                                             |
+| **Nasdaq Risk Modelling (NRMC / Simplitium)** | Acquired April 2025 — 300+ third-party catastrophe models                                                                                                                               |
+| **SuranceBay** (announced July 2025)          | Life & annuity producer licensing/compliance ($162.5M cash)                                                                                                                             |
+| **Rocket Enterprise Solutions GmbH**          | Acquired Jan 2024 — Germany-based property claims insurtech (EU expansion)                                                                                                              |
 
 ### AU/NZ Presence
 
@@ -210,15 +214,15 @@ The FTC requested additional information in October 2025, signalling antitrust s
 
 ### What Would Make RestoreAssist an Acquisition Target for Verisk
 
-| Criterion | RestoreAssist Position |
-|-----------|----------------------|
-| **Xactimate integration** | RestoreAssist references Xactimate integration capability; a working bidirectional data bridge would be highly valued |
-| **IICRC compliance layer** | RestoreAssist is built on IICRC S500:2025 — no other AU platform offers this natively |
-| **Insurer connectivity** | Direct Guidewire integration (already referenced in codebase) creates a credible insurer API story |
-| **Estimating + field documentation combined** | Verisk's gap: Xactimate does estimates but not field-side IICRC documentation, moisture mapping, or drying logs |
-| **AU/NZ market entry vehicle** | Verisk currently routes through Insurtech Systems/Stream Group — a direct acquisition would give full AU/NZ market ownership |
-| **Contractor network** | If RestoreAssist builds a contractor directory/panel management layer, it creates network effects Verisk values |
-| **Data assets** | Scope pricing data, job patterns, moisture reading databases — all valuable to Verisk's pricing intelligence |
+| Criterion                                     | RestoreAssist Position                                                                                                       |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Xactimate integration**                     | RestoreAssist references Xactimate integration capability; a working bidirectional data bridge would be highly valued        |
+| **IICRC compliance layer**                    | RestoreAssist is built on IICRC S500:2025 — no other AU platform offers this natively                                        |
+| **Insurer connectivity**                      | Direct Guidewire integration (already referenced in codebase) creates a credible insurer API story                           |
+| **Estimating + field documentation combined** | Verisk's gap: Xactimate does estimates but not field-side IICRC documentation, moisture mapping, or drying logs              |
+| **AU/NZ market entry vehicle**                | Verisk currently routes through Insurtech Systems/Stream Group — a direct acquisition would give full AU/NZ market ownership |
+| **Contractor network**                        | If RestoreAssist builds a contractor directory/panel management layer, it creates network effects Verisk values              |
+| **Data assets**                               | Scope pricing data, job patterns, moisture reading databases — all valuable to Verisk's pricing intelligence                 |
 
 ---
 
@@ -227,6 +231,7 @@ The FTC requested additional information in October 2025, signalling antitrust s
 ### Current Position (April 2026)
 
 RestoreAssist is an AU-native, IICRC S500:2025 compliant platform serving water damage restoration professionals. Core capabilities include:
+
 - Report generation (Tier 1/2/3 question flows)
 - Moisture mapping and drying logs
 - Scope of works generation (AI-assisted)
@@ -243,11 +248,13 @@ RestoreAssist is an AU-native, IICRC S500:2025 compliant platform serving water 
 **Opportunity:** Claim Central's collapse left a gap in the AU restoration market — the primary managed-services layer between insurers and contractors is gone. Restoration contractors who relied on Claim Central's workflow are now underserved.
 
 **Competitors to displace at this layer:**
+
 - Codafication Crunchwork (strong at insurer layer, weak at individual contractor IICRC documentation)
 - Xcelerate / Encircle Hydro (US-built, not AS-IICRC S500:2025 native, no AU pricing data)
 - Manual processes / Excel (majority of AU restorers)
 
 **Key capabilities to build/strengthen:**
+
 - AS-IICRC S500:2025 compliance certification badges and audit trails
 - RIA (Restoration Industry Association) membership integration
 - Offline-capable mobile app (Capacitor) for on-site use
@@ -257,11 +264,13 @@ RestoreAssist is an AU-native, IICRC S500:2025 compliant platform serving water 
 **Opportunity:** Insurers (IAG, Suncorp, QBE) use Guidewire as core claims but need a field-side layer for restoration supply chain management. Codafication has the supply chain orchestration layer (Crunchwork) but lacks the **IICRC compliance documentation** and **restoration-specific data** (moisture readings, drying goals, equipment logs).
 
 **Competitors to displace:**
+
 - Codafication — no IICRC documentation; no scope generation; no moisture mapping
 - Wilbur — claims workflow platform; no field restoration compliance tools
 - CoreLogic Contractor Workspace (formerly Prime Ecosystem) — contractor CRM/job management; not IICRC-specific
 
 **Key capabilities needed:**
+
 - Bidirectional Guidewire ClaimCenter API integration (receive claim, return scope + documentation package)
 - Insurer-facing dashboard (claim status, compliance scores, photo evidence)
 - Panel management module (insurer assigns RestoreAssist contractors to claims)
@@ -270,6 +279,7 @@ RestoreAssist is an AU-native, IICRC S500:2025 compliant platform serving water 
 #### Phase 3: Ecosystem Play / Acquisition Target (24–48 months)
 
 **The moat:** A platform that sits at the intersection of:
+
 - **Field compliance data** (IICRC, AS-IICRC S500:2025 documentation)
 - **Insurer connectivity** (Guidewire, Duck Creek API)
 - **Pricing intelligence** (AU-specific restoration cost data, Xactimate-compatible)
@@ -277,28 +287,29 @@ RestoreAssist is an AU-native, IICRC S500:2025 compliant platform serving water 
 
 **Acquisition candidates:**
 
-| Acquirer | Strategic Rationale | Likelihood |
-|----------|--------------------|-----------|
-| **Verisk** | Failed AccuLynx deal; needs AU/NZ entry; IICRC compliance data + Xactimate integration = direct synergy | High — if Xactimate integration is live |
-| **CoreLogic/Cotality** | Already acquired Prime Ecosystem (AU contractor software Jan 2025); IICRC + estimating would complete their AU restoration stack | Medium-High |
-| **Guidewire** | Marketplace ecosystem strategy; 110+ cloud integrations; AU-native Guidewire app with IICRC compliance is a Marketplace product | Medium |
-| **IAG / Suncorp** | Insurer strategic investment (cf. AUB + Claim Central); vertical integration of claims supply chain | Medium |
-| **Codafication** | Merger to combine supply chain orchestration (Crunchwork) with IICRC field compliance — creates end-to-end AU restoration platform | Low-Medium |
+| Acquirer               | Strategic Rationale                                                                                                                | Likelihood                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Verisk**             | Failed AccuLynx deal; needs AU/NZ entry; IICRC compliance data + Xactimate integration = direct synergy                            | High — if Xactimate integration is live |
+| **CoreLogic/Cotality** | Already acquired Prime Ecosystem (AU contractor software Jan 2025); IICRC + estimating would complete their AU restoration stack   | Medium-High                             |
+| **Guidewire**          | Marketplace ecosystem strategy; 110+ cloud integrations; AU-native Guidewire app with IICRC compliance is a Marketplace product    | Medium                                  |
+| **IAG / Suncorp**      | Insurer strategic investment (cf. AUB + Claim Central); vertical integration of claims supply chain                                | Medium                                  |
+| **Codafication**       | Merger to combine supply chain orchestration (Crunchwork) with IICRC field compliance — creates end-to-end AU restoration platform | Low-Medium                              |
 
 ### Competitive Displacement Summary
 
-| Competitor | Weakness RestoreAssist Can Exploit | Displacement Timeline |
-|------------|-----------------------------------|-----------------------|
-| **Claim Central (collapsed)** | Customer base now unserved; 50+ insurer-contracted restoration businesses need platform | Immediate (now) |
-| **Wilbur** | No field restoration tools; no IICRC compliance; no scope generation | 12–18 months (insurer integration needed first) |
-| **Codafication Crunchwork** | Insurer-facing only; no IICRC documentation for field teams; no moisture mapping | 18–24 months (requires insurer API layer) |
-| **CoreLogic Contractor Workspace** | Generic contractor CRM; not IICRC-native; no AS-IICRC S500:2025 compliance | 12 months (at field/contractor layer) |
-| **Xactimate AU** | Estimating-only; no IICRC field compliance; no drying logs; distributed via third party | Complementary integration better than displacement |
-| **Encircle Hydro** | US-built; not AS-IICRC S500:2025 native; no AU pricing; no insurer integrations | 6–12 months (contractor acquisition) |
+| Competitor                         | Weakness RestoreAssist Can Exploit                                                      | Displacement Timeline                              |
+| ---------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Claim Central (collapsed)**      | Customer base now unserved; 50+ insurer-contracted restoration businesses need platform | Immediate (now)                                    |
+| **Wilbur**                         | No field restoration tools; no IICRC compliance; no scope generation                    | 12–18 months (insurer integration needed first)    |
+| **Codafication Crunchwork**        | Insurer-facing only; no IICRC documentation for field teams; no moisture mapping        | 18–24 months (requires insurer API layer)          |
+| **CoreLogic Contractor Workspace** | Generic contractor CRM; not IICRC-native; no AS-IICRC S500:2025 compliance              | 12 months (at field/contractor layer)              |
+| **Xactimate AU**                   | Estimating-only; no IICRC field compliance; no drying logs; distributed via third party | Complementary integration better than displacement |
+| **Encircle Hydro**                 | US-built; not AS-IICRC S500:2025 native; no AU pricing; no insurer integrations         | 6–12 months (contractor acquisition)               |
 
 ### Key Risk: Codafication
 
 Codafication is the most credible competitive threat to RestoreAssist's Phase 2 (insurer-facing) ambitions:
+
 - Already contracted with all major AU insurers (IAG, Suncorp, QBE, Youi, RAA, Auto & General)
 - Won Guidewire's 2024 Insurtech Vanguards competition
 - Backed by IAG as a reference customer
@@ -311,6 +322,7 @@ However, Codafication is a **supply chain orchestration platform** — it connec
 ## Sources
 
 **Claims Central / Wilbur:**
+
 - [Claim Central Property in administration — InsuranceNews.com.au (22 Oct 2025)](https://www.insurancenews.com.au/breaking-news/claim-central-in-administration-as-extraordinary-pressures-take-toll)
 - [Claim Central creditors await CBA nod for deed plan — InsuranceNews.com.au (24 Nov 2025)](https://www.insurancenews.com.au/corporate/claim-central-creditors-await-cba-nod-for-deed-plan)
 - [CGU to contact customers affected by Claim Central halt — InsuranceNews.com.au (27 Oct 2025)](https://www.insurancenews.com.au/corporate/cgu-to-contact-customers-affected-by-claim-central-halt)
@@ -326,6 +338,7 @@ However, Codafication is a **supply chain orchestration platform** — it connec
 - [Eberl Claims Service and Wilbur Partnership — GlobeNewswire (Sept 2022)](https://www.globenewswire.com/news-release/2022/09/14/2516270/0/en/Eberl-Claims-Service-and-Wilbur-Partner-to-Provide-Exclusive-Claims-Technology-Solutions.html)
 
 **AU/NZ Insurer Software Landscape:**
+
 - [IAG Selects Guidewire for Claims Management — Guidewire IR](https://ir.guidewire.com/news-releases/news-release-details/insurance-australia-group-iag-selects-guidewire-claims)
 - [Hollard Deploys Guidewire ClaimCenter on Cloud — Guidewire IR (Sept 2023)](https://ir.guidewire.com/news-releases/news-release-details/hollard-deploys-guidewire-claimcenter-guidewire-cloud-seamless)
 - [QBE Insurance Australia — Guidewire customer success story](https://www.guidewire.com/customers/success-stories/qbe-insurance-australia)
@@ -342,6 +355,7 @@ However, Codafication is a **supply chain orchestration platform** — it connec
 - [CoreLogic modernized Claims Estimate — Cotality press release](https://www.cotality.com/press-releases/modernized-corelogic-claims-estimate-brings-enhanced-efficiency-and-customization-to-the-property-claims-industry)
 
 **Verisk:**
+
 - [Verisk Full-Year 2024 Financial Results — Verisk newsroom (Feb 2025)](https://www.verisk.com/company/newsroom/verisk-reports-fourth-quarter-2024-and-full-year-2024-financial-results/)
 - [Verisk Signs Definitive Agreement to Acquire AccuLynx (July 2025) — Verisk newsroom](https://www.verisk.com/company/newsroom/verisk-signs-definitive-agreement-to-acquire-acculynx/)
 - [Verisk Ends Effort to Acquire AccuLynx (Dec 2025) — Verisk newsroom](https://www.verisk.com/company/newsroom/verisk-ends-effort-to-acquire-acculynx/)
@@ -354,6 +368,7 @@ However, Codafication is a **supply chain orchestration platform** — it connec
 - [Scope Technologies Joins Verisk Xactimate Partner Ecosystem (Oct 2024)](https://www.stocktitan.net/news/VRSK/scope-technologies-joins-verisk-s-xactimate-partner-dzku481br9nx.html)
 
 **Field Software (US context, for comparison):**
+
 - [CoreLogic Acquires Next Gear Solutions (Sept 2021) — R&R Magazine](https://www.randrmagonline.com/articles/89593-a-very-major-event-next-gear-solutions-acquired-by-corelogic)
 - [Encircle water damage restoration software](https://www.getencircle.com/water-damage-restoration)
 - [Cotality Mitigate (CoreLogic restoration)](https://www.cotality.com/products/restoration-mitigate)
@@ -361,4 +376,4 @@ However, Codafication is a **supply chain orchestration platform** — it connec
 
 ---
 
-*Research conducted April 2026. Information sourced from publicly available news articles, ASIC Published Notices, company websites, investor relations announcements, and industry publications. Financial data and corporate events dated as noted. Where information is behind paywalls (e.g., ASIC detailed creditor reports, private company financials) this is noted in the text.*
+_Research conducted April 2026. Information sourced from publicly available news articles, ASIC Published Notices, company websites, investor relations announcements, and industry publications. Financial data and corporate events dated as noted. Where information is behind paywalls (e.g., ASIC detailed creditor reports, private company financials) this is noted in the text._

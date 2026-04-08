@@ -531,10 +531,12 @@ export default function BillingOverview() {
                     color: "#111827",
                     fontSize: "12px",
                   }}
-                  formatter={((value: any, name: string) => [
-                    `${value} users`,
-                    name,
-                  ]) as any}
+                  formatter={
+                    ((value: any, name: string) => [
+                      `${value} users`,
+                      name,
+                    ]) as any
+                  }
                 />
                 <Legend
                   formatter={(value: string) => (

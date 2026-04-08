@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { applyRateLimit } from "@/lib/rate-limiter"
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /**
  * GET /api/authority-forms/sign/:token
@@ -9,17 +9,20 @@ import { applyRateLimit } from "@/lib/rate-limiter"
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
+  { params }: { params: Promise<{ token: string }> },
 ) {
   try {
     // Rate limit: 20 requests per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, { maxRequests: 20, prefix: "form-sign" })
-    if (rateLimited) return rateLimited
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 20,
+      prefix: "form-sign",
+    });
+    if (rateLimited) return rateLimited;
 
-    const { token } = await params
+    const { token } = await params;
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 })
+      return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
     const signature = await prisma.authorityFormSignature.findUnique({
@@ -40,23 +43,26 @@ export async function GET(
           },
         },
       },
-    })
+    });
 
     if (!signature) {
       return NextResponse.json(
         { error: "Invalid or expired signing link" },
-        { status: 404 }
-      )
+        { status: 404 },
+      );
     }
 
     if (signature.signedAt) {
       return NextResponse.json(
-        { error: "already_signed", message: "This form has already been signed" },
-        { status: 400 }
-      )
+        {
+          error: "already_signed",
+          message: "This form has already been signed",
+        },
+        { status: 400 },
+      );
     }
 
-    const form = signature.instance
+    const form = signature.instance;
 
     return NextResponse.json({
       signatory: {
@@ -81,13 +87,13 @@ export async function GET(
         status: form.status,
         signatures: form.signatures,
       },
-    })
+    });
   } catch (error: any) {
-    console.error("[Sign Token GET] Error:", error)
+    console.error("[Sign Token GET] Error:", error);
     return NextResponse.json(
       { error: "Failed to load signing page" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
@@ -99,46 +105,49 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
+  { params }: { params: Promise<{ token: string }> },
 ) {
   try {
     // Rate limit: 10 submissions per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "form-sign-submit" })
-    if (rateLimited) return rateLimited
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      prefix: "form-sign-submit",
+    });
+    if (rateLimited) return rateLimited;
 
-    const { token } = await params
-    const body = await request.json()
-    const { signatureData, signatoryName } = body
+    const { token } = await params;
+    const body = await request.json();
+    const { signatureData, signatoryName } = body;
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 })
+      return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
     if (!signatureData) {
       return NextResponse.json(
         { error: "Signature data is required" },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     // Look up the signature record to get the id and instanceId
     const signature = await prisma.authorityFormSignature.findUnique({
       where: { signatureRequestToken: token },
-    })
+    });
 
     if (!signature) {
       return NextResponse.json(
         { error: "Invalid or expired signing link" },
-        { status: 404 }
-      )
+        { status: 404 },
+      );
     }
 
     // Capture verification data
     const ipAddress =
       request.headers.get("x-forwarded-for") ||
       request.headers.get("x-real-ip") ||
-      "unknown"
-    const userAgent = request.headers.get("user-agent") || "unknown"
+      "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
 
     // Atomic check-and-sign: updateMany with WHERE signedAt IS NULL prevents the
     // double-tap race where two simultaneous submissions both read signedAt=null,
@@ -152,29 +161,32 @@ export async function POST(
         ipAddress,
         userAgent,
       },
-    })
+    });
 
     if (result.count === 0) {
       return NextResponse.json(
         { error: "This form has already been signed" },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     // Fetch the updated record for instanceId-based checks below
     const updated = await prisma.authorityFormSignature.findUnique({
       where: { id: signature.id },
-    })
+    });
     if (!updated) {
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
 
     // Check if all signatures for this form are now complete
     const allSignatures = await prisma.authorityFormSignature.findMany({
       where: { instanceId: signature.instanceId },
-    })
+    });
 
-    const allSigned = allSignatures.every((sig) => sig.signedAt !== null)
+    const allSigned = allSignatures.every((sig) => sig.signedAt !== null);
 
     if (allSigned) {
       await prisma.authorityFormInstance.update({
@@ -183,19 +195,23 @@ export async function POST(
           status: "COMPLETED",
           completedAt: new Date(),
         },
-      })
+      });
     } else {
       // Update to PARTIALLY_SIGNED if not already
       const form = await prisma.authorityFormInstance.findUnique({
         where: { id: signature.instanceId },
         select: { status: true },
-      })
+      });
 
-      if (form && form.status !== "PARTIALLY_SIGNED" && form.status !== "COMPLETED") {
+      if (
+        form &&
+        form.status !== "PARTIALLY_SIGNED" &&
+        form.status !== "COMPLETED"
+      ) {
         await prisma.authorityFormInstance.update({
           where: { id: signature.instanceId },
           data: { status: "PARTIALLY_SIGNED" },
-        })
+        });
       }
     }
 
@@ -203,12 +219,12 @@ export async function POST(
       success: true,
       allSigned,
       formId: signature.instanceId,
-    })
+    });
   } catch (error: any) {
-    console.error("[Sign Token POST] Error:", error)
+    console.error("[Sign Token POST] Error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to submit signature" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

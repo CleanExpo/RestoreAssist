@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, input, shadows } from '@/constants/theme';
-import { useAppStore } from '@/lib/store';
-import { api } from '@/lib/api/client';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, input, shadows } from "@/constants/theme";
+import { useAppStore } from "@/lib/store";
+import { api } from "@/lib/api/client";
 
 interface FormField {
   value: string;
@@ -26,9 +26,21 @@ export default function NewInspectionScreen() {
   const router = useRouter();
   const { triggerRefresh } = useAppStore();
 
-  const [address, setAddress] = useState<FormField>({ value: '', error: null, focused: false });
-  const [postcode, setPostcode] = useState<FormField>({ value: '', error: null, focused: false });
-  const [technician, setTechnician] = useState<FormField>({ value: '', error: null, focused: false });
+  const [address, setAddress] = useState<FormField>({
+    value: "",
+    error: null,
+    focused: false,
+  });
+  const [postcode, setPostcode] = useState<FormField>({
+    value: "",
+    error: null,
+    focused: false,
+  });
+  const [technician, setTechnician] = useState<FormField>({
+    value: "",
+    error: null,
+    focused: false,
+  });
 
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -37,14 +49,14 @@ export default function NewInspectionScreen() {
     let valid = true;
 
     if (!address.value.trim()) {
-      setAddress((f) => ({ ...f, error: 'Required' }));
+      setAddress((f) => ({ ...f, error: "Required" }));
       valid = false;
     }
     if (!postcode.value.trim()) {
-      setPostcode((f) => ({ ...f, error: 'Required' }));
+      setPostcode((f) => ({ ...f, error: "Required" }));
       valid = false;
     } else if (!/^\d{4}$/.test(postcode.value.trim())) {
-      setPostcode((f) => ({ ...f, error: 'Enter a valid 4-digit postcode' }));
+      setPostcode((f) => ({ ...f, error: "Enter a valid 4-digit postcode" }));
       valid = false;
     }
 
@@ -67,7 +79,7 @@ export default function NewInspectionScreen() {
       triggerRefresh();
       router.replace(`/(tabs)/inspections/${inspection.id}`);
     } catch (err: any) {
-      setApiError(err.message ?? 'Failed to create inspection');
+      setApiError(err.message ?? "Failed to create inspection");
     } finally {
       setSubmitting(false);
     }
@@ -92,7 +104,7 @@ export default function NewInspectionScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={80}
     >
       <ScrollView
@@ -116,13 +128,14 @@ export default function NewInspectionScreen() {
         {/* Form fields */}
         <View style={styles.fieldGroup}>
           <Text style={labelStyle(address, true)}>
-            Property Address{' '}
-            <Text style={styles.required}>*</Text>
+            Property Address <Text style={styles.required}>*</Text>
           </Text>
           <TextInput
             style={inputStyle(address)}
             value={address.value}
-            onChangeText={(text) => setAddress((f) => ({ ...f, value: text, error: null }))}
+            onChangeText={(text) =>
+              setAddress((f) => ({ ...f, value: text, error: null }))
+            }
             onFocus={() => setAddress((f) => ({ ...f, focused: true }))}
             onBlur={() => setAddress((f) => ({ ...f, focused: false }))}
             placeholder="e.g. 42 Wallaby Way, Sydney NSW"
@@ -130,7 +143,9 @@ export default function NewInspectionScreen() {
             autoCapitalize="words"
             returnKeyType="next"
           />
-          {address.error ? <Text style={styles.errorText}>{address.error}</Text> : null}
+          {address.error ? (
+            <Text style={styles.errorText}>{address.error}</Text>
+          ) : null}
         </View>
 
         <View style={styles.fieldGroup}>
@@ -141,7 +156,7 @@ export default function NewInspectionScreen() {
             style={inputStyle(postcode)}
             value={postcode.value}
             onChangeText={(text) => {
-              const cleaned = text.replace(/\D/g, '').slice(0, 4);
+              const cleaned = text.replace(/\D/g, "").slice(0, 4);
               setPostcode((f) => ({ ...f, value: cleaned, error: null }));
             }}
             onFocus={() => setPostcode((f) => ({ ...f, focused: true }))}
@@ -152,7 +167,9 @@ export default function NewInspectionScreen() {
             maxLength={4}
             returnKeyType="next"
           />
-          {postcode.error ? <Text style={styles.errorText}>{postcode.error}</Text> : null}
+          {postcode.error ? (
+            <Text style={styles.errorText}>{postcode.error}</Text>
+          ) : null}
         </View>
 
         <View style={styles.fieldGroup}>
@@ -160,7 +177,9 @@ export default function NewInspectionScreen() {
           <TextInput
             style={inputStyle(technician)}
             value={technician.value}
-            onChangeText={(text) => setTechnician((f) => ({ ...f, value: text }))}
+            onChangeText={(text) =>
+              setTechnician((f) => ({ ...f, value: text }))
+            }
             onFocus={() => setTechnician((f) => ({ ...f, focused: true }))}
             onBlur={() => setTechnician((f) => ({ ...f, focused: false }))}
             placeholder="Optional"
@@ -173,7 +192,11 @@ export default function NewInspectionScreen() {
 
         {apiError ? (
           <View style={styles.apiErrorBox}>
-            <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+            <Ionicons
+              name="alert-circle-outline"
+              size={16}
+              color={colors.error}
+            />
             <Text style={styles.apiErrorText}>{apiError}</Text>
           </View>
         ) : null}
@@ -208,8 +231,8 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   contextCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1,
@@ -224,16 +247,16 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: colors.accentDim,
     borderWidth: 1,
-    borderColor: colors.accent + '40',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: colors.accent + "40",
+    alignItems: "center",
+    justifyContent: "center",
   },
   contextText: {
     flex: 1,
   },
   contextTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
   },
   contextSubtitle: {
@@ -248,9 +271,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.label,
     marginBottom: 6,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   labelFocused: {
     color: colors.accent,
@@ -283,29 +306,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.error,
     marginTop: 5,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   apiErrorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     backgroundColor: colors.errorDim,
     borderRadius: 10,
     padding: spacing.md,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.error + '40',
+    borderColor: colors.error + "40",
   },
   apiErrorText: {
     color: colors.error,
     fontSize: 14,
     flex: 1,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.sm,
     height: 58,
     backgroundColor: colors.accent,
@@ -318,7 +341,7 @@ const styles = StyleSheet.create({
   createBtnText: {
     color: colors.bg,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.2,
   },
 });

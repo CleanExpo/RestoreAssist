@@ -378,7 +378,9 @@ export function EquipmentCostCalculatorComponent({
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
-                      {EquipmentCostCalculator.formatCost(estimate.laborCost ?? 0)}
+                      {EquipmentCostCalculator.formatCost(
+                        estimate.laborCost ?? 0,
+                      )}
                     </p>
                   </div>
                 </div>

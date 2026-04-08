@@ -52,7 +52,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const inspection = await prisma.inspection.findFirst({
     where: {
       id: inspectionId,
-      ...(session.user.organizationId ? { userId: session.user.id } : { userId: session.user.id }),
+      ...(session.user.organizationId
+        ? { userId: session.user.id }
+        : { userId: session.user.id }),
     } as any,
     select: {
       id: true,
@@ -69,7 +71,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   // Extract insurer ID from metadata
-  const metadata = ((inspection as any).metadata as Record<string, unknown>) ?? {};
+  const metadata =
+    ((inspection as any).metadata as Record<string, unknown>) ?? {};
   const insurerId = metadata.insurerProfileId as string | undefined;
 
   if (!insurerId || !isValidInsurerId(insurerId)) {

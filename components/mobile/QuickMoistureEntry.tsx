@@ -9,11 +9,19 @@
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, AlertTriangle, XCircle, Delete } from "lucide-react";
-import { getMoistureStatus, STATUS_COLORS, getDryStandard } from "@/lib/iicrc-dry-standards";
+import {
+  getMoistureStatus,
+  STATUS_COLORS,
+  getDryStandard,
+} from "@/lib/iicrc-dry-standards";
 
 interface QuickMoistureEntryProps {
   inspectionId: string;
-  onSaved?: (reading: { location: string; moistureLevel: number; material: string }) => void;
+  onSaved?: (reading: {
+    location: string;
+    moistureLevel: number;
+    material: string;
+  }) => void;
 }
 
 const COMMON_LOCATIONS = [
@@ -38,7 +46,10 @@ const MATERIALS = [
 
 const PAD_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
 
-export function QuickMoistureEntry({ inspectionId, onSaved }: QuickMoistureEntryProps) {
+export function QuickMoistureEntry({
+  inspectionId,
+  onSaved,
+}: QuickMoistureEntryProps) {
   const [value, setValue] = useState("");
   const [location, setLocation] = useState("");
   const [material, setMaterial] = useState("plasterboard");
@@ -47,31 +58,38 @@ export function QuickMoistureEntry({ inspectionId, onSaved }: QuickMoistureEntry
   const [error, setError] = useState<string | null>(null);
 
   const numericValue = parseFloat(value);
-  const isValid = !isNaN(numericValue) && numericValue >= 0 && numericValue <= 100;
+  const isValid =
+    !isNaN(numericValue) && numericValue >= 0 && numericValue <= 100;
   const std = getDryStandard(material);
   const status = isValid ? getMoistureStatus(numericValue, material) : null;
   const statusColors = status ? STATUS_COLORS[status] : null;
 
-  const handlePad = useCallback((key: string) => {
-    if (key === "⌫") {
-      setValue((v) => v.slice(0, -1));
-      return;
-    }
-    // Max 5 chars e.g. "100.0"
-    if (value.length >= 5) return;
-    // Only one decimal point
-    if (key === "." && value.includes(".")) return;
-    // Don't allow leading zeros
-    if (key !== "." && value === "0") {
-      setValue(key);
-      return;
-    }
-    setValue((v) => v + key);
-  }, [value]);
+  const handlePad = useCallback(
+    (key: string) => {
+      if (key === "⌫") {
+        setValue((v) => v.slice(0, -1));
+        return;
+      }
+      // Max 5 chars e.g. "100.0"
+      if (value.length >= 5) return;
+      // Only one decimal point
+      if (key === "." && value.includes(".")) return;
+      // Don't allow leading zeros
+      if (key !== "." && value === "0") {
+        setValue(key);
+        return;
+      }
+      setValue((v) => v + key);
+    },
+    [value],
+  );
 
   const handleSave = async () => {
     if (!isValid) return;
-    if (!location) { setError("Select a location"); return; }
+    if (!location) {
+      setError("Select a location");
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -123,7 +141,12 @@ export function QuickMoistureEntry({ inspectionId, onSaved }: QuickMoistureEntry
           </p>
         </div>
         {status && statusColors && (
-          <div className={cn("flex items-center gap-1.5 text-sm font-medium", statusColors.text)}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 text-sm font-medium",
+              statusColors.text,
+            )}
+          >
             {status === "dry" && <CheckCircle2 className="h-5 w-5" />}
             {status === "drying" && <AlertTriangle className="h-5 w-5" />}
             {status === "wet" && <XCircle className="h-5 w-5" />}
@@ -190,9 +213,7 @@ export function QuickMoistureEntry({ inspectionId, onSaved }: QuickMoistureEntry
       </div>
 
       {/* Error */}
-      {error && (
-        <p className="text-red-400 text-sm text-center">{error}</p>
-      )}
+      {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
       {/* Save button */}
       <button
@@ -203,8 +224,8 @@ export function QuickMoistureEntry({ inspectionId, onSaved }: QuickMoistureEntry
           saved
             ? "bg-green-600 text-white"
             : isValid && location
-            ? "bg-[#1C2E47] text-white hover:bg-[#1C2E47]/80"
-            : "bg-white/5 text-white/30 cursor-not-allowed",
+              ? "bg-[#1C2E47] text-white hover:bg-[#1C2E47]/80"
+              : "bg-white/5 text-white/30 cursor-not-allowed",
         )}
       >
         {saved ? "✓ Saved" : saving ? "Saving…" : "Save Reading"}
@@ -213,8 +234,8 @@ export function QuickMoistureEntry({ inspectionId, onSaved }: QuickMoistureEntry
       {/* Target range hint */}
       {std && (
         <p className="text-center text-xs text-white/30">
-          Dry target for {MATERIALS.find((m) => m.value === material)?.label}: ≤{std.dryThreshold}%
-          {" · "}S500:2025 §12
+          Dry target for {MATERIALS.find((m) => m.value === material)?.label}: ≤
+          {std.dryThreshold}%{" · "}S500:2025 §12
         </p>
       )}
     </div>

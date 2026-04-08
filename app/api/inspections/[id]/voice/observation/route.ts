@@ -9,8 +9,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getSession, addObservation, updateSessionState, updateMissingItems } from "@/lib/voice/session";
-import { parseTranscript, buildConfirmationPrompt } from "@/lib/voice/transcript-parser";
+import {
+  getSession,
+  addObservation,
+  updateSessionState,
+  updateMissingItems,
+} from "@/lib/voice/session";
+import {
+  parseTranscript,
+  buildConfirmationPrompt,
+} from "@/lib/voice/transcript-parser";
 import { checkCompletion } from "@/lib/voice/completion-checker";
 
 export async function POST(
@@ -24,7 +32,10 @@ export async function POST(
     }
 
     const { id } = await params;
-    const body = await req.json() as { sessionId?: string; transcript?: string };
+    const body = (await req.json()) as {
+      sessionId?: string;
+      transcript?: string;
+    };
 
     if (!body.sessionId || !body.transcript) {
       return NextResponse.json(
@@ -68,7 +79,11 @@ export async function POST(
     }
 
     // Build the confirmation prompt
-    const confirmationPrompt = buildConfirmationPrompt(parsed, type, confidence);
+    const confirmationPrompt = buildConfirmationPrompt(
+      parsed,
+      type,
+      confidence,
+    );
 
     // If high-confidence and no confirmation needed, mark as stored directly
     const storedDirectly = confidence === "high" && !needsConfirmation;
@@ -90,7 +105,13 @@ export async function POST(
       updatedMissingItems: updatedItems.filter((i) => !i.complete),
     });
   } catch (error) {
-    console.error("[POST /api/inspections/[id]/voice/observation] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error(
+      "[POST /api/inspections/[id]/voice/observation] Error:",
+      error,
+    );
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
