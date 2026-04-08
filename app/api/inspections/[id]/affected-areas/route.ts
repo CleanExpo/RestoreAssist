@@ -67,7 +67,7 @@ export async function POST(
         roomZoneId: String(body.roomZoneId).trim().slice(0, 200),
         affectedSquareFootage: sqft,
         waterSource: String(body.waterSource).slice(0, 100),
-        timeSinceLoss: body.timeSinceLoss ? String(body.timeSinceLoss).slice(0, 100) : null,
+        timeSinceLoss: body.timeSinceLoss ? (typeof body.timeSinceLoss === 'number' ? body.timeSinceLoss : parseFloat(String(body.timeSinceLoss)) || null) : null,
         description: body.description ? String(body.description).slice(0, 2000) : null,
         photos: body.photos ? JSON.stringify(body.photos) : null
       }

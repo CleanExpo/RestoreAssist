@@ -16,6 +16,8 @@ import {
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const TooltipAny = Tooltip as any;
+
 interface RevenueChartData {
   date: string;
   revenue: number;
@@ -131,7 +133,7 @@ export default function RevenueChart({
             className="text-neutral-600 dark:text-slate-400"
             style={{ fontSize: "12px" }}
           />
-          <Tooltip
+          <TooltipAny
             contentStyle={{
               backgroundColor: "rgb(255 255 255 / 0.95)",
               border: "1px solid rgb(229 231 235)",

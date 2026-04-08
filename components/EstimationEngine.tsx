@@ -122,6 +122,21 @@ export default function EstimationEngine({
     complianceStatement: "",
     disclaimer: "",
 
+    // Calculated totals (computed by recalculate effect)
+    labourSubtotal: 0,
+    equipmentSubtotal: 0,
+    chemicalsSubtotal: 0,
+    subcontractorSubtotal: 0,
+    travelSubtotal: 0,
+    wasteSubtotal: 0,
+    overheads: 0,
+    profit: 0,
+    contingency: 0,
+    escalation: 0,
+    subtotalExGST: 0,
+    gst: 0,
+    totalIncGST: 0,
+
     // Status
     status: "DRAFT",
     version: 1,

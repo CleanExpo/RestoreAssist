@@ -102,6 +102,35 @@ export async function POST(
     const file = formData.get("file") as File;
     const location = formData.get("location") as string | null;
 
+    // RA-447: Optional label fields at upload time (multipart form fields)
+    const labelFields = {
+      damageCategory:            formData.get("damageCategory") as string | null,
+      damageClass:               formData.get("damageClass") as string | null,
+      s500SectionRef:            formData.get("s500SectionRef") as string | null,
+      roomType:                  formData.get("roomType") as string | null,
+      moistureSource:            formData.get("moistureSource") as string | null,
+      affectedMaterial:          formData.get("affectedMaterial")
+                                   ? (formData.get("affectedMaterial") as string).split(",").filter(Boolean)
+                                   : undefined,
+      surfaceOrientation:        formData.get("surfaceOrientation") as string | null,
+      damageExtentEstimate:      formData.get("damageExtentEstimate") as string | null,
+      equipmentVisible:          formData.get("equipmentVisible") === "true" ? true
+                                   : formData.get("equipmentVisible") === "false" ? false
+                                   : undefined,
+      secondaryDamageIndicators: formData.get("secondaryDamageIndicators")
+                                   ? (formData.get("secondaryDamageIndicators") as string).split(",").filter(Boolean)
+                                   : undefined,
+      photoStage:                formData.get("photoStage") as string | null,
+      captureAngle:              formData.get("captureAngle") as string | null,
+      labelledBy:                formData.get("labelledBy") as string | null,
+      technicianNotes:           formData.get("technicianNotes") as string | null,
+      moistureReadingLink:       formData.get("moistureReadingLink") as string | null,
+    };
+    // Strip undefined/null so Prisma only sets provided fields
+    const labelData = Object.fromEntries(
+      Object.entries(labelFields).filter(([, v]) => v !== null && v !== undefined)
+    );
+
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
@@ -138,6 +167,7 @@ export async function POST(
 
     // Create photo record — store compressed URL for dashboard viewing
     // originalUrl (signed) is stored in structuredData for download-original flows
+    // RA-447: label fields are spread in if provided at upload time
     const photo = await prisma.inspectionPhoto.create({
       data: {
         inspectionId: id,
@@ -147,6 +177,7 @@ export async function POST(
         fileSize: file.size,
         mimeType: file.type,
         timestamp: new Date(),
+        ...labelData,
       },
     });
 

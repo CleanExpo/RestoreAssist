@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get("includeInactive") === "true";
 
-    const profiles = await prisma.insurerProfile.findMany({
+    const profiles = await (prisma as any).insurerProfile.findMany({
       where: includeInactive ? undefined : { isActive: true },
       orderBy: [{ isSystemProfile: "desc" }, { name: "asc" }],
     });
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const profile = await prisma.insurerProfile.create({
+    const profile = await (prisma as any).insurerProfile.create({
       data: {
         slug,
         name,

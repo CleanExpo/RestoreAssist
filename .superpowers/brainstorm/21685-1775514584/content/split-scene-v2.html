@@ -1,0 +1,446 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SplitScene v2</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #0d0d0d;
+        color: #eee;
+        font-family: Inter, sans-serif;
+        padding: 28px;
+      }
+
+      h2 {
+        color: #d4a574;
+        font-size: 1.25em;
+        margin-bottom: 4px;
+      }
+      .note {
+        color: #666;
+        font-size: 0.82em;
+        margin-bottom: 20px;
+      }
+
+      /* Feedback badges at top */
+      .issues {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      .issue-tag {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: #f87171;
+        font-size: 0.72em;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+      .fix-tag {
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: #4ade80;
+        font-size: 0.72em;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+
+      /* 16:9 frame */
+      .frame {
+        width: 100%;
+        max-width: 920px;
+        aspect-ratio: 16/9;
+        display: flex;
+        margin: 0 auto 20px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #222;
+      }
+
+      /* LEFT — Before */
+      .left {
+        width: 46%;
+        background: #080808;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 7% 8% 7% 9%;
+        overflow: hidden;
+      }
+      /* Subtle red vignette — gives left a "wrong" feel without being garish */
+      .left::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse 80% 70% at 20% 50%,
+          rgba(180, 10, 10, 0.12) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      /* Thin red left border */
+      .left-border {
+        position: absolute;
+        left: 0;
+        top: 15%;
+        bottom: 15%;
+        width: 2px;
+        background: linear-gradient(
+          180deg,
+          transparent,
+          #ef4444 40%,
+          #ef4444 60%,
+          transparent
+        );
+      }
+
+      .before-label {
+        font-size: 0.52em;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #ef4444;
+        margin-bottom: 18px;
+        opacity: 0.85;
+      }
+
+      /* THE HERO STAT — the single painful number */
+      .hero-stat {
+        font-size: 3.8em;
+        font-weight: 900;
+        color: #fff;
+        line-height: 1;
+        margin-bottom: 6px;
+        /* Slightly desaturated — the "before" world is dull */
+        filter: brightness(0.75);
+      }
+      .hero-unit {
+        font-size: 1.1em;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.35);
+        margin-left: 6px;
+      }
+      .hero-context {
+        font-size: 0.78em;
+        color: rgba(255, 255, 255, 0.38);
+        font-weight: 500;
+        margin-bottom: 28px;
+        letter-spacing: 0.01em;
+      }
+
+      /* Separator */
+      .sep {
+        width: 32px;
+        height: 1px;
+        background: rgba(239, 68, 68, 0.4);
+        margin-bottom: 20px;
+      }
+
+      .pain-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .pain-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+      }
+      .pain-x {
+        color: rgba(239, 68, 68, 0.7);
+        font-size: 0.6em;
+        font-weight: 700;
+        margin-top: 1px;
+        flex-shrink: 0;
+        line-height: 1.6;
+      }
+      .pain-copy {
+        font-size: 0.6em;
+        color: rgba(255, 255, 255, 0.38);
+        line-height: 1.5;
+      }
+
+      /* DIVIDER — thin, elegant */
+      .divider {
+        width: 1px;
+        background: linear-gradient(
+          180deg,
+          transparent 0%,
+          rgba(212, 165, 116, 0) 8%,
+          rgba(212, 165, 116, 0.6) 25%,
+          #d4a574 50%,
+          rgba(212, 165, 116, 0.6) 75%,
+          rgba(212, 165, 116, 0) 92%,
+          transparent 100%
+        );
+        flex-shrink: 0;
+        position: relative;
+      }
+      /* Center label on divider */
+      .divider-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #0d0d0d;
+        border: 1px solid rgba(212, 165, 116, 0.4);
+        color: #d4a574;
+        font-size: 0.38em;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 3px 7px;
+        border-radius: 3px;
+        white-space: nowrap;
+        text-transform: uppercase;
+      }
+
+      /* RIGHT — After */
+      .right {
+        flex: 1;
+        position: relative;
+        background: #101c2c;
+        overflow: hidden;
+      }
+
+      /* Real screenshot placeholder — this will be replaced */
+      .screenshot-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: linear-gradient(
+          135deg,
+          #0c1929 0%,
+          #1c2e47 60%,
+          #0a1520 100%
+        );
+        border: 2px dashed rgba(212, 165, 116, 0.2);
+        position: relative;
+      }
+      .screenshot-placeholder::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse 60% 50% at 60% 45%,
+          rgba(212, 165, 116, 0.06) 0%,
+          transparent 70%
+        );
+      }
+      .ph-icon {
+        width: 48px;
+        height: 48px;
+        border: 2px solid rgba(212, 165, 116, 0.3);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(212, 165, 116, 0.5);
+        font-size: 1.4em;
+      }
+      .ph-label {
+        color: rgba(212, 165, 116, 0.6);
+        font-size: 0.72em;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .ph-sub {
+        color: rgba(255, 255, 255, 0.2);
+        font-size: 0.58em;
+        text-align: center;
+        max-width: 200px;
+        line-height: 1.5;
+      }
+
+      /* After label — top right */
+      .after-label {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: rgba(212, 165, 116, 0.12);
+        border: 1px solid rgba(212, 165, 116, 0.35);
+        color: #d4a574;
+        font-size: 0.5em;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 4px 12px;
+        border-radius: 3px;
+      }
+
+      /* Annotation callout — points to a feature */
+      .callout {
+        position: absolute;
+        bottom: 14%;
+        right: 8%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .callout-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #d4a574;
+        box-shadow: 0 0 8px rgba(212, 165, 116, 0.8);
+        flex-shrink: 0;
+      }
+      .callout-line {
+        width: 30px;
+        height: 1px;
+        background: rgba(212, 165, 116, 0.6);
+      }
+      .callout-text {
+        background: rgba(212, 165, 116, 0.9);
+        color: #000;
+        font-size: 0.48em;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 3px;
+        white-space: nowrap;
+      }
+
+      /* Comparison summary */
+      .compare {
+        max-width: 920px;
+        margin: 0 auto;
+        display: flex;
+        gap: 16px;
+      }
+      .compare-side {
+        flex: 1;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 0.78em;
+      }
+      .compare-before {
+        background: rgba(239, 68, 68, 0.06);
+        border: 1px solid rgba(239, 68, 68, 0.18);
+      }
+      .compare-after {
+        background: rgba(212, 165, 116, 0.06);
+        border: 1px solid rgba(212, 165, 116, 0.18);
+      }
+      .compare-title {
+        font-weight: 700;
+        margin-bottom: 6px;
+        font-size: 0.9em;
+      }
+      .compare-before .compare-title {
+        color: #f87171;
+      }
+      .compare-after .compare-title {
+        color: #d4a574;
+      }
+      .compare-body {
+        color: #888;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>SplitScene v2 — Issues addressed</h2>
+    <p class="note">
+      Redesigned with real contrast, proper hierarchy, and a placeholder that
+      acknowledges real screenshots are coming
+    </p>
+
+    <div class="issues">
+      <span class="issue-tag">✕ Generic mock dashboard removed</span>
+      <span class="issue-tag">✕ Low-contrast bullet text fixed</span>
+      <span class="issue-tag">✕ Chunky divider replaced</span>
+      <span class="fix-tag">✓ Hero stat — one big painful number</span>
+      <span class="fix-tag">✓ Thin elegant divider with label</span>
+      <span class="fix-tag">✓ Real screenshot slot clearly marked</span>
+      <span class="fix-tag">✓ Annotation redesigned — dot + line + tag</span>
+    </div>
+
+    <div class="frame">
+      <!-- LEFT: Before -->
+      <div class="left">
+        <div class="left-border"></div>
+        <div class="before-label">Before</div>
+        <div class="hero-stat">2h 47m<span class="hero-unit"></span></div>
+        <div class="hero-context">Average documentation time per job</div>
+        <div class="sep"></div>
+        <ul class="pain-list">
+          <li class="pain-item">
+            <span class="pain-x">✕</span>
+            <span class="pain-copy"
+              >Scope written line-by-line from memory or notes</span
+            >
+          </li>
+          <li class="pain-item">
+            <span class="pain-x">✕</span>
+            <span class="pain-copy"
+              >No IICRC citations — insurers push back</span
+            >
+          </li>
+          <li class="pain-item">
+            <span class="pain-x">✕</span>
+            <span class="pain-copy">Data re-keyed into 3 separate systems</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="divider">
+        <div class="divider-label">vs</div>
+      </div>
+
+      <!-- RIGHT: After — real screenshot goes here -->
+      <div class="right">
+        <div class="screenshot-placeholder">
+          <div class="ph-icon">⬛</div>
+          <div class="ph-label">Real App Screenshot</div>
+          <div class="ph-sub">
+            Playwright capture of RestoreAssist dashboard at 1920×1080
+          </div>
+        </div>
+        <div class="after-label">With RestoreAssist</div>
+        <div class="callout">
+          <div class="callout-dot"></div>
+          <div class="callout-line"></div>
+          <div class="callout-text">AI scope in 30s</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="compare-side compare-before">
+        <div class="compare-title">
+          Left panel — every scene has unique before content
+        </div>
+        <div class="compare-body">
+          Hero stat changes per scene: "2h 47m", "3 systems", "0 citations",
+          "hand sketches", etc. Pain points are specific to that feature.
+        </div>
+      </div>
+      <div class="compare-side compare-after">
+        <div class="compare-title">
+          Right panel — real Playwright screenshot + callout
+        </div>
+        <div class="compare-body">
+          Dashboard, scope gen, compliance view, inspection report, moisture
+          map, invoice — all captured from live app at 1920×1080. Ken Burns pan
+          applied in Remotion.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

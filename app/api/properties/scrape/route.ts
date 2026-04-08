@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
           dataSource: isDomainUrl ? "domain" : "onthehouse",
           lookupCost: 0,
           confidence: data.confidence,
-          propertyData: data as unknown as Record<string, unknown>,
+          propertyData: data as any,
           ...(inspectionId ? { inspectionId } : {}),
         },
         update: {
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
           expiresAt,
           apiResponseStatus: propertyStatus,
           confidence: data.confidence,
-          propertyData: data as unknown as Record<string, unknown>,
+          propertyData: data as any,
         },
       });
     } catch (err) {

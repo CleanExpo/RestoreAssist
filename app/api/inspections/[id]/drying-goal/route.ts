@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
     }
 
-    const record = await prisma.dryingGoalRecord.findUnique({
+    const record = await (prisma as any).dryingGoalRecord.findUnique({
       where: { inspectionId },
     })
 
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // race where two simultaneous POST requests both read null and both attempt create.
     let record
     try {
-      record = await prisma.dryingGoalRecord.create({
+      record = await (prisma as any).dryingGoalRecord.create({
         data: {
           inspectionId,
           targetCategory,
@@ -151,7 +151,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
     }
 
-    const record = await prisma.dryingGoalRecord.findUnique({ where: { inspectionId } })
+    const record = await (prisma as any).dryingGoalRecord.findUnique({ where: { inspectionId } })
     if (!record) {
       return NextResponse.json(
         { error: "No drying goal initialised. POST /drying-goal first." },
@@ -235,7 +235,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const dryingMs = now.getTime() - startedAt.getTime()
     const totalDryingDays = Math.ceil(dryingMs / (1000 * 60 * 60 * 24))
 
-    const updated = await prisma.dryingGoalRecord.update({
+    const updated = await (prisma as any).dryingGoalRecord.update({
       where: { inspectionId },
       data: {
         goalAchieved: true,

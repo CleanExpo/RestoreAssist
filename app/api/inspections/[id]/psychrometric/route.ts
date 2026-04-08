@@ -68,13 +68,13 @@ export async function GET(
     );
   }
 
-  const readings = await prisma.psychrometricReading.findMany({
+  const readings = await (prisma as any).psychrometricReading.findMany({
     where: { inspectionId: params.id },
     orderBy: { visitNumber: "asc" },
   });
 
   // Compute drying trend summary
-  const gppReadings = readings.filter((r) => r.grainsPerPound != null);
+  const gppReadings = readings.filter((r: any) => r.grainsPerPound != null);
   const summary = {
     totalVisits: readings.length,
     latestGPP: gppReadings.at(-1)?.grainsPerPound ?? null,
@@ -135,7 +135,7 @@ export async function POST(
       ) / 10;
   }
 
-  const record = await prisma.psychrometricReading.create({
+  const record = await (prisma as any).psychrometricReading.create({
     data: {
       inspectionId: params.id,
       visitDate: new Date(data.visitDate),

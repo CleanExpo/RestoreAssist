@@ -99,12 +99,12 @@ export default function ScopingEngine({
 
     // Step 3: Equipment Parameters
     equipmentParameters: {
-      equipment: [],
+      equipment: [] as any[],
     },
 
     // Step 4: Chemical Application
     chemicalApplication: {
-      chemicals: [],
+      chemicals: [] as any[],
     },
 
     // Step 5: Time & Productivity

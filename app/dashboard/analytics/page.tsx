@@ -34,6 +34,8 @@ import {
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
+const TooltipAny = Tooltip as any;
+
 import { useSession } from "next-auth/react";
 import AnalyticsFilters, {
   AnalyticsFilters as AnalyticsFiltersType,
@@ -865,7 +867,7 @@ export default function AnalyticsPage() {
                         className="text-neutral-600 dark:text-slate-400"
                         style={{ fontSize: "12px" }}
                       />
-                      <Tooltip
+                      <TooltipAny
                         contentStyle={{
                           backgroundColor: "rgb(255 255 255 / 0.95)",
                           border: "1px solid rgb(229 231 235)",
@@ -1285,7 +1287,7 @@ export default function AnalyticsPage() {
                             : undefined
                         }
                       />
-                      <Tooltip
+                      <TooltipAny
                         contentStyle={{
                           backgroundColor: "rgb(255 255 255 / 0.95)",
                           border: "1px solid rgb(229 231 235)",

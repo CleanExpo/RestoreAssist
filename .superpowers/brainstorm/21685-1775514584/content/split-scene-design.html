@@ -1,0 +1,409 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SplitScene Design</title>
+    <style>
+      body {
+        background: #111;
+        color: #eee;
+        font-family: Inter, sans-serif;
+        margin: 0;
+        padding: 24px;
+      }
+      h2 {
+        color: #d4a574;
+        font-size: 1.4em;
+        margin: 0 0 6px;
+      }
+      .subtitle {
+        color: #888;
+        font-size: 0.9em;
+        margin: 0 0 24px;
+      }
+
+      /* 16:9 preview frame */
+      .frame {
+        width: 100%;
+        max-width: 900px;
+        aspect-ratio: 16/9;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin: 0 auto 24px;
+        display: flex;
+      }
+
+      /* LEFT PANEL — Before */
+      .left-panel {
+        width: 44%;
+        background: linear-gradient(145deg, #0a0a0a 0%, #1a0505 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 6% 5%;
+        position: relative;
+        box-sizing: border-box;
+      }
+      .before-chip {
+        display: inline-block;
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        color: #ef4444;
+        font-size: 0.55em;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 20px;
+        margin-bottom: 14px;
+        width: fit-content;
+      }
+      .before-heading {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 1.15em;
+        font-weight: 700;
+        line-height: 1.3;
+        margin-bottom: 16px;
+      }
+      .pain-point {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 10px;
+        opacity: 0.75;
+      }
+      .pain-icon {
+        color: #ef4444;
+        font-size: 0.75em;
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+      .pain-text {
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 0.7em;
+        line-height: 1.4;
+      }
+      .red-accent-bar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(
+          180deg,
+          transparent 0%,
+          #ef4444 30%,
+          #ef4444 70%,
+          transparent 100%
+        );
+      }
+
+      /* DIVIDER */
+      .divider {
+        width: 3px;
+        background: linear-gradient(
+          180deg,
+          transparent 5%,
+          #d4a574 25%,
+          #d4a574 75%,
+          transparent 95%
+        );
+        position: relative;
+        flex-shrink: 0;
+        box-shadow: 0 0 12px rgba(212, 165, 116, 0.5);
+      }
+
+      /* RIGHT PANEL — After */
+      .right-panel {
+        flex: 1;
+        background: #1c2e47;
+        position: relative;
+        overflow: hidden;
+      }
+      .screenshot-mock {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          135deg,
+          #0f2035 0%,
+          #1c2e47 40%,
+          #0d1a2e 100%
+        );
+        display: flex;
+        flex-direction: column;
+        padding: 5%;
+        box-sizing: border-box;
+      }
+      .app-topbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8%;
+        opacity: 0.9;
+      }
+      .app-logo-dot {
+        width: 20px;
+        height: 20px;
+        background: #d4a574;
+        border-radius: 4px;
+      }
+      .app-title {
+        color: white;
+        font-size: 0.6em;
+        font-weight: 700;
+      }
+      .nav-items {
+        display: flex;
+        gap: 12px;
+        margin-left: auto;
+      }
+      .nav-item {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.55em;
+      }
+
+      .kpi-row {
+        display: flex;
+        gap: 6%;
+        margin-bottom: 6%;
+      }
+      .kpi-card {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        padding: 6% 8%;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .kpi-num {
+        color: #d4a574;
+        font-size: 1em;
+        font-weight: 800;
+      }
+      .kpi-label {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.45em;
+        margin-top: 2px;
+      }
+
+      .content-row {
+        display: flex;
+        gap: 6%;
+        flex: 1;
+      }
+      .job-list {
+        flex: 1.4;
+      }
+      .job-item {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 4px;
+        padding: 4% 6%;
+        margin-bottom: 4%;
+        border-left: 2px solid #d4a574;
+        display: flex;
+        align-items: center;
+        gap: 8%;
+      }
+      .job-name {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.5em;
+        font-weight: 600;
+      }
+      .job-status {
+        color: #22c55e;
+        font-size: 0.42em;
+        margin-left: auto;
+      }
+      .chart-area {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: flex-end;
+        gap: 4%;
+        padding: 8%;
+      }
+      .bar {
+        background: #d4a574;
+        border-radius: 2px 2px 0 0;
+        flex: 1;
+        opacity: 0.7;
+      }
+
+      .after-chip {
+        position: absolute;
+        top: 6%;
+        right: 4%;
+        background: rgba(212, 165, 116, 0.15);
+        border: 1px solid rgba(212, 165, 116, 0.5);
+        color: #d4a574;
+        font-size: 0.48em;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 20px;
+      }
+
+      /* Callout annotation */
+      .callout {
+        position: absolute;
+        bottom: 12%;
+        right: 5%;
+        background: rgba(212, 165, 116, 0.95);
+        color: #0a0a0a;
+        font-size: 0.5em;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
+      }
+      .callout::before {
+        content: "↑ ";
+      }
+
+      .legend {
+        max-width: 900px;
+        margin: 0 auto 20px;
+        display: flex;
+        gap: 24px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.82em;
+        color: #888;
+      }
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>SplitScene Component Design</h2>
+    <p class="subtitle">
+      Each of the 6 "After" scenes uses this layout. Left = the old way. Right =
+      your real app.
+    </p>
+
+    <!-- 16:9 preview -->
+    <div class="frame">
+      <!-- Left panel: Before -->
+      <div class="left-panel">
+        <div class="red-accent-bar"></div>
+        <div class="before-chip">Before RestoreAssist</div>
+        <div class="before-heading">
+          Jobs scattered<br />across 6 different tools
+        </div>
+        <div class="pain-point">
+          <div class="pain-icon">✕</div>
+          <div class="pain-text">
+            Spreadsheets, email threads, paper dockets — no single source of
+            truth
+          </div>
+        </div>
+        <div class="pain-point">
+          <div class="pain-icon">✕</div>
+          <div class="pain-text">
+            2+ hours per job on scope writing and documentation
+          </div>
+        </div>
+        <div class="pain-point">
+          <div class="pain-icon">✕</div>
+          <div class="pain-text">
+            Insurer disputes from missing evidence or incorrect classifications
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider"></div>
+
+      <!-- Right panel: After -->
+      <div class="right-panel">
+        <div class="screenshot-mock">
+          <div class="app-topbar">
+            <div class="app-logo-dot"></div>
+            <div class="app-title">RestoreAssist</div>
+            <div class="nav-items">
+              <div class="nav-item">Dashboard</div>
+              <div class="nav-item">Reports</div>
+              <div class="nav-item">Invoices</div>
+            </div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-card">
+              <div class="kpi-num">24</div>
+              <div class="kpi-label">Active Jobs</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-num">$142k</div>
+              <div class="kpi-label">Pipeline</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-num">98%</div>
+              <div class="kpi-label">Compliance</div>
+            </div>
+          </div>
+          <div class="content-row">
+            <div class="job-list">
+              <div class="job-item">
+                <div class="job-name">45 Elm St — Water Damage Cat 2</div>
+                <div class="job-status">✓ Scope ready</div>
+              </div>
+              <div class="job-item">
+                <div class="job-name">12 Park Ave — Mould S520</div>
+                <div class="job-status">↑ In progress</div>
+              </div>
+              <div class="job-item">
+                <div class="job-name">88 River Rd — Fire S770</div>
+                <div class="job-status">● Pending</div>
+              </div>
+            </div>
+            <div class="chart-area">
+              <div class="bar" style="height: 40%"></div>
+              <div class="bar" style="height: 65%"></div>
+              <div class="bar" style="height: 55%"></div>
+              <div class="bar" style="height: 85%"></div>
+              <div class="bar" style="height: 75%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="after-chip">With RestoreAssist</div>
+        <div class="callout">Every job. One screen.</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #ef4444"></div>
+        Left: animated pain point text (per scene)
+      </div>
+      <div
+        class="legend-dot"
+        style="
+          background: #d4a574;
+          border-radius: 50%;
+          width: 10px;
+          height: 10px;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div class="legend-item">Glowing gold divider</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #1c2e47"></div>
+        Right: real app screenshot (Ken Burns + callout)
+      </div>
+    </div>
+
+    <p style="text-align: center; color: #888; font-size: 0.85em">
+      Does this split-screen layout feel right? Each of the 6 scenes has unique
+      before/after content.
+    </p>
+  </body>
+</html>

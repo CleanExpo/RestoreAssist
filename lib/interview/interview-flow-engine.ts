@@ -9,8 +9,10 @@ import {
   Question,
   QuestionGenerationContext,
   InterviewState,
-  InterviewResponse,
 } from "./types";
+
+// Type alias for interview response (not yet in types.ts)
+type InterviewResponse = Record<string, unknown>;
 
 /**
  * Represents the current state of an interview session

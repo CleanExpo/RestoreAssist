@@ -11,10 +11,11 @@
 
 import { prisma } from "@/lib/prisma";
 import {
-  getSubmissionGateRequirements,
-  getWorkflowForClaimType,
-  EVIDENCE_CLASSES,
+  getWorkflowTemplate,
+  JOB_TYPES,
+  type JobType,
 } from "@/lib/evidence";
+import { EVIDENCE_CLASSES } from "@/lib/evidence/evidence-classes";
 import type { EvidenceClass } from "@prisma/client";
 
 export interface ValidationGap {
@@ -42,16 +43,13 @@ export interface SubmissionValidation {
  */
 function buildPhaseMap(claimType: string): Map<EvidenceClass, string> {
   const phaseMap = new Map<EvidenceClass, string>();
-  const workflow = getWorkflowForClaimType(claimType);
-  if (!workflow) return phaseMap;
+  if (!(JOB_TYPES as readonly string[]).includes(claimType)) return phaseMap;
+  const workflow = getWorkflowTemplate(claimType as JobType);
 
-  for (const phase of workflow.phases) {
-    for (const rule of phase.evidenceRules) {
-      if (
-        rule.requirement === "required" &&
-        !phaseMap.has(rule.evidenceClass)
-      ) {
-        phaseMap.set(rule.evidenceClass, phase.displayName);
+  for (const step of workflow.steps) {
+    for (const cls of step.requiredEvidenceClasses) {
+      if (!phaseMap.has(cls)) {
+        phaseMap.set(cls, step.stepTitle);
       }
     }
   }
@@ -77,8 +75,26 @@ export async function validateSubmission(
     select: { evidenceClass: true, status: true },
   });
 
-  // 2. Get submission gate requirements (all "required" rules across phases)
-  const requirements = getSubmissionGateRequirements(claimType);
+  // 2. Build submission gate requirements from workflow template
+  type Requirement = { evidenceClass: EvidenceClass; minCount: number; guidance: string };
+  const requirements: Requirement[] = [];
+  if ((JOB_TYPES as readonly string[]).includes(claimType)) {
+    const workflow = getWorkflowTemplate(claimType as JobType);
+    const seen = new Set<EvidenceClass>();
+    for (const step of workflow.steps) {
+      if (!step.isMandatory) continue;
+      for (const cls of step.requiredEvidenceClasses) {
+        if (!seen.has(cls)) {
+          seen.add(cls);
+          requirements.push({
+            evidenceClass: cls,
+            minCount: 1,
+            guidance: EVIDENCE_CLASSES[cls].description,
+          });
+        }
+      }
+    }
+  }
 
   // 3. Build phase display name lookup
   const phaseMap = buildPhaseMap(claimType);

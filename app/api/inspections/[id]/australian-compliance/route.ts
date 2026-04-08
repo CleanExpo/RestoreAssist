@@ -63,7 +63,7 @@ export async function GET(
 
   const inspection = await prisma.inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
-    select: { id: true, australianComplianceRecord: true },
+    select: { id: true },
   });
 
   if (!inspection) {
@@ -73,7 +73,11 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(inspection.australianComplianceRecord ?? null);
+  const record = await (prisma as any).australianComplianceRecord.findUnique({
+    where: { inspectionId: params.id },
+  });
+
+  return NextResponse.json(record ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -118,7 +122,7 @@ export async function POST(
       ? "Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review."
       : null;
 
-  const record = await prisma.australianComplianceRecord.upsert({
+  const record = await (prisma as any).australianComplianceRecord.upsert({
     where: { inspectionId: params.id },
     create: {
       inspectionId: params.id,
@@ -213,7 +217,7 @@ export async function DELETE(
     );
   }
 
-  await prisma.australianComplianceRecord
+  await (prisma as any).australianComplianceRecord
     .delete({ where: { inspectionId: params.id } })
     .catch(() => {});
 

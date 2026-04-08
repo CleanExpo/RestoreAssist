@@ -482,7 +482,7 @@ export default function VisualCostEstimationViewer({
                           </tr>
                         </thead>
                         <tbody>
-                          {category.lineItems.map((item, idx) => (
+                          {category.lineItems.map((item: any, idx: number) => (
                             <tr key={idx} className="hover:bg-slate-50">
                               <td className="border border-slate-300 px-4 py-3 text-slate-700">
                                 {item.description}
@@ -566,7 +566,7 @@ export default function VisualCostEstimationViewer({
                           </tr>
                         </thead>
                         <tbody>
-                          {category.lineItems.map((item, idx) => (
+                          {category.lineItems.map((item: any, idx: number) => (
                             <tr key={idx} className="hover:bg-slate-50">
                               <td className="border border-slate-300 px-4 py-3 text-slate-700">
                                 {item.description}
@@ -659,7 +659,7 @@ export default function VisualCostEstimationViewer({
                           </tr>
                         </thead>
                         <tbody>
-                          {category.lineItems.map((item, idx) => (
+                          {category.lineItems.map((item: any, idx: number) => (
                             <tr key={idx} className="hover:bg-slate-50">
                               <td className="border border-slate-300 px-4 py-3 text-slate-700">
                                 {item.description}
@@ -742,7 +742,7 @@ export default function VisualCostEstimationViewer({
                           </tr>
                         </thead>
                         <tbody>
-                          {category.lineItems.map((item, idx) => (
+                          {category.lineItems.map((item: any, idx: number) => (
                             <tr key={idx} className="hover:bg-slate-50">
                               <td className="border border-slate-300 px-4 py-3 text-slate-700">
                                 {item.description}

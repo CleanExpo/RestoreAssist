@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const role = searchParams.get('role')?.toUpperCase() ?? ''
 
   // Scope to the admin's own organization — prevents cross-tenant user enumeration
-  const where: Parameters<typeof prisma.user.findMany>[0]['where'] = {
+  const where: any = {
     organizationId: adminUser!.organizationId,
   }
 

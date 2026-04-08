@@ -99,7 +99,7 @@ export async function listDriveItems(
               id: file.id!,
               name: file.name!,
               mimeType: file.mimeType!,
-              size: file.size,
+              size: file.size ?? undefined,
             });
           }
         }
@@ -180,7 +180,7 @@ export async function searchDriveFiles(
       id: file.id!,
       name: file.name!,
       mimeType: file.mimeType!,
-      size: file.size,
+      size: file.size ?? undefined,
     }));
   } catch (error: any) {
     // Log the actual error for debugging

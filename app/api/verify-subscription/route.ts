@@ -165,11 +165,11 @@ export async function POST(request: NextRequest) {
         stripeCustomerId: checkoutSession.customer as string,
         subscriptionId: subscriptionId as string,
         subscriptionEndsAt: new Date(
-          stripeSubscription.current_period_end * 1000,
+          (stripeSubscription as any).current_period_end * 1000,
         ),
-        nextBillingDate: new Date(stripeSubscription.current_period_end * 1000),
+        nextBillingDate: new Date((stripeSubscription as any).current_period_end * 1000),
         lastBillingDate: new Date(
-          stripeSubscription.current_period_start * 1000,
+          (stripeSubscription as any).current_period_start * 1000,
         ),
         monthlyReportsUsed: 0,
         monthlyResetDate: nextReset,

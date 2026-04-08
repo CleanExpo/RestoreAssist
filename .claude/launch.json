@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "next-dev",
+      "runtimeExecutable": "D:\\RestoreAssist\\node_modules\\.bin\\next.cmd",
+      "runtimeArgs": ["dev", "--port", "3001"],
+      "port": 3001,
+      "autoPort": true
+    }
+  ]
+}

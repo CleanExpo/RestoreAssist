@@ -274,7 +274,7 @@ async function aggregateIntoPricingDb(
     const medianPrice = sortedPrices[Math.floor(sortedPrices.length / 2)];
     const avgQty = quantities.reduce((s, q) => s + q, 0) / quantities.length;
 
-    await prisma.scopePricingDatabase.upsert({
+    await (prisma as any).scopePricingDatabase.upsert({
       where: { partNumber },
       create: {
         partNumber,
@@ -338,7 +338,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let integration = await prisma.ascoraIntegration.findUnique({
+    let integration = await (prisma as any).ascoraIntegration.findUnique({
       where: { userId: session.user.id },
     });
 
@@ -363,7 +363,7 @@ export async function POST(request: NextRequest) {
       console.log(
         "[ascora/sync] No user integration record — auto-provisioning from ASCORA_API_KEY env var",
       );
-      integration = await prisma.ascoraIntegration.create({
+      integration = await (prisma as any).ascoraIntegration.create({
         data: {
           userId: session.user.id,
           apiKey: envApiKey,
@@ -455,7 +455,7 @@ export async function POST(request: NextRequest) {
         const jobTypeName = getJobTypeName(job.jobType);
         const claimType = mapClaimType(jobTypeName);
 
-        await prisma.ascoraJob.upsert({
+        await (prisma as any).ascoraJob.upsert({
           where: { ascoraJobId: job.jobId },
           create: {
             integrationId: integration.id,
@@ -502,12 +502,12 @@ export async function POST(request: NextRequest) {
     // If we have line items, upsert them against job records
     if (relevantLineItems.length > 0 && !dryRun) {
       // Build jobId (Ascora string) → DB row id map for FK
-      const dbJobRows = await prisma.ascoraJob.findMany({
+      const dbJobRows = await (prisma as any).ascoraJob.findMany({
         where: { ascoraJobId: { in: [...importedJobIdSet] } },
         select: { id: true, ascoraJobId: true },
       });
       const ascoraIdToDbId = new Map(
-        dbJobRows.map((r) => [r.ascoraJobId, r.id]),
+        dbJobRows.map((r: any) => [r.ascoraJobId, r.id]),
       );
 
       for (const li of relevantLineItems) {
@@ -515,7 +515,7 @@ export async function POST(request: NextRequest) {
         const dbJobId = ascoraIdToDbId.get(li.jobId);
         if (!dbJobId) continue;
 
-        await prisma.ascoraLineItem.create({
+        await (prisma as any).ascoraLineItem.create({
           data: {
             ascoraJobId: dbJobId,
             partNumber: li.partNumber,
@@ -569,7 +569,7 @@ export async function POST(request: NextRequest) {
         const customerName =
           job.siteCustomer?.name || job.billingCustomer?.name || null;
 
-        await prisma.historicalJob.upsert({
+        await (prisma as any).historicalJob.upsert({
           where: {
             source_externalId: { source: "ascora", externalId: job.jobId },
           },
@@ -617,7 +617,7 @@ export async function POST(request: NextRequest) {
     // Update integration metadata
     // ------------------------------------------------------------------
     if (!dryRun) {
-      await prisma.ascoraIntegration.update({
+      await (prisma as any).ascoraIntegration.update({
         where: { id: integration.id },
         data: {
           lastSyncAt: new Date(),

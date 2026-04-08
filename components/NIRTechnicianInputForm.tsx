@@ -643,12 +643,12 @@ export default function NIRTechnicianInputForm({
     if (typeof initialData.airCirculation === "boolean")
       setEnvironmentalData((prev) => ({
         ...prev,
-        airCirculation: initialData.airCirculation,
+        airCirculation: initialData.airCirculation as boolean,
       }));
     if (typeof initialData.weatherConditions === "string")
       setEnvironmentalData((prev) => ({
         ...prev,
-        weatherConditions: initialData.weatherConditions,
+        weatherConditions: initialData.weatherConditions as string,
       }));
     // Water classification: normalize "Category 1" / "Class 1" to "1" for NIR dropdowns
     const catRaw = initialData.waterCategory;
@@ -749,8 +749,8 @@ export default function NIRTechnicianInputForm({
             setAffectedAreas(data.inspection.affectedAreas);
           }
           if (data.inspection.scopeItems) {
-            const selected = new Set(
-              data.inspection.scopeItems.map((item: any) => item.itemType),
+            const selected = new Set<string>(
+              data.inspection.scopeItems.map((item: any) => item.itemType as string),
             );
             setSelectedScopeItems(selected);
           }

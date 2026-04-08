@@ -166,30 +166,30 @@ export async function checkCompletion(
           p.description?.toLowerCase().includes("source") ||
           p.description?.toLowerCase().includes("origin") ||
           p.description?.toLowerCase().includes("leak") ||
-          p.type?.toLowerCase().includes("source"),
+          (p as any).type?.toLowerCase().includes("source"),
       ),
 
     pre_drying_baseline:
       inspection.moistureReadings.length >= 3, // At least 3 baseline readings
 
     category_documented:
-      inspection.classifications.some((c) => c.waterCategory !== null),
+      inspection.classifications.some((c) => (c as any).waterCategory !== null),
 
     class_with_area:
       inspection.classifications.some(
-        (c) => c.damageClass !== null,
-      ) && inspection.affectedAreas.some((a) => a.area !== null && a.area > 0),
+        (c) => (c as any).damageClass !== null,
+      ) && inspection.affectedAreas.some((a) => (a as any).area !== null && (a as any).area > 0),
 
     equipment_serials:
       inspection.scopeItems.some(
         (s) =>
           s.description?.toLowerCase().includes("serial") ||
-          s.itemCode?.toLowerCase().startsWith("eq"),
+          (s as any).itemCode?.toLowerCase().startsWith("eq"),
       ),
 
     affected_materials:
       inspection.affectedAreas.length >= 1 &&
-      inspection.affectedAreas.some((a) => a.area !== null && a.area > 0),
+      inspection.affectedAreas.some((a) => (a as any).area !== null && (a as any).area > 0),
 
     secondary_damage_indicators:
       inspection.photos.some(
@@ -200,7 +200,7 @@ export async function checkCompletion(
           p.description?.toLowerCase().includes("efflore"),
       ) ||
       inspection.classifications.some((c) =>
-        c.notes?.toLowerCase().includes("secondary"),
+        (c as any).notes?.toLowerCase().includes("secondary"),
       ),
 
     scope_boundary:

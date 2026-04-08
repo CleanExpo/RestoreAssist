@@ -1,0 +1,23 @@
+
+// ─── IICRC RAG Knowledge Base (RA-434) ───────────────────────────────────────
+// Stores pre-indexed IICRC standard PDF chunks with pgvector embeddings.
+// Populated once by scripts/ingest-iicrc.ts — fast vector similarity search
+// replaces per-request Google Drive downloads.
+
+model IicrcChunk {
+  id          String   @id @default(cuid())
+  standard    String   // e.g. "S500", "S520", "S700"
+  edition     String   // e.g. "2025"
+  section     String   // e.g. "§7.1", "§12.3"
+  heading     String   // e.g. "Damage Classification Class 1"
+  content     String   @db.Text
+  contentHash String   @unique // SHA-256 of content — prevents duplicates on re-ingest
+  pageNumber  Int?
+  embedding   Unsupported("vector(1536)")?  // text-embedding-3-small dimensions
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([standard, edition])
+  @@index([section])
+}

@@ -107,7 +107,7 @@ export async function GET(
 
     // Generate ImageObject JSON-LD (use cache if available)
     const imageObject = asset.seoJsonLd
-      ? (asset.seoJsonLd as ReturnType<typeof generateImageObjectJsonLd>)
+      ? (asset.seoJsonLd as unknown as ReturnType<typeof generateImageObjectJsonLd>)
       : generateImageObjectJsonLd(seoInput, publicUrl);
 
     // Collect workspace service postcodes from this inspection + others
@@ -230,7 +230,7 @@ export async function POST(
       where: { id },
       data: {
         altText: altText.trim(),
-        seoJsonLd: null, // force regeneration on next GET
+        seoJsonLd: null as any, // force regeneration on next GET
       },
       select: { id: true, altText: true },
     });

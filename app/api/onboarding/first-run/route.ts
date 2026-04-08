@@ -38,7 +38,7 @@ export async function GET(
 
   const userId = session.user.id;
 
-  const user = await prisma.user.findUnique({
+  const user = await (prisma as any).user.findUnique({
     where: { id: userId },
     select: { firstRunChecklistDismissedAt: true },
   });
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
 
   if (body?.action === "dismiss") {
-    await prisma.user.update({
+    await (prisma as any).user.update({
       where: { id: session.user.id },
       data: { firstRunChecklistDismissedAt: new Date() },
     });

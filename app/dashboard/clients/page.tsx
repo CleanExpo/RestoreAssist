@@ -19,10 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
-type ClientWithReportFlag = { _isFromReport?: boolean } & Record<
-  string,
-  unknown
->;
+type ClientWithReportFlag = Client & { _isFromReport?: boolean };
 
 interface Client {
   id: string;

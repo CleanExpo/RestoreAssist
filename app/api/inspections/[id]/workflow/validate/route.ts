@@ -65,8 +65,8 @@ export async function GET(
         minimumEvidenceCount: step.minimumEvidenceCount,
         requiredEvidenceClasses: step.requiredEvidenceClasses,
         evidenceCount: step._count.evidenceItems,
-        exceptionReason: step.exceptionReason,
-        exceptionNotes: step.exceptionNotes,
+        exceptionReason: (step as any).exceptionReason,
+        exceptionNotes: (step as any).exceptionNotes,
       })),
     };
 

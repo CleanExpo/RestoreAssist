@@ -176,7 +176,7 @@ export async function POST(
           const photoData = {
             url: uploadResult.url,
             thumbnailUrl: uploadResult.thumbnailUrl || uploadResult.url,
-            location: photoCategory || null,
+            location: photoCategory || undefined,
             caption: photoDescription || photoFile.name,
             category: photoCategory || undefined
           }

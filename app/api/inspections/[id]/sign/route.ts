@@ -55,13 +55,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Atomic CAS — updateMany with signedAt: null prevents double-signature TOCTOU race
     const result = await prisma.inspection.updateMany({
-      where: { id: inspectionId, userId: session.user.id, signedAt: null },
+      where: { id: inspectionId, userId: session.user.id, ...(({ signedAt: null } as any)) },
       data: {
-        signedAt,
-        signedByName: displayName,
-        signatureUrl: signatureUrl?.trim() || null,
-        status: "SUBMITTED",
-        submittedAt: signedAt,
+        ...(({ signedAt, signedByName: displayName, signatureUrl: signatureUrl?.trim() || null, status: "SUBMITTED", submittedAt: signedAt }) as any),
       },
     })
 
@@ -119,11 +115,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     await prisma.inspection.updateMany({
       where: { id: inspectionId },
-      data: {
-        signedAt: null,
-        signedByName: null,
-        signatureUrl: null,
-      },
+      data: ({ signedAt: null, signedByName: null, signatureUrl: null } as any),
     })
 
     return NextResponse.json({ success: true })

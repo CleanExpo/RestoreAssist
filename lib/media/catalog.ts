@@ -109,7 +109,7 @@ export async function catalogMediaAsset(
         evidenceClass: true,
         capturedByName: true,
         workflowStep: {
-          select: { title: true },
+          select: { id: true } as any,
         },
       },
     });
@@ -132,10 +132,10 @@ export async function catalogMediaAsset(
       }
 
       // room from workflow step title (if available)
-      if (evidence.workflowStep?.title) {
+      if ((evidence.workflowStep as any)?.title) {
         tags.push({
           category: "room",
-          value: evidence.workflowStep.title,
+          value: (evidence.workflowStep as any).title as string,
           evidenceId: evidence.id,
         });
       }

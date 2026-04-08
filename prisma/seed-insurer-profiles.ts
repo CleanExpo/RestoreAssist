@@ -198,7 +198,7 @@ async function main() {
   console.log("Seeding insurer profiles...");
 
   for (const profile of INSURER_PROFILES) {
-    await prisma.insurerProfile.upsert({
+    await (prisma as any).insurerProfile.upsert({
       where: { slug: profile.slug },
       update: {
         ...profile,

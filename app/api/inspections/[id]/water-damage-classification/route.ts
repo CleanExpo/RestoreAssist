@@ -65,7 +65,7 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const inspection = await prisma.inspection.findUnique({
+  const inspection = await (prisma as any).inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true, waterDamageClassification: true },
   })
@@ -74,7 +74,7 @@ export async function GET(
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
   }
 
-  return NextResponse.json(inspection.waterDamageClassification ?? null)
+  return NextResponse.json((inspection as any).waterDamageClassification ?? null)
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -114,8 +114,8 @@ export async function POST(
 
   // Atomically upsert classification + stamp claimType — prevents split-brain
   // state if DB connection drops between the two writes.
-  const [record] = await prisma.$transaction([
-    prisma.waterDamageClassification.upsert({
+  const [record] = await (prisma as any).$transaction([
+    (prisma as any).waterDamageClassification.upsert({
       where: { inspectionId: params.id },
       create: {
         inspectionId: params.id,
@@ -143,7 +143,7 @@ export async function POST(
     }),
     prisma.inspection.update({
       where: { id: params.id },
-      data: { claimType: 'WATER' },
+      data: { claimType: 'WATER' } as any,
     }),
   ])
 
@@ -170,11 +170,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
   }
 
-  await prisma.$transaction([
-    prisma.waterDamageClassification.deleteMany({ where: { inspectionId: params.id } }),
+  await (prisma as any).$transaction([
+    (prisma as any).waterDamageClassification.deleteMany({ where: { inspectionId: params.id } }),
     prisma.inspection.update({
       where: { id: params.id },
-      data: { claimType: null },
+      data: { claimType: null } as any,
     }),
   ])
 

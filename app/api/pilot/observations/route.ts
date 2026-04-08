@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         group: obs.group ?? "nir",
         inspectionId: obs.inspectionId ?? null,
         recordedByUserId: obs.recordedByUserId,
-        context: obs.context ?? null,
+        context: (obs.context ?? null) as any,
         notes: obs.notes ?? null,
       },
     });

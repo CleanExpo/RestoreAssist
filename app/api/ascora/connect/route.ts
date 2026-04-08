@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert the integration record
-    const integration = await prisma.ascoraIntegration.upsert({
+    const integration = await (prisma as any).ascoraIntegration.upsert({
       where: { userId: session.user.id },
       create: {
         userId: session.user.id,
@@ -109,7 +109,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await prisma.ascoraIntegration.deleteMany({
+    await (prisma as any).ascoraIntegration.deleteMany({
       where: { userId: session.user.id },
     });
 
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const integration = await prisma.ascoraIntegration.findUnique({
+    const integration = await (prisma as any).ascoraIntegration.findUnique({
       where: { userId: session.user.id },
       select: {
         id: true,

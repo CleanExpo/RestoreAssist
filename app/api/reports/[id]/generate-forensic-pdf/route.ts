@@ -171,7 +171,7 @@ export async function GET(
     // Return PDF as response
     const filename = `Forensic-Report-${report.claimReferenceNumber || report.reportNumber || reportId}.pdf`
     
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

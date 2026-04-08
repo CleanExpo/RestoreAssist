@@ -12,7 +12,7 @@
 import type { EvidenceClass } from "@prisma/client";
 
 export interface EvidenceClassMeta {
-  id: EvidenceClass;
+  id: string;
   displayName: string;
   description: string;
   iicrcRef: string; // Primary IICRC section reference
@@ -22,7 +22,7 @@ export interface EvidenceClassMeta {
   requiresMeasurement: boolean;
 }
 
-export const EVIDENCE_CLASSES: Record<EvidenceClass, EvidenceClassMeta> = {
+export const EVIDENCE_CLASSES: Record<string, EvidenceClassMeta> = {
   SITE_OVERVIEW: {
     id: "SITE_OVERVIEW",
     displayName: "Site Overview",
@@ -186,12 +186,12 @@ export const EVIDENCE_CLASSES: Record<EvidenceClass, EvidenceClassMeta> = {
 };
 
 /** Get metadata for an evidence class */
-export function getEvidenceClassMeta(cls: EvidenceClass): EvidenceClassMeta {
-  return EVIDENCE_CLASSES[cls];
+export function getEvidenceClassMeta(cls: EvidenceClass | string): EvidenceClassMeta {
+  return EVIDENCE_CLASSES[cls as string];
 }
 
 /** Get all evidence classes that require measurement data */
-export function getMeasurementClasses(): EvidenceClass[] {
+export function getMeasurementClasses(): string[] {
   return Object.values(EVIDENCE_CLASSES)
     .filter((m) => m.requiresMeasurement)
     .map((m) => m.id);

@@ -14,8 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Camera, Upload, FileText, Clock, Info, BookOpen } from "lucide-react";
-import type { EvidenceClass, MediaType, ExperienceMode } from "@prisma/client";
-import type { PhaseEvidenceRule, EvidenceClassMeta } from "@/lib/evidence";
+import type { EvidenceClass } from "@prisma/client";
+// MediaType and ExperienceMode not yet in generated schema — use string alias
+type MediaType = string;
+type ExperienceMode = string;
+import type { EvidenceClassMeta } from "@/lib/evidence/evidence-classes";
+// PhaseEvidenceRule not yet exported — use any alias
+type PhaseEvidenceRule = any;
 
 export interface EvidenceCaptureFormData {
   evidenceClass: EvidenceClass;
@@ -246,7 +251,7 @@ export function EvidenceCaptureForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {classMeta.mediaTypes.map((mt) => (
+              {classMeta.mediaTypes.map((mt: string) => (
                 <SelectItem key={mt} value={mt}>
                   {mt.charAt(0) + mt.slice(1).toLowerCase()}
                 </SelectItem>

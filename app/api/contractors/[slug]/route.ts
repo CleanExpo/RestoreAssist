@@ -26,9 +26,7 @@ export async function GET(
             businessAddress: true,
             // Conditionally include contact info only for authenticated users
             ...(isAuthenticated && {
-              phoneNumber: true,
               email: true,
-              website: true,
             }),
           },
         },
@@ -64,12 +62,7 @@ export async function GET(
           include: {
             clientUser: {
               select: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true,
-                  },
-                },
+                name: true,
               },
             },
             report: {
@@ -140,9 +133,7 @@ export async function GET(
         insuranceCertificate: contractor.insuranceCertificate,
         // Contact info only for authenticated users
         ...(isAuthenticated && {
-          phoneNumber: contractor.user.phoneNumber,
           email: contractor.user.email,
-          website: contractor.user.website,
         }),
       },
       certifications: contractor.certifications,
@@ -162,7 +153,7 @@ export async function GET(
         helpfulCount: r.helpfulCount,
         notHelpfulCount: r.notHelpfulCount,
         createdAt: r.createdAt,
-        clientName: `${r.clientUser.user.firstName} ${r.clientUser.user.lastName.charAt(0)}.`,
+        clientName: (r.clientUser as any).name || "Anonymous",
         reportTitle: r.report?.title,
       })),
       ratingBreakdown: ratingBreakdown.reduce(

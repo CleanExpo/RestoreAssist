@@ -62,7 +62,7 @@ export default function RemediationProcedures({
   // Update component when initialData changes
   useEffect(() => {
     if (initialData) {
-      setRemediationData((prev) => ({ ...prev, ...initialData }));
+      setRemediationData((prev: any) => ({ ...prev, ...initialData }));
     }
   }, [initialData]);
 

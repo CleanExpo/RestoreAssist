@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
 
     if (myReviews) {
       // Get reviews submitted by this client
-      const clientUser = await prisma.clientUser.findUnique({
-        where: { userId: session.user.id },
+      const clientUser = await (prisma.clientUser as any).findUnique({
+        where: { userId: session?.user?.id },
         select: { id: true },
       });
 
@@ -73,12 +73,7 @@ export async function GET(request: NextRequest) {
         },
         clientUser: {
           select: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
+            name: true,
           },
         },
         report: {
@@ -113,7 +108,7 @@ export async function GET(request: NextRequest) {
         helpfulCount: r.helpfulCount,
         notHelpfulCount: r.notHelpfulCount,
         createdAt: r.createdAt,
-        clientName: `${r.clientUser.user.firstName} ${r.clientUser.user.lastName.charAt(0)}.`,
+        clientName: (r.clientUser as any).name || "Anonymous",
         reportTitle: r.report?.title,
       })),
     });
@@ -136,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client user
-    const clientUser = await prisma.clientUser.findUnique({
+    const clientUser = await (prisma.clientUser as any).findUnique({
       where: { userId: session.user.id },
       select: { id: true },
     });
@@ -192,10 +187,10 @@ export async function POST(request: NextRequest) {
     // Check if report exists and belongs to this client
     let isVerifiedJob = false;
     if (reportId) {
-      const report = await prisma.report.findUnique({
+      const report = await prisma.report.findFirst({
         where: {
           id: reportId,
-          clientUserId: clientUser.id,
+          clientId: (clientUser as any).clientId,
         },
       });
 

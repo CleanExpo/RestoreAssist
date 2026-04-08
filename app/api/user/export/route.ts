@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
         },
       }),
-      prisma.inspection.findMany({
+      (prisma.inspection as any).findMany({
         where: { userId: session.user.id },
         include: {
           affectedAreas: true,

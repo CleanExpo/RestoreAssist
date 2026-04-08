@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Team scope: Admin sees MANAGER + USER (not other ADMINs). Manager sees USER only.
-    const roleCondition =
+    const roleCondition: any =
       currentUser.role === "ADMIN"
         ? { role: { in: ["MANAGER", "USER"] as const } }
         : { role: "USER" as const };
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
             createdAt: true,
             updatedAt: true,
             userId: true,
-          },
+          } as any,
         })
         .catch(() => []),
 
@@ -311,7 +311,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    for (const inspection of recentInspections) {
+    for (const inspection of recentInspections as any[]) {
       const member = memberMap.get(inspection.userId);
       if (!member) continue;
 
@@ -322,9 +322,9 @@ export async function GET(request: NextRequest) {
         actorName: member.name || member.email,
         actorEmail: member.email,
         actorRole: member.role,
-        description: `started inspection "${inspection.title || inspection.id.slice(0, 8)}"`,
+        description: `started inspection "${(inspection as any).title || inspection.id.slice(0, 8)}"`,
         timestamp: inspection.createdAt.toISOString(),
-        metadata: { inspectionId: inspection.id, title: inspection.title },
+        metadata: { inspectionId: inspection.id, title: (inspection as any).title },
       });
 
       if (
@@ -338,9 +338,9 @@ export async function GET(request: NextRequest) {
           actorName: member.name || member.email,
           actorEmail: member.email,
           actorRole: member.role,
-          description: `submitted inspection "${inspection.title || inspection.id.slice(0, 8)}"`,
+          description: `submitted inspection "${(inspection as any).title || inspection.id.slice(0, 8)}"`,
           timestamp: inspection.updatedAt.toISOString(),
-          metadata: { inspectionId: inspection.id, title: inspection.title },
+          metadata: { inspectionId: inspection.id, title: (inspection as any).title },
         });
       }
     }

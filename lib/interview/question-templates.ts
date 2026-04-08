@@ -51,8 +51,8 @@ const TIER1_QUESTIONS: Question[] = [
       },
       {
         formFieldId: "waterCategory",
-        transformer: (answer) => {
-          const categoryMap = {
+        transformer: (answer: string) => {
+          const categoryMap: Record<string, string> = {
             clean_water: "Category 1",
             grey_water: "Category 2",
             black_water: "Category 3",
@@ -103,8 +103,8 @@ const TIER1_QUESTIONS: Question[] = [
     fieldMappings: [
       {
         formFieldId: "timeSinceLoss",
-        transformer: (answer) => {
-          const hoursMap = {
+        transformer: (answer: string) => {
+          const hoursMap: Record<string, string> = {
             lt_12h: "6",
             "12_48h": "30",
             "48_72h": "60",
@@ -155,8 +155,8 @@ const TIER1_QUESTIONS: Question[] = [
       },
       {
         formFieldId: "waterClass",
-        transformer: (answer) => {
-          const classMap = {
+        transformer: (answer: string) => {
+          const classMap: Record<string, string> = {
             "0_10": "Class 1",
             "10_30": "Class 2",
             "30_50": "Class 3",
@@ -398,8 +398,8 @@ const TIER3_QUESTIONS: Question[] = [
     fieldMappings: [
       {
         formFieldId: "buildingAge",
-        transformer: (answer) => {
-          const yearMap = {
+        transformer: (answer: string) => {
+          const yearMap: Record<string, number> = {
             pre_1980: 1970,
             "1980_2000": 1990,
             "2000_2010": 2005,
@@ -667,8 +667,8 @@ const TIER4_QUESTIONS: Question[] = [
       },
       {
         formFieldId: "ppeRequirements",
-        transformer: (answer) => {
-          const ppeMap = {
+        transformer: (answer: string) => {
+          const ppeMap: Record<string, string> = {
             none: "Standard PPE",
             low: "Standard PPE + gloves",
             moderate: "Full PPE + respiratory protection",

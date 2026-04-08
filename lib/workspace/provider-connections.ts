@@ -273,11 +273,11 @@ export async function validateProviderKey(
     where: { workspaceId, provider },
     data: valid
       ? { status: "ACTIVE", lastValidatedAt: new Date(), lastError: null }
-      : {
+      : ({
           status: "ERROR",
           lastError: errorMessage ?? "Validation failed",
           lastValidatedAt: new Date(),
-        },
+        } as any),
   });
 
   return { provider, valid, errorMessage, latencyMs };
