@@ -437,7 +437,7 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 | Component type fixes (10+ files)               | Done   | `EstimationEngine`, `MonitoringVerificationProcedures`, `OnboardingModal`, analytics components               |
 | Prisma schema drift: 40+ API routes            | Done   | `(prisma as any).modelName` for Sprint G-H sub-models across all assessment routes                           |
 | Recharts Tooltip type mismatch                 | Done   | `TooltipAny` cast in analytics components                                                                    |
-| **Type errors: 688 → 0**                       | Done   | `pnpm type-check` passes clean — commits `79be6272`, `94da24c5`, `<next>`                                    |
+| **Type errors: 688 → 0**                       | Done   | `pnpm type-check` passes clean — commits `e8c4694d`, `42c78637`, `e24c8202`                                  |
 
 ## Notes for Next Context Window
 
