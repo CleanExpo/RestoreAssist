@@ -1,14 +1,19 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-// Fail hard at module load if secret is absent — prevents silent fallback to
-// a known string that would allow any attacker to forge valid portal tokens
-if (!process.env.PORTAL_SECRET) {
-  throw new Error(
-    "PORTAL_SECRET environment variable is required. " +
-    "Generate with: openssl rand -hex 32"
-  );
+// Lazy secret resolution — reading at call time instead of module load time
+// prevents Next.js build from failing when PORTAL_SECRET is absent (env vars
+// are RUN_TIME only on DO App Platform, not available during "Collecting page
+// data"). The guard still fails hard at call time so forgery is impossible.
+function getPortalSecret(): string {
+  const secret = process.env.PORTAL_SECRET;
+  if (!secret) {
+    throw new Error(
+      "PORTAL_SECRET environment variable is required. " +
+      "Generate with: openssl rand -hex 32"
+    );
+  }
+  return secret;
 }
-const PORTAL_SECRET = process.env.PORTAL_SECRET;
 const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 function toBase64Url(input: string): string {
@@ -27,7 +32,7 @@ function fromBase64Url(input: string): string {
 }
 
 function computeHmac(payload: string): string {
-  return createHmac("sha256", PORTAL_SECRET).update(payload).digest("hex");
+  return createHmac("sha256", getPortalSecret()).update(payload).digest("hex");
 }
 
 /**
