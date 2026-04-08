@@ -1,10 +1,7 @@
 name: Deploy to DigitalOcean App Platform
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_dispatch: # Manual trigger only — DIGITALOCEAN_ACCESS_TOKEN secret must be set before enabling push trigger
 
 jobs:
   deploy:
