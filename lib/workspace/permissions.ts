@@ -36,40 +36,69 @@ export const PERMISSION_KEYS = [
   "ai.view_usage",
 ] as const;
 
-export type PermissionKey = typeof PERMISSION_KEYS[number];
+export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
-export type PermissionCategory = "membership" | "workspace" | "reporting" | "ai";
+export type PermissionCategory =
+  | "membership"
+  | "workspace"
+  | "reporting"
+  | "ai";
 
 // ── System role names ──────────────────────────────────────────────────────
 
 export const SYSTEM_ROLE_NAMES = ["Owner", "Manager", "Technician"] as const;
-export type SystemRoleName = typeof SYSTEM_ROLE_NAMES[number];
+export type SystemRoleName = (typeof SYSTEM_ROLE_NAMES)[number];
 
 /**
  * Default permissions granted to each system role.
  * Source of truth is the DB (seeded by prisma/seed-workspace.ts).
  * This constant is useful for UI display and static checks without DB hits.
  */
-export const SYSTEM_ROLE_PERMISSIONS: Record<SystemRoleName, PermissionKey[]> = {
-  Owner: [
-    "membership.invite", "membership.remove", "membership.view", "membership.role.assign",
-    "workspace.view", "workspace.settings", "workspace.billing", "workspace.delete",
-    "reporting.create", "reporting.view", "reporting.export", "reporting.approve", "reporting.delete",
-    "ai.use_basic", "ai.use_premium", "ai.configure_byok", "ai.view_usage",
-  ],
-  Manager: [
-    "membership.invite", "membership.remove", "membership.view", "membership.role.assign",
-    "workspace.view",
-    "reporting.create", "reporting.view", "reporting.export", "reporting.approve", "reporting.delete",
-    "ai.use_basic", "ai.use_premium", "ai.view_usage",
-  ],
-  Technician: [
-    "membership.view",
-    "workspace.view",
-    "reporting.create", "reporting.view", "reporting.export",
-    "ai.use_basic",
-  ],
-};
+export const SYSTEM_ROLE_PERMISSIONS: Record<SystemRoleName, PermissionKey[]> =
+  {
+    Owner: [
+      "membership.invite",
+      "membership.remove",
+      "membership.view",
+      "membership.role.assign",
+      "workspace.view",
+      "workspace.settings",
+      "workspace.billing",
+      "workspace.delete",
+      "reporting.create",
+      "reporting.view",
+      "reporting.export",
+      "reporting.approve",
+      "reporting.delete",
+      "ai.use_basic",
+      "ai.use_premium",
+      "ai.configure_byok",
+      "ai.view_usage",
+    ],
+    Manager: [
+      "membership.invite",
+      "membership.remove",
+      "membership.view",
+      "membership.role.assign",
+      "workspace.view",
+      "reporting.create",
+      "reporting.view",
+      "reporting.export",
+      "reporting.approve",
+      "reporting.delete",
+      "ai.use_basic",
+      "ai.use_premium",
+      "ai.view_usage",
+    ],
+    Technician: [
+      "membership.view",
+      "workspace.view",
+      "reporting.create",
+      "reporting.view",
+      "reporting.export",
+      "ai.use_basic",
+    ],
+  };
 
 // ── DB-backed permission check ─────────────────────────────────────────────
 
@@ -85,7 +114,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<SystemRoleName, PermissionKey[]> = 
 export async function hasPermission(
   userId: string,
   workspaceId: string,
-  permissionKey: PermissionKey
+  permissionKey: PermissionKey,
 ): Promise<boolean> {
   const result = await prisma.workspaceMember.findFirst({
     where: {
@@ -119,7 +148,7 @@ export async function hasPermission(
  */
 export async function listUserPermissions(
   userId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<Set<PermissionKey>> {
   const member = await prisma.workspaceMember.findUnique({
     where: {
@@ -161,7 +190,7 @@ export async function listUserPermissions(
  */
 export async function getUserSystemRole(
   userId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<SystemRoleName | null> {
   const member = await prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
@@ -194,12 +223,12 @@ export async function getUserSystemRole(
 export async function requirePermission(
   userId: string,
   workspaceId: string,
-  permissionKey: PermissionKey
+  permissionKey: PermissionKey,
 ): Promise<void> {
   const granted = await hasPermission(userId, workspaceId, permissionKey);
   if (!granted) {
     const err = new Error(
-      `Permission denied: '${permissionKey}' required in workspace ${workspaceId}`
+      `Permission denied: '${permissionKey}' required in workspace ${workspaceId}`,
     );
     (err as NodeJS.ErrnoException).code = "PERMISSION_DENIED";
     throw err;

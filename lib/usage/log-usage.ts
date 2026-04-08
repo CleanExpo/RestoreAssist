@@ -81,7 +81,7 @@ export function estimateCostUsd(
   provider: AiProvider,
   model: string,
   inputTokens: number,
-  outputTokens: number
+  outputTokens: number,
 ): number {
   const pricing = MODEL_PRICING[provider]?.[model] ?? DEFAULT_PRICING[provider];
   if (!pricing) return 0;

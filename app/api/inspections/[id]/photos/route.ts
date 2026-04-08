@@ -35,7 +35,10 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
 
     const photos = await prisma.inspectionPhoto.findMany({
@@ -56,7 +59,10 @@ export async function GET(
     return NextResponse.json({ photos });
   } catch (error) {
     console.error("Error fetching photos:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 

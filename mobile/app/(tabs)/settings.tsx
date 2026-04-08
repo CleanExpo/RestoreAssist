@@ -1,15 +1,19 @@
-import { View, Text, ScrollView, Platform, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, shadows } from '@/constants/theme';
-import { useAppStore } from '@/lib/store';
+import { View, Text, ScrollView, Platform, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, shadows } from "@/constants/theme";
+import { useAppStore } from "@/lib/store";
 
 const API_ENDPOINT =
-  process.env.EXPO_PUBLIC_API_BASE ?? 'https://restoreassist.com.au';
+  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.com.au";
 
-const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
+const MONO = Platform.select({
+  ios: "Menlo",
+  android: "monospace",
+  default: "monospace",
+});
 
 interface RowProps {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   value: string;
   mono?: boolean;
@@ -26,9 +30,7 @@ function SettingsRow({ icon, label, value, mono, valueColor, dot }: RowProps) {
       <View style={styles.rowBody}>
         <Text style={styles.rowLabel}>{label}</Text>
         <View style={styles.rowValueRow}>
-          {dot && (
-            <View style={[styles.dot, { backgroundColor: dot }]} />
-          )}
+          {dot && <View style={[styles.dot, { backgroundColor: dot }]} />}
           <Text
             style={[
               styles.rowValue,
@@ -81,7 +83,7 @@ export default function SettingsScreen() {
         <SettingsRow
           icon="wifi-outline"
           label="Network Status"
-          value={isOnline ? 'Online' : 'Offline'}
+          value={isOnline ? "Online" : "Offline"}
           dot={isOnline ? colors.success : colors.error}
           valueColor={isOnline ? colors.success : colors.error}
         />
@@ -89,7 +91,13 @@ export default function SettingsScreen() {
         <SettingsRow
           icon="phone-portrait-outline"
           label="Platform"
-          value={Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web'}
+          value={
+            Platform.OS === "ios"
+              ? "iOS"
+              : Platform.OS === "android"
+                ? "Android"
+                : "Web"
+          }
         />
       </View>
 
@@ -109,11 +117,7 @@ export default function SettingsScreen() {
           value="IICRC S500 / S520 / S700"
         />
         <View style={styles.rowDivider} />
-        <SettingsRow
-          icon="location-outline"
-          label="Region"
-          value="Australia"
-        />
+        <SettingsRow icon="location-outline" label="Region" value="Australia" />
       </View>
     </ScrollView>
   );
@@ -129,8 +133,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   brandCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
@@ -145,16 +149,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.accentDim,
     borderWidth: 1,
-    borderColor: colors.accent + '30',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: colors.accent + "30",
+    alignItems: "center",
+    justifyContent: "center",
   },
   brandText: {
     flex: 1,
   },
   brandName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.text,
     letterSpacing: -0.3,
   },
@@ -162,27 +166,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   pilotBadge: {
-    backgroundColor: colors.muted + '22',
+    backgroundColor: colors.muted + "22",
     borderWidth: 1,
-    borderColor: colors.muted + '60',
+    borderColor: colors.muted + "60",
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   pilotBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.muted,
     letterSpacing: 1,
   },
   sectionTitle: {
     fontSize: 11,
     color: colors.muted,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+    fontWeight: "800",
+    textTransform: "uppercase",
     letterSpacing: 1.2,
     marginBottom: spacing.sm,
     marginLeft: 4,
@@ -193,11 +197,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.xl,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
     gap: spacing.md,
@@ -207,8 +211,8 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 10,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowBody: {
     flex: 1,
@@ -216,18 +220,18 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 0.2,
     marginBottom: 2,
   },
   rowValue: {
     fontSize: 15,
     color: colors.text,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   rowValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   dot: {

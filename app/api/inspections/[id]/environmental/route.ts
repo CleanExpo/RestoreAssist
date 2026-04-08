@@ -1,62 +1,65 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { sanitizeString } from "@/lib/sanitize"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { sanitizeString } from "@/lib/sanitize";
 
 // POST - Add or update environmental data
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    const { id } = await params
-    const body = await request.json()
-    
+
+    const { id } = await params;
+    const body = await request.json();
+
     // Validate inspection exists and belongs to user
     const inspection = await prisma.inspection.findFirst({
       where: {
         id,
-        userId: session.user.id
-      }
-    })
-    
+        userId: session.user.id,
+      },
+    });
+
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
-    
+
     // Validate data ranges
     if (body.ambientTemperature !== undefined) {
       if (body.ambientTemperature < -20 || body.ambientTemperature > 130) {
         return NextResponse.json(
           { error: "Temperature must be between -20°F and 130°F" },
-          { status: 400 }
-        )
+          { status: 400 },
+        );
       }
     }
-    
+
     if (body.humidityLevel !== undefined) {
       if (body.humidityLevel < 0 || body.humidityLevel > 100) {
         return NextResponse.json(
           { error: "Humidity must be between 0% and 100%" },
-          { status: 400 }
-        )
+          { status: 400 },
+        );
       }
     }
-    
+
     // Sanitize free-text fields — cap length and strip HTML/XSS vectors.
     // notes/weatherConditions are included in the audit log; unbounded strings
     // can bloat WAL and be used for stored XSS if rendered unescaped.
-    const sanitizedNotes = body.notes ? sanitizeString(body.notes, 2000) : null
+    const sanitizedNotes = body.notes ? sanitizeString(body.notes, 2000) : null;
     const sanitizedWeather = body.weatherConditions
       ? sanitizeString(body.weatherConditions, 200)
-      : null
+      : null;
 
     // Upsert environmental data
     const environmentalData = await prisma.environmentalData.upsert({
@@ -77,8 +80,8 @@ export async function POST(
         airCirculation: body.airCirculation ?? false,
         weatherConditions: sanitizedWeather,
         notes: sanitizedNotes,
-      }
-    })
+      },
+    });
 
     // Audit log: use an explicit allowlist — never serialise the raw request body.
     // Dumping body verbatim injects attacker-controlled content into the audit trail
@@ -98,16 +101,15 @@ export async function POST(
           weatherConditions: environmentalData.weatherConditions,
           notes: environmentalData.notes,
         }),
-      }
-    })
-    
-    return NextResponse.json({ environmentalData })
+      },
+    });
+
+    return NextResponse.json({ environmentalData });
   } catch (error) {
-    console.error("Error saving environmental data:", error)
+    console.error("Error saving environmental data:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
-

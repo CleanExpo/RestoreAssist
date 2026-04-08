@@ -1,25 +1,25 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { verifyAdminFromDb } from '@/lib/admin-auth'
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     // Re-validates role from DB to prevent stale JWT role from granting admin access
-    const auth = await verifyAdminFromDb(session)
-    if (auth.response) return auth.response
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     // Get current date for this month's reports
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
     // Get 30 days ago for active users
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     // Fetch stats in parallel
     const [
@@ -47,7 +47,7 @@ export async function GET() {
       // Active subscriptions
       prisma.user.count({
         where: {
-          subscriptionStatus: 'ACTIVE',
+          subscriptionStatus: "ACTIVE",
         },
       }),
 
@@ -62,8 +62,10 @@ export async function GET() {
       }),
 
       // Database health check
-      prisma.$queryRaw`SELECT 1 as health`.then(() => 'healthy' as const).catch(() => 'down' as const),
-    ])
+      prisma.$queryRaw`SELECT 1 as health`
+        .then(() => "healthy" as const)
+        .catch(() => "down" as const),
+    ]);
 
     return NextResponse.json({
       totalUsers,
@@ -74,15 +76,15 @@ export async function GET() {
       reportsThisMonth,
       systemHealth: {
         database: dbHealth,
-        api: 'healthy' as const,
-        integrations: 'healthy' as const,
+        api: "healthy" as const,
+        integrations: "healthy" as const,
       },
-    })
+    });
   } catch (error) {
-    console.error('Error fetching admin stats:', error)
+    console.error("Error fetching admin stats:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch admin stats' },
-      { status: 500 }
-    )
+      { error: "Failed to fetch admin stats" },
+      { status: 500 },
+    );
   }
 }

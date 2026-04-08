@@ -10,26 +10,26 @@
  * - findSimilarJobs: cosine-similarity lookup against pgvector index.
  */
 
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/prisma";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface JobEmbeddingInput {
-  claimType: string
-  waterCategory?: number | null
-  waterClass?: number | null
-  suburb: string
-  state: string
-  description: string
-  jobName: string
-  customerName?: string | null
-  totalExTax: number
-  itemCount: number
-  equipmentCount: number
-  customFields?: unknown
+  claimType: string;
+  waterCategory?: number | null;
+  waterClass?: number | null;
+  suburb: string;
+  state: string;
+  description: string;
+  jobName: string;
+  customerName?: string | null;
+  totalExTax: number;
+  itemCount: number;
+  equipmentCount: number;
+  customFields?: unknown;
 }
 
-export type EmbeddingProvider = "openai" | "hash-fallback"
+export type EmbeddingProvider = "openai" | "hash-fallback";
 
 // ─── Text builder ─────────────────────────────────────────────────────────────
 
@@ -39,28 +39,26 @@ export type EmbeddingProvider = "openai" | "hash-fallback"
  * classification, location, scope narrative, and value tier.
  */
 export function buildJobEmbeddingText(job: JobEmbeddingInput): string {
-  const lines: string[] = [
-    `Claim type: ${job.claimType}`,
-  ]
+  const lines: string[] = [`Claim type: ${job.claimType}`];
 
   if (job.waterCategory != null && job.waterClass != null) {
-    lines.push(`IICRC Category ${job.waterCategory} Class ${job.waterClass}`)
+    lines.push(`IICRC Category ${job.waterCategory} Class ${job.waterClass}`);
   } else if (job.waterCategory != null) {
-    lines.push(`IICRC Category ${job.waterCategory}`)
+    lines.push(`IICRC Category ${job.waterCategory}`);
   }
 
-  lines.push(`Location: ${job.suburb}, ${job.state}`)
-  lines.push(`Job: ${job.jobName}`)
+  lines.push(`Location: ${job.suburb}, ${job.state}`);
+  lines.push(`Job: ${job.jobName}`);
 
   if (job.description?.trim()) {
-    lines.push(job.description.trim())
+    lines.push(job.description.trim());
   }
 
-  lines.push(`Items: ${job.itemCount}, Equipment: ${job.equipmentCount}`)
-  lines.push(`Value: $${job.totalExTax.toFixed(2)} ex-tax`)
+  lines.push(`Items: ${job.itemCount}, Equipment: ${job.equipmentCount}`);
+  lines.push(`Value: $${job.totalExTax.toFixed(2)} ex-tax`);
 
   if (job.customerName) {
-    lines.push(`Customer: ${job.customerName}`)
+    lines.push(`Customer: ${job.customerName}`);
   }
 
   if (job.customFields) {
@@ -68,20 +66,21 @@ export function buildJobEmbeddingText(job: JobEmbeddingInput): string {
     // An attacker who controls their job data can inject prompt-override strings.
     // Sanitise: strip control chars, truncate, and wrap with a DATA: prefix so
     // the AI model can distinguish user data from instructions.
-    const raw = typeof job.customFields === "string"
-      ? job.customFields
-      : JSON.stringify(job.customFields)
+    const raw =
+      typeof job.customFields === "string"
+        ? job.customFields
+        : JSON.stringify(job.customFields);
     const sanitised = raw
       .replace(/[\x00-\x1F\x7F]/g, " ") // strip control characters
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 500)
+      .slice(0, 500);
     if (sanitised) {
-      lines.push(`DATA:custom_fields: ${sanitised}`)
+      lines.push(`DATA:custom_fields: ${sanitised}`);
     }
   }
 
-  return lines.filter(Boolean).join("\n")
+  return lines.filter(Boolean).join("\n");
 }
 
 // ─── Embedding providers ──────────────────────────────────────────────────────
@@ -93,7 +92,7 @@ export function buildJobEmbeddingText(job: JobEmbeddingInput): string {
 export async function embedText(
   text: string,
   provider: EmbeddingProvider,
-  apiKey: string
+  apiKey: string,
 ): Promise<number[]> {
   if (provider === "openai") {
     const res = await fetch("https://api.openai.com/v1/embeddings", {
@@ -103,22 +102,24 @@ export async function embedText(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ model: "text-embedding-3-small", input: text }),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`OpenAI embedding error ${res.status}: ${body.slice(0, 200)}`)
+      const body = await res.text();
+      throw new Error(
+        `OpenAI embedding error ${res.status}: ${body.slice(0, 200)}`,
+      );
     }
 
-    const data = await res.json()
-    return data.data[0].embedding as number[]
+    const data = await res.json();
+    return data.data[0].embedding as number[];
   }
 
   if (provider === "hash-fallback") {
-    return hashEmbedText(text)
+    return hashEmbedText(text);
   }
 
-  throw new Error(`Unsupported embedding provider: ${provider}`)
+  throw new Error(`Unsupported embedding provider: ${provider}`);
 }
 
 /**
@@ -131,41 +132,41 @@ export async function embedText(
  * changing provider to "openai" once an API key is available.
  */
 export function hashEmbedText(text: string): number[] {
-  const dims = 1536
-  const vector = new Array<number>(dims).fill(0)
+  const dims = 1536;
+  const vector = new Array<number>(dims).fill(0);
 
   for (let i = 0; i < text.length; i++) {
-    const charCode = text.charCodeAt(i)
+    const charCode = text.charCodeAt(i);
     // Spread character influence across multiple dimensions
-    const primary = i % dims
-    const secondary = (i * 31 + charCode) % dims
-    const tertiary = (i * 137 + charCode * 7) % dims
+    const primary = i % dims;
+    const secondary = (i * 31 + charCode) % dims;
+    const tertiary = (i * 137 + charCode * 7) % dims;
 
-    vector[primary] = (vector[primary] + charCode * Math.sin(i + 1)) % 1
-    vector[secondary] = (vector[secondary] + charCode * Math.cos(i + 1)) % 1
-    vector[tertiary] = (vector[tertiary] + Math.sin(charCode * (i + 1))) % 1
+    vector[primary] = (vector[primary] + charCode * Math.sin(i + 1)) % 1;
+    vector[secondary] = (vector[secondary] + charCode * Math.cos(i + 1)) % 1;
+    vector[tertiary] = (vector[tertiary] + Math.sin(charCode * (i + 1))) % 1;
   }
 
   // L2-normalise to unit vector so cosine similarity is meaningful
-  const magnitude = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0))
-  return magnitude > 0 ? vector.map((v) => v / magnitude) : vector
+  const magnitude = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+  return magnitude > 0 ? vector.map((v) => v / magnitude) : vector;
 }
 
 // ─── Similarity search ────────────────────────────────────────────────────────
 
 export interface SimilarJobResult {
-  id: string
-  claimType: string
-  waterCategory: number | null
-  waterClass: number | null
-  suburb: string
-  state: string
-  description: string
-  jobName: string
-  totalExTax: number
-  itemCount: number
-  equipmentCount: number
-  distance: number
+  id: string;
+  claimType: string;
+  waterCategory: number | null;
+  waterClass: number | null;
+  suburb: string;
+  state: string;
+  description: string;
+  jobName: string;
+  totalExTax: number;
+  itemCount: number;
+  equipmentCount: number;
+  distance: number;
 }
 
 /**
@@ -177,21 +178,26 @@ export interface SimilarJobResult {
  * 20260330_add_pgvector_historical_job_embeddings.
  */
 export async function findSimilarJobs(options: {
-  queryVector: number[]
-  tenantId: string
-  claimType?: string
-  limit?: number
+  queryVector: number[];
+  tenantId: string;
+  claimType?: string;
+  limit?: number;
 }): Promise<SimilarJobResult[]> {
-  const { queryVector, tenantId, claimType, limit = 5 } = options
+  const { queryVector, tenantId, claimType, limit = 5 } = options;
 
   // Serialize vector as pgvector literal e.g. "[0.1,0.2,...]"
   // SECURITY: pass as bind parameter $1::vector — NEVER interpolate into SQL string.
   // String interpolation of queryVector allows injection via crafted float values.
-  const vectorStr = `[${queryVector.join(",")}]`
+  const vectorStr = `[${queryVector.join(",")}]`;
 
   // Bind param layout: $1=vector, $2=tenantId, $3=limit, $4=claimType (optional)
-  const claimTypeFilter = claimType ? `AND "claimType" = $4` : ""
-  const queryArgs: unknown[] = [vectorStr, tenantId, limit, ...(claimType ? [claimType] : [])]
+  const claimTypeFilter = claimType ? `AND "claimType" = $4` : "";
+  const queryArgs: unknown[] = [
+    vectorStr,
+    tenantId,
+    limit,
+    ...(claimType ? [claimType] : []),
+  ];
 
   const rows = await prisma.$queryRawUnsafe<SimilarJobResult[]>(
     `
@@ -215,8 +221,8 @@ export async function findSimilarJobs(options: {
     ORDER BY distance ASC
     LIMIT $3
     `,
-    ...queryArgs
-  )
+    ...queryArgs,
+  );
 
-  return rows
+  return rows;
 }

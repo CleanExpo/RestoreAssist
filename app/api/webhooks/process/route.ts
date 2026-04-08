@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { processWebhookQueue, getQueueStats } from '@/lib/jobs/webhook-queue'
-import { verifyCronAuth } from '@/lib/cron/auth'
+import { NextRequest, NextResponse } from "next/server";
+import { processWebhookQueue, getQueueStats } from "@/lib/jobs/webhook-queue";
+import { verifyCronAuth } from "@/lib/cron/auth";
 
 /**
  * POST /api/webhooks/process - Trigger webhook queue processing
@@ -15,54 +15,51 @@ import { verifyCronAuth } from '@/lib/cron/auth'
 export async function POST(request: NextRequest) {
   try {
     // Verify cron secret for security
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
 
     if (!cronSecret) {
-      console.error('[Webhook Process] CRON_SECRET not configured')
+      console.error("[Webhook Process] CRON_SECRET not configured");
       return NextResponse.json(
-        { error: 'CRON_SECRET not configured' },
-        { status: 500 }
-      )
+        { error: "CRON_SECRET not configured" },
+        { status: 500 },
+      );
     }
 
     // Allow Bearer token or direct secret
-    const providedSecret = authHeader?.replace('Bearer ', '')
+    const providedSecret = authHeader?.replace("Bearer ", "");
 
     if (providedSecret !== cronSecret) {
-      console.error('[Webhook Process] Invalid authorization')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      console.error("[Webhook Process] Invalid authorization");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log('[Webhook Process] Processing webhook queue...')
+    console.log("[Webhook Process] Processing webhook queue...");
 
     // Process the queue
     const result = await processWebhookQueue({
       batchSize: 20,
-      maxConcurrent: 5
-    })
+      maxConcurrent: 5,
+    });
 
     // Get updated stats
-    const stats = await getQueueStats()
+    const stats = await getQueueStats();
 
     return NextResponse.json({
       success: true,
       result,
       stats,
-      timestamp: new Date().toISOString()
-    })
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
-    console.error('[Webhook Process] Error:', error)
+    console.error("[Webhook Process] Error:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Unknown error'
+        error: error.message || "Unknown error",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
@@ -75,24 +72,24 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Always require CRON_SECRET — queue stats expose operational data
-    const authResult = verifyCronAuth(request)
-    if (authResult) return authResult
+    const authResult = verifyCronAuth(request);
+    if (authResult) return authResult;
 
-    const stats = await getQueueStats()
+    const stats = await getQueueStats();
 
     return NextResponse.json({
       success: true,
       stats,
-      timestamp: new Date().toISOString()
-    })
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
-    console.error('[Webhook Process] Error getting stats:', error)
+    console.error("[Webhook Process] Error getting stats:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Unknown error'
+        error: error.message || "Unknown error",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

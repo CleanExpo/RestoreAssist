@@ -14,10 +14,27 @@
  * BYOK allowlist remains IMMUTABLE — enforced inside byokDispatch.
  */
 
-import { byokDispatch, type ByokRequest, type ByokResponse, type AllowedModel } from "./byok-client";
-import { routeAiRequest, type RoutedAiRequest, type RoutedAiResponse, type RouterConfig } from "./model-router";
-import { logAiUsage, estimateCostUsd, type AiProvider as LogAiProvider } from "../usage/log-usage";
-import { getProviderApiKey, type AiProvider as ConnectionAiProvider } from "../workspace/provider-connections";
+import {
+  byokDispatch,
+  type ByokRequest,
+  type ByokResponse,
+  type AllowedModel,
+} from "./byok-client";
+import {
+  routeAiRequest,
+  type RoutedAiRequest,
+  type RoutedAiResponse,
+  type RouterConfig,
+} from "./model-router";
+import {
+  logAiUsage,
+  estimateCostUsd,
+  type AiProvider as LogAiProvider,
+} from "../usage/log-usage";
+import {
+  getProviderApiKey,
+  type AiProvider as ConnectionAiProvider,
+} from "../workspace/provider-connections";
 
 // ─── Provider Mapping ────────────────────────────────────────────────────────
 
@@ -35,7 +52,9 @@ function modelToConnectionProvider(model: AllowedModel): ConnectionAiProvider {
  * Map a ProviderConnection AiProvider to the log-usage AiProvider type.
  * They share the same values — this cast ensures type safety across modules.
  */
-function connectionProviderToLogProvider(p: ConnectionAiProvider): LogAiProvider {
+function connectionProviderToLogProvider(
+  p: ConnectionAiProvider,
+): LogAiProvider {
   return p as LogAiProvider;
 }
 
@@ -44,11 +63,23 @@ function connectionProviderToLogProvider(p: ConnectionAiProvider): LogAiProvider
 /** Classify an error string into a terse error type for usage logging. */
 function classifyError(err: unknown): string {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  if (msg.includes("401") || msg.includes("invalid") && msg.includes("key")) return "auth";
-  if (msg.includes("429") || msg.includes("rate_limit") || msg.includes("rate limit")) return "rate_limit";
-  if (msg.includes("context_length") || msg.includes("max_tokens") || msg.includes("too long")) return "context_length";
+  if (msg.includes("401") || (msg.includes("invalid") && msg.includes("key")))
+    return "auth";
+  if (
+    msg.includes("429") ||
+    msg.includes("rate_limit") ||
+    msg.includes("rate limit")
+  )
+    return "rate_limit";
+  if (
+    msg.includes("context_length") ||
+    msg.includes("max_tokens") ||
+    msg.includes("too long")
+  )
+    return "context_length";
   if (msg.includes("timeout") || msg.includes("aborted")) return "timeout";
-  if (msg.includes("500") || msg.includes("502") || msg.includes("503")) return "provider_error";
+  if (msg.includes("500") || msg.includes("502") || msg.includes("503"))
+    return "provider_error";
   return "unknown";
 }
 
@@ -90,7 +121,7 @@ export async function workspaceByokDispatch(
   if (!apiKey) {
     throw new Error(
       `No active ${provider} API key configured for workspace ${workspaceId}. ` +
-      `Please add your API key in Workspace Settings → AI Providers.`,
+        `Please add your API key in Workspace Settings → AI Providers.`,
     );
   }
 
@@ -112,7 +143,12 @@ export async function workspaceByokDispatch(
   const inputTokens = response?.usage?.inputTokens ?? 0;
   const outputTokens = response?.usage?.outputTokens ?? 0;
   const logProvider = connectionProviderToLogProvider(provider);
-  const estimatedCostUsd = estimateCostUsd(logProvider, req.model, inputTokens, outputTokens);
+  const estimatedCostUsd = estimateCostUsd(
+    logProvider,
+    req.model,
+    inputTokens,
+    outputTokens,
+  );
 
   logAiUsage({
     workspaceId,
@@ -163,7 +199,10 @@ export async function resolveWorkspaceRouterConfig(
   }
 
   // Try providers in priority order
-  const fallbacks: Array<{ provider: ConnectionAiProvider; model: AllowedModel }> = [
+  const fallbacks: Array<{
+    provider: ConnectionAiProvider;
+    model: AllowedModel;
+  }> = [
     { provider: "ANTHROPIC", model: "claude-sonnet-4-6" },
     { provider: "OPENAI", model: "gpt-5.4-mini" },
     { provider: "GOOGLE", model: "gemini-3.1-flash" },
@@ -204,7 +243,7 @@ export async function workspaceRouteAiRequest(
   if (!config) {
     throw new Error(
       `No active AI provider configured for workspace ${workspaceId}. ` +
-      `Please add at least one API key in Workspace Settings → AI Providers.`,
+        `Please add at least one API key in Workspace Settings → AI Providers.`,
     );
   }
 
@@ -225,7 +264,9 @@ export async function workspaceRouteAiRequest(
   const modelUsed = (response?.model ?? config.byokModel) as AllowedModel;
   let logProvider: LogAiProvider;
   try {
-    logProvider = connectionProviderToLogProvider(modelToConnectionProvider(modelUsed));
+    logProvider = connectionProviderToLogProvider(
+      modelToConnectionProvider(modelUsed),
+    );
   } catch {
     logProvider = "GEMMA"; // self-hosted fallback
   }
@@ -248,7 +289,11 @@ export async function workspaceRouteAiRequest(
     latencyMs,
     success,
     errorType: routeError ? classifyError(routeError) : undefined,
-    metadata: { workspaceId, tier: response?.tier, fellBack: response?.fellBack },
+    metadata: {
+      workspaceId,
+      tier: response?.tier,
+      fellBack: response?.fellBack,
+    },
   });
 
   if (routeError) {

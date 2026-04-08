@@ -10,19 +10,19 @@
  * which is acceptable for infrequently-used admin routes.
  */
 
-import { prisma } from "@/lib/prisma"
-import { NextResponse } from "next/server"
-import type { Session } from "next-auth"
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import type { Session } from "next-auth";
 
 export interface AdminAuthResult {
   /** Set when authentication is valid — contains the DB-verified user record */
   user?: {
-    id: string
-    role: string
-    organizationId: string | null
-  }
+    id: string;
+    role: string;
+    organizationId: string | null;
+  };
   /** Set when authentication fails — return this response immediately */
-  response?: NextResponse
+  response?: NextResponse;
 }
 
 /**
@@ -38,31 +38,39 @@ export interface AdminAuthResult {
  * const { user } = auth
  * ```
  */
-export async function verifyAdminFromDb(session: Session | null): Promise<AdminAuthResult> {
+export async function verifyAdminFromDb(
+  session: Session | null,
+): Promise<AdminAuthResult> {
   if (!session?.user?.id) {
     return {
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    }
+    };
   }
 
   // JWT role is a fast pre-check — avoids DB call for non-admin sessions
   if (session.user.role !== "ADMIN") {
     return {
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    }
+    };
   }
 
   // Secondary DB lookup — re-validates the role is still current
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { id: true, role: true, organizationId: true },
-  })
+  });
 
   if (!dbUser || dbUser.role !== "ADMIN") {
     return {
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    }
+    };
   }
 
-  return { user: { id: dbUser.id, role: dbUser.role, organizationId: dbUser.organizationId } }
+  return {
+    user: {
+      id: dbUser.id,
+      role: dbUser.role,
+      organizationId: dbUser.organizationId,
+    },
+  };
 }

@@ -28,14 +28,17 @@ interface StoredSession {
 const sessions = new Map<string, StoredSession>();
 
 // Cleanup expired sessions every 30 minutes
-setInterval(() => {
-  const now = Date.now();
-  const expiredIds: string[] = [];
-  sessions.forEach((stored, id) => {
-    if (stored.expiresAt < now) expiredIds.push(id);
-  });
-  expiredIds.forEach((id) => sessions.delete(id));
-}, 30 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    const expiredIds: string[] = [];
+    sessions.forEach((stored, id) => {
+      if (stored.expiresAt < now) expiredIds.push(id);
+    });
+    expiredIds.forEach((id) => sessions.delete(id));
+  },
+  30 * 60 * 1000,
+);
 
 // ─── Session lifecycle ────────────────────────────────────────────────────────
 

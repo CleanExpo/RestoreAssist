@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createHmac, timingSafeEqual } from 'crypto'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
+import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/webhooks/myob - Receive webhook events from MYOB
@@ -15,177 +15,182 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: NextRequest) {
   try {
     // Get webhook signature from header
-    const signature = request.headers.get('x-myob-signature')
+    const signature = request.headers.get("x-myob-signature");
 
     if (!signature) {
-      console.error('[MYOB Webhook] Missing signature header')
-      return NextResponse.json(
-        { error: 'Missing signature' },
-        { status: 401 }
-      )
+      console.error("[MYOB Webhook] Missing signature header");
+      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
     }
 
     // Read raw body for signature verification
-    const rawBody = await request.text()
+    const rawBody = await request.text();
 
     // Verify webhook signature
-    const webhookSecret = process.env.MYOB_WEBHOOK_SECRET
+    const webhookSecret = process.env.MYOB_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error('[MYOB Webhook] MYOB_WEBHOOK_SECRET not configured')
+      console.error("[MYOB Webhook] MYOB_WEBHOOK_SECRET not configured");
       return NextResponse.json(
-        { error: 'Webhook secret not configured' },
-        { status: 500 }
-      )
+        { error: "Webhook secret not configured" },
+        { status: 500 },
+      );
     }
 
     // Compute expected signature using HMAC-SHA256
-    const expectedSignature = createHmac('sha256', webhookSecret)
+    const expectedSignature = createHmac("sha256", webhookSecret)
       .update(rawBody)
-      .digest('hex')
+      .digest("hex");
 
-    const sigBuf = Buffer.from(signature, 'hex')
-    const expBuf = Buffer.from(expectedSignature, 'hex')
+    const sigBuf = Buffer.from(signature, "hex");
+    const expBuf = Buffer.from(expectedSignature, "hex");
     if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-      console.error('[MYOB Webhook] Invalid signature')
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      )
+      console.error("[MYOB Webhook] Invalid signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     // Parse webhook payload
-    const payload = JSON.parse(rawBody)
+    const payload = JSON.parse(rawBody);
 
     // MYOB sends array of events
-    const events = payload.Events || []
+    const events = payload.Events || [];
 
     // Timestamp freshness check — reject replayed webhooks older than 5 minutes.
     // MYOB includes EventDateTime on each event.
-    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000
-    const now = Date.now()
+    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
+    const now = Date.now();
     for (const evt of events) {
       if (evt.EventDateTime) {
-        const eventAge = now - new Date(evt.EventDateTime).getTime()
+        const eventAge = now - new Date(evt.EventDateTime).getTime();
         if (eventAge > WEBHOOK_MAX_AGE_MS) {
-          console.warn(`[MYOB Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`)
-          return NextResponse.json({ error: 'Webhook event too old' }, { status: 400 })
+          console.warn(
+            `[MYOB Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`,
+          );
+          return NextResponse.json(
+            { error: "Webhook event too old" },
+            { status: 400 },
+          );
         }
       }
     }
 
     if (events.length === 0) {
-      console.log('[MYOB Webhook] No events in payload')
-      return NextResponse.json({ success: true, processed: 0 })
+      console.log("[MYOB Webhook] No events in payload");
+      return NextResponse.json({ success: true, processed: 0 });
     }
 
-    console.log(`[MYOB Webhook] Received ${events.length} events`)
+    console.log(`[MYOB Webhook] Received ${events.length} events`);
 
     // Find integration by company file ID
-    const firstEvent = events[0]
-    const companyFileId = firstEvent.CompanyFileId
+    const firstEvent = events[0];
+    const companyFileId = firstEvent.CompanyFileId;
 
     if (!companyFileId) {
-      console.error('[MYOB Webhook] Missing CompanyFileId in event')
+      console.error("[MYOB Webhook] Missing CompanyFileId in event");
       return NextResponse.json(
-        { error: 'Missing CompanyFileId' },
-        { status: 400 }
-      )
+        { error: "Missing CompanyFileId" },
+        { status: 400 },
+      );
     }
 
     // Find the integration for this company file
     const integration = await prisma.integration.findFirst({
       where: {
-        provider: 'MYOB',
+        provider: "MYOB",
         companyId: companyFileId,
-        status: 'CONNECTED'
-      }
-    })
+        status: "CONNECTED",
+      },
+    });
 
     if (!integration) {
-      console.warn(`[MYOB Webhook] No active integration found for company ${companyFileId}`)
+      console.warn(
+        `[MYOB Webhook] No active integration found for company ${companyFileId}`,
+      );
       // Return 200 to prevent MYOB from retrying
-      return NextResponse.json({ success: true, processed: 0 })
+      return NextResponse.json({ success: true, processed: 0 });
     }
 
     // Queue webhook events for async processing
-    const queuedEvents = []
+    const queuedEvents = [];
 
     for (const event of events) {
       try {
         // MYOB event structure:
         // EventType: "Created" | "Updated" | "Deleted"
         // ResourceType: "Sale.Invoice" | "Sale.CustomerPayment" | "Contact.Customer"
-        const eventType = event.EventType // Created, Updated, Deleted
-        const resourceType = event.ResourceType // Sale.Invoice, Sale.CustomerPayment, etc.
+        const eventType = event.EventType; // Created, Updated, Deleted
+        const resourceType = event.ResourceType; // Sale.Invoice, Sale.CustomerPayment, etc.
 
         // Map MYOB resource types to our standard event types
-        let standardEventType = ''
+        let standardEventType = "";
 
-        if (resourceType === 'Sale.Invoice') {
-          if (eventType === 'Created') {
-            standardEventType = 'invoice.created'
-          } else if (eventType === 'Updated') {
-            standardEventType = 'invoice.updated'
-          } else if (eventType === 'Deleted') {
-            standardEventType = 'invoice.deleted'
+        if (resourceType === "Sale.Invoice") {
+          if (eventType === "Created") {
+            standardEventType = "invoice.created";
+          } else if (eventType === "Updated") {
+            standardEventType = "invoice.updated";
+          } else if (eventType === "Deleted") {
+            standardEventType = "invoice.deleted";
           }
-        } else if (resourceType === 'Sale.CustomerPayment') {
-          if (eventType === 'Created') {
-            standardEventType = 'payment.created'
-          } else if (eventType === 'Updated') {
-            standardEventType = 'payment.updated'
-          } else if (eventType === 'Deleted') {
-            standardEventType = 'payment.deleted'
+        } else if (resourceType === "Sale.CustomerPayment") {
+          if (eventType === "Created") {
+            standardEventType = "payment.created";
+          } else if (eventType === "Updated") {
+            standardEventType = "payment.updated";
+          } else if (eventType === "Deleted") {
+            standardEventType = "payment.deleted";
           }
-        } else if (resourceType === 'Contact.Customer') {
-          if (eventType === 'Created') {
-            standardEventType = 'customer.created'
-          } else if (eventType === 'Updated') {
-            standardEventType = 'customer.updated'
-          } else if (eventType === 'Deleted') {
-            standardEventType = 'customer.deleted'
+        } else if (resourceType === "Contact.Customer") {
+          if (eventType === "Created") {
+            standardEventType = "customer.created";
+          } else if (eventType === "Updated") {
+            standardEventType = "customer.updated";
+          } else if (eventType === "Deleted") {
+            standardEventType = "customer.deleted";
           }
         } else {
           // Skip unsupported resource types
-          continue
+          continue;
         }
 
         // Check for duplicate events (MYOB may send duplicates)
         const existingEvent = await prisma.webhookEvent.findFirst({
           where: {
-            provider: 'MYOB',
+            provider: "MYOB",
             integrationId: integration.id,
             payload: {
-              path: ['ResourceUID'],
-              equals: event.ResourceUID
+              path: ["ResourceUID"],
+              equals: event.ResourceUID,
             },
             createdAt: {
-              gte: new Date(Date.now() - 60 * 60 * 1000) // Last hour
-            }
-          }
-        })
+              gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
+            },
+          },
+        });
 
         if (existingEvent) {
-          console.log(`[MYOB Webhook] Duplicate event detected: ${standardEventType} for ${event.ResourceUID}`)
-          continue
+          console.log(
+            `[MYOB Webhook] Duplicate event detected: ${standardEventType} for ${event.ResourceUID}`,
+          );
+          continue;
         }
 
         // Create webhook event record
         const webhookEvent = await prisma.webhookEvent.create({
           data: {
-            provider: 'MYOB',
+            provider: "MYOB",
             integrationId: integration.id,
             eventType: standardEventType,
             payload: event,
             signature,
-            status: 'PENDING'
-          }
-        })
+            status: "PENDING",
+          },
+        });
 
-        queuedEvents.push(webhookEvent.id)
-        console.log(`[MYOB Webhook] Queued event ${webhookEvent.id}: ${standardEventType}`)
+        queuedEvents.push(webhookEvent.id);
+        console.log(
+          `[MYOB Webhook] Queued event ${webhookEvent.id}: ${standardEventType}`,
+        );
       } catch (error) {
-        console.error(`[MYOB Webhook] Failed to queue event:`, error)
+        console.error(`[MYOB Webhook] Failed to queue event:`, error);
         // Continue processing other events
       }
     }
@@ -194,17 +199,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       processed: queuedEvents.length,
-      eventIds: queuedEvents
-    })
-
+      eventIds: queuedEvents,
+    });
   } catch (error) {
-    console.error('[MYOB Webhook] Error processing webhook:', error)
+    console.error("[MYOB Webhook] Error processing webhook:", error);
 
     // Return 200 to prevent MYOB from retrying on our errors
     // Log the error for manual investigation
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 200 }
-    )
+      { success: false, error: "Internal server error" },
+      { status: 200 },
+    );
   }
 }

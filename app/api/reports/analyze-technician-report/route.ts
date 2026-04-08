@@ -1,79 +1,80 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import Anthropic from '@anthropic-ai/sdk'
-import { tryClaudeModels } from '@/lib/anthropic-models'
-import { applyRateLimit } from '@/lib/rate-limiter'
-import { createCachedSystemPrompt } from '@/lib/anthropic/features/prompt-cache'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import Anthropic from "@anthropic-ai/sdk";
+import { tryClaudeModels } from "@/lib/anthropic-models";
+import { applyRateLimit } from "@/lib/rate-limiter";
+import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
 
 // POST - Analyze technician report using AI
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate limit: 10 technician report analyses per 15 minutes per user
-    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "analyze-tech", key: session.user.id })
-    if (rateLimited) return rateLimited
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      prefix: "analyze-tech",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id }
-    })
+      where: { id: session.user.id },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { reportId } = await request.json()
+    const { reportId } = await request.json();
 
     if (!reportId) {
       return NextResponse.json(
-        { error: 'Report ID is required' },
-        { status: 400 }
-      )
+        { error: "Report ID is required" },
+        { status: 400 },
+      );
     }
 
     // Get the report
     const report = await prisma.report.findUnique({
-      where: { id: reportId, userId: user.id }
-    })
+      where: { id: reportId, userId: user.id },
+    });
 
     if (!report) {
-      return NextResponse.json(
-        { error: 'Report not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     if (!report.technicianFieldReport) {
       return NextResponse.json(
-        { error: 'Technician field report is required for analysis' },
-        { status: 400 }
-      )
+        { error: "Technician field report is required for analysis" },
+        { status: 400 },
+      );
     }
 
     // Get appropriate API key based on subscription status
     // Free users: uses ANTHROPIC_API_KEY from .env
     // Upgraded users: uses API key from integrations
-    const { getAnthropicApiKey } = await import('@/lib/ai-provider')
-    let anthropicApiKey: string
+    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
+    let anthropicApiKey: string;
     try {
-      anthropicApiKey = await getAnthropicApiKey(user.id)
+      anthropicApiKey = await getAnthropicApiKey(user.id);
     } catch (error: any) {
       return NextResponse.json(
-        { error: error.message || 'Failed to get Anthropic API key' },
-        { status: 400 }
-      )
+        { error: error.message || "Failed to get Anthropic API key" },
+        { status: 400 },
+      );
     }
 
     // Create Anthropic client with appropriate API key
     const anthropic = new Anthropic({
-      apiKey: anthropicApiKey
-    })
+      apiKey: anthropicApiKey,
+    });
 
     // Build analysis prompt
     const prompt = `You are an expert water damage restoration specialist analyzing a technician's field report. 
@@ -85,9 +86,9 @@ ${report.technicianFieldReport}
 
 PROPERTY INFORMATION:
 - Address: ${report.propertyAddress}
-- Postcode: ${report.propertyPostcode || 'Not provided'}
-- Incident Date: ${report.incidentDate ? new Date(report.incidentDate).toLocaleDateString('en-AU') : 'Not provided'}
-- Technician Attendance Date: ${report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toLocaleDateString('en-AU') : 'Not provided'}
+- Postcode: ${report.propertyPostcode || "Not provided"}
+- Incident Date: ${report.incidentDate ? new Date(report.incidentDate).toLocaleDateString("en-AU") : "Not provided"}
+- Technician Attendance Date: ${report.technicianAttendanceDate ? new Date(report.technicianAttendanceDate).toLocaleDateString("en-AU") : "Not provided"}
 
 Your task is to analyze this report and extract the following information in JSON format:
 
@@ -103,11 +104,11 @@ Your task is to analyze this report and extract the following information in JSO
   "complexityLevel": "simple" | "moderate" | "complex" (based on number of areas, materials, hazards)
 }
 
-Be thorough and extract all relevant information. If information is not explicitly stated, use "Not specified" or empty arrays as appropriate.`
+Be thorough and extract all relevant information. If information is not explicitly stated, use "Not specified" or empty arrays as appropriate.`;
 
     // Call Anthropic API with fallback models
     // Use prompt caching for cost optimization (90% savings on cache hits)
-    const systemPrompt = `You are an expert water damage restoration specialist. Analyze technician field reports and extract structured information accurately. Always return valid JSON.`
+    const systemPrompt = `You are an expert water damage restoration specialist. Analyze technician field reports and extract structured information accurately. Always return valid JSON.`;
 
     // Use the utility function to try multiple models with fallback
     const response = await tryClaudeModels(
@@ -117,120 +118,143 @@ Be thorough and extract all relevant information. If information is not explicit
         max_tokens: 2000,
         messages: [
           {
-            role: 'user',
-            content: prompt
-          }
-        ]
+            role: "user",
+            content: prompt,
+          },
+        ],
       },
       undefined, // use default models
       {
-        agentName: 'TechnicianReportAnalyzer',
-        enableCacheMetrics: true
-      }
-    )
+        agentName: "TechnicianReportAnalyzer",
+        enableCacheMetrics: true,
+      },
+    );
 
-    let analysisText = ''
-    if (response.content && response.content.length > 0 && response.content[0].type === 'text') {
-      analysisText = response.content[0].text
+    let analysisText = "";
+    if (
+      response.content &&
+      response.content.length > 0 &&
+      response.content[0].type === "text"
+    ) {
+      analysisText = response.content[0].text;
     } else {
-      console.error('Unexpected response format:', response)
-      throw new Error('Unexpected response format from AI')
+      console.error("Unexpected response format:", response);
+      throw new Error("Unexpected response format from AI");
     }
 
     // Try to parse JSON from the response
-    let analysis: any = {}
+    let analysis: any = {};
     try {
       // Extract JSON from markdown code blocks if present
-      const jsonMatch = analysisText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
-                       analysisText.match(/\{[\s\S]*\}/)
-      const jsonText = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : analysisText
-      analysis = JSON.parse(jsonText)
+      const jsonMatch =
+        analysisText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) ||
+        analysisText.match(/\{[\s\S]*\}/);
+      const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : analysisText;
+      analysis = JSON.parse(jsonText);
     } catch (parseError) {
       // If JSON parsing fails, create a structured response from the text
-      console.error('Failed to parse JSON from AI response:', parseError)
+      console.error("Failed to parse JSON from AI response:", parseError);
       analysis = {
         affectedAreas: [],
-        waterSource: 'Not specified',
-        waterCategory: 'Not specified',
+        waterSource: "Not specified",
+        waterCategory: "Not specified",
         affectedMaterials: [],
         equipmentDeployed: [],
         moistureReadings: [],
         hazardsIdentified: [],
         observations: analysisText,
-        complexityLevel: 'moderate'
-      }
+        complexityLevel: "moderate",
+      };
     }
 
     // Save analysis to report
     await prisma.report.update({
       where: { id: reportId },
       data: {
-        technicianReportAnalysis: JSON.stringify(analysis)
-      }
-    })
-
-    return NextResponse.json({ 
-      analysis,
-      message: 'Technician report analyzed successfully'
-    })
-  } catch (error: any) {
-    console.error('Error analyzing technician report:', error)
-    
-    // Check for specific error types and provide user-friendly messages
-    const errorMessage = error?.message || error?.error?.message || 'Unknown error'
-    
-    if (errorMessage.includes('API Usage Limit') || errorMessage.includes('usage limits')) {
-      return NextResponse.json(
-        { 
-          error: 'API Usage Limit Reached',
-          message: 'Your Anthropic API account has reached its usage limit. Please check your API account settings or contact your administrator. The analysis cannot be completed at this time.',
-          details: errorMessage
-        },
-        { status: 429 }
-      )
-    }
-    
-    if (errorMessage.includes('credit balance') || errorMessage.includes('Insufficient API Credits') || errorMessage.includes('too low')) {
-      return NextResponse.json(
-        { 
-          error: 'Insufficient API Credits',
-          message: 'Your Anthropic API account has insufficient credits. Please go to Plans & Billing in your Anthropic account to upgrade or purchase credits. The analysis cannot be completed until credits are available.',
-          details: errorMessage
-        },
-        { status: 402 }
-      )
-    }
-    
-    if (errorMessage.includes('rate limit') || errorMessage.includes('Rate limit')) {
-      return NextResponse.json(
-        { 
-          error: 'Rate Limit Exceeded',
-          message: 'Too many requests. Please wait a moment and try again.',
-          details: errorMessage
-        },
-        { status: 429 }
-      )
-    }
-    
-    if (errorMessage.includes('API key') || errorMessage.includes('authentication')) {
-      return NextResponse.json(
-        { 
-          error: 'API Authentication Error',
-          message: 'There is an issue with your Anthropic API key. Please check your API integration settings.',
-          details: errorMessage
-        },
-        { status: 401 }
-      )
-    }
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to analyze technician report',
-        message: 'An error occurred while analyzing the report. Please try again or contact support if the issue persists.',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        technicianReportAnalysis: JSON.stringify(analysis),
       },
-      { status: 500 }
-    )
+    });
+
+    return NextResponse.json({
+      analysis,
+      message: "Technician report analyzed successfully",
+    });
+  } catch (error: any) {
+    console.error("Error analyzing technician report:", error);
+
+    // Check for specific error types and provide user-friendly messages
+    const errorMessage =
+      error?.message || error?.error?.message || "Unknown error";
+
+    if (
+      errorMessage.includes("API Usage Limit") ||
+      errorMessage.includes("usage limits")
+    ) {
+      return NextResponse.json(
+        {
+          error: "API Usage Limit Reached",
+          message:
+            "Your Anthropic API account has reached its usage limit. Please check your API account settings or contact your administrator. The analysis cannot be completed at this time.",
+          details: errorMessage,
+        },
+        { status: 429 },
+      );
+    }
+
+    if (
+      errorMessage.includes("credit balance") ||
+      errorMessage.includes("Insufficient API Credits") ||
+      errorMessage.includes("too low")
+    ) {
+      return NextResponse.json(
+        {
+          error: "Insufficient API Credits",
+          message:
+            "Your Anthropic API account has insufficient credits. Please go to Plans & Billing in your Anthropic account to upgrade or purchase credits. The analysis cannot be completed until credits are available.",
+          details: errorMessage,
+        },
+        { status: 402 },
+      );
+    }
+
+    if (
+      errorMessage.includes("rate limit") ||
+      errorMessage.includes("Rate limit")
+    ) {
+      return NextResponse.json(
+        {
+          error: "Rate Limit Exceeded",
+          message: "Too many requests. Please wait a moment and try again.",
+          details: errorMessage,
+        },
+        { status: 429 },
+      );
+    }
+
+    if (
+      errorMessage.includes("API key") ||
+      errorMessage.includes("authentication")
+    ) {
+      return NextResponse.json(
+        {
+          error: "API Authentication Error",
+          message:
+            "There is an issue with your Anthropic API key. Please check your API integration settings.",
+          details: errorMessage,
+        },
+        { status: 401 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "Failed to analyze technician report",
+        message:
+          "An error occurred while analyzing the report. Please try again or contact support if the issue persists.",
+        details:
+          process.env.NODE_ENV === "development" ? errorMessage : undefined,
+      },
+      { status: 500 },
+    );
   }
 }
-

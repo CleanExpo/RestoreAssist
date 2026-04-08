@@ -5,7 +5,11 @@
  * and returns them ranked by priority (field-frequency of causing claim rejection).
  */
 
-import type { S500CompletionItem, S500CompletionItemId, VoiceCopilotMode } from "./types";
+import type {
+  S500CompletionItem,
+  S500CompletionItemId,
+  VoiceCopilotMode,
+} from "./types";
 import { prisma } from "@/lib/prisma";
 
 // ─── Required items definition ────────────────────────────────────────────────
@@ -17,8 +21,10 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§6",
     priority: 1,
     prompt: {
-      guided: "You need to record temperature and relative humidity in every affected room. S500:2025 §6 requires this before equipment placement.",
-      assisted: "Psychrometric data missing for some rooms — temp and RH needed.",
+      guided:
+        "You need to record temperature and relative humidity in every affected room. S500:2025 §6 requires this before equipment placement.",
+      assisted:
+        "Psychrometric data missing for some rooms — temp and RH needed.",
       dictation: "Psychrometric data incomplete.",
     },
   },
@@ -28,7 +34,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§8",
     priority: 1,
     prompt: {
-      guided: "Take moisture readings at the structural elements — studs and joists if accessible. S500:2025 §8 requires baseline readings on all affected materials.",
+      guided:
+        "Take moisture readings at the structural elements — studs and joists if accessible. S500:2025 §8 requires baseline readings on all affected materials.",
       assisted: "Structural moisture readings needed — studs/joists.",
       dictation: "No structural readings logged.",
     },
@@ -39,7 +46,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§9",
     priority: 1,
     prompt: {
-      guided: "Get a photo of where the water came from — the source point. This is required for the insurance claim under S500:2025 §9.",
+      guided:
+        "Get a photo of where the water came from — the source point. This is required for the insurance claim under S500:2025 §9.",
       assisted: "Water source photo missing.",
       dictation: "No source photo.",
     },
@@ -50,7 +58,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§8, §12",
     priority: 1,
     prompt: {
-      guided: "Record baseline moisture readings for every affected material before you place any equipment. Once drying starts, the baseline is gone.",
+      guided:
+        "Record baseline moisture readings for every affected material before you place any equipment. Once drying starts, the baseline is gone.",
       assisted: "Pre-drying baseline needed before equipment placement.",
       dictation: "No pre-drying baseline.",
     },
@@ -61,7 +70,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§7.1",
     priority: 1,
     prompt: {
-      guided: "Document the water category — Cat 1, 2, or 3 — and the reason. S500:2025 §7.1 requires this. What's the source?",
+      guided:
+        "Document the water category — Cat 1, 2, or 3 — and the reason. S500:2025 §7.1 requires this. What's the source?",
       assisted: "Category not documented — Cat 1, 2, or 3?",
       dictation: "Category missing.",
     },
@@ -72,7 +82,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§7.2",
     priority: 2,
     prompt: {
-      guided: "What damage class is this — Class 1, 2, 3, or 4? And roughly how many square metres are affected? S500:2025 §7.2 needs both.",
+      guided:
+        "What damage class is this — Class 1, 2, 3, or 4? And roughly how many square metres are affected? S500:2025 §7.2 needs both.",
       assisted: "Class and area estimate needed.",
       dictation: "Class/area not set.",
     },
@@ -83,8 +94,10 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§14",
     priority: 2,
     prompt: {
-      guided: "Log the serial number and position of every piece of equipment you're placing. S500:2025 §14 requires this for the equipment log.",
-      assisted: "Equipment serials not logged — add serial numbers and positions.",
+      guided:
+        "Log the serial number and position of every piece of equipment you're placing. S500:2025 §14 requires this for the equipment log.",
+      assisted:
+        "Equipment serials not logged — add serial numbers and positions.",
       dictation: "Equipment log incomplete.",
     },
   },
@@ -94,7 +107,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§9",
     priority: 2,
     prompt: {
-      guided: "List out the affected materials with estimated quantities — square metres of plasterboard, carpet, etc. Insurers need specifics.",
+      guided:
+        "List out the affected materials with estimated quantities — square metres of plasterboard, carpet, etc. Insurers need specifics.",
       assisted: "Material list needs quantities.",
       dictation: "Affected materials list incomplete.",
     },
@@ -105,7 +119,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§10.3",
     priority: 3,
     prompt: {
-      guided: "Check for secondary damage — mould, efflorescence, staining, structural deformation. Document and photograph anything you find.",
+      guided:
+        "Check for secondary damage — mould, efflorescence, staining, structural deformation. Document and photograph anything you find.",
       assisted: "Secondary damage indicators checked?",
       dictation: "Secondary damage not documented.",
     },
@@ -116,7 +131,8 @@ const REQUIRED_ITEMS: Omit<S500CompletionItem, "complete" | "completedAt">[] = [
     s500Section: "§9",
     priority: 3,
     prompt: {
-      guided: "Define the scope boundary clearly — what's affected, what's adjacent but not damaged. Ambiguous boundaries cause scope disputes.",
+      guided:
+        "Define the scope boundary clearly — what's affected, what's adjacent but not damaged. Ambiguous boundaries cause scope disputes.",
       assisted: "Scope boundary needs to be documented.",
       dictation: "Scope boundary undefined.",
     },
@@ -144,52 +160,49 @@ export async function checkCompletion(
     },
   });
 
-  if (!inspection) return REQUIRED_ITEMS.map((i) => ({ ...i, complete: false }));
+  if (!inspection)
+    return REQUIRED_ITEMS.map((i) => ({ ...i, complete: false }));
 
   const completionMap: Record<S500CompletionItemId, boolean> = {
     psychrometric_per_room:
       inspection.environmentalData !== null &&
       inspection.environmentalData !== undefined,
 
-    moisture_baseline_structural:
-      inspection.moistureReadings.some(
-        (r) =>
-          r.location?.toLowerCase().includes("stud") ||
-          r.location?.toLowerCase().includes("joist") ||
-          r.location?.toLowerCase().includes("frame") ||
-          r.location?.toLowerCase().includes("structural"),
-      ),
+    moisture_baseline_structural: inspection.moistureReadings.some(
+      (r) =>
+        r.location?.toLowerCase().includes("stud") ||
+        r.location?.toLowerCase().includes("joist") ||
+        r.location?.toLowerCase().includes("frame") ||
+        r.location?.toLowerCase().includes("structural"),
+    ),
 
-    water_source_photo:
-      inspection.photos.some(
-        (p) =>
-          p.description?.toLowerCase().includes("source") ||
-          p.description?.toLowerCase().includes("origin") ||
-          p.description?.toLowerCase().includes("leak") ||
-          (p as any).type?.toLowerCase().includes("source"),
-      ),
+    water_source_photo: inspection.photos.some(
+      (p) =>
+        p.description?.toLowerCase().includes("source") ||
+        p.description?.toLowerCase().includes("origin") ||
+        p.description?.toLowerCase().includes("leak") ||
+        p.type?.toLowerCase().includes("source"),
+    ),
 
-    pre_drying_baseline:
-      inspection.moistureReadings.length >= 3, // At least 3 baseline readings
+    pre_drying_baseline: inspection.moistureReadings.length >= 3, // At least 3 baseline readings
 
-    category_documented:
-      inspection.classifications.some((c) => (c as any).waterCategory !== null),
+    category_documented: inspection.classifications.some(
+      (c) => c.waterCategory !== null,
+    ),
 
     class_with_area:
-      inspection.classifications.some(
-        (c) => (c as any).damageClass !== null,
-      ) && inspection.affectedAreas.some((a) => (a as any).area !== null && (a as any).area > 0),
+      inspection.classifications.some((c) => c.damageClass !== null) &&
+      inspection.affectedAreas.some((a) => a.area !== null && a.area > 0),
 
-    equipment_serials:
-      inspection.scopeItems.some(
-        (s) =>
-          s.description?.toLowerCase().includes("serial") ||
-          (s as any).itemCode?.toLowerCase().startsWith("eq"),
-      ),
+    equipment_serials: inspection.scopeItems.some(
+      (s) =>
+        s.description?.toLowerCase().includes("serial") ||
+        s.itemCode?.toLowerCase().startsWith("eq"),
+    ),
 
     affected_materials:
       inspection.affectedAreas.length >= 1 &&
-      inspection.affectedAreas.some((a) => (a as any).area !== null && (a as any).area > 0),
+      inspection.affectedAreas.some((a) => a.area !== null && a.area > 0),
 
     secondary_damage_indicators:
       inspection.photos.some(
@@ -200,11 +213,10 @@ export async function checkCompletion(
           p.description?.toLowerCase().includes("efflore"),
       ) ||
       inspection.classifications.some((c) =>
-        (c as any).notes?.toLowerCase().includes("secondary"),
+        c.notes?.toLowerCase().includes("secondary"),
       ),
 
-    scope_boundary:
-      inspection.scopeItems.length >= 2,
+    scope_boundary: inspection.scopeItems.length >= 2,
   };
 
   return REQUIRED_ITEMS.map((item) => ({

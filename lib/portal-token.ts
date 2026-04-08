@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 if (!process.env.PORTAL_SECRET) {
   throw new Error(
     "PORTAL_SECRET environment variable is required. " +
-    "Generate with: openssl rand -hex 32"
+      "Generate with: openssl rand -hex 32",
   );
 }
 const PORTAL_SECRET = process.env.PORTAL_SECRET;

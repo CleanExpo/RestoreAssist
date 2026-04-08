@@ -10,21 +10,21 @@ const HTML_ENTITY_MAP: Record<string, string> = {
   ">": "&gt;",
   '"': "&quot;",
   "'": "&#x27;",
-}
+};
 
 /**
  * Sanitize a string by stripping HTML tags and encoding entities.
  */
 export function sanitizeString(
   input: unknown,
-  maxLength: number = 10000
+  maxLength: number = 10000,
 ): string {
-  if (typeof input !== "string") return ""
+  if (typeof input !== "string") return "";
   return input
     .replace(/<[^>]*>/g, "") // Strip HTML tags
     .replace(/[&<>"']/g, (char) => HTML_ENTITY_MAP[char] || char)
     .trim()
-    .slice(0, maxLength)
+    .slice(0, maxLength);
 }
 
 /**
@@ -37,15 +37,15 @@ export function sanitizeString(
  * Returns true if the ABN is structurally valid; does NOT check ATO registration.
  */
 export function isValidABN(abn: unknown): boolean {
-  if (typeof abn !== "string") return false
-  const digits = abn.replace(/\s/g, "") // strip spaces
-  if (!/^\d{11}$/.test(digits)) return false
+  if (typeof abn !== "string") return false;
+  const digits = abn.replace(/\s/g, ""); // strip spaces
+  if (!/^\d{11}$/.test(digits)) return false;
 
-  const weights = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-  const d = digits.split("").map(Number)
-  d[0] -= 1 // subtract 1 from first digit per ATO spec
-  const sum = d.reduce((acc, digit, i) => acc + digit * weights[i], 0)
-  return sum % 89 === 0
+  const weights = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+  const d = digits.split("").map(Number);
+  d[0] -= 1; // subtract 1 from first digit per ATO spec
+  const sum = d.reduce((acc, digit, i) => acc + digit * weights[i], 0);
+  return sum % 89 === 0;
 }
 
 /**
@@ -55,17 +55,17 @@ export function isValidABN(abn: unknown): boolean {
 export function sanitizeFields<T extends Record<string, unknown>>(
   obj: T,
   fields: (keyof T)[],
-  maxLength: number = 10000
+  maxLength: number = 10000,
 ): T {
-  const result = { ...obj }
+  const result = { ...obj };
   for (const field of fields) {
-    const value = result[field]
+    const value = result[field];
     if (typeof value === "string") {
-      ;(result as Record<string, unknown>)[field as string] = sanitizeString(
+      (result as Record<string, unknown>)[field as string] = sanitizeString(
         value,
-        maxLength
-      )
+        maxLength,
+      );
     }
   }
-  return result
+  return result;
 }

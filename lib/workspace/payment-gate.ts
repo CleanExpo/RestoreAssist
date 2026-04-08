@@ -152,7 +152,8 @@ export async function checkPaymentGate(
       reason: "SUSPENDED",
       response: NextResponse.json(
         {
-          error: "Workspace is suspended — update your billing to restore access",
+          error:
+            "Workspace is suspended — update your billing to restore access",
           code: "WORKSPACE_SUSPENDED",
           action: "billing",
           redirectUrl: "/dashboard/subscription",

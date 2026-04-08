@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,13 @@ import {
   StyleSheet,
   UIManager,
   Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, shadows } from '@/constants/theme';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, shadows } from "@/constants/theme";
 
 // Enable LayoutAnimation on Android
 if (
-  Platform.OS === 'android' &&
+  Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -48,9 +48,12 @@ export default function SectionCard({
       <View style={styles.inner}>
         <Pressable
           onPress={toggle}
-          style={({ pressed }) => [styles.header, pressed && styles.headerPressed]}
+          style={({ pressed }) => [
+            styles.header,
+            pressed && styles.headerPressed,
+          ]}
           accessibilityRole="button"
-          accessibilityLabel={`${title} section, ${open ? 'expanded' : 'collapsed'}`}
+          accessibilityLabel={`${title} section, ${open ? "expanded" : "collapsed"}`}
           android_ripple={{ color: colors.accentPress, borderless: false }}
         >
           <Text style={styles.title}>{title}</Text>
@@ -64,7 +67,7 @@ export default function SectionCard({
           <View style={styles.spacer} />
 
           <Ionicons
-            name={open ? 'chevron-down' : 'chevron-forward'}
+            name={open ? "chevron-down" : "chevron-forward"}
             size={18}
             color={open ? colors.accent : colors.textSecondary}
           />
@@ -83,13 +86,13 @@ export default function SectionCard({
 
 const styles = StyleSheet.create({
   outer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   accentBar: {
     width: 4,
@@ -104,8 +107,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     minHeight: 60,
@@ -116,10 +119,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
     letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   badge: {
     backgroundColor: colors.muted,
@@ -128,12 +131,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginLeft: spacing.sm,
     minWidth: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#FFF',
+    fontWeight: "700",
+    color: "#FFF",
   },
   spacer: {
     flex: 1,

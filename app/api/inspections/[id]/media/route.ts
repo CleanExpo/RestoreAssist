@@ -35,7 +35,9 @@ export async function GET(
 
     const mimeTypeFilter = searchParams.get("mimeType"); // e.g. "image" or "video"
     const hasGpsOnly = searchParams.get("hasGps") === "true";
-    const rawLimit = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT));
+    const rawLimit = parseInt(
+      searchParams.get("limit") ?? String(DEFAULT_LIMIT),
+    );
     const limit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
     const cursor = searchParams.get("cursor"); // ISO datetime string
 
@@ -129,7 +131,7 @@ export async function GET(
     const hasNextPage = assets.length > limit;
     const page = hasNextPage ? assets.slice(0, limit) : assets;
     const nextCursor = hasNextPage
-      ? page[page.length - 1]?.createdAt?.toISOString() ?? null
+      ? (page[page.length - 1]?.createdAt?.toISOString() ?? null)
       : null;
 
     // Summary stats
@@ -154,6 +156,9 @@ export async function GET(
     });
   } catch (error) {
     console.error("[GET /api/inspections/[id]/media]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

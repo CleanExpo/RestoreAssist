@@ -47,6 +47,9 @@ export async function GET(_req: NextRequest) {
     });
   } catch (error) {
     console.error("[GET /api/workspace/status]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

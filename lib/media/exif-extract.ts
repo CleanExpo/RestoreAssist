@@ -65,7 +65,7 @@ export async function extractExif(buffer: Buffer): Promise<ExtractedExif> {
     // Dynamic import — exifr is optional; gracefully skip if not installed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    const exifr = await import("exifr").catch(() => null) as any;
+    const exifr = (await import("exifr").catch(() => null)) as any;
     if (!exifr) return {};
 
     const data = await exifr.parse(buffer, {
@@ -77,14 +77,33 @@ export async function extractExif(buffer: Buffer): Promise<ExtractedExif> {
       jfif: true,
       ihdr: true,
       pick: [
-        "Make", "Model", "Software", "LensModel",
-        "DateTimeOriginal", "CreateDate", "TimeZoneOffset",
-        "ImageWidth", "ImageHeight", "ExifImageWidth", "ExifImageHeight",
-        "Orientation", "ColorSpace",
-        "XResolution", "YResolution",
-        "FocalLength", "FNumber", "ExposureTime", "ISO", "Flash",
-        "GPSLatitude", "GPSLongitude", "GPSAltitude", "GPSTimeStamp",
-        "latitude", "longitude", "altitude",
+        "Make",
+        "Model",
+        "Software",
+        "LensModel",
+        "DateTimeOriginal",
+        "CreateDate",
+        "TimeZoneOffset",
+        "ImageWidth",
+        "ImageHeight",
+        "ExifImageWidth",
+        "ExifImageHeight",
+        "Orientation",
+        "ColorSpace",
+        "XResolution",
+        "YResolution",
+        "FocalLength",
+        "FNumber",
+        "ExposureTime",
+        "ISO",
+        "Flash",
+        "GPSLatitude",
+        "GPSLongitude",
+        "GPSAltitude",
+        "GPSTimeStamp",
+        "latitude",
+        "longitude",
+        "altitude",
       ],
     });
 
@@ -98,7 +117,8 @@ export async function extractExif(buffer: Buffer): Promise<ExtractedExif> {
     if (typeof data.altitude === "number") exif.altitude = data.altitude;
 
     // Timestamps
-    if (data.DateTimeOriginal instanceof Date) exif.capturedAt = data.DateTimeOriginal;
+    if (data.DateTimeOriginal instanceof Date)
+      exif.capturedAt = data.DateTimeOriginal;
     else if (data.CreateDate instanceof Date) exif.capturedAt = data.CreateDate;
     if (data.TimeZoneOffset) exif.timezone = String(data.TimeZoneOffset);
 
@@ -113,17 +133,24 @@ export async function extractExif(buffer: Buffer): Promise<ExtractedExif> {
     const height = data.ExifImageHeight ?? data.ImageHeight;
     if (typeof width === "number") exif.width = width;
     if (typeof height === "number") exif.height = height;
-    if (typeof data.Orientation === "number") exif.orientation = data.Orientation;
+    if (typeof data.Orientation === "number")
+      exif.orientation = data.Orientation;
     if (data.ColorSpace) exif.colorSpace = String(data.ColorSpace);
     if (typeof data.XResolution === "number") exif.dpiX = data.XResolution;
     if (typeof data.YResolution === "number") exif.dpiY = data.YResolution;
 
     // Camera settings
-    if (typeof data.FocalLength === "number") exif.focalLength = data.FocalLength;
+    if (typeof data.FocalLength === "number")
+      exif.focalLength = data.FocalLength;
     if (typeof data.FNumber === "number") exif.aperture = data.FNumber;
     if (data.ExposureTime != null) {
       const et = data.ExposureTime;
-      exif.exposureTime = typeof et === "number" ? (et < 1 ? `1/${Math.round(1 / et)}` : String(et)) : String(et);
+      exif.exposureTime =
+        typeof et === "number"
+          ? et < 1
+            ? `1/${Math.round(1 / et)}`
+            : String(et)
+          : String(et);
     }
     if (typeof data.ISO === "number") exif.iso = data.ISO;
     if (data.Flash != null) exif.flash = Boolean(data.Flash);
@@ -184,7 +211,10 @@ export function extractAndSaveMediaAsset(input: ExifExtractionInput): void {
       scheduleCatalog(asset.id, input.workspaceId);
     } catch (err) {
       // Intentionally swallowed — EXIF logging must never fail uploads
-      console.error("[extractAndSaveMediaAsset] Failed to save MediaAsset:", err);
+      console.error(
+        "[extractAndSaveMediaAsset] Failed to save MediaAsset:",
+        err,
+      );
     }
   });
 }

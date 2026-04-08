@@ -41,7 +41,7 @@ export interface ProvisionResult {
  * Safe to call multiple times — returns existing workspace if already provisioned.
  */
 export async function provisionWorkspace(
-  input: ProvisionWorkspaceInput
+  input: ProvisionWorkspaceInput,
 ): Promise<ProvisionResult> {
   // Guard: check if user already owns a workspace tied to this subscription
   if (input.stripeSubscriptionId) {
@@ -50,7 +50,11 @@ export async function provisionWorkspace(
       select: { id: true, name: true },
     });
     if (existing) {
-      return { workspaceId: existing.id, workspaceName: existing.name, alreadyExisted: true };
+      return {
+        workspaceId: existing.id,
+        workspaceName: existing.name,
+        alreadyExisted: true,
+      };
     }
   }
 
@@ -60,7 +64,11 @@ export async function provisionWorkspace(
     select: { id: true, name: true },
   });
   if (existingOwned) {
-    return { workspaceId: existingOwned.id, workspaceName: existingOwned.name, alreadyExisted: true };
+    return {
+      workspaceId: existingOwned.id,
+      workspaceName: existingOwned.name,
+      alreadyExisted: true,
+    };
   }
 
   // Derive workspace name and slug from user name or email
@@ -106,7 +114,7 @@ export async function provisionWorkspace(
       });
     } else {
       console.warn(
-        `[provisionWorkspace] System Owner role not found — role binding skipped for workspace ${workspace.id}`
+        `[provisionWorkspace] System Owner role not found — role binding skipped for workspace ${workspace.id}`,
       );
     }
 
@@ -134,7 +142,7 @@ export async function provisionWorkspace(
   });
 
   console.log(
-    `✅ WORKSPACE PROVISIONED: "${result.name}" (${result.id}) for user ${input.userId}`
+    `✅ WORKSPACE PROVISIONED: "${result.name}" (${result.id}) for user ${input.userId}`,
   );
 
   return {
@@ -153,7 +161,7 @@ export async function provisionWorkspace(
  */
 function deriveWorkspaceName(
   name: string | null | undefined,
-  email: string
+  email: string,
 ): string {
   if (name && name.trim().length > 0) {
     const firstName = name.trim().split(/\s+/)[0];

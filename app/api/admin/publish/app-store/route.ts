@@ -22,7 +22,9 @@ async function signAscJwt(): Promise<string> {
   }
 
   // Decode base64-encoded PEM private key
-  const privateKeyPem = Buffer.from(privateKeyBase64, "base64").toString("utf-8");
+  const privateKeyPem = Buffer.from(privateKeyBase64, "base64").toString(
+    "utf-8",
+  );
   const privateKey = await importPKCS8(privateKeyPem, "ES256");
 
   const now = Math.floor(Date.now() / 1000);
@@ -140,7 +142,10 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   const { action, appId } = body;
@@ -222,26 +227,29 @@ export async function POST(req: NextRequest) {
       const versionId = latestVersion.id as string;
 
       // Submit the version for review
-      const submitRes = await fetch(`${ASC_BASE_URL}/appStoreVersionSubmissions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          data: {
-            type: "appStoreVersionSubmissions",
-            relationships: {
-              appStoreVersion: {
-                data: {
-                  type: "appStoreVersions",
-                  id: versionId,
+      const submitRes = await fetch(
+        `${ASC_BASE_URL}/appStoreVersionSubmissions`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            data: {
+              type: "appStoreVersionSubmissions",
+              relationships: {
+                appStoreVersion: {
+                  data: {
+                    type: "appStoreVersions",
+                    id: versionId,
+                  },
                 },
               },
             },
-          },
-        }),
-      });
+          }),
+        },
+      );
 
       if (!submitRes.ok) {
         const errorBody = await submitRes.text();

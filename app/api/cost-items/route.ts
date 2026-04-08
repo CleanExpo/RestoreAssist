@@ -31,9 +31,12 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const parsedRate = parseFloat(rate)
+    const parsedRate = parseFloat(rate);
     if (!isFinite(parsedRate) || parsedRate < 0 || parsedRate > 1_000_000) {
-      return NextResponse.json({ error: "Rate must be a non-negative number up to 1,000,000" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Rate must be a non-negative number up to 1,000,000" },
+        { status: 400 },
+      );
     }
 
     // Verify library belongs to user

@@ -29,7 +29,7 @@ export interface SignedFormEmailData {
 
 /** Strip CR/LF characters that could be used for email header injection. */
 function sanitiseEmailField(value: string, maxLength = 255): string {
-  return value.replace(/[\r\n]/g, " ").slice(0, maxLength)
+  return value.replace(/[\r\n]/g, " ").slice(0, maxLength);
 }
 
 export async function sendSignedFormEmail(data: SignedFormEmailData) {

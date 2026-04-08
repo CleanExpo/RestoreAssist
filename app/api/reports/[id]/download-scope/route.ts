@@ -1,95 +1,103 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // GET - Download scope of works as PDF
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id }
-    })
+      where: { id: session.user.id },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     // Get the report
     const report = await prisma.report.findUnique({
-      where: { id, userId: user.id }
-    })
+      where: { id, userId: user.id },
+    });
 
     if (!report) {
-      return NextResponse.json({ error: 'Report not found' }, { status: 404 })
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
-    const scopeOfWorks = report.scopeOfWorksDocument || ''
+    const scopeOfWorks = report.scopeOfWorksDocument || "";
 
     if (!scopeOfWorks) {
       return NextResponse.json(
-        { error: 'Scope of works document not found. Please generate it first.' },
-        { status: 400 }
-      )
+        {
+          error: "Scope of works document not found. Please generate it first.",
+        },
+        { status: 400 },
+      );
     }
 
     // Generate PDF
-    const pdfDoc = await PDFDocument.create()
-    await addDocumentToPDF(pdfDoc, 'Scope of Works', scopeOfWorks, report)
+    const pdfDoc = await PDFDocument.create();
+    await addDocumentToPDF(pdfDoc, "Scope of Works", scopeOfWorks, report);
 
-    const pdfBytes = await pdfDoc.save()
+    const pdfBytes = await pdfDoc.save();
 
-    const claimRef = report.claimReferenceNumber || report.reportNumber || report.id
-    const filename = `Scope-of-Works-${claimRef}.pdf`
+    const claimRef =
+      report.claimReferenceNumber || report.reportNumber || report.id;
+    const filename = `Scope-of-Works-${claimRef}.pdf`;
 
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`
-      }
-    })
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
   } catch (error) {
-    console.error('Error generating scope PDF:', error)
+    console.error("Error generating scope PDF:", error);
     return NextResponse.json(
-      { error: 'Failed to generate PDF' },
-      { status: 500 }
-    )
+      { error: "Failed to generate PDF" },
+      { status: 500 },
+    );
   }
 }
 
-async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: string, report: any) {
-  let page = pdfDoc.addPage([595.28, 841.89]) // A4
-  const { width, height } = page.getSize()
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const headerColor = rgb(0.0, 0.63, 0.8) // Cyan
-  const watermarkColor = rgb(0.9, 0.9, 0.9) // Light gray
-  let yPosition = height - 60
-  const margin = 50
-  const lineHeight = 15
-  const fontSize = 10
-  const maxWidth = width - (margin * 2)
+async function addDocumentToPDF(
+  pdfDoc: PDFDocument,
+  title: string,
+  content: string,
+  report: any,
+) {
+  let page = pdfDoc.addPage([595.28, 841.89]); // A4
+  const { width, height } = page.getSize();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const headerColor = rgb(0.0, 0.63, 0.8); // Cyan
+  const watermarkColor = rgb(0.9, 0.9, 0.9); // Light gray
+  let yPosition = height - 60;
+  const margin = 50;
+  const lineHeight = 15;
+  const fontSize = 10;
+  const maxWidth = width - margin * 2;
 
   // Add watermark (removed rotation as it's not supported in this version of pdf-lib)
-  page.drawText('PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE', {
+  page.drawText("PRELIMINARY ASSESSMENT — NOT FINAL ESTIMATE", {
     x: margin,
     y: height - 30,
     size: 12,
     font: boldFont,
     color: watermarkColor,
-    opacity: 0.3
-  })
+    opacity: 0.3,
+  });
 
   // Add title
   page.drawText(title, {
@@ -97,150 +105,149 @@ async function addDocumentToPDF(pdfDoc: PDFDocument, title: string, content: str
     y: yPosition,
     size: 18,
     font: boldFont,
-    color: headerColor
-  })
-  yPosition -= 30
+    color: headerColor,
+  });
+  yPosition -= 30;
 
   // Add metadata
   const metadata = [
-    `Claim Reference: ${report.claimReferenceNumber || report.reportNumber || 'N/A'}`,
-    `Date Generated: ${new Date().toLocaleString('en-AU')}`,
-    `Version: ${report.reportVersion || 1}`
-  ]
+    `Claim Reference: ${report.claimReferenceNumber || report.reportNumber || "N/A"}`,
+    `Date Generated: ${new Date().toLocaleString("en-AU")}`,
+    `Version: ${report.reportVersion || 1}`,
+  ];
 
   metadata.forEach((text) => {
     page.drawText(text, {
       x: margin,
       y: yPosition,
       size: fontSize,
-      font: font
-    })
-    yPosition -= lineHeight
-  })
-  yPosition -= 20
+      font: font,
+    });
+    yPosition -= lineHeight;
+  });
+  yPosition -= 20;
 
   // Helper function to wrap text
   const wrapText = (text: string, maxWidth: number, size: number): string[] => {
-    const words = text.split(' ')
-    const lines: string[] = []
-    let currentLine = ''
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let currentLine = "";
 
     for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word
-      const testWidth = font.widthOfTextAtSize(testLine, size)
-      
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = font.widthOfTextAtSize(testLine, size);
+
       if (testWidth > maxWidth && currentLine) {
-        lines.push(currentLine)
-        currentLine = word
+        lines.push(currentLine);
+        currentLine = word;
       } else {
-        currentLine = testLine
+        currentLine = testLine;
       }
     }
     if (currentLine) {
-      lines.push(currentLine)
+      lines.push(currentLine);
     }
-    return lines
-  }
+    return lines;
+  };
 
   // Add content with proper formatting
-  const lines = content.split('\n')
+  const lines = content.split("\n");
   for (const line of lines) {
     if (yPosition < 80) {
-      page = pdfDoc.addPage([595.28, 841.89])
-      yPosition = height - 50
+      page = pdfDoc.addPage([595.28, 841.89]);
+      yPosition = height - 50;
     }
 
-    const trimmedLine = line.trim()
-    
-    if (trimmedLine.startsWith('# ')) {
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith("# ")) {
       // Main heading
-      const text = trimmedLine.replace(/^#+\s*/, '').trim()
-      yPosition -= 10
+      const text = trimmedLine.replace(/^#+\s*/, "").trim();
+      yPosition -= 10;
       page.drawText(text, {
         x: margin,
         y: yPosition,
         size: 16,
         font: boldFont,
-        color: headerColor
-      })
-      yPosition -= 25
-    } else if (trimmedLine.startsWith('## ')) {
+        color: headerColor,
+      });
+      yPosition -= 25;
+    } else if (trimmedLine.startsWith("## ")) {
       // Subheading
-      const text = trimmedLine.replace(/^#+\s*/, '').trim()
-      yPosition -= 5
+      const text = trimmedLine.replace(/^#+\s*/, "").trim();
+      yPosition -= 5;
       page.drawText(text, {
         x: margin,
         y: yPosition,
         size: 14,
         font: boldFont,
-        color: headerColor
-      })
-      yPosition -= 20
-    } else if (trimmedLine.startsWith('### ')) {
+        color: headerColor,
+      });
+      yPosition -= 20;
+    } else if (trimmedLine.startsWith("### ")) {
       // Sub-subheading
-      const text = trimmedLine.replace(/^#+\s*/, '').trim()
-      yPosition -= 5
+      const text = trimmedLine.replace(/^#+\s*/, "").trim();
+      yPosition -= 5;
       page.drawText(text, {
         x: margin,
         y: yPosition,
         size: 12,
-        font: boldFont
-      })
-      yPosition -= 18
-    } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+        font: boldFont,
+      });
+      yPosition -= 18;
+    } else if (trimmedLine.startsWith("**") && trimmedLine.endsWith("**")) {
       // Bold text
-      const text = trimmedLine.replace(/\*\*/g, '').trim()
-      const wrapped = wrapText(text, maxWidth, fontSize)
+      const text = trimmedLine.replace(/\*\*/g, "").trim();
+      const wrapped = wrapText(text, maxWidth, fontSize);
       wrapped.forEach((wrappedLine) => {
         if (yPosition < 80) {
-          page = pdfDoc.addPage([595.28, 841.89])
-          yPosition = height - 50
+          page = pdfDoc.addPage([595.28, 841.89]);
+          yPosition = height - 50;
         }
         page.drawText(wrappedLine, {
           x: margin,
           y: yPosition,
           size: fontSize,
-          font: boldFont
-        })
-        yPosition -= lineHeight
-      })
-    } else if (trimmedLine.startsWith('- ')) {
+          font: boldFont,
+        });
+        yPosition -= lineHeight;
+      });
+    } else if (trimmedLine.startsWith("- ")) {
       // Bullet point
-      const text = trimmedLine.replace(/^-\s*/, '').trim()
-      const wrapped = wrapText(text, maxWidth - 15, fontSize)
+      const text = trimmedLine.replace(/^-\s*/, "").trim();
+      const wrapped = wrapText(text, maxWidth - 15, fontSize);
       wrapped.forEach((wrappedLine, index) => {
         if (yPosition < 80) {
-          page = pdfDoc.addPage([595.28, 841.89])
-          yPosition = height - 50
+          page = pdfDoc.addPage([595.28, 841.89]);
+          yPosition = height - 50;
         }
         page.drawText(index === 0 ? `• ${wrappedLine}` : `  ${wrappedLine}`, {
           x: margin,
           y: yPosition,
           size: fontSize,
-          font: font
-        })
-        yPosition -= lineHeight
-      })
+          font: font,
+        });
+        yPosition -= lineHeight;
+      });
     } else if (trimmedLine) {
       // Regular text
-      const wrapped = wrapText(trimmedLine, maxWidth, fontSize)
+      const wrapped = wrapText(trimmedLine, maxWidth, fontSize);
       wrapped.forEach((wrappedLine) => {
         if (yPosition < 80) {
-          page = pdfDoc.addPage([595.28, 841.89])
-          yPosition = height - 50
+          page = pdfDoc.addPage([595.28, 841.89]);
+          yPosition = height - 50;
         }
         page.drawText(wrappedLine, {
           x: margin,
           y: yPosition,
           size: fontSize,
-          font: font
-        })
-        yPosition -= lineHeight
-      })
+          font: font,
+        });
+        yPosition -= lineHeight;
+      });
     } else {
       // Empty line
-      yPosition -= lineHeight / 2
+      yPosition -= lineHeight / 2;
     }
   }
 }
-

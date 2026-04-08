@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 /**
  * Per-request nonce-based Content Security Policy.
@@ -22,7 +22,7 @@ import type { NextRequest } from 'next/server'
  */
 export function middleware(request: NextRequest) {
   // Generate a fresh nonce for every request — must be unguessable and unique
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
   const cspDirectives = [
     "default-src 'self'",
@@ -53,31 +53,31 @@ export function middleware(request: NextRequest) {
       "https://secure.myob.com",
       "https://api.myob.com",
       "https://api.ascora.com.au",
-    ].join(' '),
+    ].join(" "),
     "frame-src 'self' https://*.firebaseapp.com https://*.stripe.com https://accounts.google.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-  ]
+  ];
 
-  const csp = cspDirectives.join('; ')
+  const csp = cspDirectives.join("; ");
 
   // Clone the request headers and inject the nonce so Server Components can
   // read it via headers() without relying on client-side access.
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-nonce', nonce)
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
 
   const response = NextResponse.next({
     request: { headers: requestHeaders },
-  })
+  });
 
   // Set CSP on the response — browsers enforce this header
-  response.headers.set('Content-Security-Policy', csp)
+  response.headers.set("Content-Security-Policy", csp);
   // Expose nonce to edge/middleware consumers
-  response.headers.set('x-nonce', nonce)
+  response.headers.set("x-nonce", nonce);
 
-  return response
+  return response;
 }
 
 export const config = {
@@ -89,11 +89,12 @@ export const config = {
      * - favicon.ico, robots.txt, sitemap.xml (public static assets)
      */
     {
-      source: '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
       missing: [
-        { type: 'header', key: 'next-router-prefetch' },
-        { type: 'header', key: 'purpose', value: 'prefetch' },
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
       ],
     },
   ],
-}
+};

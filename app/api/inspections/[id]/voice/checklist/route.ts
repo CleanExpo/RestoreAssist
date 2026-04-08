@@ -28,7 +28,10 @@ export async function GET(
     });
 
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
 
     if (inspection.userId !== session.user.id) {
@@ -37,7 +40,9 @@ export async function GET(
 
     const items = await checkCompletion(id);
     const completedCount = items.filter((i) => i.complete).length;
-    const criticalMissing = items.filter((i) => !i.complete && i.priority === 1);
+    const criticalMissing = items.filter(
+      (i) => !i.complete && i.priority === 1,
+    );
     const readyToLeave = criticalMissing.length === 0;
 
     return NextResponse.json({
@@ -50,6 +55,9 @@ export async function GET(
     });
   } catch (error) {
     console.error("[GET /api/inspections/[id]/voice/checklist] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
