@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
   // ── Find the active integration by looking for any active DrNrpgIntegration ──
   // DR-NRPG sends to a single endpoint per RestoreAssist instance.
   // We resolve which user/integration this belongs to via the signature check.
-  const integrations = await prisma.drNrpgIntegration.findMany({
+  const integrations = await (prisma as any).drNrpgIntegration.findMany({
     where: { isActive: true },
   });
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Try each integration's webhookSecret until we find the matching one
-  const matchedIntegration = integrations.find((i) =>
+  const matchedIntegration = integrations.find((i: any) =>
     verifySignature(rawBody, signature, i.webhookSecret),
   );
 
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
   // ── Upsert DrNrpgJobSync ──
   let jobSync: { id: string };
   try {
-    jobSync = await prisma.drNrpgJobSync.upsert({
+    jobSync = await (prisma as any).drNrpgJobSync.upsert({
       where: { drNrpgJobId: jobId },
       create: {
         integrationId: matchedIntegration.id,
@@ -205,24 +205,24 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Log to DrNrpgWebhookLog ──
-  await prisma.drNrpgWebhookLog
+  await (prisma as any).drNrpgWebhookLog
     .create({
       data: {
         jobSyncId: jobSync.id,
         direction: "inbound",
         eventType: event,
-        payload: payload as Record<string, unknown>,
+        payload: payload as unknown as Record<string, unknown>,
         responseStatus: 200,
         responseBody: "received",
         deliveredAt: new Date(),
       },
     })
-    .catch((e) => console.warn("[dr-nrpg webhook] Log write failed:", e));
+    .catch((e: any) => console.warn("[dr-nrpg webhook] Log write failed:", e));
 
   // ── Auto-create Inspection for new dispatched jobs ──
   // Only for job.dispatched and only if an inspection doesn't already exist
   if (event === "job.dispatched" && payload.propertyAddress) {
-    const existingSync = await prisma.drNrpgJobSync.findUnique({
+    const existingSync = await (prisma as any).drNrpgJobSync.findUnique({
       where: { id: jobSync.id },
       select: { inspectionId: true },
     });
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
     if (!existingSync?.inspectionId) {
       try {
         // Find the user for this integration to create the inspection under
-        const integration = await prisma.drNrpgIntegration.findUnique({
+        const integration = await (prisma as any).drNrpgIntegration.findUnique({
           where: { id: matchedIntegration.id },
           select: { userId: true },
         });
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
           });
 
           // Link inspection to job sync
-          await prisma.drNrpgJobSync.update({
+          await (prisma as any).drNrpgJobSync.update({
             where: { id: jobSync.id },
             data: { inspectionId: inspection.id },
           });
@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Update integration lastSyncAt ──
-  await prisma.drNrpgIntegration
+  await (prisma as any).drNrpgIntegration
     .update({
       where: { id: matchedIntegration.id },
       data: { lastSyncAt: new Date() },

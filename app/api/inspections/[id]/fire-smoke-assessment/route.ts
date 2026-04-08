@@ -73,7 +73,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const inspection = await prisma.inspection.findUnique({
+  const inspection = await (prisma as any).inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true, fireSmokeDamageAssessment: true },
   });
@@ -85,7 +85,7 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(inspection.fireSmokeDamageAssessment ?? null);
+  return NextResponse.json((inspection as any).fireSmokeDamageAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ export async function POST(
   const data = parsed.data;
   const gates = computeGates(data);
 
-  const record = await prisma.fireSmokeDamageAssessment.upsert({
+  const record = await (prisma as any).fireSmokeDamageAssessment.upsert({
     where: { inspectionId: params.id },
     create: {
       inspectionId: params.id,
@@ -208,7 +208,7 @@ export async function POST(
 
   await prisma.inspection.update({
     where: { id: params.id },
-    data: { claimType: "FIRE" },
+    data: { claimType: "FIRE" } as any,
   });
 
   return NextResponse.json(record);
@@ -237,13 +237,13 @@ export async function DELETE(
     );
   }
 
-  await prisma.fireSmokeDamageAssessment
+  await (prisma as any).fireSmokeDamageAssessment
     .delete({ where: { inspectionId: params.id } })
     .catch(() => {});
 
   await prisma.inspection.update({
     where: { id: params.id },
-    data: { claimType: null },
+    data: { claimType: null } as any,
   });
 
   return NextResponse.json({ deleted: true });

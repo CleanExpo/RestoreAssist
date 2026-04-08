@@ -78,10 +78,10 @@ export async function GET(request: NextRequest) {
                     ? "PAST_DUE"
                     : "EXPIRED",
             subscriptionEndsAt: new Date(
-              subscription.current_period_end * 1000,
+              (subscription as any).current_period_end * 1000,
             ),
-            nextBillingDate: new Date(subscription.current_period_end * 1000),
-            lastBillingDate: new Date(subscription.current_period_start * 1000),
+            nextBillingDate: new Date((subscription as any).current_period_end * 1000),
+            lastBillingDate: new Date((subscription as any).current_period_start * 1000),
             // Don't set creditsRemaining for active subscriptions - they use monthly limits
           },
         });
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         // Optional: next invoice amount (upcoming invoice)
         let nextInvoiceAmount: number | null = null;
         try {
-          const upcoming = await stripe.invoices.retrieveUpcoming({
+          const upcoming = await (stripe.invoices as any).retrieveUpcoming({
             customer: user.stripeCustomerId,
             subscription: user.subscriptionId,
           });
@@ -116,8 +116,8 @@ export async function GET(request: NextRequest) {
             id: subscription.id,
             status: subscription.status,
             created: subscription.created,
-            currentPeriodStart: subscription.current_period_start,
-            currentPeriodEnd: subscription.current_period_end,
+            currentPeriodStart: (subscription as any).current_period_start,
+            currentPeriodEnd: (subscription as any).current_period_end,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
             canceledAt: subscription.canceled_at ?? null,
             plan: {

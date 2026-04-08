@@ -65,7 +65,7 @@ export default function ProfessionalDocumentViewer({
     // Format tables - handle pipe-delimited tables
     const lines = html.split("\n");
     let inTable = false;
-    let tableRows: string[] = [];
+    let tableRows: string[][] = [];
     let formattedLines: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -105,7 +105,7 @@ export default function ProfessionalDocumentViewer({
               : "bg-white hover:bg-slate-50 transition-colors";
 
           formattedLines.push(`<tr class="${rowClass}">`);
-          row.forEach((cell, cellIdx) => {
+          row.forEach((cell: string, cellIdx: number) => {
             // Right-align numeric columns (last 2-3 columns usually)
             const isNumeric = /^\$?\d+[\d,]*\.?\d*$/.test(
               cell.replace("$", "").trim(),
@@ -162,7 +162,7 @@ export default function ProfessionalDocumentViewer({
             : "bg-white hover:bg-slate-50 transition-colors";
 
         formattedLines.push(`<tr class="${rowClass}">`);
-        row.forEach((cell, cellIdx) => {
+        row.forEach((cell: string, cellIdx: number) => {
           // Right-align numeric columns (last 2-3 columns usually)
           const isNumeric = /^\$?\d+[\d,]*\.?\d*$/.test(
             cell.replace("$", "").trim(),

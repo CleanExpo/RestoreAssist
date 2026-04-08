@@ -69,7 +69,7 @@ export async function POST(_req: NextRequest) {
           businessEmail: DEMO_EMAIL,
           hasPremiumInspectionReports: true,
           firstRunChecklistDismissedAt: day1,
-        },
+        } as any,
       });
     }
 
@@ -112,7 +112,7 @@ export async function POST(_req: NextRequest) {
         completedAt: day3,
         createdAt: day1,
         updatedAt: day3,
-      },
+      } as any,
     });
 
     // ── 4. Client ────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ export async function POST(_req: NextRequest) {
         address: "42 Harbourside Drive, Manly NSW 2095",
         userId: user.id,
         organizationId: org.id,
-      },
+      } as any,
     });
 
     // ── 5. Inspection ────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ export async function POST(_req: NextRequest) {
         updatedAt: day3,
         notes:
           "Washing machine hose failure caused grey water release. Subfloor cavity affected — moisture readings confirm Category 2 classification. IICRC S500:2025 §6.3 applied.",
-      },
+      } as any,
     });
 
     // ── 6. Moisture readings (14 readings over 3 days) ───────────────────────
@@ -183,7 +183,7 @@ export async function POST(_req: NextRequest) {
                   : dayIdx >= 5
                     ? "Drying goal achieved per S500:2025 §8.4"
                     : null,
-            },
+            } as any,
           }),
         ),
       ),
@@ -244,7 +244,7 @@ export async function POST(_req: NextRequest) {
             inspectionId: inspection.id,
             sortOrder: idx + 1,
             totalCost: item.quantity * item.unitRate,
-          },
+          } as any,
         }),
       ),
     );

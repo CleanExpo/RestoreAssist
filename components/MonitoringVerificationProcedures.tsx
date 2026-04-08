@@ -32,7 +32,14 @@ export default function MonitoringVerificationProcedures({
   onMonitoringUpdate,
   initialData,
 }: MonitoringVerificationProceduresProps) {
-  const [monitoringData, setMonitoringData] = useState({
+  const [monitoringData, setMonitoringData] = useState<{
+    psychrometricReadings: Array<{ id: number; timestamp: string; location: string; temperature: string; humidity: string; notes: string }>;
+    moistureReadings: Array<{ id: number; timestamp: string; material: string; location: string; moistureContent: string; targetLevel: string; notes: string }>;
+    equipmentPerformance: any[];
+    dailyLogs: any[];
+    verificationResults: any[];
+    complianceStatus: string;
+  }>({
     psychrometricReadings: [],
     moistureReadings: [],
     equipmentPerformance: [],

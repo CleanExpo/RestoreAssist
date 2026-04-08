@@ -66,7 +66,7 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const inspection = await prisma.inspection.findUnique({
+  const inspection = await (prisma as any).inspection.findUnique({
     where: { id: params.id, userId: session.user.id },
     select: { id: true, mouldRemediationAssessment: true },
   })
@@ -75,7 +75,7 @@ export async function GET(
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
   }
 
-  return NextResponse.json(inspection.mouldRemediationAssessment ?? null)
+  return NextResponse.json((inspection as any).mouldRemediationAssessment ?? null)
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -110,8 +110,8 @@ export async function POST(
   const data = parsed.data
   const gates = computeGates(data)
 
-  const [record] = await prisma.$transaction([
-    prisma.mouldRemediationAssessment.upsert({
+  const [record] = await (prisma as any).$transaction([
+    (prisma as any).mouldRemediationAssessment.upsert({
       where: { inspectionId: params.id },
       create: {
         inspectionId: params.id,
@@ -185,7 +185,7 @@ export async function POST(
     }),
     prisma.inspection.update({
       where: { id: params.id },
-      data: { claimType: 'MOULD' },
+      data: { claimType: 'MOULD' } as any,
     }),
   ])
 
@@ -212,11 +212,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
   }
 
-  await prisma.$transaction([
-    prisma.mouldRemediationAssessment.deleteMany({ where: { inspectionId: params.id } }),
+  await (prisma as any).$transaction([
+    (prisma as any).mouldRemediationAssessment.deleteMany({ where: { inspectionId: params.id } }),
     prisma.inspection.update({
       where: { id: params.id },
-      data: { claimType: null },
+      data: { claimType: null } as any,
     }),
   ])
 

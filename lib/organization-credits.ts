@@ -79,9 +79,9 @@ export async function getEffectiveSubscription(userId: string): Promise<{
     return user
       ? {
           id: user.id,
-          subscriptionStatus: status,
-          creditsRemaining: credits,
-          subscriptionPlan: plan,
+          subscriptionStatus: status as string | null,
+          creditsRemaining: credits as number | null,
+          subscriptionPlan: plan as string | null,
           monthlyReportsUsed: user.monthlyReportsUsed,
           monthlyResetDate: user.monthlyResetDate,
           trialEndsAt: user.trialEndsAt,
@@ -113,9 +113,9 @@ export async function getEffectiveSubscription(userId: string): Promise<{
   return owner
     ? {
         id: owner.id,
-        subscriptionStatus: status,
-        creditsRemaining: credits,
-        subscriptionPlan: plan,
+        subscriptionStatus: status as string | null,
+        creditsRemaining: credits as number | null,
+        subscriptionPlan: plan as string | null,
         monthlyReportsUsed: owner.monthlyReportsUsed,
         monthlyResetDate: owner.monthlyResetDate,
         trialEndsAt: owner.trialEndsAt,

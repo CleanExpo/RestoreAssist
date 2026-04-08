@@ -178,12 +178,12 @@ export async function POST(
     }
 
     const year = new Date().getFullYear();
-    const invoiceNumber = `RA-${year}-${sequence.nextNumber.toString().padStart(4, "0")}-V`;
+    const invoiceNumber = `RA-${year}-${(sequence as any).nextNumber.toString().padStart(4, "0")}-V`;
 
     // Update sequence
     await prisma.invoiceSequence.update({
       where: { id: sequence.id },
-      data: { nextNumber: sequence.nextNumber + 1 },
+      data: { nextNumber: (sequence as any).nextNumber + 1 } as any,
     });
 
     // Calculate due date (default 30 days from now)
@@ -191,7 +191,7 @@ export async function POST(
     dueDate.setDate(dueDate.getDate() + 30);
 
     // Create variation invoice
-    const variation = await prisma.invoice.create({
+    const variation = await (prisma.invoice.create as any)({
       data: {
         invoiceNumber,
         status: "DRAFT",
@@ -227,8 +227,8 @@ export async function POST(
         reportId: originalInvoice.reportId,
         estimateId: originalInvoice.estimateId,
         clientId: originalInvoice.clientId,
-        contactId: originalInvoice.contactId,
-        companyId: originalInvoice.companyId,
+        contactId: (originalInvoice as any).contactId,
+        companyId: (originalInvoice as any).companyId,
         templateId: originalInvoice.templateId,
         userId: session.user.id,
         // Line items

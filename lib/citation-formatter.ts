@@ -30,6 +30,8 @@ export interface FormattedCitation {
   shortReference: string; // Short form for in-text
   inTextCitation: string; // Parenthetical form (Author Year, p. XX)
   footnoteCitation: string; // Footnote format
+  documentCode?: string; // e.g. "IICRC S500", "NCC"
+  sectionNumber?: string; // e.g. "7.1"
 }
 
 /**
@@ -551,4 +553,58 @@ export function formatCitationSet(
         return formatted.fullReference;
     }
   });
+}
+
+/**
+ * Parse a single citation string and return a FormattedCitation.
+ * Attempts to extract documentCode + sectionNumber from common patterns
+ * (e.g. "IICRC S500:2025 §7.1", "NCC 2025 s3.2", "AS/NZS 1234 cl 5").
+ */
+export function parseAndFormatCitation(raw: string): FormattedCitation {
+  // Attempt to split "DOC SECTION" patterns
+  const sectionMatch = raw.match(
+    /^(.+?)\s+(?:§|s\.|s\s|cl\.?\s*)([0-9][0-9A-Za-z.]*)(.*)$/,
+  );
+  if (sectionMatch) {
+    const docCode = sectionMatch[1].trim();
+    const sectionNum = sectionMatch[2].trim();
+    const formatted = formatCitationAGLC4(docCode, sectionNum);
+    return { ...formatted, documentCode: docCode, sectionNumber: sectionNum };
+  }
+  // No section — treat whole string as document code
+  const formatted = formatCitationAGLC4(raw.trim(), "");
+  return { ...formatted, documentCode: raw.trim() };
+}
+
+/**
+ * Extract all citations from a block of text.
+ * Scans for known document codes followed by section references.
+ */
+export function extractAndFormatCitations(text: string): FormattedCitation[] {
+  if (!text) return [];
+
+  const results: FormattedCitation[] = [];
+  const seen = new Set<string>();
+
+  // Pattern: known code + optional year + optional section marker + section number
+  // e.g. "IICRC S500:2025 §7.1", "NCC 2025 s3.2.1", "AS/NZS 3000 cl 5"
+  const pattern =
+    /\b((?:IICRC\s+)?[A-Z][A-Z0-9/\-]+(?:\s+\d{4})?(?::\d{4})?)\s*(?:§|s\.\s*|s\s+|cl\.?\s+)?([0-9][0-9A-Za-z.]*)?/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const docCode = match[1].trim();
+    const sectionNum = match[2]?.trim() || "";
+    const key = `${docCode}|${sectionNum}`;
+
+    // Skip very short tokens that are unlikely to be real citations
+    if (docCode.length < 2) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const formatted = formatCitationAGLC4(docCode, sectionNum);
+    results.push({ ...formatted, documentCode: docCode, sectionNumber: sectionNum || undefined });
+  }
+
+  return results;
 }

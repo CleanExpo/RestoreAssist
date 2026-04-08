@@ -114,7 +114,7 @@ export class InterviewAnalyticsService {
             startedAt: new Date().toISOString(),
             analyticsEnabled: true,
           },
-        },
+        } as any,
       });
     } catch (error) {
       console.error("Error tracking session start:", error);
@@ -160,7 +160,7 @@ export class InterviewAnalyticsService {
             averageConfidence,
             conflictCount,
           },
-        },
+        } as any,
       });
 
       return {
@@ -208,7 +208,7 @@ export class InterviewAnalyticsService {
             averageFieldConfidence,
             trackedAt: new Date().toISOString(),
           },
-        },
+        } as any,
       });
     } catch (error) {
       console.error("Error tracking question response:", error);
@@ -420,7 +420,7 @@ export class InterviewAnalyticsService {
           stats.totalOccurrences++;
 
           // Check if question was skipped (null or empty answer)
-          if (!response.answer || response.answer === "") {
+          if (!(response as any).answer || (response as any).answer === "") {
             stats.skipCount++;
           }
 
@@ -472,7 +472,7 @@ export class InterviewAnalyticsService {
           medium: mediumConfidenceCount,
           low: lowConfidenceCount,
         },
-        mostDifficultQuestions,
+        mostDifficultQuestions: mostDifficultQuestions as any,
         recommendedImprovements: recommendations,
       };
     } catch (error) {
@@ -526,7 +526,7 @@ export class InterviewAnalyticsService {
       let confidenceCount = 0;
 
       sessions.forEach((session) => {
-        const metadata = session.metadata as any;
+        const metadata = (session as any).metadata as any;
         if (metadata?.totalDurationSeconds)
           totalDuration += metadata.totalDurationSeconds;
         if (metadata?.autoPopulatedFieldsCount)
