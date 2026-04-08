@@ -25,6 +25,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ruleBasedClassify } from "@/lib/ai/auto-classify";
+import { verifyCronAuth } from "@/lib/cron/auth";
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -333,13 +334,37 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
+    // ── Dual auth: NextAuth session OR CRON_SECRET bearer token ──────────
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let userId = session?.user?.id;
+
+    if (!userId) {
+      // Fallback: accept CRON_SECRET for automated / CLI-triggered syncs
+      const cronErr = verifyCronAuth(request);
+      if (cronErr) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      // Cron auth passed — find the first user with an Ascora integration
+      const firstIntegration = await (
+        prisma as any
+      ).ascoraIntegration.findFirst({
+        where: { isActive: true },
+        select: { userId: true },
+      });
+      if (!firstIntegration) {
+        return NextResponse.json(
+          {
+            error:
+              "No active Ascora integration found. Connect via Settings first.",
+          },
+          { status: 404 },
+        );
+      }
+      userId = firstIntegration.userId;
     }
 
     let integration = await (prisma as any).ascoraIntegration.findUnique({
-      where: { userId: session.user.id },
+      where: { userId },
     });
 
     // ── System-level env var fallback for automated LLM training syncs ──────
@@ -365,7 +390,7 @@ export async function POST(request: NextRequest) {
       );
       integration = await (prisma as any).ascoraIntegration.create({
         data: {
-          userId: session.user.id,
+          userId: userId,
           apiKey: envApiKey,
           baseUrl: (
             process.env.ASCORA_BASE_URL ?? "https://api.ascora.com.au"
@@ -551,7 +576,7 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     let historicalJobsUpserted = 0;
     if (!dryRun) {
-      const tenantId = session.user.id;
+      const tenantId = userId;
       for (const job of filteredJobs) {
         const jobTypeName = getJobTypeName(job.jobType);
         const claimType = mapClaimType(jobTypeName) ?? "water";
