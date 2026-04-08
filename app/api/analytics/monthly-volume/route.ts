@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
         data.reports += 1;
         data.revenue += (report as any).totalEstimate || 0;
 
-        if ((report.status as unknown as string) === "COMPLETED" || (report.status as unknown as string) === "APPROVED") {
+        if ((report as any).status === "COMPLETED" || (report as any).status === "APPROVED") {
           data.completed += 1;
         } else {
           data.pending += 1;
