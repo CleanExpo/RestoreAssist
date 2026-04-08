@@ -181,6 +181,11 @@ model User {
   // RA-412: Multi-tenant workspace memberships
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
+
+  // V2: Ascora + DR-NRPG integrations
+  ascoraIntegration AscoraIntegration?
+  drNrpgIntegration DrNrpgIntegration?
+  historicalJobs    HistoricalJob[]
 }
 
 model Feedback {
@@ -1589,6 +1594,11 @@ model Inspection {
   // RA-413: workspace scoping
   workspaceId String?
   workspace   Workspace? @relation("InspectionWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  // V2: Sketch tool, DR-NRPG sync, drying goals
+  claimSketches    ClaimSketch[]
+  drNrpgJobSync    DrNrpgJobSync?
+  dryingGoalRecord DryingGoalRecord?
 
   @@index([userId])
   @@index([status])
@@ -4578,4 +4588,247 @@ model IicrcChunk {
 
   @@index([standard, edition])
   @@index([section])
+}
+
+// ─── V2: Sketch Tool (RA-89) ──────────────────────────────────────────────────
+
+model ClaimSketch {
+  id                 String             @id @default(cuid())
+  inspectionId       String
+  inspection         Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  floorNumber        Int                @default(0)
+  floorLabel         String             @default("Ground Floor")
+  sketchType         String             @default("structural")
+  sketchData         Json?
+  backgroundImageUrl String?
+  moisturePoints     Json?
+  equipmentPoints    Json?
+  annotations        SketchAnnotation[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([inspectionId])
+  @@index([inspectionId, floorNumber])
+}
+
+model SketchAnnotation {
+  id        String     @id @default(cuid())
+  sketchId  String
+  sketch    ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  type      String
+  data      Json
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([sketchId])
+}
+
+// ─── V2: Ascora Integration (RA-262) ─────────────────────────────────────────
+
+model AscoraIntegration {
+  id                String      @id @default(cuid())
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey            String
+  baseUrl           String      @default("https://api.ascora.com.au")
+  isActive          Boolean     @default(true)
+  lastSyncAt        DateTime?
+  totalJobsImported Int         @default(0)
+  jobs              AscoraJob[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+model AscoraJob {
+  id              String            @id @default(cuid())
+  integrationId   String
+  integration     AscoraIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  ascoraJobId     String            @unique
+  ascoraJobNumber String?
+  jobType         String?
+  claimType       String?
+  suburb          String?
+  state           String?
+  postcode        String?
+  completedAt     DateTime?
+  sentToMyob      Boolean           @default(false)
+  totalExTax      Float?
+  lineItems       AscoraLineItem[]
+  notes           AscoraNote[]
+  importedAt      DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+
+  @@index([integrationId])
+  @@index([claimType])
+  @@index([completedAt])
+  @@index([sentToMyob])
+  @@index([totalExTax])
+}
+
+model AscoraLineItem {
+  id             String    @id @default(cuid())
+  ascoraJobId    String
+  ascoraJob      AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
+  partNumber     String
+  description    String
+  quantity       Float
+  unitPriceExTax Float
+  amountExTax    Float
+  invoiceDate    DateTime?
+  importedAt     DateTime  @default(now())
+
+  @@index([ascoraJobId])
+  @@index([partNumber])
+}
+
+model AscoraNote {
+  id          String    @id @default(cuid())
+  ascoraJobId String
+  ascoraJob   AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
+  noteText    String
+  importedAt  DateTime  @default(now())
+
+  @@index([ascoraJobId])
+}
+
+// ─── V2: AU Scope Pricing Database (RA-260) ──────────────────────────────────
+
+model ScopePricingDatabase {
+  id                 String   @id @default(cuid())
+  partNumber         String   @unique
+  description        String
+  claimTypes         String[]
+  usageCount         Int      @default(0)
+  averageUnitPriceAU Float
+  medianUnitPriceAU  Float?
+  minPriceAU         Float?
+  maxPriceAU         Float?
+  averageQuantity    Float?
+  acceptanceRate     Float?
+  acceptedCount      Int      @default(0)
+  rejectedCount      Int      @default(0)
+  priceHistory       Json?
+  source             String   @default("ascora")
+  isActive           Boolean  @default(true)
+  lastUpdated        DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  @@index([acceptanceRate])
+  @@index([isActive])
+  @@index([source])
+}
+
+// ─── V2: DR-NRPG Integration (RA-27) ─────────────────────────────────────────
+
+model DrNrpgIntegration {
+  id            String          @id @default(cuid())
+  userId        String          @unique
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drNrpgApiKey  String
+  drNrpgBaseUrl String          @default("https://api.dr-nrpg.com.au")
+  webhookSecret String
+  isActive      Boolean         @default(true)
+  lastSyncAt    DateTime?
+  jobSyncs      DrNrpgJobSync[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model DrNrpgJobSync {
+  id              String            @id @default(cuid())
+  integrationId   String
+  integration     DrNrpgIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  inspectionId    String?           @unique
+  inspection      Inspection?       @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  drNrpgJobId     String            @unique
+  claimNumber     String
+  insurer         String?
+  policyHolder    String?
+  propertyAddress String?
+  lossType        String?
+  status          String            @default("dispatched")
+  lastEventAt     DateTime          @default(now())
+  lastEventType   String?
+  syncErrors      Json?
+  webhookLogs     DrNrpgWebhookLog[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([integrationId])
+  @@index([status])
+  @@index([lastEventAt])
+}
+
+model DrNrpgWebhookLog {
+  id             String        @id @default(cuid())
+  jobSyncId      String
+  jobSync        DrNrpgJobSync @relation(fields: [jobSyncId], references: [id], onDelete: Cascade)
+  direction      String
+  eventType      String
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  deliveredAt    DateTime      @default(now())
+  retryCount     Int           @default(0)
+
+  @@index([jobSyncId])
+  @@index([eventType])
+  @@index([direction])
+}
+
+// ─── V2: Drying Goal Validation (RA-260 Phase 5) ─────────────────────────────
+
+model DryingGoalRecord {
+  id                    String     @id @default(cuid())
+  inspectionId          String     @unique
+  inspection            Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  targetCategory        String
+  targetClass           String
+  startedAt             DateTime   @default(now())
+  materialTargets       Json
+  goalAchieved          Boolean    @default(false)
+  goalAchievedAt        DateTime?
+  totalDryingDays       Int?
+  finalReadingsSnapshot Json?
+  iicrcReference        String     @default("IICRC S500:2025 §11.4")
+  signedOffBy           String?
+  signedOffAt           DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  @@index([goalAchieved])
+  @@index([goalAchievedAt])
+}
+
+// ─── V2: Historical Jobs for Vector Similarity Search ────────────────────────
+
+model HistoricalJob {
+  id            String    @id @default(cuid())
+  tenantId      String
+  user          User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  source        String    // "ascora", "manual"
+  externalId    String
+  jobNumber     String
+  jobName       String
+  description   String    @db.Text
+  claimType     String
+  waterCategory String?
+  waterClass    String?
+  address       String?
+  suburb        String
+  state         String
+  postcode      String
+  customerName  String?
+  totalExTax    Float     @default(0)
+  totalIncTax   Float     @default(0)
+  completedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([source, externalId], name: "source_externalId")
+  @@index([tenantId])
+  @@index([source])
+  @@index([claimType])
+  @@index([state])
+  @@index([completedDate])
 }
