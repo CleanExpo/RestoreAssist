@@ -445,7 +445,7 @@ export async function GET(
     const pdfBytes = await pdfDoc.save();
     const filename = `restoreassist-${inspection.inspectionNumber}-client-report.pdf`;
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,

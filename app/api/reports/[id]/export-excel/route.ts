@@ -139,7 +139,7 @@ export async function GET(
     }
 
     // Return file
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
         "Content-Type":

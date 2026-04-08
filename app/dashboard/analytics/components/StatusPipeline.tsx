@@ -154,14 +154,14 @@ export default function StatusPipeline({
               borderRadius: "8px",
               color: "#111827",
             }}
-            formatter={(
+            formatter={((
               value: number,
               _name: string,
               props: { payload?: { count?: number; revenue?: number } },
             ) => [
               `${value} reports · $${(props?.payload?.revenue ?? 0).toLocaleString()}`,
               "Count · Revenue",
-            ]}
+            ]) as any}
             labelFormatter={(label) => `Status: ${label}`}
           />
           <Bar

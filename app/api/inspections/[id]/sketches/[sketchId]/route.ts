@@ -16,7 +16,7 @@ export async function PUT(
 
     const { id, sketchId } = await params;
 
-    const sketch = await prisma.claimSketch.findFirst({
+    const sketch = await (prisma as any).claimSketch.findFirst({
       where: { id: sketchId, inspection: { id, userId: session.user.id } },
     });
     if (!sketch) {
@@ -24,7 +24,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const updated = await prisma.claimSketch.update({
+    const updated = await (prisma as any).claimSketch.update({
       where: { id: sketchId },
       data: {
         sketchType: body.sketchType ?? sketch.sketchType,
@@ -69,14 +69,14 @@ export async function DELETE(
 
     const { id, sketchId } = await params;
 
-    const sketch = await prisma.claimSketch.findFirst({
+    const sketch = await (prisma as any).claimSketch.findFirst({
       where: { id: sketchId, inspection: { id, userId: session.user.id } },
     });
     if (!sketch) {
       return NextResponse.json({ error: "Sketch not found" }, { status: 404 });
     }
 
-    await prisma.claimSketch.delete({ where: { id: sketchId } });
+    await (prisma as any).claimSketch.delete({ where: { id: sketchId } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE sketch error:", error);

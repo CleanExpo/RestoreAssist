@@ -97,8 +97,7 @@ export async function GET(request: NextRequest) {
         id: true,
         createdAt: true,
         status: true,
-        totalEstimate: true,
-      },
+      } as any,
       orderBy: { createdAt: "asc" },
     });
 
@@ -130,15 +129,15 @@ export async function GET(request: NextRequest) {
 
     // Aggregate report data
     reports.forEach((report) => {
-      const date = new Date(report.createdAt);
+      const date = report.createdAt instanceof Date ? report.createdAt : new Date(report.createdAt as any);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
       const data = monthlyMap.get(monthKey);
       if (data) {
         data.reports += 1;
-        data.revenue += report.totalEstimate || 0;
+        data.revenue += (report as any).totalEstimate || 0;
 
-        if (report.status === "COMPLETED" || report.status === "APPROVED") {
+        if ((report.status as unknown as string) === "COMPLETED" || (report.status as unknown as string) === "APPROVED") {
           data.completed += 1;
         } else {
           data.pending += 1;

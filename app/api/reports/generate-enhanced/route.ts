@@ -7,6 +7,21 @@ import { getAnthropicApiKey } from "@/lib/ai-provider"
 import { applyRateLimit } from "@/lib/rate-limiter"
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
 
+// Helper functions for standards retrieval query building
+function determineReportType(notes: string): string {
+  const lower = notes.toLowerCase()
+  if (lower.includes("mould") || lower.includes("mold") || lower.includes("remediation")) return "mould"
+  if (lower.includes("fire") || lower.includes("smoke")) return "fire"
+  return "water"
+}
+function extractKeywords(notes: string): string[] {
+  return notes.toLowerCase().match(/\b\w{5,}\b/g)?.slice(0, 20) ?? []
+}
+function extractMaterials(notes: string): string[] {
+  const materials = ["timber", "concrete", "carpet", "plasterboard", "drywall", "vinyl", "tile", "insulation", "fibrous cement"]
+  return materials.filter(m => notes.toLowerCase().includes(m))
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -82,7 +97,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Use the appropriate Anthropic API key to retrieve and analyze standards
-      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
+      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery as any, anthropicApiKey)
       standardsContext = buildStandardsContextPrompt(retrievedStandards)
     } catch (error: any) {
       console.error('[Generate Enhanced Report] Error retrieving standards from Google Drive:', error.message)

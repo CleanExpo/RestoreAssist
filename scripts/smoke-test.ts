@@ -166,7 +166,7 @@ async function testDemoDataPresent() {
 
     // Check equipment deployments on the linked report
     if (inspection.reportId) {
-      const equipCount = await prisma.equipmentDeployment.count({
+      const equipCount = await (prisma as any).equipmentDeployment.count({
         where: { reportId: inspection.reportId },
       });
       if (equipCount >= 5) {
@@ -180,7 +180,7 @@ async function testDemoDataPresent() {
     }
 
     // Check drying goal record
-    const dryingGoal = await prisma.dryingGoalRecord.findFirst({
+    const dryingGoal = await (prisma as any).dryingGoalRecord.findFirst({
       where: { inspectionId: inspection.id },
     });
     if (dryingGoal) {

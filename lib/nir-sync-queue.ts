@@ -149,7 +149,7 @@ export async function queueWrite(
       // Attempt Background Sync if supported (Chromium)
       if ("serviceWorker" in navigator && "SyncManager" in window) {
         navigator.serviceWorker.ready
-          .then((sw) => (sw.sync as any).register("nir-inspection-sync"))
+          .then((sw) => ((sw as any).sync as any).register("nir-inspection-sync"))
           .catch(() => {
             /* SW not yet active, online listener will handle it */
           });

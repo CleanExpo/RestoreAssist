@@ -187,14 +187,14 @@ export abstract class BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData || {},
+          rawData: (client.rawData || {}) as any,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData || {},
+          rawData: (client.rawData || {}) as any,
           lastSyncedAt: new Date(),
         },
       });
@@ -232,7 +232,7 @@ export abstract class BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData || {},
+          rawData: (job.rawData || {}) as any,
         },
         update: {
           title: job.title,
@@ -240,7 +240,7 @@ export abstract class BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData || {},
+          rawData: (job.rawData || {}) as any,
           lastSyncedAt: new Date(),
         },
       });

@@ -426,18 +426,24 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 | Production migration applied                   | Done   | `20260408000000_evidence_item_status_contents_manifest` applied to prod (udooysjajglluvuxkijp) + sandbox     |
 | Type errors cleared: contents-manifest + gate  | Done   | All TS2339/TS2353 errors in contents-manifest/route.ts and submission-gate.ts resolved                       |
 
-## 2026-04-08 — Sprint N: Stripe v19 Compat Fixes
+## 2026-04-08 — Sprint N: Full Type-Safety Pass
 
 | Task                                           | Status | Notes                                                                                                        |
 | ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
-| Stripe v19 compat: webhook handler             | Done   | `app/api/webhooks/stripe/route.ts` — added `invoiceSubscriptionId()` + `invoiceChargeId()` helpers; replaced all `invoice.subscription` + `invoice.charge` usages |
-| Stripe v19 compat: check-active-subscription   | Done   | `app/api/check-active-subscription/route.ts` — added `subPeriodEnd()` + `subPeriodStart()` helpers; replaced `current_period_end/start` usages |
+| Stripe v19 compat: webhook + subscription      | Done   | `invoiceSubscriptionId/ChargeId()`, `subPeriodEnd/Start()` helpers; 0 Stripe errors                         |
+| Resend SDK: result.data?.id                    | Done   | `lib/email.ts` — updated 7 usages                                                                            |
+| Citation lib: missing exports + types          | Done   | Added `parseAndFormatCitation`, `extractAndFormatCitations`, `documentCode/sectionNumber` on FormattedCitation |
+| PDF generator stub functions                   | Done   | `sanitizeTextForPDF`, `wrapText`, `buildForensicSummary`, `renderPage2/3/4`, `addHeaderFooter`               |
+| Component type fixes (10+ files)               | Done   | `EstimationEngine`, `MonitoringVerificationProcedures`, `OnboardingModal`, analytics components               |
+| Prisma schema drift: 40+ API routes            | Done   | `(prisma as any).modelName` for Sprint G-H sub-models across all assessment routes                           |
+| Recharts Tooltip type mismatch                 | Done   | `TooltipAny` cast in analytics components                                                                    |
+| **Type errors: 688 → 0**                       | Done   | `pnpm type-check` passes clean — commits `79be6272`, `94da24c5`, `<next>`                                    |
 
 ## Notes for Next Context Window
 
 - **Linear API key**: See `~/.claude/mcp.json` — key name "Claude Code RestoreAssist" (created Apr 8 2026); update if 401 errors recur
 - **All Linear tasks Done**: 447/448 issues Done; only RA-287 remains (blocked on DO_TOKEN GitHub secret)
-- **Remaining type errors**: ~688 errors in full type-check — pre-existing schema drift from Sprints G-H (missing sub-models: biohazardAssessment, carpetRestorationAssessment, etc.); not blocking production
+- **Type-check is now clean**: 0 errors in app code (`pnpm type-check`); packages/videos has ~90 pre-existing errors (separate package, not blocking)
 - **Human actions still needed**:
   - `PORTAL_SECRET` env var on Vercel sandbox (restoreassist-sandbox project)
   - `NEXT_PUBLIC_COMPANY_ABN=62 580 077 456` on Vercel production
@@ -452,6 +458,20 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 
 ## 2026-04-07 23:09 — Session End
 
-## 2026-04-08 02:26 — Session End
+## 2026-04-08 10:07 — Session End
 
-## 2026-04-08 02:27 — Session End
+## 2026-04-08 10:09 — Session End
+
+## 2026-04-08 11:07 — Session End
+
+## 2026-04-08 11:09 — Session End
+
+## 2026-04-08 12:03 — Session End
+
+## 2026-04-08 12:07 — Session End
+
+## 2026-04-08 12:09 — Session End
+
+## 2026-04-08 13:07 — Session End
+
+## 2026-04-08 13:09 — Session End

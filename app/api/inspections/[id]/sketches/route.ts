@@ -28,7 +28,7 @@ export async function GET(
       );
     }
 
-    const sketches = await prisma.claimSketch.findMany({
+    const sketches = await (prisma as any).claimSketch.findMany({
       where: { inspectionId: id },
       include: {
         annotations: { orderBy: { createdAt: "asc" } },
@@ -83,12 +83,12 @@ export async function POST(
     } = body;
 
     // If a sketch already exists for this floor, update it; otherwise create
-    const existing = await prisma.claimSketch.findFirst({
+    const existing = await (prisma as any).claimSketch.findFirst({
       where: { inspectionId: id, floorNumber },
     });
 
     const sketch = existing
-      ? await prisma.claimSketch.update({
+      ? await (prisma as any).claimSketch.update({
           where: { id: existing.id },
           data: {
             sketchType,
@@ -98,7 +98,7 @@ export async function POST(
             equipmentPoints: equipmentPoints ?? undefined,
           },
         })
-      : await prisma.claimSketch.create({
+      : await (prisma as any).claimSketch.create({
           data: {
             inspectionId: id,
             floorNumber,

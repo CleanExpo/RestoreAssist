@@ -147,33 +147,34 @@ export function GoogleDriveFolderPicker({
       }
       const appId = process.env.NEXT_PUBLIC_GOOGLE_APP_ID || "";
       const developerKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "";
-      const docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      const pickerApi = google.picker as any;
+      const docsView = new pickerApi.DocsView(pickerApi.ViewId.DOCS)
         .setIncludeFolders(true)
         .setSelectFolderEnabled(true)
         .setMimeTypes("application/vnd.google-apps.folder");
-      const builder = new google.picker.PickerBuilder()
+      const builder = new pickerApi.PickerBuilder()
         .addView(docsView)
         .setOAuthToken(accessToken)
         .setCallback((pickerData: unknown) => {
           const d = pickerData as Record<string, unknown>;
           const action =
             d?.action ??
-            (typeof google.picker.Response !== "undefined" &&
+            (typeof pickerApi.Response !== "undefined" &&
               (d as Record<string, unknown>)[
-                (google.picker.Response as Record<string, string>).ACTION
+                (pickerApi.Response as Record<string, string>).ACTION
               ]);
           const docsRaw =
             d?.docs ??
-            (typeof google.picker.Response !== "undefined" &&
+            (typeof pickerApi.Response !== "undefined" &&
               (d as Record<string, unknown>)[
-                (google.picker.Response as Record<string, string>).DOCUMENTS
+                (pickerApi.Response as Record<string, string>).DOCUMENTS
               ]);
           const docs = Array.isArray(docsRaw) ? docsRaw : undefined;
           const picked =
             action === "picked" ||
-            (typeof google.picker.Action !== "undefined" &&
+            (typeof pickerApi.Action !== "undefined" &&
               action ===
-                (google.picker.Action as Record<string, string>).PICKED);
+                (pickerApi.Action as Record<string, string>).PICKED);
           if (picked && docs?.[0]) {
             const doc = docs[0] as Record<string, unknown>;
             const id = (doc.id ?? doc.ID) as string;

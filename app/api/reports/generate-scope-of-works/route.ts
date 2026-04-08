@@ -408,7 +408,7 @@ function buildScopeOfWorksData(data: {
       labourer: { hours: 2, rate: rates.labourerNormalHours }
     },
     subtotal: (2 * rates.qualifiedTechnicianNormalHours) + (2 * rates.labourerNormalHours)
-  })
+  } as any)
 
   // Final certification
   lineItems.push({
@@ -420,7 +420,7 @@ function buildScopeOfWorksData(data: {
       masterQualified: { hours: 2, rate: rates.masterQualifiedNormalHours }
     },
     subtotal: 2 * rates.masterQualifiedNormalHours
-  })
+  } as any)
 
   // Administration fee
   lineItems.push({

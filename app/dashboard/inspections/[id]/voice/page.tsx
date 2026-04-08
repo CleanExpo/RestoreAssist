@@ -45,7 +45,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Speak text via TTS ──
@@ -90,9 +90,9 @@ export default function VoiceSessionPage({ params }: PageProps) {
       return;
     }
 
-    const SpeechRecognition =
-      window.SpeechRecognition || (window as unknown as { webkitSpeechRecognition: typeof window.SpeechRecognition }).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    const w = window as any;
+    const SpeechRecognitionAPI = w.SpeechRecognition || w.webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionAPI();
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = "en-AU";
@@ -101,7 +101,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
 
-    recognition.onresult = async (event) => {
+    recognition.onresult = async (event: any) => {
       const result = event.results[event.results.length - 1];
       const transcript = result[0].transcript;
       setCurrentTranscript(transcript);
@@ -112,7 +112,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       setIsListening(false);
       if (event.error !== "no-speech") {
         setError(`Mic error: ${event.error}`);

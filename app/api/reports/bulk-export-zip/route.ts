@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
     // 9. Return ZIP file
     const filename = `RestoreAssist_PDFs_${format(new Date(), "yyyy-MM-dd_HHmmss")}.zip`;
 
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(Buffer.from(zipBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/zip",

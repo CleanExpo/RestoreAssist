@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
                 externalInvoiceId: null, // Never synced
               },
               {
-                externalProvider: {
+                externalSyncProvider: {
                   not: integration.provider, // Synced to different provider
                 },
               },

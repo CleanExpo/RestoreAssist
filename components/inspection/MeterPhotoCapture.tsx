@@ -191,7 +191,7 @@ function MoistureConfirm({
         <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
           Confirm Moisture Reading
         </h4>
-        <ConfidenceBadge confidence={extraction.confidence} />
+        <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
       <p className="text-xs text-neutral-400">
@@ -327,7 +327,7 @@ function EnvironmentalConfirm({
         <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
           Confirm Environmental Reading
         </h4>
-        <ConfidenceBadge confidence={extraction.confidence} />
+        <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
       <p className="text-xs text-neutral-400">
@@ -421,7 +421,7 @@ function MeasurementConfirm({
         <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
           Confirm Measurement
         </h4>
-        <ConfidenceBadge confidence={extraction.confidence} />
+        <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
       <p className="text-xs text-neutral-400">

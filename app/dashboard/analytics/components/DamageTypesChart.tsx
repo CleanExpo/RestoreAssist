@@ -12,6 +12,8 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+const TooltipAny = Tooltip as any;
+
 interface DamageType {
   name: string;
   value: number;
@@ -140,7 +142,7 @@ export default function DamageTypesChart({
               />
             ))}
           </Pie>
-          <Tooltip
+          <TooltipAny
             contentStyle={{
               backgroundColor: "rgb(255 255 255 / 0.95)",
               border: "1px solid rgb(229 231 235)",

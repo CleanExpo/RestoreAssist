@@ -320,7 +320,7 @@ export async function POST(
           if (accumulatedText) {
             await prisma.inspection.update({
               where: { id: inspectionId },
-              data: { generatedNarrative: accumulatedText },
+              data: { generatedNarrative: accumulatedText } as any,
             }).catch((e) => console.warn("[generate-scope] Narrative persist failed:", e))
           }
 

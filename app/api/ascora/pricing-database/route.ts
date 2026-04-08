@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       where.acceptanceRate = { gte: minAcceptance };
     }
 
-    const items = await prisma.scopePricingDatabase.findMany({
+    const items = await (prisma as any).scopePricingDatabase.findMany({
       where,
       orderBy: [{ usageCount: "desc" }, { acceptanceRate: "desc" }],
       take: limit,
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const total = await prisma.scopePricingDatabase.count({ where });
+    const total = await (prisma as any).scopePricingDatabase.count({ where });
 
     return NextResponse.json({ items, total, limit });
   } catch (error) {
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await prisma.scopePricingDatabase.findUnique({
+    const existing = await (prisma as any).scopePricingDatabase.findUnique({
       where: { partNumber },
     });
 
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     const newTotal = newAccepted + newRejected;
     const newRate = newTotal > 0 ? newAccepted / newTotal : null;
 
-    const updated = await prisma.scopePricingDatabase.update({
+    const updated = await (prisma as any).scopePricingDatabase.update({
       where: { partNumber },
       data: {
         acceptedCount: newAccepted,

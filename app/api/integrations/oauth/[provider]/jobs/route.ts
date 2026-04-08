@@ -193,7 +193,7 @@ export async function POST(
               externalId: externalJob.clientExternalId,
             },
           });
-          clientId = linkedClient?.contactId || undefined;
+          clientId = (linkedClient as any)?.contactId || undefined;
         }
 
         // Create a report for this job
@@ -204,9 +204,9 @@ export async function POST(
             title: externalJob.title,
             description: externalJob.description || "",
             address: externalJob.address || "",
-            status: mapExternalStatusToReportStatus(externalJob.status),
+            status: mapExternalStatusToReportStatus(externalJob.status) as any,
             jobType: "WATER_DAMAGE", // Default - can be updated
-          },
+          } as any,
         });
 
         // Link external job to the report

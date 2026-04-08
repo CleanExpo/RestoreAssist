@@ -153,7 +153,7 @@ export async function renderVideo(
     outputLocation: outputPath,
     inputProps,
     concurrency: options.concurrency,
-    onProgress: ({ renderedFrames, totalFrames }) => {
+    onProgress: ({ renderedFrames, totalFrames }: any) => {
       const pct = totalFrames
         ? Math.round((renderedFrames / totalFrames) * 100)
         : 0;

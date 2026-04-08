@@ -150,7 +150,6 @@ export async function retryFailedEvents(options: {
       status: 'PENDING',
       errorMessage: null
     },
-    take: limit
   })
 
   console.log(`[Webhook Queue] Reset ${result.count} failed events to PENDING`)

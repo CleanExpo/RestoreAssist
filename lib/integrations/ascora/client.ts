@@ -353,14 +353,14 @@ export class AscoraClient extends BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
           lastSyncedAt: new Date(),
         },
       });
@@ -393,7 +393,7 @@ export class AscoraClient extends BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as any,
         },
         update: {
           title: job.title,
@@ -401,7 +401,7 @@ export class AscoraClient extends BaseIntegrationClient {
           clientExternalId: job.clientExternalId,
           address: job.address,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as any,
           lastSyncedAt: new Date(),
         },
       });

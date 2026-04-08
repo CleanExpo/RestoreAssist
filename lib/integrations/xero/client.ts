@@ -358,14 +358,14 @@ export class XeroClient extends BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
           lastSyncedAt: new Date(),
         },
       });
@@ -397,14 +397,14 @@ export class XeroClient extends BaseIntegrationClient {
           status: job.status,
           clientExternalId: job.clientExternalId,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as any,
         },
         update: {
           title: job.title,
           status: job.status,
           clientExternalId: job.clientExternalId,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as any,
           lastSyncedAt: new Date(),
         },
       });
