@@ -1,17 +1,12 @@
 name: Android Build — CET Kiosk App (com.restoreassist.cet)
 
 on:
-  push:
-    tags:
-      - "cet-v*" # e.g. cet-v1.0.0
-  workflow_dispatch: # Manual trigger from GitHub Actions UI
+  workflow_dispatch: # Manual only — re-enable cet-v* tag trigger once apps/cet is scaffolded
 
 jobs:
   build:
     name: Build Signed CET AAB
     runs-on: ubuntu-latest
-    # apps/cet does not exist yet — skip until CET app is scaffolded
-    if: ${{ hashFiles('apps/cet/package.json') != '' }}
 
     steps:
       - name: Checkout
@@ -21,6 +16,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Check apps/cet exists
+        run: |
+          if [ ! -d "apps/cet" ]; then
+            echo "apps/cet does not exist yet — CET app not yet scaffolded. Skipping build."
+            exit 1
+          fi
 
       - name: Install CET app dependencies
         working-directory: apps/cet
