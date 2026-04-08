@@ -190,28 +190,33 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 
 ## 2026-04-08 — App Store Prep Session
 
-| Task                    | Status      | Notes                                                                                                        |
-| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
-| /support page           | Done        | `app/support/page.tsx` — required by Apple                                                                   |
-| android-release.yml fix | Done        | Java 21, no Next.js build, correct keystore, `android-v*` tag                                                |
-| ios-release.yml fix     | Done        | Node 22, no Next.js build, ASC key via file not process substitution                                         |
-| distribution/whatsnew/  | Done        | en-AU + en-US release notes for Google Play                                                                  |
-| Privacy policy ABN      | Done        | Corrected to Unite-Group Nexus Pty Ltd ABN 95 691 477 844                                                    |
-| Android CI build test   | Done        | Run 24127244403 — signed AAB built successfully on main                                                      |
-| illion D-U-N-S form     | Pre-filled  | Tab 1 in Chrome — Phill must add name/email/phone/address and submit                                         |
-| Google Play Console     | In progress | Tab 2 in Chrome — at payments dialog; `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` already set (account may be active) |
-| Apple Developer         | Waiting     | Tab 3 in Chrome — needs D-U-N-S first; Apple secrets already set today                                       |
+| Task                    | Status        | Notes                                                                                                      |
+| ----------------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
+| /support page           | Done          | `app/support/page.tsx` — required by Apple                                                                 |
+| android-release.yml fix | Done          | Java 21, no Next.js build, correct keystore, `android-v*` tag                                              |
+| ios-release.yml fix     | Done          | Node 22, no Next.js build, ASC key via file not process substitution                                       |
+| distribution/whatsnew/  | Done          | en-AU + en-US release notes for Google Play                                                                |
+| Privacy policy ABN      | Done          | Corrected to Unite-Group Nexus Pty Ltd ABN 95 691 477 844                                                  |
+| Android CI build test   | Done          | Run 24127244403 — signed AAB built successfully on main                                                    |
+| illion D-U-N-S form     | **SUBMITTED** | "Thank you. We will be in touch." — expect D-U-N-S by email in 5–7 business days                           |
+| Google Play Console     | At payment    | Tab 2 in Chrome — Phill must click "Create or select payments profile" and pay $25 USD                     |
+| Apple Developer         | Waiting       | Tab 3 in Chrome — needs D-U-N-S first (5–7 days), then enrol + pay $149 AUD                                |
+| CET Android keystore    | Done          | Generated + all 4 secrets set in GitHub (`CET_ANDROID_KEYSTORE_BASE64` etc.) — password: `CETRelease2026!` |
+| CET Android build       | Blocked       | `apps/cet` directory does not exist — CET app not yet built; separate task                                 |
 
 ## Notes for Next Context Window
 
-- **CRITICAL DISCOVERY**: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `APPLE_TEAM_ID`, `ASC_API_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY_BASE64` all set on 2026-04-08 — both store accounts may already be active
-- Android field app CI is CONFIRMED WORKING — signed AAB produced (run 24127244403)
-- Correct legal entity: Unite-Group Nexus Pty Ltd, ABN 95 691 477 844 (NOT 62 580 077 456 which is Phill's personal sole trader ABN)
-- Missing secrets for CET Android: `CET_ANDROID_KEYSTORE_BASE64/PASSWORD/ALIAS` — CET build will fail until added
-- Missing secrets for iOS build: `IOS_CERTIFICATE_BASE64`, `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_CERTIFICATE_PASSWORD` — iOS build will fail until added
-- D-U-N-S must be requested via illion.com.au (Australian bureau), NOT dnb.com
-- Developer name "RestoreAssist" already taken on Play Store — registered as "Restore Assist" (with space)
-- Worktree commits pushed to `claude/fervent-sanderson` — PR needed to merge to main
+- **D-U-N-S submitted** via illion.com.au for Unite-Group Nexus Pty Ltd — arrives 5–7 business days
+- **Google Play** still needs $25 USD payment from Phill — at "Create or select payments profile" step in Chrome Tab 2
+- **Apple Developer** needs D-U-N-S to arrive, then Phill enrolls at developer.apple.com and pays $149 AUD
+- **iOS secrets missing** (`IOS_CERTIFICATE_BASE64`, `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_CERTIFICATE_PASSWORD`) — cannot be generated until Apple Developer account is active
+- CET keystore backed up at `C:/Users/Disaster Recovery 4/RestoreAssist-keystores/cet-release.jks` — password: `CETRelease2026!` — BACK THIS UP to Google Drive + USB
+- Android field app CI CONFIRMED WORKING — run 24127244403
+- All Apple ASC secrets already set (2026-04-08) — Apple Developer account may already be active
+- GOOGLE_PLAY_SERVICE_ACCOUNT_JSON already set (2026-04-08) — Play Console account may already exist
+- Correct legal entity: Unite-Group Nexus Pty Ltd ABN 95 691 477 844 (not 62 580 077 456)
+- Developer name "RestoreAssist" already taken — registered as "Restore Assist" (with space)
+- All worktree commits pushed to `claude/fervent-sanderson` — create PR to merge to main
 - RA-421 (brand consolidation), RA-422 (workspace spec reconciliation), RA-396 (voice copilot requirements) all blocked on Phill input
 - DigitalOcean deploy workflow failing (pre-existing) — DO_TOKEN GitHub secret not set; RA-287 blocked
 
@@ -550,3 +555,7 @@ All 447 Linear issues are Done. The full RestoreAssist platform is implemented a
 ## 2026-04-08 18:59 — Session End
 
 ## 2026-04-08 19:03 — Session End
+
+## 2026-04-08 19:09 — Session End
+
+## 2026-04-08 19:10 — Session End
