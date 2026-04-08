@@ -85,7 +85,7 @@ export async function POST(
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${fileName}"`,

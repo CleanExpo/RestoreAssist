@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     // Group inspections by organizationId so we can check the ≥3 companies
     // requirement. Use organizationId as the companyId proxy.
 
-    const completedInspections = await prisma.inspection.findMany({
+    const completedInspections = await (prisma as any).inspection.findMany({
       where: { status: "COMPLETED" },
       select: {
         id: true,
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     const derivedCycleTime: PilotObservation[] = [];
     for (const [orgId, inspections] of Object.entries(byOrg)) {
       const derived = deriveCycleTimeObservations(
-        inspections.map((i) => ({
+        inspections.map((i: any) => ({
           id: i.id,
           inspectionDate: i.inspectionDate,
           completedAt: i.completedAt,

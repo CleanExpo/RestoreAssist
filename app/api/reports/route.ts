@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       const sessionId = sessionByReportId.get(report.id)
       return {
         ...report,
-        estimatedCost: report.estimates?.[0]?.totalIncGST || report.estimatedCost || null,
+        estimatedCost: report.estimates?.[0]?.totalIncGST || (report as any).estimatedCost || null,
         interviewCompleted: !!sessionId,
         interviewSessionId: sessionId ?? null
       }

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const resolvedSecret =
       webhookSecret?.trim() || randomBytes(32).toString("hex");
 
-    const integration = await prisma.drNrpgIntegration.upsert({
+    const integration = await (prisma as any).drNrpgIntegration.upsert({
       where: { userId: session.user.id },
       create: {
         userId: session.user.id,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const integration = await prisma.drNrpgIntegration.findUnique({
+    const integration = await (prisma as any).drNrpgIntegration.findUnique({
       where: { userId: session.user.id },
       select: {
         id: true,
@@ -146,7 +146,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await prisma.drNrpgIntegration.deleteMany({
+    await (prisma as any).drNrpgIntegration.deleteMany({
       where: { userId: session.user.id },
     });
 

@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         });
         const invoiceNumber = `${sequence.prefix}-${year}-${String(sequence.lastNumber).padStart(4, "0")}`;
 
-        const newInvoice = await tx.invoice.create({
+        const newInvoice = await (tx.invoice as any).create({
           data: {
             invoiceNumber,
             status: "DRAFT",

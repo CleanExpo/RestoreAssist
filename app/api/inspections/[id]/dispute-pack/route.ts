@@ -64,7 +64,7 @@ export async function POST(
 
     const filename = `dispute-pack-${inspection.inspectionNumber}.pdf`;
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,

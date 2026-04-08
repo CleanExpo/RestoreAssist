@@ -136,14 +136,14 @@ export default function ActivityByDay({
               borderRadius: "8px",
               color: "#111827",
             }}
-            formatter={(
+            formatter={((
               value: number,
               _name: string,
               props: { payload?: DayItem },
             ) => [
               `${value} reports · $${(props?.payload?.revenue ?? 0).toLocaleString()}`,
               "Reports · Revenue",
-            ]}
+            ]) as any}
             labelFormatter={(label) => `Day: ${label}`}
           />
           <Bar

@@ -87,7 +87,7 @@ export async function GET(
     // Return PDF
     const filename = `${form.template.code}-${form.report.claimReferenceNumber || form.id.slice(-6)}.pdf`;
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

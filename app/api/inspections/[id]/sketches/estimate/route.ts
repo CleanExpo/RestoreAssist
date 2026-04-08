@@ -39,7 +39,7 @@ export async function GET(
     );
   }
 
-  const sketches = await prisma.claimSketch.findMany({
+  const sketches = await (prisma as any).claimSketch.findMany({
     where: { inspectionId: id },
     orderBy: { floorNumber: "asc" },
     select: {
@@ -53,8 +53,8 @@ export async function GET(
 
   // Only process structural sketches for the estimate
   const floors = sketches
-    .filter((s) => s.sketchType === "structural" || !s.sketchType)
-    .map((s) => ({
+    .filter((s: any) => s.sketchType === "structural" || !s.sketchType)
+    .map((s: any) => ({
       floorLabel: s.floorLabel,
       sketchData: s.sketchData as Record<string, unknown> | null,
       equipmentPoints: s.equipmentPoints as unknown[] | null,

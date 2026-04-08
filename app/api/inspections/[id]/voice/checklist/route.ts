@@ -41,7 +41,7 @@ export async function GET(
     const readyToLeave = criticalMissing.length === 0;
 
     return NextResponse.json({
-      inspectionId: params.id,
+      inspectionId: id,
       items,
       completedCount,
       totalCount: items.length,

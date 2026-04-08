@@ -55,7 +55,7 @@ export async function POST(
     const scopeItem = await prisma.scopeItem.create({
       data: {
         inspectionId: id,
-        itemType: body.itemType ? String(body.itemType).slice(0, 100) : undefined,
+        itemType: body.itemType ? String(body.itemType).slice(0, 100) : "GENERAL",
         description: String(body.description).slice(0, 2000),
         areaId: body.areaId || null,
         quantity: qty,

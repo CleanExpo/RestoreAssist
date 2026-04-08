@@ -33,7 +33,7 @@ export async function GET(
     const { buffer, mimeType } = await downloadDriveFile(fileId);
 
     // Return the PDF file
-    return new NextResponse(buffer, {
+    return new NextResponse(Buffer.from(buffer), {
       headers: {
         "Content-Type": mimeType || "application/pdf",
         "Content-Disposition": `inline; filename="document.pdf"`,

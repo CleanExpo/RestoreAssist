@@ -103,7 +103,7 @@ export async function POST(
         fileSizeBytes: fileSizeBytes || null,
         thumbnailUrl: thumbnailUrl || null,
         structuredData: structuredData ? JSON.stringify(structuredData) : null,
-        notes: notes || null,
+        ...(notes !== undefined && notes !== null && { notes: notes || null } as any),
       },
     });
 

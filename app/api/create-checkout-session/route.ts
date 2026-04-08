@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
           throw new Error('Invalid price ID')
         }
         
-        const newPrice = await stripe.prices.create(priceData)
+        const newPrice = await stripe.prices.create(priceData as any)
         
         checkoutSession = await stripe.checkout.sessions.create({
           mode: 'subscription',

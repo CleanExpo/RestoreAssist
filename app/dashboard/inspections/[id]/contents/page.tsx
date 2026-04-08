@@ -370,7 +370,7 @@ export default function ContentsManifestPage() {
                     {item.flagForReview && (
                       <Flag
                         className="w-3.5 h-3.5 text-amber-500"
-                        title="Flagged for review"
+                        aria-label="Flagged for review"
                       />
                     )}
                   </TableCell>

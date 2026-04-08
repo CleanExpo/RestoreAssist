@@ -636,7 +636,7 @@ export async function generateAuthorityFormPDF(
     }
 
     // Signed date
-    const signedDateStr = new Date(sig.signedAt).toLocaleDateString("en-AU", {
+    const signedDateStr = new Date(sig.signedAt!).toLocaleDateString("en-AU", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

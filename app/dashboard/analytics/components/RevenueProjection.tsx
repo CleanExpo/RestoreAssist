@@ -16,6 +16,8 @@ import {
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const TooltipAny = Tooltip as any;
+
 interface ProjectionData {
   date: string;
   revenue: number;
@@ -165,7 +167,7 @@ export default function RevenueProjection({
             className="text-neutral-600 dark:text-slate-400"
             style={{ fontSize: "12px" }}
           />
-          <Tooltip
+          <TooltipAny
             contentStyle={{
               backgroundColor: "rgb(255 255 255 / 0.95)",
               border: "1px solid rgb(229 231 235)",
@@ -174,7 +176,7 @@ export default function RevenueProjection({
             }}
             className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
             formatter={(value: any) => `$${(value as number).toLocaleString()}`}
-            labelFormatter={(label) => `Date: ${label}`}
+            labelFormatter={(label: any) => `Date: ${label}`}
           />
           <Legend />
 

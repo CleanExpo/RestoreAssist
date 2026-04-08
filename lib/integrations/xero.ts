@@ -109,9 +109,9 @@ export async function syncInvoiceToXero(
     xeroInvoice.LineItems.push({
       Description: "Shipping & Delivery",
       Quantity: 1,
-      UnitAmount: (invoice.shippingAmount / 100).toFixed(2),
+      UnitAmount: parseFloat((invoice.shippingAmount / 100).toFixed(2)),
       TaxType: "OUTPUT",
-      LineAmount: (invoice.shippingAmount / 100).toFixed(2),
+      LineAmount: parseFloat((invoice.shippingAmount / 100).toFixed(2)),
     });
   }
 

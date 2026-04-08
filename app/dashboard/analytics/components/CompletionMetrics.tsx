@@ -16,6 +16,9 @@ import {
 import { Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Recharts Tooltip has overly strict generic types; use an escape hatch
+const TooltipAny = Tooltip as any;
+
 interface HazardMetric {
   hazardType: string;
   avgDays: number;
@@ -337,7 +340,7 @@ export default function CompletionMetrics({
                   style: { textAnchor: "middle", fill: "rgb(75 85 99)" },
                 }}
               />
-              <Tooltip
+              <TooltipAny
                 contentStyle={{
                   backgroundColor: "rgb(255 255 255 / 0.95)",
                   border: "1px solid rgb(229 231 235)",
@@ -455,7 +458,7 @@ export default function CompletionMetrics({
                   style: { textAnchor: "middle", fill: "rgb(75 85 99)" },
                 }}
               />
-              <Tooltip
+              <TooltipAny
                 contentStyle={{
                   backgroundColor: "rgb(255 255 255 / 0.95)",
                   border: "1px solid rgb(229 231 235)",
@@ -464,8 +467,7 @@ export default function CompletionMetrics({
                 }}
                 className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 formatter={(value: any) =>
-                  `${(value as number).toFixed(1)} days`
-                }
+                  `${(value as number).toFixed(1)} days`}
               />
               <Legend />
               <Line

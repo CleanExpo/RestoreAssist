@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { ExperienceMode } from "@prisma/client";
+type ExperienceMode = "APPRENTICE" | "EXPERIENCED";
 
 // GET — return the current user's experience mode
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await (prisma as any).user.findUnique({
     where: { id: session.user.id },
     select: { experienceMode: true },
   });
@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  await prisma.user.update({
+  await (prisma as any).user.update({
     where: { id: session.user.id },
     data: { experienceMode },
   });

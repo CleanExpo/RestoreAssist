@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (!insp) {
       inspIssues.push("No inspection linked to this report");
     } else {
-      if (!insp.environmentalData)
+      if (!(insp as any).environmentalData)
         inspIssues.push("Environmental data not recorded");
       if (insp.moistureReadings.length === 0)
         inspIssues.push("No moisture readings recorded");

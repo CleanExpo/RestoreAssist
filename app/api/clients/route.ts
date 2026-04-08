@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
         c.name === reportClient.name || c.email === reportClient.email
       )
       if (!exists) {
-        allClients.push(reportClient)
+        allClients.push(reportClient as any)
       }
     })
 

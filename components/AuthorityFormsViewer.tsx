@@ -53,7 +53,7 @@ export default function AuthorityFormsViewer({
   const router = useRouter();
   const [suggestions, setSuggestions] = useState<SuggestedForm[]>([]);
   const [templates, setTemplates] = useState<
-    Array<{ id: string; name: string; code: string }>
+    Array<{ id: string; name: string; code: string; description?: string }>
   >([]);
   const [forms, setForms] = useState<FormInstance[]>([]);
   const [loading, setLoading] = useState(true);
