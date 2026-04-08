@@ -3,44 +3,59 @@ name: iOS Release — App Store Connect
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - "ios-v[0-9]+.[0-9]+.[0-9]+" # e.g. ios-v1.0.0 — production release
 
 jobs:
   release-ios:
+    name: Build & Upload to TestFlight
     runs-on: macos-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
         with:
-          node-version: '20'
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
       - name: Install dependencies
-        run: npm install -g pnpm && pnpm install --frozen-lockfile
-      - name: Build Next.js app
-        run: pnpm build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-      - name: Sync Capacitor
+        run: pnpm install --no-frozen-lockfile
+
+      # Server-hosted WebView — no Next.js build needed.
+      # The iOS app loads https://restoreassist.com.au directly.
+      - name: Sync Capacitor iOS
         run: npx cap sync ios
+
       - name: Install Fastlane
         run: gem install fastlane
-      - name: Decode certificate
+
+      - name: Decode certificate and provisioning profile
         run: |
-          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 -d > ios_distribution.p12
-          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > profile.mobileprovision
+          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 --decode > ios_distribution.p12
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > profile.mobileprovision
+
       - name: Import certificate to keychain
         run: |
           security create-keychain -p "temp" build.keychain
-          security import ios_distribution.p12 -k build.keychain -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+          security import ios_distribution.p12 -k build.keychain \
+            -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
           security list-keychains -s build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "temp" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
+
       - name: Install provisioning profile
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - name: Build IPA with Fastlane
         run: |
           fastlane gym \
@@ -51,14 +66,20 @@ jobs:
             --output_name RestoreAssist.ipa
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Write App Store Connect API key
+        run: |
+          echo "${{ secrets.ASC_PRIVATE_KEY_BASE64 }}" | base64 --decode > asc_key.p8
+
       - name: Upload to TestFlight
         run: |
           fastlane pilot upload \
             --ipa ./build/RestoreAssist.ipa \
-            --api_key_path <(echo "${{ secrets.ASC_PRIVATE_KEY_BASE64 }}" | base64 -d) \
-            --issuer_id ${{ secrets.ASC_ISSUER_ID }} \
-            --key_id ${{ secrets.ASC_API_KEY_ID }} \
+            --api_key_path asc_key.p8 \
+            --issuer_id "${{ secrets.ASC_ISSUER_ID }}" \
+            --key_id "${{ secrets.ASC_API_KEY_ID }}" \
             --skip_waiting_for_build_processing true
+
       - name: Notify on success
         if: success()
         run: echo "✅ iOS build uploaded to TestFlight"

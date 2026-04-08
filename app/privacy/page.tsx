@@ -28,12 +28,12 @@ export default function PrivacyPage() {
             </h2>
             <p>
               RestoreAssist is a property restoration management platform
-              operated by RestoreAssist Pty Ltd (&ldquo;we&rdquo;,
-              &ldquo;us&rdquo;, &ldquo;our&rdquo;). This policy applies to the
-              RestoreAssist web application, the RestoreAssist field iOS and
-              Android application (<em>com.restoreassist.app</em>), and the
-              RestoreAssist CET kiosk application (
-              <em>com.restoreassist.cet</em>).
+              operated by Unite-Group Nexus Pty Ltd ABN 62 580 077 456, trading
+              as Restore Assist (&ldquo;we&rdquo;, &ldquo;us&rdquo;,
+              &ldquo;our&rdquo;). This policy applies to the RestoreAssist web
+              application, the RestoreAssist field iOS and Android application (
+              <em>com.restoreassist.app</em>), and the RestoreAssist CET kiosk
+              application (<em>com.restoreassist.cet</em>).
             </p>
             <p className="mt-2">
               Contact:{" "}
@@ -269,7 +269,8 @@ export default function PrivacyPage() {
               </a>
             </p>
             <p className="mt-2 text-neutral-400 text-xs">
-              RestoreAssist Pty Ltd | Australia | ABN [to be completed]
+              Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 62
+              580 077 456
             </p>
           </section>
         </div>
