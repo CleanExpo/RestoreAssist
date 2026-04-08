@@ -329,7 +329,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     })
 
-    return NextResponse.json(estimates.map(estimate => ({
+    return NextResponse.json(estimates.map((estimate: typeof estimates[number]) => ({
       id: estimate.id,
       reportId: estimate.reportId,
       scopeId: estimate.scopeId,

@@ -1,736 +1,211 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
-import {
-  Check,
-  Star,
-  Zap,
-  Shield,
-  Download,
-  Users,
-  Clock,
-  Award,
-  CheckCircle,
-} from "lucide-react";
-import {
-  PRICING_CONFIG,
-  type PricingPlan,
-  type AddonPack,
-} from "@/lib/pricing";
-import {
-  LIFETIME_PRICING_EMAIL,
-  LIFETIME_AMOUNT_DISPLAY,
-  LIFETIME_CURRENCY,
-  LIFETIME_PLAN_NAME,
-} from "@/lib/lifetime-pricing";
-import toast from "react-hot-toast";
-import { cn } from "@/lib/utils";
+import { useState } from "react"
+import { Check, Star, Zap, Shield, Download, Users, Clock, Award } from "lucide-react"
+import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing"
+import toast from "react-hot-toast"
 
 export default function PricingPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { data: session } = useSession();
-  const isOnboarding = searchParams.get("onboarding") === "true";
-  const requireSubscription =
-    searchParams.get("require_subscription") === "true";
-  const [loading, setLoading] = useState<string | null>(null);
-  const [profile, setProfile] = useState<{
-    subscriptionStatus?: string;
-    subscriptionPlan?: string;
-    lifetimeAccess?: boolean;
-  } | null>(null);
-
-  const isLifetimePricingUser =
-    session?.user?.email?.toLowerCase() ===
-    LIFETIME_PRICING_EMAIL.toLowerCase();
-  const hasLifetimeAccess =
-    profile?.lifetimeAccess ||
-    (profile?.subscriptionStatus === "ACTIVE" &&
-      profile?.subscriptionPlan === "Lifetime");
-
-  useEffect(() => {
-    if (!session?.user || !isLifetimePricingUser) return;
-    fetch("/api/user/profile", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => (data?.profile ? setProfile(data.profile) : null))
-      .catch(() => {});
-  }, [session?.user, isLifetimePricingUser]);
+  const [loading, setLoading] = useState<string | null>(null)
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    setLoading(plan);
+    if (plan === 'freeTrial') {
+      toast.success("Free trial activated! You can now create up to 3 reports.")
+      return
+    }
+
+    setLoading(plan)
     try {
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ priceId: PRICING_CONFIG.prices[plan] }),
-      });
+      })
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create checkout session')
       }
 
-      const { sessionId, url } = await response.json();
-
+      const { sessionId, url } = await response.json()
+      console.log('Checkout session created:', sessionId)
+      
       if (url) {
-        window.location.href = url;
+        console.log('Redirecting to Stripe checkout...')
+        window.location.href = url
       } else {
-        console.error("No checkout URL received");
-        toast.error("Failed to get checkout URL");
+        console.error('No checkout URL received')
+        toast.error('Failed to get checkout URL')
       }
     } catch (error) {
-      console.error("Error creating checkout session:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to start checkout process",
-      );
+      console.error('Error creating checkout session:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
     } finally {
-      setLoading(null);
+      setLoading(null)
     }
-  };
-
-  const handleLifetimeCheckout = async () => {
-    setLoading("lifetime");
-    try {
-      const response = await fetch("/api/checkout-lifetime", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout");
-      }
-      const { url } = await response.json();
-      if (url) window.location.href = url;
-      else toast.error("No checkout URL received");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to start checkout",
-      );
-    } finally {
-      setLoading(null);
-    }
-  };
+  }
 
   const formatPrice = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
       currency: currency,
-    }).format(amount);
-  };
+    }).format(amount)
+  }
 
   return (
-    <div
-      className={cn(
-        "min-h-screen",
-        "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950",
-      )}
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1
-            className={cn(
-              "text-4xl font-bold mb-4",
-              "text-neutral-900 dark:text-white",
-            )}
-          >
+          <h1 className="text-4xl font-bold text-white mb-4">
             Choose Your Plan
           </h1>
-          <p
-            className={cn(
-              "text-xl max-w-2xl mx-auto mb-6",
-              "text-neutral-600 dark:text-slate-400",
-            )}
-          >
-            Start with 3 free reports to try our service. Upgrade to a monthly
-            or yearly plan when you're ready. All plans include IICRC S500
-            compliance and professional reporting tools.
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+            Select the perfect plan for your water damage restoration business. 
+            All plans include IICRC S500 compliance and professional reporting tools.
           </p>
-          {/* Free Trial Banner */}
-          <div
-            className={cn(
-              "inline-block px-6 py-3 rounded-lg mb-4",
-              "bg-green-100 dark:bg-green-900/30 border-2 border-green-500 dark:border-green-400",
-            )}
-          >
-            <p
-              className={cn(
-                "text-lg font-semibold",
-                "text-green-800 dark:text-green-300",
-              )}
-            >
-              🎉 New accounts get 3 free reports to get started!
-            </p>
-          </div>
         </div>
 
-        {/* Lifetime-only pricing for phill.mcgurk@gmail.com */}
-        {isLifetimePricingUser && (
-          <div className="max-w-md mx-auto">
-            {hasLifetimeAccess ? (
-              <div
-                className={cn(
-                  "rounded-2xl border-2 p-8 text-center",
-                  "border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-400",
-                )}
-              >
-                <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600 dark:text-green-400" />
-                <h2
-                  className={cn(
-                    "text-2xl font-bold mb-2",
-                    "text-neutral-900 dark:text-white",
-                  )}
-                >
-                  You have lifetime access
-                </h2>
-                <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                  Your account is active with all tools connected. No further
-                  payment required.
-                </p>
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  "relative rounded-2xl border-2 p-8 border-cyan-500 shadow-2xl shadow-cyan-500/20",
-                  "bg-white dark:bg-slate-800/50",
-                )}
-              >
+        {/* Pricing Cards */}
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
+            <div
+              key={key}
+              className={`relative bg-slate-800/50 rounded-2xl border-2 p-8 transition-all duration-300 hover:scale-105 ${
+                plan.popular
+                  ? 'border-cyan-500 shadow-2xl shadow-cyan-500/20'
+                  : 'border-slate-700 hover:border-slate-600'
+              }`}
+            >
+              {/* Popular Badge */}
+              {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
-                    One-time
+                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
+                    <Star className="w-4 h-4" />
+                    Most Popular
                   </div>
                 </div>
-                <div className="text-center mb-8">
-                  <h3
-                    className={cn(
-                      "text-2xl font-bold mb-2",
-                      "text-neutral-900 dark:text-white",
-                    )}
-                  >
-                    {LIFETIME_PLAN_NAME}
-                  </h3>
-                  <div className="mb-4">
-                    <span
-                      className={cn(
-                        "text-4xl font-bold",
-                        "text-cyan-600 dark:text-cyan-400",
-                      )}
-                    >
-                      {formatPrice(LIFETIME_AMOUNT_DISPLAY, LIFETIME_CURRENCY)}
-                    </span>
-                    <span
-                      className={cn("text-neutral-600 dark:text-slate-400")}
-                    >
-                      {" "}
-                      one-time
-                    </span>
-                  </div>
-                  <p
-                    className={cn(
-                      "text-sm",
-                      "text-neutral-600 dark:text-slate-400",
-                    )}
-                  >
-                    No monthly fee. Full access to all built-in tools.
-                  </p>
-                </div>
-                <div className="space-y-4 mb-8">
-                  {[
-                    "All reports & tools",
-                    "IICRC S500 compliance",
-                    "Integrations & API",
-                    "No recurring charges",
-                  ].map((f, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <Check className="w-5 h-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-                      <span
-                        className={cn("text-neutral-700 dark:text-slate-300")}
-                      >
-                        {f}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={handleLifetimeCheckout}
-                  disabled={loading === "lifetime"}
-                  className="w-full py-4 px-6 rounded-lg font-semibold text-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading === "lifetime" ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Processing...
-                    </span>
-                  ) : (
-                    `Pay ${formatPrice(LIFETIME_AMOUNT_DISPLAY, LIFETIME_CURRENCY)} once`
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+              )}
 
-        {/* Standard pricing cards (all other users) */}
-        {!isLifetimePricingUser && (
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
-              <div
-                key={key}
-                className={cn(
-                  "relative rounded-2xl border-2 p-8 transition-all duration-300 hover:scale-105",
-                  "bg-white dark:bg-slate-800/50",
+              {/* Best Value Badge */}
+              {'badge' in plan && plan.badge && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
+                    <Award className="w-4 h-4" />
+                    {plan.badge}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-white mb-2">
+                  {plan.displayName}
+                </h3>
+                <div className="mb-4">
+                  <span className="text-4xl font-bold text-cyan-400">
+                    {plan.amount === 0 ? 'Free' : formatPrice(plan.amount, plan.currency)}
+                  </span>
+                  {'interval' in plan && plan.interval && (
+                    <span className="text-slate-400">/{plan.interval}</span>
+                  )}
+                </div>
+                
+                {/* Discount Display */}
+                {'discount' in plan && plan.discount && (
+                  <div className="text-sm text-green-400 mb-2">
+                    {plan.discount} discount - Save ${'savings' in plan ? plan.savings : 0}/year
+                  </div>
+                )}
+
+                {/* Monthly Equivalent */}
+                {'monthlyEquivalent' in plan && plan.monthlyEquivalent && (
+                  <div className="text-sm text-slate-400">
+                    ${plan.monthlyEquivalent}/month equivalent
+                  </div>
+                )}
+              </div>
+
+              {/* Features */}
+              <div className="space-y-4 mb-8">
+                {plan.features.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-slate-300">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Report Limit */}
+              <div className="mb-6 p-4 bg-slate-700/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-5 h-5 text-yellow-400" />
+                  <span className="font-semibold text-white">Report Limit</span>
+                </div>
+                <div className="text-2xl font-bold text-cyan-400">
+                  {plan.reportLimit === 'unlimited' ? 'Unlimited' : plan.reportLimit}
+                </div>
+                <div className="text-sm text-slate-400">
+                  {plan.reportLimit === 'unlimited' ? 'Create as many reports as you need' : 'Reports per month'}
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <button
+                onClick={() => handleSubscribe(key as PricingPlan)}
+                disabled={loading === key}
+                className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 ${
                   plan.popular
-                    ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
-                    : cn(
-                        "border-neutral-300 dark:border-slate-700",
-                        "hover:border-neutral-400 dark:hover:border-slate-600",
-                      ),
-                )}
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50'
+                    : 'bg-slate-700 text-white hover:bg-slate-600'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {/* Popular Badge */}
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
-                      <Star className="w-4 h-4" />
-                      Most Popular
-                    </div>
+                {loading === key ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Processing...
                   </div>
+                ) : (
+                  plan.amount === 0 ? 'Start Free Trial' : `Subscribe to ${plan.displayName}`
                 )}
-
-                {/* Best Value Badge */}
-                {"badge" in plan && plan.badge && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
-                      <Award className="w-4 h-4" />
-                      {"badge" in plan ? plan.badge : ""}
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-center mb-8">
-                  <h3
-                    className={cn(
-                      "text-2xl font-bold mb-2",
-                      "text-neutral-900 dark:text-white",
-                    )}
-                  >
-                    {plan.displayName}
-                  </h3>
-                  <div className="mb-4">
-                    <span
-                      className={cn(
-                        "text-4xl font-bold",
-                        "text-cyan-600 dark:text-cyan-400",
-                      )}
-                    >
-                      {formatPrice(plan.amount, plan.currency)}
-                    </span>
-                    {plan.interval && (
-                      <span
-                        className={cn("text-neutral-600 dark:text-slate-400")}
-                      >
-                        /{plan.interval}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Monthly Equivalent */}
-                  {"monthlyEquivalent" in plan && plan.monthlyEquivalent && (
-                    <div
-                      className={cn(
-                        "text-sm mb-2",
-                        "text-neutral-600 dark:text-slate-400",
-                      )}
-                    >
-                      ${plan.monthlyEquivalent}/month equivalent
-                    </div>
-                  )}
-
-                  {/* Report Limit Display */}
-                  {plan.reportLimit && typeof plan.reportLimit === "number" && (
-                    <div
-                      className={cn(
-                        "mt-4 p-4 rounded-lg",
-                        "bg-neutral-100 dark:bg-slate-700/30",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "text-2xl font-bold mb-1",
-                          "text-cyan-600 dark:text-cyan-400",
-                        )}
-                      >
-                        {plan.reportLimit}
-                      </div>
-                      <div
-                        className={cn(
-                          "text-sm",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Inspection Reports
-                        {plan.interval === "month"
-                          ? " per month"
-                          : " per month (yearly plan)"}
-                      </div>
-                      {"signupBonus" in plan && plan.signupBonus && (
-                        <div
-                          className={cn(
-                            "text-xs mt-2",
-                            "text-green-600 dark:text-green-400",
-                          )}
-                        >
-                          +{plan.signupBonus} bonus reports on first month
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Features */}
-                <div className="space-y-4 mb-8">
-                  {plan.features.map((feature, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <Check
-                        className={cn(
-                          "w-5 h-5 mt-0.5 flex-shrink-0",
-                          "text-green-600 dark:text-green-400",
-                        )}
-                      />
-                      <span
-                        className={cn("text-neutral-700 dark:text-slate-300")}
-                      >
-                        {feature}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* CTA Button */}
-                <button
-                  onClick={() => handleSubscribe(key as PricingPlan)}
-                  disabled={loading === key}
-                  className={cn(
-                    "w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed",
-                    plan.popular
-                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
-                      : cn(
-                          "bg-neutral-700 dark:bg-slate-700 text-white",
-                          "hover:bg-neutral-600 dark:hover:bg-slate-600",
-                        ),
-                  )}
-                >
-                  {loading === key ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Processing...
-                    </div>
-                  ) : (
-                    `Subscribe to ${plan.displayName}`
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add-ons Section (hidden for lifetime-only user) */}
-        {!isLifetimePricingUser && (
-          <div className="mt-16 max-w-6xl mx-auto">
-            <h2
-              className={cn(
-                "text-3xl font-bold text-center mb-8",
-                "text-neutral-900 dark:text-white",
-              )}
-            >
-              Add More Reports
-            </h2>
-            <p
-              className={cn(
-                "text-xl text-center mb-12 max-w-2xl mx-auto",
-                "text-neutral-600 dark:text-slate-400",
-              )}
-            >
-              Need more reports? Add additional report packs to your
-              subscription
-            </p>
-            <div className="grid md:grid-cols-3 gap-8">
-              {Object.entries(PRICING_CONFIG.addons).map(([key, addon]) => (
-                <div
-                  key={key}
-                  className={cn(
-                    "relative rounded-2xl border-2 p-8 transition-all duration-300 hover:scale-105",
-                    "bg-white dark:bg-slate-800/50",
-                    ("popular" in addon && (addon as any).popular)
-                      ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
-                      : cn(
-                          "border-neutral-300 dark:border-slate-700",
-                          "hover:border-neutral-400 dark:hover:border-slate-600",
-                        ),
-                  )}
-                >
-                  {"popular" in addon && addon.popular && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
-                        <Star className="w-4 h-4" />
-                        Most Popular
-                      </div>
-                    </div>
-                  )}
-                  {"badge" in addon && addon.badge && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
-                        <Award className="w-4 h-4" />
-                        {addon.badge}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-center mb-8">
-                    <h3
-                      className={cn(
-                        "text-2xl font-bold mb-2",
-                        "text-neutral-900 dark:text-white",
-                      )}
-                    >
-                      {addon.displayName}
-                    </h3>
-                    <div className="mb-4">
-                      <span
-                        className={cn(
-                          "text-4xl font-bold",
-                          "text-cyan-600 dark:text-cyan-400",
-                        )}
-                      >
-                        {formatPrice(addon.amount, addon.currency)}
-                      </span>
-                    </div>
-                    <div
-                      className={cn(
-                        "p-4 rounded-lg",
-                        "bg-neutral-100 dark:bg-slate-700/30",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "text-2xl font-bold mb-1",
-                          "text-cyan-600 dark:text-cyan-400",
-                        )}
-                      >
-                        {addon.reportLimit}
-                      </div>
-                      <div
-                        className={cn(
-                          "text-sm",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        Additional Reports
-                      </div>
-                    </div>
-                  </div>
-                  <p
-                    className={cn(
-                      "text-center mb-6",
-                      "text-neutral-700 dark:text-slate-300",
-                    )}
-                  >
-                    {addon.description}
-                  </p>
-                  <button
-                    onClick={async () => {
-                      setLoading(key);
-                      try {
-                        const response = await fetch("/api/addons/checkout", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ addonKey: key }),
-                        });
-
-                        if (!response.ok) {
-                          const errorData = await response.json();
-                          throw new Error(
-                            errorData.error ||
-                              "Failed to create checkout session",
-                          );
-                        }
-
-                        const { url } = await response.json();
-
-                        if (url) {
-                          window.location.href = url;
-                        } else {
-                          throw new Error("No checkout URL received");
-                        }
-                      } catch (error) {
-                        console.error("Error purchasing add-on:", error);
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "Failed to start checkout process",
-                        );
-                        setLoading(null);
-                      }
-                    }}
-                    disabled={loading === key}
-                    className={cn(
-                      "w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed",
-                      "popular" in addon && addon.popular
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
-                        : cn(
-                            "bg-neutral-700 dark:bg-slate-700 text-white",
-                            "hover:bg-neutral-600 dark:hover:bg-slate-600",
-                          ),
-                    )}
-                  >
-                    {loading === key ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Processing...
-                      </div>
-                    ) : (
-                      "Purchase Now"
-                    )}
-                  </button>
-                </div>
-              ))}
+              </button>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Features Comparison */}
         <div className="mt-16 max-w-4xl mx-auto">
-          <h2
-            className={cn(
-              "text-3xl font-bold text-center mb-8",
-              "text-neutral-900 dark:text-white",
-            )}
-          >
+          <h2 className="text-3xl font-bold text-white text-center mb-8">
             All Plans Include
           </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div
-              className={cn(
-                "text-center p-6 rounded-lg",
-                "bg-white dark:bg-slate-800/30",
-              )}
-            >
-              <Shield
-                className={cn(
-                  "w-8 h-8 mx-auto mb-4",
-                  "text-cyan-600 dark:text-cyan-400",
-                )}
-              />
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                IICRC S500 Compliant
-              </h3>
-              <p
-                className={cn(
-                  "text-sm",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
-                All reports follow IICRC S500 standards for professional water
-                damage restoration
+            <div className="text-center p-6 bg-slate-800/30 rounded-lg">
+              <Shield className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">IICRC S500 Compliant</h3>
+              <p className="text-slate-400 text-sm">
+                All reports follow IICRC S500 standards for professional water damage restoration
               </p>
             </div>
-            <div
-              className={cn(
-                "text-center p-6 rounded-lg",
-                "bg-white dark:bg-slate-800/30",
-              )}
-            >
-              <Download
-                className={cn(
-                  "w-8 h-8 mx-auto mb-4",
-                  "text-cyan-600 dark:text-cyan-400",
-                )}
-              />
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                PDF Export
-              </h3>
-              <p
-                className={cn(
-                  "text-sm",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
-                Professional PDF reports ready for insurance and client
-                submission
+            <div className="text-center p-6 bg-slate-800/30 rounded-lg">
+              <Download className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">PDF Export</h3>
+              <p className="text-slate-400 text-sm">
+                Professional PDF reports ready for insurance and client submission
               </p>
             </div>
-            <div
-              className={cn(
-                "text-center p-6 rounded-lg",
-                "bg-white dark:bg-slate-800/30",
-              )}
-            >
-              <Users
-                className={cn(
-                  "w-8 h-8 mx-auto mb-4",
-                  "text-cyan-600 dark:text-cyan-400",
-                )}
-              />
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                Client Management
-              </h3>
-              <p
-                className={cn(
-                  "text-sm",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
+            <div className="text-center p-6 bg-slate-800/30 rounded-lg">
+              <Users className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">Client Management</h3>
+              <p className="text-slate-400 text-sm">
                 Manage clients, track jobs, and maintain detailed records
               </p>
             </div>
-            <div
-              className={cn(
-                "text-center p-6 rounded-lg",
-                "bg-white dark:bg-slate-800/30",
-              )}
-            >
-              <Clock
-                className={cn(
-                  "w-8 h-8 mx-auto mb-4",
-                  "text-cyan-600 dark:text-cyan-400",
-                )}
-              />
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                24/7 Access
-              </h3>
-              <p
-                className={cn(
-                  "text-sm",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
-                Access your reports and data anytime, anywhere with cloud
-                storage
+            <div className="text-center p-6 bg-slate-800/30 rounded-lg">
+              <Clock className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">24/7 Access</h3>
+              <p className="text-slate-400 text-sm">
+                Access your reports and data anytime, anywhere with cloud storage
               </p>
             </div>
           </div>
@@ -738,86 +213,40 @@ export default function PricingPage() {
 
         {/* FAQ Section */}
         <div className="mt-16 max-w-3xl mx-auto">
-          <h2
-            className={cn(
-              "text-3xl font-bold text-center mb-8",
-              "text-neutral-900 dark:text-white",
-            )}
-          >
+          <h2 className="text-3xl font-bold text-white text-center mb-8">
             Frequently Asked Questions
           </h2>
           <div className="space-y-6">
-            <div
-              className={cn("rounded-lg p-6", "bg-white dark:bg-slate-800/30")}
-            >
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                What is the signup bonus?
+            <div className="bg-slate-800/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">
+                What happens after my free trial ends?
               </h3>
-              <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                All new subscribers receive an additional 10 reports on their
-                first month, on top of their regular monthly limit. This bonus
-                applies to both monthly and yearly plans.
+              <p className="text-slate-400">
+                After your 3 free reports, you'll need to subscribe to a paid plan to continue creating reports. 
+                Your existing reports will remain accessible.
               </p>
             </div>
-            <div
-              className={cn("rounded-lg p-6", "bg-white dark:bg-slate-800/30")}
-            >
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                Can I add more reports to my plan?
-              </h3>
-              <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                Yes! You can purchase add-on packs to increase your monthly
-                report limit. Choose from 8, 25, or 60 additional reports.
-                Add-ons are added to your subscription and renew monthly.
-              </p>
-            </div>
-            <div
-              className={cn("rounded-lg p-6", "bg-white dark:bg-slate-800/30")}
-            >
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
+            <div className="bg-slate-800/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">
                 Can I change my plan later?
               </h3>
-              <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                Yes! You can upgrade or downgrade your plan at any time. Changes
-                take effect immediately, and you'll be charged or credited
-                proportionally.
+              <p className="text-slate-400">
+                Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, 
+                and you'll be charged or credited proportionally.
               </p>
             </div>
-            <div
-              className={cn("rounded-lg p-6", "bg-white dark:bg-slate-800/30")}
-            >
-              <h3
-                className={cn(
-                  "text-lg font-semibold mb-2",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
+            <div className="bg-slate-800/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">
                 Is my data secure?
               </h3>
-              <p className={cn("text-neutral-600 dark:text-slate-400")}>
-                Absolutely. We use enterprise-grade security with encrypted data
-                storage and secure connections. Your client data is protected
-                and never shared with third parties.
+              <p className="text-slate-400">
+                Absolutely. We use enterprise-grade security with encrypted data storage and secure connections. 
+                Your client data is protected and never shared with third parties.
               </p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

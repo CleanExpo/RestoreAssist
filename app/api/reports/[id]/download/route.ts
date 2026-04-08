@@ -5,9 +5,6 @@ import { prisma } from "@/lib/prisma"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import fs from "fs/promises"
 import path from "path"
-import Anthropic from "@anthropic-ai/sdk"
-import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache"
-import { applyRateLimit } from "@/lib/rate-limiter"
 
 export async function GET(
   request: NextRequest,
@@ -15,14 +12,10 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-
+    
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    // Rate limit: 10 PDF downloads per 15 minutes — prevents Anthropic API cost DoS
-    const rateLimited = await applyRateLimit(request, { maxRequests: 10, prefix: "report-download", key: session.user.id })
-    if (rateLimited) return rateLimited
 
     const { id } = await params
 
@@ -54,7 +47,7 @@ export async function GET(
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
-    // Fetch scope if exists - include ALL fields
+    // Fetch scope if exists
     let scope = null
     try {
       const scopeData = await prisma.scope.findFirst({
@@ -63,7 +56,6 @@ export async function GET(
       if (scopeData) {
         scope = {
           id: scopeData.id,
-          reportId: scopeData.reportId,
           scopeType: scopeData.scopeType,
           siteVariables: scopeData.siteVariables ? JSON.parse(scopeData.siteVariables) : null,
           labourParameters: scopeData.labourParameters ? JSON.parse(scopeData.labourParameters) : null,
@@ -75,24 +67,18 @@ export async function GET(
           chemicalCostTotal: scopeData.chemicalCostTotal,
           totalDuration: scopeData.totalDuration,
           complianceNotes: scopeData.complianceNotes,
-          assumptions: scopeData.assumptions,
-          createdAt: scopeData.createdAt,
-          updatedAt: scopeData.updatedAt,
-          createdBy: scopeData.createdBy,
-          updatedBy: scopeData.updatedBy,
-          userId: scopeData.userId
+          assumptions: scopeData.assumptions
         }
       }
     } catch (err) {
-      // No scope found - continue without it
+      console.log("No scope found")
     }
 
-    // Fetch estimate if exists - include ALL fields
+    // Fetch estimate if exists
     let estimate = null
     try {
       const estimateData = await prisma.estimate.findFirst({
         where: { reportId: id },
-        orderBy: { createdAt: "desc" },
         include: {
           lineItems: {
             orderBy: { displayOrder: "asc" }
@@ -102,33 +88,11 @@ export async function GET(
       if (estimateData) {
         estimate = {
           id: estimateData.id,
-          reportId: estimateData.reportId,
-          scopeId: estimateData.scopeId,
           status: estimateData.status,
           version: estimateData.version,
           rateTables: estimateData.rateTables ? JSON.parse(estimateData.rateTables) : null,
           commercialParams: estimateData.commercialParams ? JSON.parse(estimateData.commercialParams) : null,
-          lineItems: estimateData.lineItems.map(item => ({
-            id: item.id,
-            estimateId: item.estimateId,
-            code: item.code,
-            category: item.category,
-            description: item.description,
-            qty: item.qty,
-            unit: item.unit,
-            rate: item.rate,
-            formula: item.formula,
-            subtotal: item.subtotal,
-            isScopeLinked: item.isScopeLinked,
-            isEstimatorAdded: item.isEstimatorAdded,
-            displayOrder: item.displayOrder,
-            createdBy: item.createdBy,
-            modifiedBy: item.modifiedBy,
-            modifiedAt: item.modifiedAt,
-            changeReason: item.changeReason,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt
-          })),
+          lineItems: estimateData.lineItems,
           labourSubtotal: estimateData.labourSubtotal,
           equipmentSubtotal: estimateData.equipmentSubtotal,
           chemicalsSubtotal: estimateData.chemicalsSubtotal,
@@ -147,21 +111,11 @@ export async function GET(
           exclusions: estimateData.exclusions,
           allowances: estimateData.allowances,
           complianceStatement: estimateData.complianceStatement,
-          disclaimer: estimateData.disclaimer,
-          approverName: estimateData.approverName,
-          approverRole: estimateData.approverRole,
-          approverSignature: estimateData.approverSignature,
-          approvedAt: estimateData.approvedAt,
-          estimatedDuration: estimateData.estimatedDuration,
-          createdAt: estimateData.createdAt,
-          updatedAt: estimateData.updatedAt,
-          createdBy: estimateData.createdBy,
-          updatedBy: estimateData.updatedBy,
-          userId: estimateData.userId
+          disclaimer: estimateData.disclaimer
         }
       }
     } catch (err) {
-      // No estimate found - continue without it
+      console.log("No estimate found")
     }
 
     // Parse JSON fields
@@ -279,45 +233,31 @@ export async function GET(
       if (process.env.ANTHROPIC_API_KEY) {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 4500)
-        const { tryClaudeModels } = await import('@/lib/anthropic-models')
-        const anthropicClient = new Anthropic({
-          apiKey: process.env.ANTHROPIC_API_KEY
-        })
-        
-        // Use prompt caching for cost optimization (90% savings on cache hits)
-        const message = await tryClaudeModels(
-          anthropicClient,
-          {
-          system: [createCachedSystemPrompt('You are a professional water damage restoration report writer generating concise executive summaries. Create factual, evidence-based summaries (5-8 sentences) that are audit-ready and use Australian context.')],
+        const body = {
+          model: "claude-3-5-sonnet-20240620",
           max_tokens: 400,
           temperature: 0.2,
           messages: [
             {
               role: "user",
-              content: `Generate a concise executive summary for this water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration).
+              content: `You are generating a concise, professional executive summary (5-8 sentences) for a water damage restoration report. Use the following JSON data to inform specifics (category/class of water, affected areas, key risks, scope highlights, estimate totals, duration). Keep it factual, evidence-based, and audit-ready. Use Australian context.
 
 Report: ${JSON.stringify(parsedReport)}
 Scope: ${JSON.stringify(scope)}
 Estimate: ${JSON.stringify(estimate)}`,
             },
           ],
-        },
-        undefined, // use default models
-        {
-          agentName: 'ExecutiveSummaryGenerator',
-          enableCacheMetrics: true
         }
-        )
-        
-        const resp = {
-          ok: true,
-          json: async () => ({
-            content: [{
-              type: 'text',
-              text: message.content[0].type === 'text' ? message.content[0].text : JSON.stringify(message.content[0])
-            }]
-          })
-        } as Response
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.ANTHROPIC_API_KEY as string,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        })
         clearTimeout(timeout)
         if (resp.ok) {
           const json = await resp.json()
@@ -401,7 +341,7 @@ Estimate: ${JSON.stringify(estimate)}`,
     ]
 
     assessmentInfo.forEach(([label, value]) => {
-      page.drawText(label ?? "", {
+      page.drawText(label, {
         x: 50,
         y: yPosition,
         size: 10,
@@ -805,14 +745,14 @@ Estimate: ${JSON.stringify(estimate)}`,
 
       costItems.forEach(([label, value]) => {
         if (value) {
-          page.drawText(String(label ?? ""), {
+          page.drawText(label, {
             x: 70,
             y: yPosition,
             size: 9,
             font: font,
             color: darkColor,
           })
-          page.drawText(`$${(typeof value === "number" ? value : Number(value)).toFixed(2)}`, {
+          page.drawText(`$${value.toFixed(2)}`, {
             x: 200,
             y: yPosition,
             size: 9,
@@ -1019,7 +959,7 @@ Estimate: ${JSON.stringify(estimate)}`,
     const pdfBytes = await pdfDoc.save()
 
     // Return PDF as response
-    return new NextResponse(Buffer.from(pdfBytes), {
+    return new NextResponse(pdfBytes as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="water-damage-report-${parsedReport.reportNumber || parsedReport.id}.pdf"`,

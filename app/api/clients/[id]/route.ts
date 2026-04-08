@@ -49,7 +49,7 @@ export async function GET(
     }
 
     // Calculate client statistics
-    const totalRevenue = client.reports.reduce((sum, report) => sum + (report.totalCost || 0), 0)
+    const totalRevenue = client.reports.reduce((sum: number, report: { totalCost: number | null }) => sum + (report.totalCost || 0), 0)
     const lastJob = client.reports.length > 0 ? client.reports[0].createdAt : null
     
     return NextResponse.json({

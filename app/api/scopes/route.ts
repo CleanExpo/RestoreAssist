@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     })
 
-    return NextResponse.json(scopes.map(scope => ({
+    return NextResponse.json(scopes.map((scope: typeof scopes[number]) => ({
       id: scope.id,
       reportId: scope.reportId,
       scopeType: scope.scopeType,

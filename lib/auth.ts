@@ -5,132 +5,32 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-import crypto from "crypto"
-import { logSecurityEvent } from '@/lib/security-audit'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          scope: 'openid email profile',
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
     }),
     CredentialsProvider({
-      id: "contractor-credentials",
-      name: "contractor-credentials",
+      name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email) {
-          console.log('[Contractor Credentials] No email provided')
+        if (!credentials?.email || !credentials?.password) {
           return null
         }
 
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
-          },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            image: true,
-            role: true,
-            password: true,
-            mustChangePassword: true,
-            organizationId: true
           }
         })
 
-        if (!user) {
-          console.log('[Contractor Credentials] User not found for provided credentials')
-          logSecurityEvent({
-            eventType: 'LOGIN_FAILED',
-            severity: 'WARNING',
-            email: credentials.email,
-            details: { reason: 'user_not_found' },
-          }).catch(() => {})
-          return null
-        }
-
-        // Google auth token verification (HMAC-signed proof from /api/auth/google-signin)
-        // This allows existing password users to sign in via Google without clearing their password
-        if (credentials.password?.startsWith('gauth:')) {
-          const parts = credentials.password.split(':')
-          if (parts.length === 3) {
-            const [, timestamp, hmac] = parts
-            const age = Date.now() - parseInt(timestamp)
-            if (age >= 0 && age < 60_000) {
-              const expected = crypto.createHmac('sha256', process.env.NEXTAUTH_SECRET || 'fallback')
-                .update(`gauth:${credentials.email}:${timestamp}`)
-                .digest('hex')
-              if (hmac.length === expected.length && crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected))) {
-                console.log('[Contractor Credentials] Google auth token verified for user')
-                logSecurityEvent({
-                  eventType: 'LOGIN_SUCCESS',
-                  userId: user.id,
-                  email: user.email!,
-                  details: { method: 'google_auth_token' },
-                }).catch(() => {})
-                return {
-                  id: user.id,
-                  email: user.email,
-                  name: user.name,
-                  image: user.image,
-                  role: user.role,
-                  mustChangePassword: user.mustChangePassword || false,
-                  organizationId: user.organizationId || null,
-                  userType: 'contractor',
-                }
-              }
-            }
-          }
-          console.log('[Contractor Credentials] Invalid Google auth token')
-          return null
-        }
-
-        // Handle Google users (no password provided or empty string)
-        // Check if password is missing, empty string, or undefined
-        const isPasswordEmpty = !credentials.password || credentials.password.trim() === ''
-
-        if (isPasswordEmpty) {
-          // Check if user was created via Google (no password set in DB)
-          if (!user.password) {
-            console.log('[Contractor Credentials] Google user authenticated')
-            logSecurityEvent({
-              eventType: 'LOGIN_SUCCESS',
-              userId: user.id,
-              email: user.email!,
-              details: { method: 'google_passthrough' },
-            }).catch(() => {})
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              image: user.image,
-              role: user.role,
-              mustChangePassword: user.mustChangePassword || false,
-              organizationId: user.organizationId || null,
-              userType: 'contractor',
-            }
-          }
-          // User has password but none provided - invalid
-          console.log('[Contractor Credentials] Password required for user')
-          return null
-        }
-
-        // Regular password check for email/password users
-        if (!user.password) {
-          console.log('[Contractor Credentials] User has no password but password was provided')
+        if (!user || !user.password) {
           return null
         }
 
@@ -140,118 +40,15 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
-          console.log('[Contractor Credentials] Invalid password for user')
-          logSecurityEvent({
-            eventType: 'LOGIN_FAILED',
-            severity: 'WARNING',
-            userId: user.id,
-            email: credentials.email,
-            details: { reason: 'invalid_password' },
-          }).catch(() => {})
           return null
         }
 
-        console.log('[Contractor Credentials] User authenticated successfully')
-        logSecurityEvent({
-          eventType: 'LOGIN_SUCCESS',
-          userId: user.id,
-          email: user.email!,
-        }).catch(() => {})
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           image: user.image,
           role: user.role,
-          mustChangePassword: user.mustChangePassword || false,
-          organizationId: user.organizationId || null,
-          userType: 'contractor',
-        }
-      }
-    }),
-    CredentialsProvider({
-      id: "client-credentials",
-      name: "client-credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          console.log('[Client Credentials] Missing email or password')
-          return null
-        }
-
-        const clientUser = await prisma.clientUser.findUnique({
-          where: {
-            email: credentials.email
-          },
-          include: {
-            client: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                userId: true, // Contractor who owns this client
-              }
-            }
-          }
-        })
-
-        if (!clientUser) {
-          console.log('[Client Credentials] Client user not found')
-          logSecurityEvent({
-            eventType: 'LOGIN_FAILED',
-            severity: 'WARNING',
-            email: credentials.email,
-            details: { reason: 'client_user_not_found', userType: 'client' },
-          }).catch(() => {})
-          return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          clientUser.passwordHash
-        )
-
-        if (!isPasswordValid) {
-          console.log('[Client Credentials] Invalid password for client')
-          logSecurityEvent({
-            eventType: 'LOGIN_FAILED',
-            severity: 'WARNING',
-            userId: clientUser.id,
-            email: credentials.email,
-            details: { reason: 'invalid_password', userType: 'client' },
-          }).catch(() => {})
-          return null
-        }
-
-        console.log('[Client Credentials] Client authenticated successfully')
-
-        // Update last login time
-        await prisma.clientUser.update({
-          where: { id: clientUser.id },
-          data: { lastLoginAt: new Date() }
-        }).catch(() => {})
-
-        logSecurityEvent({
-          eventType: 'LOGIN_SUCCESS',
-          userId: clientUser.id,
-          email: clientUser.email,
-          details: { userType: 'client', clientId: clientUser.clientId },
-        }).catch(() => {})
-
-        return {
-          id: clientUser.id,
-          email: clientUser.email,
-          name: clientUser.name,
-          image: null,
-          role: 'CLIENT',
-          mustChangePassword: clientUser.mustChangePassword || false,
-          organizationId: null,
-          userType: 'client',
-          clientId: clientUser.clientId,
-          contractorId: clientUser.client.userId, // The contractor who owns this client
         }
       }
     })
@@ -260,30 +57,16 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.role = user.role
-        token.mustChangePassword = user.mustChangePassword || false
-        token.organizationId = user.organizationId || null
-        token.userType = user.userType || 'contractor'
-        token.clientId = user.clientId || null
-        token.contractorId = user.contractorId || null
-      }
-      if (account?.provider === 'google' && account.access_token) {
-        token.googleAccessToken = account.access_token
-        if (account.refresh_token) token.googleRefreshToken = account.refresh_token
+        token.role = (user as { role?: string }).role
       }
       return token
     },
     async session({ session, token }) {
-      if (token) {
+      if (token && session.user) {
         session.user.id = token.sub!
         session.user.role = token.role as string
-        session.user.mustChangePassword = (token.mustChangePassword as boolean) || false
-        session.user.organizationId = (token.organizationId as string) || null
-        session.user.userType = (token.userType as string) || 'contractor'
-        session.user.clientId = (token.clientId as string) || null
-        session.user.contractorId = (token.contractorId as string) || null
       }
       return session
     },

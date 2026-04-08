@@ -3,8 +3,6 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateDetailedReport } from "@/lib/anthropic"
-import { canCreateReport } from "@/lib/report-limits"
-import { sanitizeString } from "@/lib/sanitize"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,11 +15,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const pageParam = searchParams.get("page")
     const limitParam = searchParams.get("limit")
-    // Always paginate; default 50 per page, hard cap at 200 to prevent enumeration attacks
-    const shouldPaginate = true
-    const page = pageParam ? Math.max(1, parseInt(pageParam)) : 1
-    const rawLimit = limitParam ? parseInt(limitParam) : 50
-    const limit = Math.min(Math.max(1, isNaN(rawLimit) ? 50 : rawLimit), 200)
+    // Only apply pagination if explicitly requested, otherwise fetch all (up to 10000)
+    const shouldPaginate = pageParam !== null || limitParam !== null
+    const page = pageParam ? parseInt(pageParam) : 1
+    const limit = limitParam ? parseInt(limitParam) : (shouldPaginate ? 10 : 10000)
     const status = searchParams.get("status")
     const waterCategory = searchParams.get("waterCategory")
     const waterClass = searchParams.get("waterClass")
@@ -64,34 +61,11 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const reportIds = reports.map((r) => r.id)
-    const completedSessions = reportIds.length > 0
-      ? await prisma.interviewSession.findMany({
-          where: {
-            reportId: { in: reportIds },
-            status: "COMPLETED",
-            userId: session.user.id
-          },
-          orderBy: { completedAt: "desc" },
-          select: { id: true, reportId: true }
-        })
-      : []
-    const sessionByReportId = new Map<string, string>()
-    for (const s of completedSessions) {
-      if (s.reportId && !sessionByReportId.has(s.reportId)) {
-        sessionByReportId.set(s.reportId, s.id)
-      }
-    }
-
-    const reportsWithCost = reports.map((report) => {
-      const sessionId = sessionByReportId.get(report.id)
-      return {
-        ...report,
-        estimatedCost: report.estimates?.[0]?.totalIncGST || (report as any).estimatedCost || null,
-        interviewCompleted: !!sessionId,
-        interviewSessionId: sessionId ?? null
-      }
-    })
+    // Map reports to include estimatedCost from estimate
+    const reportsWithCost = reports.map((report: typeof reports[number]) => ({
+      ...report,
+      estimatedCost: report.estimates?.[0]?.totalIncGST || report.estimatedCost || null
+    }))
 
     const total = await prisma.report.count({ where })
 
@@ -124,15 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-
-    // Sanitize user-input strings
-    body.title = sanitizeString(body.title, 200)
-    body.clientName = sanitizeString(body.clientName, 200)
-    body.propertyAddress = sanitizeString(body.propertyAddress, 500)
-    body.description = sanitizeString(body.description, 5000)
-    body.sourceOfWater = sanitizeString(body.sourceOfWater, 500)
-    body.hazardType = sanitizeString(body.hazardType, 100)
-
+    
     // Validate required fields
     const requiredFields = [
       "title",
@@ -151,30 +117,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user can create a report
-    const canCreate = await canCreateReport(session.user.id)
-    
-    if (!canCreate.allowed) {
+    // Check and use credits directly
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        subscriptionStatus: true,
+        creditsRemaining: true,
+        totalCreditsUsed: true,
+      }
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check if user has enough credits (only for trial users)
+    if (user.subscriptionStatus === 'TRIAL' && user.creditsRemaining < 1) {
       return NextResponse.json(
         { 
-          error: canCreate.reason || "Cannot create report",
+          error: "Insufficient credits. Please upgrade your plan to create more reports.",
           upgradeRequired: true,
+          creditsRemaining: user.creditsRemaining
         },
         { status: 402 }
       )
     }
 
-    // Get effective subscription (Admin's for Managers/Technicians)
-    const { getEffectiveSubscription, getOrganizationOwner } = await import("@/lib/organization-credits")
-    const effectiveSub = await getEffectiveSubscription(session.user.id)
-    
-    if (!effectiveSub) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    // Update credits (only for trial users)
+    if (user.subscriptionStatus === 'TRIAL') {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          creditsRemaining: Math.max(0, user.creditsRemaining - 1),
+          totalCreditsUsed: user.totalCreditsUsed + 1,
+        }
+      })
     }
-
-    // Deduct credits and track usage for team hierarchy
-    const { deductCreditsAndTrackUsage } = await import('@/lib/report-limits')
-    await deductCreditsAndTrackUsage(session.user.id)
 
     // Generate report number if not provided
     const reportNumber = body.reportNumber || `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
@@ -188,6 +166,14 @@ export async function POST(request: NextRequest) {
     // Generate detailed report using AI
     let detailedReport = null
     try {
+      console.log('Generating detailed report with AI...')
+      console.log('Report data:', {
+        title: body.title,
+        clientName: body.clientName,
+        waterCategory: body.waterCategory,
+        waterClass: body.waterClass
+      })
+      
       detailedReport = await generateDetailedReport({
         basicInfo: {
           title: body.title,
@@ -205,7 +191,13 @@ export async function POST(request: NextRequest) {
         monitoringData: body.monitoringData,
         insuranceData: body.insuranceData,
       })
+      console.log('Detailed report generated successfully, length:', detailedReport?.length)
     } catch (aiError) {
+      console.error('Error generating detailed report:', aiError)
+      console.error('AI Error details:', {
+        message: aiError instanceof Error ? aiError.message : 'Unknown error',
+        stack: aiError instanceof Error ? aiError.stack : undefined
+      })
       // Continue without detailed report - don't fail the entire process
     }
     

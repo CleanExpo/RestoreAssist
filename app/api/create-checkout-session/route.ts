@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
           priceData = {
             unit_amount: 9900, // $99.00 in cents
             currency: 'aud',
-            recurring: { interval: 'month' },
+            recurring: { interval: 'month' as const },
             product_data: {
               name: 'Monthly Plan - 50 Reports',
             },
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           priceData = {
             unit_amount: 118800, // $1188.00 in cents
             currency: 'aud',
-            recurring: { interval: 'year' },
+            recurring: { interval: 'year' as const },
             product_data: {
               name: 'Yearly Plan - 70 Reports/Month',
             },
