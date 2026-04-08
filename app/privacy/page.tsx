@@ -28,7 +28,7 @@ export default function PrivacyPage() {
             </h2>
             <p>
               RestoreAssist is a property restoration management platform
-              operated by Unite-Group Nexus Pty Ltd ABN 62 580 077 456, trading
+              operated by Unite-Group Nexus Pty Ltd ABN 95 691 477 844, trading
               as Restore Assist (&ldquo;we&rdquo;, &ldquo;us&rdquo;,
               &ldquo;our&rdquo;). This policy applies to the RestoreAssist web
               application, the RestoreAssist field iOS and Android application (
@@ -269,8 +269,8 @@ export default function PrivacyPage() {
               </a>
             </p>
             <p className="mt-2 text-neutral-400 text-xs">
-              Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 62
-              580 077 456
+              Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 95
+              691 477 844
             </p>
           </section>
         </div>
