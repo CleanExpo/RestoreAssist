@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-servicem8-signature");
 
     if (!signature) {
-      console.error("[ServiceM8 Webhook] Missing signature header");
+      // Missing signature;
       return NextResponse.json({ error: "Missing signature" }, { status: 401 });
     }
 
@@ -30,9 +30,7 @@ export async function POST(request: NextRequest) {
 
     const webhookSecret = process.env.SERVICEM8_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error(
-        "[ServiceM8 Webhook] SERVICEM8_WEBHOOK_SECRET not configured",
-      );
+      // SERVICEM8_WEBHOOK_SECRET env var not set;
       return NextResponse.json(
         { error: "Webhook secret not configured" },
         { status: 500 },

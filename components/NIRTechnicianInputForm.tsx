@@ -687,7 +687,10 @@ export default function NIRTechnicianInputForm({
           setQuickFillCredits(data.creditsRemaining);
           setHasUnlimitedQuickFill(data.hasUnlimited || false);
         }
-      } catch (error) {}
+      } catch (error) {
+        // Non-fatal: credits display will fall back to 0
+        console.error("Failed to fetch Quick Fill credits:", error);
+      }
     };
     fetchQuickFillCredits();
   }, []);

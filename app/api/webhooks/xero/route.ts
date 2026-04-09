@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-xero-signature");
 
     if (!signature) {
-      console.error("[Xero Webhook] Missing signature header");
+      // Missing signature;
       return NextResponse.json({ error: "Missing signature" }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature
     const webhookKey = process.env.XERO_WEBHOOK_KEY;
     if (!webhookKey) {
-      console.error("[Xero Webhook] XERO_WEBHOOK_KEY not configured");
+      // XERO_WEBHOOK_KEY env var not set;
       return NextResponse.json(
         { error: "Webhook key not configured" },
         { status: 500 },
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const sigBuf = Buffer.from(signature, "base64");
     const expBuf = Buffer.from(expectedSignature, "base64");
     if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-      console.error("[Xero Webhook] Invalid signature");
+      // Signature mismatch;
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
