@@ -36,6 +36,7 @@ import {
 } from "@/lib/workspace/provider-connections";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
+import { prisma } from "@/lib/prisma";
 
 const VALID_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
@@ -143,11 +144,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const member = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id, workspaceId: workspace.id },
+      select: { id: true },
+    });
+
     const connection = await upsertProviderConnection({
       workspaceId: workspace.id,
       provider,
       plaintextApiKey: trimmedKey,
-      memberId: undefined, // TODO: resolve WorkspaceMember.id from session when needed
+      memberId: member?.id,
     });
 
     return NextResponse.json({ connection }, { status: 200 });
