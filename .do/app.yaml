@@ -6,7 +6,7 @@ services:
       repo: CleanExpo/RestoreAssist
       branch: main
     build_command: npm run build
-    run_command: npx prisma migrate deploy && npm start
+    run_command: npm start
     environment_slug: node-js
     instance_count: 1
     instance_size_slug: basic-xxs
