@@ -12,10 +12,79 @@ export interface ExcelExportOptions {
   includePhotos?: boolean;
 }
 
+/** Represents a JSON-parsed field from the Report model (stored as JSON string in DB). */
+type JsonRecord = Record<string, unknown>;
+
+/** Minimal shape of a Prisma Report row after JSON fields have been parsed. */
+export interface ParsedReport {
+  id: string;
+  title: string;
+  status: string;
+  clientName: string;
+  propertyAddress: string;
+  hazardType: string;
+  insuranceType?: string | null;
+  totalCost?: number | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  reportNumber?: string | null;
+  inspectionDate?: Date | string | null;
+  waterCategory?: string | null;
+  waterClass?: string | null;
+  sourceOfWater?: string | null;
+  affectedArea?: number | null;
+  safetyHazards?: string | null;
+  technicianName?: string | null;
+  completenessScore?: number | null;
+  detailedReport?: unknown;
+  scopeOfWorksData?: unknown;
+  costEstimationData?: unknown;
+  moistureReadings?: unknown;
+  psychrometricReadings?: unknown;
+  psychrometricAssessment?: unknown;
+  tier1Responses?: unknown;
+  tier2Responses?: unknown;
+  tier3Responses?: unknown;
+  versionHistory?: unknown;
+  validationWarnings?: unknown;
+  validationErrors?: unknown;
+  equipmentSelection?: unknown;
+  scopeAreas?: unknown;
+  technicianFieldReport?: string | null;
+  scopeOfWorksDocument?: string | null;
+  costEstimationDocument?: string | null;
+  geographicIntelligence?: unknown;
+  propertyCover?: unknown;
+  contentsCover?: unknown;
+  liabilityCover?: unknown;
+  businessInterruption?: unknown;
+  additionalCover?: unknown;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    businessName?: string | null;
+    businessAddress?: string | null;
+    businessABN?: string | null;
+    businessPhone?: string | null;
+    businessEmail?: string | null;
+  } | null;
+  client?: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    company?: string | null;
+    address?: string | null;
+    contactPerson?: string | null;
+    status?: string | null;
+  } | null;
+  [key: string]: unknown;
+}
+
 /**
  * Helper to safely parse JSON
  */
-function safeParse(value: any): any {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function safeParse(value: unknown): any {
   if (!value) return null;
   if (typeof value === "object") return value;
   if (typeof value === "string") {
@@ -31,10 +100,10 @@ function safeParse(value: any): any {
 /**
  * Helper to format date
  */
-function formatDate(date: any): string {
+function formatDate(date: unknown): string {
   if (!date) return "N/A";
   try {
-    return format(new Date(date), "dd/MM/yyyy HH:mm");
+    return format(new Date(date as string | number | Date), "dd/MM/yyyy HH:mm");
   } catch {
     return String(date);
   }
@@ -43,10 +112,10 @@ function formatDate(date: any): string {
 /**
  * Helper to format date only
  */
-function formatDateOnly(date: any): string {
+function formatDateOnly(date: unknown): string {
   if (!date) return "N/A";
   try {
-    return format(new Date(date), "dd/MM/yyyy");
+    return format(new Date(date as string | number | Date), "dd/MM/yyyy");
   } catch {
     return String(date);
   }
@@ -56,7 +125,7 @@ function formatDateOnly(date: any): string {
  * Generate a professional Excel workbook for a single report with ALL data
  */
 export async function generateSingleReportExcel(
-  report: any,
+  report: ParsedReport,
   options: ExcelExportOptions = {},
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
@@ -729,6 +798,7 @@ export async function generateSingleReportExcel(
     ];
 
     let totalEquipmentCost = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     equipmentSelection.forEach((item: any) => {
       const cost =
         item.totalCost ||
@@ -1045,6 +1115,7 @@ export async function generateSingleReportExcel(
         { header: "Specifications", key: "specifications", width: 40 },
       ];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       equipmentSelection.forEach((item: any) => {
         equipmentSheet.addRow({
           name: item.name || item.equipmentName || "N/A",
@@ -1662,7 +1733,7 @@ export async function generateSingleReportExcel(
  * Generate Excel workbook for bulk reports (used by bulk export)
  */
 export async function generateExcelWorkbook(
-  reports: any[],
+  reports: ParsedReport[],
   options: ExcelExportOptions = {},
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();

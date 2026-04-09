@@ -8,6 +8,7 @@
 import {
   PDFDocument,
   rgb,
+  RGB,
   StandardFonts,
   PDFFont,
   PDFPage,
@@ -27,15 +28,76 @@ interface BusinessInfo {
   businessEmail?: string | null;
 }
 
+type JsonRecord = Record<string, unknown>;
+
+interface PdfColors {
+  darkBlue: RGB;
+  lightBlue?: RGB;
+  red?: RGB;
+  green?: RGB;
+  orange?: RGB;
+  black: RGB;
+  white?: RGB;
+  lightGray?: RGB;
+  darkGray?: RGB;
+}
+
+interface MoistureDataResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readings: any[];
+}
+
+interface PsychrometricDataResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readings: any[];
+}
+
+/** Raw phase object built inside buildTimelineData before normalization */
+interface RawTimelinePhase {
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  duration: number;
+  color: RGB;
+}
+
+/** Normalized phase passed to renderPage3 */
+interface TimelinePhase {
+  name: string;
+  start: number;
+  duration: number;
+  color: RGB;
+  actualStart: Date;
+  actualEnd: Date;
+  actualDuration: number;
+}
+
+interface TimelineDataResult {
+  phases: TimelinePhase[];
+  totalDays: number;
+  startDate: Date;
+  endDate: Date;
+  actualPhases: RawTimelinePhase[];
+}
+
 interface ReportData {
-  report: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  report: any; // Prisma Report with 110+ fields + parsed JSON blobs — fully typed in a future refactor
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tier1: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tier2: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tier3: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stateInfo: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   psychrometricAssessment?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scopeAreas?: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   equipmentSelection?: any[];
   standardsContext?: string;
   businessInfo?: BusinessInfo;
@@ -300,7 +362,7 @@ async function renderPage1(
     pdfDoc: PDFDocument;
     helvetica: PDFFont;
     helveticaBold: PDFFont;
-    colors: any;
+    colors: PdfColors;
     jobRef: string;
     inspectionDate: string;
     businessInfo: BusinessInfo;
@@ -311,10 +373,12 @@ async function renderPage1(
     methTestCount: number | null;
     bioMouldDetected: boolean;
     bioMouldCategory: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     analysis: any;
     standardsContext?: string;
-    timelineData?: any;
+    timelineData?: TimelineDataResult;
   },
 ) {
   const { width, height } = page.getSize();
@@ -622,12 +686,13 @@ async function renderPage2(
     pdfDoc: PDFDocument;
     helvetica: PDFFont;
     helveticaBold: PDFFont;
-    colors: any;
+    colors: PdfColors;
     jobRef: string;
     scopeItems: ScopeItem[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
-    equipmentSelection?: any[];
-    pricingConfig?: any;
+    equipmentSelection?: JsonRecord[];
+    pricingConfig?: JsonRecord;
   },
 ) {
   const { width, height } = page.getSize();
@@ -881,13 +946,15 @@ async function renderPage3(
     pdfDoc: PDFDocument;
     helvetica: PDFFont;
     helveticaBold: PDFFont;
-    colors: any;
+    colors: PdfColors;
     jobRef: string;
-    timelineData: any;
-    moistureData: any;
-    psychrometricData: any;
+    timelineData: TimelineDataResult;
+    moistureData: MoistureDataResult;
+    psychrometricData: PsychrometricDataResult;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
-    scopeAreas?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    scopeAreas?: any[];
   },
 ) {
   const { width, height } = page.getSize();
@@ -994,74 +1061,81 @@ async function renderPage3(
     yPosition = moistureHeaderY - 30;
 
     // Moisture Rows
-    moistureData.readings.slice(0, 5).forEach((reading: any, index: number) => {
-      if (yPosition < 500) return;
+    moistureData.readings
+      .slice(0, 5)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .forEach((reading: any, index: number) => {
+        if (yPosition < 500) return;
 
-      const rowHeight = 25;
+        const rowHeight = 25;
 
-      if (index % 2 === 0) {
-        page.drawRectangle({
-          x: margin,
-          y: yPosition - rowHeight,
-          width: moistureTableWidth,
-          height: rowHeight,
-          color: colors.lightGray,
+        if (index % 2 === 0) {
+          page.drawRectangle({
+            x: margin,
+            y: yPosition - rowHeight,
+            width: moistureTableWidth,
+            height: rowHeight,
+            color: colors.lightGray,
+          });
+        }
+
+        colX = margin + 5;
+        page.drawText(sanitizeTextForPDF(reading.location || "N/A"), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: moistureColWidths.location - 10,
         });
-      }
+        colX += moistureColWidths.location;
 
-      colX = margin + 5;
-      page.drawText(sanitizeTextForPDF(reading.location || "N/A"), {
-        x: colX,
-        y: yPosition - 15,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-        maxWidth: moistureColWidths.location - 10,
+        page.drawText(sanitizeTextForPDF(reading.material || "N/A"), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: moistureColWidths.material - 10,
+        });
+        colX += moistureColWidths.material;
+
+        page.drawText(sanitizeTextForPDF(String(reading.reading || "N/A")), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: moistureColWidths.reading - 10,
+        });
+        colX += moistureColWidths.reading;
+
+        page.drawText(
+          sanitizeTextForPDF(String(reading.dryStandard || "12%")),
+          {
+            x: colX,
+            y: yPosition - 15,
+            size: 9,
+            font: helvetica,
+            color: colors.black,
+            maxWidth: moistureColWidths.dryStandard - 10,
+          },
+        );
+        colX += moistureColWidths.dryStandard;
+
+        const statusColor =
+          reading.status === "WET" ? colors.red : colors.green;
+        page.drawText(sanitizeTextForPDF(reading.status || "DRY"), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helveticaBold,
+          color: statusColor,
+          maxWidth: moistureColWidths.status - 10,
+        });
+
+        yPosition -= rowHeight + 2;
       });
-      colX += moistureColWidths.location;
-
-      page.drawText(sanitizeTextForPDF(reading.material || "N/A"), {
-        x: colX,
-        y: yPosition - 15,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-        maxWidth: moistureColWidths.material - 10,
-      });
-      colX += moistureColWidths.material;
-
-      page.drawText(sanitizeTextForPDF(String(reading.reading || "N/A")), {
-        x: colX,
-        y: yPosition - 15,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-        maxWidth: moistureColWidths.reading - 10,
-      });
-      colX += moistureColWidths.reading;
-
-      page.drawText(sanitizeTextForPDF(String(reading.dryStandard || "12%")), {
-        x: colX,
-        y: yPosition - 15,
-        size: 9,
-        font: helvetica,
-        color: colors.black,
-        maxWidth: moistureColWidths.dryStandard - 10,
-      });
-      colX += moistureColWidths.dryStandard;
-
-      const statusColor = reading.status === "WET" ? colors.red : colors.green;
-      page.drawText(sanitizeTextForPDF(reading.status || "DRY"), {
-        x: colX,
-        y: yPosition - 15,
-        size: 9,
-        font: helveticaBold,
-        color: statusColor,
-        maxWidth: moistureColWidths.status - 10,
-      });
-
-      yPosition -= rowHeight + 2;
-    });
 
     yPosition -= 20;
   }
@@ -1148,6 +1222,7 @@ async function renderPage3(
     // Psychrometric Rows
     psychrometricData.readings
       .slice(0, 3)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .forEach((reading: any, index: number) => {
         if (yPosition < 400) return;
 
@@ -1294,7 +1369,7 @@ async function renderPage3(
   const phaseSpacing = 30;
   let phaseY = ganttY - 40;
 
-  phases.forEach((phase: any, index: number) => {
+  phases.forEach((phase: TimelinePhase, index: number) => {
     const barX = margin + (phase.start / 14) * ganttWidth;
     const barWidth = Math.max(10, (phase.duration / 14) * ganttWidth); // Minimum width for visibility
 
@@ -1407,7 +1482,7 @@ async function renderPage3(
   // Generate communication plan from report data
   const commRows = buildCommunicationPlan(
     options.report,
-    options.scopeAreas,
+    options.scopeAreas ?? [],
     timelineData,
   );
 
@@ -1489,7 +1564,7 @@ async function renderPage4(
     pdfDoc: PDFDocument;
     helvetica: PDFFont;
     helveticaBold: PDFFont;
-    colors: any;
+    colors: PdfColors;
     jobRef: string;
     businessInfo: BusinessInfo;
   },
@@ -1648,7 +1723,7 @@ function addHeaderFooter(
   options: {
     helvetica: PDFFont;
     helveticaBold: PDFFont;
-    colors: any;
+    colors: PdfColors;
     businessInfo: BusinessInfo;
     logoImage: PDFImage | null;
     jobRef: string;
@@ -1941,6 +2016,7 @@ function buildScopeItems(
 
   // Add scope area specific items with dynamic justification
   if (scopeAreas && scopeAreas.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas.forEach((area: any, index: number) => {
       const materials = Array.isArray(area.materials)
         ? area.materials.join(", ")
@@ -2007,9 +2083,10 @@ function buildScopeItems(
 /**
  * Build moisture data from report
  */
-function buildMoistureData(data: ReportData): any {
+function buildMoistureData(data: ReportData): MoistureDataResult {
   const { report, tier2, scopeAreas } = data;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let moistureReadings: any[] = [];
 
   // Parse moisture readings from report
@@ -2032,22 +2109,28 @@ function buildMoistureData(data: ReportData): any {
     tier2?.T2_Q1_moistureReadings &&
     Array.isArray(tier2.T2_Q1_moistureReadings)
   ) {
-    moistureReadings = tier2.T2_Q1_moistureReadings.map((reading: any) => ({
-      location: reading.location || reading.room || "Location",
-      material: reading.material || "Various",
-      reading:
-        reading.reading || reading.moistureContent || reading.wme || "N/A",
-      dryStandard: reading.dryStandard || reading.benchmark || "12%",
-      status:
-        reading.status ||
-        (parseFloat(reading.reading || reading.moistureContent || "0") > 20
-          ? "WET"
-          : "DRY"),
-    }));
+    moistureReadings = (tier2.T2_Q1_moistureReadings as JsonRecord[]).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (reading: any) => ({
+        location: reading.location || reading.room || "Location",
+        material: reading.material || "Various",
+        reading:
+          reading.reading || reading.moistureContent || reading.wme || "N/A",
+        dryStandard: reading.dryStandard || reading.benchmark || "12%",
+        status:
+          reading.status ||
+          (parseFloat(
+            String(reading.reading ?? reading.moistureContent ?? "0"),
+          ) > 20
+            ? "WET"
+            : "DRY"),
+      }),
+    );
   }
 
   // Extract from scopeAreas if available
   if (scopeAreas && scopeAreas.length > 0 && moistureReadings.length === 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas.forEach((area: any) => {
       if (area.moisture || area.moistureReading) {
         moistureReadings.push({
@@ -2083,9 +2166,10 @@ function buildMoistureData(data: ReportData): any {
 /**
  * Build psychrometric data from report
  */
-function buildPsychrometricData(data: ReportData): any {
+function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
   const { report, psychrometricAssessment, tier2 } = data;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let psychrometricReadings: any[] = [];
 
   // Parse psychrometric readings from report
@@ -2141,14 +2225,14 @@ function buildTimelineData(
   phase2End?: Date | null,
   phase3Start?: Date | null,
   phase3End?: Date | null,
-): any {
+): TimelineDataResult {
   const { report } = data;
 
   // Use actual phase dates if available, otherwise estimate
   const startDate = report.technicianAttendanceDate
-    ? new Date(report.technicianAttendanceDate)
+    ? new Date(report.technicianAttendanceDate as string)
     : new Date();
-  const phases: any[] = [];
+  const phases: RawTimelinePhase[] = [];
 
   // Calculate total timeline span
   let earliestDate = startDate;
@@ -2221,9 +2305,14 @@ function buildTimelineData(
 
       if (scopeAreas.length > 0) {
         // Calculate from scope areas volume
-        const totalVolume = scopeAreas.reduce((sum: number, area: any) => {
-          return sum + (area.volume || 0);
-        }, 0);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalVolume = (scopeAreas as any[]).reduce(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (sum: number, area: any) => {
+            return sum + (area.volume || 0);
+          },
+          0,
+        );
         // Rough estimate: 1 day per 50 cubic metres
         estimatedDays = Math.max(3, Math.ceil(totalVolume / 50));
       } else if (affectedArea > 0) {
@@ -2340,7 +2429,9 @@ function buildTimelineData(
  * Build expertise points from standards and report data
  */
 function buildExpertisePoints(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any,
   standardsContext: string,
 ): string[] {
@@ -2385,6 +2476,7 @@ function buildExpertisePoints(
  * Build risk points from report data
  */
 function buildRiskPoints(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   waterCategory: string,
   hasMould: boolean,
@@ -2434,7 +2526,11 @@ function buildRiskPoints(
 /**
  * Build rip & repair approach drawbacks
  */
-function buildRipRepairPoints(report: any, timelineData: any): string[] {
+function buildRipRepairPoints(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  report: any,
+  timelineData: TimelineDataResult | undefined,
+): string[] {
   const points: string[] = [];
 
   // Calculate disruption based on affected area
@@ -2471,7 +2567,11 @@ function buildRipRepairPoints(report: any, timelineData: any): string[] {
 /**
  * Build mitigation approach benefits
  */
-function buildMitigationPoints(report: any, timelineData: any): string[] {
+function buildMitigationPoints(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  report: any,
+  timelineData: TimelineDataResult | undefined,
+): string[] {
   const points: string[] = [];
 
   // Minimal disruption
@@ -2502,9 +2602,11 @@ function buildMitigationPoints(report: any, timelineData: any): string[] {
  * Build communication plan from report data
  */
 function buildCommunicationPlan(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  scopeAreas: any,
-  timelineData: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  scopeAreas: any[],
+  timelineData: TimelineDataResult,
 ): Array<{
   stakeholder: string;
   frequency: string;
@@ -2596,7 +2698,9 @@ function buildCommunicationPlan(
  * Build forensic summary text
  */
 function buildForensicSummary(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any,
   waterCategory: string,
   waterClass: string,

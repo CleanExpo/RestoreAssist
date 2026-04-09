@@ -7,6 +7,27 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 
 const require = createRequire(import.meta.url);
 
+interface PdfParseResult {
+  text?: string;
+}
+
+interface ParsedReportData {
+  clientName: string;
+  propertyAddress: string;
+  inspectionDate: string;
+  waterCategory: string;
+  waterClass: string;
+  sourceOfWater: string;
+  affectedArea: number;
+  safetyHazards: string;
+  structuralDamage: string;
+  contentsDamage: string;
+  electricalHazards: string;
+  microbialGrowth: string;
+  hvacAffected: boolean;
+  estimatedDryingTime: number | null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -44,28 +65,32 @@ export async function POST(request: NextRequest) {
     let text = "";
     try {
       const pdfParseModule = require("pdf-parse");
-      let pdfData: any;
+      let pdfData: PdfParseResult | undefined;
+      const pdfMod = pdfParseModule as Record<string, unknown>;
 
       if (typeof pdfParseModule === "function") {
         pdfData = await pdfParseModule(buffer);
-      } else if (
-        pdfParseModule.default &&
-        typeof pdfParseModule.default === "function"
-      ) {
-        pdfData = await pdfParseModule.default(buffer);
-      } else if (pdfParseModule.PDFParse) {
-        const PDFParse = pdfParseModule.PDFParse;
+      } else if (pdfMod.default && typeof pdfMod.default === "function") {
+        pdfData = await (
+          pdfMod.default as (buf: Buffer) => Promise<PdfParseResult>
+        )(buffer);
+      } else if (pdfMod.PDFParse) {
+        const PDFParse = pdfMod.PDFParse as new (
+          buf: Buffer,
+          opts: Record<string, never>,
+        ) => { load(): Promise<void>; getText(): string };
         const parser = new PDFParse(buffer, {});
         await parser.load();
         text = parser.getText();
       } else {
-        const funcKey = Object.keys(pdfParseModule).find((key) => {
-          const val = (pdfParseModule as any)[key];
-          return typeof val === "function";
-        });
+        const funcKey = Object.keys(pdfMod).find(
+          (key) => typeof pdfMod[key] === "function",
+        );
         if (funcKey) {
-          pdfData = await (pdfParseModule as any)[funcKey](buffer);
-          text = pdfData?.text || "";
+          pdfData = await (
+            pdfMod[funcKey] as (buf: Buffer) => Promise<PdfParseResult>
+          )(buffer);
+          text = pdfData?.text ?? "";
         } else {
           throw new Error(
             "Could not find pdf-parse parsing function in module",
@@ -80,11 +105,9 @@ export async function POST(request: NextRequest) {
       if (!text) {
         throw new Error("No text extracted from PDF");
       }
-    } catch (error: any) {
-      if (
-        error.message?.includes("canvas") ||
-        error.message?.includes("napi-rs")
-      ) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : undefined;
+      if (msg?.includes("canvas") || msg?.includes("napi-rs")) {
         return NextResponse.json(
           {
             error:
@@ -94,7 +117,7 @@ export async function POST(request: NextRequest) {
         );
       }
       return NextResponse.json(
-        { error: `Failed to parse PDF: ${error.message || "Unknown error"}` },
+        { error: `Failed to parse PDF: ${msg ?? "Unknown error"}` },
         { status: 500 },
       );
     }
@@ -128,8 +151,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function parseReportFromText(text: string): any {
-  const data: any = {};
+function parseReportFromText(text: string): ParsedReportData {
+  const data: ParsedReportData = {
+    clientName: "",
+    propertyAddress: "",
+    inspectionDate: "",
+    waterCategory: "",
+    waterClass: "",
+    sourceOfWater: "",
+    affectedArea: 0,
+    safetyHazards: "",
+    structuralDamage: "",
+    contentsDamage: "",
+    electricalHazards: "",
+    microbialGrowth: "",
+    hvacAffected: false,
+    estimatedDryingTime: null,
+  };
 
   const extractField = (label: string, multiline: boolean = false): string => {
     const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
