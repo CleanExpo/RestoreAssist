@@ -364,12 +364,29 @@ export async function POST(request: NextRequest) {
           { status: 500 },
         );
       }
-      const firstIntegration = await (
-        prisma as any
-      ).ascoraIntegration.findFirst({
-        where: { isActive: true },
-        select: { userId: true },
-      });
+      let firstIntegration;
+      try {
+        firstIntegration = await (prisma as any).ascoraIntegration.findFirst({
+          where: { isActive: true },
+          select: { userId: true },
+        });
+      } catch (findErr: any) {
+        // Return diagnostic info alongside the error
+        const dbInfo =
+          await prisma.$queryRaw`SELECT current_database() as db, current_user as usr, version() as pg_version`;
+        const tables =
+          await prisma.$queryRaw`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'Ascora%'`;
+        return NextResponse.json(
+          {
+            error: "findFirst failed",
+            detail: findErr?.message?.slice(0, 300),
+            dbInfo,
+            ascoraTablesInPgTables: tables,
+            prismaModelExists: typeof (prisma as any).ascoraIntegration,
+          },
+          { status: 500 },
+        );
+      }
       if (!firstIntegration) {
         return NextResponse.json(
           {
