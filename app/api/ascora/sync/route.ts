@@ -345,6 +345,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       // Cron auth passed — find the first user with an Ascora integration
+      // Diagnostic: check if table exists before querying
+      try {
+        const tableCheck = await prisma.$queryRaw`
+          SELECT tablename FROM pg_tables
+          WHERE schemaname = 'public' AND tablename = 'AscoraIntegration'`;
+        if (!Array.isArray(tableCheck) || tableCheck.length === 0) {
+          const dbInfo =
+            await prisma.$queryRaw`SELECT current_database() as db, current_user as usr`;
+          return NextResponse.json(
+            { error: "AscoraIntegration table missing", dbInfo },
+            { status: 500 },
+          );
+        }
+      } catch (diagErr: any) {
+        return NextResponse.json(
+          { error: "Diagnostic query failed", detail: diagErr?.message },
+          { status: 500 },
+        );
+      }
       const firstIntegration = await (
         prisma as any
       ).ascoraIntegration.findFirst({
