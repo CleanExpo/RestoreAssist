@@ -11,14 +11,7 @@ import MobileWorkflowCarousel from "@/components/landing/MobileWorkflowCarousel"
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Framer Motion v12 + React 19: animations don't auto-trigger after SSR hydration.
-  // Explicit mounted gate ensures animate prop switches after client hydration.
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     // Load fonts dynamically if not already loaded
@@ -251,54 +244,40 @@ export default function Home() {
         {/* Content - Left Aligned */}
         <div className="relative z-10 max-w-7xl mx-auto px-6 w-full">
           {/* Main Title - "Restore Assist" */}
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8 }}
-            className="text-6xl md:text-8xl lg:text-9xl font-bold text-white mb-6 leading-tight text-left"
+          <h1
+            className="hero-fade-up hero-fade-up-1 text-6xl md:text-8xl lg:text-9xl font-bold text-white mb-6 leading-tight text-left"
             style={{
               fontFamily:
                 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
             Restore <br /> Assist
-          </motion.h1>
+          </h1>
 
           {/* Subtitle */}
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-xl md:text-2xl lg:text-3xl text-white/90 font-light italic text-left"
+          <p
+            className="hero-fade-up hero-fade-up-2 text-xl md:text-2xl lg:text-3xl text-white/90 font-light italic text-left"
             style={{
               fontFamily:
                 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
             One System. Fewer Gaps. <br /> More Confidence.
-          </motion.p>
+          </p>
 
           {/* Supporting Description */}
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-lg md:text-xl text-white/80 font-light max-w-2xl text-left mt-6 leading-relaxed"
+          <p
+            className="hero-fade-up hero-fade-up-3 text-lg md:text-xl text-white/80 font-light max-w-2xl text-left mt-6 leading-relaxed"
             style={{
               fontFamily:
                 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
             {BRAND.description}
-          </motion.p>
+          </p>
 
           {/* CTA Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 mt-8"
-          >
+          <div className="hero-fade-up hero-fade-up-4 flex flex-col sm:flex-row gap-4 mt-8">
             <Link
               href={BRAND.cta.primary.href}
               className="px-8 py-3 bg-[#8A6B4E] text-white font-medium rounded-lg shadow-lg hover:bg-[#7A5B3E] transition-all duration-300 text-center"
@@ -319,7 +298,7 @@ export default function Home() {
             >
               {BRAND.cta.secondary.label}
             </Link>
-          </motion.div>
+          </div>
         </div>
       </section>
 
