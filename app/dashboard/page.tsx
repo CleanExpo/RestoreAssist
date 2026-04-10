@@ -218,7 +218,7 @@ export default function DashboardPage() {
       description: "Browse IICRC compliant templates",
       icon: FileText,
       color: "from-emerald-500 to-teal-500",
-      href: "/dashboard/templates",
+      href: "/dashboard/form-templates",
     },
     {
       title: "Analytics",
