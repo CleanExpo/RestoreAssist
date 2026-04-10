@@ -9,23 +9,29 @@ All 447 Linear issues are Done. The full RestoreAssist platform is implemented a
 
 ## Current Session (2026-04-10)
 
-| Task                                        | Status  | Notes                                                         |
-| ------------------------------------------- | ------- | ------------------------------------------------------------- |
-| Managed Agents v4 protocol saved            | Done    | `.claude/MANAGED_AGENTS_v4_FINAL.md`                          |
-| Setup script created                        | Done    | `.claude/scripts/setup-managed-agents.sh`                     |
-| PROGRESS.md cleaned up                      | Done    | Removed ~400 duplicate Session End lines                      |
-| RA-509: Remove empty catch blocks           | Done    | PR #152                                                       |
-| RA-510: Remove console.log from routes      | Done    | PR #152 (webhook handlers)                                    |
-| RA-513: WorkspaceMember audit trail         | Done    | PR #152                                                       |
-| RA-514: Eliminate explicit any              | Done    | PR #152                                                       |
-| Production readiness audit                  | Done    | 447/448 issues Done; cron routes protected; Stripe fixed      |
-| RA-511: Refactor generate-inspection-report | Done    | PR #153 — route 3241→335 lines; 3 new modules in lib/reports/ |
-| RA-512: Split InitialDataEntryForm          | Done    | PR #154 — 5919→4258 lines; 6 sub-components extracted         |
-| API key for Managed Agents                  | Pending | CEO to provide ANTHROPIC_API_KEY                              |
-| Token & context optimization system         | Done    | .claudeignore, PreCompact hook, agents, skills — committed    |
-| console.log cleanup (22 files, 55 calls)    | Done    | All API routes clean — committed `c802f0f8`                   |
-| Admin routes → verifyAdminFromDb (9 files)  | Done    | CLAUDE.md rule 13 enforced — committed `ccfd7e13`             |
-| Hardcoded admin email in feedback route     | Done    | Removed `mmlrana00@gmail.com` bypass — committed `ccfd7e13`   |
+| Task                                        | Status  | Notes                                                             |
+| ------------------------------------------- | ------- | ----------------------------------------------------------------- |
+| Managed Agents v4 protocol saved            | Done    | `.claude/MANAGED_AGENTS_v4_FINAL.md`                              |
+| Setup script created                        | Done    | `.claude/scripts/setup-managed-agents.sh`                         |
+| PROGRESS.md cleaned up                      | Done    | Removed ~400 duplicate Session End lines                          |
+| RA-509: Remove empty catch blocks           | Done    | PR #152                                                           |
+| RA-510: Remove console.log from routes      | Done    | PR #152 (webhook handlers)                                        |
+| RA-513: WorkspaceMember audit trail         | Done    | PR #152                                                           |
+| RA-514: Eliminate explicit any              | Done    | PR #152                                                           |
+| Production readiness audit                  | Done    | 447/448 issues Done; cron routes protected; Stripe fixed          |
+| RA-511: Refactor generate-inspection-report | Done    | PR #153 — route 3241→335 lines; 3 new modules in lib/reports/     |
+| RA-512: Split InitialDataEntryForm          | Done    | PR #154 — 5919→4258 lines; 6 sub-components extracted             |
+| API key for Managed Agents                  | Pending | CEO to provide ANTHROPIC_API_KEY                                  |
+| Token & context optimization system         | Done    | .claudeignore, PreCompact hook, agents, skills — committed        |
+| console.log cleanup (22 files, 55 calls)    | Done    | All API routes clean — committed `c802f0f8`                       |
+| Admin routes → verifyAdminFromDb (9 files)  | Done    | CLAUDE.md rule 13 enforced — committed `ccfd7e13`                 |
+| Hardcoded admin email in feedback route     | Done    | Removed `mmlrana00@gmail.com` bypass — committed `ccfd7e13`       |
+| CSP middleware restored                     | Done    | `middleware.ts` was deleted — restored nonce-based CSP `862cdde7` |
+| Subscription gates on 11 AI routes          | Done    | Rules 16 — `884d57a9`, `8634c191`                                 |
+| HTML escaping in email templates            | Done    | Rule 19 — process-emails, invoice-templates `8634c191`            |
+| Magic byte validation on 2 upload routes    | Done    | Rule 15 — floor-plan, evidence/batch `8634c191`                   |
+| error.message in 422 response               | Done    | Rule 18 — contents-manifest `73227a0e`                            |
+| PR #152 updated                             | Done    | All security fixes included in PR                                 |
 
 ## Remaining Human Actions
 
