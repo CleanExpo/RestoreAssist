@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import { Menu, X } from "lucide-react";
 import MobileWorkflowCarousel from "@/components/landing/MobileWorkflowCarousel";
@@ -73,103 +73,90 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Overlay when menu is open - Behind menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            {/* Backdrop Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150]"
-              onClick={() => setMobileMenuOpen(false)}
-            />
+      {/* Overlay when menu is open - CSS-based (no Framer Motion) */}
+      {/* Backdrop Overlay */}
+      <div
+        className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-[150] transition-opacity duration-[250ms] ${
+          mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
 
-            {/* Sidebar Menu - Slides in from right */}
-            <motion.div
-              initial={{ x: "100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "100%", opacity: 0 }}
-              transition={{
-                duration: 0.35,
-                ease: [0.32, 0.72, 0, 1],
-                opacity: { duration: 0.2 },
-              }}
-              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
-            >
-              {/* Menu Header - Fixed at top */}
-              <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
-                  Menu
-                </h2>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
-                  aria-label="Close menu"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+      {/* Sidebar Menu - CSS slide in from right */}
+      <div
+        className={`fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col ${
+          mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        style={{ transition: "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)" }}
+      >
+        {/* Menu Header - Fixed at top */}
+        <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
+            Menu
+          </h2>
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
+            aria-label="Close menu"
+          >
+            <X size={24} />
+          </button>
+        </div>
 
-              {/* Menu Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-6">
-                  <nav className="space-y-1">
-                    <Link
-                      href="/features"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Features
-                    </Link>
-                    <Link
-                      href="/solutions"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Solutions
-                    </Link>
-                    <Link
-                      href="/pricing"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Pricing
-                    </Link>
-                    <Link
-                      href="/resources"
-                      className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Resources
-                    </Link>
-                  </nav>
+        {/* Menu Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6">
+            <nav className="space-y-1">
+              <Link
+                href="/features"
+                className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Features
+              </Link>
+              <Link
+                href="/solutions"
+                className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Solutions
+              </Link>
+              <Link
+                href="/pricing"
+                className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Pricing
+              </Link>
+              <Link
+                href="/resources"
+                className="block px-4 py-3 text-base font-medium text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Resources
+              </Link>
+            </nav>
 
-                  {/* Action Buttons */}
-                  <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
-                    <Link
-                      href="/pricing"
-                      className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Pricing
-                    </Link>
-                    <Link
-                      href="/login"
-                      className="block w-full px-6 py-3 bg-[#8A6B4E] text-white rounded-lg text-center font-medium hover:bg-[#8A6B4E]/80 transition-all duration-200 shadow-lg"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Log In
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            {/* Action Buttons */}
+            <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
+              <Link
+                href="/contact"
+                className="block w-full px-6 py-3 bg-[#8A6B4E] text-white rounded-lg text-center font-medium hover:bg-[#7A5B3E] transition-all duration-200 shadow-lg"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Book a Demo
+              </Link>
+              <Link
+                href="/login"
+                className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Log In
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-start overflow-hidden pt-20 bg-[#C4C8CA]/30">
