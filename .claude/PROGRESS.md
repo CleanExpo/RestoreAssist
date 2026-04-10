@@ -122,3 +122,31 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 ## 2026-04-10 12:34 — Session End
 
 ## 2026-04-10 12:42 — Session End
+
+## 2026-04-10 12:49 — Session End
+
+## 2026-04-10 (latest session)
+
+| Task                                           | Status | Notes                                       |
+| ---------------------------------------------- | ------ | ------------------------------------------- |
+| Magic bytes — logo upload route                | Done   | JPEG/PNG/GIF/WebP — rule 15 — `1b2ee5f2`    |
+| Magic bytes — parse-pdf route                  | Done   | PDF 0x25504446 — rule 15 — `1b2ee5f2`       |
+| Magic bytes — photos route                     | Done   | JPEG/PNG/GIF/WebP — rule 15 — `1b2ee5f2`    |
+| Stripe API version fix                         | Done   | 2025-09-30 → 2025-10-29.clover — `1b2ee5f2` |
+| Production Chrome audit — restoreassist.com.au | Done   | See below                                   |
+
+## Chrome Audit Results (2026-04-10)
+
+Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Production on Vercel — restoreassist.com.au DNS not yet propagated)
+
+| Check                        | Result  | Notes                                                       |
+| ---------------------------- | ------- | ----------------------------------------------------------- |
+| Homepage loads               | ✅ Pass | No console errors, all content renders                      |
+| CSP header with nonce        | ✅ Pass | `content-security-policy` present, fresh nonce per request  |
+| X-Frame-Options: DENY        | ✅ Pass | Confirmed via fetch headers                                 |
+| `/login` renders             | ✅ Pass | Email/Password form, Google OAuth, Sign up link all present |
+| `/signup` renders            | ✅ Pass | All fields, Create Account CTA, Google OAuth all present    |
+| `/dashboard` auth gate       | ✅ Pass | Redirects to `/login` when unauthenticated                  |
+| `/api/auth/session` responds | ✅ Pass | HTTP 200 — NextAuth backend operational                     |
+
+**Note:** `restoreassist.com.au` DNS returns NXDOMAIN — domain not yet registered or DNS not configured. Production is accessible via Vercel URL.
