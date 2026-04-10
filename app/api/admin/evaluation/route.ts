@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import {
   runEvaluationSuite,
   type EvaluationOptions,
@@ -23,15 +24,8 @@ import {
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Forbidden: Admin access required" },
-      { status: 403 },
-    );
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   try {
     const body = (await request.json().catch(() => ({}))) as {

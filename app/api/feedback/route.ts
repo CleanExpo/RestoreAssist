@@ -72,8 +72,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const isAdmin = session.user.role === "ADMIN";
-    const canViewInbox =
-      isAdmin || session.user.email === "mmlrana00@gmail.com";
+    const canViewInbox = isAdmin;
 
     if (inbox && canViewInbox) {
       const [items, total] = await Promise.all([
