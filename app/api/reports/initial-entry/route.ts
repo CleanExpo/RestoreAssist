@@ -30,6 +30,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+    ) {
+      return NextResponse.json(
+        { error: "Active subscription required" },
+        { status: 402 },
+      );
+    }
+
     const data = await request.json();
 
     // Validate required fields

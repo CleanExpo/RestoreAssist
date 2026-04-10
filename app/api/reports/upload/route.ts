@@ -164,6 +164,25 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
+    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+    const sessionUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, subscriptionStatus: true },
+    });
+    if (!sessionUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
+        sessionUser.subscriptionStatus ?? "",
+      )
+    ) {
+      return NextResponse.json(
+        { error: "Active subscription required" },
+        { status: 402 },
+      );
+    }
+
     // Get appropriate API key based on subscription status
     // Free users: uses ANTHROPIC_API_KEY from .env
     // Upgraded users: uses API key from integrations

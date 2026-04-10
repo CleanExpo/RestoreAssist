@@ -70,6 +70,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -85,6 +87,24 @@ export async function POST(request: NextRequest) {
       key: session.user.id,
     });
     if (rateLimited) return rateLimited;
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, subscriptionStatus: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+    ) {
+      return NextResponse.json(
+        { error: "Active subscription required" },
+        { status: 402 },
+      );
+    }
 
     const body = await request.json();
     const { messages } = body;
