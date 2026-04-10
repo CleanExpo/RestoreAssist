@@ -96,7 +96,7 @@ export default function SignupPage() {
       if (response.ok) {
         toast.success("Account created successfully!");
         // Auto sign in after successful registration
-        const result = await signIn("contractor-credentials", {
+        const result = await signIn("credentials", {
           email,
           password,
           redirect: false,
@@ -140,7 +140,7 @@ export default function SignupPage() {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Sign in with NextAuth using credentials (email only, no password for Google users)
-      const signInResult = await signIn("contractor-credentials", {
+      const signInResult = await signIn("credentials", {
         email: googleUser.email || "",
         password: googleUser.googleAuthToken || "", // HMAC-signed proof from /api/auth/google-signin
         redirect: false,
