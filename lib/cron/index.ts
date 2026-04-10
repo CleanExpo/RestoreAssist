@@ -5,6 +5,3 @@ export { processScheduledEmails } from "./process-emails";
 export { advanceWorkflows } from "./advance-workflows";
 export { reviewDeadLetterTasks } from "./dead-letter-review";
 export { cleanupOldData } from "./cleanup";
-export { pollHeygenRenders } from "./poll-heygen";
-export { distributeContent } from "./distribute-content";
-export { collectAnalytics } from "./collect-analytics";
