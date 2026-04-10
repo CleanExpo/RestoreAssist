@@ -62,6 +62,19 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
+    // Magic-byte validation — PDF files start with %PDF (0x25 0x50 0x44 0x46)
+    const isPdf =
+      buffer[0] === 0x25 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x44 &&
+      buffer[3] === 0x46;
+    if (!isPdf) {
+      return NextResponse.json(
+        { error: "File must be a valid PDF." },
+        { status: 400 },
+      );
+    }
+
     let text = "";
     try {
       const pdfParseModule = require("pdf-parse");
