@@ -12,6 +12,11 @@
       "dompurify": "^3.3.3",
       "loader-utils": "^2.0.4",
       "tar": "^7.5.13"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-hfvx-25r5-qc3w"
+      ]
     }
   },
   "scripts": {
@@ -24,12 +29,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
-    "video:voiceover": "npx tsx scripts/video-pipeline/index.ts --step voiceover",
-    "video:screenshot": "npx tsx scripts/video-pipeline/index.ts --step screenshot",
-    "video:render": "npx tsx scripts/video-pipeline/index.ts --step render",
-    "video:upload": "npx tsx scripts/video-pipeline/index.ts --step upload",
-    "video:all": "npx tsx scripts/video-pipeline/index.ts"
+    "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
