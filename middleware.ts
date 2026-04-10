@@ -2,22 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Per-request nonce-based Content Security Policy.
+ * Content Security Policy middleware.
  *
- * Generates a fresh cryptographic nonce on every request and injects it into
- * script-src. This replaces the static 'unsafe-inline' directive for scripts,
- * preventing XSS payloads from executing even if an attacker injects a script
- * tag (they cannot know the nonce value ahead of time).
+ * Generates a per-request nonce and forwards it as 'x-nonce' so Server Components
+ * can read it via headers(). The nonce is NOT injected into script-src because
+ * Next.js App Router script tags don't carry the nonce attribute — using
+ * 'strict-dynamic' + nonce with unnonce'd script tags would block all JS.
  *
- * Note: 'unsafe-eval' is retained for Fabric.js (sketch editor) and Firebase SDK,
- * both of which require new Function() / eval() in the browser.
+ * script-src uses 'self' to allow same-origin Next.js chunks plus the explicit
+ * external allowlist below. 'unsafe-eval' is retained for Fabric.js/Firebase SDK.
  *
- * Note: 'unsafe-inline' is retained in style-src only — inline styles are lower risk
- * and Radix UI / shadcn components apply them extensively.
- *
- * To consume the nonce in a Server Component:
- *   import { headers } from 'next/headers'
- *   const nonce = (await headers()).get('x-nonce') ?? ''
+ * style-src uses 'unsafe-inline' — inline styles are lower risk and Radix UI /
+ * shadcn components apply them extensively.
  */
 export function middleware(request: NextRequest) {
   // Generate a fresh nonce for every request — must be unguessable and unique
@@ -25,8 +21,10 @@ export function middleware(request: NextRequest) {
 
   const cspDirectives = [
     "default-src 'self'",
-    // 'strict-dynamic' trusts scripts loaded by nonce-bearing scripts (Next.js chunk loading)
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com`,
+    // 'self' allows same-origin Next.js chunks; 'unsafe-eval' retained for Fabric.js/Firebase.
+    // Note: 'strict-dynamic' is intentionally omitted — when present it ignores 'self', which
+    // breaks Next.js hydration because the framework's script tags don't carry the nonce.
+    `script-src 'self' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://*.stripe.com https://*.supabase.co https://storage.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
