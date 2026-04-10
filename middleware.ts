@@ -24,7 +24,7 @@ export function middleware(request: NextRequest) {
     // 'self' allows same-origin Next.js chunks; 'unsafe-eval' retained for Fabric.js/Firebase.
     // Note: 'strict-dynamic' is intentionally omitted — when present it ignores 'self', which
     // breaks Next.js hydration because the framework's script tags don't carry the nonce.
-    `script-src 'self' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://*.stripe.com https://*.supabase.co https://storage.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
