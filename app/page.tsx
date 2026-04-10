@@ -85,7 +85,9 @@ export default function Home() {
       {/* Sidebar Menu - CSS slide in from right */}
       <div
         className={`fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col ${
-          mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          mobileMenuOpen
+            ? "translate-x-0 pointer-events-auto"
+            : "translate-x-full pointer-events-none"
         }`}
         style={{ transition: "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)" }}
       >
