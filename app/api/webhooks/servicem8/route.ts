@@ -58,10 +58,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, processed: 0 });
     }
 
-    console.log(
-      `[ServiceM8 Webhook] Received ${entries.length} entries for service: ${service}`,
-    );
-
     // Map ServiceM8 service to standard event type
     function mapEventType(
       svc: string,
@@ -114,9 +110,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (existing) {
-          console.log(
-            `[ServiceM8 Webhook] Duplicate event for ${entryUuid} — skipping`,
-          );
           continue;
         }
 
@@ -132,9 +125,6 @@ export async function POST(request: NextRequest) {
         });
 
         queuedEvents.push(webhookEvent.id);
-        console.log(
-          `[ServiceM8 Webhook] Queued ${webhookEvent.id}: ${standardEventType} for ${entryUuid}`,
-        );
       } catch (err) {
         console.error("[ServiceM8 Webhook] Failed to queue entry:", err);
       }

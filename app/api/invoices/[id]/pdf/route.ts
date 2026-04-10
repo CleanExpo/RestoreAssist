@@ -113,8 +113,6 @@ export async function GET(
           pdfGeneratedAt: new Date(),
         },
       });
-
-      console.log(`[Invoice PDF] ✅ Uploaded to Cloudinary: ${pdfUrl}`);
     } catch (cloudinaryError) {
       console.error(
         "[Invoice PDF] ⚠️ Failed to upload to Cloudinary:",

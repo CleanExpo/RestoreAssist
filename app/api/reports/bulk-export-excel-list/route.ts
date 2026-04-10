@@ -97,25 +97,15 @@ export async function POST(request: NextRequest) {
           });
 
           // Download and add each Excel file to the zip (one by one from Cloudinary)
-          console.log(
-            `[Bulk Excel Export] Starting download of ${reports.length} Excel files from Cloudinary...`,
-          );
-
           for (const report of reports) {
             if (report.excelReportUrl) {
               try {
-                console.log(
-                  `[Bulk Excel Export] Downloading Excel for report ${report.id} from: ${report.excelReportUrl}`,
-                );
                 const response = await fetch(report.excelReportUrl);
 
                 if (response.ok) {
                   const buffer = Buffer.from(await response.arrayBuffer());
                   const filename = `${report.reportNumber || report.id}.xlsx`;
                   archive.append(buffer, { name: filename });
-                  console.log(
-                    `[Bulk Excel Export] ✓ Added ${filename} to ZIP (${buffer.length} bytes)`,
-                  );
                 } else {
                   console.error(
                     `[Bulk Excel Export] ✗ Failed to download Excel for report ${report.id}: HTTP ${response.status}`,
@@ -133,10 +123,6 @@ export async function POST(request: NextRequest) {
               );
             }
           }
-
-          console.log(
-            `[Bulk Excel Export] Finished downloading files, finalizing ZIP...`,
-          );
 
           await archive.finalize();
         } catch (error) {

@@ -73,11 +73,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (events.length === 0) {
-      console.log("[Xero Webhook] No events in payload");
       return NextResponse.json({ success: true, processed: 0 });
     }
-
-    console.log(`[Xero Webhook] Received ${events.length} events`);
 
     // Find integration by tenantId (Xero's organization ID)
     const firstEvent = events[0];
@@ -152,9 +149,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingEvent) {
-          console.log(
-            `[Xero Webhook] Duplicate event detected: ${eventType} for ${event.resourceId}`,
-          );
           continue;
         }
 
@@ -171,9 +165,6 @@ export async function POST(request: NextRequest) {
         });
 
         queuedEvents.push(webhookEvent.id);
-        console.log(
-          `[Xero Webhook] Queued event ${webhookEvent.id}: ${eventType}`,
-        );
       } catch (error) {
         console.error(`[Xero Webhook] Failed to queue event:`, error);
         // Continue processing other events

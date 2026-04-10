@@ -142,10 +142,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const skipped = total - unembedded.length;
 
-    console.log(
-      `[vectorise-jobs] tenant=${tenantId} total=${total} to-embed=${unembedded.length} provider=${provider}`,
-    );
-
     if (unembedded.length === 0) {
       return NextResponse.json({
         embedded: 0,
@@ -216,17 +212,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
         }),
       );
-
-      console.log(
-        `[vectorise-jobs] batch ${Math.floor(i / batchSize) + 1} done — ` +
-          `embedded so far: ${embedded}/${unembedded.length}`,
-      );
     }
 
     const durationMs = Date.now() - startTime;
-    console.log(
-      `[vectorise-jobs] complete — embedded=${embedded} skipped=${skipped} errors=${errors.length} duration=${durationMs}ms`,
-    );
 
     return NextResponse.json({
       embedded,

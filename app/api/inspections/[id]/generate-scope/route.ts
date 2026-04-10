@@ -197,12 +197,6 @@ export async function POST(
       description: lossSourceDescription ?? inspection.propertyAddress,
       suburb: inspection.propertyAddress.split(",").slice(-2, -1)[0]?.trim(),
     });
-    console.log(
-      "[RAG] Injected",
-      ragResult.jobCount,
-      "similar historical jobs",
-    );
-
     // Build claim-type-aware system prompt, injecting RAG context when available
     const promptOptions = {
       damageCategory: parseInt(classification.category, 10) || undefined,

@@ -81,7 +81,7 @@ export async function GET(
         };
       }
     } catch (err) {
-      console.log("No scope found");
+      // scope not found
     }
 
     // Fetch estimate if exists
@@ -129,7 +129,7 @@ export async function GET(
         };
       }
     } catch (err) {
-      console.log("No estimate found");
+      // estimate not found
     }
 
     // Parse JSON fields

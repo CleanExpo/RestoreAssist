@@ -130,9 +130,6 @@ async function retryWithBackoff<T>(
       }
 
       if (attempt < maxRetries - 1) {
-        console.log(
-          `Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms delay...`,
-        );
         await sleep(delay);
         delay = Math.min(delay * 2, MAX_RETRY_DELAY); // Exponential backoff with max cap
       }
@@ -225,8 +222,6 @@ export async function POST(request: NextRequest) {
 
     const base64Data = buffer.toString("base64");
     const fileSizeMB = (buffer.length / 1024 / 1024).toFixed(2);
-
-    console.log(`Processing PDF: ${file.name} (${fileSizeMB}MB)`);
 
     const anthropic = new Anthropic({
       apiKey: anthropicApiKey,

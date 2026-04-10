@@ -175,9 +175,6 @@ export async function GET(request: NextRequest) {
       }
 
       targetUserId = userIdParam;
-      console.log(
-        `📊 [ANALYTICS] ${isAdmin ? "Admin" : "Manager"} ${session.user.id} viewing analytics for ${targetUserId}`,
-      );
     }
 
     const dateFilter = getDateFilter(dateRange);

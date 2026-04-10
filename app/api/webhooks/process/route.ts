@@ -34,8 +34,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("[Webhook Process] Processing webhook queue...");
-
     // Process the queue
     const result = await processWebhookQueue({
       batchSize: 20,

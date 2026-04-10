@@ -158,16 +158,12 @@ async function tryLineItemEndpoints(
       });
 
       if (!res.ok) {
-        console.log(`[ascora/sync] ${endpoint} → ${res.status} (skipping)`);
         continue;
       }
 
       const data = await res.json();
       // Confirm Ascora envelope shape
       if (data.success === true && Array.isArray(data.results)) {
-        console.log(
-          `[ascora/sync] Line items found at ${endpoint} (${data.totalRecords} records)`,
-        );
         const items = await fetchAllPages<AscoraLineItemRaw>(
           baseUrl,
           apiKey,
@@ -175,10 +171,6 @@ async function tryLineItemEndpoints(
         );
         return { endpoint, items, tried };
       }
-
-      console.log(
-        `[ascora/sync] ${endpoint} → 200 but unexpected shape, skipping`,
-      );
     } catch (e) {
       console.warn(
         `[ascora/sync] ${endpoint} probe failed: ${(e as Error).message}`,
@@ -406,9 +398,6 @@ export async function POST(request: NextRequest) {
           { status: 404 },
         );
       }
-      console.log(
-        "[ascora/sync] No user integration record — auto-provisioning from ASCORA_API_KEY env var",
-      );
       integration = await (prisma as any).ascoraIntegration.create({
         data: {
           userId: userId,
@@ -441,10 +430,6 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     // Phase 1: Fetch all jobs from Ascora
     // ------------------------------------------------------------------
-    console.log(
-      `[ascora/sync] Fetching jobs… (incremental=${incremental}, minValue=${minValueAud}, uplift=×${priceUpliftFactor}, dryRun=${dryRun})`,
-    );
-
     const allJobs = await fetchAllPages<AscoraJobRaw>(
       integration.baseUrl,
       integration.apiKey,
@@ -489,10 +474,6 @@ export async function POST(request: NextRequest) {
       else breakdown.other++;
     }
 
-    console.log(
-      `[ascora/sync] ${allJobs.length} total → ${windowedJobs.length} in window → ${filteredJobs.length} above $${minValueAud} AUD`,
-    );
-
     // Upsert job records
     let jobsImported = 0;
 
@@ -532,7 +513,6 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     // Phase 2: Discover and fetch line items
     // ------------------------------------------------------------------
-    console.log(`[ascora/sync] Probing for line item endpoint…`);
     const {
       endpoint: lineItemEndpoint,
       items: allLineItems,
@@ -580,9 +560,6 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     let pricingDbEntriesUpserted = 0;
     if (relevantLineItems.length > 0 && !dryRun) {
-      console.log(
-        `[ascora/sync] Seeding ScopePricingDatabase: ${relevantLineItems.length} line items × uplift ×${priceUpliftFactor}…`,
-      );
       pricingDbEntriesUpserted = await aggregateIntoPricingDb(
         relevantLineItems,
         priceUpliftFactor,

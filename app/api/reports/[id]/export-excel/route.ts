@@ -126,10 +126,6 @@ export async function GET(
         where: { id: report.id },
         data: { excelReportUrl: cloudinaryUrl },
       });
-
-      console.log(
-        `[Excel Export] ✅ Uploaded to Cloudinary and saved URL: ${cloudinaryUrl}`,
-      );
     } catch (cloudinaryError) {
       console.error(
         "[Excel Export] ⚠️ Failed to upload to Cloudinary:",
