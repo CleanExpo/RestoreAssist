@@ -7,7 +7,7 @@ export const BRAND = {
   shortDescription:
     "AI-powered damage assessment platform for Australian and New Zealand restoration professionals.",
   cta: {
-    primary: { label: "Book a Demo", href: "/contact" },
+    primary: { label: "Get Started", href: "/signup" },
     secondary: { label: "See How It Works", href: "/how-it-works" },
   },
   meta: {
