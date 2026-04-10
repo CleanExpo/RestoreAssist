@@ -22,6 +22,10 @@ All 447 Linear issues are Done. The full RestoreAssist platform is implemented a
 | RA-511: Refactor generate-inspection-report | Done    | PR #153 — route 3241→335 lines; 3 new modules in lib/reports/ |
 | RA-512: Split InitialDataEntryForm          | Done    | PR #154 — 5919→4258 lines; 6 sub-components extracted         |
 | API key for Managed Agents                  | Pending | CEO to provide ANTHROPIC_API_KEY                              |
+| Token & context optimization system         | Done    | .claudeignore, PreCompact hook, agents, skills — committed    |
+| console.log cleanup (22 files, 55 calls)    | Done    | All API routes clean — committed `c802f0f8`                   |
+| Admin routes → verifyAdminFromDb (9 files)  | Done    | CLAUDE.md rule 13 enforced — committed `ccfd7e13`             |
+| Hardcoded admin email in feedback route     | Done    | Removed `mmlrana00@gmail.com` bypass — committed `ccfd7e13`   |
 
 ## Remaining Human Actions
 
@@ -64,7 +68,7 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 - **F5 (R5)**: In-memory rate limiter resets on cold starts → needs Upstash/Redis
 - **F13 (R5)**: jsPDF/Fabric.js CVEs → needs `pnpm update jspdf` + audit
 - **F15 (R5)**: CSP `unsafe-inline`/`unsafe-eval` → needs nonce-based CSP (medium effort)
-- **F2 (R5)**: 30+ routes use `session.user.email` instead of `session.user.id` → tech debt
+- **F2 (R5)**: ~~30+ routes use `session.user.email`~~ — 9 admin routes fixed with `verifyAdminFromDb`; remaining `session.user.email` uses are Stripe customer email (correct) or low-risk fallbacks
 
 ## Sprint History (Summary)
 
@@ -98,7 +102,10 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 - **Production**: restoreassist.com.au running Sprint M (photo labels)
 - **pgvector migration**: Applied to prod — IicrcChunk table ready
 - **Linear API key**: "Claude Code RestoreAssist" (created Apr 8 2026) in `~/.claude/mcp.json`
-- **Deferred cleanup**: console.log still present in ~270 API routes (RA-510 only cleaned webhook handlers); Upstash Redis needed for rate limiter
+- **console.log**: Fully cleared from all 22 API route files (55 calls removed) — `c802f0f8`
+- **Admin auth**: 9 admin routes upgraded to `verifyAdminFromDb()` — `ccfd7e13`
+- **Rate limiter**: Code already supports Upstash Redis — just needs `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` env vars in Vercel (human action)
+- **Remaining security**: jsPDF CVEs (F13), nonce-based CSP (F15) — medium effort, deferred
 
 ## 2026-04-10 11:06 — Session End
 
