@@ -11,7 +11,14 @@ import MobileWorkflowCarousel from "@/components/landing/MobileWorkflowCarousel"
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Framer Motion v12 + React 19: animations don't auto-trigger after SSR hydration.
+  // Explicit mounted gate ensures animate prop switches after client hydration.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // Load fonts dynamically if not already loaded
@@ -246,7 +253,7 @@ export default function Home() {
           {/* Main Title - "Restore Assist" */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.8 }}
             className="text-6xl md:text-8xl lg:text-9xl font-bold text-white mb-6 leading-tight text-left"
             style={{
@@ -260,7 +267,7 @@ export default function Home() {
           {/* Subtitle */}
           <motion.p
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-xl md:text-2xl lg:text-3xl text-white/90 font-light italic text-left"
             style={{
@@ -274,7 +281,7 @@ export default function Home() {
           {/* Supporting Description */}
           <motion.p
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-lg md:text-xl text-white/80 font-light max-w-2xl text-left mt-6 leading-relaxed"
             style={{
@@ -288,7 +295,7 @@ export default function Home() {
           {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.8, delay: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 mt-8"
           >
