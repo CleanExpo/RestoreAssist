@@ -1,5 +1,7 @@
 "use client";
 
+import DOMPurify from "dompurify";
+
 interface ProfessionalDocumentViewerProps {
   content: string;
 }
@@ -242,11 +244,42 @@ export default function ProfessionalDocumentViewer({
     return html;
   };
 
+  const sanitizedHtml =
+    typeof window !== "undefined"
+      ? DOMPurify.sanitize(formatContent(content), {
+          ALLOWED_TAGS: [
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "p",
+            "br",
+            "strong",
+            "em",
+            "u",
+            "ul",
+            "ol",
+            "li",
+            "span",
+            "div",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "td",
+            "th",
+          ],
+          ALLOWED_ATTR: ["class", "style"],
+        })
+      : formatContent(content);
+
   return (
     <div className="p-8 bg-gradient-to-br from-slate-50 to-white min-h-screen">
       <div
         className="max-w-none text-slate-700 bg-white rounded-lg shadow-lg p-8"
-        dangerouslySetInnerHTML={{ __html: formatContent(content) }}
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
       />
     </div>
   );
