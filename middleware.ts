@@ -73,6 +73,10 @@ export function middleware(request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp);
   // Expose nonce to edge/middleware consumers
   response.headers.set("x-nonce", nonce);
+  // Prevent Vercel/Cloudflare edge from caching HTML responses — CSP includes a
+  // per-request nonce so cached responses would serve a stale nonce, and the
+  // cached CSP header would block newly-deployed script changes from reaching users.
+  response.headers.set("Cache-Control", "no-store, must-revalidate");
 
   return response;
 }
