@@ -5,6 +5,15 @@
  * including invoice sent, payment received, overdue reminders, and receipts.
  */
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 interface InvoiceEmailData {
   invoiceNumber: string;
   invoiceDate: Date;
@@ -186,11 +195,11 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
   <div class="container">
     <div class="header">
       <h1>Invoice ${invoiceNumber}</h1>
-      <p>from ${businessName}</p>
+      <p>from ${escapeHtml(businessName)}</p>
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>Thank you for your business. Please find your invoice details below.</p>
 
@@ -225,7 +234,7 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
+      <p><strong>${escapeHtml(businessName)}</strong></p>
       ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
       ${businessPhone ? `<p>${businessPhone}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated email from RestoreAssist. Please do not reply directly to this email.</p>
@@ -367,7 +376,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>Thank you! We have successfully received your payment.</p>
 
@@ -422,7 +431,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
+      <p><strong>${escapeHtml(businessName)}</strong></p>
       <p style="margin-top: 15px; font-size: 12px;">This is an automated email from RestoreAssist.</p>
     </div>
   </div>
@@ -609,7 +618,7 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is now overdue.</p>
 
@@ -656,7 +665,7 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
+      <p><strong>${escapeHtml(businessName)}</strong></p>
       ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
       ${businessPhone ? `<p>${businessPhone}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated reminder from RestoreAssist.</p>
@@ -814,7 +823,7 @@ export function generateUpcomingPaymentReminderEmail(
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is due ${daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`}.</p>
 
@@ -859,7 +868,7 @@ export function generateUpcomingPaymentReminderEmail(
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
+      <p><strong>${escapeHtml(businessName)}</strong></p>
       ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
       ${businessPhone ? `<p>${businessPhone}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated reminder from RestoreAssist.</p>

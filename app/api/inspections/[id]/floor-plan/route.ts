@@ -40,24 +40,38 @@ export async function POST(
       return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
 
-    // Validate file type
-    const validTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
-    if (!validTypes.includes(file.type)) {
+    // Read bytes first so magic-byte check and upload share the same buffer.
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Magic-byte validation — prevents spoofed Content-Type header bypass.
+    const isJpeg =
+      buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isPng =
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47;
+    const isGif =
+      buffer[0] === 0x47 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x38;
+    const isWebp =
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50;
+    if (!isJpeg && !isPng && !isGif && !isWebp) {
       return NextResponse.json(
         { error: "Invalid file type. Only images are allowed." },
         { status: 400 },
       );
     }
-
-    // Upload to Cloudinary
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     const uploadResult = await uploadToCloudinary(buffer, {
       folder: `inspections/${id}/floor-plans`,
