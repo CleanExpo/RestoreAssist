@@ -158,3 +158,43 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-10 13:29 — Session End
 
 ## 2026-04-10 13:30 — Session End
+
+## 2026-04-10 13:32 — Session End
+
+## 2026-04-10 13:45 — Session End
+
+## 2026-04-10 13:45 — Session End
+
+## 2026-04-10 13:46 — Session End
+
+## 2026-04-10 13:51 — Session End
+
+## 2026-04-10 14:23 — Session End
+
+## 2026-04-10 14:23 — Session End
+
+## 2026-04-10 14:26 — Session End
+
+## 2026-04-10 14:38 — Session End
+
+## 2026-04-10 14:44 — Session End
+
+## 2026-04-10 15:06 — Session End
+
+## 2026-04-10 15:09 — Session End
+
+## 2026-04-10 15:09 — Session End
+
+## 2026-04-10 15:12 — Session End
+
+## 2026-04-10 15:13 — Session End
+
+## 2026-04-10 (landing page session)
+
+| Task                                        | Status | Notes                                               |
+| ------------------------------------------- | ------ | --------------------------------------------------- |
+| restoreassist.app domain assigned to Vercel | Done   | Was unassigned — fixed via Vercel REST API          |
+| Hamburger menu broken                       | Done   | Framer Motion v12 + React 19 regression → CSS only  |
+| Book a Demo missing from menu               | Done   | Added as primary amber button in sidebar            |
+| pointer-events-none on closed sidebar       | Done   | Sidebar hit-box was blocking hamburger clicks       |
+| PR #158 merged → production deployed        | Done   | `restoreassist-6zq8rl5jr-unite-group.vercel.app`    |
