@@ -1,7 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  MessageCircle,
+  X,
+  Send,
+  Loader2,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Globe,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 import { useSession } from "next-auth/react";
@@ -12,6 +22,23 @@ interface Message {
   content: string;
   timestamp: Date;
 }
+
+interface Language {
+  code: string;
+  label: string;
+  flag: string;
+}
+
+const LANGUAGES: Language[] = [
+  { code: "en-AU", label: "English (AU)", flag: "🇦🇺" },
+  { code: "en-US", label: "English (US)", flag: "🇺🇸" },
+  { code: "zh-CN", label: "中文", flag: "🇨🇳" },
+  { code: "vi-VN", label: "Tiếng Việt", flag: "🇻🇳" },
+  { code: "ar-SA", label: "العربية", flag: "🇸🇦" },
+  { code: "es-ES", label: "Español", flag: "🇪🇸" },
+  { code: "hi-IN", label: "हिन्दी", flag: "🇮🇳" },
+  { code: "pt-BR", label: "Português", flag: "🇧🇷" },
+];
 
 const SUGGESTED_QUESTIONS = [
   "How do I create a new inspection report?",
@@ -24,6 +51,50 @@ const SUGGESTED_QUESTIONS = [
   "What is the NIR system and how does it work?",
 ];
 
+// Minimal Web Speech API type declarations (not in TS stdlib by default)
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition: new () => SpeechRecognitionInstance;
+  }
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onstart: ((ev: Event) => void) | null;
+  onend: ((ev: Event) => void) | null;
+  onerror: ((ev: SpeechRecognitionErrorEvent) => void) | null;
+  onresult: ((ev: SpeechRecognitionEvent) => void) | null;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  [index: number]: SpeechRecognitionResult;
+  length: number;
+}
+
+interface SpeechRecognitionResult {
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
 export default function Chatbot() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
@@ -31,10 +102,48 @@ export default function Chatbot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Voice state
+  const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Language state
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(
+    LANGUAGES[0],
+  );
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
 
   const userName = session?.user?.name || "there";
+
+  // Close language menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        languageMenuRef.current &&
+        !languageMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowLanguageMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Cancel speech on unmount / close
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined") {
+        window.speechSynthesis?.cancel();
+      }
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   // Load chat history from database
   useEffect(() => {
@@ -45,14 +154,12 @@ export default function Chatbot() {
         if (response.ok) {
           const data = await response.json();
           if (data.messages && data.messages.length > 0) {
-            // Convert timestamp strings to Date objects
             const formattedMessages = data.messages.map((msg: any) => ({
               ...msg,
               timestamp: new Date(msg.timestamp),
             }));
             setMessages(formattedMessages);
           } else {
-            // No chat history, show welcome message with user's name
             const welcomeName = session?.user?.name || "there";
             setMessages([
               {
@@ -64,9 +171,7 @@ export default function Chatbot() {
             ]);
           }
         }
-      } catch (error) {
-        console.error("Error loading chat history:", error);
-        // Show welcome message on error
+      } catch {
         const welcomeName = session?.user?.name || "there";
         setMessages([
           {
@@ -100,26 +205,126 @@ export default function Chatbot() {
     }
   }, [isOpen]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  // Text-to-speech: strip markdown and speak
+  const speak = useCallback(
+    (text: string) => {
+      if (!voiceEnabled || typeof window === "undefined") return;
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      const plainText = text
+        .replace(/#{1,6}\s/g, "")
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/`{1,3}[^`]*`{1,3}/g, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/^[-*+]\s/gm, "")
+        .trim();
+      if (!plainText) return;
+      const utterance = new SpeechSynthesisUtterance(plainText);
+      utterance.lang = selectedLanguage.code;
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    },
+    [voiceEnabled, selectedLanguage.code],
+  );
+
+  const stopSpeaking = () => {
+    if (typeof window !== "undefined") {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  };
+
+  // Speech-to-text
+  const startListening = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      toast.error(
+        "Speech recognition is not supported in this browser. Try Chrome.",
+      );
+      return;
+    }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    const recognition = new SR();
+    recognition.lang = selectedLanguage.code;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const result = event.results[0];
+      const transcript = result[0].transcript;
+      setInput(transcript);
+      // Auto-submit on final result
+      if (result.isFinal && transcript.trim()) {
+        setIsListening(false);
+        recognitionRef.current = null;
+        // Small delay so input state settles
+        setTimeout(() => {
+          setInput((prev) => {
+            if (prev.trim()) {
+              sendMessage(prev.trim());
+              return "";
+            }
+            return prev;
+          });
+        }, 100);
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        toast.error(`Voice error: ${event.error}`);
+      }
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [selectedLanguage.code]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: content.trim(),
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
     setIsLoading(true);
 
     try {
       const response = await fetch("/api/chatbot", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...messages, userMessage].map((msg) => ({
             role: msg.role,
@@ -142,6 +347,7 @@ export default function Chatbot() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      speak(data.response);
     } catch (error: any) {
       toast.error(error.message || "Failed to send message");
       const errorMessage: Message = {
@@ -155,6 +361,13 @@ export default function Chatbot() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+    const text = input.trim();
+    setInput("");
+    await sendMessage(text);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -165,67 +378,14 @@ export default function Chatbot() {
   };
 
   const handleSuggestedQuestion = async (question: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: question,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      // Get current messages including the new one
-      const currentMessages = [...messages, userMessage];
-
-      const response = await fetch("/api/chatbot", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: currentMessages.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to get response");
-      }
-
-      const data = await response.json();
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.response,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send message");
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content:
-          "I apologize, but I'm having trouble processing your request right now. Please try again later.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
+    await sendMessage(question);
   };
 
-  // Show suggested questions only when there's just the welcome message or no messages
   const showSuggestedQuestions =
     messages.length === 0 ||
     (messages.length === 1 && messages[0].id === "welcome");
+
+  const currentLang = selectedLanguage;
 
   return (
     <>
@@ -242,7 +402,7 @@ export default function Chatbot() {
           <MessageCircle className="text-white" size={24} />
         )}
         {!isOpen && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full animate-pulse"></span>
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full animate-pulse" />
         )}
       </button>
 
@@ -267,18 +427,101 @@ export default function Chatbot() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
-              aria-label="Close chatbot"
-            >
-              <X size={18} className="text-gray-600 dark:text-slate-400" />
-            </button>
+
+            <div className="flex items-center gap-1">
+              {/* Language selector */}
+              <div className="relative" ref={languageMenuRef}>
+                <button
+                  onClick={() => setShowLanguageMenu((v) => !v)}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors flex items-center gap-1"
+                  title="Select language"
+                  aria-label="Select language"
+                >
+                  <span className="text-sm">{currentLang.flag}</span>
+                  <Globe
+                    size={14}
+                    className="text-gray-600 dark:text-slate-400"
+                  />
+                </button>
+                {showLanguageMenu && (
+                  <div className="absolute right-0 top-8 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-10 overflow-hidden">
+                    {LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          setSelectedLanguage(lang);
+                          setShowLanguageMenu(false);
+                          stopSpeaking();
+                          stopListening();
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${
+                          selectedLanguage.code === lang.code
+                            ? "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 font-medium"
+                            : "text-gray-700 dark:text-slate-300"
+                        }`}
+                      >
+                        <span>{lang.flag}</span>
+                        <span>{lang.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* TTS toggle */}
+              <button
+                onClick={() => {
+                  if (voiceEnabled) {
+                    stopSpeaking();
+                    setVoiceEnabled(false);
+                  } else {
+                    setVoiceEnabled(true);
+                  }
+                }}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                title={
+                  voiceEnabled ? "Mute responses" : "Speak responses aloud"
+                }
+                aria-label={
+                  voiceEnabled
+                    ? "Disable voice responses"
+                    : "Enable voice responses"
+                }
+              >
+                {voiceEnabled ? (
+                  isSpeaking ? (
+                    <Volume2
+                      size={16}
+                      className="text-cyan-500 animate-pulse"
+                    />
+                  ) : (
+                    <Volume2 size={16} className="text-cyan-500" />
+                  )
+                ) : (
+                  <VolumeX
+                    size={16}
+                    className="text-gray-400 dark:text-slate-500"
+                  />
+                )}
+              </button>
+
+              {/* Close */}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  stopSpeaking();
+                  stopListening();
+                }}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                aria-label="Close chatbot"
+              >
+                <X size={18} className="text-gray-600 dark:text-slate-400" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Suggested Questions - Show when there's only welcome message */}
             {showSuggestedQuestions && (
               <div className="space-y-2 mb-4">
                 <p className="text-xs text-gray-600 dark:text-slate-400 mb-2">
@@ -389,6 +632,7 @@ export default function Chatbot() {
                 </div>
               </div>
             ))}
+
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-slate-700 rounded-lg px-4 py-2">
@@ -404,21 +648,76 @@ export default function Chatbot() {
 
           {/* Input */}
           <div className="p-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 rounded-b-lg">
+            {/* Listening indicator */}
+            {isListening && (
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <div className="flex gap-0.5">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-cyan-500 rounded-full animate-pulse"
+                      style={{
+                        height: "12px",
+                        animationDelay: `${i * 0.15}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-cyan-500 font-medium">
+                  Listening ({currentLang.flag} {currentLang.label})…
+                </span>
+              </div>
+            )}
+
             <div className="flex gap-2">
+              {/* Mic button */}
+              <button
+                onClick={toggleListening}
+                disabled={isLoading}
+                className={`px-3 py-2 rounded-lg transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isListening
+                    ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30"
+                    : "bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600"
+                }`}
+                title={
+                  isListening
+                    ? "Stop listening"
+                    : `Speak (${currentLang.label})`
+                }
+                aria-label={
+                  isListening ? "Stop voice input" : "Start voice input"
+                }
+              >
+                {isListening ? (
+                  <MicOff size={18} className="text-white" />
+                ) : (
+                  <Mic
+                    size={18}
+                    className="text-gray-600 dark:text-slate-300"
+                  />
+                )}
+              </button>
+
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type your message..."
-                disabled={isLoading}
+                placeholder={
+                  isListening
+                    ? "Listening…"
+                    : `Type or speak in ${currentLang.label}…`
+                }
+                disabled={isLoading || isListening}
                 className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-400 disabled:opacity-50"
               />
+
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
                 className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                aria-label="Send message"
               >
                 {isLoading ? (
                   <Loader2 className="animate-spin text-white" size={18} />
@@ -427,8 +726,10 @@ export default function Chatbot() {
                 )}
               </button>
             </div>
-            <p className="text-xs text-gray-600 dark:text-slate-400 mt-2">
-              Press Enter to send, Shift+Enter for new line
+
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-2">
+              Press Enter to send · Mic to speak · {currentLang.flag}{" "}
+              {currentLang.label}
             </p>
           </div>
         </div>

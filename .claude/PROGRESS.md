@@ -191,12 +191,102 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 
 ## 2026-04-10 (landing page session)
 
-| Task                                        | Status | Notes                                               |
-| ------------------------------------------- | ------ | --------------------------------------------------- |
-| restoreassist.app domain assigned to Vercel | Done   | Was unassigned — fixed via Vercel REST API          |
-| Hamburger menu broken                       | Done   | Framer Motion v12 + React 19 regression → CSS only  |
-| Book a Demo missing from menu               | Done   | Added as primary amber button in sidebar            |
-| pointer-events-none on closed sidebar       | Done   | Sidebar hit-box was blocking hamburger clicks       |
-| PR #158 merged → production deployed        | Done   | `restoreassist-6zq8rl5jr-unite-group.vercel.app`    |
+| Task                                        | Status | Notes                                              |
+| ------------------------------------------- | ------ | -------------------------------------------------- |
+| restoreassist.app domain assigned to Vercel | Done   | Was unassigned — fixed via Vercel REST API         |
+| Hamburger menu broken                       | Done   | Framer Motion v12 + React 19 regression → CSS only |
+| Book a Demo missing from menu               | Done   | Added as primary amber button in sidebar           |
+| pointer-events-none on closed sidebar       | Done   | Sidebar hit-box was blocking hamburger clicks      |
+| PR #158 merged → production deployed        | Done   | `restoreassist-6zq8rl5jr-unite-group.vercel.app`   |
 
-## 2026-04-10 20:11 — Session End
+## 2026-04-10 15:16 — Session End
+
+## 2026-04-10 15:22 — Session End
+
+## 2026-04-10 15:24 — Session End
+
+## 2026-04-10 15:26 — Session End
+
+## 2026-04-10 15:26 — Session End
+
+## 2026-04-10 16:18 — Session End
+
+## 2026-04-10 16:21 — Session End
+
+## 2026-04-10 16:21 — Session End
+
+## 2026-04-10 16:23 — Session End
+
+## 2026-04-10 16:24 — Session End
+
+## 2026-04-10 16:25 — Session End
+
+## 2026-04-10 16:27 — Session End
+
+## 2026-04-10 16:35 — Session End
+
+## 2026-04-10 (Google sign-in + Supabase session)
+
+| Task                                             | Status | Notes                                                                       |
+| ------------------------------------------------ | ------ | --------------------------------------------------------------------------- |
+| Cache-Control: no-store in middleware            | Done   | Prevents Vercel CDN from caching HTML with stale CSP nonce                  |
+| unsafe-inline added to CSP script-src            | Done   | Required for Next.js RSC hydration (`self.__next_f.push`)                   |
+| Google login — wrong provider ID                 | Done   | `contractor-credentials` → `credentials` in login + signup pages            |
+| Google login — authorize() rejected Google users | Done   | Added HMAC proof token (`gauth:`) branch in `lib/auth.ts`                   |
+| Supabase SQL files reviewed                      | Done   | Both files already applied to production; confirmed via MCP SQL queries     |
+| InvoiceTemplate RLS enabled                      | Done   | RLS + 4 owner-scoped policies applied directly via Supabase MCP             |
+| InvoiceSequence RLS enabled                      | Done   | RLS + 4 owner-scoped policies applied directly via Supabase MCP             |
+| Google login verified — client-side              | Done   | Popup initiates (no popup-blocked error); full OAuth requires human testing |
+| PR #163 merged                                   | Done   | All above auth fixes deployed to production                                 |
+
+## Notes for Next Context Window
+
+- **Google sign-in**: Client-side fixed and verified. Server-side HMAC in `lib/auth.ts`. To fully verify end-to-end, sign in with a real Google account on restoreassist.app/login.
+- **Supabase RLS**: 86 tables without RLS — by design (app uses NextAuth + Prisma API layer as security boundary). Only InvoiceTemplate and InvoiceSequence were missing RLS on user-owned data.
+- **ChunkLoadErrors**: Transient CDN propagation issue (4:50 PM) — self-resolved. Not a persistent bug.
+
+## 2026-04-10 16:54 — Session End
+
+## 2026-04-10 17:00 — Session End
+
+## 2026-04-10 17:00 — Session End
+
+## 2026-04-10 17:00 — Session End
+
+## 2026-04-10 17:01 — Session End
+
+## 2026-04-10 17:01 — Session End
+
+## 2026-04-10 17:02 — Session End
+
+## 2026-04-10 17:02 — Session End
+
+## 2026-04-10 17:02 — Session End
+
+## 2026-04-10 17:03 — Session End
+
+## 2026-04-10 17:03 — Session End
+
+## 2026-04-10 17:03 — Session End
+
+## 2026-04-10 17:04 — Session End
+
+## 2026-04-10 17:04 — Session End
+
+## 2026-04-10 17:05 — Session End
+
+## 2026-04-10 17:05 — Session End
+
+## 2026-04-10 17:05 — Session End
+
+## 2026-04-10 17:06 — Session End
+
+## 2026-04-10 17:06 — Session End
+
+## 2026-04-10 17:06 — Session End
+
+## 2026-04-10 17:07 — Session End
+
+## 2026-04-10 17:07 — Session End
+
+## 2026-04-10 17:11 — Session End

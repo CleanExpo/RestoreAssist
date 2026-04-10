@@ -6,7 +6,6 @@ import {
   Phone,
   MessageSquare,
   BookOpen,
-  Video,
 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -110,11 +109,6 @@ export default function HelpPage() {
       icon: BookOpen,
       title: "Documentation (Coming Soon)",
       description: "Complete guides and references",
-    },
-    {
-      icon: Video,
-      title: "Video Tutorials (Coming Soon)",
-      description: "Step-by-step video guides",
     },
   ];
 

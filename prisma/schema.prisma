@@ -169,9 +169,6 @@ model User {
   // Scope templates
   scopeTemplates ScopeTemplate[]
 
-  // Content automation pipeline (RA-158)
-  contentJobs ContentJob[]
-
   // Support tickets (RA-163)
   supportTickets SupportTicket[]
 
@@ -3866,97 +3863,6 @@ model ScopeTemplate {
 
   @@index([userId])
   @@index([claimType])
-}
-
-// ─── Content Automation Pipeline (RA-158) ─────────────────────────────────────
-
-model ContentJob {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product         String
-  angle           String
-  platform        String   // 'tiktok' | 'instagram' | 'facebook' | 'pinterest'
-  duration        Int      // seconds (15/30/60)
-  status          String   @default("PENDING") // PENDING|SCRIPT_READY|VOICE_READY|VIDEO_READY|SCHEDULED|POSTED|FAILED
-  hook            String?
-  agitation       String?
-  solution        String?
-  cta             String?
-  voiceoverText   String?
-  caption         String?
-  hashtags        String?  // JSON array stored as string
-  audioUrl        String?  // Supabase Storage URL
-  videoUrl        String?  // HeyGen output URL
-  heygenRenderJobId String?
-  errorMessage    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  posts           ContentPost[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([platform])
-  @@index([createdAt])
-}
-
-model ContentPost {
-  id              String      @id @default(cuid())
-  jobId           String
-  job             ContentJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  platform        String
-  externalPostId  String?
-  postUrl         String?
-  scheduledAt     DateTime?
-  postedAt        DateTime?
-  status          String      @default("DRAFT") // DRAFT|SCHEDULED|POSTED|FAILED
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  analytics       ContentAnalytics[]
-
-  @@index([jobId])
-  @@index([platform])
-  @@index([status])
-  @@index([scheduledAt])
-}
-
-model ContentAnalytics {
-  id              String      @id @default(cuid())
-  postId          String
-  post            ContentPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  views           Int         @default(0)
-  likes           Int         @default(0)
-  shares          Int         @default(0)
-  comments        Int         @default(0)
-  reach           Int         @default(0)
-  recordedAt      DateTime    @default(now())
-  createdAt       DateTime    @default(now())
-
-  @@index([postId])
-  @@index([recordedAt])
-}
-
-// ============================================
-// Content Topic Bank — Weighted rotation for automated video generation
-// ============================================
-
-model ContentTopic {
-  id          String    @id @default(cuid())
-  product     String    // "RestoreAssist", "Scope Generation", "IICRC Compliance", etc.
-  angle       String    // "problem/solution", "social proof", "how-to", "industry insight"
-  platform    String    // "youtube" | "tiktok" | "instagram" | "facebook"
-  duration    Int       // 60 | 90 | 120 | 150
-  category    String    // "feature-spotlight" | "industry-insight" | "compliance-tip" | "problem-solution" | "how-to" | "social-proof"
-  weight      Int       @default(10) // Higher = more likely to be selected
-  enabled     Boolean   @default(true)
-  lastUsedAt  DateTime?
-  useCount    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([enabled, lastUsedAt])
-  @@index([category])
-  @@index([platform])
 }
 
 // ============================================

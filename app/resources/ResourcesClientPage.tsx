@@ -7,19 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import Footer from "@/components/landing/Footer";
 
-interface VideoGuide {
-  slug: string;
-  title: string;
-  description: string;
-  thumbnailUrl: string;
-  uploadDate: string;
-}
-
-interface Props {
-  videoGuides: VideoGuide[];
-}
-
-export default function ResourcesClientPage({ videoGuides }: Props) {
+export default function ResourcesClientPage() {
   const [darkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -79,12 +67,6 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
           title: "Contact Support",
           description: "Get help from our support team",
           link: "#",
-        },
-        {
-          title: "Video Tutorials",
-          description: "Watch step-by-step video guides",
-          link: "#resources-videos",
-          comingSoon: false,
         },
       ],
     },
@@ -311,72 +293,6 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
                   ))}
                 </div>
               </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Video Guides — loaded from content/resources/*.json */}
-      <section
-        id="resources-videos"
-        className="py-20 px-6 relative bg-[#1C2E47] overflow-hidden"
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 right-1/3 w-80 h-80 bg-[#06b6d4]/8 rounded-full blur-3xl" />
-        </div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <h2
-            className="text-3xl font-bold text-[#F4F5F6] mb-2"
-            style={{
-              fontFamily:
-                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            }}
-          >
-            Video Guides
-          </h2>
-          <p className="text-[#C4C8CA] mb-8">
-            IICRC S500 tutorials and restoration best practices from Australian
-            professionals
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videoGuides.map((guide) => (
-              <Link
-                key={guide.slug}
-                href={`/resources/${guide.slug}`}
-                className="group block rounded-2xl border border-[#5A6A7B]/30 overflow-hidden hover:border-cyan-400 transition-all bg-[#1C2E47]/50 backdrop-blur-sm"
-              >
-                <div className="aspect-video bg-[#5A6A7B]/20 relative overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={guide.thumbnailUrl}
-                    alt={guide.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-cyan-600 ml-1"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-sm text-[#F4F5F6] line-clamp-2 group-hover:text-cyan-400 transition-colors">
-                    {guide.title}
-                  </h3>
-                  <p className="text-xs text-[#C4C8CA] mt-1">
-                    {new Date(guide.uploadDate).toLocaleDateString("en-AU", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-              </Link>
             ))}
           </div>
         </div>
