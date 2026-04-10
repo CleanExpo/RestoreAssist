@@ -113,14 +113,6 @@ export async function POST(request: NextRequest) {
       message: `Starting guided interview. Tier 1: ${tier1Questions.length} essential questions. Estimated time: ${questionResponse.estimatedDurationMinutes} minutes.`,
     };
 
-    console.log("Interview start response:", {
-      sessionId: response.sessionId,
-      questionsCount: response.questions.length,
-      totalQuestions: response.totalQuestions,
-      tier1Count: filteredTieredQuestions.tier1.length,
-      allQuestionsCount: allQuestions.length,
-    });
-
     return NextResponse.json(response);
   } catch (error) {
     console.error("Interview start error:", error);

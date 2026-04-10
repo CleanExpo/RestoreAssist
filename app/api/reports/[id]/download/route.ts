@@ -17,6 +17,25 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+    const sessionUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, subscriptionStatus: true },
+    });
+    if (!sessionUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
+        sessionUser.subscriptionStatus ?? "",
+      )
+    ) {
+      return NextResponse.json(
+        { error: "Active subscription required" },
+        { status: 402 },
+      );
+    }
+
     const { id } = await params;
 
     // Fetch the report
@@ -81,7 +100,7 @@ export async function GET(
         };
       }
     } catch (err) {
-      console.log("No scope found");
+      // scope not found
     }
 
     // Fetch estimate if exists
@@ -129,7 +148,7 @@ export async function GET(
         };
       }
     } catch (err) {
-      console.log("No estimate found");
+      // estimate not found
     }
 
     // Parse JSON fields

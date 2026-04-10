@@ -3,6 +3,15 @@ import { Resend } from "resend";
 import { logEmailAudit } from "@/lib/email-audit";
 import type { CronJobResult } from "./runner";
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const BATCH_SIZE = 20;
 const MAX_ATTEMPTS = 3;
 
@@ -103,5 +112,5 @@ export async function processScheduledEmails(): Promise<CronJobResult> {
 }
 
 function generateDefaultEmailHtml(email: any): string {
-  return `<p>Your report "${email.report.title}" for ${email.report.clientName} is ready.</p>`;
+  return `<p>Your report &ldquo;${escapeHtml(email.report.title)}&rdquo; for ${escapeHtml(email.report.clientName)} is ready.</p>`;
 }

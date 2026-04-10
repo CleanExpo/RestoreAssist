@@ -104,10 +104,28 @@ function extractJSON(text: string): Record<string, unknown> {
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
+const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, subscriptionStatus: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (!ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")) {
+    return NextResponse.json(
+      { error: "Active subscription required" },
+      { status: 402 },
+    );
   }
 
   let body: unknown;

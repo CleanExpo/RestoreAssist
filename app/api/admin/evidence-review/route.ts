@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -15,14 +16,8 @@ const STALE_HOURS = 48;
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   const { searchParams } = new URL(request.url);
   const technicianFilter = searchParams.get("technician")?.trim() ?? "";

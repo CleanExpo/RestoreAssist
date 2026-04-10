@@ -9,50 +9,32 @@ export async function POST(request: NextRequest) {
   const hdrs = await headers();
   const signature = hdrs.get("stripe-signature");
 
-  console.log("Webhook received:", {
-    hasSignature: !!signature,
-    bodyLength: body.length,
-    webhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
-  });
-
   if (!signature) {
-    console.error("No signature provided");
     return NextResponse.json({ error: "No signature" }, { status: 400 });
+  }
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "Webhook secret not configured" },
+      { status: 500 },
+    );
   }
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
-    );
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
-    console.log("Processing webhook event:", event.type);
-
     switch (event.type) {
       case "checkout.session.completed":
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log("Checkout session completed:", {
-          id: session.id,
-          mode: session.mode,
-          customerEmail: session.customer_email,
-          customer: session.customer,
-          subscription: session.subscription,
-        });
 
         if (session.mode === "subscription" && session.customer_email) {
-          console.log(
-            "Updating user subscription for:",
-            session.customer_email,
-          );
-
           // Update user subscription status
           const checkoutResult = await prisma.user.updateMany({
             where: { email: session.customer_email },
@@ -68,25 +50,15 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          console.log("User update result:", checkoutResult);
+          void checkoutResult;
         }
         break;
 
       case "customer.subscription.created":
         const subscription = event.data.object as Stripe.Subscription;
-        console.log("Subscription created:", {
-          id: subscription.id,
-          customer: subscription.customer,
-          status: subscription.status,
-        });
 
         // Update user subscription
         if (subscription.customer) {
-          console.log(
-            "Updating user subscription for customer:",
-            subscription.customer,
-          );
-
           const subscriptionResult = await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
@@ -104,16 +76,12 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          console.log("Subscription update result:", subscriptionResult);
+          void subscriptionResult;
         }
         break;
 
       case "customer.subscription.updated":
         const updatedSubscription = event.data.object as Stripe.Subscription;
-        console.log("Subscription updated:", {
-          id: updatedSubscription.id,
-          status: updatedSubscription.status,
-        });
 
         const updateResult = await prisma.user.updateMany({
           where: { subscriptionId: updatedSubscription.id },
@@ -131,14 +99,11 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        console.log("Subscription update result:", updateResult);
+        void updateResult;
         break;
 
       case "customer.subscription.deleted":
         const deletedSubscription = event.data.object as Stripe.Subscription;
-        console.log("Subscription deleted:", {
-          id: deletedSubscription.id,
-        });
 
         const deletionResult = await prisma.user.updateMany({
           where: { subscriptionId: deletedSubscription.id },
@@ -149,7 +114,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        console.log("Subscription deletion result:", deletionResult);
+        void deletionResult;
         break;
 
       case "invoice.payment_succeeded":
@@ -183,12 +148,12 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        // Unhandled event types are silently ignored
+        break;
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Error processing webhook:", error);
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 },

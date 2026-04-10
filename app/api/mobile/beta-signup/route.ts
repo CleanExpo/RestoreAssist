@@ -80,8 +80,7 @@ export async function POST(req: NextRequest) {
     try {
       writeSignups([...existing, newSignup]);
     } catch {
-      // Fallback: log to console if file write fails
-      console.log("[mobile-beta-signup]", JSON.stringify(newSignup));
+      // Fallback: file write failed silently
     }
 
     return NextResponse.json(

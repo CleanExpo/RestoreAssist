@@ -250,7 +250,10 @@ Rules:
       error.message?.includes("API key") ||
       error.message?.includes("Integrations")
     ) {
-      return NextResponse.json({ error: error.message }, { status: 422 });
+      return NextResponse.json(
+        { error: "AI integration not configured. Check API key settings." },
+        { status: 422 },
+      );
     }
 
     return NextResponse.json(

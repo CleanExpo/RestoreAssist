@@ -16,8 +16,6 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
-    console.log("[Cron API] Starting file cleanup jobs...");
-
     // Run expired files cleanup
     const expiredResult = await cleanupExpiredFiles();
 

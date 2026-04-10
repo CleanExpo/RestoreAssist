@@ -73,11 +73,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (events.length === 0) {
-      console.log("[MYOB Webhook] No events in payload");
       return NextResponse.json({ success: true, processed: 0 });
     }
-
-    console.log(`[MYOB Webhook] Received ${events.length} events`);
 
     // Find integration by company file ID
     const firstEvent = events[0];
@@ -167,9 +164,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingEvent) {
-          console.log(
-            `[MYOB Webhook] Duplicate event detected: ${standardEventType} for ${event.ResourceUID}`,
-          );
           continue;
         }
 
@@ -186,9 +180,6 @@ export async function POST(request: NextRequest) {
         });
 
         queuedEvents.push(webhookEvent.id);
-        console.log(
-          `[MYOB Webhook] Queued event ${webhookEvent.id}: ${standardEventType}`,
-        );
       } catch (error) {
         console.error(`[MYOB Webhook] Failed to queue event:`, error);
         // Continue processing other events

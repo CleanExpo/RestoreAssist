@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { SignJWT, importPKCS8 } from "jose";
 
 const ASC_BASE_URL = "https://api.appstoreconnect.apple.com/v1";
@@ -75,14 +76,8 @@ async function fetchAppDetails(token: string) {
  */
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   try {
     const token = await signAscJwt();
@@ -128,14 +123,8 @@ export async function GET(_req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   let body: { action: "submit_review" | "status"; appId?: string };
 

@@ -85,6 +85,17 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"== Pre-Compaction Snapshot ==\" && echo \"Timestamp: $(date \"+%Y-%m-%d %H:%M:%S\")\" && echo \"Branch: $(git branch --show-current 2>/dev/null)\" && echo \"Modified files:\" && git diff --name-only 2>/dev/null | head -20 && echo \"Uncommitted changes:\" && git status --porcelain 2>/dev/null | head -15 && echo \"== End Snapshot ==\"'"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

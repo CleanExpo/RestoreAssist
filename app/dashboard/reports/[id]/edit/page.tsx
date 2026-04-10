@@ -116,7 +116,10 @@ export default function EditReportPage({
               setScope(scopeData);
             }
           }
-        } catch (err) {}
+        } catch (err) {
+          // Non-fatal: scope may not exist yet for this report
+          console.error("Failed to fetch scope:", err);
+        }
 
         // Fetch estimate if exists
         try {
@@ -129,7 +132,10 @@ export default function EditReportPage({
               setEstimate(estimateData);
             }
           }
-        } catch (err) {}
+        } catch (err) {
+          // Non-fatal: estimate may not exist yet for this report
+          console.error("Failed to fetch estimate:", err);
+        }
       } else {
         setError("Report not found");
       }

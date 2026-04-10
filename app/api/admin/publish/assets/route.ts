@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { spawn } from "child_process";
 import { resolve } from "path";
 
@@ -34,14 +35,8 @@ function triggerAssetGeneration(baseUrl?: string): void {
  */
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   triggerAssetGeneration();
 
@@ -59,14 +54,8 @@ export async function GET(_req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   let body: { baseUrl?: string } = {};
   try {

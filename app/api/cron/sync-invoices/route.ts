@@ -35,8 +35,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("[Invoice Sync Cron] Starting scheduled invoice sync...");
-
     // Find all active integrations
     const integrations = await prisma.integration.findMany({
       where: {
@@ -54,7 +52,6 @@ export async function GET(request: NextRequest) {
     });
 
     if (integrations.length === 0) {
-      console.log("[Invoice Sync Cron] No active integrations found");
       return NextResponse.json({
         success: true,
         message: "No active integrations",
@@ -64,10 +61,6 @@ export async function GET(request: NextRequest) {
         },
       });
     }
-
-    console.log(
-      `[Invoice Sync Cron] Found ${integrations.length} active integrations`,
-    );
 
     let totalQueued = 0;
 
@@ -115,15 +108,8 @@ export async function GET(request: NextRequest) {
         });
 
         if (invoices.length === 0) {
-          console.log(
-            `[Invoice Sync Cron] No invoices to sync for ${integration.provider} (user ${integration.userId})`,
-          );
           continue;
         }
-
-        console.log(
-          `[Invoice Sync Cron] Queuing ${invoices.length} invoices for ${integration.provider}`,
-        );
 
         // Queue each invoice for sync
         for (const invoice of invoices) {
@@ -151,10 +137,6 @@ export async function GET(request: NextRequest) {
         );
       }
     }
-
-    console.log(
-      `[Invoice Sync Cron] Completed: queued ${totalQueued} invoices`,
-    );
 
     return NextResponse.json({
       success: true,

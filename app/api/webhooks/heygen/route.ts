@@ -100,7 +100,6 @@ async function handleWebhook(payload: HeyGenWebhookPayload) {
         status: "VIDEO_READY",
       },
     });
-    console.log(`[heygen-webhook] Job ${job.id} completed: ${event_data.url}`);
     return NextResponse.json({ received: true, status: "VIDEO_READY" });
   }
 

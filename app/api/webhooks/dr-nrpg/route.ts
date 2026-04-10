@@ -271,10 +271,6 @@ export async function POST(request: NextRequest) {
             where: { id: jobSync.id },
             data: { inspectionId: inspection.id },
           });
-
-          console.log(
-            `[dr-nrpg webhook] Auto-created Inspection ${inspection.id} (${inspectionNumber}) for DR-NRPG job ${jobId}`,
-          );
         }
       } catch (inspectionErr) {
         // Non-fatal — job sync succeeded, inspection auto-creation is best-effort
@@ -295,10 +291,6 @@ export async function POST(request: NextRequest) {
       data: { lastSyncAt: new Date() },
     })
     .catch(() => null);
-
-  console.log(
-    `[dr-nrpg webhook] Processed ${event} for job ${jobId} (claim ${claimNumber}) → status: ${newStatus}`,
-  );
 
   return NextResponse.json({
     received: true,

@@ -94,10 +94,6 @@ export async function POST(
       },
     });
 
-    console.log(
-      `[Retry Sync] User ${session.user.id} manually retrying sync for invoice ${invoice.id} to ${provider}`,
-    );
-
     return NextResponse.json({
       success: true,
       jobId,

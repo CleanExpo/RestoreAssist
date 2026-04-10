@@ -56,13 +56,8 @@ export async function POST(request: NextRequest) {
     const eventNotifications = payload.eventNotifications || [];
 
     if (eventNotifications.length === 0) {
-      console.log("[QuickBooks Webhook] No events in payload");
       return NextResponse.json({ success: true, processed: 0 });
     }
-
-    console.log(
-      `[QuickBooks Webhook] Received ${eventNotifications.length} notification groups`,
-    );
 
     const queuedEvents = [];
 
@@ -147,9 +142,6 @@ export async function POST(request: NextRequest) {
           });
 
           if (existingEvent) {
-            console.log(
-              `[QuickBooks Webhook] Duplicate event detected: ${eventType} for ${entity.id}`,
-            );
             continue;
           }
 
@@ -166,9 +158,6 @@ export async function POST(request: NextRequest) {
           });
 
           queuedEvents.push(webhookEvent.id);
-          console.log(
-            `[QuickBooks Webhook] Queued event ${webhookEvent.id}: ${eventType}`,
-          );
         } catch (error) {
           console.error(`[QuickBooks Webhook] Failed to queue event:`, error);
           // Continue processing other events

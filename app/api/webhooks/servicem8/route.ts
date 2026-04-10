@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-servicem8-signature");
 
     if (!signature) {
-      console.error("[ServiceM8 Webhook] Missing signature header");
+      // Missing signature;
       return NextResponse.json({ error: "Missing signature" }, { status: 401 });
     }
 
@@ -30,9 +30,7 @@ export async function POST(request: NextRequest) {
 
     const webhookSecret = process.env.SERVICEM8_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error(
-        "[ServiceM8 Webhook] SERVICEM8_WEBHOOK_SECRET not configured",
-      );
+      // SERVICEM8_WEBHOOK_SECRET env var not set;
       return NextResponse.json(
         { error: "Webhook secret not configured" },
         { status: 500 },
@@ -59,10 +57,6 @@ export async function POST(request: NextRequest) {
     if (!entries.length) {
       return NextResponse.json({ success: true, processed: 0 });
     }
-
-    console.log(
-      `[ServiceM8 Webhook] Received ${entries.length} entries for service: ${service}`,
-    );
 
     // Map ServiceM8 service to standard event type
     function mapEventType(
@@ -116,9 +110,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (existing) {
-          console.log(
-            `[ServiceM8 Webhook] Duplicate event for ${entryUuid} — skipping`,
-          );
           continue;
         }
 
@@ -134,9 +125,6 @@ export async function POST(request: NextRequest) {
         });
 
         queuedEvents.push(webhookEvent.id);
-        console.log(
-          `[ServiceM8 Webhook] Queued ${webhookEvent.id}: ${standardEventType} for ${entryUuid}`,
-        );
       } catch (err) {
         console.error("[ServiceM8 Webhook] Failed to queue entry:", err);
       }

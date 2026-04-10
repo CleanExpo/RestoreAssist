@@ -53,6 +53,26 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, subscriptionStatus: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+    ) {
+      return NextResponse.json(
+        { error: "Active subscription required" },
+        { status: 402 },
+      );
+    }
+
     const { id: inspectionId } = await context.params;
     const body = await request.json();
 
@@ -197,12 +217,6 @@ export async function POST(
       description: lossSourceDescription ?? inspection.propertyAddress,
       suburb: inspection.propertyAddress.split(",").slice(-2, -1)[0]?.trim(),
     });
-    console.log(
-      "[RAG] Injected",
-      ragResult.jobCount,
-      "similar historical jobs",
-    );
-
     // Build claim-type-aware system prompt, injecting RAG context when available
     const promptOptions = {
       damageCategory: parseInt(classification.category, 10) || undefined,
