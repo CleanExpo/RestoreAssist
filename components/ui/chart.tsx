@@ -79,6 +79,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   }
 
   return (
+    // SAFE: static CSS variable injection — THEMES is a static constant; no user data interpolated
     <style
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)

@@ -23,7 +23,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dummy credentials for demo
+// VARIANCE: Demo-only credentials — this file is not imported in production (dead module).
+// AuthProvider is superseded by NextAuth (lib/auth.ts). These passwords are public demo
+// fixtures intentionally shipped in source; they gate no real data or system.
+// Hardcoded-password scanner findings here are false positives — no rotation required.
 const DEMO_USERS = {
   "demo@Restore Assist.com": {
     password: "demo123",

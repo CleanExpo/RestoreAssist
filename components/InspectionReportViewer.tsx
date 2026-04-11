@@ -601,6 +601,7 @@ export default function InspectionReportViewer({
       {(reportContent || visualData || structuredReportData) && (
         <>
           {/* Print Styles - EXACT COPY from Scope of Works */}
+          {/* SAFE: static CSS template literal — no user data interpolated */}
           <style
             dangerouslySetInnerHTML={{
               __html: `

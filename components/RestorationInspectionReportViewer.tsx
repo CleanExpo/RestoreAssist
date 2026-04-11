@@ -424,6 +424,7 @@ export default function RestorationInspectionReportViewer({
   return (
     <>
       {/* Print Styles - Professional A4 Formatting */}
+      {/* SAFE: static CSS template literal — no user data interpolated */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
