@@ -14,7 +14,7 @@
  *   - Checklist items now show clauseRef and tier indicator
  */
 
-import { jsPDF } from "jspdf";
+import jsPDF from "jspdf";
 import {
   generateVerificationChecklist,
   type InspectionForChecklist,
