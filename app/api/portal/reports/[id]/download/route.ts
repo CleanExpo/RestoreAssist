@@ -7,7 +7,7 @@ import { generateEnhancedReportPDF } from "@/lib/generate-enhanced-report-pdf";
 // GET /api/portal/reports/[id]/download - Download PDF for client portal users
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,7 +25,7 @@ export async function GET(
       );
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
 
     // Fetch report — verify it belongs to this client
     const report = await prisma.report.findFirst({

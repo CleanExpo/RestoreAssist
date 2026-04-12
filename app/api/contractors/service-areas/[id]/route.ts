@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 // Update service area
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,9 +15,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     // Verify ownership
     const serviceArea = await prisma.contractorServiceArea.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         profile: {
           select: { userId: true },
@@ -40,7 +42,7 @@ export async function PATCH(
     const { suburb, radius, isActive, priority } = body;
 
     const updated = await prisma.contractorServiceArea.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(suburb !== undefined && { suburb }),
         ...(radius !== undefined && {
@@ -64,7 +66,7 @@ export async function PATCH(
 // Delete service area
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -73,9 +75,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     // Verify ownership
     const serviceArea = await prisma.contractorServiceArea.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         profile: {
           select: { userId: true },
@@ -95,7 +99,7 @@ export async function DELETE(
     }
 
     await prisma.contractorServiceArea.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

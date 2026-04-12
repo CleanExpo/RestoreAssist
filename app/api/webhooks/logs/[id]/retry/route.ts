@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function POST(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Find the event and verify it belongs to this user via the integration
     const webhookEvent = await prisma.webhookEvent.findFirst({

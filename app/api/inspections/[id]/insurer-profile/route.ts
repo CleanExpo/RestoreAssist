@@ -22,7 +22,7 @@ import type { EvidenceClass } from "@/lib/types/evidence";
  */
 
 interface RouteContext {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // ━━━ GET: Retrieve insurer profile or list all ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id: inspectionId } = params;
+  const { id: inspectionId } = await params;
 
   // If inspectionId is "list", return all available profiles
   if (inspectionId === "list") {
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id: inspectionId } = params;
+  const { id: inspectionId } = await params;
 
   let body: {
     insurerId: string;

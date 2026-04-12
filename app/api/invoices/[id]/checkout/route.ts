@@ -9,7 +9,7 @@ const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,10 +17,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     // Check if invoice exists and belongs to user
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
       include: {
@@ -101,7 +103,7 @@ export async function POST(
     // Create audit log
     await prisma.invoiceAuditLog.create({
       data: {
-        invoiceId: invoice.id,
+        invoiceId: id,
         userId: session.user.id,
         action: "checkout_created",
         description: `Stripe checkout session created for online payment`,

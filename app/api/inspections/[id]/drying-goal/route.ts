@@ -26,7 +26,7 @@ function buildMaterialTargets(): Record<string, number> {
 }
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: inspectionId } = params;
+    const { id: inspectionId } = await params;
 
     // Verify ownership
     const inspection = await prisma.inspection.findFirst({
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: inspectionId } = params;
+    const { id: inspectionId } = await params;
     const body = await request.json();
     const { targetCategory, targetClass } = body as {
       targetCategory: string;
@@ -175,7 +175,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: inspectionId } = params;
+    const { id: inspectionId } = await params;
     const body = await request.json().catch(() => ({}));
     const { signedOffBy } = body as { signedOffBy?: string };
 

@@ -54,15 +54,17 @@ const auComplianceSchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
 
@@ -74,7 +76,7 @@ export async function GET(
   }
 
   const record = await (prisma as any).australianComplianceRecord.findUnique({
-    where: { inspectionId: params.id },
+    where: { inspectionId: id },
   });
 
   return NextResponse.json(record ?? null);
@@ -84,15 +86,17 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
 
@@ -123,9 +127,9 @@ export async function POST(
       : null;
 
   const record = await (prisma as any).australianComplianceRecord.upsert({
-    where: { inspectionId: params.id },
+    where: { inspectionId: id },
     create: {
-      inspectionId: params.id,
+      inspectionId: id,
       insurerName: data.insurerName ?? undefined,
       claimNumber: data.claimNumber ?? undefined,
       lossAdjusterName: data.lossAdjusterName ?? undefined,
@@ -198,15 +202,17 @@ export async function POST(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
 
@@ -218,7 +224,7 @@ export async function DELETE(
   }
 
   await (prisma as any).australianComplianceRecord
-    .delete({ where: { inspectionId: params.id } })
+    .delete({ where: { inspectionId: id } })
     .catch(() => {});
 
   return NextResponse.json({ deleted: true });

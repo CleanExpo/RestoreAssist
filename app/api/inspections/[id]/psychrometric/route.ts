@@ -50,15 +50,17 @@ const readingSchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
   if (!inspection) {
@@ -69,7 +71,7 @@ export async function GET(
   }
 
   const readings = await (prisma as any).psychrometricReading.findMany({
-    where: { inspectionId: params.id },
+    where: { inspectionId: id },
     orderBy: { visitNumber: "asc" },
   });
 
@@ -93,15 +95,17 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
   if (!inspection) {
@@ -137,7 +141,7 @@ export async function POST(
 
   const record = await (prisma as any).psychrometricReading.create({
     data: {
-      inspectionId: params.id,
+      inspectionId: id,
       visitDate: new Date(data.visitDate),
       visitNumber: data.visitNumber,
       technicianId: data.technicianId ?? null,

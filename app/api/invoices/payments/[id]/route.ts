@@ -5,20 +5,21 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const reconciled = body.reconciled ?? true;
 
     // Verify the payment belongs to this user via the invoice relation
     const existing = await prisma.invoicePayment.findFirst({
       where: {
-        id: params.id,
+        id,
         invoice: { userId: session.user.id },
       },
     });
@@ -27,7 +28,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
 
     const updated = await prisma.invoicePayment.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         reconciled,
         reconciledAt: reconciled ? new Date() : null,

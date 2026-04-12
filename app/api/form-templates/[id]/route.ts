@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // GET - Fetch a single form template by ID
@@ -15,9 +15,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const template = await prisma.formTemplate.findFirst({
       where: {
-        id: params.id,
+        id,
         OR: [{ userId: session.user.id }, { isSystemTemplate: true }],
         isActive: true,
       },
@@ -108,10 +110,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     // Only the owner can update (not system templates)
     const existing = await prisma.formTemplate.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
         isActive: true,
       },
@@ -142,7 +146,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updated = await prisma.formTemplate.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(description !== undefined

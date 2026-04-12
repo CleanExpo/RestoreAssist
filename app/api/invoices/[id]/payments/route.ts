@@ -6,7 +6,7 @@ import { isDraft, isCancelled } from "@/lib/invoice-status";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,10 +14,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     // Check if invoice exists and belongs to user
     const invoice = await prisma.invoice.findUnique({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     });
@@ -69,7 +71,7 @@ export async function POST(
           reference,
           notes,
           paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-          invoiceId: params.id,
+          invoiceId: id,
           userId: session.user.id,
           reconciled: false,
         },
@@ -79,7 +81,7 @@ export async function POST(
       await tx.invoicePaymentAllocation.create({
         data: {
           paymentId: payment.id,
-          invoiceId: params.id,
+          invoiceId: id,
           allocatedAmount: amount,
         },
       });
@@ -97,7 +99,7 @@ export async function POST(
       }
 
       const updatedInvoice = await tx.invoice.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           amountPaid: newAmountPaid,
           amountDue: newAmountDue,
@@ -117,7 +119,7 @@ export async function POST(
       // Create audit log
       await tx.invoiceAuditLog.create({
         data: {
-          invoiceId: params.id,
+          invoiceId: id,
           userId: session.user.id,
           action: "payment_received",
           description: `Payment of $${(amount / 100).toFixed(2)} received via ${paymentMethod}`,

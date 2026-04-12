@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,8 +13,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const existing = await (prisma as any).scopeTemplate.findFirst({
-      where: { id: params.id, userId: session.user.id },
+      where: { id, userId: session.user.id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -24,7 +26,7 @@ export async function PATCH(
     const { name, description, claimType, items } = body;
 
     const updated = await (prisma as any).scopeTemplate.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name !== undefined && { name: name.trim() }),
         ...(description !== undefined && {
@@ -62,7 +64,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -70,14 +72,16 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const existing = await (prisma as any).scopeTemplate.findFirst({
-      where: { id: params.id, userId: session.user.id },
+      where: { id, userId: session.user.id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    await (prisma as any).scopeTemplate.delete({ where: { id: params.id } });
+    await (prisma as any).scopeTemplate.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
